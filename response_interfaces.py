@@ -17,11 +17,11 @@ def parse_field(field: str, case_sensitive:bool=False, stop_str:Optional[str]=No
 
 class SimpleCommandResponse:
     def __init__(self, response: str) -> None:
-        self.response = response
+        self._response = response
  
     @property
     def response(self) -> str:
-        return self.response
+        return self._response
 
     @property
     def command(self) -> str:
@@ -40,9 +40,12 @@ class SimpleReflectResponse:
 #     def command(self) -> str:
 #         return 'test'
 
+instance_response = SimpleCommandResponse('test')
+instance_response2 = SimpleReflectResponse()
 
+print(issubclass(instance_response.__class__, CommandResponseInterface))
 
 print(issubclass(SimpleCommandResponse, CommandResponseInterface))
-
+print(issubclass(instance_response2.__class__, CommandResponseInterface))
 print(issubclass(SimpleReflectResponse, CommandResponseInterface))
 
