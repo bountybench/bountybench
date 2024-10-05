@@ -1,5 +1,5 @@
-
-class ExecuterAgent:
+from agent import BaseAgent
+class ExecuterAgent(BaseAgent):
     def __init__(self, config):
         self.config = config
 
