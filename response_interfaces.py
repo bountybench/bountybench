@@ -1,11 +1,14 @@
 import abc
+from typing import Optional
 
 class CommandResponseInterface(metaclass=abc.ABCMeta):
     @classmethod
     def __subclasshook__(cls, subclass):
-        return (hasattr(subclass, 'command') and callable(subclass.command))
+        if cls is CommandResponseInterface:
+            return any('command' in B.__dict__ for B in subclass.__mro__)
+        return NotImplemented
 
-def parse_field(field: str, case_sensitive=False:bool, stop_str=None: Optional[str]) -> str:
+def parse_field(field: str, case_sensitive:bool=False, stop_str:Optional[str]=None) -> str:
     """
     Takes in the name of a field and returns the field corresponding to that string using regex
     regex parses starting from field until the optional stop_str
@@ -33,7 +36,13 @@ class SimpleReflectResponse:
     def reflect(self) -> str:
         return 'test'
 
+# class SimpleReflectResponse:
+#     def command(self) -> str:
+#         return 'test'
+
+
 
 print(issubclass(SimpleCommandResponse, CommandResponseInterface))
+
 print(issubclass(SimpleReflectResponse, CommandResponseInterface))
 
