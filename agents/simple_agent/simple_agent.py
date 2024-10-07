@@ -10,7 +10,7 @@ class SimpleExecutionAgent(BaseAgent):
         if len(responses) > 1:
             return Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
         if not response:
-            self.execute()
+            return self.execute()
         response = responses[0]
         if issubclass(response.__class__, ExecutorResponseInterface):
             self.formulate_prompt(response)
