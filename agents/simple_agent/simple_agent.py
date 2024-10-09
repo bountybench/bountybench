@@ -1,7 +1,7 @@
 from base_agent import BaseAgent
 from responses.response import Response
 from typing import List
-from responses.executor_response import ExecutorResponseInterface
+from responses.executor_response_interface import ExecutorResponseInterface
 from responses.executor_response import SimpleExecutorResponse
 from responses.observation import Observation
 
