@@ -1,29 +1,6 @@
 import unittest
-from command_response import  CommandResponseInterface
-from response import parse_field
-
-class SimpleCommandResponse:
-    def __init__(self, response: str) -> None:
-        self._response = response
- 
-    @property
-    def response(self) -> str:
-        return self._response
-
-    @property
-    def command(self) -> str:
-        """
-        Extract the 'command' field using parse_field and raise an exception if missing.
-        [alternative was do some metaprogramming i.e. get the name of the function and then pass that in automatically]
-        """
-        command = parse_field(self._response, "command: ")
-        if not command:
-            raise Exception("Command is missing from the response.")
-        return command
-
-class SimpleReflectResponse:
-    def reflect(self) -> str:
-        return 'test'
+from responses.command_response_interface import CommandResponseInterface
+from responses.command_response import SimpleCommandResponse
 
 class TestSimpleCommandResponse(unittest.TestCase):
     def test_simple_command_response_instance_is_subclass_of_CommandResponseInterface(self):
