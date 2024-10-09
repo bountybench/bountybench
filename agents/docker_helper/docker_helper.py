@@ -129,8 +129,8 @@ class DockerHelper:
                     workdir=workdir,
                     demux=True,
                 )
-                stdout: Optional[bytes] = exec_result.output[0]
-                stderr: Optional[bytes] = exec_result.output[1]
+                stdout: bytes = exec_result.output[0]
+                stderr: bytes = exec_result.output[1]
                 result_queue.put((stdout, stderr))
             except Exception as e:
                 logger.error(
@@ -152,8 +152,8 @@ class DockerHelper:
 
         # If the command finished, retrieve results from the queue
         if not result_queue.empty():
-            stdout_bytes: Optional[bytes]
-            stderr_bytes: Optional[bytes]
+            stdout_bytes: bytes
+            stderr_bytes: bytes
             stdout_bytes, stderr_bytes = result_queue.get()
             stdout: str = get_stdout_text(stdout_bytes)
             stderr: str = get_stdout_text(stderr_bytes)
