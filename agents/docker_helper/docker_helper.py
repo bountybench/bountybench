@@ -1,17 +1,19 @@
-import threading
+import atexit
 import logging
+import threading
 from pathlib import Path
+from queue import Queue
 from typing import Tuple
+
 import docker
 from docker.models.containers import Container
-import atexit
-from queue import Queue
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 DOCKER_IMAGE = "cybench/cybounty:latest"
 ENTRYPOINT = "/usr/local/bin/dockerd-entrypoint.sh"
+
 
 def get_stdout_text(process_output) -> str:
     stdout = ""
@@ -20,6 +22,7 @@ def get_stdout_text(process_output) -> str:
     except UnicodeDecodeError as e:
         stdout = f"This failed to decode. Remember: the problem is fully solveable using UTF-8 encoding. Ignore any images (jpeg, png, etc.), videos (mp4, mpeg) etc.  Error: {str(e)}"
     return stdout
+
 
 class DockerHelper:
     """Class to handle Docker operations."""
@@ -48,11 +51,13 @@ class DockerHelper:
             logger.error(f"Failed to start Docker container: {e}")
             raise
 
-    def run_command(self, command: str, workdir: str, timeout: int = 60) -> Tuple[str, str]:
+    def run_command(self, command: str, workdir: str,
+                    timeout: int = 60) -> Tuple[str, str]:
         """Run a command inside the running container with a timeout."""
         logger.info(f"Running command in Docker container: {command}")
 
         result_queue = Queue()
+
         def exec_command():
             try:
                 exec_result = self.container.exec_run(
@@ -65,7 +70,8 @@ class DockerHelper:
                 stdout, stderr = exec_result.output
                 result_queue.put((stdout, stderr))
             except Exception as e:
-                logger.error(f"Failed to execute command in Docker container: {e}")
+                logger.error(
+                    f"Failed to execute command in Docker container: {e}")
                 result_queue.put((None, f"Exception occurred: {e}"))
 
         # Start the command thread
@@ -75,7 +81,8 @@ class DockerHelper:
 
         if command_thread.is_alive():
             # If command hasn't finished, kill it
-            logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
+            logger.warning(
+                f"Command '{command}' timed out after {timeout} seconds.")
             stderr = get_stdout_text(stderr) if stderr else ""
             return f"Command '{command}' timed out after {timeout} seconds.", ""
 
@@ -84,7 +91,8 @@ class DockerHelper:
             stdout, stderr = result_queue.get()
             stdout = get_stdout_text(stdout) if stdout else ""
             stderr = get_stdout_text(stderr) if stderr else ""
-            logger.info(f"Command executed successfully.\nstdout: {stdout}\nstderr: {stderr}")
+            logger.info(
+                f"Command executed successfully.\nstdout: {stdout}\nstderr: {stderr}")
             return stdout, stderr
 
         return "", "Failed to retrieve output from the command."
