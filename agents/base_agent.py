@@ -1,6 +1,6 @@
 from abc import ABC
 from typing import Optional
-from response_interfaces import Response
+from responses.response import Response
 
 class BaseAgent(ABC):
     @abstract_method
