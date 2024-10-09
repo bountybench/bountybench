@@ -1,5 +1,5 @@
 import unittest
-from response import parse_field
+from responses.response import parse_field
 
 class TestParseField(unittest.TestCase):
     def test_basic_extraction(self):
