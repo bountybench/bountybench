@@ -25,10 +25,8 @@ class TestSimpleCommandResponse(unittest.TestCase):
 
     def test_command_raises_exception_when_missing(self):
         response = "observation: success"
-        with self.assertRaises(Exception) as context:
-            SimpleCommandResponse(response).command
-
-        self.assertEqual(str(context.exception), "Command is missing from the response.")
+        instance_response = SimpleCommandResponse(response)
+        self.assertEqual(instance_response.command, None)
 
     def test_command_extracts_correctly(self):
         response = "command: run_this_script"

@@ -1,5 +1,5 @@
 from responses.command_response_interface import  CommandResponseInterface
-from response import parse_field
+from responses.response import parse_field
 
 class SimpleCommandResponse:
     def __init__(self, response: str) -> None:
@@ -12,12 +12,12 @@ class SimpleCommandResponse:
     @property
     def command(self) -> str:
         """
-        Extract the 'command' field using parse_field and raise an exception if missing.
+        Extract the 'command' field using parse_field or None if missing.
         [alternative was do some metaprogramming i.e. get the name of the function and then pass that in automatically]
         """
         command = parse_field(self._response, "command: ")
         if not command:
-            raise Exception("Command is missing from the response.")
+            return None
         return command
 
 class SimpleReflectResponse:
