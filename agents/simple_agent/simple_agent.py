@@ -1,4 +1,4 @@
-from base_agent import BaseAgent
+from agents.base_agent import BaseAgent
 from responses.response import Response
 from typing import List
 from responses.executor_response_interface import ExecutorResponseInterface
@@ -6,10 +6,12 @@ from responses.executor_response import SimpleExecutorResponse
 from responses.observation import Observation
 
 class SimpleExecutionAgent(BaseAgent):
-    def __init__(self, config):
+    def __init__(self, config, handle_request_func=None):
         self.config = config
         self.max_response_len = 3
         self.memory = []
+        self.handle_request_func = handle_request_func or self._handle_request
+
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
@@ -37,30 +39,38 @@ class SimpleExecutionAgent(BaseAgent):
         prompt = INITIAL_PROMPT + self.memory
         self.prompt = prompt
         return prompt
+    
+    def _handle_request(self, model_input: str) -> str:
+        """
+        Real implementation that calls the LM API.
+        """
+        # Code to make the real LM request
+        response = None  # Actual API call goes here
+        return response
 
     MAX_ITERATIONS = 5    
     def call_lm(self) -> SimpleExecutorResponse:
         """
         Calls the language model and ensures the response contains a valid command.
-        Currently retries up to MAX_ITERATIONS if the response is missing a command. 
-        TODO: add dynamic stop condition
+        Retries up to MAX_ITERATIONS if the response is missing a command.
         """
         model_input = self.prompt
         iterations = 0
-        while iterations < MAX_ITERATIONS:
-            lm_response = self._handle_request(model_input)
-            try:
-                # Attempt to parse the response into SimpleExecutorResponse
-                executor_response = SimpleExecutorResponse(lm_response)
-                return executor_response  # Return if valid command is found
-            except Exception as e:
-                # Log the error and retry if command is missing
-                print(f"Invalid response: {e}. Retrying...")
+        while iterations < self.MAX_ITERATIONS:
+            lm_response = self.handle_request_func(model_input)
+            executor_response = SimpleExecutorResponse(lm_response)
+     
+            # Check if the command exists
+            if executor_response.command:
+                return executor_response  # Return if a valid command is found
+            
+            # Log the error and retry if command is missing
+            print("Command is missing from the response. Retrying...")
             iterations += 1
 
-        # If we exhaust the retries, raise an exception or handle the failure
+        # Raise an exception if it exhausts the retries
         raise Exception("Maximum retries reached without a valid command.")
-    
+
     def execute_in_env(self, executor_response: SimpleExecutorResponse) -> Observation:
         """
         Simulates executing the command in the environment based on the ExecutorResponse.
