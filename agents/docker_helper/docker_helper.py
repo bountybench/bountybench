@@ -1,9 +1,8 @@
 import atexit
 import logging
 import threading
-from pathlib import Path
 from queue import Queue
-from typing import Dict, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple
 
 import docker
 from docker.models.containers import Container
@@ -134,17 +133,21 @@ class DockerHelper:
                 stderr: Optional[bytes] = exec_result.output[1]
                 result_queue.put((stdout, stderr))
             except Exception as e:
-                logger.error(f"Failed to execute command in Docker container: {e}")
-                result_queue.put((None, f"Exception occurred: {e}".encode("utf-8")))
+                logger.error(
+                    f"Failed to execute command in Docker container: {e}")
+                result_queue.put(
+                    (None, f"Exception occurred: {e}".encode("utf-8")))
 
         # Start the command thread
-        command_thread: threading.Thread = threading.Thread(target=exec_command)
+        command_thread: threading.Thread = threading.Thread(
+            target=exec_command)
         command_thread.start()
         command_thread.join(timeout)
 
         if command_thread.is_alive():
             # If command hasn't finished, kill it
-            logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
+            logger.warning(
+                f"Command '{command}' timed out after {timeout} seconds.")
             return f"Command '{command}' timed out after {timeout} seconds.", ""
 
         # If the command finished, retrieve results from the queue
