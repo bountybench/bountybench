@@ -1,11 +1,12 @@
 from responses.command_response import SimpleCommandResponse
-from observation import Observation
+from responses.observation import Observation
 
 from typing import Optional
 
 class SimpleExecutorResponse:
     
     def __init__(self, response: str, observation: Optional[Observation] = None) -> None:
+
         self._response = response
         self._command = SimpleCommandResponse(response).command
         self._observation = observation
