@@ -43,7 +43,7 @@ def get_stdout_text(process_output: bytes) -> str:
 class DockerHelper:
     """Class to handle Docker operations."""
 
-    def __init__(self, name, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
+    def __init__(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
         """
         Initialize the DockerHelper with optional volume bindings.
 
