@@ -48,6 +48,7 @@ class DockerHelper:
         Initialize the DockerHelper with optional volume bindings.
 
         Args:
+            name (str): The name of the container.
             volumes (Optional[Dict[str, Dict[str, str]]]): Docker volume bindings.
         """
         self.client: docker.DockerClient = docker.from_env()
@@ -61,6 +62,7 @@ class DockerHelper:
         Start a Docker container to be used throughout the lifecycle.
 
         Args:
+            name (str): The name of the container.
             volumes (Optional[Dict[str, Dict[str, str]]]): Docker volume bindings.
 
         Returns:
@@ -107,8 +109,8 @@ class DockerHelper:
 
         Args:
             command (str): The command to execute.
-            workdir (str): The working directory inside the container.
-            timeout (int, optional): Timeout in seconds. Defaults to 60.
+            timeout (int): Timeout in seconds. Defaults to 60.
+            workdir (Optional[str]): The working directory inside the container.
 
         Returns:
             Tuple[str, str]: A tuple containing stdout and stderr as strings.
