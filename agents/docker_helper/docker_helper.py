@@ -30,7 +30,7 @@ class DockerHelper:
     def __init__(self, volumes=None):
         self.client = docker.from_env()
         self.container = self._start_container(volumes)
-        atexit.register(self._cleanup)
+        atexit.register(self._stop_container)
 
     def _start_container(self, volumes) -> Container:
         """Start a Docker container to be used throughout the lifecycle."""
@@ -50,6 +50,18 @@ class DockerHelper:
         except Exception as e:
             logger.error(f"Failed to start Docker container: {e}")
             raise
+    
+    def _stop_container(self):
+        """Stop and remove the container when the program ends."""
+        if self.container:
+            logger.info("Cleaning up: stopping and removing Docker container.")
+            try:
+                self.container.stop()
+                self.container.remove()
+                logger.info("Docker container cleaned up successfully.")
+            except Exception as e:
+                logger.error(f"Error cleaning up Docker container: {e}")
+
 
     def run_command(self, command: str, workdir: str,
                     timeout: int = 60) -> Tuple[str, str]:
@@ -96,14 +108,3 @@ class DockerHelper:
             return stdout, stderr
 
         return "", "Failed to retrieve output from the command."
-
-    def _cleanup(self):
-        """Stop and remove the container when the program ends."""
-        if self.container:
-            logger.info("Cleaning up: stopping and removing Docker container.")
-            try:
-                self.container.stop()
-                self.container.remove()
-                logger.info("Docker container cleaned up successfully.")
-            except Exception as e:
-                logger.error(f"Error cleaning up Docker container: {e}")
