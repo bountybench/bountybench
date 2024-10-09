@@ -53,5 +53,10 @@ class TestSimpleCommandResponse(unittest.TestCase):
 
         self.assertEqual(str(context.exception), "Command is missing from the response.")
 
+    def test_command_extracts_correctly(self):
+        response = "command: run_this_script"
+        instance_response = SimpleCommandResponse(response)
+        self.assertEqual(instance_response.command, "run_this_script")
+
 if __name__ == '__main__':
     unittest.main()
