@@ -6,9 +6,6 @@ from typing import List
 
 from dotenv import load_dotenv
 
-env_path = Path(__file__).resolve().parent.parent / ".env"
-print(env_path)
-
 
 class ModelProvider(ABC):
     """
