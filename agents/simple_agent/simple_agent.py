@@ -44,9 +44,7 @@ class SimpleExecutionAgent(BaseAgent):
         """
         Real implementation that calls the LM API.
         """
-        # Code to make the real LM request
-        response = None  # Actual API call goes here
-        return response
+        pass
 
     MAX_ITERATIONS = 5    
     def call_lm(self) -> SimpleExecutorResponse:
