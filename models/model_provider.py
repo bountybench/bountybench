@@ -36,10 +36,10 @@ class ModelProvider(ABC):
         pass
 
     @abstractmethod
-    def query_model_provider(
+    def request(
         self,
-        model_name: str,
-        input_message: str,
+        deployment_name: str,
+        message: str,
         temperature: float,
         max_tokens: int,
         stop_sequences: List[str],
@@ -47,45 +47,13 @@ class ModelProvider(ABC):
         pass
 
     @abstractmethod
-    def parse_model_response(
-        self, response, input_message: str, time_taken_in_ms: float
-    ) -> tuple[ModelInput, ModelResponse]:
-        pass
-
-    def query(
-        self,
-        model_name: str,
-        input_message: str,
-        temperature: float,
-        max_tokens: int,
-        stop_sequences: List[str],
-    ) -> tuple[ModelInput, ModelResponse]:
-        request_time_start = datetime.now()
-        response = self.query_model_provider(
-            model_name=model_name,
-            input_message=input_message,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stop_sequences=stop_sequences,
-        )
-        request_time_end = datetime.now()
-        time_taken_in_ms = (
-            request_time_end - request_time_start
-        ).total_seconds() * 1000
-        return self.parse_model_response(
-            response=response,
-            input_message=input_message,
-            time_taken_in_ms=time_taken_in_ms,
-        )
-
-    @abstractmethod
-    def tokenize(self, model_name: str, input: str):
+    def tokenize(self, deployment_name: str, message: str):
         pass
 
     @abstractmethod
-    def decode_tokens(self, model_name: str, input_tokens: List[int]) -> str:
+    def decode_tokens(self, deployment_name: str, tokens: List[int]) -> str:
         pass
 
     @abstractmethod
-    def get_num_tokens(self, model_name: str, input: str) -> int:
+    def get_num_tokens(self, deployment_name: str, message: str) -> int:
         pass
