@@ -1,13 +1,12 @@
-from responses.response import Response
+from abc import ABC
 
-class ExecutorResponseInterface(Response):
+class ExecutorResponseInterface(ABC):
     @classmethod
     def __subclasshook__(cls, subclass):
-        if cls is ExecutorResponseInterface:
-            return any(
-                'command' in B.__dict__ for B in subclass.__mro__
-                 and 'response' in B.__dict__ for B in subclass.__mro__
-                 and 'observation' in B.__dict__ for B in subclass.__mro__
+        if cls is ExecutorResponseInterface:           
+            return all(
+                any(attr in B.__dict__ for B in subclass.__mro__)
+                for attr in ['command', 'response']
             )
         return NotImplemented
 
