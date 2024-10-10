@@ -51,7 +51,7 @@ class ModelProvider(ABC):
         pass
 
     @abstractmethod
-    def decode_tokens(self, model: str, tokens: List[int]) -> str:
+    def decode(self, model: str, tokens: List[int]) -> str:
         pass
 
     @abstractmethod

@@ -61,7 +61,7 @@ class HelmModels(ModelProvider):
             auth=self.authentication, request=request)
         return [int(token) for token in tokenization_result.raw_tokens]
 
-    def decode_tokens(self, model: str, tokens: List[int]) -> str:
+    def decode(self, model: str, tokens: List[int]) -> str:
         tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
         request = DecodeRequest(tokens=tokens, tokenizer=tokenizer)
         decoding_result = self.client.decode(

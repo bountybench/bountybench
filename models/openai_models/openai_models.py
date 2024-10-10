@@ -32,7 +32,7 @@ class OpenAIModels(ModelProvider):
         encoding = tiktoken.encoding_for_model(model)
         return encoding.encode(message)
 
-    def decode_tokens(self, model: str, tokens: List[int]) -> str:
+    def decode(self, model: str, tokens: List[int]) -> str:
         encoding = tiktoken.encoding_for_model(model)
         return encoding.decode(tokens)
 
