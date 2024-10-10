@@ -97,6 +97,7 @@ class DockerHelper:
             try:
                 self.container.stop()
                 self.container.remove()
+                self.container = None
                 logger.info("Docker container cleaned up successfully.")
             except Exception as e:
                 logger.error(f"Error cleaning up Docker container: {e}")
