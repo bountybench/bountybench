@@ -1,7 +1,6 @@
-from abc import ABC
-from typing import Optional
+from responses.response import Response
 
-class ExecutorResponseInterface(ABC):
+class ExecutorResponseInterface(Response):
     @classmethod
     def __subclasshook__(cls, subclass):
         if cls is ExecutorResponseInterface:
