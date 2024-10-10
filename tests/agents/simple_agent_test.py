@@ -1,74 +1,84 @@
 import unittest
-from unittest.mock import patch
 from agents.simple_agent.simple_agent import SimpleExecutionAgent
+from responses.simple_executor_response import SimpleExecutorResponse
+from responses.executor_response_interface import ExecutorResponseInterface
+from responses.observation import Observation
+from unittest.mock import patch
 
 class TestSimpleExecutionAgent(unittest.TestCase):
-
     def setUp(self):
         """
         Set up the agent and any necessary mock data for testing.
         """
         # Define the dummy handle_request function for testing  
         def dummy_handle_request(model_input: str) -> str:
-            if model_input == "Test prompt":
-                return "command: valid_command"
+            if model_input == "Valid prompt":
+                return "command: ls"
             else:
-                return "observation: success"
+                return "invalid response"
             
         self.agent = SimpleExecutionAgent(
             config={"max_input_tokens": 100},
             handle_request_func=dummy_handle_request
         )
-        self.agent.prompt = "Test prompt"  # Set an initial prompt for testing
+        self.agent.prompt = "Valid prompt"  # Set an initial prompt for testing
 
-    def test_execute_with_valid_response(self):
-            """
-            Test that execute() successfully runs with a valid LM response and pairs with an observation.
-            """
-            executor_response = self.agent.execute()
-            self.assertEqual(executor_response.command, "valid_command")
-            self.assertEqual(executor_response.observation.raw_output, "Observation: valid_command output test")
+    def test_execute_with_valid_command_response(self):
+        """
+        Test that execute() successfully runs with a valid command in the LM response.
+        """
+        # Ensure that the agent executes and retrieves the correct command
+        executor_response = self.agent.execute()
+        self.assertEqual(executor_response.command, "ls")
+        self.assertEqual(executor_response.observation.raw_output, "Observation: ls output test")
+    
+    def test_call_lm_retries_invalid_response(self):
+        """
+        Test that call_lm() retries when the LM response is invalid (missing a command).
+        """
+        # Modify prompt to trigger invalid response and ensure retries happen
+        self.agent.prompt = "Invalid prompt"
+
+        with patch.object(self.agent, "MAX_ITERATIONS", 3):
+            with self.assertRaises(Exception) as context:
+                self.agent.call_lm()
+            self.assertEqual(str(context.exception), "Maximum retries reached without a valid response.")
 
     def test_execute_with_retry_logic(self):
         """
         Test that execute() retries when the LM response is invalid, and succeeds after retrying.
         """
-        # Call execute, which should retry due to invalid responses
+        retry_counter = {'count': 0}  # To keep track of retries
+        
+        def retrying_handle_request(model_input: str) -> str:
+            # Simulate returning invalid responses for the first two retries, then a valid one
+            retry_counter['count'] += 1
+            if retry_counter['count'] < 3:  # First two retries are invalid
+                return "invalid response"
+            else:  # Third response is valid
+                return "command: ls"
+        
+        # Update handle_request_func with retry logic
+        self.agent.handle_request_func = retrying_handle_request
+
+        # Call execute, which should retry due to invalid responses and succeed after retry
         executor_response = self.agent.execute()
+        
+        # Ensure the valid response was processed after retries
+        self.assertEqual(executor_response.command, "ls")
+        self.assertEqual(executor_response.observation.raw_output, "Observation: ls output test")
 
-        # Ensure the final valid response is returned
-        self.assertEqual(executor_response.command, "valid_command")
-        self.assertEqual(executor_response.observation.raw_output, "Observation: valid_command output test")
-
-    def test_max_retries_exceeded(self):
+    def test_subclass_inheritance_check(self):
         """
-        Test that execute() raises an exception after exceeding MAX_ITERATIONS of invalid responses.
-        """
-        # Simulate a case where all responses are invalid
-        def always_invalid_handle_request(model_input: str) -> str:
-            return "observation: success"
-
-        # Create an agent with always-invalid responses
-        agent = SimpleExecutionAgent(
-            config={"max_input_tokens": 100},
-            handle_request_func=always_invalid_handle_request
-        )
-        agent.prompt = "Test prompt"
-
-        # Expect an exception after exceeding retries
-        with self.assertRaises(Exception) as context:
-            agent.execute()
-        self.assertEqual(str(context.exception), "Maximum retries reached without a valid command.")
-
-    def test_observation_is_set_after_execution(self):
-        """
-        Test that the observation is correctly set after the command is executed.
+        Test that the response classes during execution process maintain correct subclass relations.
         """
         executor_response = self.agent.execute()
+        
+        # Check that the response is a subclass of ExecutorResponseInterface
+        self.assertTrue(issubclass(executor_response.__class__, ExecutorResponseInterface))
 
-        # Check that the observation is correctly set
-        self.assertIsNotNone(executor_response.observation)
-        self.assertEqual(executor_response.observation.raw_output, "Observation: valid_command output test")
+        # Check that the response contains the expected command
+        self.assertEqual(executor_response.command, "ls")
 
 if __name__ == '__main__':
     unittest.main()

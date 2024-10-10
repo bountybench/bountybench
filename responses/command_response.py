@@ -1,4 +1,4 @@
-from responses.command_response import  CommandResponseInterface
+from responses.command_response_interface import  CommandResponseInterface
 
 class SimpleCommandResponse:
     def __init__(self, response: str) -> None:
