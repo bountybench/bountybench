@@ -45,9 +45,17 @@ class SimpleExecutionAgent(BaseAgent):
         Real implementation that calls the LM API.
         """
         pass
+    
+    def parse_response(lm_response: str) -> SimpleExecutorResponse:
+        executor_response = SimpleExecutorResponse(lm_response)
+        if executor_response.command:
+            return executor_response  # Return if a valid command is found
+        print("Command is missing from the response.")
+        return None
 
+    
     MAX_ITERATIONS = 5    
-    def call_lm(self) -> SimpleExecutorResponse:
+    def call_lm(self) -> Response:
         """
         Calls the language model and ensures the response contains a valid command.
         Retries up to MAX_ITERATIONS if the response is missing a command.
@@ -56,18 +64,17 @@ class SimpleExecutionAgent(BaseAgent):
         iterations = 0
         while iterations < self.MAX_ITERATIONS:
             lm_response = self.handle_request_func(model_input)
-            executor_response = SimpleExecutorResponse(lm_response)
+            executor_response = self.parse_response(lm_response)
      
-            # Check if the command exists
-            if executor_response.command:
-                return executor_response  # Return if a valid command is found
+            if executor_response:
+                return executor_response # Check if valid response was generated (None if not)
             
-            # Log the error and retry if command is missing
-            print("Command is missing from the response. Retrying...")
+            # Log the error and retry if formatted response not generated
+            print("Response is not formatted correctly. Retrying...")
             iterations += 1
 
         # Raise an exception if it exhausts the retries
-        raise Exception("Maximum retries reached without a valid command.")
+        raise Exception("Maximum retries reached without a valid response.")
 
     def execute_in_env(self, executor_response: SimpleExecutorResponse) -> Observation:
         """
