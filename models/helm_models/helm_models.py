@@ -70,8 +70,7 @@ class HelmModels(ModelProvider):
 
     def get_num_tokens(self, deployment_name: str, message: str) -> int:
         tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
-        request = TokenizationRequest(
-            test=message, tokenizer=tokenizer)
+        request = TokenizationRequest(test=message, tokenizer=tokenizer)
         tokenization_result: TokenizationRequestResult = self.client.tokenize(
             auth=self.authentication, request=request)
         return len(tokenization_result.tokens)
