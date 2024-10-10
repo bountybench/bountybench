@@ -29,7 +29,7 @@ class HelmModels(ModelProvider):
         temperature: float,
         max_tokens: int,
         stop_sequences: List[str]
-    ):
+    ) -> str:
         if "o1" in model:  # o1 and o1-mini don't have stop argument
             request = Request(
                 model=model,
