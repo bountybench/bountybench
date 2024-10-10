@@ -1,7 +1,5 @@
 from typing import List
 from models.model_provider import ModelProvider
-from abc import ABC, abstractmethod
-
 
 from helm.common.authentication import Authentication
 from helm.common.request import Request, RequestResult
@@ -13,7 +11,7 @@ from helm.common.tokenization_request import (
 from helm.proxy.services.remote_service import RemoteService
 
 
-class HelmModels(ModelProvider, ABC):
+class HelmModels(ModelProvider):
     def __init__(self):
         self.authentication = Authentication(
             api_key=self._get_env_var("HELM_API_KEY"))
@@ -25,16 +23,16 @@ class HelmModels(ModelProvider, ABC):
         return remote_service
 
     def request(
-            self,
-            deployment_name: str,
-            message: str,
-            temperature: float,
-            max_tokens: int,
-            stop_sequences: List[str]
-        ):
-        if "o1" in deployment_name:  # o1 and o1-mini don't have stop argument
+        self,
+        model: str,
+        message: str,
+        temperature: float,
+        max_tokens: int,
+        stop_sequences: List[str]
+    ):
+        if "o1" in model:  # o1 and o1-mini don't have stop argument
             request = Request(
-                model=deployment_name,
+                model=model,
                 prompt=message,
                 # o1 and o1-mini have fixed temperature=1 (see https://platform.openai.com/docs/guides/reasoning)
                 temperature=1,
@@ -43,7 +41,7 @@ class HelmModels(ModelProvider, ABC):
             )
         else:
             request = Request(
-                model=deployment_name,
+                model=model,
                 prompt=message,
                 temperature=temperature,
                 echo_prompt=False,
@@ -54,18 +52,25 @@ class HelmModels(ModelProvider, ABC):
             auth=self.authentication, request=request
         )
         return request_result.completions[0].text
-    
-    @abstractmethod
-    def tokenize(self, deployment_name: str, message: str):
-        """To be implemented by child classes."""
-        pass
 
-    @abstractmethod
-    def decode_tokens(self, deployment_name: str, tokens: List[int]) -> str:
-        """To be implemented by child classes."""
-        pass
+    def tokenize(self, model: str, message: str) -> List[int]:
+        tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
+        request = TokenizationRequest(
+            tokenizer=tokenizer, text=message, encode=True)
+        tokenization_result = self.client.tokenize(
+            auth=self.authentication, request=request)
+        return [int(token) for token in tokenization_result.raw_tokens]
 
-    @abstractmethod
-    def get_num_tokens(self, deployment_name: str, message: str) -> int:
-        """To be implemented by child classes."""
-        pass
+    def decode(self, model: str, tokens: List[int]) -> str:
+        tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
+        request = DecodeRequest(tokens=tokens, tokenizer=tokenizer)
+        decoding_result = self.client.decode(
+            auth=self.authentication, request=request)
+        return decoding_result.text
+
+    def get_num_tokens(self, model: str, message: str) -> int:
+        tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
+        request = TokenizationRequest(test=message, tokenizer=tokenizer)
+        tokenization_result: TokenizationRequestResult = self.client.tokenize(
+            auth=self.authentication, request=request)
+        return len(tokenization_result.tokens)
