@@ -1,23 +1,31 @@
-from agents.base_agent import BaseAgent
+from executor_agent import ExecutorAgent
 from responses.response import Response
 from typing import List
 from responses.executor_response_interface import ExecutorResponseInterface
 from responses.executor_response import SimpleExecutorResponse
 from responses.observation import Observation
+from simple_agent.prompt import INITIAL_PROMPT
 
-class SimpleExecutionAgent(BaseAgent):
-    def __init__(self, config, handle_request_func=None):
+
+MAX_ITERATIONS = 5
+class SimpleExecutionAgent(ExecutorAgent):
+
+    def __init__(self, config):
         self.config = config
         self.max_response_len = 3
         self.memory = []
-        self.handle_request_func = handle_request_func or self._handle_request
+        #self.handle_request_func = handle_request_func or self._handle_request
+        self.prompt = INITIAL_PROMPT
+
 
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
             return Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
-        if not response:
+        
+        if not responses:
             return self.execute()
+        
         response = responses[0]
         if issubclass(response.__class__, ExecutorResponseInterface):
             self.formulate_prompt(response)
@@ -54,7 +62,6 @@ class SimpleExecutionAgent(BaseAgent):
         return None
 
     
-    MAX_ITERATIONS = 5    
     def call_lm(self) -> Response:
         """
         Calls the language model and ensures the response is in valid format.
@@ -62,7 +69,7 @@ class SimpleExecutionAgent(BaseAgent):
         """
         model_input = self.prompt
         iterations = 0
-        while iterations < self.MAX_ITERATIONS:
+        while iterations < MAX_ITERATIONS:
             lm_response = self.handle_request_func(model_input)
             executor_response = self.parse_response(lm_response)
      
