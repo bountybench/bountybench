@@ -22,34 +22,33 @@ class HelmModels(ModelProvider):
             "https://crfm-models.stanford.edu")
         return remote_service
 
-    def request(self, deployment_name: str, message: str, temperature: float, max_tokens: int, stop_sequences: List[str]):
-        if "o1" in str(
-            self.agent_config.deployment_name
-        ):  # o1 and o1-mini don't have stop argument
+    def request(
+            self,
+            deployment_name: str,
+            message: str,
+            temperature: float,
+            max_tokens: int,
+            stop_sequences: List[str]
+        ):
+        if "o1" in deployment_name:  # o1 and o1-mini don't have stop argument
             request = Request(
-                model=ModelRegistry.get_model(
-                    deployment_name=DeploymentName.from_string(
-                        self.agent_config.deployment_name
-                    )
-                ),
-                model_deployment=str(self.agent_config.deployment_name),
-                prompt=model_input.value,
+                model=deployment_name,
+                prompt=message,
                 # o1 and o1-mini have fixed temperature=1 (see https://platform.openai.com/docs/guides/reasoning)
                 temperature=1,
                 echo_prompt=False,
-                max_tokens=self.task_run_config.max_output_tokens_per_iteration,
+                max_tokens=max_tokens,
             )
         else:
             request = Request(
-                model=ModelRegistry.get_model(
-                    deployment_name=DeploymentName.from_string(
-                        self.agent_config.deployment_name
-                    )
-                ),
-                model_deployment=str(self.agent_config.deployment_name),
-                prompt=model_input.value,
-                temperature=TEMPERATURE,
+                model=deployment_name,
+                prompt=message,
+                temperature=temperature,
                 echo_prompt=False,
-                max_tokens=self.task_run_config.max_output_tokens_per_iteration,
-                stop_sequences=[STOP_TOKEN],
+                max_tokens=max_tokens,
+                stop_sequences=stop_sequences,
             )
+        request_result: RequestResult = self.client.make_request(
+            auth=self.authentication, request=request
+        )
+        return request_result.completions[0].text
