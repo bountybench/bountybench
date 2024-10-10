@@ -1,5 +1,7 @@
 from typing import List
 from models.model_provider import ModelProvider
+from abc import ABC, abstractmethod
+
 
 from helm.common.authentication import Authentication
 from helm.common.request import Request, RequestResult
@@ -11,7 +13,7 @@ from helm.common.tokenization_request import (
 from helm.proxy.services.remote_service import RemoteService
 
 
-class HelmModels(ModelProvider):
+class HelmModels(ModelProvider, ABC):
     def __init__(self):
         self.authentication = Authentication(
             api_key=self._get_env_var("HELM_API_KEY"))
@@ -52,3 +54,18 @@ class HelmModels(ModelProvider):
             auth=self.authentication, request=request
         )
         return request_result.completions[0].text
+    
+    @abstractmethod
+    def tokenize(self, deployment_name: str, message: str):
+        """To be implemented by child classes."""
+        pass
+
+    @abstractmethod
+    def decode_tokens(self, deployment_name: str, tokens: List[int]) -> str:
+        """To be implemented by child classes."""
+        pass
+
+    @abstractmethod
+    def get_num_tokens(self, deployment_name: str, message: str) -> int:
+        """To be implemented by child classes."""
+        pass
