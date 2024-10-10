@@ -38,7 +38,7 @@ class ModelProvider(ABC):
     @abstractmethod
     def request(
         self,
-        deployment_name: str,
+        model: str,
         message: str,
         temperature: float,
         max_tokens: int,
@@ -47,13 +47,13 @@ class ModelProvider(ABC):
         pass
 
     @abstractmethod
-    def tokenize(self, deployment_name: str, message: str):
+    def tokenize(self, model: str, message: str):
         pass
 
     @abstractmethod
-    def decode_tokens(self, deployment_name: str, tokens: List[int]) -> str:
+    def decode_tokens(self, model: str, tokens: List[int]) -> str:
         pass
 
     @abstractmethod
-    def get_num_tokens(self, deployment_name: str, message: str) -> int:
+    def get_num_tokens(self, model: str, message: str) -> int:
         pass

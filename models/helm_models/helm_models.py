@@ -24,15 +24,15 @@ class HelmModels(ModelProvider):
 
     def request(
         self,
-        deployment_name: str,
+        model: str,
         message: str,
         temperature: float,
         max_tokens: int,
         stop_sequences: List[str]
     ):
-        if "o1" in deployment_name:  # o1 and o1-mini don't have stop argument
+        if "o1" in model:  # o1 and o1-mini don't have stop argument
             request = Request(
-                model=deployment_name,
+                model=model,
                 prompt=message,
                 # o1 and o1-mini have fixed temperature=1 (see https://platform.openai.com/docs/guides/reasoning)
                 temperature=1,
@@ -41,7 +41,7 @@ class HelmModels(ModelProvider):
             )
         else:
             request = Request(
-                model=deployment_name,
+                model=model,
                 prompt=message,
                 temperature=temperature,
                 echo_prompt=False,
@@ -53,7 +53,7 @@ class HelmModels(ModelProvider):
         )
         return request_result.completions[0].text
 
-    def tokenize(self, deployment_name: str, message: str) -> List[int]:
+    def tokenize(self, model: str, message: str) -> List[int]:
         tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
         request = TokenizationRequest(
             tokenizer=tokenizer, text=message, encode=True)
@@ -61,14 +61,14 @@ class HelmModels(ModelProvider):
             auth=self.authentication, request=request)
         return [int(token) for token in tokenization_result.raw_tokens]
 
-    def decode_tokens(self, deployment_name: str, tokens: List[int]) -> str:
+    def decode_tokens(self, model: str, tokens: List[int]) -> str:
         tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
         request = DecodeRequest(tokens=tokens, tokenizer=tokenizer)
         decoding_result = self.client.decode(
             auth=self.authentication, request=request)
         return decoding_result.text
 
-    def get_num_tokens(self, deployment_name: str, message: str) -> int:
+    def get_num_tokens(self, model: str, message: str) -> int:
         tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
         request = TokenizationRequest(test=message, tokenizer=tokenizer)
         tokenization_result: TokenizationRequestResult = self.client.tokenize(
