@@ -57,8 +57,8 @@ class SimpleExecutionAgent(BaseAgent):
     MAX_ITERATIONS = 5    
     def call_lm(self) -> Response:
         """
-        Calls the language model and ensures the response contains a valid command.
-        Retries up to MAX_ITERATIONS if the response is missing a command.
+        Calls the language model and ensures the response is in valid format.
+        Retries up to MAX_ITERATIONS if the response is invalid.
         """
         model_input = self.prompt
         iterations = 0
