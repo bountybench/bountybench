@@ -23,6 +23,7 @@ def get_model_provider(model: str, helm: bool = False) -> ModelProvider:
         model_provider = OpenAIModels()
     return model_provider
 
+
 def tokenize(model: str, message: str) -> List[int]:
     """
     Tokenize the given message using the specified model's tokenizer.
@@ -41,6 +42,7 @@ def tokenize(model: str, message: str) -> List[int]:
     except (NotImplementedError, KeyError):
         encoding = tiktoken.encoding_for_model("gpt-4")
         return encoding.encode(message)
+
 
 def decode(model: str, tokens: List[int]) -> str:
     """
@@ -61,6 +63,7 @@ def decode(model: str, tokens: List[int]) -> str:
         encoding = tiktoken.encoding_for_model("gpt-4")
         return encoding.decode(tokens)
 
+
 def get_num_tokens(model: str, message: str) -> int:
     """
     Get the number of tokens required to represent the given message using the specified model's tokenizer.
@@ -79,6 +82,7 @@ def get_num_tokens(model: str, message: str) -> int:
     except (NotImplementedError, KeyError):
         encoding = tiktoken.encoding_for_model("gpt-4")
         return len(encoding.encode(message))
+
 
 def query(
     model: str,

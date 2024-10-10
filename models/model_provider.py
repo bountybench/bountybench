@@ -9,11 +9,12 @@ from dotenv import load_dotenv
 env_path = Path(__file__).resolve().parent.parent / ".env"
 print(env_path)
 
+
 class ModelProvider(ABC):
     """
     Abstract Base Class for model providers. Provides a general interface for creating a client, making requests, tokenizing, decoding tokens, and getting the number of tokens for a specific model.
     """
-    
+
     @classmethod
     def _api_key(cls) -> str:
         """
@@ -26,17 +27,17 @@ class ModelProvider(ABC):
             env_var = "AZURE_OPENAI_API_KEY"
         else:
             env_var = f"{cls.__name__.upper().replace('MODELS', '')}_API_KEY"
-        
+
         # Define the path to the .env file, which is assumed to be in the root directory.
         env_path = Path(__file__).resolve().parent.parent / ".env"
-        
+
         # If the .env file exists, load environment variables from it.
         if env_path.is_file():
             load_dotenv(dotenv_path=env_path)
-        
+
         # Retrieve the API key from the environment.
         key = os.getenv(env_var)
-        
+
         # Raise an error if the API key is not set in the environment or .env file.
         if not key:
             if env_path.is_file():
