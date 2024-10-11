@@ -1,9 +1,10 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Optional
-from response_interfaces import Response
+from responses.response import Response
+from typing import List
 
 class BaseAgent(ABC):
-    @abstract_method
+    @abstractmethod
     def run(self, responses: List[Response]) -> Response:
         pass
 
