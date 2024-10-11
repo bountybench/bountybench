@@ -13,7 +13,7 @@ class AnthropicModels(ModelProvider):
 
     def request(
         self,
-        deployment_name: str,
+        model: str,
         message: str,
         temperature: float,
         max_tokens: int,
@@ -21,7 +21,7 @@ class AnthropicModels(ModelProvider):
     ) -> str:
         
         response = self.client.messages.create(
-            model=deployment_name,
+            model=model,
             max_tokens=max_tokens,
             temperature=temperature,
             messages=[{"role": "user", "content": message}],
@@ -29,13 +29,13 @@ class AnthropicModels(ModelProvider):
         )
         return response.content[0].text
     
-    def tokenize(self, deployment_name: str, message: str) -> List[int]:
+    def tokenize(self, model: str, message: str) -> List[int]:
         raise NotImplementedError("Tokenization is not supported for Anthropic models")
 
-    def decode_tokens(self, deployment_name: str, tokens: List[int]) -> str:
+    def decode_tokens(self, model: str, tokens: List[int]) -> str:
         raise NotImplementedError("Decoding tokens is not supported for Anthropic models")
 
-    def get_num_tokens(self, deployment_name: str, message: str) -> int:
+    def get_num_tokens(self, model: str, message: str) -> int:
         client = self.create_client()
         token_count = client.count_tokens(message)
         return token_count

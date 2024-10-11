@@ -12,14 +12,14 @@ class TogetherModels(ModelProvider):
 
     def request(
         self,
-        deployment_name: str,
+        model: str,
         message: str,
         temperature: float,
         max_tokens: int,
         stop_sequences: List[str],
     ) -> str:
         response = self.client.chat.completions.create(
-            model=deployment_name,
+            model=model,
             messages=[
                 {"role": "user", "content": message},
             ],
@@ -30,14 +30,14 @@ class TogetherModels(ModelProvider):
         return response.choices[0].message.content
 
 
-    def tokenize(self, deployment_name: str, message: str) -> List[int]:
+    def tokenize(self, model: str, message: str) -> List[int]:
         raise NotImplementedError("Tokenization is not supported for Together models")
 
-    def decode_tokens(self, deployment_name: str, tokens: List[int]) -> str:
+    def decode_tokens(self, model: str, tokens: List[int]) -> str:
         raise NotImplementedError(
             "Decoding tokens is not supported for Together models"
         )
-    def get_num_tokens(self, deployment_name: str, message: str) -> int:
+    def get_num_tokens(self, model: str, message: str) -> int:
         raise NotImplementedError(
             "Getting number of tokens is not supported for Together models"
         )

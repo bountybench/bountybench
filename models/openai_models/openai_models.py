@@ -13,14 +13,14 @@ class OpenAIModels(ModelProvider):
     
     def request(
         self,
-        deployment_name: str,
+        model: str,
         message: str,
         temperature: float,
         max_tokens: int,
         stop_sequences: List[str],
     ) -> str:
         completion = self.client.Completion.create(
-            model=deployment_name,
+            model=model,
             prompt=message,
             temperature=temperature,
             max_tokens=max_tokens,
@@ -28,14 +28,14 @@ class OpenAIModels(ModelProvider):
         )
         return completion.choices[0].text
 
-    def tokenize(self, deployment_name: str, message: str) -> List[int]:
-        encoding = tiktoken.encoding_for_model(deployment_name)
+    def tokenize(self, model: str, message: str) -> List[int]:
+        encoding = tiktoken.encoding_for_model(model)
         return encoding.encode(message)
 
-    def decode_tokens(self, deployment_name: str, tokens: List[int]) -> str:
-        encoding = tiktoken.encoding_for_model(deployment_name)
+    def decode_tokens(self, model: str, tokens: List[int]) -> str:
+        encoding = tiktoken.encoding_for_model(model)
         return encoding.decode(tokens)
 
-    def get_num_tokens(self, deployment_name: str, message: str) -> int:
-        encoding = tiktoken.encoding_for_model(deployment_name)
+    def get_num_tokens(self, model: str, message: str) -> int:
+        encoding = tiktoken.encoding_for_model(model)
         return len(encoding.encode(message))
