@@ -1,17 +1,16 @@
+from datetime import datetime
 from typing import List
-from models.model_provider import ModelProvider
-from models.model_mapping import ModelRegistry
 
 from helm.common.authentication import Authentication
 from helm.common.request import Request, RequestResult
-from helm.common.tokenization_request import (
-    DecodeRequest,
-    TokenizationRequest,
-    TokenizationRequestResult,
-)
+from helm.common.tokenization_request import (DecodeRequest,
+                                              TokenizationRequest,
+                                              TokenizationRequestResult)
 from helm.proxy.services.remote_service import RemoteService
+
+from models.model_mapping import ModelRegistry
+from models.model_provider import ModelProvider
 from models.model_response import ModelResponse
-from datetime import datetime
 
 
 class HelmModels(ModelProvider):
@@ -53,19 +52,20 @@ class HelmModels(ModelProvider):
                 max_tokens=max_tokens,
                 stop_sequences=stop_sequences,
             )
-        
+
         start_time = datetime.now()
         request_result: RequestResult = self.client.make_request(
             auth=self.authentication, request=request
         )
         end_time = datetime.now()
-        response_request_duration = (end_time - start_time).total_seconds() * 1000
-
+        response_request_duration = (
+            end_time - start_time).total_seconds() * 1000
 
         return ModelResponse(content=request_result.completions[0].text,
-                        input_tokens=len(self.tokenize(model, message)), 
-                        output_tokens=len(self.tokenize(model, request_result.completions[0].text)),
-                        time_taken_in_ms=response_request_duration)
+                             input_tokens=len(self.tokenize(model, message)),
+                             output_tokens=len(self.tokenize(
+                                 model, request_result.completions[0].text)),
+                             time_taken_in_ms=response_request_duration)
 
     def tokenize(self, model: str, message: str) -> List[int]:
         tokenizer = ModelRegistry.get_tokenizer(model)
@@ -81,4 +81,3 @@ class HelmModels(ModelProvider):
         decoding_result = self.client.decode(
             auth=self.authentication, request=request)
         return decoding_result.text
-

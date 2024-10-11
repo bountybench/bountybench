@@ -1,9 +1,10 @@
-from models.model_provider import ModelProvider
-import google.generativeai as gemini
-from typing import List
-from models.model_response import ModelResponse
 from datetime import datetime
+from typing import List
 
+import google.generativeai as gemini
+
+from models.model_provider import ModelProvider
+from models.model_response import ModelResponse
 
 
 class GoogleModels(ModelProvider):
@@ -24,7 +25,7 @@ class GoogleModels(ModelProvider):
     ) -> ModelResponse:
         if self.client is None or self.client.model_name != model:
             self.client = self.create_client(model)
-        
+
         start_time = datetime.now()
         response = self.client.generate_content(
             contents=message,
@@ -35,18 +36,19 @@ class GoogleModels(ModelProvider):
             )
         )
         end_time = datetime.now()
-        response_request_duration = (end_time - start_time).total_seconds() * 1000
+        response_request_duration = (
+            end_time - start_time).total_seconds() * 1000
 
-    
         return ModelResponse(content=response.text,
-                             input_tokens=self.client.count_tokens(message).total_tokens, 
+                             input_tokens=self.client.count_tokens(
+                                 message).total_tokens,
                              output_tokens=response.usage_metadata.candidates_token_count,
                              time_taken_in_ms=response_request_duration)
-    
 
     def tokenize(self, model: str, message: str) -> List[int]:
-        raise NotImplementedError("Tokenization is not supported for Gemini models")
+        raise NotImplementedError(
+            "Tokenization is not supported for Gemini models")
 
-    def decode_tokens(self, model: str, tokens: List[int]) -> str:
-        raise NotImplementedError("Decoding tokens is not supported for Gemini models")
-
+    def decode(self, model: str, tokens: List[int]) -> str:
+        raise NotImplementedError(
+            "Decoding tokens is not supported for Gemini models")

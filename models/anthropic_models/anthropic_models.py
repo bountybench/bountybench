@@ -1,7 +1,8 @@
-from models.model_provider import ModelProvider
-from anthropic import Anthropic
 from typing import List
 
+from anthropic import Anthropic
+
+from models.model_provider import ModelProvider
 
 
 class AnthropicModels(ModelProvider):
@@ -19,7 +20,7 @@ class AnthropicModels(ModelProvider):
         max_tokens: int,
         stop_sequences: List[str],
     ) -> str:
-        
+
         response = self.client.messages.create(
             model=model,
             max_tokens=max_tokens,
@@ -28,14 +29,11 @@ class AnthropicModels(ModelProvider):
             stop_sequences=stop_sequences,
         )
         return response.content[0].text
-    
+
     def tokenize(self, model: str, message: str) -> List[int]:
-        raise NotImplementedError("Tokenization is not supported for Anthropic models")
+        raise NotImplementedError(
+            "Tokenization is not supported for Anthropic models")
 
-    def decode_tokens(self, model: str, tokens: List[int]) -> str:
-        raise NotImplementedError("Decoding tokens is not supported for Anthropic models")
-
-    def get_num_tokens(self, model: str, message: str) -> int:
-        client = self.create_client()
-        token_count = client.count_tokens(message)
-        return token_count
+    def decode(self, model: str, tokens: List[int]) -> str:
+        raise NotImplementedError(
+            "Decoding tokens is not supported for Anthropic models")
