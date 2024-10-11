@@ -18,6 +18,7 @@ class OpenAIModels(ModelProvider):
     def request(
         self,
         model: str,
+        model: str,
         message: str,
         temperature: float,
         max_tokens: int,
