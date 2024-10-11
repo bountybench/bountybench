@@ -1,10 +1,10 @@
 import os
 from abc import ABC, abstractmethod
-from datetime import datetime
 from pathlib import Path
 from typing import List
 
 from dotenv import load_dotenv
+
 from models.model_response import ModelResponse
 
 
@@ -59,7 +59,6 @@ class ModelProvider(ABC):
     @abstractmethod
     def request(
         self,
-        model: str,
         model: str,
         message: str,
         temperature: float,

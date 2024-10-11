@@ -77,7 +77,8 @@ class ModelRegistry:
         try:
             return cls.tokenizers.mapping[model_name]
         except KeyError as err:
-            raise ValueError(f"No tokenizer found for model name: {model_name}") from err
+            raise ValueError(
+                f"No tokenizer found for model name: {model_name}") from err
 
     @classmethod
     def get_model(cls, model_name: str) -> str:
