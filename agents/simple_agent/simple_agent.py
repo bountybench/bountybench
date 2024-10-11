@@ -1,25 +1,10 @@
-from agents.base_agent import BaseAgent
-from responses.response import Response
-from typing import List
-from responses.executor_response_interface import ExecutorResponseInterface
-from responses.simple_executor_response import SimpleExecutorResponse
-from responses.observation import Observation
-from responses.action_response import ActionType
-import subprocess
-import os
+from agent import BaseAgent
 
-
-TIMEOUT_PER_COMMAND = 120
 class SimpleExecutionAgent(BaseAgent):
-    def __init__(self, config, handle_request_func=None):
+    def __init__(self, config):
         self.config = config
         self.max_response_len = 3
         self.memory = []
-        self.handle_request_func = handle_request_func or self._handle_request
-        # Set work_dir to either a value from the config or the current working directory
-        self.work_dir = config.get("work_dir", os.getcwd())
-        self.config["max_iterations"] = config.get("max_iterations", 5)
-
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
@@ -33,15 +18,12 @@ class SimpleExecutionAgent(BaseAgent):
         else:
             raise Exception('Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
 
-    def execute(self) -> Response:
-        lm_executor_response = self.call_lm()
-        # if the action is command, execute the command in the environment, otherwise just submit
-        if lm_executor_response.action == ActionType.COMMAND:
-            observation = self.execute_in_env(lm_executor_response)
-            lm_executor_response.set_observation(observation)
-        return lm_executor_response
+    def execute(self):
+        lm_response = self.call_lm()
+        observation = self.execute_in_env(lm_response)
+        return format_response(lm_response, observation)
 
-    def formulate_prompt(self, executor_response: SimpleExecutorResponse) -> str:
+    def formulate_prompt(self, executor_response: ExecutorResponse) -> str:
         """
         """
         if len(self.memory) >= self.max_response_len:
@@ -50,65 +32,8 @@ class SimpleExecutionAgent(BaseAgent):
         self.prompt = prompt
         return prompt
     
-    def _handle_request(self, model_input: str) -> str:
-        """
-        Real implementation that calls the LM API.
-        """
-        pass
-    
-    def call_lm(self) -> SimpleExecutorResponse:
-        """
-        Calls the language model and ensures the response is in valid format.
-        Retries up to MAX_ITERATIONS if the response is invalid.
-        """
+    def call_lm(self):
         model_input = self.prompt
-        iterations = 0
-        while iterations < self.config["max_iterations"]:
-            lm_response = self.handle_request_func(model_input)
-            try:
-                executor_response = SimpleExecutorResponse(lm_response)
-                # print(f"Valid response found: {executor_response.command}")
-                return executor_response
-            except Exception as e:
-                # Log the error and retry if command is missing
-                print(f"Error: {str(e)}. Retrying...")
-                iterations += 1
+        return self._handle_request(model_input)
 
-        # Raise an exception if it exhausts the retries
-        raise Exception("Maximum retries reached without a valid response.")
-
-    def execute_in_env(self, executor_response: SimpleExecutorResponse) -> Observation:
-        """
-        Executes the command in the environment based on the ExecutorResponse.
-        Captures the output and creates an observation based on command execution.
-        """
-        command = executor_response.command
-
-        if command:
-            try:
-                # Run the command using subprocess, capturing output and errors
-                process = subprocess.run(
-                    ["bash", "-c", command],  
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    check=True,
-                    cwd=self.work_dir,
-                    timeout=TIMEOUT_PER_COMMAND,
-                )
-                stdout = process.stdout.decode('utf-8').strip() # Clean the standard output
-                stderr = process.stderr.decode('utf-8').strip() # Clean the error output (if any)
-
-                if stdout:
-                    # Command succeeded, return stdout as observation
-                    return Observation(f"Command succeeded: {stdout}")
-                else:
-                    # Command failed, return stderr as observation\
-                    return Observation(f"Command failed with error: {stderr}" if stderr else "Command failed with no output")
-
-            except subprocess.TimeoutExpired as e:
-                return Observation(f"Command timed out after {e.timeout} seconds")
-            except subprocess.CalledProcessError as e:
-                return Observation(f"Command failed with error: {e.stderr.decode('utf-8') if e.stderr else 'Unknown error'}")
-
-        else:
-            raise Exception("No command found to execute in the environment.")
+    
