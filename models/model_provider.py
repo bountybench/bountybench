@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List
 
 from dotenv import load_dotenv
+from models.model_response import ModelResponse
 
 
 class ModelProvider(ABC):
@@ -63,7 +64,7 @@ class ModelProvider(ABC):
         temperature: float,
         max_tokens: int,
         stop_sequences: List[str],
-    ):
+    ) -> ModelResponse:
         """
         Abstract method to request a response from a model.
         Args:
@@ -96,17 +97,5 @@ class ModelProvider(ABC):
             tokens (List[int]): A list of token IDs to decode.
         Returns:
             str: The decoded string.
-        """
-        pass
-
-    @abstractmethod
-    def get_num_tokens(self, model: str, message: str) -> int:
-        """
-        Abstract method to get the number of tokens for a given message.
-        Args:
-            model (str): The model to use.
-            message (str): The message for which to count tokens.
-        Returns:
-            int: The number of tokens in the message.
         """
         pass

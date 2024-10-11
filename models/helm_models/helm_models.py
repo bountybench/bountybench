@@ -10,6 +10,8 @@ from helm.common.tokenization_request import (
     TokenizationRequestResult,
 )
 from helm.proxy.services.remote_service import RemoteService
+from models.model_response import ModelResponse
+from datetime import datetime
 
 
 class HelmModels(ModelProvider):
@@ -30,7 +32,7 @@ class HelmModels(ModelProvider):
         temperature: float,
         max_tokens: int,
         stop_sequences: List[str]
-    ):
+    ) -> ModelResponse:
         mapped_model = ModelRegistry.get_model(model)
 
         if "o1" in model:  # o1 and o1-mini don't have stop argument
@@ -51,10 +53,19 @@ class HelmModels(ModelProvider):
                 max_tokens=max_tokens,
                 stop_sequences=stop_sequences,
             )
+        
+        start_time = datetime.now()
         request_result: RequestResult = self.client.make_request(
             auth=self.authentication, request=request
         )
-        return request_result.completions[0].text
+        end_time = datetime.now()
+        response_request_duration = (end_time - start_time).total_seconds() * 1000
+
+
+        return ModelResponse(content=request_result.completions[0].text,
+                        input_tokens=len(self.tokenize(model, message)), 
+                        output_tokens=len(self.tokenize(model, request_result.completions[0].text)),
+                        time_taken_in_ms=response_request_duration)
 
     def tokenize(self, model: str, message: str) -> List[int]:
         tokenizer = ModelRegistry.get_tokenizer(model)
@@ -71,9 +82,3 @@ class HelmModels(ModelProvider):
             auth=self.authentication, request=request)
         return decoding_result.text
 
-    def get_num_tokens(self, model: str, message: str) -> int:
-        tokenizer = ModelRegistry.get_tokenizer(model)
-        request = TokenizationRequest(test=message, tokenizer=tokenizer)
-        tokenization_result: TokenizationRequestResult = self.client.tokenize(
-            auth=self.authentication, request=request)
-        return len(tokenization_result.tokens)
