@@ -4,7 +4,10 @@ from typing import List
 from responses.executor_response_interface import ExecutorResponseInterface
 from responses.simple_executor_response import SimpleExecutorResponse
 from responses.observation import Observation
+import subprocess
 
+
+TIMEOUT_PER_COMMAND = 120
 class SimpleExecutionAgent(BaseAgent):
     def __init__(self, config, handle_request_func=None):
         self.config = config
@@ -59,7 +62,7 @@ class SimpleExecutionAgent(BaseAgent):
             lm_response = self.handle_request_func(model_input)
             try:
                 executor_response = SimpleExecutorResponse(lm_response)
-                print(f"Valid response found: {executor_response.command}")
+                # print(f"Valid response found: {executor_response.command}")
                 return executor_response
             except Exception as e:
                 # Log the error and retry if command is missing
@@ -71,12 +74,40 @@ class SimpleExecutionAgent(BaseAgent):
 
     def execute_in_env(self, executor_response: SimpleExecutorResponse) -> Observation:
         """
-        Simulates executing the command in the environment based on the ExecutorResponse.
+        Executes the command in the environment based on the ExecutorResponse.
+        Captures the output and creates an observation based on command execution.
         """
         command = executor_response.command
 
         if command:
-            # Simulate executing the command and return an observation
-            return Observation(f"Observation: {command} output test")
+            try:
+                # Run the command using subprocess, capturing output and errors
+                process = subprocess.run(
+                    command,  
+                    stdout=subprocess.PIPE,  
+                    stderr=subprocess.PIPE,  
+                    shell=True,  # Run the command through the shell
+                    timeout=TIMEOUT_PER_COMMAND,  # Timeout for the command
+                    text=True  # Decode output as text (avoid bytes)
+                )
+                
+                stdout = process.stdout.strip()  # Clean the standard output
+                stderr = process.stderr.strip()  # Clean the error output (if any)
+
+                if process.returncode == 0:
+                    # Command succeeded, return stdout as observation
+                    return Observation(f"Command succeeded: {stdout}")
+                else:
+                    # Command failed, return stderr as observation
+                    return Observation(f"Command failed with error: {stderr}")
+
+            except subprocess.TimeoutExpired:
+                # If the command times out, return a timeout observation
+                return Observation(f"Command timed out after {TIMEOUT_PER_COMMAND} seconds.")
+            
+            except subprocess.SubprocessError as e:
+                # Handle other errors related to subprocess execution
+                return Observation(f"Command execution failed: {str(e)}")
+
         else:
             raise Exception("No command found to execute in the environment.")

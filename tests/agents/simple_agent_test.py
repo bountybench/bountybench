@@ -4,6 +4,7 @@ from responses.simple_executor_response import SimpleExecutorResponse
 from responses.executor_response_interface import ExecutorResponseInterface
 from responses.observation import Observation
 from unittest.mock import patch
+import subprocess
 
 class TestSimpleExecutionAgent(unittest.TestCase):
     def setUp(self):
@@ -30,7 +31,6 @@ class TestSimpleExecutionAgent(unittest.TestCase):
         # Ensure that the agent executes and retrieves the correct command
         executor_response = self.agent.execute()
         self.assertEqual(executor_response.command, "ls")
-        self.assertEqual(executor_response.observation.raw_output, "Observation: ls output test")
     
     def test_call_lm_retries_invalid_response(self):
         """
@@ -66,7 +66,6 @@ class TestSimpleExecutionAgent(unittest.TestCase):
         
         # Ensure the valid response was processed after retries
         self.assertEqual(executor_response.command, "ls")
-        self.assertEqual(executor_response.observation.raw_output, "Observation: ls output test")
 
     def test_subclass_inheritance_check(self):
         """
@@ -79,6 +78,35 @@ class TestSimpleExecutionAgent(unittest.TestCase):
 
         # Check that the response contains the expected command
         self.assertEqual(executor_response.command, "ls")
+
+    def test_execute_in_env_successful(self):
+        # Simulate a valid command
+        executor_response = SimpleExecutorResponse("command: ls")
+        observation = self.agent.execute_in_env(executor_response)
+
+        self.assertIsInstance(observation, Observation)
+
+    def test_execute_in_env_failure(self):
+        # Simulate an invalid command
+        executor_response = SimpleExecutorResponse("command: invalidcommand")
+        observation = self.agent.execute_in_env(executor_response)
+        
+        self.assertIn("Command failed", observation.raw_output)  # Check for failure observation
+
+    def test_execute_in_env_timeout(self):
+        # Simulate a command that takes too long (timeout case)
+        executor_response = SimpleExecutorResponse("command: sleep 130")  # Sleep for more than 120 seconds
+        observation = self.agent.execute_in_env(executor_response)
+        
+        self.assertIn("Command timed out", observation.raw_output)  # Check for timeout observation
+
+    @patch('subprocess.run', side_effect=subprocess.TimeoutExpired(cmd="sleep", timeout=120))
+    def test_execute_in_env_timeout(self, mock_run):
+        # Simulate a command that takes too long (timeout case)
+        executor_response = SimpleExecutorResponse("command: sleep 130")
+        observation = self.agent.execute_in_env(executor_response)
+        
+        self.assertIn("Command timed out", observation.raw_output)
 
 if __name__ == '__main__':
     unittest.main()
