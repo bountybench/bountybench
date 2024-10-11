@@ -1,29 +1,39 @@
-from responses.command_response import SimpleCommandResponse
 from responses.observation import Observation
 from responses.executor_response_interface import ExecutorResponseInterface
 from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
+from responses.action_response import ActionType
 
 from typing import Optional
 
 class SimpleExecutorResponse(Response, ExecutorResponseInterface, CommandResponseInterface):
     """
-    A response that requires a command and optionally an answer.
+    A response that requires an action and response.
     Implements both command and answer parsing logic, and observation handling.
     """
 
     def __init__(self, response: str, observation: Optional[Observation] = None) -> None:
         self._response = response
         self._observation = observation
-
-        # Parse for the command (command is required)
-        self._command = self.parse_field(self._response, "command: ")
-        if not self._command:
-            raise Exception("Command is required but was not found in the response.")
+        self._action = None
 
         # Parse for the answer (answer is optional)
         self._answer = self.parse_field(self._response, "answer: ")
+        if self._answer:
+            self._action = ActionType.ANSWER
+        # Parse for the command (command is option)
+        self._command = self.parse_field(self._response, "command: ")
+        if self._command:
+            self._action = ActionType.COMMAND
 
+        if not self._action:
+            raise Exception("An action of either command or answer is required but was not found in the response.")
+
+
+    @property
+    def action(self) -> ActionType:
+        return self._action
+    
     @property
     def command(self) -> Optional[str]:
         return self._command

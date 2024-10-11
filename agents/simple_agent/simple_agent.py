@@ -4,6 +4,7 @@ from typing import List
 from responses.executor_response_interface import ExecutorResponseInterface
 from responses.simple_executor_response import SimpleExecutorResponse
 from responses.observation import Observation
+from responses.action_response import ActionType
 import subprocess
 import os
 
@@ -17,10 +18,10 @@ class SimpleExecutionAgent(BaseAgent):
         self.handle_request_func = handle_request_func or self._handle_request
         # Set work_dir to either a value from the config or the current working directory
         self.work_dir = config.get("work_dir", os.getcwd())
+        self.config["max_iterations"] = config.get("max_iterations", 5)
 
 
     def run(self, responses: List[Response]) -> Response:
-
         if len(responses) > 1:
             return Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
         if not response:
@@ -34,8 +35,10 @@ class SimpleExecutionAgent(BaseAgent):
 
     def execute(self) -> Response:
         lm_executor_response = self.call_lm()
-        observation = self.execute_in_env(lm_executor_response)
-        lm_executor_response.set_observation(observation)
+        # if the action is command, execute the command in the environment, otherwise just submit
+        if lm_executor_response.action == ActionType.COMMAND:
+            observation = self.execute_in_env(lm_executor_response)
+            lm_executor_response.set_observation(observation)
         return lm_executor_response
 
     def formulate_prompt(self, executor_response: SimpleExecutorResponse) -> str:
@@ -53,7 +56,6 @@ class SimpleExecutionAgent(BaseAgent):
         """
         pass
     
-    MAX_ITERATIONS = 5    
     def call_lm(self) -> SimpleExecutorResponse:
         """
         Calls the language model and ensures the response is in valid format.
@@ -61,7 +63,7 @@ class SimpleExecutionAgent(BaseAgent):
         """
         model_input = self.prompt
         iterations = 0
-        while iterations < self.MAX_ITERATIONS:
+        while iterations < self.config["max_iterations"]:
             lm_response = self.handle_request_func(model_input)
             try:
                 executor_response = SimpleExecutorResponse(lm_response)

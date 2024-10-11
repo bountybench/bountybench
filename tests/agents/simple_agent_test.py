@@ -20,7 +20,7 @@ class TestSimpleExecutionAgent(unittest.TestCase):
                 return "invalid response"
             
         self.agent = SimpleExecutionAgent(
-            config={"max_input_tokens": 100, "work_dir": os.getcwd()},
+            config={"max_input_tokens": 100, "work_dir": os.getcwd(), "max_iterations":5},
             handle_request_func=dummy_handle_request
         )
         self.agent.prompt = "Valid prompt"  # Set an initial prompt for testing
@@ -33,6 +33,8 @@ class TestSimpleExecutionAgent(unittest.TestCase):
         # Ensure that the agent executes and retrieves the correct command
         executor_response = self.agent.execute()
         self.assertEqual(executor_response.command, "ls")
+
+
     
     def test_call_lm_retries_invalid_response(self):
         """
@@ -40,11 +42,10 @@ class TestSimpleExecutionAgent(unittest.TestCase):
         """
         # Modify prompt to trigger invalid response and ensure retries happen
         self.agent.prompt = "Invalid prompt"
-
-        with patch.object(self.agent, "MAX_ITERATIONS", 3):
-            with self.assertRaises(Exception) as context:
-                self.agent.call_lm()
-            self.assertEqual(str(context.exception), "Maximum retries reached without a valid response.")
+        self.agent.config["max_iterations"] = 3
+        with self.assertRaises(Exception) as context:
+            self.agent.call_lm()
+        self.assertEqual(str(context.exception), "Maximum retries reached without a valid response.")
 
     def test_execute_with_retry_logic(self):
         """
@@ -121,6 +122,7 @@ class TestSimpleExecutionAgent(unittest.TestCase):
         observation = self.agent.execute_in_env(executor_response)
         
         self.assertIn("Command timed out", observation.raw_output)
+
 
 if __name__ == '__main__':
     unittest.main()

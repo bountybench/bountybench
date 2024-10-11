@@ -1,22 +1,23 @@
 from abc import ABC, abstractmethod
-from responses.action_response import ActionType
+from typing import Optional
+from responses.executor_response_interface import ExecutorResponseInterface
 
-class ExecutorResponseInterface(ABC):
+class ActionResponseInterface(ABC):
     @classmethod
     def __subclasshook__(cls, subclass):
         if cls is ExecutorResponseInterface:           
             return all(
                 any(attr in B.__dict__ for B in subclass.__mro__)
-                for attr in ['action', 'response']
+                for attr in ['command', 'answer']
             )
         return NotImplemented
-
+    
     @property
     @abstractmethod
-    def action(self) -> ActionType:
+    def command(self) -> Optional[str]:
         pass
     
     @property
     @abstractmethod
-    def response(self) -> str:
+    def answer(self) -> Optional[str]:
         pass
