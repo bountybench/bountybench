@@ -4,6 +4,7 @@ import os
 import sys
 from typing import Union
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
