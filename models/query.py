@@ -67,26 +67,6 @@ def decode(model: str, tokens: List[int]) -> str:
         return encoding.decode(tokens)
 
 
-def get_num_tokens(model: str, message: str) -> int:
-    """
-    Get the number of tokens required to represent the given message using the specified model's tokenizer.
-    Args:
-        model (str): The model name to use for token counting.
-        message (str): The message to count tokens for.
-    Returns:
-        int: The number of tokens in the message.
-    """
-    model_provider: ModelProvider
-    model_provider = get_model_provider(model)
-    try:
-        return model_provider.get_num_tokens(
-            model=model, message=message
-        )
-    except (NotImplementedError, KeyError):
-        encoding = tiktoken.encoding_for_model("gpt-4")
-        return len(encoding.encode(message))
-
-
 def query(
     model: str,
     message: str,
