@@ -5,6 +5,9 @@ import tiktoken
 from models.helm_models.helm_models import HelmModels
 from models.model_provider import ModelProvider
 from models.openai_models.openai_models import OpenAIModels
+from models.openai_models.azure_openai_models import AzureOpenAIModels
+from models.model_mapping import ModelRegistry 
+
 
 
 def get_model_provider(model: str, helm: bool = False) -> ModelProvider:
@@ -62,26 +65,6 @@ def decode(model: str, tokens: List[int]) -> str:
     except (NotImplementedError, KeyError):
         encoding = tiktoken.encoding_for_model("gpt-4")
         return encoding.decode(tokens)
-
-
-def get_num_tokens(model: str, message: str) -> int:
-    """
-    Get the number of tokens required to represent the given message using the specified model's tokenizer.
-    Args:
-        model (str): The model name to use for token counting.
-        message (str): The message to count tokens for.
-    Returns:
-        int: The number of tokens in the message.
-    """
-    model_provider: ModelProvider
-    model_provider = get_model_provider(model)
-    try:
-        return model_provider.get_num_tokens(
-            model=model, message=message
-        )
-    except (NotImplementedError, KeyError):
-        encoding = tiktoken.encoding_for_model("gpt-4")
-        return len(encoding.encode(message))
 
 
 def query(
