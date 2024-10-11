@@ -5,6 +5,7 @@ from responses.executor_response_interface import ExecutorResponseInterface
 from responses.simple_executor_response import SimpleExecutorResponse
 from responses.observation import Observation
 import subprocess
+import os
 
 
 TIMEOUT_PER_COMMAND = 120
@@ -14,6 +15,8 @@ class SimpleExecutionAgent(BaseAgent):
         self.max_response_len = 3
         self.memory = []
         self.handle_request_func = handle_request_func or self._handle_request
+        # Set work_dir to either a value from the config or the current working directory
+        self.work_dir = config.get("work_dir", os.getcwd())
 
 
     def run(self, responses: List[Response]) -> Response:
@@ -83,31 +86,27 @@ class SimpleExecutionAgent(BaseAgent):
             try:
                 # Run the command using subprocess, capturing output and errors
                 process = subprocess.run(
-                    command,  
-                    stdout=subprocess.PIPE,  
-                    stderr=subprocess.PIPE,  
-                    shell=True,  # Run the command through the shell
-                    timeout=TIMEOUT_PER_COMMAND,  # Timeout for the command
-                    text=True  # Decode output as text (avoid bytes)
+                    ["bash", "-c", command],  
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=True,
+                    cwd=self.work_dir,
+                    timeout=TIMEOUT_PER_COMMAND,
                 )
-                
-                stdout = process.stdout.strip()  # Clean the standard output
-                stderr = process.stderr.strip()  # Clean the error output (if any)
+                stdout = process.stdout.decode('utf-8').strip() # Clean the standard output
+                stderr = process.stderr.decode('utf-8').strip() # Clean the error output (if any)
 
-                if process.returncode == 0:
+                if stdout:
                     # Command succeeded, return stdout as observation
                     return Observation(f"Command succeeded: {stdout}")
                 else:
-                    # Command failed, return stderr as observation
-                    return Observation(f"Command failed with error: {stderr}")
+                    # Command failed, return stderr as observation\
+                    return Observation(f"Command failed with error: {stderr}" if stderr else "Command failed with no output")
 
-            except subprocess.TimeoutExpired:
-                # If the command times out, return a timeout observation
-                return Observation(f"Command timed out after {TIMEOUT_PER_COMMAND} seconds.")
-            
-            except subprocess.SubprocessError as e:
-                # Handle other errors related to subprocess execution
-                return Observation(f"Command execution failed: {str(e)}")
+            except subprocess.TimeoutExpired as e:
+                return Observation(f"Command timed out after {e.timeout} seconds")
+            except subprocess.CalledProcessError as e:
+                return Observation(f"Command failed with error: {e.stderr.decode('utf-8') if e.stderr else 'Unknown error'}")
 
         else:
             raise Exception("No command found to execute in the environment.")

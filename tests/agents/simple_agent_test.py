@@ -5,6 +5,7 @@ from responses.executor_response_interface import ExecutorResponseInterface
 from responses.observation import Observation
 from unittest.mock import patch
 import subprocess
+import os
 
 class TestSimpleExecutionAgent(unittest.TestCase):
     def setUp(self):
@@ -19,10 +20,11 @@ class TestSimpleExecutionAgent(unittest.TestCase):
                 return "invalid response"
             
         self.agent = SimpleExecutionAgent(
-            config={"max_input_tokens": 100},
+            config={"max_input_tokens": 100, "work_dir": os.getcwd()},
             handle_request_func=dummy_handle_request
         )
         self.agent.prompt = "Valid prompt"  # Set an initial prompt for testing
+        self.work_dir = os.getcwd()
 
     def test_execute_with_valid_command_response(self):
         """
@@ -78,6 +80,18 @@ class TestSimpleExecutionAgent(unittest.TestCase):
 
         # Check that the response contains the expected command
         self.assertEqual(executor_response.command, "ls")
+
+    def test_execute_in_env_successful(self):
+        # Simulate a successful bash command (e.g., 'ls')
+        executor_response = SimpleExecutorResponse("command: ls")
+
+        observation = self.agent.execute_in_env(executor_response)
+
+        # Ensure the observation is an instance of Observation class
+        self.assertIsInstance(observation, Observation)
+        # Check that the observation contains expected output (e.g., directory listing)
+        self.assertIn("Command succeeded", observation.raw_output)
+        print(f"Observation: {observation.raw_output}")
 
     def test_execute_in_env_successful(self):
         # Simulate a valid command
