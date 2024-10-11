@@ -114,7 +114,6 @@ class NonHELMMapping:
 class ModelRegistry:
     tokenizers: ClassVar[TokenizerMapping] = TokenizerMapping()
     helm_models: ClassVar[HELMMapping] = HELMMapping()
-    non_helm_models: ClassVar[NonHELMMapping] = NonHELMMapping()
 
     @classmethod
     def get_tokenizer(cls, model_name: str) -> str:
@@ -126,14 +125,10 @@ class ModelRegistry:
     @classmethod
     def get_model(cls, model_name: str) -> str:
         """
-        Get the model either from HELM or non-HELM mappings.
+        Get the model from HELM mappings.
         """
         try:
             # Try to find the model in HELM mappings first
             return cls.helm_models.mapping[model_name]
-        except KeyError:
-            # If not found in HELM, check non-HELM mappings
-            try:
-                return cls.non_helm_models.mapping[model_name]
-            except KeyError as err:
-                raise ValueError(f"No model found for model name: {model_name}") from err
+        except KeyError as err:
+            raise ValueError(f"No model found for model name: {model_name}") from err

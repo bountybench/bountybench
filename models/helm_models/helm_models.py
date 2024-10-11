@@ -1,5 +1,6 @@
 from typing import List
 from models.model_provider import ModelProvider
+from models.model_mapping import ModelRegistry
 
 from helm.common.authentication import Authentication
 from helm.common.request import Request, RequestResult
@@ -30,9 +31,11 @@ class HelmModels(ModelProvider):
         max_tokens: int,
         stop_sequences: List[str]
     ):
+        mapped_model = ModelRegistry.get_model(model)
+
         if "o1" in model:  # o1 and o1-mini don't have stop argument
             request = Request(
-                model=model,
+                model=mapped_model,
                 prompt=message,
                 # o1 and o1-mini have fixed temperature=1 (see https://platform.openai.com/docs/guides/reasoning)
                 temperature=1,
@@ -41,7 +44,7 @@ class HelmModels(ModelProvider):
             )
         else:
             request = Request(
-                model=model,
+                model=mapped_model,
                 prompt=message,
                 temperature=temperature,
                 echo_prompt=False,
@@ -54,7 +57,7 @@ class HelmModels(ModelProvider):
         return request_result.completions[0].text
 
     def tokenize(self, model: str, message: str) -> List[int]:
-        tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
+        tokenizer = ModelRegistry.get_tokenizer(model)
         request = TokenizationRequest(
             tokenizer=tokenizer, text=message, encode=True)
         tokenization_result = self.client.tokenize(
@@ -62,14 +65,14 @@ class HelmModels(ModelProvider):
         return [int(token) for token in tokenization_result.raw_tokens]
 
     def decode(self, model: str, tokens: List[int]) -> str:
-        tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
+        tokenizer = ModelRegistry.get_tokenizer(model)
         request = DecodeRequest(tokens=tokens, tokenizer=tokenizer)
         decoding_result = self.client.decode(
             auth=self.authentication, request=request)
         return decoding_result.text
 
     def get_num_tokens(self, model: str, message: str) -> int:
-        tokenizer = ""  # TODO: Use ModelRegistry to get tokenizer name
+        tokenizer = ModelRegistry.get_tokenizer(model)
         request = TokenizationRequest(test=message, tokenizer=tokenizer)
         tokenization_result: TokenizationRequestResult = self.client.tokenize(
             auth=self.authentication, request=request)

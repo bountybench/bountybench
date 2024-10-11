@@ -5,7 +5,8 @@ import tiktoken
 from models.helm_models.helm_models import HelmModels
 from models.model_provider import ModelProvider
 from models.openai_models.openai_models import OpenAIModels
-from models.openai_models.openai_models import AzureOpenAIModels
+from models.openai_models.azure_openai_models import AzureOpenAIModels
+from models.model_mapping import ModelRegistry 
 
 
 
@@ -21,8 +22,6 @@ def get_model_provider(model: str, helm: bool = False) -> ModelProvider:
     # TODO: Support Different Model Providers (Also handle Azure case)
     if helm:
         model_provider = HelmModels()
-    elif "azure" in model.lower():
-        model_provider = AzureOpenAIModels()
     else:
         model_provider = OpenAIModels()
     return model_provider
