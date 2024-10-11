@@ -30,7 +30,7 @@ class GoogleModels(ModelProvider):
                 max_output_tokens=max_tokens,
             )
         )
-        return response.text,
+        return response.text
 
     def tokenize(self, model: str, message: str) -> List[int]:
         raise NotImplementedError("Tokenization is not supported for Gemini models")
