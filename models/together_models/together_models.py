@@ -18,7 +18,7 @@ class TogetherModels(ModelProvider):
         max_tokens: int,
         stop_sequences: List[str],
     ) -> str:
-        return self.client.chat.completions.create(
+        response = self.client.chat.completions.create(
             model=deployment_name,
             messages=[
                 {"role": "user", "content": message},
@@ -27,6 +27,7 @@ class TogetherModels(ModelProvider):
             max_tokens=max_tokens,
             stop=stop_sequences,
         )
+        return response.choices[0].message.content
 
 
     def tokenize(self, deployment_name: str, message: str) -> List[int]:

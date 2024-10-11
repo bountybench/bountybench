@@ -20,13 +20,14 @@ class AnthropicModels(ModelProvider):
         stop_sequences: List[str],
     ) -> str:
         
-        return self.client.messages.create(
+        response = self.client.messages.create(
             model=deployment_name,
             max_tokens=max_tokens,
             temperature=temperature,
             messages=[{"role": "user", "content": message}],
             stop_sequences=stop_sequences,
         )
+        return response.content[0].text
     
     def tokenize(self, deployment_name: str, message: str) -> List[int]:
         raise NotImplementedError("Tokenization is not supported for Anthropic models")
