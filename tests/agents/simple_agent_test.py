@@ -1,128 +1,146 @@
 import unittest
+from unittest.mock import patch, Mock, ANY
 from agents.simple_agent.simple_agent import SimpleExecutionAgent
-from responses.simple_executor_response import SimpleExecutorResponse
-from responses.executor_response_interface import ExecutorResponseInterface
-from responses.observation import Observation
-from unittest.mock import patch
+from responses.command_response import CommandResponse
+from responses.answer_response import AnswerResponse
+from responses.response import Response
+from agents.dataclasses.agent_spec import AgentConfig
+
 import subprocess
-import os
 
 class TestSimpleExecutionAgent(unittest.TestCase):
+
     def setUp(self):
-        """
-        Set up the agent and any necessary mock data for testing.
-        """
-        # Define the dummy handle_request function for testing  
-        def dummy_handle_request(model_input: str) -> str:
-            if model_input == "Valid prompt":
-                return "command: ls"
-            else:
-                return "invalid response"
-            
-        self.agent = SimpleExecutionAgent(
-            config={"max_input_tokens": 100, "work_dir": os.getcwd(), "max_iterations":5},
-            handle_request_func=dummy_handle_request
+        # Create a mock config for the agent
+        self.config = AgentConfig(
+            model="gpt-4",
+            max_output_tokens=50,
+            max_input_tokens=100,
+            max_iterations=3,
+            max_response_len=3,
+            helm=False
         )
-        self.agent.prompt = "Valid prompt"  # Set an initial prompt for testing
-        self.work_dir = os.getcwd()
+        # Initialize the agent
+        self.agent = SimpleExecutionAgent(config=self.config)
 
-    def test_execute_with_valid_command_response(self):
-        """
-        Test that execute() successfully runs with a valid command in the LM response.
-        """
-        # Ensure that the agent executes and retrieves the correct command
-        executor_response = self.agent.execute()
-        self.assertEqual(executor_response.command, "ls")
+        # Mock the _handle_request method to return valid responses
+        def mock_handle_request(model_input):
+            if "command:" in model_input:
+                print("Handle request sees command in " + model_input)
+                return "command: ls"  # Simulate valid command response
+            else:
+                print("Handle request doesn't see command in " + model_input)
+                return "answer: 42"  # Simulate valid answer response
 
+        self.agent._handle_request = mock_handle_request
 
-    
-    def test_call_lm_retries_invalid_response(self):
+    def test_run_with_invalid_response_type(self):
         """
-        Test that call_lm() retries when the LM response is invalid (missing a command).
+        Test that run() raises an exception when the response is not a valid type.
         """
-        # Modify prompt to trigger invalid response and ensure retries happen
-        self.agent.prompt = "Invalid prompt"
-        self.agent.config["max_iterations"] = 3
+        response = Mock(spec=AnswerResponse)  # Pass AnswerResponse which isn't valid here
         with self.assertRaises(Exception) as context:
-            self.agent.call_lm()
-        self.assertEqual(str(context.exception), "Maximum retries reached without a valid response.")
+            self.agent.run(responses=[response])
+        self.assertIn('Response not of an interpretable type', str(context.exception))
 
-    def test_execute_with_retry_logic(self):
+    def test_formulate_prompt(self):
         """
-        Test that execute() retries when the LM response is invalid, and succeeds after retrying.
+        Test that formulate_prompt correctly manages memory and appends responses.
         """
-        retry_counter = {'count': 0}  # To keep track of retries
+        response = CommandResponse("command: ls")
         
-        def retrying_handle_request(model_input: str) -> str:
-            # Simulate returning invalid responses for the first two retries, then a valid one
-            retry_counter['count'] += 1
-            if retry_counter['count'] < 3:  # First two retries are invalid
-                return "invalid response"
-            else:  # Third response is valid
-                return "command: ls"
-        
-        # Update handle_request_func with retry logic
-        self.agent.handle_request_func = retrying_handle_request
+        # Test that memory is updated correctly
+        self.agent.formulate_prompt(response)
+        self.assertIn(response, self.agent.memory)
 
-        # Call execute, which should retry due to invalid responses and succeed after retry
-        executor_response = self.agent.execute()
+        # Simulate adding more responses to exceed max memory
+        response2 = CommandResponse("command: pwd")
+        response3 = CommandResponse("command: whoami")
+        response4 = CommandResponse("command: echo hello")
         
-        # Ensure the valid response was processed after retries
-        self.assertEqual(executor_response.command, "ls")
+        self.agent.formulate_prompt(response2)
+        self.agent.formulate_prompt(response3)
+        self.agent.formulate_prompt(response4)
+        
+        # Ensure the memory contains only the last 3 responses
+        self.assertEqual(len(self.agent.memory), 3)
+        self.assertNotIn(response, self.agent.memory)  # Oldest should be removed
+        self.assertIn(response4, self.agent.memory)
 
-    def test_subclass_inheritance_check(self):
+    @patch('agents.simple_agent.simple_agent.SimpleExecutionAgent._handle_request')
+    def test_call_lm_with_answer_response(self, mock_handle_request):
         """
-        Test that the response classes during execution process maintain correct subclass relations.
+        Test that call_lm correctly returns an AnswerResponse.
         """
-        executor_response = self.agent.execute()
+        mock_handle_request.return_value = "answer: 42"
         
-        # Check that the response is a subclass of ExecutorResponseInterface
-        self.assertTrue(issubclass(executor_response.__class__, ExecutorResponseInterface))
+        result = self.agent.call_lm()
 
-        # Check that the response contains the expected command
-        self.assertEqual(executor_response.command, "ls")
+        self.assertIsInstance(result, AnswerResponse)
+        self.assertEqual(result.answer, "42")
 
-    def test_execute_in_env_successful(self):
-        # Simulate a successful bash command (e.g., 'ls')
-        executor_response = SimpleExecutorResponse("command: ls")
+    @patch('subprocess.run')
+    def test_execute_in_env_success(self, mock_subprocess_run):
+        """
+        Test that execute_in_env runs the command successfully and returns an Observation.
+        """
+        # Simulate successful subprocess execution
+        mock_subprocess_run.return_value = Mock(stdout=b"Command output", stderr=b"")
 
-        observation = self.agent.execute_in_env(executor_response)
+        response = CommandResponse("command: ls")
+        observation = self.agent.execute_in_env(response)
 
-        # Ensure the observation is an instance of Observation class
-        self.assertIsInstance(observation, Observation)
-        # Check that the observation contains expected output (e.g., directory listing)
-        self.assertIn("Command succeeded", observation.raw_output)
-        print(f"Observation: {observation.raw_output}")
+        # Check that the observation contains the correct output
+        self.assertEqual(observation.raw_output, "Command succeeded: Command output")
 
-    def test_execute_in_env_successful(self):
-        # Simulate a valid command
-        executor_response = SimpleExecutorResponse("command: ls")
-        observation = self.agent.execute_in_env(executor_response)
+    @patch('subprocess.run')
+    def test_execute_in_env_timeout(self, mock_subprocess_run):
+        """
+        Test that execute_in_env handles timeouts correctly.
+        """
+        # Simulate a timeout in subprocess
+        mock_subprocess_run.side_effect = subprocess.TimeoutExpired(cmd="ls", timeout=120)
 
-        self.assertIsInstance(observation, Observation)
+        response = CommandResponse("command: ls")
+        observation = self.agent.execute_in_env(response)
 
-    def test_execute_in_env_failure(self):
-        # Simulate an invalid command
-        executor_response = SimpleExecutorResponse("command: invalidcommand")
-        observation = self.agent.execute_in_env(executor_response)
-        
-        self.assertIn("Command failed", observation.raw_output)  # Check for failure observation
-
-    def test_execute_in_env_timeout(self):
-        # Simulate a command that takes too long (timeout case)
-        executor_response = SimpleExecutorResponse("command: sleep 130")  # Sleep for more than 120 seconds
-        observation = self.agent.execute_in_env(executor_response)
-        
-        self.assertIn("Command timed out", observation.raw_output)  # Check for timeout observation
-
-    @patch('subprocess.run', side_effect=subprocess.TimeoutExpired(cmd="sleep", timeout=120))
-    def test_execute_in_env_timeout(self, mock_run):
-        # Simulate a command that takes too long (timeout case)
-        executor_response = SimpleExecutorResponse("command: sleep 130")
-        observation = self.agent.execute_in_env(executor_response)
-        
+        # Check that the observation reports a timeout
         self.assertIn("Command timed out", observation.raw_output)
 
+    @patch('subprocess.run')
+    def test_execute_in_env_failure(self, mock_subprocess_run):
+        """
+        Test that execute_in_env handles command failure correctly.
+        """
+        # Simulate a command error
+        mock_subprocess_run.side_effect = subprocess.CalledProcessError(1, "ls", stderr=b"Command not found")
 
-if __name__ == '__main__':
+        response = CommandResponse("command: ls")
+        observation = self.agent.execute_in_env(response)
+
+        # Check that the observation reports a command failure
+        self.assertIn("Command failed with error: Command not found", observation.raw_output)
+
+    def test_run_and_call_lm_return_response_type(self):
+        """
+        Ensure both run() and call_lm() return a valid Response type (either CommandResponse or AnswerResponse).
+        """
+        # Manually set a valid command in the agent's prompt
+        self.agent.prompt = "command: ls"
+
+        # Test call_lm directly
+        lm_response = self.agent.call_lm()
+        self.assertTrue(isinstance(lm_response, Response), "call_lm did not return a Response type.")
+        self.assertTrue(isinstance(lm_response, (CommandResponse, AnswerResponse)),
+                        "call_lm did not return a CommandResponse or AnswerResponse.")
+
+        # Test run with a command response
+        command_response = CommandResponse("command: ls")
+        run_response = self.agent.run(responses=[command_response])
+        self.assertTrue(isinstance(run_response, Response), "run did not return a Response type.")
+        self.assertTrue(isinstance(run_response, (CommandResponse, AnswerResponse)),
+                        "run did not return a CommandResponse or AnswerResponse.")
+
+
+if __name__ == "__main__":
     unittest.main()
