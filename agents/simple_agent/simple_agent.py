@@ -1,5 +1,5 @@
 from agents.base_agent import BaseAgent
-from agents.simple_agent.prompt import INITIAL_PROMPT
+from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
 from agents.dataclasses.agent_spec import AgentConfig
 
 from responses.response import Response
@@ -7,6 +7,8 @@ from responses.observation import Observation
 from responses.command_response import CommandResponse
 from responses.command_response_interface import CommandResponseInterface
 from responses.answer_response import AnswerResponse
+import models.query import query
+
 
 import os
 import subprocess
@@ -65,7 +67,24 @@ class SimpleExecutionAgent(BaseAgent):
         """
         TODO: Handle making requests to different model providers (HELM or non-HELM) and processing the response.
         """
-        pass
+        model_name =  str(self.config.model_name)
+        temperature = 1 if "o1" in model_name else TEMPERATURE
+        #max_tokens = self.task_run_config.max_output_tokens_per_iteration edit this
+        stop_sequences = [] if "o1" in model_name else [STOP_TOKEN]
+
+        model_response = query(
+            model=model_name,
+            message=model_input,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stop_sequences=stop_sequences,
+            helm=self.config.use_helm
+        )
+
+        model_response.content = self.remove_hallucinations(model_response.content) + f"\n{STOP_TOKEN}"
+
+        return model_response.content 
+
     
     def _parse_response(self, response: str) -> Response:
         """

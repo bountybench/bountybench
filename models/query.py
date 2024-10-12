@@ -95,4 +95,4 @@ def query(
         temperature=temperature,
         max_tokens=max_tokens,
         stop_sequences=stop_sequences,
-    )
+    ).content
