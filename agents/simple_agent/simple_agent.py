@@ -8,8 +8,8 @@ from responses.command_response import CommandResponse
 from responses.command_response_interface import CommandResponseInterface
 from responses.answer_response import AnswerResponse
 
-import os
-import subprocess
+from agents.docker_helper.docker_helper import DockerHelper
+
 from typing import List
 
 TIMEOUT_PER_COMMAND = 120
@@ -26,6 +26,17 @@ class SimpleExecutionAgent(BaseAgent):
 
     def __init__(self, config: AgentConfig):
         self.config = config
+
+        volumes = {
+            self.work_dir: {"bind": "/app/", "mode": "ro"},
+        }
+        self.command_executor = DockerHelper(volumes=volumes)
+        if self.config.use_helm:
+            self.crfm_auth = Authentication(
+                api_key=self._get_env_var("HELM_API_KEY"))
+            self.crfm_service = RemoteService(
+                "https://crfm-models.stanford.edu")
+
     
     def run(self, responses: List[Response]) -> Response:        
         if len(responses) > 1:
@@ -107,31 +118,18 @@ class SimpleExecutionAgent(BaseAgent):
         """
         command = executor_response.command
 
-        if command:
-            try:
-                # Run the command using subprocess, capturing output and errors
-                process = subprocess.run(
-                    ["bash", "-c", command],  
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    check=True,
-                    cwd=os.getcwd(),
-                    timeout=TIMEOUT_PER_COMMAND,
-                )
-                stdout = process.stdout.decode('utf-8').strip() # Clean the standard output
-                stderr = process.stderr.decode('utf-8').strip() # Clean the error output (if any)
+        try:
+            # Use DockerHelper to execute the command inside the container
+            stdout, stderr = self.command_executor.run_command(
+                command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/"
+            )
 
-                if stdout:
-                    # Command succeeded, return stdout as observation
-                    return Observation(f"Command succeeded: {stdout}")
-                else:
-                    # Command failed, return stderr as observation\
-                    return Observation(f"Command failed with error: {stderr}" if stderr else "Command failed with no output")
+            if stdout:
+                # Command succeeded, return stdout as observation
+                return Observation(f"Command succeeded: {stdout}")
+            else:
+                # Command failed, return stderr as observation
+                return Observation(f"Command failed with error: {stderr}" if stderr else "Command failed with no output")
 
-            except subprocess.TimeoutExpired as e:
-                return Observation(f"Command timed out after {e.timeout} seconds")
-            except subprocess.CalledProcessError as e:
-                return Observation(f"Command failed with error: {e.stderr.decode('utf-8') if e.stderr else 'Unknown error'}")
-
-        else:
-            raise Exception("No command found to execute in the environment.")
+        except Exception as e:
+            return Observation(f"Command execution failed: {str(e)}")
