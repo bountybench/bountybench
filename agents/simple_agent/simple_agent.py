@@ -64,12 +64,10 @@ class SimpleExecutionAgent(BaseAgent):
         return prompt
     
     def _handle_request(self, model_input: str) -> str:
-        """
-        TODO: Handle making requests to different model providers (HELM or non-HELM) and processing the response.
-        """
+
         model_name =  str(self.config.model_name)
         temperature = 1 if "o1" in model_name else TEMPERATURE
-        #max_tokens = self.task_run_config.max_output_tokens_per_iteration edit this
+        max_tokens = self.config.max_output_tokens
         stop_sequences = [] if "o1" in model_name else [STOP_TOKEN]
 
         model_response = query(
