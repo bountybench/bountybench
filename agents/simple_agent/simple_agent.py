@@ -28,7 +28,7 @@ class SimpleExecutionAgent(BaseAgent):
         self.config = config
 
         volumes = {
-            self.work_dir: {"bind": "/app/", "mode": "ro"},
+            self.work_dir: {"bind": "/app/", "mode": "rw"},
         }
         self.command_executor = DockerHelper(volumes=volumes)
     
@@ -49,7 +49,7 @@ class SimpleExecutionAgent(BaseAgent):
         # if the action is command, execute the command in the environment, otherwise just submit
         if issubclass(lm_executor_response.__class__, CommandResponseInterface):
             observation = self.execute_in_env(lm_executor_response)
-            lm_executor_response.set_observation(observation)
+            lm_executor_response.set_observation(observation) # only command response has set observation func
         return lm_executor_response
 
     def formulate_prompt(self, executor_response: CommandResponse) -> str:
