@@ -22,7 +22,7 @@ class SimpleExecutionAgent(BaseAgent):
     prompt: str = INITIAL_PROMPT
 
     memory: List[str] = []
-    handle_request_func: callable
+    work_dir: str
 
     def __init__(self, config: AgentConfig):
         self.config = config
