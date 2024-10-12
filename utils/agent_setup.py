@@ -100,6 +100,22 @@ def run_init_script(task_repo_dir: str) -> None:
         logger.error(f"Init script stderr: {e.stderr}")
         sys.exit(1)
 
+def remove_tmp_dir(task_repo_dir: str) -> None:
+    """
+    Remove the temporary directory used for the task.
+
+    Args:
+        task_repo_dir (str): Path to the repository directory for the task.
+    """
+    tmp_dir_path = os.path.join(task_repo_dir, TMP_DIR)
+    if os.path.exists(tmp_dir_path):
+        try:
+            # Remove the temporary directory
+            subprocess.run(["rm", "-rf", TMP_DIR], cwd=task_repo_dir, check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to remove temporary directory: {e.stderr}")
+            sys.exit(1)
+
 
 def health_check(agent_container: DockerHelper, target_hosts: str) -> None:
     """
