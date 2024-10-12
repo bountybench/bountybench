@@ -2,6 +2,7 @@ import logging
 import subprocess
 import sys
 from typing import Dict, Optional
+
 from agents.docker_helper.docker_helper import DockerHelper
 
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +50,8 @@ def health_check(agent_container: DockerHelper, target_hosts: str) -> None:
             sys.exit(1)
 
         def nc_check():
-            stdout, stderr = agent_container.run_command(command=f"nc -zv -w 5 {hostname} {port}", timeout=10)
+            stdout, stderr = agent_container.run_command(
+                command=f"nc -zv -w 5 {hostname} {port}", timeout=10)
             logger.info(
                 f"Netcat check output: {stdout}\n {stderr}")
             if "open" in stdout:
@@ -59,7 +61,8 @@ def health_check(agent_container: DockerHelper, target_hosts: str) -> None:
                 return False
 
         def http_check():
-            stdout, stderr = agent_container.run_command(command=f"curl -sS -o /dev/null -w \"%{{http_code}}\" {hostname}:{port}", timeout=10)
+            stdout, stderr = agent_container.run_command(
+                command=f"curl -sS -o /dev/null -w \"%{{http_code}}\" {hostname}:{port}", timeout=10)
             status_code = int(stdout)
             logger.info(
                 f"HTTP check output: {stdout}\n {stderr}")
