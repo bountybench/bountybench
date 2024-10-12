@@ -9,19 +9,24 @@ class ResourceDict():
         self.id_to_resource = dict()
         self.resource_type_to_resources = defaultdict(list)
 
-    def __get_item__(key):
+    def get_items_of_resource_type()
         if key is a resource class:
             if self_resource_type_to_resources[key]:
                 return self_resource_type_to_resources[key]
             return None
-        # maybe check type of key, I think it a hashable
-        elif if hashable:
-            if key in id_to_resource:
-                return.id_to_resource[key]
-            else:
-                return None
-        else:
-            raise Exception('unsupported type')
+ 
+    def delete_items_of_resource_type()
+
+    def __get_item__(self, key):
+        return self.id_to_resource[key]
+
+    def __set_item__(self, key, value):
+        # key must be an id, not a resource class
+        # make sure to update both dicts each time
+        self.id_to_resource[key] = value
+        self.resource_type_to_resources[key].append(value)
+
+
 
     """
     What exactly are we accomplishing here over just a dictionary.

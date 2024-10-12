@@ -27,10 +27,16 @@ class SimpleExecutionAgent(BaseAgent):
     memory: List[str] = []
     handle_request_func: callable
 
-    def __init__(self, config: AgentConfig):
+    def __init__(self, config: AgentConfig, *args, **kwargs):
+        super().__init(*args, **kwargs)
         self.config = config
+        if KaliEnvResource in self.resource_dict:
+            self.kali_env = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
+        else:
+            kali_env_resource = KaliEnvResource()
+            self.resource_dict['kali_linux_resource'] = kali_env_resource 
     
-    def run(self, responses: List[Response]) -> Response:        
+    def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
             return Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
         if len(responses) == 0:
