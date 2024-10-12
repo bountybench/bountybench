@@ -9,7 +9,6 @@ class ChatChain:
         self.chain: List[Dict[str, Any]] = []
 
     def append(self, message: Dict[str, Any]) -> None:
-        message["seq_num"] = self.seq_counter
         self.chain.append(message)
 
     def save_chat_chain_as_json(self, file_path: str) -> None:
