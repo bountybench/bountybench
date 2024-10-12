@@ -1,14 +1,11 @@
 import re
 from abc import ABC
 from typing import Optional
-from responses.command_response_interface import CommandResponseInterface
 
 class Response(ABC):
     @classmethod
     def __subclasshook__(cls, subclass):
-        if cls is CommandResponseInterface:
-            return any('response' in B.__dict__ for B in subclass.__mro__)
-        return NotImplemented
+        return any('response' in B.__dict__ for B in subclass.__mro__)
 
     @staticmethod
     def parse_field(text: str, field: str, multiline: bool = False, stop_str: Optional[str] = None) -> Optional[str]:
@@ -24,6 +21,9 @@ class Response(ABC):
         Returns:
         - The extracted field value as a string if found, or None if not found.
         """
+        if text is None:
+            return None
+        
         # Find the start index for the field
         field_marker = f"{field}"
         start_index = text.lower().find(field_marker.lower())
