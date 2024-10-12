@@ -7,6 +7,7 @@ from models.model_provider import ModelProvider
 from models.openai_models.openai_models import OpenAIModels
 from models.openai_models.azure_openai_models import AzureOpenAIModels
 from models.model_mapping import ModelRegistry 
+from models.model_response import ModelResponse
 
 
 
@@ -74,7 +75,7 @@ def query(
     max_tokens: int,
     stop_sequences: List[str],
     helm: bool,
-) -> str:
+) -> ModelResponse:
     """
     Send a query to the specified model and get a response.
     Args:
@@ -95,4 +96,4 @@ def query(
         temperature=temperature,
         max_tokens=max_tokens,
         stop_sequences=stop_sequences,
-    ).content
+    )

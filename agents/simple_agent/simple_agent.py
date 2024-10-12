@@ -8,6 +8,7 @@ from responses.command_response import CommandResponse
 from responses.command_response_interface import CommandResponseInterface
 from responses.answer_response import AnswerResponse
 import models.query import query
+from models.model_response import ModelResponse
 
 
 import os
@@ -63,7 +64,7 @@ class SimpleExecutionAgent(BaseAgent):
         self.prompt = prompt
         return prompt
     
-    def _handle_request(self, model_input: str) -> str:
+    def _handle_request(self, model_input: str) -> ModelResponse:
 
         model_name =  str(self.config.model_name)
         temperature = 1 if "o1" in model_name else TEMPERATURE
@@ -79,9 +80,9 @@ class SimpleExecutionAgent(BaseAgent):
             helm=self.config.use_helm
         )
 
-        clean_response = self.remove_hallucinations(model_response) + f"\n{STOP_TOKEN}"
+        model_response.content = self.remove_hallucinations(model_response.content) + f"\n{STOP_TOKEN}"
 
-        return clean_response 
+        return model_response 
 
     
     def _parse_response(self, response: str) -> Response:
