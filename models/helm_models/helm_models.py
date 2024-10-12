@@ -81,3 +81,11 @@ class HelmModels(ModelProvider):
         decoding_result = self.client.decode(
             auth=self.authentication, request=request)
         return decoding_result.text
+    
+    def get_num_tokens(self, model: str, message: str) -> int:
+        tokenizer_name = ModelRegistry.get_tokenizer(model)
+        request = TokenizationRequest(tokenizer=tokenizer_name, text=message)
+        tokenization_result: TokenizationRequestResult = self.crfm_service.tokenize(
+            self.crfm_auth, request)
+        return len(tokenization_result.tokens)
+

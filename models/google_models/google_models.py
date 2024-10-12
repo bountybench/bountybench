@@ -52,3 +52,8 @@ class GoogleModels(ModelProvider):
     def decode(self, model: str, tokens: List[int]) -> str:
         raise NotImplementedError(
             "Decoding tokens is not supported for Gemini models")
+    
+    def get_num_tokens(self, model: str, message: str) -> int:
+        if self.client is None or self.client.model_name != model:
+            self.client = self.create_client(model)
+        return self.client.count_tokens(input).total_tokens
