@@ -1,8 +1,10 @@
 from responses.command_response_interface import  CommandResponseInterface
 
-class SimpleCommandResponse:
+class CommandResponse(CommandResponseInterface):
     def __init__(self, response: str) -> None:
         self._response = response
+        self._command = self.parse_command()
+        self._observation = None
  
     @property
     def response(self) -> str:
@@ -10,28 +12,19 @@ class SimpleCommandResponse:
 
     @property
     def command(self) -> str:
-        """
-        either call
-        parse_field('command')
-        or do some metaprogramming i.e. get the name of the function and then pass that in automatically
-        """
-        return 'test'
+        return self._command
+    
+    def parse_command(self) -> str:
+        command = self.parse_field(self._response, "command: ")
+        if not command:
+            raise Exception("Command is missing from response, cannot be a command response.")
+        return command
+    
+    @property
+    def observation(self) -> str:
+        if self._observation is None:
+            raise Exception("Observation is missing or the command has not been executed yet.")
+        return self._observation
 
-class SimpleReflectResponse:
-    def reflect(self) -> str:
-        return 'test'
-
-
-def test_simple_command_response_instance_is_subclass_of_CommandResponseInterface():
-    instance_response = SimpleCommandResponse('test')
-    assert issubclass(instance_response.__class__, CommandResponseInterface) is True
-
-def test_simple_command_response_is_subclass_of_CommandResponseInterface():
-    assert issubclass(SimpleCommandResponse, CommandResponseInterface) is True
-
-def test_simple_reflect_response_instance_is_not_subclass_of_CommandResponseInterface():
-    instance_response2 = SimpleReflectResponse()
-    assert issubclass(instance_response2.__class__, CommandResponseInterface) is False
-
-def test_simple_reflect_response_is_not_subclass_of_CommandResponseInterface():
-    assert issubclass(SimpleReflectResponse, CommandResponseInterface) is False
+    def set_observation(self, observation: str) -> None:
+        self._observation = observation
