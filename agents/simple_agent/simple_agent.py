@@ -43,7 +43,6 @@ TIMEOUT_PER_COMMAND = 120
 MAX_HELM_RETRIES = 3
 RETRY_DELAY = 30
 TEMPERATURE = 0.5
-NUM_RESPONSE_TO_KEEP = 3
 
 class SimpleExecutionAgent(BaseAgent):
     config: AgentConfig
@@ -182,13 +181,13 @@ class SimpleExecutionAgent(BaseAgent):
         idx_to_ignore = []
         num_responses = len(self.chat_chain.model_response_index)
         num_observations = len(self.chat_chain.assistant_observation_index)
-        if num_responses > NUM_RESPONSE_TO_KEEP:
+        if num_responses > self.config.max_response_len:
             idx_to_ignore.extend(
                 self.chat_chain.model_response_index[
                     : num_responses - self.responses_to_keep
                 ]
             )
-        if num_observations > NUM_RESPONSE_TO_KEEP:
+        if num_observations > self.config.max_response_len:
             idx_to_ignore.extend(
                 self.chat_chain.assistant_observation_index[
                     : num_observations - self.observations_to_keep
