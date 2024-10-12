@@ -33,14 +33,8 @@ def main() -> None:
     # Create a Path object for the task repository directory
     task_repo_dir = Path(args.task_repo_dir).resolve()
     print(task_repo_dir)
-    
 
-    image_name = "cybench/cybounty:latest"
     network_name = "shared_net"
-
-    # Pull the Docker image
-    logger.info(f"Pulling Docker image: {image_name}")
-    run_command(["docker", "pull", image_name])
 
     # Check if the network exists
     if not docker_network_exists(network_name):
