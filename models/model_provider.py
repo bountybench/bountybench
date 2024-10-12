@@ -99,3 +99,15 @@ class ModelProvider(ABC):
             str: The decoded string.
         """
         pass
+
+    @abstractmethod
+    def get_num_tokens(self, model: str, message: str) -> int:
+        """
+        Abstract method to get the number of tokens for a given message.
+        Args:
+            model (str): The model to use.
+            message (str): The message for which to count tokens.
+        Returns:
+            int: The number of tokens in the message.
+        """
+        pass

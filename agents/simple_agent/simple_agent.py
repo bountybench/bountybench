@@ -13,6 +13,7 @@ from tenacity import (
 from requests.exceptions import ConnectionError, HTTPError, Timeout
 
 from models.model_mapping import ModelRegistry 
+from models.query import get_model_provider
 
 
 HALLUCINATION_STRINGS = [
@@ -104,23 +105,11 @@ class SimpleExecutionAgent(BaseAgent):
             ) from e
         
     
-
-    """
     def _get_num_tokens(self, model_input: str) -> int:
-        if self.helm:
-            tokenizer_name = ModelRegistry.get_tokenizer(
-                DeploymentName.from_string(self.config.deployment_name)
-            )
-            request = TokenizationRequest(tokenizer=tokenizer_name, text=model_input)
-            tokenization_result: TokenizationRequestResult = self.crfm_service.tokenize(
-                self.crfm_auth, request
-            )
-            return len(tokenization_result.tokens)
-        else:
-            return get_num_tokens(
-                model_name=self.config.deployment_name, input_message=model_input
-            )
 
+        return get_model_provider(self.config.model, self.config.use_helm).get_num_tokens(self.config.model, model_input)
+
+    
     @retry(
         stop=stop_after_attempt(30),
         wait=wait_exponential(multiplier=1, max=30),
@@ -129,24 +118,9 @@ class SimpleExecutionAgent(BaseAgent):
         ),
     )
     def _tokenize_input(self, model_input: str) -> List[int]:
-        if self.helm:
-            tokenizer_name = ModelRegistry.get_tokenizer(
-                DeploymentName.from_string(self.config.deployment_name)
-            )
-            request = TokenizationRequest(
-                tokenizer=tokenizer_name, text=model_input, encode=True
-            )
-            return [
-                int(token)
-                for token in self.crfm_service.tokenize(
-                    self.crfm_auth, request=request
-                ).raw_tokens
-            ]
-        else:
-            return tokenize(
-                model_name=self.config.deployment_name, input_message=model_input
-            )
-
+        return get_model_provider(self.config.model, self.config.use_helm).tokenize(self.config.model, model_input)
+    
+    
     @retry(
         stop=stop_after_attempt(30),
         wait=wait_exponential(multiplier=1, max=30),
@@ -155,27 +129,20 @@ class SimpleExecutionAgent(BaseAgent):
         ),
     )
     def _decode_tokenized_inputs(self, tokens: List[int]) -> str:
-        if self.helm:
-            tokenizer = ModelRegistry.get_tokenizer(
-                DeploymentName.from_string(self.config.deployment_name)
-            )
-            return self.crfm_service.decode(
-                self.crfm_auth, DecodeRequest(tokens=tokens, tokenizer=tokenizer)
-            ).text
-        else:
-            return decode(model_name=self.config.deployment_name, input_tokens=tokens)
-
+        return get_model_provider(self.config.model, self.config.use_helm).decode(self.config.model, tokens)
+    
+    
     def _truncate_input_to_max_tokens(self, model_input: str) -> str:
         num_input_tokens = self._get_num_tokens(model_input)
         truncation_alert = "\n...TRUNCATED...\n"
         num_tokens_in_truncation_alert = self._get_num_tokens(truncation_alert)
 
-        if num_input_tokens >= self.max_input_tokens - num_tokens_in_truncation_alert:
+        if num_input_tokens >= self.config.max_input_tokens - num_tokens_in_truncation_alert:
             self.logger.warning(
-                f"Number of input tokens ({num_input_tokens}) exceeds max tokens ({self.max_input_tokens}). Truncating input."
+                f"Number of input tokens ({num_input_tokens}) exceeds max tokens ({self.config.max_input_tokens}). Truncating input."
             )
             tokens = self._tokenize_input(model_input=model_input)
-            tokens_to_keep = self.max_input_tokens - num_tokens_in_truncation_alert
+            tokens_to_keep = self.config.max_input_tokens - num_tokens_in_truncation_alert
             half_tokens_to_keep = tokens_to_keep // 2
             beginning_tokens = tokens[:half_tokens_to_keep]
             end_tokens = tokens[-half_tokens_to_keep:]
@@ -186,7 +153,7 @@ class SimpleExecutionAgent(BaseAgent):
             return truncated_input
 
         return model_input
-    """
+    
     
     def _truncate_chat_chain(self) -> None:
         self.truncated_chat_chain.clear()
