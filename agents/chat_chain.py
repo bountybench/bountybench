@@ -24,9 +24,6 @@ class ChatChain:
     def clear(self) -> None:
         self.chain.clear()
 
-    def __len__(self) -> int:
-        return len(self.chain)
-
     def __str__(self) -> str:
         return "\n".join(
             f"\n----------Message from {msg['role']}----------\n{msg['content']}"
