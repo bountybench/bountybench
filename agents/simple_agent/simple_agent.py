@@ -79,9 +79,9 @@ class SimpleExecutionAgent(BaseAgent):
             helm=self.config.use_helm
         )
 
-        model_response.content = self.remove_hallucinations(model_response.content) + f"\n{STOP_TOKEN}"
+        clean_response = self.remove_hallucinations(model_response) + f"\n{STOP_TOKEN}"
 
-        return model_response.content 
+        return clean_response 
 
     
     def _parse_response(self, response: str) -> Response:
