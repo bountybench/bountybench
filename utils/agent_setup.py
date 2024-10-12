@@ -1,7 +1,8 @@
 import logging
+import os
 import subprocess
 import sys
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from agents.docker_helper.docker_helper import DockerHelper
 
@@ -10,18 +11,59 @@ logger = logging.getLogger(__name__)
 
 TMP_DIR = "tmp"
 
+def parse_shell_script(script_path: str) -> List[str]:
+    """
+    Parse a shell script into individual commands.
 
-def setup_agent_container(repo_dir: str, name: str, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> DockerHelper:
-    # TODO: How to handle the requirements.sh case?
+    Args:
+        script_path (str): Path to the shell script.
+
+    Returns:
+        List[str]: A list of commands to execute.
+    """
+    if not os.path.isfile(script_path):
+        raise FileNotFoundError(f"Shell script not found at {script_path}")
+
+    commands = []
+    with open(script_path, 'r') as script_file:
+        for idx, line in enumerate(script_file, start=1):
+            # Remove leading/trailing whitespace
+            stripped_line = line.strip()
+
+            # Skip empty lines and comments
+            if not stripped_line or stripped_line.startswith("#"):
+                continue
+
+            # Handle multi-line commands if necessary
+            # For simplicity, this example assumes one command per line
+            commands.append(stripped_line)
+    
+    return commands
+
+
+def setup_agent_container(task_repo_dir: str, name: str, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> DockerHelper:
     docker_helper = DockerHelper(name=name, volumes=volumes)
+    requirements_path = f"{task_repo_dir}/metadata/requirements.sh"
+    if not os.path.isfile(requirements_path):
+        logger.error(f"Requirements file not found at {requirements_path}")
+        sys.exit(1)
+    requirement_commands = parse_shell_script(requirements_path)
+    for command in requirement_commands:
+        stdout, stderr = docker_helper.run_command(command)
+        
+        if stdout:
+            logger.info(f"Requirements.sh Output:\n{stdout}")
+        if stderr:
+            logger.error(f"Requirements.sh Error:\n{stderr}")
+            sys.exit(1)
     return docker_helper
 
 
-def run_init_script(repo_dir: str):
+def run_init_script(task_repo_dir: str):
     try:
         init_result = subprocess.run(
             ["./init_script.sh", TMP_DIR],
-            cwd=repo_dir,
+            cwd=task_repo_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=True,
