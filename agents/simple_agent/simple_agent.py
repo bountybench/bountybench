@@ -31,12 +31,6 @@ class SimpleExecutionAgent(BaseAgent):
             self.work_dir: {"bind": "/app/", "mode": "ro"},
         }
         self.command_executor = DockerHelper(volumes=volumes)
-        if self.config.use_helm:
-            self.crfm_auth = Authentication(
-                api_key=self._get_env_var("HELM_API_KEY"))
-            self.crfm_service = RemoteService(
-                "https://crfm-models.stanford.edu")
-
     
     def run(self, responses: List[Response]) -> Response:        
         if len(responses) > 1:
