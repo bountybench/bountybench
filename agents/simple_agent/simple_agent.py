@@ -1,5 +1,5 @@
 from agents.base_agent import BaseAgent
-# from agents.simple_agent.prompt import INITIAL_PROMPT
+from agents.simple_agent.prompt import INITIAL_PROMPT
 from agents.dataclasses.agent_spec import AgentConfig
 
 from responses.response import Response
@@ -16,7 +16,6 @@ TIMEOUT_PER_COMMAND = 120
 MAX_HELM_RETRIES = 3
 RETRY_DELAY = 30
 TEMPERATURE = 0.5
-INITIAL_PROMPT = ""
 
 class SimpleExecutionAgent(BaseAgent):
     config: AgentConfig
