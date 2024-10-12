@@ -24,7 +24,6 @@ class TestChatChain(unittest.TestCase):
         self.assertEqual(self.chat_chain.chain[0]["content"], "Hello, how can I assist you?")
 
     def test_save_chat_chain_as_json(self):
-        """Test saving the chat chain as a JSON file."""
         self.chat_chain.append(self.sample_message)
         self.chat_chain.save_chat_chain_as_json(self.file_path)
         
