@@ -16,8 +16,11 @@ from tenacity import (
 )
 from requests.exceptions import ConnectionError, HTTPError, Timeout
 
-from models.model_mapping import ModelRegistry 
-from models.query import get_model_provider
+from models.query import get_model_provider, query
+from dataclasses import field
+import http.client
+
+
 
 
 from responses.response import Response
@@ -25,7 +28,6 @@ from responses.observation import Observation
 from responses.command_response import CommandResponse
 from responses.command_response_interface import CommandResponseInterface
 from responses.answer_response import AnswerResponse
-import models.query import query
 from models.model_response import ModelResponse
 
 
