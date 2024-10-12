@@ -5,8 +5,6 @@ import tiktoken
 from models.helm_models.helm_models import HelmModels
 from models.model_provider import ModelProvider
 from models.openai_models.openai_models import OpenAIModels
-from models.openai_models.azure_openai_models import AzureOpenAIModels
-from models.model_mapping import ModelRegistry 
 
 
 
