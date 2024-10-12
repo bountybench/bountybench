@@ -1,12 +1,12 @@
 import re
-from abc import ABC
 from typing import Optional
 
-class Response(ABC):
+class Response():
     @classmethod
     def __subclasshook__(cls, subclass):
         return any('response' in B.__dict__ for B in subclass.__mro__)
 
+    # maybe move to a common.py or helper.py utils.py and not inherit from response
     @staticmethod
     def parse_field(text: str, field: str, multiline: bool = False, stop_str: Optional[str] = None) -> Optional[str]:
         """
