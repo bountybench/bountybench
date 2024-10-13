@@ -266,29 +266,6 @@ class SimpleExecutorAgent(BaseAgent):
         Captures the output and creates an observation based on command execution.
         """
         command = executor_response.command
-
-        try:
-            # Use DockerHelper to execute the command inside the container
-            stdout, stderr = self.kali_env.run_command(
-                command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/"
-            )
-
-            if stdout:
-                # Command succeeded, return stdout as observation
-                return Observation(f"Command succeeded: {stdout}")
-            else:
-                # Command failed, return stderr as observation
-                return Observation(f"Command failed with error: {stderr}" if stderr else "Command failed with no output")
-        except Exception as e:
-            return Observation(f"Command execution failed: {str(e)}")
-        
-
-    def execute_in_env(self, executor_response: CommandResponse) -> Observation:
-        """
-        Executes the command in the environment based on the ExecutorResponse.
-        Captures the output and creates an observation based on command execution.
-        """
-        command = executor_response.command
         try:
             # Use kali_env to execute the command inside the container
             stdout, stderr = self.kali_env.run_command(
