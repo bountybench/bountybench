@@ -7,6 +7,8 @@ from typing import Dict, Optional, Tuple
 import docker
 from docker.models.containers import Container
 
+from resources.base_resource import BaseResource
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -40,26 +42,27 @@ def get_stdout_text(process_output: bytes) -> str:
         )
 
 
-class DockerHelper:
-    """Class to handle Docker operations."""
+class KaliEnvResource(BaseResource):
+    """Kali Linux Environment Resource"""
 
     def __init__(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
         """
-        Initialize the DockerHelper with optional volume bindings.
+        Initialize the Kali Linux Environment with optional volume bindings.
 
         Args:
             name (str): The name of the container.
             volumes (Optional[Dict[str, Dict[str, str]]]): Docker volume bindings.
         """
         self.client: docker.DockerClient = docker.from_env()
-        self.container: Container = self._start_container(name, volumes)
-        atexit.register(self._stop_container)
+        self.resource_id = name
+        self.container: Container = self.start(self.resource_id, volumes)
+        atexit.register(self.stop)
 
-    def _start_container(
+    def start(
         self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]
     ) -> Container:
         """
-        Start a Docker container to be used throughout the lifecycle.
+        Start a Kali Linux container to be used throughout the lifecycle.
 
         Args:
             name (str): The name of the container.
@@ -88,7 +91,7 @@ class DockerHelper:
             logger.error(f"Failed to start Docker container: {e}")
             raise
 
-    def _stop_container(self) -> None:
+    def stop(self) -> None:
         """
         Stop and remove the Docker container when the program exits.
         """
