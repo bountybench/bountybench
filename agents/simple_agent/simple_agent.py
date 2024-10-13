@@ -1,7 +1,8 @@
 from agents.base_agent import BaseAgent
 from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
 from agents.dataclasses.agent_spec import AgentConfig
-from chat_chain import ChatChain
+from agents.chat_chain import ChatChain
+from agents.logger import AgentLogger
 from typing import List
 
 from models.query import query
@@ -32,6 +33,7 @@ class SimpleExecutorAgent(BaseAgent):
     def __init__(self, config: AgentConfig):
         super().__init__()
         self.config = config
+        self.logger = Logger()
 
         if KaliEnvResource in self.resource_dict.resource_type_to_resources:
             self.kali_env = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
@@ -68,7 +70,7 @@ class SimpleExecutorAgent(BaseAgent):
         Formulates the prompt by appending the new response to memory.
         """
         if len(self.memory) >= self.config.max_response_len:
-            self.memory = self.memory[1:] + [executor_response] 
+            self.memory = self.memory[1:] + [executor_response.response] 
         else:
             self.memory.append(executor_response)
         
