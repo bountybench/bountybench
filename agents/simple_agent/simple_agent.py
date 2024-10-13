@@ -1,11 +1,10 @@
 from agents.base_agent import BaseAgent
 from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
 from agents.dataclasses.agent_spec import AgentConfig
-from chat_chain import ChatChain
+from agents.chat_chain import ChatChain
 import logging
 import os
 import time
-import subprocess
 from typing import List
 
 from tenacity import (
@@ -20,9 +19,6 @@ from models.query import get_model_provider, query
 from dataclasses import field
 import http.client
 
-
-
-
 from responses.response import Response
 from responses.observation import Observation
 from responses.command_response import CommandResponse
@@ -30,6 +26,10 @@ from responses.command_response_interface import CommandResponseInterface
 from responses.answer_response import AnswerResponse
 from models.model_response import ModelResponse
 
+# may need to change name
+from resources.kali_env_resource import KaliEnvResource
+
+from typing import List
 
 HALLUCINATION_STRINGS = [
     "----------Message from assistant----------",
@@ -44,7 +44,7 @@ MAX_HELM_RETRIES = 3
 RETRY_DELAY = 30
 TEMPERATURE = 0.5
 
-class SimpleExecutionAgent(BaseAgent):
+class SimpleExecutorAgent(BaseAgent):
     config: AgentConfig
     prompt: str = INITIAL_PROMPT
     memory: List[str] = []
@@ -53,7 +53,16 @@ class SimpleExecutionAgent(BaseAgent):
     truncated_chat_chain: ChatChain = field(default_factory=ChatChain)
 
     def __init__(self, config: AgentConfig):
+        super().__init__()
         self.config = config
+        self.work_dir = None
+
+        if KaliEnvResource in self.resource_dict.resource_type_to_resources:
+            self.kali_env = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
+        else:
+            # kill the agent if no kali env is found - this should have happened earlier in the workflow
+            # logging.error("KaliEnvResource not found in resource_dict. Terminating the agent.")
+            raise RuntimeError("Required resource KaliEnvResource is missing. Agent cannot start.")
     
     def run(self, responses: List[Response]) -> Response:        
         if len(responses) > 1:
@@ -72,7 +81,7 @@ class SimpleExecutionAgent(BaseAgent):
         # if the action is command, execute the command in the environment, otherwise just submit
         if issubclass(lm_executor_response.__class__, CommandResponseInterface):
             observation = self.execute_in_env(lm_executor_response)
-            lm_executor_response.set_observation(observation)
+            lm_executor_response.set_observation(observation) # only command response has set observation func
         return lm_executor_response
 
     def formulate_prompt(self, executor_response: CommandResponse) -> str:
@@ -257,33 +266,21 @@ class SimpleExecutionAgent(BaseAgent):
         Captures the output and creates an observation based on command execution.
         """
         command = executor_response.command
+        try:
+            # Use kali_env to execute the command inside the container
+            stdout, stderr = self.kali_env.run_command(
+                command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/"
+            )
 
-        if command:
-            try:
-                # Run the command using subprocess, capturing output and errors
-                process = subprocess.run(
-                    ["bash", "-c", command],  
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    check=True,
-                    cwd=os.getcwd(),
-                    timeout=TIMEOUT_PER_COMMAND,
-                )
-                stdout = process.stdout.decode('utf-8').strip() # Clean the standard output
-                stderr = process.stderr.decode('utf-8').strip() # Clean the error output (if any)
-
-                if stdout:
-                    # Command succeeded, return stdout as observation
-                    return Observation(f"Command succeeded: {stdout}")
-                else:
-                    # Command failed, return stderr as observation\
-                    return Observation(f"Command failed with error: {stderr}" if stderr else "Command failed with no output")
-
-            except subprocess.TimeoutExpired as e:
-                return Observation(f"Command timed out after {e.timeout} seconds")
-            except subprocess.CalledProcessError as e:
-                return Observation(f"Command failed with error: {e.stderr.decode('utf-8') if e.stderr else 'Unknown error'}")
-
-        else:
-            raise Exception("No command found to execute in the environment.")
-
+            # Check for command execution without errors, even if no stdout was produced
+            if stdout.strip():
+                return Observation(f"Command succeeded: {stdout}")
+            elif stderr.strip():
+                # No stdout but there's stderr (may be an error or just output in stderr)
+                return Observation(f"Command failed with error: {stderr}")
+            else:
+                # Neither stdout nor stderr indicates an empty but successful execution
+                return Observation("Command succeeded with no output")
+        except Exception as e:
+            # If an actual exception occurred during execution, log it as a failure
+            return Observation(f"Command execution failed: {str(e)}")

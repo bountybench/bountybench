@@ -8,6 +8,7 @@ import docker
 from docker.models.containers import Container
 
 from resources.base_resource import BaseResource
+from resources.resource_dict import resource_dict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +57,8 @@ class KaliEnvResource(BaseResource):
         self.client: docker.DockerClient = docker.from_env()
         self.resource_id = name
         self.container: Container = self.start(self.resource_id, volumes)
+
+        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def start(
