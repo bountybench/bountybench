@@ -33,7 +33,6 @@ class SimpleExecutorAgent(BaseAgent):
     def __init__(self, config: AgentConfig):
         super().__init__()
         self.config = config
-        self.logger = Logger()
 
         if KaliEnvResource in self.resource_dict.resource_type_to_resources:
             self.kali_env = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
@@ -45,15 +44,11 @@ class SimpleExecutorAgent(BaseAgent):
         if len(responses) > 1:
             return Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
         if len(responses) == 0:
-            response = self.execute()
-            self.chat_chain.log(response)
-            return response
+            return self.execute()
         response = responses[0]
         if issubclass(response.__class__, CommandResponseInterface):
             self.formulate_prompt(response)
-            response = self.execute()
-            self.chat_chain.log(response)
-            return response
+            return self.execute()
         else:
             raise Exception('Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
 
@@ -72,7 +67,7 @@ class SimpleExecutorAgent(BaseAgent):
         if len(self.memory) >= self.config.max_response_len:
             self.memory = self.memory[1:] + [executor_response.response] 
         else:
-            self.memory.append(executor_response)
+            self.memory.append(executor_response.response)
         
         # Convert memory list to string before concatenating with INITIAL_PROMPT
         prompt = INITIAL_PROMPT + ''.join(str(item) for item in self.memory)
