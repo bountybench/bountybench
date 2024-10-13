@@ -4,7 +4,7 @@ from resources.resource import BaseResource
 #does it inherit from dict?
 # given this is a singleton, make it do little work besides 
 # in future rather than __get_tiem,mabye separate and just a single instruction because of multithreading
-class ResourceDict():
+class ResourceDict(dict):
     def __init__(self):
         self.id_to_resource = dict()
         self.resource_type_to_resources = defaultdict(list)
@@ -37,14 +37,14 @@ class ResourceDict():
                 if not self.resource_type_to_resources[resource_type]:
                     del self.resource_type_to_resources[resource_type]
 
-    def __get_item__(self, key):
+    def __getitem__(self, key):
         return self.id_to_resource[key]
 
-    def __set_item__(self, key, value):
+    def __setitem__(self, key, value):
         # key must be an id, not a resource class
         # make sure to update both dicts each time
         self.id_to_resource[key] = value
-        self.resource_type_to_resources[key].append(value)
+        self.resource_type_to_resources[type(value)].append(value)
 
 
     """
