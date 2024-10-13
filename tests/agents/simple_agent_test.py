@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch, Mock, ANY
 
 from agents.dataclasses.agent_spec import AgentConfig
-from agents.simple_agent.simple_agent import SimpleExecutionAgent
+from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from agents.docker_helper.docker_helper import DockerHelper
 
 from responses.command_response import CommandResponse
@@ -11,7 +11,7 @@ from responses.response import Response
 
 import subprocess
 
-class TestSimpleExecutionAgent(unittest.TestCase):
+class TestSimpleExecutorAgent(unittest.TestCase):
 
     def setUp(self):
         # Create a mock config for the agent
@@ -24,7 +24,7 @@ class TestSimpleExecutionAgent(unittest.TestCase):
             helm=False
         )
         # Initialize the agent
-        self.agent = SimpleExecutionAgent(config=self.config)
+        self.agent = SimpleExecutorAgent(config=self.config)
 
         # Mock the _handle_request method to return valid responses
         def mock_handle_request(model_input):
@@ -50,7 +50,7 @@ class TestSimpleExecutionAgent(unittest.TestCase):
     #     mock_docker_helper.return_value = mock_docker_instance
 
     #     # Initialize the agent, which should instantiate DockerHelper
-    #     agent = SimpleExecutionAgent(config=self.config)
+    #     agent = SimpleExecutorAgent(config=self.config)
 
     #     # Verify that DockerHelper was instantiated with the correct parameters
     #     mock_docker_helper.assert_called_once_with(volumes=ANY)
@@ -91,7 +91,7 @@ class TestSimpleExecutionAgent(unittest.TestCase):
     #     self.assertNotIn(response, self.agent.memory)  # Oldest should be removed
     #     self.assertIn(response4, self.agent.memory)
 
-    # @patch('agents.simple_agent.simple_agent.SimpleExecutionAgent._handle_request')
+    # @patch('agents.simple_agent.simple_agent.SimpleExecutorAgent._handle_request')
     # def test_call_lm_with_answer_response(self, mock_handle_request):
     #     """
     #     Test that call_lm correctly returns an AnswerResponse.

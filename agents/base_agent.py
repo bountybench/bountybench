@@ -1,13 +1,13 @@
-from abc import ABC
-from typing import Optional
-from response_interfaces import Response
-from resources.resource_manager import resource_manager
+from abc import ABC, abstractmethod
+from typing import List
+from responses.response import Response
+from resources.resource_dict import resource_dict
 
 class BaseAgent(ABC):
-    def __init__():
-        self.resource_manager = resource_manager
+    def __init__(self):
+        self.resource_manager = resource_dict
 
-    @abstract_method
+    @abstractmethod
     def run(self, responses: List[Response]) -> Response:
         pass
 

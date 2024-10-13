@@ -8,7 +8,8 @@ from responses.command_response import CommandResponse
 from responses.command_response_interface import CommandResponseInterface
 from responses.answer_response import AnswerResponse
 
-from agents.docker_helper.docker_helper import DockerHelper
+# may need to change name
+from resources.kali_linux_resource import KaliEnvResource
 
 from typing import List
 
@@ -17,7 +18,7 @@ MAX_HELM_RETRIES = 3
 RETRY_DELAY = 30
 TEMPERATURE = 0.5
 
-class SimpleExecutionAgent(BaseAgent):
+class SimpleExecutorAgent(BaseAgent):
     config: AgentConfig
     prompt: str = INITIAL_PROMPT
 
@@ -25,12 +26,18 @@ class SimpleExecutionAgent(BaseAgent):
     work_dir: str
 
     def __init__(self, config: AgentConfig):
+        super().__init__()
         self.config = config
+        self.work_dir = None
 
-        volumes = {
-            self.work_dir: {"bind": "/app/", "mode": "rw"},
-        }
-        self.command_executor = DockerHelper(volumes=volumes)
+        if KaliEnvResource in self.resource_dict:
+            self.kali_env = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
+        else:
+            volumes = {
+                self.work_dir: {"bind": "/app/", "mode": "rw"},
+            }
+            self.command_executor = KaliEnvResource(name="simple-executor-container", volumes=volumes)
+            self.resource_dict['kali_linux_resource'] = self.command_executor 
     
     def run(self, responses: List[Response]) -> Response:        
         if len(responses) > 1:
