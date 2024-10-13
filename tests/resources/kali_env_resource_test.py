@@ -1,23 +1,19 @@
-import os
 import unittest
 from pathlib import Path
 
-from docker.errors import NotFound
-from docker_helper import DockerHelper
+from resources.kali_env_resource import KaliEnvResource
 
 VOLUME = {Path(__file__).parent.resolve() / 'test_files': {"bind": "/app/", "mode": "rw"}}
 CONTAINER_NAME = "test_container"
 
-print(Path(__file__).parent.resolve() / 'test_files')
 
-
-class TestDockerHelper(unittest.TestCase):
+class TestKaliEnvResource(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """
-        This method initializes the DockerHelper instance and starts a single container.
+        This method initializes the KaliEnvResource instance and starts a single container.
         """
-        cls.docker_helper = DockerHelper(name=CONTAINER_NAME, volumes=VOLUME)
+        cls.kali_env_resource = KaliEnvResource(name=CONTAINER_NAME, volumes=VOLUME)
     
     @classmethod
     def tearDownClass(cls):
@@ -25,7 +21,7 @@ class TestDockerHelper(unittest.TestCase):
         This method is run once for the class after all tests are executed.
         It cleans up by stopping the Docker container.
         """
-        cls.docker_helper._stop_container()
+        cls.kali_env_resource.stop()
 
     def test_run_simple_command(self):
         """
@@ -33,7 +29,7 @@ class TestDockerHelper(unittest.TestCase):
         The output should be the same as the echoed message.
         """
         command = "echo Hello"
-        stdout, stderr = self.docker_helper.run_command(command)
+        stdout, stderr = self.kali_env_resource.run_command(command)
         self.assertEqual(stdout.strip(), "Hello")
         self.assertEqual(stderr.strip(), "")
 
@@ -43,7 +39,7 @@ class TestDockerHelper(unittest.TestCase):
         The stderr should contain the error message.
         """
         command = "ls /nonexistent_directory"
-        stdout, stderr = self.docker_helper.run_command(command)
+        stdout, stderr = self.kali_env_resource.run_command(command)
         self.assertEqual(stdout.strip(), "")
         self.assertIn("No such file or directory", stderr)
     
@@ -54,7 +50,7 @@ class TestDockerHelper(unittest.TestCase):
         """
         file_path = "test.txt"
         command = f"cat {file_path}"
-        stdout, stderr = self.docker_helper.run_command(command)
+        stdout, stderr = self.kali_env_resource.run_command(command)
         self.assertEqual(stdout.strip(), r"TEST{RANDOM_WORDS}")
         self.assertEqual(stderr, "")
 
@@ -64,7 +60,7 @@ class TestDockerHelper(unittest.TestCase):
         The command should be terminated due to timeout.
         """
         command = "sleep 120"
-        stdout, stderr = self.docker_helper.run_command(command, timeout=2)
+        stdout, stderr = self.kali_env_resource.run_command(command, timeout=2)
         self.assertIn("timed out after 2 seconds", stdout)
         self.assertEqual(stderr.strip(), "")
 
@@ -74,7 +70,7 @@ class TestDockerHelper(unittest.TestCase):
         """
         command = "pwd"
         workdir = "/tmp"
-        stdout, stderr = self.docker_helper.run_command(command, workdir=workdir)
+        stdout, stderr = self.kali_env_resource.run_command(command, workdir=workdir)
         self.assertEqual(stdout.strip(), workdir)
         self.assertEqual(stderr.strip(), "")
 
@@ -87,18 +83,18 @@ class TestDockerHelper(unittest.TestCase):
         read_command = f"cat {file_path}"
 
         # Write to the file
-        stdout, stderr = self.docker_helper.run_command(write_command)
+        stdout, stderr = self.kali_env_resource.run_command(write_command)
         self.assertEqual(stdout.strip(), "")
         self.assertEqual(stderr.strip(), "")
 
         # Read from the file
-        stdout, stderr = self.docker_helper.run_command(read_command)
+        stdout, stderr = self.kali_env_resource.run_command(read_command)
         self.assertEqual(stdout.strip(), "Hello World")
         self.assertEqual(stderr.strip(), "")
 
         # Delete the file
         delete_command = f"rm {file_path}"
-        stdout, stderr = self.docker_helper.run_command(delete_command)
+        stdout, stderr = self.kali_env_resource.run_command(delete_command)
 
     def test_invalid_command(self):
         """
@@ -106,7 +102,7 @@ class TestDockerHelper(unittest.TestCase):
         The stderr should contain the error message indicating the command was not found.
         """
         command = "invalid_command_that_does_not_exist"
-        stdout, stderr = self.docker_helper.run_command(command)
+        stdout, stderr = self.kali_env_resource.run_command(command)
         self.assertEqual(stdout.strip(), "")
         self.assertIn("command not found", stderr)
 
@@ -119,23 +115,23 @@ class TestDockerHelper(unittest.TestCase):
         check_command = f"test -f {file_path} && echo Exists"
 
         # Create the file
-        stdout, stderr = self.docker_helper.run_command(create_command)
+        stdout, stderr = self.kali_env_resource.run_command(create_command)
         self.assertEqual(stdout.strip(), "")
         self.assertEqual(stderr.strip(), "")
 
         # Verify the file exists
-        stdout, stderr = self.docker_helper.run_command(check_command)
+        stdout, stderr = self.kali_env_resource.run_command(check_command)
         self.assertEqual(stdout.strip(), "Exists")
         self.assertEqual(stderr.strip(), "")
 
         # Delete the file
         delete_command = f"rm {file_path}"
-        stdout, stderr = self.docker_helper.run_command(delete_command)
+        stdout, stderr = self.kali_env_resource.run_command(delete_command)
         self.assertEqual(stdout.strip(), "")
         self.assertEqual(stderr.strip(), "")
 
         # Verify the file was deleted
-        stdout, stderr = self.docker_helper.run_command(check_command)
+        stdout, stderr = self.kali_env_resource.run_command(check_command)
         self.assertEqual(stdout.strip(), "")
         self.assertEqual(stderr.strip(), "")
 
