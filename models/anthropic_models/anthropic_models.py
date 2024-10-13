@@ -37,3 +37,9 @@ class AnthropicModels(ModelProvider):
     def decode(self, model: str, tokens: List[int]) -> str:
         raise NotImplementedError(
             "Decoding tokens is not supported for Anthropic models")
+    
+    def get_num_tokens(self, model: str, message: str) -> int:
+        token_count = self.client.count_tokens(
+            message
+        )  # Note: This isn't accurate for newer Anthropic models (i.e. Claude 3 or later) and can only be obtained in model response usage property.
+        return token_count

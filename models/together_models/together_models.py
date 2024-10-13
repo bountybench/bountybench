@@ -52,3 +52,8 @@ class TogetherModels(ModelProvider):
         raise NotImplementedError(
             "Decoding tokens is not supported for Together models"
         )
+
+    def get_num_tokens(self, model: str, message: str) -> int:
+        raise NotImplementedError(
+            "Getting number of tokens is not supported for Together models"
+        )
