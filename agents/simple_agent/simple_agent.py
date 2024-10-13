@@ -33,11 +33,9 @@ class SimpleExecutorAgent(BaseAgent):
         if KaliEnvResource in self.resource_dict:
             self.kali_env = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
         else:
-            volumes = {
-                self.work_dir: {"bind": "/app/", "mode": "rw"},
-            }
-            self.command_executor = KaliEnvResource(name="simple-executor-container", volumes=volumes)
-            self.resource_dict['kali_linux_resource'] = self.command_executor 
+            # kill the agent if no kali env is found - this should have happened earlier in the workflow
+            # logging.error("KaliEnvResource not found in resource_dict. Terminating the agent.")
+            raise RuntimeError("Required resource KaliEnvResource is missing. Agent cannot start.")
     
     def run(self, responses: List[Response]) -> Response:        
         if len(responses) > 1:
@@ -121,7 +119,7 @@ class SimpleExecutorAgent(BaseAgent):
 
         try:
             # Use DockerHelper to execute the command inside the container
-            stdout, stderr = self.command_executor.run_command(
+            stdout, stderr = self.kali_env.run_command(
                 command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/"
             )
 
