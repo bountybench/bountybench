@@ -1,21 +1,41 @@
-from typing import Optional
 from collections import defaultdict
+from resources.resource import BaseResource
 
 #does it inherit from dict?
 # given this is a singleton, make it do little work besides 
 # in future rather than __get_tiem,mabye separate and just a single instruction because of multithreading
 class ResourceDict():
-    def __init__():
+    def __init__(self):
         self.id_to_resource = dict()
         self.resource_type_to_resources = defaultdict(list)
 
-    def get_items_of_resource_type()
-        if key is a resource class:
-            if self_resource_type_to_resources[key]:
-                return self_resource_type_to_resources[key]
+    def get_items_of_resource_type(self, key):
+        if issubclass(key, BaseResource):
+            if key in self.resource_type_to_resources:
+                return self.resource_type_to_resources[key]
             return None
+        raise Exception("key is not a resource class")
  
-    def delete_items_of_resource_type()
+    def delete_items_of_resource_type(self, key):
+        if key in self.resource_type_to_resources:
+            # Remove the resources from id_to_resource
+            for resource in self.resource_type_to_resources[key]:
+                resource_id = resource.resource_id
+                if resource_id in self.id_to_resource:
+                    del self.id_to_resource[resource_id]
+                    
+            del self.resource_type_to_resources[key]
+
+    def delete_items(self, key):
+        if key in self.id_to_resource:
+            resource = self.id_to_resource[key]
+            resource_type = type(resource) 
+            del self.id_to_resource[key]
+            if resource_type in self.resource_type_to_resources:
+                self.resource_type_to_resources[resource_type].remove(resource)
+                # If no more resources of this type, remove the key
+                if not self.resource_type_to_resources[resource_type]:
+                    del self.resource_type_to_resources[resource_type]
 
     def __get_item__(self, key):
         return self.id_to_resource[key]
@@ -25,7 +45,6 @@ class ResourceDict():
         # make sure to update both dicts each time
         self.id_to_resource[key] = value
         self.resource_type_to_resources[key].append(value)
-
 
 
     """
@@ -75,7 +94,6 @@ There are several ways to implement a Singleton pattern in Python. Here are some
 
 ```python
 def singleton(cls):
-    """Decorator for making a class a Singleton."""
     instances = {}
 
     def wrapper(*args, **kwargs):
@@ -109,7 +127,6 @@ print(settings1 is settings2)  # Output: True
 
 ```python
 class SingletonMeta(type):
-    """MetaClass for Singletons."""
     _instances = {}
 
     def __call__(cls, *args, **kwargs):
