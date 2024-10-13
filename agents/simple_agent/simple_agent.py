@@ -57,7 +57,7 @@ class SimpleExecutorAgent(BaseAgent):
         self.config = config
         self.work_dir = None
 
-        if KaliEnvResource in self.resource_dict:
+        if KaliEnvResource in self.resource_dict.resource_type_to_resources:
             self.kali_env = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
         else:
             # kill the agent if no kali env is found - this should have happened earlier in the workflow
