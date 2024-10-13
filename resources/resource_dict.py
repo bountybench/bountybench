@@ -10,11 +10,11 @@ class ResourceDict(dict):
         self.resource_type_to_resources = defaultdict(list)
 
     def get_items_of_resource_type(self, key):
-        if issubclass(key, BaseResource):
-            if key in self.resource_type_to_resources:
-                return self.resource_type_to_resources[key]
-            return None
-        raise Exception("key is not a resource class")
+        # if issubclass(key, BaseResource):
+        if key in self.resource_type_to_resources:
+            return self.resource_type_to_resources[key]
+        return None
+        # raise Exception("key is not a resource class")
  
     def delete_items_of_resource_type(self, key):
         if key in self.resource_type_to_resources:
