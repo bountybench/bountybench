@@ -1,6 +1,6 @@
-from responses.response import Response
+from abc import ABC
 
-class AnswerResponseInterface(Response):
+class AnswerResponseInterface(ABC):
     @classmethod
     def __subclasshook__(cls, subclass):
         if cls is AnswerResponseInterface:
