@@ -1,8 +1,7 @@
 from agents.base_agent import BaseAgent
 from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
 from agents.dataclasses.agent_spec import AgentConfig
-# from chat_chain import ChatChain
-import os
+from chat_chain import ChatChain
 from typing import List
 
 from models.query import query
@@ -28,7 +27,7 @@ class SimpleExecutorAgent(BaseAgent):
     config: AgentConfig
     prompt: str = INITIAL_PROMPT
     memory: List[str] = []
-    # chat_chain: ChatChain = field(default_factory=ChatChain)
+    chat_chain: ChatChain = field(default_factory=ChatChain)
 
     def __init__(self, config: AgentConfig):
         super().__init__()
@@ -44,11 +43,15 @@ class SimpleExecutorAgent(BaseAgent):
         if len(responses) > 1:
             return Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
         if len(responses) == 0:
-            return self.execute()
+            response = self.execute()
+            self.chat_chain.log(response)
+            return response
         response = responses[0]
         if issubclass(response.__class__, CommandResponseInterface):
             self.formulate_prompt(response)
-            return self.execute()
+            response = self.execute()
+            self.chat_chain.log(response)
+            return response
         else:
             raise Exception('Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
 
