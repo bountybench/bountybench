@@ -92,7 +92,7 @@ class SimpleExecutorAgent(BaseAgent):
             self.memory.append(executor_response.response)
 
         truncated_input = self._truncate_input_to_max_tokens(
-            str(self.memory)
+            "\n".join(self.memory)
         )
         prompt = self.initial_prompt + truncated_input
         self.prompt = prompt
