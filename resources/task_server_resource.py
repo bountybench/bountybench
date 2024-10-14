@@ -1,8 +1,43 @@
-class TaskServerResource(Resource):
-    def __init__(task_repo_dir):
-        self.resource_id = task_repo_dir
-        "./start_docker.sh"
+import logging
+from resources.base_resource import BaseResource
+import subprocess
+import os
 
-    def stop():
-        "./stop_docker.sh"
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger: logging.Logger = logging.getLogger(__name__)
+
+
+
+class TaskServerResource(BaseResource):
+    """Task Server Resource"""
+
+    def __init__(self, task_repo_dir: str, server_address: str):
+        self.resource_id = server_address 
+        self.task_repo_dir = task_repo_dir
+        self.start()
+    
+    def start(self):
+
+        start_docker_path = os.path.join(self.task_repo_dir, 'start_docker.sh')
+
+        try:
+            result = subprocess.run([start_docker_path], check=True, capture_output=True, text=True)
+            
+            # Print the output
+            logger.info("Spun up task server at {self.resource_id}. Here is output:", result.stdout)
+        except subprocess.CalledProcessError as e:
+            # Handle errors
+            logger.info("Unable to spin up task server at {self.resource_id}. Here is error:", e.stderr)
+
+    def stop(self) -> None:
+        stop_docker_path = os.path.join(self.task_repo_dir, 'stop_docker.sh')
+        try:
+            result = subprocess.run([stop_docker_path], check=True, capture_output=True, text=True)
+            
+            logger.info("Stopping task server at {self.resource_id}. Here is output:", result.stdout)
+        except subprocess.CalledProcessError as e:
+            # Handle errors
+            logger.info("Unable to stop task server at {self.resource_id}. Here is error:", e.stderr)
 
