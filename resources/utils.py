@@ -70,10 +70,6 @@ def docker_network_exists(network_name):
     return exists
 
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
 def read_repo_metadata(task_repo_dir: str) -> dict[str, Union[str, dict]]:
     repo_metadata_file_path = os.path.join(
         task_repo_dir, "metadata/metadata.json")
