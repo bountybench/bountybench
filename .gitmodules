@@ -1,0 +1,3 @@
+[submodule "cybounty"]
+	path = cybounty
+	url = https://github.com/cybench/cybounty.git
