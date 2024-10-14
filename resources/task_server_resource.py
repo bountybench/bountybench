@@ -28,7 +28,7 @@ class TaskServerResource(BaseResource):
         self.resource_id = server_address
         self.task_repo_dir = task_repo_dir
         self.host_name = hostname
-        self.healthy_check_timeout = 120
+        self.health_check_timeout = 120
         self.start()
 
         resource_dict[self.resource_id] = self
