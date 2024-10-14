@@ -35,7 +35,6 @@ TIMEOUT_PER_COMMAND = 120
 MAX_HELM_RETRIES = 3
 RETRY_DELAY = 30
 TEMPERATURE = 0.5
-RESPONSES_TO_KEEP = 
 
 class SimpleExecutorAgent(BaseAgent):
     config: AgentConfig
