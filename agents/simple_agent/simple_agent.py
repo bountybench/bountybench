@@ -75,7 +75,7 @@ class SimpleExecutorAgent(BaseAgent):
             self.memory.append(executor_response.response)
         
         # Convert memory list to string before concatenating with INITIAL_PROMPT
-        prompt = INITIAL_PROMPT + ''.join(str(item) for item in self.memory)
+        prompt = self.inital_prompt + ''.join(str(item) for item in self.memory)
         self.prompt = prompt
         return prompt
 
