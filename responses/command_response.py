@@ -1,5 +1,6 @@
 from responses.command_response_interface import  CommandResponseInterface
 from responses.parse_response import parse_field
+from responses.observation import Observation
 
 class CommandResponse(CommandResponseInterface):
     def __init__(self, response: str) -> None:
@@ -27,6 +28,6 @@ class CommandResponse(CommandResponseInterface):
             raise Exception("Observation is missing or the command has not been executed yet.")
         return self._observation
 
-    def set_observation(self, observation: str) -> None:
+    def set_observation(self, observation: Observation) -> None:
         self._observation = observation
-        self._response += f"\nObservation: {observation}"
+        self._response += f"\nObservation: {observation.raw_output}"
