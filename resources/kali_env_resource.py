@@ -254,7 +254,7 @@ class KaliEnvResource(BaseResource):
                 # Log the netcat command output
                 logger.info(
                     f"Netcat check output: {stdout}\n {stderr}")
-                if "open" in stdout:
+                if "open" in stderr:
                     return True
                 else:
                     logger.error(f"Netcat check failed for {hostname}:{port}")
