@@ -23,7 +23,7 @@ class TestSimpleExecutorAgent(unittest.TestCase):
             max_input_tokens=100,
             max_iterations=3,
             max_response_len=3,
-            use_helm=False
+            use_helm=True
         )
 
         # Initialize the agent
