@@ -4,6 +4,7 @@ from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.simple_agent.simple_agent import SimpleExecutorAgent
+from resources.init_files_resource import InitFilesResource
 from resources.utils import *
 from responses.answer_response_interface import AnswerResponseInterface
 
@@ -54,12 +55,12 @@ def main() -> None:
     if not docker_network_exists(network_name):
         logger.info(f"Creating Docker network: {network_name}")
         run_command(["docker", "network", "create", network_name])
-
     # Read metadata
     repo_metadata = read_repo_metadata(task_repo_dir)
 
-    bounty_metadata = read_bounty_metadata(
-        task_repo_dir, bounty_number)
+    bounty_metadata = read_bounty_metadata(task_repo_dir, bounty_number)
+
+    InitFilesResource(task_repo_dir, bounty_metadata.tmp_dir)
 
    # TODO: Implement the function to actually run the workflow
 

@@ -1,4 +1,6 @@
+import atexit
 import logging
+from resources.resource_dict import resource_dict
 from resources.base_resource import BaseResource
 import subprocess
 import os
@@ -13,12 +15,15 @@ logger: logging.Logger = logging.getLogger(__name__)
 class TaskServerResource(BaseResource):
     """Task Server Resource"""
 
-    def __init__(self, task_repo_dir: str, server_address: str):
+    def __init__(self, task_repo_dir: str, server_address: str) -> None:
         self.resource_id = server_address 
         self.task_repo_dir = task_repo_dir
         self.start()
+
+        resource_dict[self.resource_id] = self
+        atexit.register(self.stop)
     
-    def start(self):
+    def start(self) -> None:
 
         start_docker_path = os.path.join(self.task_repo_dir, 'start_docker.sh')
 

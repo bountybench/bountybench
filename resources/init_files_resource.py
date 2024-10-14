@@ -1,8 +1,10 @@
+import atexit
 import logging
 import os
 import subprocess
 import sys
 
+from resources.resource_dict import resource_dict
 from resources.base_resource import BaseResource
 
 # Configure logging
@@ -19,7 +21,10 @@ class InitFilesResource(BaseResource):
         self.tmp_dir = tmp_dir
         self.start()
 
-    def start(self):
+        resource_dict[self.resource_id] = self
+        atexit.register(self.stop)
+
+    def start(self) -> None:
         """
         Run the initialization script for the task.
         """
