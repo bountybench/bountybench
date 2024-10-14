@@ -2,7 +2,10 @@ import argparse
 import logging
 from pathlib import Path
 
+from agents.dataclasses.agent_spec import AgentConfig
+from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from resources.utils import *
+from responses.answer_response_interface import AnswerResponseInterface
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +31,15 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
+def check_response_answer(response: AnswerResponseInterface, answer: str) -> str:
+    """
+    Check the response answer and return the appropriate message
+    """
+    if response.answer == answer:
+        return "The answer is yes"
+    else:
+        return "The answer is no"
+
 
 def main() -> None:
     args = parse_args()
@@ -50,6 +62,25 @@ def main() -> None:
         task_repo_dir, bounty_number)
 
    # TODO: Implement the function to actually run the workflow
+
+    agent_config: AgentConfig = AgentConfig(
+        model='openai/gpt-4o-2024-05-13',
+        max_output_tokens=2000,
+        max_input_tokens=6000,
+        max_iterations=15,
+        max_response_len=3,
+        helm=True
+    )
+
+    agent = SimpleExecutorAgent(agent_config)
+
+    response = agent.run()
+
+    for _ in range(agent_config.max_iterations):
+        response = agent.run(response)
+        if issubclass(response.__class__, AnswerResponseInterface):
+            logger.info(check_response_answer(response))
+            break
 
 
 if __name__ == "__main__":
