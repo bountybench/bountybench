@@ -56,7 +56,9 @@ class SimpleExecutorAgent(BaseAgent):
         self.prompt = self.initial_prompt
 
         if KaliEnvResource in self.resource_dict.resource_type_to_resources:
-            self.kali_env = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
+            self.kali_env: KaliEnvResource = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
+            if kwargs.get("target_host", ""):
+                self.kali_env.health_check(kwargs.get("target_host", ""))
         else:
             # kill the agent if no kali env is found - this should have happened earlier in the workflow
             raise RuntimeError("KaliEnvResource not found in resource_dict. Agent cannot start.")
