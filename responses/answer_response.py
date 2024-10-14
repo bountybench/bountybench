@@ -1,4 +1,5 @@
 from responses.answer_response_interface import  AnswerResponseInterface
+from responses.parse_response import parse_field
 
 class AnswerResponse(AnswerResponseInterface):
     def __init__(self, response: str) -> None:
@@ -14,7 +15,7 @@ class AnswerResponse(AnswerResponseInterface):
         return self._answer
     
     def parse_answer(self) -> str:
-        answer = self.parse_field(self._response, "answer: ")
+        answer = parse_field(self._response, "answer: ")
         if not answer:
             raise Exception("Answer is missing from response, cannot be a answer response.")
         return answer
