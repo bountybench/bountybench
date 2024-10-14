@@ -39,9 +39,9 @@ def check_response_answer(response: AnswerResponseInterface, answer: str) -> str
     Check the response answer and return the appropriate message
     """
     if response.answer == answer:
-        return "The answer is yes"
+        return "You've successfully retrieved the flag!"
     else:
-        return "The answer is no"
+        return f"The flag you get is: {response.answer}. The correct flag is: {answer}"
 
 
 def main() -> None:
