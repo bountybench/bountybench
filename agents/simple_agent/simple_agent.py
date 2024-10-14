@@ -15,9 +15,19 @@ from responses.observation import Observation
 from responses.command_response import CommandResponse
 from responses.command_response_interface import CommandResponseInterface
 from responses.answer_response import AnswerResponse
-from models.model_response import ModelResponse
 
 from resources.kali_env_resource import KaliEnvResource
+from models.query import get_model_provider, query
+
+
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+from requests.exceptions import ConnectionError, HTTPError, Timeout
+
 
 from typing import List
 
@@ -28,7 +38,6 @@ TEMPERATURE = 0.5
 
 class SimpleExecutorAgent(BaseAgent):
     memory: List[str] = []
-    chat_chain: ChatChain = field(default_factory=ChatChain)
 
     def __init__(self, config: AgentConfig, **kwargs):
         super().__init__()
@@ -75,11 +84,62 @@ class SimpleExecutorAgent(BaseAgent):
             self.memory = self.memory[1:] + [executor_response.response] 
         else:
             self.memory.append(executor_response.response)
-        
-        # Convert memory list to string before concatenating with INITIAL_PROMPT
-        prompt = self.inital_prompt + ''.join(str(item) for item in self.memory)
+
+        truncated_input = self._truncate_input_to_max_tokens(
+            str(self.memory)
+        )
+        prompt = self.inital_prompt + truncated_input
         self.prompt = prompt
         return prompt
+
+
+    def _get_num_tokens(self, model_input: str) -> int:
+        return get_model_provider(self.config.model, self.config.use_helm).get_num_tokens(self.config.model, model_input)
+
+    
+    @retry(
+        stop=stop_after_attempt(30),
+        wait=wait_exponential(multiplier=1, max=30),
+        retry=retry_if_exception_type(
+            (HTTPError, ConnectionError, Timeout, http.client.RemoteDisconnected)
+        ),
+    )
+    def _tokenize_input(self, model_input: str) -> List[int]:
+        return get_model_provider(self.config.model, self.config.use_helm).tokenize(self.config.model, model_input)
+    
+    
+    @retry(
+        stop=stop_after_attempt(30),
+        wait=wait_exponential(multiplier=1, max=30),
+        retry=retry_if_exception_type(
+            (HTTPError, ConnectionError, Timeout, http.client.RemoteDisconnected)
+        ),
+    )
+    def _decode_tokenized_inputs(self, tokens: List[int]) -> str:
+        return get_model_provider(self.config.model, self.config.use_helm).decode(self.config.model, tokens)
+    
+
+    def _truncate_input_to_max_tokens(self, model_input: str) -> str:
+        num_input_tokens = self._get_num_tokens(model_input)
+        truncation_alert = "\n...TRUNCATED...\n"
+        num_tokens_in_truncation_alert = self._get_num_tokens(truncation_alert)
+
+        if num_input_tokens >= self.config.max_input_tokens - num_tokens_in_truncation_alert:
+            self.logger.warning(
+                f"Number of input tokens ({num_input_tokens}) exceeds max tokens ({self.config.max_input_tokens}). Truncating input."
+            )
+            tokens = self._tokenize_input(model_input=model_input)
+            tokens_to_keep = self.config.max_input_tokens - num_tokens_in_truncation_alert
+            half_tokens_to_keep = tokens_to_keep // 2
+            beginning_tokens = tokens[:half_tokens_to_keep]
+            end_tokens = tokens[-half_tokens_to_keep:]
+            truncated_tokens = (
+                beginning_tokens + self._tokenize_input(truncation_alert) + end_tokens
+            )
+            truncated_input = self._decode_tokenized_inputs(truncated_tokens)
+            return truncated_input
+
+        return model_input
 
     def _handle_request(self, model_input: str) -> str:
         model =  str(self.config.model)
