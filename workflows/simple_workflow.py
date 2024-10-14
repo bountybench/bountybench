@@ -58,7 +58,7 @@ def main() -> None:
     tmp_dir = "tmp"
     InitFilesResource(task_repo_dir, tmp_dir)
     TaskServerResource(task_repo_dir, repo_metadata["target_host"])
-    KaliEnvResource("KaliEnv", volumes={task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
+    KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
 
     agent_config: AgentConfig = AgentConfig(
         model='openai/gpt-4o-2024-05-13',
