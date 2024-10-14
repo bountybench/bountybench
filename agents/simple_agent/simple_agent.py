@@ -19,6 +19,7 @@ from responses.answer_response import AnswerResponse
 
 from resources.kali_env_resource import KaliEnvResource
 from models.query import get_model_provider, query
+from models.model_response import ModelResponse
 
 
 from tenacity import (
@@ -61,11 +62,13 @@ class SimpleExecutorAgent(BaseAgent):
                 self.kali_env.health_check(kwargs.get("target_host", ""))
         else:
             # kill the agent if no kali env is found - this should have happened earlier in the workflow
-            raise RuntimeError("KaliEnvResource not found in resource_dict. Agent cannot start.")
+            logger.error("KaliEnvResource not found in resource_dict. Terminating Agent.")
+            raise RuntimeError("KaliEnvResource not set up. Agent cannot start.")
     
     def run(self, responses: List[Response]) -> Response:        
         if len(responses) > 1:
             return Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
+        # Case for first run, no response(s) to pass in
         if len(responses) == 0:
             return self.execute()
         response = responses[0]
@@ -133,7 +136,7 @@ class SimpleExecutorAgent(BaseAgent):
         num_tokens_in_truncation_alert = self._get_num_tokens(truncation_alert)
 
         if num_input_tokens >= self.config.max_input_tokens - num_tokens_in_truncation_alert:
-            self.logger.warning(
+            logger.warning(
                 f"Number of input tokens ({num_input_tokens}) exceeds max tokens ({self.config.max_input_tokens}). Truncating input."
             )
             tokens = self._tokenize_input(model_input=model_input)
@@ -150,12 +153,14 @@ class SimpleExecutorAgent(BaseAgent):
         return model_input
 
     def _handle_request(self, model_input: str) -> str:
+        logger.debug(f"Sending request to model {self.config.model} with input: {model_input}")
+
         model =  str(self.config.model)
         temperature = 1 if "o1" in model else TEMPERATURE
         max_tokens = self.config.max_output_tokens
         stop_sequences = [] if "o1" in model else [STOP_TOKEN]
 
-        model_response = query(
+        model_response: ModelResponse = query(
             model=model,
             message=model_input,
             temperature=temperature,
@@ -176,11 +181,11 @@ class SimpleExecutorAgent(BaseAgent):
         try:
             return AnswerResponse(response)
         except:
-            # print(f"Failed to parse as AnswerResponse")
+            logger.debug("LM response not an AnswerResponse type. Attempting to parse as CommandResponse.")
             try:
                 return CommandResponse(response)
             except:
-                # print(f"Failed to parse as CommandResponse")
+                logger.debug("LM response not an CommandResponse type.")
                 raise Exception("Response could not be parsed as either an Answer or Command response.")
 
     def call_lm(self) -> Response:
@@ -196,7 +201,7 @@ class SimpleExecutorAgent(BaseAgent):
             try:
                 return self._parse_response(lm_response)
             except Exception as e:
-                logger.error(f"Error: {str(e)}. Retrying...")
+                logger.warning(f"Retrying {iterations}/{self.config.max_iterations} after error: {e}")
                 iterations += 1
 
         # Raise an exception if it exhausts the retries
@@ -216,13 +221,17 @@ class SimpleExecutorAgent(BaseAgent):
 
             # Check for command execution without errors, even if no stdout was produced
             if stdout.strip():
-                return Observation(f"Command succeeded: {stdout}")
+                logger.info(f"Command succeeded: {stdout}")
+                return Observation(stdout)
             elif stderr.strip():
                 # No stdout but there's stderr (may be an error or just output in stderr)
-                return Observation(f"Command failed with error: {stderr}")
+                logger.error(f"Command failed with error: {stderr}")
+                return Observation(stderr)
             else:
                 # Neither stdout nor stderr indicates an empty but successful execution
-                return Observation("Command succeeded with no output")
+                logger.info("Command succeeded with no output")
+                return Observation("")
         except Exception as e:
             # If an actual exception occurred during execution, log it as a failure
-            return Observation(f"Command execution failed: {str(e)}")
+            logger.exception(f"Failed to execute command: {command}. Exception: {str(e)}")
+            return Observation(str(e))
