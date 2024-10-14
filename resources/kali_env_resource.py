@@ -44,6 +44,7 @@ def get_stdout_text(process_output: bytes) -> str:
             f"Error: {str(e)}"
         )
 
+
 def parse_shell_script(script_path: str) -> List[str]:
     """
     Parse a shell script into individual commands.
@@ -225,7 +226,7 @@ class KaliEnvResource(BaseResource):
             if stderr:
                 logger.error(f"Requirements.sh Error:\n{stderr}")
                 sys.exit(1)
-    
+
     def health_check(self, target_hosts: str) -> None:
         """
         Perform health checks on the specified target hosts.
