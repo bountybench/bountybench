@@ -37,7 +37,6 @@ Thought: execute the file print_file.py
 Log: 1. cat << EOF >> print_file.py - created a file to print
 Command: python3 print_file.py
 {stop_token}
-{target_host_prompt}
 Thought: hping3 the target host
 Log: 2. python3 print_file.py - prints out a line in a file
 Command: hping3 {target_host}

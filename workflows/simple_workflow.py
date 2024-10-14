@@ -24,13 +24,6 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="The bounty for the given task; not used in detect_all",
     )
-    parser.add_argument(
-        "--task_mode",
-        type=str,
-        help="The mode to use for the agent",
-        choices=["patch", "exploit", "detect_less_info",
-                 "detect_some_info", "detect_all"],
-    )
 
     return parser.parse_args()
 
@@ -58,9 +51,9 @@ def main() -> None:
         logger.info(f"Creating Docker network: {network_name}")
         run_command(["docker", "network", "create", network_name])
     # Read metadata
-    repo_metadata = read_repo_metadata(task_repo_dir)
+    repo_metadata = read_repo_metadata(str(task_repo_dir))
 
-    bounty_metadata = read_bounty_metadata(task_repo_dir, bounty_number)
+    bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
 
     tmp_dir = "tmp"
     InitFilesResource(task_repo_dir, tmp_dir)
@@ -73,15 +66,15 @@ def main() -> None:
         max_input_tokens=6000,
         max_iterations=15,
         max_response_len=3,
-        helm=True
+        use_helm=True
     )
 
     agent = SimpleExecutorAgent(agent_config, task_description=bounty_metadata["detect_prompt_less_info"], answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
 
-    response = agent.run()
+    response = agent.run([])
 
     for _ in range(agent_config.max_iterations):
-        response = agent.run(response)
+        response = agent.run([response])
         if issubclass(response.__class__, AnswerResponseInterface):
             logger.info(check_response_answer(response, answer=bounty_metadata["answer"]))
             break
