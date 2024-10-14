@@ -4,7 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 
-from models.openai_models import OpenAIModels
+from models.openai_models.openai_models import OpenAIModels
 
 
 class AzureOpenAIModels(OpenAIModels):
