@@ -15,7 +15,6 @@ from responses.observation import Observation
 from responses.command_response import CommandResponse
 from responses.command_response_interface import CommandResponseInterface
 from responses.answer_response import AnswerResponse
-from models.model_response import ModelResponse
 
 from resources.kali_env_resource import KaliEnvResource
 from models.query import get_model_provider, query
@@ -90,7 +89,7 @@ class SimpleExecutorAgent(BaseAgent):
         truncated_input = self._truncate_input_to_max_tokens(
             str(self.memory)
         )
-        prompt = INITIAL_PROMPT + truncated_input
+        prompt = self.inital_prompt + truncated_input
         self.prompt = prompt
         return prompt
 
