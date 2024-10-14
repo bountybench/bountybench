@@ -5,6 +5,8 @@ from pathlib import Path
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from resources.init_files_resource import InitFilesResource
+from resources.kali_env_resource import KaliEnvResource
+from resources.task_server_resource import TaskServerResource
 from resources.utils import *
 from responses.answer_response_interface import AnswerResponseInterface
 
@@ -60,7 +62,10 @@ def main() -> None:
 
     bounty_metadata = read_bounty_metadata(task_repo_dir, bounty_number)
 
-    InitFilesResource(task_repo_dir, bounty_metadata.tmp_dir)
+    tmp_dir = "tmp"
+    InitFilesResource(task_repo_dir, tmp_dir)
+    TaskServerResource(task_repo_dir, repo_metadata["target_host"])
+    KaliEnvResource("KaliEnv", volumes={task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
 
    # TODO: Implement the function to actually run the workflow
 
