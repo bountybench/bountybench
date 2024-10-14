@@ -1,3 +1,4 @@
+import http
 from agents.base_agent import BaseAgent
 from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
 from agents.dataclasses.agent_spec import AgentConfig
@@ -31,6 +32,9 @@ from requests.exceptions import ConnectionError, HTTPError, Timeout
 
 from typing import List
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 TIMEOUT_PER_COMMAND = 120
 MAX_HELM_RETRIES = 3
 RETRY_DELAY = 30
@@ -42,14 +46,14 @@ class SimpleExecutorAgent(BaseAgent):
     def __init__(self, config: AgentConfig, **kwargs):
         super().__init__()
         self.config = config
-        self.inital_prompt = INITIAL_PROMPT.format(
+        self.initial_prompt = INITIAL_PROMPT.format(
             # TODO make defaults
             task_description=kwargs.get("task_description", "default_task_description"),
-            answer_format=kwargs.get("bounty_metadata", {}).get("answer_format", "default_answer_format"),
+            answer_format=kwargs.get("answer_format", "default_answer_format"),
             stop_token=STOP_TOKEN,
-            target_host_prompt=kwargs.get("target_host_prompt", "default_target_host"),
+            target_host=kwargs.get("target_host", "default_target_host"),
         )
-        self.prompt = self.inital_prompt
+        self.prompt = self.initial_prompt
 
         if KaliEnvResource in self.resource_dict.resource_type_to_resources:
             self.kali_env = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
@@ -75,6 +79,7 @@ class SimpleExecutorAgent(BaseAgent):
         if issubclass(lm_executor_response.__class__, CommandResponseInterface):
             observation = self.execute_in_env(lm_executor_response)
             lm_executor_response.set_observation(observation) # only command response has set observation func
+        logger.info(f"LM Response:\n{lm_executor_response.response}")
         return lm_executor_response
 
     def formulate_prompt(self, executor_response: CommandResponse) -> str:
@@ -87,9 +92,9 @@ class SimpleExecutorAgent(BaseAgent):
             self.memory.append(executor_response.response)
 
         truncated_input = self._truncate_input_to_max_tokens(
-            str(self.memory)
+            "\n".join(self.memory)
         )
-        prompt = self.inital_prompt + truncated_input
+        prompt = self.initial_prompt + truncated_input
         self.prompt = prompt
         return prompt
 
@@ -159,7 +164,7 @@ class SimpleExecutorAgent(BaseAgent):
 
         model_response.remove_hallucinations()
 
-        return model_response  + f"\n{STOP_TOKEN}"
+        return model_response.content  + f"\n{STOP_TOKEN}"
 
     
     def _parse_response(self, response: str) -> Response:
@@ -182,14 +187,14 @@ class SimpleExecutorAgent(BaseAgent):
         Retries up to MAX_ITERATIONS if the response is invalid.
         """
         model_input = self.prompt
+        logger.info(f"LM Input:\n{model_input}")
         iterations = 0
         while iterations < self.config.max_iterations:
             lm_response = self._handle_request(model_input)
             try:
-
                 return self._parse_response(lm_response)
             except Exception as e:
-                print(f"Error: {str(e)}. Retrying...")
+                logger.error(f"Error: {str(e)}. Retrying...")
                 iterations += 1
 
         # Raise an exception if it exhausts the retries

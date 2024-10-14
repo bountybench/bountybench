@@ -16,7 +16,7 @@ from models.model_response import ModelResponse
 class HelmModels(ModelProvider):
     def __init__(self):
         self.authentication = Authentication(
-            api_key=self._get_env_var("HELM_API_KEY"))
+            api_key=self._api_key())
         self.client = self.create_client()
 
     def create_client(self) -> RemoteService:
@@ -85,7 +85,7 @@ class HelmModels(ModelProvider):
     def get_num_tokens(self, model: str, message: str) -> int:
         tokenizer_name = ModelRegistry.get_tokenizer(model)
         request = TokenizationRequest(tokenizer=tokenizer_name, text=message)
-        tokenization_result: TokenizationRequestResult = self.crfm_service.tokenize(
-            self.crfm_auth, request)
+        tokenization_result: TokenizationRequestResult = self.client.tokenize(
+            auth=self.authentication, request=request)
         return len(tokenization_result.tokens)
 
