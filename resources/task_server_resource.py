@@ -140,12 +140,24 @@ class TaskServerResource(BaseResource):
         Returns:
             str: The extracted container name, or None if no name could be found.
         """
+        # This pattern matches "Container <name> <status>"
+        container_name_pattern = re.compile(r"Container\s+([^\s]+)\s+Started")
+
+        # Ensure both stdout and stderr are strings
+        if stdout is None:
+            stdout = ""
+        if stderr is None:
+            stderr = ""
+
+        if not isinstance(stdout, str):
+            stdout = stdout.decode("utf-8") if isinstance(stdout, bytes) else ""
+        if not isinstance(stderr, str):
+            stderr = stderr.decode("utf-8") if isinstance(stderr, bytes) else ""
+
+        # Search in both stdout and stderr for the container name
         output = stdout + stderr
         logger.info("Extracting container name from output...")
 
-        # Use a regular expression to capture container names
-        # This pattern matches "Container <name> <status>"
-        container_name_pattern = re.compile(r"Container (\S+?)\s+(Recreated|Starting|Started|Recreate)", re.IGNORECASE)
         match = container_name_pattern.search(output)
         
         if match:
