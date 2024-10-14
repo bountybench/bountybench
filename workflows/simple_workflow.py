@@ -67,8 +67,6 @@ def main() -> None:
     TaskServerResource(task_repo_dir, repo_metadata["target_host"])
     KaliEnvResource("KaliEnv", volumes={task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
 
-   # TODO: Implement the function to actually run the workflow
-
     agent_config: AgentConfig = AgentConfig(
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
@@ -85,7 +83,7 @@ def main() -> None:
     for _ in range(agent_config.max_iterations):
         response = agent.run(response)
         if issubclass(response.__class__, AnswerResponseInterface):
-            logger.info(check_response_answer(response))
+            logger.info(check_response_answer(response, answer=bounty_metadata["answer"]))
             break
 
 
