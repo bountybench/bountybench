@@ -15,7 +15,7 @@ class AnswerResponse(AnswerResponseInterface):
         return self._answer
     
     def parse_answer(self) -> str:
-        answer = parse_field(self._response, "answer: ")
+        answer = parse_field(self._response, "Answer: ")
         if not answer:
             raise Exception("Answer is missing from response, cannot be a answer response.")
         return answer

@@ -16,7 +16,7 @@ class CommandResponse(CommandResponseInterface):
         return self._command
     
     def parse_command(self) -> str:
-        command = parse_field(self._response, "command: ")
+        command = parse_field(self._response, "Command: ")
         if not command:
             raise Exception("Command is missing from response, cannot be a command response.")
         return command
