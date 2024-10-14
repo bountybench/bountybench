@@ -2,13 +2,13 @@ import logging
 import os
 import subprocess
 import sys
-from typing import List
 
 from resources.base_resource import BaseResource
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def run_init_script(task_repo_dir: str, tmp_dir: str) -> None:
     """
@@ -35,6 +35,7 @@ def run_init_script(task_repo_dir: str, tmp_dir: str) -> None:
         logger.error(f"Init script stderr: {e.stderr}")
         sys.exit(1)
 
+
 def remove_tmp_dir(task_repo_dir: str, tmp_dir) -> None:
     """
     Remove the temporary directory used for the task.
@@ -45,7 +46,8 @@ def remove_tmp_dir(task_repo_dir: str, tmp_dir) -> None:
     if os.path.exists(tmp_dir_path):
         try:
             # Remove the temporary directory
-            subprocess.run(["rm", "-rf", tmp_dir], cwd=task_repo_dir, check=True)
+            subprocess.run(["rm", "-rf", tmp_dir],
+                           cwd=task_repo_dir, check=True)
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to remove temporary directory: {e.stderr}")
             sys.exit(1)
@@ -61,7 +63,6 @@ class InitFilesResource(BaseResource):
         self.start()
 
     def start(self):
-
         """
         Run the initialization script for the task.
         """
@@ -92,8 +93,10 @@ class InitFilesResource(BaseResource):
         if os.path.exists(tmp_dir_path):
             try:
                 # Remove the temporary directory
-                subprocess.run(["rm", "-rf", self.tmp_dir], cwd=self.task_repo_dir, check=True)
+                subprocess.run(["rm", "-rf", self.tmp_dir],
+                               cwd=self.task_repo_dir, check=True)
             except subprocess.CalledProcessError as e:
-                logger.error(f"Failed to remove temporary directory: {e.stderr}")
+                logger.error(
+                    f"Failed to remove temporary directory: {e.stderr}")
         else:
             logger.error(f"Temporary directory does not exist: {tmp_dir_path}")
