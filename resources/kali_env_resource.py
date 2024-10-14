@@ -1,8 +1,10 @@
 import atexit
 import logging
+import os
+import sys
 import threading
 from queue import Queue
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import docker
 from docker.models.containers import Container
@@ -42,11 +44,37 @@ def get_stdout_text(process_output: bytes) -> str:
             f"Error: {str(e)}"
         )
 
+def parse_shell_script(script_path: str) -> List[str]:
+    """
+    Parse a shell script into individual commands.
+    Args:
+        script_path (str): Path to the shell script.
+    Returns:
+        List[str]: A list of commands to execute.
+    """
+    if not os.path.isfile(script_path):
+        raise FileNotFoundError(f"Shell script not found at {script_path}")
+
+    commands = []
+    with open(script_path, 'r') as script_file:
+        for idx, line in enumerate(script_file, start=1):
+            # Remove leading/trailing whitespace
+            stripped_line = line.strip()
+
+            # Skip empty lines and comments
+            if not stripped_line or stripped_line.startswith("#"):
+                continue
+
+            # Add command to the list (assuming one command per line)
+            commands.append(stripped_line)
+
+    return commands
+
 
 class KaliEnvResource(BaseResource):
     """Kali Linux Environment Resource"""
 
-    def __init__(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
+    def __init__(self, name: str, task_repo_dir: str = None, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
         """
         Initialize the Kali Linux Environment with optional volume bindings.
 
@@ -57,6 +85,8 @@ class KaliEnvResource(BaseResource):
         self.client: docker.DockerClient = docker.from_env()
         self.resource_id = name
         self.container: Container = self.start(self.resource_id, volumes)
+        if task_repo_dir:
+            self.run_requirements(task_repo_dir)
 
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
@@ -92,7 +122,7 @@ class KaliEnvResource(BaseResource):
             return container
         except Exception as e:
             logger.error(f"Failed to start Docker container: {e}")
-            raise
+            sys.exit(1)
 
     def stop(self) -> None:
         """
@@ -172,3 +202,26 @@ class KaliEnvResource(BaseResource):
             return stdout, stderr
 
         return "", "Failed to retrieve output from the command."
+
+    def run_requirements(self, task_repo_dir: str) -> None:
+        """
+        Execute any required setup scripts.
+        Args:
+            task_repo_dir (str): Path to the repository directory for the task.
+        """
+        requirements_path = f"{task_repo_dir}/metadata/requirements.sh"
+        if not os.path.isfile(requirements_path):
+            logger.error(f"Requirements file not found at {requirements_path}")
+            sys.exit(1)
+
+        # Parse and execute the requirements script commands
+        requirement_commands = parse_shell_script(requirements_path)
+        for command in requirement_commands:
+            stdout, stderr = self.run_command(command)
+
+            # Log output and error for each command
+            if stdout:
+                logger.info(f"Requirements.sh Output:\n{stdout}")
+            if stderr:
+                logger.error(f"Requirements.sh Error:\n{stderr}")
+                sys.exit(1)
