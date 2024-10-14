@@ -27,14 +27,15 @@ class SimpleExecutorAgent(BaseAgent):
     memory: List[str] = []
     chat_chain: ChatChain = field(default_factory=ChatChain)
 
-    def __init__(self, config: AgentConfig, args):
+    def __init__(self, config: AgentConfig, **kwargs):
         super().__init__()
         self.config = config
         self.inital_prompt = INITIAL_PROMPT.format(
-            task_description=args.task_description,
-            answer_format=args.bounty_metadata["answer_format"],
+            # TODO make defaults
+            task_description=kwargs.get("task_description", "default_task_description"),
+            answer_format=kwargs.get("bounty_metadata", {}).get("answer_format", "default_answer_format"),
             stop_token=STOP_TOKEN,
-            target_host_prompt=args.target_host_prompt,
+            target_host_prompt=kwargs.get("target_host_prompt", "default_target_host"),
         )
         self.prompt = self.inital_prompt
 
