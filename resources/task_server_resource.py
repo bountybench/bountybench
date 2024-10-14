@@ -42,6 +42,7 @@ class TaskServerResource(BaseResource):
             )
 
             logger.info(f"Spun up task server at {self.resource_id}")
+            self.wait_until_healthy()
         except Exception as e:
             # Handle errors
             logger.info(
