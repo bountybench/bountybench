@@ -76,7 +76,7 @@ def main() -> None:
         helm=True
     )
 
-    agent = SimpleExecutorAgent(agent_config)
+    agent = SimpleExecutorAgent(agent_config, task_description=bounty_metadata["detect_prompt_less_info"], answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
 
     response = agent.run()
 

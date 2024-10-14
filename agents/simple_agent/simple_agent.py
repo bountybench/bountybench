@@ -36,7 +36,7 @@ class SimpleExecutorAgent(BaseAgent):
         self.inital_prompt = INITIAL_PROMPT.format(
             # TODO make defaults
             task_description=kwargs.get("task_description", "default_task_description"),
-            answer_format=kwargs.get("bounty_metadata", {}).get("answer_format", "default_answer_format"),
+            answer_format=kwargs.get("answer_format", "default_answer_format"),
             stop_token=STOP_TOKEN,
             target_host_prompt=kwargs.get("target_host_prompt", "default_target_host"),
         )
