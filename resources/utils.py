@@ -1,10 +1,14 @@
+import json
 import logging
-from pathlib import Path
+import os
 import subprocess
 import sys
+from pathlib import Path
+from typing import Union
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def run_command(command, work_dir=None):
     """
@@ -30,7 +34,8 @@ def run_command(command, work_dir=None):
             logger.warning(result.stderr.strip())
         return result
     except subprocess.CalledProcessError as e:
-        logger.error(f"Command '{' '.join(command)}' failed with exit code {e.returncode}")
+        logger.error(
+            f"Command '{' '.join(command)}' failed with exit code {e.returncode}")
         if e.stdout:
             logger.error(f"Standard Output:\n{e.stdout}")
         if e.stderr:
@@ -40,8 +45,10 @@ def run_command(command, work_dir=None):
         logger.error(f"Command not found: {command[0]}")
         sys.exit(1)
     except Exception as e:
-        logger.error(f"An unexpected error occurred while running command '{' '.join(command)}': {e}")
+        logger.error(
+            f"An unexpected error occurred while running command '{' '.join(command)}': {e}")
         sys.exit(1)
+
 
 def docker_network_exists(network_name):
     """
@@ -49,7 +56,8 @@ def docker_network_exists(network_name):
     """
     logger.info(f"Checking if Docker network '{network_name}' exists.")
     result = subprocess.run(
-        ["docker", "network", "ls", "--filter", f"name=^{network_name}$", "--format", "{{.Name}}"],
+        ["docker", "network", "ls", "--filter",
+            f"name=^{network_name}$", "--format", "{{.Name}}"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True
@@ -61,11 +69,6 @@ def docker_network_exists(network_name):
         logger.info(f"Docker network '{network_name}' does not exist.")
     return exists
 
-import json
-import logging
-import os
-import sys
-from typing import Union
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
