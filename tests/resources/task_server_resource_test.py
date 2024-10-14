@@ -11,31 +11,6 @@ STOP_SCRIPT = TEST_DIR / "stop_docker.sh"
 DOCKER_COMPOSE = TEST_DIR / "docker-compose.yml"
 
 class TestTaskServerResource(unittest.TestCase):
-    @patch('resources.task_server_resource.run_command')
-    def test_start_and_stop_task_server(self, mock_run_command):
-        """
-        Test starting and stopping the task server using TaskServerResource.
-        """
-        # Mock run_command to simulate Docker commands
-        mock_run_command.side_effect = [
-            MagicMock(stdout="Task server started"),
-            MagicMock(stdout='"starting"'),  # Simulate the container is starting
-            MagicMock(stdout='"healthy"'),   # Simulate the container became healthy
-            MagicMock(stdout="Task server stopped"),
-        ]
-
-        # Instantiate TaskServerResource
-        server_address = "localhost:8080"
-        resource = TaskServerResource(str(TEST_DIR), server_address)
-
-        # Call stop method to ensure it works as expected
-        resource.stop()
-        print(f"Mock run_command calls: {mock_run_command.call_args_list}")
-
-
-        # Assert that run_command was called with the start and stop commands
-        mock_run_command.assert_any_call(command=["./start_docker.sh"], work_dir=str(TEST_DIR))
-        mock_run_command.assert_any_call(command=["./stop_docker.sh"], work_dir=str(TEST_DIR))
 
     def test_start_and_stop_task_server(self):
         """
