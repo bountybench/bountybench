@@ -40,6 +40,7 @@ class SimpleExecutorAgent(BaseAgent):
     config: AgentConfig
     prompt: str = INITIAL_PROMPT
     memory: List[str] = []
+    truncated_memory: List[str] = []
 
     def __init__(self, config: AgentConfig):
         super().__init__()
@@ -79,9 +80,14 @@ class SimpleExecutorAgent(BaseAgent):
             self.memory = self.memory[1:] + [executor_response.response] 
         else:
             self.memory.append(executor_response.response)
-        
-        # Convert memory list to string before concatenating with INITIAL_PROMPT
-        prompt = INITIAL_PROMPT + ''.join(str(item) for item in self.memory)
+            
+        self._truncate_chat_chain()
+
+        truncated_input = self._truncate_input_to_max_tokens(
+            str(self.truncated_chat_chain)
+        )
+
+        prompt = INITIAL_PROMPT + truncated_input
         self.prompt = prompt
         return prompt
 
