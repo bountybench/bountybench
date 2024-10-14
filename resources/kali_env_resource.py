@@ -225,7 +225,6 @@ class KaliEnvResource(BaseResource):
                 logger.info(f"Requirements.sh Output:\n{stdout}")
             if stderr:
                 logger.error(f"Requirements.sh Error:\n{stderr}")
-                sys.exit(1)
 
     def health_check(self, target_hosts: str) -> None:
         """
