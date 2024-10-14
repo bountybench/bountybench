@@ -42,11 +42,12 @@ class TaskServerResource(BaseResource):
             )
 
             logger.info(f"Spun up task server at {self.resource_id}")
-            self.wait_until_healthy()
         except Exception as e:
             # Handle errors
-            logger.info(
+            logger.error(
                 f"Unable to spin up task server at {self.resource_id}.")
+            sys.exit(1)
+        self.wait_until_healthy()
 
     def stop(self) -> None:
         try:
@@ -59,7 +60,7 @@ class TaskServerResource(BaseResource):
         except Exception as e:
             # Handle errors
             logger.info(
-                f"Unable to stop task server at {self.resource_id}. Here is error:", e.stderr)
+                f"Unable to stop task server at {self.resource_id}.")
 
     def wait_until_healthy(self) -> None:
         """
