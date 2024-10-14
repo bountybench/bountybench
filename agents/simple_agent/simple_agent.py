@@ -40,7 +40,6 @@ class SimpleExecutorAgent(BaseAgent):
     config: AgentConfig
     prompt: str = INITIAL_PROMPT
     memory: List[str] = []
-    truncated_memory: List[str] = []
 
     def __init__(self, config: AgentConfig):
         super().__init__()
@@ -80,13 +79,10 @@ class SimpleExecutorAgent(BaseAgent):
             self.memory = self.memory[1:] + [executor_response.response] 
         else:
             self.memory.append(executor_response.response)
-            
-        self._truncate_chat_chain()
 
         truncated_input = self._truncate_input_to_max_tokens(
-            str(self.truncated_chat_chain)
+            str(self.memory)
         )
-
         prompt = INITIAL_PROMPT + truncated_input
         self.prompt = prompt
         return prompt
@@ -139,18 +135,6 @@ class SimpleExecutorAgent(BaseAgent):
 
         return model_input
     
-    def _truncate_memory(self) -> None:
-        self.memory.clear()
-        idx_to_ignore = []
-        num_responses = len(self.memory)
-        if num_responses > self.config.max_response_len:
-            idx_to_ignore = list(range(num_responses - self.config.max_response_len))
-        else:
-            idx_to_ignore = []
-
-        for idx, msg in  enumerate(self.memory):
-            if idx not in idx_to_ignore:
-                self.truncated_memory.append(msg)
 
     def _handle_request(self, model_input: str) -> str:
         model =  str(self.config.model)
