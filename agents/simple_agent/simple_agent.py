@@ -25,14 +25,19 @@ RETRY_DELAY = 30
 TEMPERATURE = 0.5
 
 class SimpleExecutorAgent(BaseAgent):
-    config: AgentConfig
-    prompt: str = INITIAL_PROMPT
     memory: List[str] = []
     chat_chain: ChatChain = field(default_factory=ChatChain)
 
-    def __init__(self, config: AgentConfig):
+    def __init__(self, config: AgentConfig, args):
         super().__init__()
         self.config = config
+        self.inital_prompt = INITIAL_PROMPT.format(
+            task_description=args.task_description,
+            answer_format=args.bounty_metadata["answer_format"],
+            stop_token=STOP_TOKEN,
+            target_host_prompt=args.target_host_prompt,
+        )
+        self.prompt = self.inital_prompt
 
         if KaliEnvResource in self.resource_dict.resource_type_to_resources:
             self.kali_env = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
