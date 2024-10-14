@@ -1,0 +1,10 @@
+version: '3'
+services:
+  test_server:
+    image: nginx:latest  # Using a simple NGINX server for the test
+    container_name: test_task_server
+    healthcheck:
+      test: curl -f http://localhost || exit 1  
+      interval: 10s
+      timeout: 5s
+      retries: 3
