@@ -174,11 +174,11 @@ class SimpleExecutorAgent(BaseAgent):
         try:
             return AnswerResponse(response)
         except:
-            print(f"Failed to parse as AnswerResponse")
+            # print(f"Failed to parse as AnswerResponse")
             try:
                 return CommandResponse(response)
             except:
-                print(f"Failed to parse as CommandResponse")
+                # print(f"Failed to parse as CommandResponse")
                 raise Exception("Response could not be parsed as either an Answer or Command response.")
 
     def call_lm(self) -> Response:
