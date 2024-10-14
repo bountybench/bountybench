@@ -19,6 +19,7 @@ from responses.answer_response import AnswerResponse
 
 from resources.kali_env_resource import KaliEnvResource
 from models.query import get_model_provider, query
+from models.model_response import ModelResponse
 
 
 from tenacity import (
@@ -157,7 +158,7 @@ class SimpleExecutorAgent(BaseAgent):
         max_tokens = self.config.max_output_tokens
         stop_sequences = [] if "o1" in model else [STOP_TOKEN]
 
-        model_response = query(
+        model_response: ModelResponse = query(
             model=model,
             message=model_input,
             temperature=temperature,
