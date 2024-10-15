@@ -1,15 +1,8 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from argparse import Namespace
-from pathlib import Path
-
-from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from responses.answer_response_interface import AnswerResponseInterface
-#from your_script import parse_args, check_response_answer, main
 from workflows.simple_workflow import parse_args, check_response_answer
-from resources.init_files_resource import InitFilesResource
-from resources.kali_env_resource import KaliEnvResource
-from resources.task_server_resource import TaskServerResource
 
 
 class TestTaskScript(unittest.TestCase):
