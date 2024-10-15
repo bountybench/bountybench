@@ -32,7 +32,6 @@ class TaskServerResource(BaseResource):
         self.task_repo_dir = task_repo_dir
         self.host_name = hostname
         self.health_check_timeout = 120
-        self.container_name = None
         self.start()
 
         resource_dict[self.resource_id] = self
@@ -49,11 +48,7 @@ class TaskServerResource(BaseResource):
                 work_dir=str(self.task_repo_dir),
             )
             logger.info(f"Spun up task server at {self.resource_id}")
-            # Extract the container name from stdout or stderr
-            self.container_name = self.extract_container_name(result.stdout, result.stderr)
-            if not self.container_name:
-                raise Exception(f"Failed to retrieve container name for {self.host_name}")
-            logger.info(f"Using container '{self.container_name}' for health checks.")
+
         except Exception as e:
             # Handle errors
             logger.error(
@@ -63,7 +58,7 @@ class TaskServerResource(BaseResource):
             # Return to the previous directory to ensure no side effects
             os.chdir('..')
 
-        self.wait_until_healthy()
+        self.wait_until_all_containers_healthy()
 
     def stop(self) -> None:
         try:
@@ -86,84 +81,72 @@ class TaskServerResource(BaseResource):
             # Return to the previous directory to ensure no side effects
             os.chdir('..')
 
-    def wait_until_healthy(self) -> None:
+    def wait_until_all_containers_healthy(self, timeout=300, check_interval=2):
         """
-        Wait until the Docker container's health status is 'healthy'.
-        Raises an exception if the timeout is reached before the container is healthy.
-        """        
-        if not self.container_name:
-            logger.error("No container name available for health check.")
+        Wait until all Docker containers' health status is 'healthy'.
+        Raises an exception if the timeout is reached before all containers are healthy.
+        """
+        container_names = self.extract_container_names()
+
+        if not container_names:
+            logger.error("No container names available for health check.")
             sys.exit(1)
 
-        logger.info(
-            f"Waiting for server '{self.container_name}' to become healthy...")
+        logger.info(f"Waiting for all containers to become healthy...")
+
         start_time = time.time()
+
         while True:
-            try:
-                inspect_result = run_command(
-                    command=[
-                        "docker", "inspect", "--format='{{json .State.Health.Status}}'", self.container_name],
-                    work_dir=str(self.task_repo_dir),
-                )
-                # The output includes quotes, e.g., '"healthy"'
-                health_status = inspect_result.stdout.strip().strip("'\"")
+            all_healthy = True
 
-                if health_status == "healthy":
-                    logger.info(f"Container '{self.container_name}' is healthy.")
-                    break
-                elif health_status in ["starting"]:
-                    logger.info(
-                        f"Container '{self.container_name}' health status: {health_status}. Waiting...")
-                else:
-                    logger.warning(
-                        f"Container '{self.container_name}' has unexpected health status: {health_status}.")
+            for container in container_names:
+                try:
+                    # Check health status of each container
+                    logger.info(f"Checking health of container {container}")
+                    inspect_result = run_command(
+                        command=[
+                            "docker", "inspect", "--format={{json .State.Health.Status}}", container]
+                    )
+                    health_status = inspect_result.stdout.strip().strip("'\"")
+
+                    if health_status == "healthy":
+                        logger.info(f"Container '{container}' is healthy.")
+                    elif health_status in ["starting"]:
+                        logger.info(
+                            f"Container '{container}' health status: {health_status}. Waiting..."
+                        )
+                        all_healthy = False
+                    else:
+                        logger.warning(
+                            f"Container '{container}' has unexpected health status: {health_status}."
+                        )
+                        sys.exit(1)
+
+                except Exception as e:
+                    logger.error(f"Unexpected error while checking health status of container '{container}': {e}")
                     sys.exit(1)
-            except Exception as e:
-                logger.error(
-                    f"Unexpected error while checking health status: {e}")
 
-            if time.time() - start_time > self.health_check_timeout:
+            if all_healthy:
+                logger.info("All containers are healthy.")
+                break
+
+            if time.time() - start_time > timeout:
                 raise TimeoutError(
-                    f"Timeout: Container '{self.container_name}' did not become healthy within {self.health_check_timeout} seconds.")
+                    f"Timeout: Not all containers became healthy within {timeout} seconds."
+                )
 
-            time.sleep(2)
+            time.sleep(check_interval)
 
-    def extract_container_name(self, stdout: str, stderr: str) -> str:
+    def extract_container_names(self):
         """
-        Extract the container name from the output of start_docker.sh (stdout or stderr).
-        This assumes that the container name appears in a recognizable format.
-
-        Args:
-            stdout (str): The stdout output from running the start script.
-            stderr (str): The stderr output from running the start script.
-
-        Returns:
-            str: The extracted container name, or None if no name could be found.
+        Extract the names of all running containers.
         """
-        # This pattern matches "Container <name> <status>"
-        container_name_pattern = re.compile(r"Container\s+([^\s]+)\s+Started")
-
-        # Ensure both stdout and stderr are strings
-        if stdout is None:
-            stdout = ""
-        if stderr is None:
-            stderr = ""
-
-        if not isinstance(stdout, str):
-            stdout = stdout.decode("utf-8") if isinstance(stdout, bytes) else ""
-        if not isinstance(stderr, str):
-            stderr = stderr.decode("utf-8") if isinstance(stderr, bytes) else ""
-
-        # Search in both stdout and stderr for the container name
-        output = stdout + stderr
-        logger.info("Extracting container name from output...")
-
-        match = container_name_pattern.search(output)
-        
-        if match:
-            container_name = match.group(1)
-            logger.info(f"Container name extracted: {container_name}")
-            return container_name
-        else:
-            logger.warning("No container name found in the output.")
-            return None
+        try:
+            # Use the run_command wrapper to execute 'docker ps' and extract container names
+            result = run_command(["docker", "ps", "--format", "{{.Names}}"])
+            # Split result by newlines to get individual container names
+            container_names = result.stdout.strip().split("\n")
+            return container_names
+        except Exception as e:
+            logger.error(f"Error extracting container names: {e}")
+            return []
