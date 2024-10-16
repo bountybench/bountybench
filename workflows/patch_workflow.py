@@ -69,8 +69,10 @@ def main() -> None:
 
     for _ in range(simple_agent_config.max_iterations):
         patch_response = patch_agent.run([simple_response])
+        if issubclass(patch_response.__class__, AnswerResponseInterface):
+            logger.info("Patch Success!")
+            break
         simple_response = simple_agent.run([patch_response])
-        # TODO: Where should we handle the "Patch Success" case? In the workflow or in the patch agent?
 
 if __name__ == "__main__":
     main()
