@@ -39,13 +39,14 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
         self.patch_id = 1
+        self.patch_dir = os.path.join(self.init_files.task_repo_dir, "patches")
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
             return Exception(f'Accepts only a single response, you passed in {len(responses)} responses')
         response = responses[0]
         if issubclass(response.__class__, CommandResponseInterface):
-            if self.get_git_diff() != "":
+            if self.get_git_diff(self.init_files.tmp_dir) != "":
                 return self.execute()
             else:
                 return response
@@ -69,15 +70,17 @@ class PatchAgent(BaseAgent):
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.init_files.tmp_dir)
         self.create_git_commit(self.init_files.tmp_dir)
+        #TODO: Might not need the copying logic
         tmp_dir_patch = os.path.abspath(os.path.join(
             self.init_files.tmp_files_dir, f"patch_{self.patch_id}.patch"))
         task_repo_patch = os.path.abspath(os.path.join(
             self.init_files.task_repo_dir, f"patch_{self.patch_id}.patch"))
         self.copy_patch(tmp_dir_patch, task_repo_patch)
         res, msg = self.apply_git_patch(
-            task_repo_patch, self.init_files.task_repo_dir, "dev")
+            task_repo_patch, self.init_files.task_repo_dir, "dev") # TODO: Change the directory path to the original files dir
 
         if res:
+            
             res = self.restart_task_server_resource()
             if res:
                 flag = self.run_exploit()
@@ -202,3 +205,15 @@ class PatchAgent(BaseAgent):
             logger.error(f"Failed to clean up dev branch: {e}")
         except FileNotFoundError as e:
             logger.error(f"Tmp directory not found for deletion: {e}")
+    
+    def restart_task_server_resource(self) -> bool:
+        """
+        This function restarts the task server resource
+        """
+        try:
+            self.task_server.restart()
+            logger.info("Task server resource restarted successfully.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to restart task server resource: {e}")
+            return False
