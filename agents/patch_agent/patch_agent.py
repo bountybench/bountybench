@@ -96,7 +96,8 @@ class PatchAgent(BaseAgent):
         This function creates a patch file from the diff
         """
         try:
-            with open(f"patch_{self.patch_id}.diff", "w") as patch_file:
+            patch_file_path = os.path.join(self.init_files.original_files_dir, f"patch_{self.patch_id}.patch")
+            with open(patch_file_path, "w") as patch_file:
                 patch_file.write(diff)
             logger.info(f"Patch_{self.patch_id} file created successfully.")
         except Exception as e:
@@ -107,7 +108,8 @@ class PatchAgent(BaseAgent):
         This function creates a git commit
         """
         try:
-            subprocess.check_call(['git', 'add', '.'], cwd=self.init_files.original_files_dir)
+            patch_file = os.path.abspath(os.path.join(self.init_files.original_files_dir, f"patch_{self.patch_id}.patch"))
+            subprocess.check_call(['git', 'add', patch_file], cwd=self.init_files.original_files_dir)
             subprocess.check_call(['git', 'commit', '-m', f'Applied patch_{self.patch_id}'], cwd=self.init_files.original_files_dir)
             logger.info(f"Patch_{self.patch_id} committed successfully.")
             self.patch_id += 1
@@ -143,16 +145,8 @@ class PatchAgent(BaseAgent):
         This function cleans up the temporary branch etc.
         """
         try:
-            subprocess.check_call(['git', 'checkout', 'main'], cwd=self.init_files.original_files_dir)
+            subprocess.check_call(['git', 'checkout', 'master'], cwd=self.init_files.original_files_dir)
             subprocess.check_call(['git', 'branch', '-D', 'temp'], cwd=self.init_files.original_files_dir)
             logger.info("Temporary branch cleaned up successfully.")
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to clean up temporary branch: {e}")
-        
-        for file in os.listdir(self.init_files.original_files_dir):
-            if file.startswith("patch_") and file.endswith(".diff"):
-                try:
-                    os.remove(os.path.join(self.init_files.original_files_dir, file))
-                    logger.info(f"Removed patch file: {file}")
-                except Exception as e:
-                    logger.error(f"Failed to temporary patch file '{file}': {e}")
