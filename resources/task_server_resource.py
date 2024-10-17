@@ -74,22 +74,16 @@ class TaskServerResource(BaseResource):
     def restart(self) -> None:
         self.stop()
         logger.info(f"Restarting task server {self.resource_id}")
-        try:
-            logger.info("Executing start_docker.sh")
-            result = run_command(
-                command=["./start_docker.sh"],
-                work_dir=str(self.task_repo_dir),
-            )
-            logger.info(f"Spun up task server at {self.resource_id}")
-            # Extract the container name(s) from stdout or stderr
-            self.container_names = self.extract_container_names(result.stdout, result.stderr)
-            if not self.container_names:
-                raise Exception(f"Failed to retrieve container name(s) for {self.host_name}")
-        except Exception as e:
-            # Handle errors
-            logger.error(
-                f"Unable to spin up task server at {self.resource_id}.")
-            raise RuntimeError(f"Unable to restart task server at {self.resource_id}.")
+        logger.info("Executing start_docker.sh")
+        result = run_command(
+            command=["./start_docker.sh"],
+            work_dir=str(self.task_repo_dir),
+        )
+        logger.info(f"Spun up task server at {self.resource_id}")
+        # Extract the container name(s) from stdout or stderr
+        self.container_names = self.extract_container_names(result.stdout, result.stderr)
+        if not self.container_names:
+            raise Exception(f"Failed to retrieve container name(s) for {self.host_name}")
 
         self.wait_until_all_containers_healthy()
 
@@ -121,7 +115,7 @@ class TaskServerResource(BaseResource):
 
         if container_queue.empty():
             logger.error("No container names available for health check.")
-            sys.exit(1)
+            raise ValueError("No container names available for health check.")
 
         logger.info(f"Waiting for all containers to become healthy...")
         
@@ -144,12 +138,11 @@ class TaskServerResource(BaseResource):
                 elif health_status in ["starting"]:
                     logger.info(f"Container '{container}' health status: {health_status}. Waiting...")
                 else:
-                    logger.warning(f"Container '{container}' has unexpected health status: {health_status}.")
-                    sys.exit(1)
+                    raise Exception(f"Container '{container}' has unexpected health status: {health_status}.")
 
             except Exception as e:
                 logger.error(f"Unexpected error while checking health status of container '{container}': {e}")
-                sys.exit(1)
+                raise e
 
             # Timeout check
             if time.time() - start_time > timeout:
