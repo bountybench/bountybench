@@ -62,9 +62,11 @@ class PatchAgent(BaseAgent):
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.init_files.tmp_dir)
         self.create_git_commit(self.init_files.tmp_dir)
-        self.apply_git_patch(f"patch_{self.patch_id}.patch", self.init_files.task_repo_dir, "dev")
+        tmp_dir_patch = os.path.join(self.init_files.tmp_files_dir, f"patch_{self.patch_id}.patch")
+        task_repo_patch = os.path.join(self.init_files.task_repo_dir, f"patch_{self.patch_id}.patch")
+        self.copy_patch(tmp_dir_patch, task_repo_patch)
+        res, msg = self.apply_git_patch(task_repo_patch, self.init_files.task_repo_dir, "dev")
 
-        #if we end up commiting then we want to increment the patch id
 
 
         if res:
@@ -74,6 +76,8 @@ class PatchAgent(BaseAgent):
                 if flag:
                     # Patch succeed?
                     # Maybe just send back an AnswerResponse object?
+                    #if we end up commiting then we want to increment the patch id
+
                     pass
                 else:
                     # Patch failed
@@ -129,6 +133,21 @@ class PatchAgent(BaseAgent):
             
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to create git commit: {e}")
+    
+    def copy_patch(self, patch_file_path: str, destination_path: str) -> None:
+        """
+        Copies the patch file from the tmp directory to the task repo's dev branch.
+        """
+        try:
+            subprocess.check_call(['git', 'checkout', 'dev'], cwd=self.init_files.task_repo_dir)
+            logger.info("Checked out to 'dev' branch in task repo.")
+            
+            # Copy the patch file to the task repo's dev branch
+            shutil.copy(patch_file_path, destination_path)
+            logger.info(f"Patch file copied to task repo dev branch: {destination_path}")
+        except Exception as e:
+            logger.error(f"Failed to copy patch file to dev branch: {e}")
+
 
     def apply_git_patch(self, patch_file: str, directory_path: str, branch_name: str = None) -> Tuple[bool, str]:
         """
