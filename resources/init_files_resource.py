@@ -12,6 +12,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+#things to do: 
+    #Task_repo_dir: 
+        # make task_repo_dir into git
+        # git add .
+        # git commit -m "initial commit"
+        # create temporary branch
+    #Temporary directory: 
+        # make temporary_dir into git
+        # git add .
+        # git commit -m "initial commit"
+        
+
 class InitFilesResource(BaseResource):
     """Init Files Resource"""
 
