@@ -7,6 +7,7 @@ from resources.task_server_resource import TaskServerResource
 from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 import subprocess
+import os
 
 
 logging.basicConfig(level=logging.INFO)
@@ -106,7 +107,6 @@ class PatchAgent(BaseAgent):
         This function creates a git commit
         """
         try:
-            # Stage all changes
             subprocess.check_call(['git', 'add', '.'], cwd=self.init_files.original_files_dir)
             subprocess.check_call(['git', 'commit', '-m', f'Applied patch_{self.patch_id}'], cwd=self.init_files.original_files_dir)
             logger.info(f"Patch_{self.patch_id} committed successfully.")
@@ -118,17 +118,41 @@ class PatchAgent(BaseAgent):
         """
         This function creates a temporary branch on the local machine
         """
-        raise NotImplementedError
+        try:
+            branch_name = "temp"
+            subprocess.check_call(['git', 'checkout', '-b', branch_name], cwd=self.init_files.original_files_dir)
+            logger.info(f"Temporary branch '{branch_name}' created successfully.")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to create temporary branch {branch_name}: {e}")
+            raise RuntimeError(f"Failed to create a temporary branch {branch_name}.")
     
-    def apply_git_patch(self) -> Tuple[bool, str]:
+    def apply_git_patch(self, patch_file: str) -> Tuple[bool, str]:
         """
         This function applies the patch file to the target directory
         """
-        # TODO: Remember to handle the case where the patch is not applied successfully
-        raise NotImplementedError
+        try:
+            subprocess.check_call(['git', 'apply', patch_file], cwd=self.init_files.original_files_dir)
+            logger.info(f"Patch '{patch_file}' applied successfully.")
+            return True, f"Patch '{patch_file}' applied successfully."
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to apply patch '{patch_file}': {e}")
+            return False, f"Failed to apply patch '{patch_file}': {e}"
 
     def cleanup(self) -> None:
         """
         This function cleans up the temporary branch etc.
         """
-        raise NotImplementedError
+        try:
+            subprocess.check_call(['git', 'checkout', 'main'], cwd=self.init_files.original_files_dir)
+            subprocess.check_call(['git', 'branch', '-D', 'temp'], cwd=self.init_files.original_files_dir)
+            logger.info("Temporary branch cleaned up successfully.")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to clean up temporary branch: {e}")
+        
+        for file in os.listdir(self.init_files.original_files_dir):
+            if file.startswith("patch_") and file.endswith(".diff"):
+                try:
+                    os.remove(os.path.join(self.init_files.original_files_dir, file))
+                    logger.info(f"Removed patch file: {file}")
+                except Exception as e:
+                    logger.error(f"Failed to temporary patch file '{file}': {e}")
