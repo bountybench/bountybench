@@ -65,7 +65,7 @@ class PatchAgent(BaseAgent):
         tmp_dir_patch = os.path.abspath(os.path.join(self.init_files.tmp_files_dir, f"patch_{self.patch_id}.patch"))
         task_repo_patch = os.path.abspath(os.path.join(self.init_files.task_repo_dir, f"patch_{self.patch_id}.patch"))
         self.copy_patch(tmp_dir_patch, task_repo_patch)
-        res, msg = self.apply_git_patch(task_repo_patch, self.init_files.task_repo_dir, "dev")
+        res, msg = self.apply_git_patch(f"patch_{self.patch_id}.patch", self.init_files.task_repo_dir, "dev")
 
 
 
