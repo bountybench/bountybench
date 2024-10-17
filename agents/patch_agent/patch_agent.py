@@ -6,7 +6,9 @@ from resources.init_files_resource import InitFilesResource
 from resources.task_server_resource import TaskServerResource
 from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
-
+import subprocess
+import os
+import shutil
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,9 +30,8 @@ class PatchAgent(BaseAgent):
             logger.error("TaskServerResource not found in resource_dict. Terminating Patch Agent.")
             raise RuntimeError("TaskServerResource not set up. Patch agent cannot start.")
 
-        #TODO: Create a temporary branch for the original_files_dir on local machine
-        self.create_git_branch()
         atexit.register(self.cleanup)
+        self.patch_id = 1
 
     def run(self, responses: List[Response]) -> Response:        
         if len(responses) != 1:
@@ -48,66 +49,138 @@ class PatchAgent(BaseAgent):
         """
         This function executes the patching command
         """
+        """
         diff = self.get_git_diff()
         self.create_git_patch(diff)
         self.create_git_commit() # This will commit the changes to the tmp directory
 
         res, msg = self.apply_git_patch(p2) # Apply the agent patch file (p2) to the tmp branch
         res, msg = self.apply_git_patch(p1) # Apply the flag patch file (p1) to the tmp branch
+        """
+
+
+        tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
+        self.create_git_patch(tmp_dir_diff, self.init_files.tmp_dir)
+        self.create_git_commit(self.init_files.tmp_dir)
+        tmp_dir_patch = os.path.abspath(os.path.join(self.init_files.tmp_files_dir, f"patch_{self.patch_id}.patch"))
+        task_repo_patch = os.path.abspath(os.path.join(self.init_files.task_repo_dir, f"patch_{self.patch_id}.patch"))
+        self.copy_patch(tmp_dir_patch, task_repo_patch)
+        res, msg = self.apply_git_patch(task_repo_patch, self.init_files.task_repo_dir, "dev")
+
+
+
         if res:
             res = self.restart_task_server_resource()
             if res:
                 flag = self.run_exploit()
-                if flag:
-                    # Patch succeed?
+                if flag: #patch succeeded
                     # Maybe just send back an AnswerResponse object?
-                else:
+                    #if we end up commiting then we want to increment the patch id
+
+                    pass
+                else: #patch failed
                     # Patch failed
                     #TODO: what should we return in this case?
+                    pass
 
             else:
                 #TODO: Handle the case where the task server resource is not restarted successfully; git reset
-
+                pass
         else:
             #TODO: Handle the case where the patch is not applied successfully i.e. merge conflicts; I think it will make sense to just set the observation field.; git reset
-
+            pass
 
 
         raise NotImplementedError
 
-    def get_git_diff(self) -> str:
+    def get_git_diff(self, directory_path: str) -> str:
         """
         This function returns the git diff of the changes in the task repository
         """
-        raise NotImplementedError
+        try:
+            diff = subprocess.check_output(['git', 'diff'], cwd=directory_path).decode('utf-8')
+            return diff
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to get git diff: {e}")
+            return ""
     
-    def create_git_patch(self, diff: str) -> None:
+    def create_git_patch(self, diff: str, directory_path: str) -> None:
         """
         This function creates a patch file from the diff
         """
-        raise NotImplementedError
+        try:
+            patch_file_path = os.path.join(directory_path, f"patch_{self.patch_id}.patch")
+            with open(patch_file_path, "w") as patch_file:
+                patch_file.write(diff)
+            logger.info(f"Patch_{self.patch_id} file created successfully.")
+        except Exception as e:
+            logger.error(f"Failed to create git patch_{self.patch_id} file: {e}")
 
-    def create_git_commit(self) -> None:
+    def create_git_commit(self, directory_path: str, branch_name: str = None) -> None:
         """
         This function creates a git commit
         """
-        raise NotImplementedError
+        try:
+            if branch_name:
+                subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
+                logger.info(f"Checked out to branch '{branch_name}'.")
 
-    def create_git_branch(self) -> None:
-        """
-        This function creates a temporary branch on the local machine
-        """
-        raise NotImplementedError
+            patch_file = os.path.abspath(os.path.join(directory_path, f"patch_{self.patch_id}.patch"))
+            subprocess.check_call(['git', 'add', patch_file], cwd=directory_path)
+            subprocess.check_call(['git', 'commit', '-m', f'Applied patch_{self.patch_id}'], cwd=directory_path)
+            logger.info(f"Patch_{self.patch_id} committed successfully on branch '{branch_name}'." if branch_name else f"Patch_{self.patch_id} committed successfully.")
+            
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to create git commit: {e}")
     
-    def apply_git_patch(self) -> Tuple[bool, str]:
+    def copy_patch(self, patch_file_path: str, destination_path: str) -> None:
+        """
+        Copies the patch file from the tmp directory to the task repo's dev branch.
+        """
+        try:
+            subprocess.check_call(['git', 'checkout', 'dev'], cwd=self.init_files.task_repo_dir)
+            logger.info("Checked out to 'dev' branch in task repo.")
+            
+            # Copy the patch file to the task repo's dev branch
+            shutil.copy(patch_file_path, destination_path)
+            logger.info(f"Patch file copied to task repo dev branch: {destination_path}")
+        except Exception as e:
+            logger.error(f"Failed to copy patch file to dev branch: {e}")
+
+
+    def apply_git_patch(self, patch_file: str, directory_path: str, branch_name: str = None) -> Tuple[bool, str]:
         """
         This function applies the patch file to the target directory
         """
-        # TODO: Remember to handle the case where the patch is not applied successfully
-        raise NotImplementedError
+        try:
+            if branch_name:
+                subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
+                logger.info(f"Checked out to branch '{branch_name}'.")
+
+            subprocess.check_call(['git', 'apply', patch_file], cwd=directory_path)
+            logger.info(f"Patch '{patch_file}' applied successfully on branch '{branch_name}'." if branch_name else f"Patch '{patch_file}' applied successfully.")
+            return True, f"Patch '{patch_file}' applied successfully."
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to apply patch '{patch_file}': {e}")
+            return False, f"Failed to apply patch '{patch_file}': {e}"
+        
+    def increment_patch_id(self) -> None: 
+        self.patch_id += 1
 
     def cleanup(self) -> None:
         """
         This function cleans up the temporary branch etc.
         """
-        raise NotImplementedError
+        try:
+            subprocess.check_call(['git', 'checkout', 'master'], cwd=self.init_files.task_repo_dir)            
+            subprocess.check_call(['git', 'branch', '-D', 'dev'], cwd=self.init_files.task_repo_dir)
+            logger.info("Dev branch in task repo dir cleaned up successfully.")
+            shutil.rmtree(self.init_files.tmp_files_dir)
+            logger.info("Tmp directory deleted successfully.")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to clean up dev branch: {e}")
+        except FileNotFoundError as e:
+            logger.error(f"Tmp directory not found for deletion: {e}")
+
+
+
