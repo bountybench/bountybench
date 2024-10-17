@@ -8,7 +8,7 @@ from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 import subprocess
 import os
-
+import shutil
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,8 +30,6 @@ class PatchAgent(BaseAgent):
             logger.error("TaskServerResource not found in resource_dict. Terminating Patch Agent.")
             raise RuntimeError("TaskServerResource not set up. Patch agent cannot start.")
 
-        #TODO: Create a temporary branch for the original_files_dir on local machine
-        self.create_git_branch()
         atexit.register(self.cleanup)
         self.patch_id = 1
 
@@ -51,12 +49,24 @@ class PatchAgent(BaseAgent):
         """
         This function executes the patching command
         """
+        """
         diff = self.get_git_diff()
         self.create_git_patch(diff)
         self.create_git_commit() # This will commit the changes to the tmp directory
 
         res, msg = self.apply_git_patch(p2) # Apply the agent patch file (p2) to the tmp branch
         res, msg = self.apply_git_patch(p1) # Apply the flag patch file (p1) to the tmp branch
+        """
+
+
+        tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
+        self.create_git_patch(tmp_dir_diff, self.init_files.tmp_dir)
+        self.create_git_commit(self.init_files.tmp_dir)
+        self.apply_git_patch(f"patch_{self.patch_id}.patch", self.init_files.task_repo_dir, "dev")
+
+        #if we end up commiting then we want to increment the patch id
+
+
         if res:
             res = self.restart_task_server_resource()
             if res:
@@ -80,73 +90,79 @@ class PatchAgent(BaseAgent):
 
         raise NotImplementedError
 
-    def get_git_diff(self) -> str:
+    def get_git_diff(self, directory_path: str) -> str:
         """
         This function returns the git diff of the changes in the task repository
         """
         try:
-            diff = subprocess.check_output(['git', 'diff'], cwd=self.init_files.original_files_dir).decode('utf-8')
+            diff = subprocess.check_output(['git', 'diff'], cwd=directory_path).decode('utf-8')
             return diff
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to get git diff: {e}")
             return ""
     
-    def create_git_patch(self, diff: str) -> None:
+    def create_git_patch(self, diff: str, directory_path: str) -> None:
         """
         This function creates a patch file from the diff
         """
         try:
-            patch_file_path = os.path.join(self.init_files.original_files_dir, f"patch_{self.patch_id}.patch")
+            patch_file_path = os.path.join(directory_path, f"patch_{self.patch_id}.patch")
             with open(patch_file_path, "w") as patch_file:
                 patch_file.write(diff)
             logger.info(f"Patch_{self.patch_id} file created successfully.")
         except Exception as e:
             logger.error(f"Failed to create git patch_{self.patch_id} file: {e}")
 
-    def create_git_commit(self) -> None:
+    def create_git_commit(self, directory_path: str, branch_name: str = None) -> None:
         """
         This function creates a git commit
         """
         try:
-            patch_file = os.path.abspath(os.path.join(self.init_files.original_files_dir, f"patch_{self.patch_id}.patch"))
-            subprocess.check_call(['git', 'add', patch_file], cwd=self.init_files.original_files_dir)
-            subprocess.check_call(['git', 'commit', '-m', f'Applied patch_{self.patch_id}'], cwd=self.init_files.original_files_dir)
-            logger.info(f"Patch_{self.patch_id} committed successfully.")
-            self.patch_id += 1
+            if branch_name:
+                subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
+                logger.info(f"Checked out to branch '{branch_name}'.")
+
+            patch_file = os.path.abspath(os.path.join(directory_path, f"patch_{self.patch_id}.patch"))
+            subprocess.check_call(['git', 'add', patch_file], cwd=directory_path)
+            subprocess.check_call(['git', 'commit', '-m', f'Applied patch_{self.patch_id}'], cwd=directory_path)
+            logger.info(f"Patch_{self.patch_id} committed successfully on branch '{branch_name}'." if branch_name else f"Patch_{self.patch_id} committed successfully.")
+            
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to create git commit: {e}")
 
-    def create_git_branch(self) -> None:
-        """
-        This function creates a temporary branch on the local machine
-        """
-        try:
-            branch_name = "temp"
-            subprocess.check_call(['git', 'checkout', '-b', branch_name], cwd=self.init_files.original_files_dir)
-            logger.info(f"Temporary branch '{branch_name}' created successfully.")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to create temporary branch {branch_name}: {e}")
-            raise RuntimeError(f"Failed to create a temporary branch {branch_name}.")
-    
-    def apply_git_patch(self, patch_file: str) -> Tuple[bool, str]:
+    def apply_git_patch(self, patch_file: str, directory_path: str, branch_name: str = None) -> Tuple[bool, str]:
         """
         This function applies the patch file to the target directory
         """
         try:
-            subprocess.check_call(['git', 'apply', patch_file], cwd=self.init_files.original_files_dir)
-            logger.info(f"Patch '{patch_file}' applied successfully.")
+            if branch_name:
+                subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
+                logger.info(f"Checked out to branch '{branch_name}'.")
+
+            subprocess.check_call(['git', 'apply', patch_file], cwd=directory_path)
+            logger.info(f"Patch '{patch_file}' applied successfully on branch '{branch_name}'." if branch_name else f"Patch '{patch_file}' applied successfully.")
             return True, f"Patch '{patch_file}' applied successfully."
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to apply patch '{patch_file}': {e}")
             return False, f"Failed to apply patch '{patch_file}': {e}"
+        
+    def increment_patch_id(self) -> None: 
+        self.patch_id += 1
 
     def cleanup(self) -> None:
         """
         This function cleans up the temporary branch etc.
         """
         try:
-            subprocess.check_call(['git', 'checkout', 'master'], cwd=self.init_files.original_files_dir)
-            subprocess.check_call(['git', 'branch', '-D', 'temp'], cwd=self.init_files.original_files_dir)
-            logger.info("Temporary branch cleaned up successfully.")
+            subprocess.check_call(['git', 'checkout', 'master'], cwd=self.init_files.task_repo_dir)            
+            subprocess.check_call(['git', 'branch', '-D', 'dev'], cwd=self.init_files.task_repo_dir)
+            logger.info("Dev branch in task repo dir cleaned up successfully.")
+            shutil.rmtree(self.init_files.tmp_files_dir)
+            logger.info("Tmp directory deleted successfully.")
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to clean up temporary branch: {e}")
+            logger.error(f"Failed to clean up dev branch: {e}")
+        except FileNotFoundError as e:
+            logger.error(f"Tmp directory not found for deletion: {e}")
+
+
+
