@@ -62,8 +62,8 @@ class PatchAgent(BaseAgent):
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.init_files.tmp_dir)
         self.create_git_commit(self.init_files.tmp_dir)
-        tmp_dir_patch = os.path.join(self.init_files.tmp_files_dir, f"patch_{self.patch_id}.patch")
-        task_repo_patch = os.path.join(self.init_files.task_repo_dir, f"patch_{self.patch_id}.patch")
+        tmp_dir_patch = os.path.abspath(os.path.join(self.init_files.tmp_files_dir, f"patch_{self.patch_id}.patch"))
+        task_repo_patch = os.path.abspath(os.path.join(self.init_files.task_repo_dir, f"patch_{self.patch_id}.patch"))
         self.copy_patch(tmp_dir_patch, task_repo_patch)
         res, msg = self.apply_git_patch(task_repo_patch, self.init_files.task_repo_dir, "dev")
 
@@ -73,13 +73,12 @@ class PatchAgent(BaseAgent):
             res = self.restart_task_server_resource()
             if res:
                 flag = self.run_exploit()
-                if flag:
-                    # Patch succeed?
+                if flag: #patch succeeded
                     # Maybe just send back an AnswerResponse object?
                     #if we end up commiting then we want to increment the patch id
 
                     pass
-                else:
+                else: #patch failed
                     # Patch failed
                     #TODO: what should we return in this case?
                     pass
