@@ -89,7 +89,7 @@ class TaskServerResource(BaseResource):
             # Handle errors
             logger.error(
                 f"Unable to spin up task server at {self.resource_id}.")
-            sys.exit(1)
+            raise RuntimeError(f"Unable to restart task server at {self.resource_id}.")
 
         self.wait_until_all_containers_healthy()
 
