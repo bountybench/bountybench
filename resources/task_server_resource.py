@@ -123,26 +123,21 @@ class TaskServerResource(BaseResource):
 
         while not container_queue.empty():
             container = container_queue.queue[0]  # Peek at the front of the queue
-            try:
-                # Check health status of the current container
-                logger.info(f"Checking health of container {container}")
-                inspect_result = run_command(
-                    command=[
-                        "docker", "inspect", "--format={{json .State.Health.Status}}", container]
-                )
-                health_status = inspect_result.stdout.strip().strip("'\"")
+            # Check health status of the current container
+            logger.info(f"Checking health of container {container}")
+            inspect_result = run_command(
+                command=[
+                    "docker", "inspect", "--format={{json .State.Health.Status}}", container]
+            )
+            health_status = inspect_result.stdout.strip().strip("'\"")
 
-                if health_status == "healthy":
-                    logger.info(f"Container '{container}' is healthy.")
-                    container_queue.get()  # Remove the container from the queue
-                elif health_status in ["starting"]:
-                    logger.info(f"Container '{container}' health status: {health_status}. Waiting...")
-                else:
-                    raise Exception(f"Container '{container}' has unexpected health status: {health_status}.")
-
-            except Exception as e:
-                logger.error(f"Unexpected error while checking health status of container '{container}': {e}")
-                raise e
+            if health_status == "healthy":
+                logger.info(f"Container '{container}' is healthy.")
+                container_queue.get()  # Remove the container from the queue
+            elif health_status in ["starting"]:
+                logger.info(f"Container '{container}' health status: {health_status}. Waiting...")
+            else:
+                raise Exception(f"Container '{container}' has unexpected health status: {health_status}.")
 
             # Timeout check
             if time.time() - start_time > timeout:
