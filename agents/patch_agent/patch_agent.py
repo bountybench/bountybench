@@ -6,6 +6,7 @@ from resources.init_files_resource import InitFilesResource
 from resources.task_server_resource import TaskServerResource
 from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
+import subprocess
 
 
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +32,7 @@ class PatchAgent(BaseAgent):
         #TODO: Create a temporary branch for the original_files_dir on local machine
         self.create_git_branch()
         atexit.register(self.cleanup)
+        self.patch_id = 1
 
     def run(self, responses: List[Response]) -> Response:        
         if len(responses) != 1:
@@ -61,16 +63,18 @@ class PatchAgent(BaseAgent):
                 if flag:
                     # Patch succeed?
                     # Maybe just send back an AnswerResponse object?
+                    pass
                 else:
                     # Patch failed
                     #TODO: what should we return in this case?
+                    pass
 
             else:
                 #TODO: Handle the case where the task server resource is not restarted successfully; git reset
-
+                pass
         else:
             #TODO: Handle the case where the patch is not applied successfully i.e. merge conflicts; I think it will make sense to just set the observation field.; git reset
-
+            pass
 
 
         raise NotImplementedError
@@ -79,19 +83,36 @@ class PatchAgent(BaseAgent):
         """
         This function returns the git diff of the changes in the task repository
         """
-        raise NotImplementedError
+        try:
+            diff = subprocess.check_output(['git', 'diff'], cwd=self.init_files.original_files_dir).decode('utf-8')
+            return diff
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to get git diff: {e}")
+            return ""
     
     def create_git_patch(self, diff: str) -> None:
         """
         This function creates a patch file from the diff
         """
-        raise NotImplementedError
+        try:
+            with open(f"patch_{self.patch_id}.diff", "w") as patch_file:
+                patch_file.write(diff)
+            logger.info(f"Patch_{self.patch_id} file created successfully.")
+        except Exception as e:
+            logger.error(f"Failed to create git patch_{self.patch_id} file: {e}")
 
     def create_git_commit(self) -> None:
         """
         This function creates a git commit
         """
-        raise NotImplementedError
+        try:
+            # Stage all changes
+            subprocess.check_call(['git', 'add', '.'], cwd=self.init_files.original_files_dir)
+            subprocess.check_call(['git', 'commit', '-m', f'Applied patch_{self.patch_id}'], cwd=self.init_files.original_files_dir)
+            logger.info(f"Patch_{self.patch_id} committed successfully.")
+            self.patch_id += 1
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to create git commit: {e}")
 
     def create_git_branch(self) -> None:
         """
