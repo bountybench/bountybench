@@ -9,6 +9,7 @@ from responses.response import Response
 import subprocess
 import os
 import shutil
+from responses.answer_response import AnswerResponse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -74,24 +75,27 @@ class PatchAgent(BaseAgent):
             if res:
                 flag = self.run_exploit()
                 if flag: #patch succeeded
+                    logger.info("Exploit successful. Patch succeeded.")
                     # Maybe just send back an AnswerResponse object?
                     #if we end up commiting then we want to increment the patch id
-
-                    pass
+                    self.create_git_commit(self.init_files.task_repo_dir, "dev")
+                    self.increment_patch_id()
+                    return AnswerResponse(f"Answer: {flag}")
                 else: #patch failed
                     # Patch failed
                     #TODO: what should we return in this case?
                     pass
-
             else:
                 #TODO: Handle the case where the task server resource is not restarted successfully; git reset
-                pass
+                logger.error("Exploit failed after applying the patch.")
+                self.git_reset(self.init_files.task_repo_dir)
         else:
             #TODO: Handle the case where the patch is not applied successfully i.e. merge conflicts; I think it will make sense to just set the observation field.; git reset
-            pass
+            logger.error("Failed to apply patch.")
+            self.git_reset(self.init_files.task_repo_dir)
 
 
-        raise NotImplementedError
+
 
     def get_git_diff(self, directory_path: str) -> str:
         """
@@ -182,5 +186,27 @@ class PatchAgent(BaseAgent):
         except FileNotFoundError as e:
             logger.error(f"Tmp directory not found for deletion: {e}")
 
-
-
+   
+    def restart_task_server_resource(self) -> bool:
+        """
+        This function restarts the task server resource
+        """
+        try:
+            self.task_server.restart()
+            logger.info("Task server resource restarted successfully.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to restart task server resource: {e}")
+            return False
+    
+    def git_reset(self, directory_path: str, branch_name: str = None) -> None:
+        """
+        Resets the git repository to the previous commit (HEAD~1).
+        """
+        try:
+            subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
+            logger.info(f"Checked out to branch '{branch_name}'.")
+            subprocess.check_call(['git', 'reset', '--hard', 'HEAD~1'], cwd=directory_path)
+            logger.info(f"Git reset to HEAD~1 performed successfully on branch '{branch_name}' in {directory_path}.")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to reset git repository on branch '{branch_name}' to HEAD~1: {e}")
