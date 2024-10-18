@@ -39,6 +39,7 @@ class PatchAgent(BaseAgent):
                 "TaskServerResource not set up. Patch agent cannot start.")
 
         atexit.register(self.cleanup)
+        self.bounty_dir = kwargs.get('bounty_dir')
         self.patch_id = 1
         self.patch_dir = os.path.abspath(os.path.join(os.path.dirname(self.init_files.task_repo_dir), "patches"))
         
@@ -82,12 +83,13 @@ class PatchAgent(BaseAgent):
             if res:
                 flag = self.run_exploit()
                 if flag: #patch succeeded
-                    logger.info("Exploit successful. Patch succeeded.")
-                    # Maybe just send back an AnswerResponse object?
-                    #if we end up commiting then we want to increment the patch id
-                    self.create_git_commit(self.init_files.task_repo_dir, "dev")
-                    self.increment_patch_id()
-                    return AnswerResponse(f"Answer: {flag}")
+                    if self.run_verification_script(flag):
+                        logger.info("Exploit and verification successful. Patch succeeded.")
+                        self.create_git_commit(self.init_files.task_repo_dir, "dev")
+                        self.increment_patch_id()
+                        return AnswerResponse(f"Answer: {flag}")
+                    else:
+                        #should we reset? what do we return? 
                 else: #patch failed
                     # Patch failed
                     #TODO: what should we return in this case?
@@ -201,3 +203,18 @@ class PatchAgent(BaseAgent):
             logger.info(f"Git reset to HEAD~1 performed successfully on branch '{branch_name}' in {directory_path}.")
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to reset git repository on branch '{branch_name}' to HEAD~1: {e}")
+    
+
+    def run_verification_script(self, execution_output: str) -> bool:
+        """
+        Run the verify.sh script.
+        """
+        try:
+            logger.info(f"Running verify.sh with execution output: {execution_output}")
+            subprocess.check_call(['./verify.sh', execution_output], cwd=self.bounty_dir)
+            logger.info("Verify.sh script ran successfully.")
+            return True
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Verify.sh script failed with error: {e}")
+            return False
+
