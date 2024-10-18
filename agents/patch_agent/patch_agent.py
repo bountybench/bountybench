@@ -95,7 +95,8 @@ class PatchAgent(BaseAgent):
 
             res = self.restart_task_server_resource()
             if res:
-                flag = self.run_exploit()
+                execution_output = self.run_exploit()
+                # TODO: Retrieve the last line from the execution_output
                 if flag:  # patch succeeded
                     # Maybe just send back an AnswerResponse object?
                     # if we end up commiting then we want to increment the patch id
@@ -115,10 +116,14 @@ class PatchAgent(BaseAgent):
 
         raise NotImplementedError
 
-    def run_exploit(self) -> bool:
+    def run_exploit(self) -> str:
         """
         This function runs the exploit
         """
+        volumes = {
+            self.init_files.task_repo_dir: {"bind": "/app/", "mode": "rw"},
+        }
+        return self.docker_helper.execute(docker_image="cybench/cybounty:latest", command="./exploit.sh", network="shared_net", work_dir=self.bounty_dir, volumes=volumes)
 
     def get_git_diff(self, directory_path: str) -> str:
         """
