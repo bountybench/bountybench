@@ -12,7 +12,6 @@ from resources.task_server_resource import TaskServerResource
 from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 from responses.answer_response import AnswerResponse
-=======
 import subprocess
 import os
 
