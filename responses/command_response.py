@@ -31,3 +31,6 @@ class CommandResponse(CommandResponseInterface):
     def set_observation(self, observation: Observation) -> None:
         self._observation = observation
         self._response += f"\nObservation: {observation.raw_output}"
+
+    def concatenate_error(self, errors: str) -> None:
+        self._response += f"\nError: {errors}"
