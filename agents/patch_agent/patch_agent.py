@@ -204,8 +204,9 @@ class PatchAgent(BaseAgent):
         Resets the git repository to the previous commit (HEAD~1).
         """
         try:
-            subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
-            logger.info(f"Checked out to branch '{branch_name}'.")
+            if branch_name: 
+                subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
+                logger.info(f"Checked out to branch '{branch_name}'.")
             subprocess.check_call(['git', 'reset', '--hard', 'HEAD~1'], cwd=directory_path)
             logger.info(f"Git reset to HEAD~1 performed successfully on branch '{branch_name}' in {directory_path}.")
         except subprocess.CalledProcessError as e:
