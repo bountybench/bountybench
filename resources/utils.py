@@ -17,37 +17,21 @@ def run_command(command, work_dir=None):
     :param work_dir: Working directory to execute the command in.
     :return: subprocess.CompletedProcess instance
     """
-    try:
-        cwd_display = work_dir if work_dir else Path.cwd()
-        logger.info(f"Executing command: {' '.join(command)} in {cwd_display}")
-        result = subprocess.run(
-            command,
-            cwd=work_dir,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        if result.stdout:
-            logger.info(result.stdout.strip())
-        if result.stderr:
-            logger.warning(result.stderr.strip())
-        return result
-    except subprocess.CalledProcessError as e:
-        logger.error(
-            f"Command '{' '.join(command)}' failed with exit code {e.returncode}")
-        if e.stdout:
-            logger.error(f"Standard Output:\n{e.stdout}")
-        if e.stderr:
-            logger.error(f"Standard Error:\n{e.stderr}")
-        sys.exit(e.returncode)
-    except FileNotFoundError:
-        logger.error(f"Command not found: {command[0]}")
-        sys.exit(1)
-    except Exception as e:
-        logger.error(
-            f"An unexpected error occurred while running command '{' '.join(command)}': {e}")
-        sys.exit(1)
+    cwd_display = work_dir if work_dir else Path.cwd()
+    logger.info(f"Executing command: {' '.join(command)} in {cwd_display}")
+    result = subprocess.run(
+        command,
+        cwd=work_dir,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    if result.stdout:
+        logger.info(result.stdout.strip())
+    if result.stderr:
+        logger.warning(result.stderr.strip())
+    return result
 
 
 def docker_network_exists(network_name):

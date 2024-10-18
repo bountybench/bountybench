@@ -1,14 +1,15 @@
 import atexit
 import logging
+import os
+import shutil
+import subprocess
 from typing import List, Tuple
+
 from agents.base_agent import BaseAgent
 from resources.init_files_resource import InitFilesResource
 from resources.task_server_resource import TaskServerResource
 from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
-import subprocess
-import os
-import shutil
 from responses.answer_response import AnswerResponse
 
 logging.basicConfig(level=logging.INFO)
@@ -20,31 +21,39 @@ class PatchAgent(BaseAgent):
         super().__init__()
         # Check if there are TaskServerResource and InitFilesResource
         if InitFilesResource in self.resource_dict.resource_type_to_resources:
-            self.init_files: InitFilesResource = self.resource_dict.get_items_of_resource_type(InitFilesResource)[0]
+            self.init_files: InitFilesResource = self.resource_dict.get_items_of_resource_type(
+                InitFilesResource)[0]
         else:
-            logger.error("InitFilesResource not found in resource_dict. Terminating Patch Agent.")
-            raise RuntimeError("InitFilesResource not set up. Patch agent cannot start.")
-        
+            logger.error(
+                "InitFilesResource not found in resource_dict. Terminating Patch Agent.")
+            raise RuntimeError(
+                "InitFilesResource not set up. Patch agent cannot start.")
+
         if TaskServerResource in self.resource_dict.resource_type_to_resources:
-            self.task_server: TaskServerResource = self.resource_dict.get_items_of_resource_type(TaskServerResource)[0]
+            self.task_server: TaskServerResource = self.resource_dict.get_items_of_resource_type(
+                TaskServerResource)[0]
         else:
-            logger.error("TaskServerResource not found in resource_dict. Terminating Patch Agent.")
-            raise RuntimeError("TaskServerResource not set up. Patch agent cannot start.")
+            logger.error(
+                "TaskServerResource not found in resource_dict. Terminating Patch Agent.")
+            raise RuntimeError(
+                "TaskServerResource not set up. Patch agent cannot start.")
 
         atexit.register(self.cleanup)
         self.patch_id = 1
-
-    def run(self, responses: List[Response]) -> Response:        
+        self.patch_dir = os.path.join(self.init_files.task_repo_dir, "patches")
+        
+    def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
             return Exception(f'Accepts only a single response, you passed in {len(responses)} responses')
         response = responses[0]
         if issubclass(response.__class__, CommandResponseInterface):
-            if self.get_git_diff() != "":
+            if self.get_git_diff(self.init_files.tmp_dir) != "":
                 return self.execute()
             else:
                 return response
         else:
-            raise Exception('Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
+            raise Exception(
+                'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
 
     def execute(self) -> Response:
         """
@@ -63,14 +72,15 @@ class PatchAgent(BaseAgent):
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.init_files.tmp_dir)
         self.create_git_commit(self.init_files.tmp_dir)
+        #TODO: Might not need the copying logic
         tmp_dir_patch = os.path.abspath(os.path.join(self.init_files.tmp_files_dir, f"patch_{self.patch_id}.patch"))
         task_repo_patch = os.path.abspath(os.path.join(self.init_files.task_repo_dir, f"patch_{self.patch_id}.patch"))
         self.copy_patch(tmp_dir_patch, task_repo_patch)
         res, msg = self.apply_git_patch(f"patch_{self.patch_id}.patch", self.init_files.task_repo_dir, "dev")
 
 
-
         if res:
+            
             res = self.restart_task_server_resource()
             if res:
                 flag = self.run_exploit()
@@ -95,8 +105,6 @@ class PatchAgent(BaseAgent):
             self.git_reset(self.init_files.task_repo_dir)
 
 
-
-
     def get_git_diff(self, directory_path: str) -> str:
         """
         This function returns the git diff of the changes in the task repository
@@ -107,7 +115,7 @@ class PatchAgent(BaseAgent):
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to get git diff: {e}")
             return ""
-    
+
     def create_git_patch(self, diff: str, directory_path: str) -> None:
         """
         This function creates a patch file from the diff
@@ -136,7 +144,7 @@ class PatchAgent(BaseAgent):
             
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to create git commit: {e}")
-    
+
     def copy_patch(self, patch_file_path: str, destination_path: str) -> None:
         """
         Copies the patch file from the tmp directory to the task repo's dev branch.
@@ -144,7 +152,6 @@ class PatchAgent(BaseAgent):
         try:
             subprocess.check_call(['git', 'checkout', 'dev'], cwd=self.init_files.task_repo_dir)
             logger.info("Checked out to 'dev' branch in task repo.")
-            
             # Copy the patch file to the task repo's dev branch
             shutil.copy(patch_file_path, destination_path)
             logger.info(f"Patch file copied to task repo dev branch: {destination_path}")
@@ -160,7 +167,6 @@ class PatchAgent(BaseAgent):
             if branch_name:
                 subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
                 logger.info(f"Checked out to branch '{branch_name}'.")
-
             subprocess.check_call(['git', 'apply', patch_file], cwd=directory_path)
             logger.info(f"Patch '{patch_file}' applied successfully on branch '{branch_name}'." if branch_name else f"Patch '{patch_file}' applied successfully.")
             return True, f"Patch '{patch_file}' applied successfully."
@@ -168,7 +174,7 @@ class PatchAgent(BaseAgent):
             logger.error(f"Failed to apply patch '{patch_file}': {e}")
             return False, f"Failed to apply patch '{patch_file}': {e}"
         
-    def increment_patch_id(self) -> None: 
+    def increment_patch_id(self) -> None:
         self.patch_id += 1
 
     def cleanup(self) -> None:
@@ -186,7 +192,6 @@ class PatchAgent(BaseAgent):
         except FileNotFoundError as e:
             logger.error(f"Tmp directory not found for deletion: {e}")
 
-   
     def restart_task_server_resource(self) -> bool:
         """
         This function restarts the task server resource

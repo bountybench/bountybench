@@ -3,6 +3,7 @@ import logging
 import os
 from queue import Queue
 import re
+import subprocess
 import sys
 import time
 import yaml
@@ -19,7 +20,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 class TaskServerResource(BaseResource):
     """Task Server Resource"""
 
-    def __init__(self, task_repo_dir: str, server_address: str) -> None:
+    def __init__(self, task_repo_dir: str, server_address: str, require_setup: bool = False) -> None:
         try:
             # Split the server_address into hostname and port
             hostname, port = server_address.split(":")
@@ -31,6 +32,7 @@ class TaskServerResource(BaseResource):
             sys.exit(1)
         self.resource_id = server_address
         self.task_repo_dir = task_repo_dir
+        self.require_setup = require_setup
         self.host_name = hostname
         self.container_names = None
         self.health_check_timeout = 120
@@ -40,10 +42,12 @@ class TaskServerResource(BaseResource):
         atexit.register(self.stop)
 
     def start(self) -> None:
+        if self.require_setup:
+            original_files_dir = os.path.join(self.task_repo_dir, "original_files")
+            setup_file_dir = os.path.join(self.task_repo_dir, "setup_files", "flag.patch")
+            logger.info(f"Apply setup to {original_files_dir}")
+            subprocess.check_call(['git', 'apply', setup_file_dir], cwd=original_files_dir)
         try:
-            logger.info(f"Changing directory to {self.task_repo_dir}")
-            os.chdir(self.task_repo_dir)
-
             logger.info("Executing start_docker.sh")
             result = run_command(
                 command=["./start_docker.sh"],
@@ -59,17 +63,32 @@ class TaskServerResource(BaseResource):
             logger.error(
                 f"Unable to spin up task server at {self.resource_id}.")
             sys.exit(1)
-        finally:
-            # Return to the previous directory to ensure no side effects
-            os.chdir('..')
+
+        self.wait_until_all_containers_healthy()
+        if self.require_setup:
+            original_files_dir = os.path.join(self.task_repo_dir, "original_files")
+            setup_file_dir = os.path.join(self.task_repo_dir, "setup_files", "flag.patch")
+            logger.info(f"Revert setup to {original_files_dir}")
+            subprocess.check_call(['git', 'apply', '--reverse', setup_file_dir], cwd=original_files_dir)
+
+    def restart(self) -> None:
+        self.stop()
+        logger.info(f"Restarting task server {self.resource_id}")
+        logger.info("Executing start_docker.sh")
+        result = run_command(
+            command=["./start_docker.sh"],
+            work_dir=str(self.task_repo_dir),
+        )
+        logger.info(f"Spun up task server at {self.resource_id}")
+        # Extract the container name(s) from stdout or stderr
+        self.container_names = self.extract_container_names(result.stdout, result.stderr)
+        if not self.container_names:
+            raise Exception(f"Failed to retrieve container name(s) for {self.host_name}")
 
         self.wait_until_all_containers_healthy()
 
     def stop(self) -> None:
         try:
-            logger.info(f"Changing directory to {self.task_repo_dir}")
-            os.chdir(self.task_repo_dir)
-
             logger.info("Executing stop_docker.sh")
             result = run_command(
                 command=["./stop_docker.sh"],
@@ -82,9 +101,6 @@ class TaskServerResource(BaseResource):
             logger.warning(f"Stop script not found: {self.task_repo_dir}/stop_docker.sh.")
         except Exception as e:
             logger.info(f"Unable to stop task server at {self.resource_id}.")
-        finally:
-            # Return to the previous directory to ensure no side effects
-            os.chdir('..')
 
     def wait_until_all_containers_healthy(self, timeout=300, check_interval=2):
         """
@@ -99,7 +115,7 @@ class TaskServerResource(BaseResource):
 
         if container_queue.empty():
             logger.error("No container names available for health check.")
-            sys.exit(1)
+            raise ValueError("No container names available for health check.")
 
         logger.info(f"Waiting for all containers to become healthy...")
         
@@ -107,27 +123,21 @@ class TaskServerResource(BaseResource):
 
         while not container_queue.empty():
             container = container_queue.queue[0]  # Peek at the front of the queue
-            try:
-                # Check health status of the current container
-                logger.info(f"Checking health of container {container}")
-                inspect_result = run_command(
-                    command=[
-                        "docker", "inspect", "--format={{json .State.Health.Status}}", container]
-                )
-                health_status = inspect_result.stdout.strip().strip("'\"")
+            # Check health status of the current container
+            logger.info(f"Checking health of container {container}")
+            inspect_result = run_command(
+                command=[
+                    "docker", "inspect", "--format={{json .State.Health.Status}}", container]
+            )
+            health_status = inspect_result.stdout.strip().strip("'\"")
 
-                if health_status == "healthy":
-                    logger.info(f"Container '{container}' is healthy.")
-                    container_queue.get()  # Remove the container from the queue
-                elif health_status in ["starting"]:
-                    logger.info(f"Container '{container}' health status: {health_status}. Waiting...")
-                else:
-                    logger.warning(f"Container '{container}' has unexpected health status: {health_status}.")
-                    sys.exit(1)
-
-            except Exception as e:
-                logger.error(f"Unexpected error while checking health status of container '{container}': {e}")
-                sys.exit(1)
+            if health_status == "healthy":
+                logger.info(f"Container '{container}' is healthy.")
+                container_queue.get()  # Remove the container from the queue
+            elif health_status in ["starting"]:
+                logger.info(f"Container '{container}' health status: {health_status}. Waiting...")
+            else:
+                raise Exception(f"Container '{container}' has unexpected health status: {health_status}.")
 
             # Timeout check
             if time.time() - start_time > timeout:

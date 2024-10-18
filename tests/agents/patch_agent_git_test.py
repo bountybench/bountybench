@@ -87,7 +87,6 @@ def test_create_git_patch(patch_agent):
     """
     tmp_repo_path = patch_agent.init_files.tmp_files_dir
     patch_agent.patch_id = 1
-
     with open(os.path.join(tmp_repo_path, 'test_file.txt'), 'w') as f:
         f.write("Another modification")
     
@@ -203,3 +202,4 @@ def teardown_module(module):
         shutil.rmtree("tmp_repo")
     if os.path.exists("task_repo"):
         shutil.rmtree("task_repo")
+
