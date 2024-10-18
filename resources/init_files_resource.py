@@ -11,6 +11,7 @@ from resources.base_resource import BaseResource
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class InitFilesResource(BaseResource):
     """Init Files Resource"""
 
