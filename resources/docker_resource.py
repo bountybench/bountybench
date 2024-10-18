@@ -1,9 +1,10 @@
 import logging
 
 import docker
-from docker.models.containers import Container
 
 from resources.base_resource import BaseResource
+from resources.resource_dict import resource_dict
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,21 +18,23 @@ class DockerResource(BaseResource):
     Docker Resource to manage Docker containers.
     """
 
-    def __init__(self):
+    def __init__(self, name: str):
         """
         Initialize Docker client from environment.
         """
         self.client = docker.from_env()
+        self.resource_id = name
+        resource_dict[self.resource_id] = self
+        atexit.register(self.stop)
 
     def execute(
-        self, docker_image: str, name: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = True
+        self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = True
     ) -> str:
         """
         Run a Docker container with the specified configuration.
 
         Args:
             docker_image (str): The Docker image to run.
-            name (str): The name of the container.
             command (str): The command to execute inside the container.
             network (Optional[str]): The Docker network to attach the container to.
             work_dir (Optional[str]): The working directory inside the container.
@@ -50,7 +53,7 @@ class DockerResource(BaseResource):
             entrypoint=ENTRYPOINT,
             working_dir=work_dir,
             detach=detach,
-            name=name,
+            name=self.resource_id,
         )
         logs = ""
         try:
