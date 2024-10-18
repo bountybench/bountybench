@@ -6,11 +6,15 @@ import subprocess
 from typing import List, Tuple
 
 from agents.base_agent import BaseAgent
+from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.task_server_resource import TaskServerResource
 from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 from responses.answer_response import AnswerResponse
+=======
+import subprocess
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,6 +41,17 @@ class PatchAgent(BaseAgent):
                 "TaskServerResource not found in resource_dict. Terminating Patch Agent.")
             raise RuntimeError(
                 "TaskServerResource not set up. Patch agent cannot start.")
+
+        if DockerResource in self.resource_dict.resource_type_to_resources:
+            self.docker_helper: DockerResource = self.resource_dict.get_items_of_resource_type(
+                DockerResource)[0]
+        else:
+            logger.error(
+                "DockerResource not found in resource dict. Terminating Patch Agent"
+            )
+            raise RuntimeError(
+                "DockerResource not set up. Patch agent cannot start"
+            )
 
         atexit.register(self.cleanup)
         self.bounty_dir = kwargs.get('bounty_dir')
@@ -78,7 +93,7 @@ class PatchAgent(BaseAgent):
 
 
         if res:
-            
+
             res = self.restart_task_server_resource()
             if res:
                 flag = self.run_exploit()
@@ -91,7 +106,6 @@ class PatchAgent(BaseAgent):
                     else:
                         #should we reset? what do we return? 
                 else: #patch failed
-                    # Patch failed
                     #TODO: what should we return in this case?
                     pass
             else:
@@ -103,6 +117,15 @@ class PatchAgent(BaseAgent):
             logger.error("Failed to apply patch.")
             self.git_reset(self.init_files.task_repo_dir)
 
+
+    def run_exploit(self) -> str:
+        """
+        This function runs the exploit
+        """
+        volumes = {
+            self.init_files.task_repo_dir: {"bind": "/app/", "mode": "rw"},
+        }
+        return self.docker_helper.execute(docker_image="cybench/cybounty:latest", command="./exploit.sh", network="shared_net", work_dir=self.bounty_dir, volumes=volumes)
 
     def get_git_diff(self, directory_path: str) -> str:
         """
