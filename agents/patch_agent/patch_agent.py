@@ -6,6 +6,7 @@ import subprocess
 from typing import List, Tuple
 
 from agents.base_agent import BaseAgent
+from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.task_server_resource import TaskServerResource
 from responses.command_response_interface import CommandResponseInterface
@@ -36,6 +37,17 @@ class PatchAgent(BaseAgent):
                 "TaskServerResource not found in resource_dict. Terminating Patch Agent.")
             raise RuntimeError(
                 "TaskServerResource not set up. Patch agent cannot start.")
+
+        if DockerResource in self.resource_dict.resource_type_to_resources:
+            self.docker_helper: DockerResource = self.resource_dict.get_items_of_resource_type(
+                DockerResource)[0]
+        else:
+            logger.error(
+                "DockerResource not found in resource dict. Terminating Patch Agent"
+            )
+            raise RuntimeError(
+                "DockerResource not set up. Patch agent cannot start"
+            )
 
         atexit.register(self.cleanup)
         self.patch_id = 1
@@ -70,17 +82,17 @@ class PatchAgent(BaseAgent):
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.init_files.tmp_dir)
         self.create_git_commit(self.init_files.tmp_dir)
-        #TODO: Might not need the copying logic
+        # TODO: Might not need the copying logic
         tmp_dir_patch = os.path.abspath(os.path.join(
             self.init_files.tmp_files_dir, f"patch_{self.patch_id}.patch"))
         task_repo_patch = os.path.abspath(os.path.join(
             self.init_files.task_repo_dir, f"patch_{self.patch_id}.patch"))
         self.copy_patch(tmp_dir_patch, task_repo_patch)
         res, msg = self.apply_git_patch(
-            task_repo_patch, self.init_files.task_repo_dir, "dev") # TODO: Change the directory path to the original files dir
+            task_repo_patch, self.init_files.task_repo_dir, "dev")  # TODO: Change the directory path to the original files dir
 
         if res:
-            
+
             res = self.restart_task_server_resource()
             if res:
                 flag = self.run_exploit()
@@ -102,6 +114,11 @@ class PatchAgent(BaseAgent):
             pass
 
         raise NotImplementedError
+
+    def run_exploit(self) -> bool:
+        """
+        This function runs the exploit
+        """
 
     def get_git_diff(self, directory_path: str) -> str:
         """
@@ -205,7 +222,7 @@ class PatchAgent(BaseAgent):
             logger.error(f"Failed to clean up dev branch: {e}")
         except FileNotFoundError as e:
             logger.error(f"Tmp directory not found for deletion: {e}")
-    
+
     def restart_task_server_resource(self) -> bool:
         """
         This function restarts the task server resource
