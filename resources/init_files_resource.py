@@ -28,10 +28,11 @@ class InitFilesResource(BaseResource):
         """
         Run the initialization script for the task.
         """
-        self.setup_repo(self.files_dir)
-        self.setup_dev_branch()
         try:
             # Execute the init_script.sh script located in the task repo directory
+            print(f"Task repo dir: {self.task_repo_dir}")
+            if (os.path.exists(os.path.join(self.task_repo_dir, "init_script.sh"))):
+                print("The file does exist")
             init_result = subprocess.run(
                 ["./init_script.sh", self.tmp_dir],
                 cwd=self.task_repo_dir,
@@ -43,13 +44,16 @@ class InitFilesResource(BaseResource):
             # Log stdout and stderr output from the script
             logger.info(f"Init script stdout: {init_result.stdout}")
             logger.info(f"Init script stderr: {init_result.stderr}")
-            tmp_dir_path = os.path.join(self.task_repo_dir, self.tmp_dir)
-            self.setup_repo(tmp_dir_path)
         except subprocess.CalledProcessError as e:
             # Log error details if the script execution fails
             logger.error(f"Init script stdout: {e.stdout}")
             logger.error(f"Init script stderr: {e.stderr}")
             sys.exit(1)
+        # Set up git repos
+        self.setup_repo(self.files_dir)
+        self.setup_dev_branch()
+        tmp_dir_path = os.path.join(self.task_repo_dir, self.tmp_dir)
+        self.setup_repo(tmp_dir_path)
 
     def stop(self) -> None:
         """
@@ -58,16 +62,30 @@ class InitFilesResource(BaseResource):
         tmp_dir_path = os.path.join(self.task_repo_dir, self.tmp_dir)
         if os.path.exists(tmp_dir_path):
             try:
+                # Remove the .git directory if it exists
+                git_dir = os.path.join(tmp_dir_path, ".git")
+                if os.path.exists(git_dir):
+                    subprocess.run(["rm", "-rf", git_dir], check=True)
+                    logger.info(f"Removed .git directory from {tmp_dir_path}")
+
                 # Remove the temporary directory
-                subprocess.run(["rm", "-rf", self.tmp_dir],
-                               cwd=self.task_repo_dir, check=True)
+                subprocess.run(["rm", "-rf", tmp_dir_path], check=True)
+                logger.info(f"Removed temporary directory: {tmp_dir_path}")
+
+                try:
+                    local_git_dir = os.path.join(self.files_dir, ".git")
+                    if os.path.exists(local_git_dir):
+                        subprocess.run(["rm", "-rf", local_git_dir], check=True)
+                        logger.info(f"Removed .git directory from {self.files_dir}")
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"Failed to remove local repo directory: {e.stderr}")
+                    
             except subprocess.CalledProcessError as e:
-                logger.error(
-                    f"Failed to remove temporary directory: {e.stderr}")
+                logger.error(f"Failed to remove temporary directory: {e.stderr}")
         else:
             logger.error(f"Temporary directory does not exist: {tmp_dir_path}")
 
-    def setup_repo(work_dir):
+    def setup_repo(self, work_dir):
         if os.path.exists(work_dir):
             try:
                 subprocess.run(["git", "init"],
@@ -85,7 +103,7 @@ class InitFilesResource(BaseResource):
                     f"Failed to set up repo: {e.stderr}")
         else:
             logger.error(f"Directory does not exist: {work_dir}")
-
+            
     def setup_dev_branch(self):
         # Ensure Git repository is set up
         result = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
@@ -94,6 +112,17 @@ class InitFilesResource(BaseResource):
         if result.stdout.strip() == 'true':
             # Create and switch to 'dev' branch
             try:
+                branch_exists = subprocess.run(
+                    ["git", "branch"], cwd=self.files_dir, capture_output=True, text=True
+                )
+                
+                if "dev" in branch_exists.stdout:
+                    logger.info("Branch 'dev' already exists. Switching to 'master' branch...")
+                    subprocess.run(["git", "checkout", "master"], cwd=self.files_dir, check=True)
+
+                    logger.info("Deleting 'dev' branch...")
+                    subprocess.run(["git", "branch", "-D", "dev"], cwd=self.files_dir, check=True)
+
                 subprocess.run(["git", "checkout", "-b", "dev"], cwd=self.files_dir, check=True)
                 logger.info(f"Created and switched to 'dev' branch in {self.files_dir}")
             except subprocess.CalledProcessError as e:
