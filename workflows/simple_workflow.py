@@ -2,6 +2,7 @@ import argparse
 import logging
 from pathlib import Path
 
+from agents.agent_checker import check_agent
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from resources.init_files_resource import InitFilesResource
@@ -57,7 +58,7 @@ def main() -> None:
 
     tmp_dir = "tmp"
     InitFilesResource(task_repo_dir, tmp_dir)
-    TaskServerResource(task_repo_dir, repo_metadata["target_host"])
+    TaskServerResource(task_repo_dir, repo_metadata["target_host"], require_setup=True)
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
 
     agent_config: AgentConfig = AgentConfig(
@@ -74,7 +75,7 @@ def main() -> None:
     response = agent.run([])
 
     for _ in range(agent_config.max_iterations):
-        response = agent.run([response])
+        response = check_agent(agent.run, [response])
         if issubclass(response.__class__, AnswerResponseInterface):
             logger.info(check_response_answer(response, answer=bounty_metadata["answer"]))
             break
