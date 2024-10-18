@@ -40,7 +40,7 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
         self.patch_id = 1
-        self.patch_dir = os.path.join(self.init_files.task_repo_dir, "patches")
+        self.patch_dir = os.path.abspath(os.path.join(os.path.dirname(self.init_files.task_repo_dir), "patches"))
         
     def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
@@ -70,13 +70,10 @@ class PatchAgent(BaseAgent):
 
 
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
-        self.create_git_patch(tmp_dir_diff, self.init_files.tmp_dir)
+        self.create_git_patch(tmp_dir_diff, self.patch_dir)
         self.create_git_commit(self.init_files.tmp_dir)
-        #TODO: Might not need the copying logic
-        tmp_dir_patch = os.path.abspath(os.path.join(self.init_files.tmp_files_dir, f"patch_{self.patch_id}.patch"))
-        task_repo_patch = os.path.abspath(os.path.join(self.init_files.task_repo_dir, f"patch_{self.patch_id}.patch"))
-        self.copy_patch(tmp_dir_patch, task_repo_patch)
-        res, msg = self.apply_git_patch(f"patch_{self.patch_id}.patch", self.init_files.task_repo_dir, "dev")
+        patch_path = os.path.abspath(os.path.join(self.patch_dir, f"patch_{self.patch_id}.patch"))
+        res, msg = self.apply_git_patch(patch_path, self.init_files.task_repo_dir, "dev")
 
 
         if res:
@@ -121,7 +118,7 @@ class PatchAgent(BaseAgent):
         This function creates a patch file from the diff
         """
         try:
-            patch_file_path = os.path.join(directory_path, f"patch_{self.patch_id}.patch")
+            patch_file_path = os.path.abspath(os.path.join(directory_path, f"patch_{self.patch_id}.patch"))
             with open(patch_file_path, "w") as patch_file:
                 patch_file.write(diff)
             logger.info(f"Patch_{self.patch_id} file created successfully.")
@@ -137,26 +134,12 @@ class PatchAgent(BaseAgent):
                 subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
                 logger.info(f"Checked out to branch '{branch_name}'.")
 
-            patch_file = os.path.abspath(os.path.join(directory_path, f"patch_{self.patch_id}.patch"))
-            subprocess.check_call(['git', 'add', patch_file], cwd=directory_path)
-            subprocess.check_call(['git', 'commit', '-m', f'Applied patch_{self.patch_id}'], cwd=directory_path)
-            logger.info(f"Patch_{self.patch_id} committed successfully on branch '{branch_name}'." if branch_name else f"Patch_{self.patch_id} committed successfully.")
+            subprocess.check_call(['git', 'add', '.'], cwd=directory_path)
+            subprocess.check_call(['git', 'commit', '-m', f'Commit {self.patch_id}'], cwd=directory_path)
+            logger.info(f"Commit {self.patch_id} committed successfully on branch '{branch_name}'." if branch_name else f"Commit {self.patch_id} committed successfully.")
             
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to create git commit: {e}")
-
-    def copy_patch(self, patch_file_path: str, destination_path: str) -> None:
-        """
-        Copies the patch file from the tmp directory to the task repo's dev branch.
-        """
-        try:
-            subprocess.check_call(['git', 'checkout', 'dev'], cwd=self.init_files.task_repo_dir)
-            logger.info("Checked out to 'dev' branch in task repo.")
-            # Copy the patch file to the task repo's dev branch
-            shutil.copy(patch_file_path, destination_path)
-            logger.info(f"Patch file copied to task repo dev branch: {destination_path}")
-        except Exception as e:
-            logger.error(f"Failed to copy patch file to dev branch: {e}")
 
 
     def apply_git_patch(self, patch_file: str, directory_path: str, branch_name: str = None) -> Tuple[bool, str]:
@@ -187,6 +170,8 @@ class PatchAgent(BaseAgent):
             logger.info("Dev branch in task repo dir cleaned up successfully.")
             shutil.rmtree(self.init_files.tmp_files_dir)
             logger.info("Tmp directory deleted successfully.")
+            shutil.rmtree(self.patch_dir)
+            logger.info("Patch directory deleted successfully.")
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to clean up dev branch: {e}")
         except FileNotFoundError as e:

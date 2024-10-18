@@ -63,6 +63,10 @@ def patch_agent(mock_resources):
         agent.init_files = mock_init_files
         agent.task_server = mock_task_server
         agent.patch_id = 1
+        
+        agent.patch_dir = os.path.join(os.path.dirname(mock_init_files.task_repo_dir), "patches")
+        if not os.path.exists(agent.patch_dir):
+            os.makedirs(agent.patch_dir)
 
         yield agent
 
@@ -72,18 +76,16 @@ def test_get_git_diff(patch_agent):
     """
     tmp_repo_path = patch_agent.init_files.tmp_files_dir
 
-    # Modify a file in the tmp repository
     with open(os.path.join(tmp_repo_path, 'test_file.txt'), 'w') as f:
         f.write("Modified content")
     
-    # Check if get_git_diff returns the expected output
     diff = patch_agent.get_git_diff(tmp_repo_path)
     assert "Modified content" in diff, "Expected to see modified content in the git diff."
     
 
 def test_create_git_patch(patch_agent):
     """
-    Test the create_git_patch method in the tmp repo.
+    Test the create_git_patch method, ensuring patch is created outside the task repo.
     """
     tmp_repo_path = patch_agent.init_files.tmp_files_dir
     patch_agent.patch_id = 1
@@ -91,10 +93,10 @@ def test_create_git_patch(patch_agent):
         f.write("Another modification")
     
     diff = patch_agent.get_git_diff(tmp_repo_path)
-    patch_agent.create_git_patch(diff, tmp_repo_path)
+    patch_agent.create_git_patch(diff, patch_agent.patch_dir)
     
-    patch_file_path = os.path.join(tmp_repo_path, "patch_1.patch")
-    assert os.path.exists(patch_file_path), "Expected the patch file to be created in the tmp repo."
+    patch_file_path = os.path.join(patch_agent.patch_dir, "patch_1.patch")
+    assert os.path.exists(patch_file_path)
     
 
 def test_create_git_commit(patch_agent):
@@ -106,42 +108,22 @@ def test_create_git_commit(patch_agent):
 
     with open(os.path.join(tmp_repo_path, 'test_file.txt'), 'w') as f:
         f.write("New content for patch")
-
-    diff = patch_agent.get_git_diff(tmp_repo_path)
-    patch_agent.create_git_patch(diff, tmp_repo_path)
     
+    diff = patch_agent.get_git_diff(tmp_repo_path)
+    
+    patch_agent.create_git_patch(diff, patch_agent.patch_dir)
     patch_agent.create_git_commit(tmp_repo_path)
 
     log_output = subprocess.check_output(['git', 'log', '--oneline'], cwd=tmp_repo_path).decode('utf-8')
-    assert "Applied patch_1" in log_output, "Expected the commit message to contain the patch id."
-    
+    print(log_output)
+    assert "Commit 1" in log_output, "Expected the commit message to contain the patch id."
+
     committed_files = subprocess.check_output(['git', 'ls-tree', '--name-only', '-r', 'HEAD'], cwd=tmp_repo_path).decode('utf-8')
-    assert f"patch_1.patch" in committed_files, "Expected the patch file to be part of the commit."
-
-def test_copy_patch(patch_agent):
-    """
-    Test the copy_patch method to ensure the patch is copied from tmp_repo to task_repo.
-    """
-    tmp_repo_path = patch_agent.init_files.tmp_files_dir
-    task_repo_path = patch_agent.init_files.task_repo_dir
-    patch_agent.patch_id = 1
-
-    with open(os.path.join(tmp_repo_path, 'test_file.txt'), 'w') as f:
-        f.write("Patch content for copy")
-    diff = patch_agent.get_git_diff(tmp_repo_path)
-    patch_agent.create_git_patch(diff, tmp_repo_path)
     
-    tmp_patch_path = os.path.join(tmp_repo_path, f"patch_{patch_agent.patch_id}.patch")
-    task_repo_patch_path = os.path.join(task_repo_path, f"patch_{patch_agent.patch_id}.patch")
-
-    patch_agent.copy_patch(tmp_patch_path, task_repo_patch_path)
-
-    assert os.path.exists(task_repo_patch_path), f"Patch file should exist in the task repo at {task_repo_patch_path}."
-
-    with open(tmp_patch_path, 'r') as tmp_patch_file, open(task_repo_patch_path, 'r') as task_repo_patch_file:
-        tmp_patch_content = tmp_patch_file.read()
-        task_repo_patch_content = task_repo_patch_file.read()
-        assert tmp_patch_content == task_repo_patch_content
+    assert "test_file.txt" in committed_files, "Expected test_file.txt to be part of the commit."
+    
+    patch_file_path = os.path.join(patch_agent.patch_dir, f"patch_{patch_agent.patch_id}.patch")
+    assert os.path.exists(patch_file_path)
 
 def test_apply_git_patch(patch_agent):
     """
@@ -153,23 +135,22 @@ def test_apply_git_patch(patch_agent):
 
     with open(os.path.join(tmp_repo_path, 'test_file.txt'), 'w') as f:
         f.write("Patch content")
+    
     diff = patch_agent.get_git_diff(tmp_repo_path)
-    patch_agent.create_git_patch(diff, tmp_repo_path)
+    patch_agent.create_git_patch(diff, patch_agent.patch_dir)
 
     patch_agent.create_git_commit(tmp_repo_path)
 
-    tmp_dir_patch = os.path.abspath(os.path.join(tmp_repo_path, f"patch_{patch_agent.patch_id}.patch"))
-    task_repo_patch = os.path.abspath(os.path.join(task_repo_path, f"patch_{patch_agent.patch_id}.patch"))
-    
-    patch_agent.copy_patch(tmp_dir_patch, task_repo_patch)
-
+    patch_file = os.path.abspath(os.path.join(patch_agent.patch_dir, f"patch_{patch_agent.patch_id}.patch"))
 
     subprocess.check_call(['git', 'checkout', 'dev'], cwd=task_repo_path)
     subprocess.check_call(['git', 'checkout', '--', 'test_file.txt'], cwd=task_repo_path)
-    success, message = patch_agent.apply_git_patch(f"patch_1.patch", task_repo_path, 'dev')
-    
+
+    success, message = patch_agent.apply_git_patch(patch_file, task_repo_path, 'dev')
+
     assert success, message
     assert "Patch content" in open(os.path.join(task_repo_path, 'test_file.txt')).read()
+    
     
 
 def test_cleanup(patch_agent):
@@ -191,7 +172,8 @@ def test_cleanup(patch_agent):
     after_clean_branches = subprocess.check_output(['git', 'branch'], cwd=task_repo_path).decode('utf-8')
     assert "dev" not in after_clean_branches, "Dev branch should be deleted after cleanup."
 
-    assert not os.path.exists(patch_agent.init_files.tmp_files_dir), "Tmp directory should be deleted after cleanup."
+    assert not os.path.exists(patch_agent.init_files.tmp_files_dir)
+    assert not os.path.exists(patch_agent.patch_dir)
 
 
 def teardown_module(module):
@@ -202,4 +184,6 @@ def teardown_module(module):
         shutil.rmtree("tmp_repo")
     if os.path.exists("task_repo"):
         shutil.rmtree("task_repo")
+    if os.path.exists("patch_dir"):
+        shutil.rmtree("patch_dir")
 
