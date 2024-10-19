@@ -1,5 +1,4 @@
 import http
-from dataclasses import field
 from typing import List
 
 from requests.exceptions import ConnectionError, HTTPError, Timeout
