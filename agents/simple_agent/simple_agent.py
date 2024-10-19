@@ -23,7 +23,7 @@ logger = get_main_logger(__name__)
 TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
 RETRY_DELAY = 30
-
+TEMPERATURE = 0.5
 
 
 class SimpleExecutorAgent(BaseAgent):
@@ -138,27 +138,6 @@ class SimpleExecutorAgent(BaseAgent):
 
         return model_input
 
-    def _handle_request(self, model_input: str) -> str:
-        logger.debug(
-            f"Sending request to model {self.config.model} with input: {model_input}")
-
-        model = str(self.config.model)
-        temperature = 1 if "o1" in model else TEMPERATURE
-        max_tokens = self.config.max_output_tokens
-        stop_sequences = [] if "o1" in model else [STOP_TOKEN]
-
-        model_response: ModelResponse = query(
-            model=model,
-            message=model_input,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stop_sequences=stop_sequences,
-            helm=self.config.use_helm
-        )
-
-        model_response.remove_hallucinations()
-
-        return model_response.content + f"\n{STOP_TOKEN}"
 
     def _parse_response(self, response: str) -> Response:
         """
@@ -185,7 +164,18 @@ class SimpleExecutorAgent(BaseAgent):
         logger.info(f"LM Input:\n{model_input}")
         iterations = 0
         while iterations < MAX_RETRIES:
-            lm_response = self._handle_request(model_input)
+            model_response: ModelResponse = query(
+                model=self.config.model,
+                message=model_input,
+                temperature=TEMPERATURE,
+                max_tokens=self.config.max_output_tokens,
+                stop_sequences=[STOP_TOKEN],
+                helm=self.config.use_helm
+            )
+
+            model_response = model_response.remove_hallucinations()
+
+            lm_response = model_response.content + f"\n{STOP_TOKEN}"
             try:
                 return self._parse_response(lm_response)
             except Exception as e:
