@@ -43,16 +43,16 @@ class PatchAgent(BaseAgent):
                 "DockerResource not set up. Patch agent cannot start"
             )
 
-        atexit.register(self.cleanup)
         self.bounty_dir = kwargs.get('bounty_dir')
         self.files_dir = os.path.join(
             self.init_files.task_repo_dir, self.init_files.files_dir)
         self.tmp_dir = os.path.join(
             self.init_files.task_repo_dir, self.init_files.tmp_dir)
-
-        self.patch_id = 1
         self.patch_dir = os.path.abspath(os.path.join(
             os.path.dirname(self.files_dir), "patches"))
+
+        self.patch_id = 1
+        atexit.register(self.cleanup)
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
@@ -65,7 +65,7 @@ class PatchAgent(BaseAgent):
                 return response
         else:
             raise Exception(
-                'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
+                f'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
 
     def execute(self, command_response: CommandResponse) -> Response:
         """

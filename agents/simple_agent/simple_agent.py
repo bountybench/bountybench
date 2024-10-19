@@ -66,7 +66,7 @@ class SimpleExecutorAgent(BaseAgent):
             return self.execute()
         else:
             raise Exception(
-                'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
+                f'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
 
     def execute(self) -> Response:
         lm_executor_response = self.call_lm()
