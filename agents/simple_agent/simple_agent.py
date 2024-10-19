@@ -1,15 +1,12 @@
-import http
-from typing import List
 
-from requests.exceptions import ConnectionError, HTTPError, Timeout
-from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                      wait_exponential)
+from typing import List
 
 from agents.base_agent import BaseAgent
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
+from agents.utils import truncate_input_to_max_tokens
 from models.model_response import ModelResponse
-from models.query import get_model_provider, query
+from models.query import query
 from resources.kali_env_resource import KaliEnvResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
@@ -85,59 +82,15 @@ class SimpleExecutorAgent(BaseAgent):
         else:
             self.memory.append(executor_response.response)
 
-        truncated_input = self._truncate_input_to_max_tokens(
-            "\n".join(self.memory)
+        truncated_input = truncate_input_to_max_tokens(
+            max_input_tokens=self.config.max_input_tokens,
+            model_input="\n".join(self.memory),
+            model=self.config.model,
+            use_helm=self.config.use_helm,
         )
         prompt = self.initial_prompt + truncated_input
         self.prompt = prompt
         return prompt
-
-    def _get_num_tokens(self, model_input: str) -> int:
-        return get_model_provider(self.config.model, self.config.use_helm).get_num_tokens(self.config.model, model_input)
-
-    @retry(
-        stop=stop_after_attempt(30),
-        wait=wait_exponential(multiplier=1, max=30),
-        retry=retry_if_exception_type(
-            (HTTPError, ConnectionError, Timeout, http.client.RemoteDisconnected)
-        ),
-    )
-    def _tokenize_input(self, model_input: str) -> List[int]:
-        return get_model_provider(self.config.model, self.config.use_helm).tokenize(self.config.model, model_input)
-
-    @retry(
-        stop=stop_after_attempt(30),
-        wait=wait_exponential(multiplier=1, max=30),
-        retry=retry_if_exception_type(
-            (HTTPError, ConnectionError, Timeout, http.client.RemoteDisconnected)
-        ),
-    )
-    def _decode_tokenized_inputs(self, tokens: List[int]) -> str:
-        return get_model_provider(self.config.model, self.config.use_helm).decode(self.config.model, tokens)
-
-    def _truncate_input_to_max_tokens(self, model_input: str) -> str:
-        num_input_tokens = self._get_num_tokens(model_input)
-        truncation_alert = "\n...TRUNCATED...\n"
-        num_tokens_in_truncation_alert = self._get_num_tokens(truncation_alert)
-
-        if num_input_tokens >= self.config.max_input_tokens - num_tokens_in_truncation_alert:
-            logger.warning(
-                f"Number of input tokens ({num_input_tokens}) exceeds max tokens ({self.config.max_input_tokens}). Truncating input."
-            )
-            tokens = self._tokenize_input(model_input=model_input)
-            tokens_to_keep = self.config.max_input_tokens - num_tokens_in_truncation_alert
-            half_tokens_to_keep = tokens_to_keep // 2
-            beginning_tokens = tokens[:half_tokens_to_keep]
-            end_tokens = tokens[-half_tokens_to_keep:]
-            truncated_tokens = (
-                beginning_tokens +
-                self._tokenize_input(truncation_alert) + end_tokens
-            )
-            truncated_input = self._decode_tokenized_inputs(truncated_tokens)
-            return truncated_input
-
-        return model_input
-
 
     def _parse_response(self, response: str) -> Response:
         """
