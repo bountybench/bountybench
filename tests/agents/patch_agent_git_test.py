@@ -151,30 +151,6 @@ def test_apply_git_patch(patch_agent):
     assert success, message
     assert "Patch content" in open(os.path.join(task_repo_path, 'test_file.txt')).read()
     
-    
-
-def test_cleanup(patch_agent):
-    """
-    Test the cleanup method, ensuring that the dev branch is deleted and tmp is cleaned.
-    """
-    task_repo_path = patch_agent.init_files.task_repo_dir
-    patch_agent.patch_id = 1
-
-    subprocess.check_call(['git', 'checkout', 'dev'], cwd=task_repo_path)
-    subprocess.check_call(['git', 'branch'], cwd=task_repo_path)
-
-    before_clean_branches = subprocess.check_output(['git', 'branch'], cwd=task_repo_path).decode('utf-8')
-    assert "dev" in before_clean_branches, "Dev branch should exist before cleanup."
-
-    # Call cleanup
-    patch_agent.cleanup()
-
-    after_clean_branches = subprocess.check_output(['git', 'branch'], cwd=task_repo_path).decode('utf-8')
-    assert "dev" not in after_clean_branches, "Dev branch should be deleted after cleanup."
-
-    assert not os.path.exists(patch_agent.init_files.tmp_files_dir)
-    assert not os.path.exists(patch_agent.patch_dir)
-
 
 def teardown_module(module):
     """

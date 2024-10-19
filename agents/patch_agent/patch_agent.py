@@ -52,7 +52,6 @@ class PatchAgent(BaseAgent):
             os.path.dirname(self.files_dir), "patches"))
 
         self.patch_id = 1
-        atexit.register(self.cleanup)
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
@@ -185,24 +184,6 @@ class PatchAgent(BaseAgent):
     def increment_patch_id(self) -> None:
         self.patch_id += 1
 
-    def cleanup(self) -> None:
-        """
-        This function cleans up the temporary branch etc.
-        """
-        try:
-            subprocess.check_call(
-                ['git', 'checkout', 'master'], cwd=self.files_dir)
-            subprocess.check_call(
-                ['git', 'branch', '-D', 'dev'], cwd=self.files_dir)
-            logger.info("Dev branch in task repo dir cleaned up successfully.")
-            shutil.rmtree(self.init_files.tmp_files_dir)
-            logger.info("Tmp directory deleted successfully.")
-            shutil.rmtree(self.patch_dir)
-            logger.info("Patch directory deleted successfully.")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to clean up dev branch: {e}")
-        except FileNotFoundError as e:
-            logger.error(f"Tmp directory not found for deletion: {e}")
 
     def restart_task_server_resource(self) -> bool:
         """
