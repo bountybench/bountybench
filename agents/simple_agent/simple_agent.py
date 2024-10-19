@@ -21,7 +21,7 @@ from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 TIMEOUT_PER_COMMAND = 120
-MAX_HELM_RETRIES = 3
+MAX_RETRIES = 3
 RETRY_DELAY = 30
 TEMPERATURE = 0.5
 
@@ -186,13 +186,13 @@ class SimpleExecutorAgent(BaseAgent):
         model_input = self.prompt
         logger.info(f"LM Input:\n{model_input}")
         iterations = 0
-        while iterations < self.config.max_iterations:
+        while iterations < MAX_RETRIES:
             lm_response = self._handle_request(model_input)
             try:
                 return self._parse_response(lm_response)
             except Exception as e:
                 logger.warning(
-                    f"Retrying {iterations}/{self.config.max_iterations} after error: {e}")
+                    f"Retrying {iterations}/{MAX_RETRIES} after error: {e}")
                 iterations += 1
 
         # Raise an exception if it exhausts the retries
