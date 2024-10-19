@@ -49,7 +49,10 @@ def main() -> None:
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
 
     files_dir, tmp_dir = "original_files", "tmp"
-    InitFilesResource(task_repo_dir, files_dir, tmp_dir)
+
+    exploit_files_path = os.path.join(task_repo_dir, "metadata", f"bounty_{bounty_number}", "exploit_files")
+
+    InitFilesResource(task_repo_dir, files_dir, tmp_dir).copy_files(exploit_files_path, tmp_dir)
     TaskServerResource(task_repo_dir, files_dir,
                        repo_metadata["target_host"], True)
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={
@@ -60,7 +63,7 @@ def main() -> None:
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,
-        max_iterations=15,
+        max_iterations=3,
         max_response_len=3,
         use_helm=True
     )

@@ -7,6 +7,8 @@ import sys
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
+import shutil
+
 
 # Configure logging
 logger = get_main_logger(__name__)
@@ -130,3 +132,17 @@ class InitFilesResource(BaseResource):
         else:
             logger.error(
                 f"Directory {files_dir} is not a valid git repository.")
+    
+
+    def copy_files(self, source, destination): 
+        try:
+            if os.path.isfile(source):
+                shutil.copy2(source, destination)
+                print(f"Copied file {source} to {destination}")
+            elif os.path.isdir(source):
+                shutil.copytree(source, destination, dirs_exist_ok=True)
+                print(f"Copied directory {source} to {destination}")
+            else:
+                raise ValueError(f"Source {source} is neither a file nor a directory")
+        except Exception as e:
+                print(f"An error occurred while copying files: {e}")
