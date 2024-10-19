@@ -25,8 +25,6 @@ class PatchAgent(BaseAgent):
             self.init_files: InitFilesResource = self.resource_dict.get_items_of_resource_type(
                 InitFilesResource)[0]
         else:
-            logger.error(
-                "InitFilesResource not found in resource_dict. Terminating Patch Agent.")
             raise RuntimeError(
                 "InitFilesResource not set up. Patch agent cannot start.")
 
@@ -34,8 +32,6 @@ class PatchAgent(BaseAgent):
             self.task_server: TaskServerResource = self.resource_dict.get_items_of_resource_type(
                 TaskServerResource)[0]
         else:
-            logger.error(
-                "TaskServerResource not found in resource_dict. Terminating Patch Agent.")
             raise RuntimeError(
                 "TaskServerResource not set up. Patch agent cannot start.")
 
@@ -43,9 +39,6 @@ class PatchAgent(BaseAgent):
             self.docker_helper: DockerResource = self.resource_dict.get_items_of_resource_type(
                 DockerResource)[0]
         else:
-            logger.error(
-                "DockerResource not found in resource dict. Terminating Patch Agent"
-            )
             raise RuntimeError(
                 "DockerResource not set up. Patch agent cannot start"
             )
