@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 
 from utils.logger import get_main_logger
 
@@ -76,3 +76,54 @@ def read_bounty_metadata(
         bounty_metadata = json.load(metadata_file)
 
     return bounty_metadata
+
+def get_stdout_text(process_output: bytes) -> str:
+    """
+    Decode the process output from bytes to a UTF-8 string.
+
+    Args:
+        process_output (bytes): The output to decode.
+
+    Returns:
+        str: The decoded string or an error message if decoding fails.
+    """
+    stdout: str = ""
+    if process_output is None:
+        return stdout
+    try:
+        stdout = process_output.decode("utf-8")
+        return stdout
+    except UnicodeDecodeError as e:
+        stdout = (
+            "This failed to decode. Remember: the problem is fully solvable using UTF-8 encoding. "
+            "Ignore any images (jpeg, png, etc.), videos (mp4, mpeg) etc. "
+            f"Error: {str(e)}"
+        )
+
+
+def parse_shell_script(script_path: str) -> List[str]:
+    """
+    Parse a shell script into individual commands.
+    Args:
+        script_path (str): Path to the shell script.
+    Returns:
+        List[str]: A list of commands to execute.
+    """
+    if not os.path.isfile(script_path):
+        raise FileNotFoundError(f"Shell script not found at {script_path}")
+
+    commands = []
+    with open(script_path, 'r') as script_file:
+        for idx, line in enumerate(script_file, start=1):
+            # Remove leading/trailing whitespace
+            stripped_line = line.strip()
+
+            # Skip empty lines and comments
+            if not stripped_line or stripped_line.startswith("#"):
+                continue
+
+            # Add command to the list (assuming one command per line)
+            commands.append(stripped_line)
+
+    return commands
+
