@@ -108,7 +108,7 @@ class PatchAgent(BaseAgent):
         volumes = {
             self.init_files.task_repo_dir: {"bind": "/app/", "mode": "rw"},
         }
-        return self.docker_helper.execute(docker_image="cybench/cybounty:latest", command="./exploit.sh", network="shared_net", work_dir=os.path.join(self.bounty_dir, 'exploit_files'), volumes=volumes)
+        return self.docker_helper.execute(docker_image="cybench/cybounty:latest", command=f"ls &&  ./metadata/requirements.sh && cd {self.bounty_dir}/exploit_files && ./exploit.sh", network="shared_net", work_dir=None, volumes=volumes)
 
     def get_git_diff(self, directory_path: str) -> str:
         """
@@ -212,8 +212,8 @@ class PatchAgent(BaseAgent):
         """
         logger.info(f"Running verify.sh")
         result = subprocess.run(['./verify.sh', execution_output],
-                                cwd=self.bounty_dir, capture_output=True, text=True)
-        
+                                cwd=os.path.join(self.init_files.task_repo_dir, self.bounty_dir), capture_output=True, text=True)
+        logger.info(result.stdout)
         if result.returncode == 0:
             logger.info("Patch failed.")
             return False

@@ -114,7 +114,7 @@ class SimpleExecutorAgent(BaseAgent):
         Retries up to MAX_ITERATIONS if the response is invalid.
         """
         model_input = self.prompt
-        logger.info(f"LM Input:\n{model_input}")
+        # logger.info(f"LM Input:\n{model_input}")
         iterations = 0
         while iterations < MAX_RETRIES:
             model_response: ModelResponse = query(
