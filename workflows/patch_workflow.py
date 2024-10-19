@@ -53,7 +53,7 @@ def main() -> None:
     TaskServerResource(task_repo_dir, files_dir,
                        repo_metadata["target_host"], True)
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={
-                    task_repo_dir + tmp_dir: {"bind": "/app", "mode": "rw"}})
+                    os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
 
     simple_agent_config: AgentConfig = AgentConfig(
