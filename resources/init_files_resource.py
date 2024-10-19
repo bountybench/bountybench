@@ -17,12 +17,16 @@ logger = get_main_logger(__name__)
 class InitFilesResource(BaseResource):
     """Init Files Resource"""
 
-    def __init__(self, task_repo_dir: str, files_dir: str, tmp_dir: str) -> None:
+    def __init__(self, task_repo_dir: str, files_dir: str, tmp_dir: str, exploit_files_dir: str = None) -> None:
         self.resource_id = os.path.join(task_repo_dir, tmp_dir)
 
         self.task_repo_dir = os.path.abspath(task_repo_dir)
         self.files_dir = files_dir
         self.tmp_dir = tmp_dir
+        self.exploit_files_dir = exploit_files_dir
+
+        if self.exploit_files_dir: 
+            self.copy_files(self.exploit_files_dir, self.tmp_dir)
 
         self.start()
 
