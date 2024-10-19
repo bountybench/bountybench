@@ -56,11 +56,11 @@ def main() -> None:
 
     files_dir, tmp_dir = "original_files", "tmp"
 
-    exploit_files_path = os.path.join(task_repo_dir, "metadata", f"bounty_{bounty_number}", "exploit_files")
+    exploit_files_dir = os.path.join(task_repo_dir, "metadata", f"bounty_{bounty_number}", "exploit_files")
 
-    InitFilesResource(task_repo_dir, files_dir, tmp_dir).copy_files(exploit_files_path, os.path.join(task_repo_dir, tmp_dir))
+    InitFilesResource(task_repo_dir, files_dir, tmp_dir, exploit_files_dir)
     TaskServerResource(task_repo_dir, files_dir,
-                       repo_metadata["target_host"], True)
+                       repo_metadata["target_host"])
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")

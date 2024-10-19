@@ -58,7 +58,7 @@ def main() -> None:
     files_dir, tmp_dir = "original_files", "tmp"
     InitFilesResource(task_repo_dir, files_dir, tmp_dir)
     TaskServerResource(task_repo_dir,  files_dir,
-                       repo_metadata["target_host"], require_setup=True)
+                       repo_metadata["target_host"])
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
 
     agent_config: AgentConfig = AgentConfig(
