@@ -48,9 +48,9 @@ def main() -> None:
 
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
 
-    tmp_dir = "tmp"
-    InitFilesResource(task_repo_dir, tmp_dir)
-    TaskServerResource(task_repo_dir, repo_metadata["target_host"], True)
+    files_dir, tmp_dir = "original_files", "tmp"
+    InitFilesResource(task_repo_dir, files_dir, tmp_dir)
+    TaskServerResource(task_repo_dir, files_dir, repo_metadata["target_host"], True)
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
 
