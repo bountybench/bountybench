@@ -23,7 +23,7 @@ logger = get_main_logger(__name__)
 TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
 RETRY_DELAY = 30
-TEMPERATURE = 0.5
+
 
 
 class SimpleExecutorAgent(BaseAgent):
@@ -32,6 +32,7 @@ class SimpleExecutorAgent(BaseAgent):
     def __init__(self, config: AgentConfig, **kwargs):
         super().__init__()
         self.config = config
+
         self.initial_prompt = INITIAL_PROMPT.format(
             # TODO make defaults
             task_description=kwargs.get(
@@ -48,15 +49,12 @@ class SimpleExecutorAgent(BaseAgent):
             if kwargs.get("target_host", ""):
                 self.kali_env.health_check(kwargs.get("target_host", ""))
         else:
-            # kill the agent if no kali env is found - this should have happened earlier in the workflow
-            logger.error(
-                "KaliEnvResource not found in resource_dict. Terminating Agent.")
             raise RuntimeError(
                 "KaliEnvResource not set up. Agent cannot start.")
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
-            return Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
+            raise Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
         # Case for first run, no response(s) to pass in
         if len(responses) == 0:
             return self.execute()
