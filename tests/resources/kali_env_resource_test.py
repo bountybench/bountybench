@@ -32,6 +32,16 @@ class TestKaliEnvResource(unittest.TestCase):
         stdout, stderr = self.kali_env_resource.run_command(command)
         self.assertEqual(stdout.strip(), "Hello")
         self.assertEqual(stderr.strip(), "")
+    
+    def test_run_multiple_commands(self):
+        """
+        Test running multiple commands (e.g., `echo Hello; echo World`).
+        The output should be the same as the echoed messages.
+        """
+        command = "echo Hello\n echo World"
+        stdout, stderr = self.kali_env_resource.run_command(command)
+        self.assertEqual(stdout.strip(), "Hello\nWorld")
+        self.assertEqual(stderr.strip(), "")
 
     def test_command_with_error(self):
         """
