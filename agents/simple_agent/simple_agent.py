@@ -128,7 +128,7 @@ class SimpleExecutorAgent(BaseAgent):
 
             model_response = model_response.remove_hallucinations()
 
-            lm_response = model_response.content + f"\n{STOP_TOKEN}"
+            lm_response = model_response + f"\n{STOP_TOKEN}"
             try:
                 return self._parse_response(lm_response)
             except Exception as e:
