@@ -19,8 +19,6 @@ def parse_field(text: str, field: str, multiline: bool = True, stop_str: Optiona
         # Find the start index for the field
         field_marker = f"{field}"
         start_index = text.find(field_marker)
-        print(field_marker)
-        print(start_index)
         if start_index == -1:
             # Field not found
             return None
