@@ -11,10 +11,10 @@ from docker.models.containers import Container
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
+from utils.logger import get_main_logger
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger: logging.Logger = logging.getLogger(__name__)
+logger = get_main_logger(__name__)
 
 # Constants with type annotations
 DOCKER_IMAGE: str = "cybench/cybounty:latest"

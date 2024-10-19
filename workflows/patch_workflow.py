@@ -11,9 +11,9 @@ from resources.kali_env_resource import KaliEnvResource
 from resources.task_server_resource import TaskServerResource
 from resources.utils import *
 from responses.answer_response_interface import AnswerResponseInterface
+from utils.logger import get_main_logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_main_logger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
