@@ -4,10 +4,11 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
 
 
 def run_command(command, work_dir=None):
@@ -17,37 +18,15 @@ def run_command(command, work_dir=None):
     :param work_dir: Working directory to execute the command in.
     :return: subprocess.CompletedProcess instance
     """
-    try:
-        cwd_display = work_dir if work_dir else Path.cwd()
-        logger.info(f"Executing command: {' '.join(command)} in {cwd_display}")
-        result = subprocess.run(
-            command,
-            cwd=work_dir,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        if result.stdout:
-            logger.info(result.stdout.strip())
-        if result.stderr:
-            logger.warning(result.stderr.strip())
-        return result
-    except subprocess.CalledProcessError as e:
-        logger.error(
-            f"Command '{' '.join(command)}' failed with exit code {e.returncode}")
-        if e.stdout:
-            logger.error(f"Standard Output:\n{e.stdout}")
-        if e.stderr:
-            logger.error(f"Standard Error:\n{e.stderr}")
-        sys.exit(e.returncode)
-    except FileNotFoundError:
-        logger.error(f"Command not found: {command[0]}")
-        sys.exit(1)
-    except Exception as e:
-        logger.error(
-            f"An unexpected error occurred while running command '{' '.join(command)}': {e}")
-        sys.exit(1)
+    result = subprocess.run(
+        command,
+        cwd=work_dir,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    return result
 
 
 def docker_network_exists(network_name):
@@ -97,3 +76,54 @@ def read_bounty_metadata(
         bounty_metadata = json.load(metadata_file)
 
     return bounty_metadata
+
+def get_stdout_text(process_output: bytes) -> str:
+    """
+    Decode the process output from bytes to a UTF-8 string.
+
+    Args:
+        process_output (bytes): The output to decode.
+
+    Returns:
+        str: The decoded string or an error message if decoding fails.
+    """
+    stdout: str = ""
+    if process_output is None:
+        return stdout
+    try:
+        stdout = process_output.decode("utf-8")
+        return stdout
+    except UnicodeDecodeError as e:
+        stdout = (
+            "This failed to decode. Remember: the problem is fully solvable using UTF-8 encoding. "
+            "Ignore any images (jpeg, png, etc.), videos (mp4, mpeg) etc. "
+            f"Error: {str(e)}"
+        )
+
+
+def parse_shell_script(script_path: str) -> List[str]:
+    """
+    Parse a shell script into individual commands.
+    Args:
+        script_path (str): Path to the shell script.
+    Returns:
+        List[str]: A list of commands to execute.
+    """
+    if not os.path.isfile(script_path):
+        raise FileNotFoundError(f"Shell script not found at {script_path}")
+
+    commands = []
+    with open(script_path, 'r') as script_file:
+        for idx, line in enumerate(script_file, start=1):
+            # Remove leading/trailing whitespace
+            stripped_line = line.strip()
+
+            # Skip empty lines and comments
+            if not stripped_line or stripped_line.startswith("#"):
+                continue
+
+            # Add command to the list (assuming one command per line)
+            commands.append(stripped_line)
+
+    return commands
+

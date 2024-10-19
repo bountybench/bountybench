@@ -1,3 +1,5 @@
+from typing import List
+from agents.simple_agent.prompt import STOP_TOKEN
 from responses.command_response_interface import  CommandResponseInterface
 from responses.parse_response import parse_field
 from responses.observation import Observation
@@ -16,8 +18,8 @@ class CommandResponse(CommandResponseInterface):
     def command(self) -> str:
         return self._command
     
-    def parse_command(self) -> str:
-        command = parse_field(self._response, "Command: ")
+    def parse_command(self) -> List[str]:
+        command = parse_field(self._response, "Command:", stop_str=STOP_TOKEN)
         if not command:
             raise Exception("Command is missing from response, cannot be a command response.")
         return command

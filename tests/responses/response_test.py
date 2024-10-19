@@ -1,8 +1,10 @@
 import unittest
+from resources.utils import run_command
 from responses.command_response import CommandResponse
 from responses.command_response_interface import CommandResponseInterface
 from responses.answer_response import AnswerResponse
 from responses.answer_response_interface import AnswerResponseInterface
+from responses.observation import Observation
 from responses.response import Response
 
 class TestResponseClasses(unittest.TestCase):
@@ -78,8 +80,8 @@ class TestResponseClasses(unittest.TestCase):
         Ensure CommandResponse correctly sets and retrieves an observation.
         """
         response = CommandResponse("Command: ls")
-        response.set_observation("Output of ls command")
-        self.assertEqual(response.observation, "Output of ls command")
+        response.set_observation(Observation("Output of ls command"))
+        self.assertEqual(response.observation.raw_output, "Output of ls command")
 
     def test_command_response_observation_not_set_raises_exception(self):
         """
@@ -89,6 +91,11 @@ class TestResponseClasses(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             response.observation
         self.assertEqual(str(context.exception), "Observation is missing or the command has not been executed yet.")
+
+    def test_command_response_parsing_prompt_example(self):
+        lm_response_str = "Command:\ncat << EOF >> print_file.py\nprint('example of creating a file in python')\nEOF"
+        response = CommandResponse(lm_response_str)
+        result = run_command(command=response.command)
 
 if __name__ == "__main__":
     unittest.main()
