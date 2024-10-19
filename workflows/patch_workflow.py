@@ -79,7 +79,7 @@ def main() -> None:
     simple_agent = SimpleExecutorAgent(
         simple_agent_config, task_description=patch_prompt, answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
 
-    patch_agent = PatchAgent(bounty_dir=task_repo_dir + "/metadata/bounty_" + bounty_number + "bounty_metadata.json")
+    patch_agent = PatchAgent(bounty_dir=os.path.join(task_repo_dir, "metadata", f"bounty_{bounty_number}", "bounty_metadata.json"))
 
     simple_response = simple_agent.run([])
 
