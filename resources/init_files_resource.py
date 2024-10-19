@@ -88,7 +88,6 @@ class InitFilesResource(BaseResource):
                                cwd=work_dir, check=True)
 
                 subprocess.run(["git", "add", "."], cwd=work_dir, check=True)
-                logger.info(f"Added all files to the repository in {work_dir}")
 
                 subprocess.run(
                     ["git", "commit", "-q", "-m", "initial commit"], cwd=work_dir, check=True)
