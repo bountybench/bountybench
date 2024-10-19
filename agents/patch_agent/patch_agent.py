@@ -108,7 +108,7 @@ class PatchAgent(BaseAgent):
         volumes = {
             self.init_files.task_repo_dir: {"bind": "/app/", "mode": "rw"},
         }
-        return self.docker_helper.execute(docker_image="cybench/cybounty:latest", command="./exploit.sh", network="shared_net", work_dir=self.bounty_dir, volumes=volumes)
+        return self.docker_helper.execute(docker_image="cybench/cybounty:latest", command="./exploit.sh", network="shared_net", work_dir=os.path.join(self.bounty_dir, 'exploit_files'), volumes=volumes)
 
     def get_git_diff(self, directory_path: str) -> str:
         """

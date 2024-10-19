@@ -21,7 +21,7 @@ logger = get_main_logger(__name__)
 class TaskServerResource(BaseResource):
     """Task Server Resource"""
 
-    def __init__(self, task_repo_dir: str, files_dir: str, server_address: str, require_setup: bool = False) -> None:
+    def __init__(self, task_repo_dir: str, files_dir: str, server_address: str) -> None:
         try:
             # Split the server_address into hostname and port
             host_name, port_number = server_address.split(":")
@@ -34,7 +34,6 @@ class TaskServerResource(BaseResource):
         self.resource_id = server_address
         self.task_repo_dir = os.path.abspath(task_repo_dir)
         self.files_dir = files_dir
-        self.require_setup = require_setup
 
         self.host_name = host_name
         self.port_number = port_number
@@ -47,14 +46,6 @@ class TaskServerResource(BaseResource):
         atexit.register(self.stop)
 
     def start(self) -> None:
-        if self.require_setup:
-            original_files_dir = os.path.join(
-                self.task_repo_dir, self.files_dir)
-            setup_file_dir = os.path.join(
-                self.task_repo_dir, "setup_files")
-            logger.info(f"Apply setup to {original_files_dir}")
-            subprocess.check_call(
-                ['git', 'apply', setup_file_dir], cwd=original_files_dir)
         try:
             logger.info("Executing start_docker.sh")
             result = run_command(
@@ -75,14 +66,6 @@ class TaskServerResource(BaseResource):
             sys.exit(1)
 
         self.wait_until_all_containers_healthy()
-        if self.require_setup:
-            original_files_dir = os.path.join(
-                self.task_repo_dir, self.files_dir)
-            setup_file_dir = os.path.join(
-                self.task_repo_dir, "setup_files")
-            logger.info(f"Revert setup to {original_files_dir}")
-            subprocess.check_call(
-                ['git', 'apply', '--reverse', setup_file_dir], cwd=original_files_dir)
 
     def restart(self) -> None:
         self.stop()

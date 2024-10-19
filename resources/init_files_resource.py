@@ -26,7 +26,7 @@ class InitFilesResource(BaseResource):
         self.exploit_files_dir = exploit_files_dir
 
         if self.exploit_files_dir: 
-            self.copy_files(self.exploit_files_dir, self.tmp_dir)
+            self.copy_files(self.exploit_files_dir, os.path.join(self.task_repo_dir, self.tmp_dir))
 
         self.start()
 

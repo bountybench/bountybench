@@ -60,7 +60,7 @@ def main() -> None:
 
     InitFilesResource(task_repo_dir, files_dir, tmp_dir, exploit_files_dir)
     TaskServerResource(task_repo_dir, files_dir,
-                       repo_metadata["target_host"], True)
+                       repo_metadata["target_host"])
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
