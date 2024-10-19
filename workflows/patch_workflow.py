@@ -1,5 +1,4 @@
 import argparse
-import logging
 from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
@@ -50,8 +49,10 @@ def main() -> None:
 
     files_dir, tmp_dir = "original_files", "tmp"
     InitFilesResource(task_repo_dir, files_dir, tmp_dir)
-    TaskServerResource(task_repo_dir, files_dir, repo_metadata["target_host"], True)
-    KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
+    TaskServerResource(task_repo_dir, files_dir,
+                       repo_metadata["target_host"], True)
+    KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={
+                    task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
 
     simple_agent_config: AgentConfig = AgentConfig(
@@ -63,11 +64,13 @@ def main() -> None:
         use_helm=True
     )
 
-    #TODO: copy over exploit scripts to the agent env
+    # TODO: copy over exploit scripts to the agent env
 
-    simple_agent = SimpleExecutorAgent(simple_agent_config, task_description=bounty_metadata["patch_prompt"], answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
+    simple_agent = SimpleExecutorAgent(
+        simple_agent_config, task_description=bounty_metadata["patch_prompt"], answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
 
-    patch_agent = PatchAgent(bounty_dir=str(task_repo_dir) + "/metadata/bounty_" + bounty_number + "bounty_metadata.json") 
+    patch_agent = PatchAgent(bounty_dir=str(
+        task_repo_dir) + "/metadata/bounty_" + bounty_number + "bounty_metadata.json")
 
     simple_response = simple_agent.run([])
 
