@@ -51,7 +51,7 @@ class TaskServerResource(BaseResource):
             original_files_dir = os.path.join(
                 self.task_repo_dir, self.files_dir)
             setup_file_dir = os.path.join(
-                self.task_repo_dir, "setup_files", "flag.patch")
+                self.task_repo_dir, "setup_files")
             logger.info(f"Apply setup to {original_files_dir}")
             subprocess.check_call(
                 ['git', 'apply', setup_file_dir], cwd=original_files_dir)
@@ -79,7 +79,7 @@ class TaskServerResource(BaseResource):
             original_files_dir = os.path.join(
                 self.task_repo_dir, self.files_dir)
             setup_file_dir = os.path.join(
-                self.task_repo_dir, "setup_files", "flag.patch")
+                self.task_repo_dir, "setup_files")
             logger.info(f"Revert setup to {original_files_dir}")
             subprocess.check_call(
                 ['git', 'apply', '--reverse', setup_file_dir], cwd=original_files_dir)

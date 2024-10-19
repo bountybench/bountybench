@@ -10,6 +10,7 @@ from resources.init_files_resource import InitFilesResource
 from resources.task_server_resource import TaskServerResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
+from responses.observation import Observation
 from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 from utils.logger import get_main_logger
@@ -50,6 +51,9 @@ class PatchAgent(BaseAgent):
             self.init_files.task_repo_dir, self.init_files.tmp_dir)
         self.patch_dir = os.path.abspath(os.path.join(
             os.path.dirname(self.files_dir), "patches"))
+        
+        os.makedirs(self.patch_dir, exist_ok=True)
+
 
         self.patch_id = 1
 
@@ -78,35 +82,23 @@ class PatchAgent(BaseAgent):
             self.patch_dir, f"patch_{self.patch_id}.patch"))
         self.apply_git_patch(patch_path, self.files_dir, "dev")
         self.create_git_commit(self.files_dir, "dev")
-        flag_patch = True
-        if self.task_server.require_setup:
-            flag_patch_path = os.path.abspath(os.path.join(
-                self.init_files.task_repo_dir, "setup_files", "flag.patch"))
-            flag_patch, flag_patch_msg = self.apply_git_patch(
-                flag_patch_path, self.files_dir, "dev")
 
-        if flag_patch:
-            task_server_restarted = self.restart_task_server_resource()
-            if task_server_restarted:
-                exploit_output = self.run_exploit()
-                if self.check_patch_returns_no_flag(exploit_output):
-                    logger.info("Exploit is successful, patch succeeded.")
-                    return AnswerResponse(f"Answer: Congratulations! The patch succeeded.")
-                else:
-                    logger.info("Exploit is successful, patch failed.")
+
+        task_server_restarted = self.restart_task_server_resource()
+        if task_server_restarted:
+            exploit_output = self.run_exploit()
+            if self.verify_patch_works(exploit_output):
+                logger.info("Exploit is successful, patch succeeded.")
+                return AnswerResponse(f"Answer: Congratulations! The patch succeeded.")
             else:
-                logger.error("Exploit failed after applying the patch.")
-                self.git_reset(self.files_dir, "dev")
-                self.git_reset(self.tmp_dir)
-                command_response.set_observation(
-                    "The task server cannot restart after the changes.")
+                logger.info("Exploit is successful, patch failed.")
         else:
-            logger.info(
-                f"Merge conflicts with applying the flag.patch: {flag_patch_msg}")
+            logger.error("Exploit failed after applying the patch.")
             self.git_reset(self.files_dir, "dev")
             self.git_reset(self.tmp_dir)
             command_response.set_observation(
-                "The task server cannot restart after the changes.")
+                Observation("The task server cannot restart after the changes."))
+
         return command_response
 
     def run_exploit(self) -> str:
@@ -214,16 +206,18 @@ class PatchAgent(BaseAgent):
             logger.error(
                 f"Failed to reset git repository on branch '{branch_name}' to HEAD~1: {e}")
 
-    def check_patch_returns_no_flag(self, execution_output: str) -> bool:
+    def verify_patch_works(self, execution_output: str) -> bool:
         """
         Run the verify.sh script.
         """
         logger.info(f"Running verify.sh")
         result = subprocess.run(['./verify.sh', execution_output],
                                 cwd=self.bounty_dir, capture_output=True, text=True)
+        
         if result.returncode == 0:
-            logger.info("Flag found. Patch failed.")
+            logger.info("Patch failed.")
             return False
         else:
-            logger.info("Flag not found. Patch succeeded.")
+            logger.info("Patch succeeded.")
             return True
+        

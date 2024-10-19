@@ -69,7 +69,7 @@ def main() -> None:
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,
-        max_iterations=3,
+        max_iterations=15,
         max_response_len=3,
         use_helm=True
     )
