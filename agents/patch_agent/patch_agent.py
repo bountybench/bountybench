@@ -55,15 +55,18 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
         self.bounty_dir = kwargs.get('bounty_dir')
+        self.files_dir = os.path.join(self.init_files.task_repo_dir, self.init_files.files_dir)
+        self.tmp_dir = os.path.join(self.init_files.task_repo_dir, self.init_files.tmp_dir)
+        
         self.patch_id = 1
-        self.patch_dir = os.path.abspath(os.path.join(os.path.dirname(self.init_files.files_dir), "patches"))
+        self.patch_dir = os.path.abspath(os.path.join(os.path.dirname(self.files_dir), "patches"))
         
     def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
             return Exception(f'Accepts only a single response, you passed in {len(responses)} responses')
         response = responses[0]
         if issubclass(response.__class__, CommandResponseInterface):
-            if self.get_git_diff(self.init_files.tmp_dir) != "":
+            if self.get_git_diff(self.tmp_dir) != "":
                 return self.execute()
             else:
                 return response
@@ -76,16 +79,16 @@ class PatchAgent(BaseAgent):
         This function executes the patching command
         """
 
-        tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
+        tmp_dir_diff = self.get_git_diff(os.path.join(self.init_files.task_repo_dir, self.tmp_dir))
         self.create_git_patch(tmp_dir_diff, self.patch_dir)
-        self.create_git_commit(self.init_files.tmp_dir)
+        self.create_git_commit(self.tmp_dir)
         patch_path = os.path.abspath(os.path.join(self.patch_dir, f"patch_{self.patch_id}.patch"))
-        self.apply_git_patch(patch_path, self.init_files.files_dir, "dev")
-        self.create_git_commit(self.init_files.files_dir, "dev")
+        self.apply_git_patch(patch_path, self.files_dir, "dev")
+        self.create_git_commit(self.files_dir, "dev")
         flag_patch = True
         if self.task_server.require_setup:
-            flag_patch_path = os.path.abspath(os.path.join(self.init_files.files_dir, "setup_files", "flag.patch"))
-            flag_patch, flag_patch_msg = self.apply_git_patch(flag_patch_path, self.init_files.files_dir, "dev")
+            flag_patch_path = os.path.abspath(os.path.join(self.files_dir, "setup_files", "flag.patch"))
+            flag_patch, flag_patch_msg = self.apply_git_patch(flag_patch_path, self.files_dir, "dev")
 
 
         if flag_patch:
@@ -99,13 +102,13 @@ class PatchAgent(BaseAgent):
                     logger.info("Exploit is successful, patch failed.")
             else:
                 logger.error("Exploit failed after applying the patch.")
-                self.git_reset(self.init_files.files_dir, "dev")
-                self.git_reset(self.init_files.tmp_dir)
+                self.git_reset(self.files_dir, "dev")
+                self.git_reset(self.tmp_dir)
                 command_response.set_observation("The task server cannot restart after the changes.")
         else: 
             logger.info(f"Merge conflicts with applying the flag.patch: {flag_patch_msg}")
-            self.git_reset(self.init_files.files_dir, "dev")
-            self.git_reset(self.init_files.tmp_dir)
+            self.git_reset(self.files_dir, "dev")
+            self.git_reset(self.tmp_dir)
             command_response.set_observation("The task server cannot restart after the changes.")
         return command_response
 
@@ -181,8 +184,8 @@ class PatchAgent(BaseAgent):
         This function cleans up the temporary branch etc.
         """
         try:
-            subprocess.check_call(['git', 'checkout', 'master'], cwd=self.init_files.files_dir)            
-            subprocess.check_call(['git', 'branch', '-D', 'dev'], cwd=self.init_files.files_dir)
+            subprocess.check_call(['git', 'checkout', 'master'], cwd=self.files_dir)            
+            subprocess.check_call(['git', 'branch', '-D', 'dev'], cwd=self.files_dir)
             logger.info("Dev branch in task repo dir cleaned up successfully.")
             shutil.rmtree(self.init_files.tmp_files_dir)
             logger.info("Tmp directory deleted successfully.")
