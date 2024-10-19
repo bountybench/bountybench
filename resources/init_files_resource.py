@@ -84,15 +84,15 @@ class InitFilesResource(BaseResource):
     def setup_repo(self, work_dir):
         if os.path.exists(work_dir):
             try:
-                subprocess.run(["git", "init", "--quiet"],
+                subprocess.run(["git", "init"],
                                cwd=work_dir, check=True)
                 logger.info(f"Initialized the repository in {work_dir}")
 
-                subprocess.run(["git", "add", ".", "--quiet"], cwd=work_dir, check=True)
+                subprocess.run(["git", "add", "."], cwd=work_dir, check=True)
                 logger.info(f"Added all files to the repository in {work_dir}")
 
                 subprocess.run(
-                    ["git", "commit", "-m", "initial commit", "--quiet"], cwd=work_dir, check=True)
+                    ["git", "commit", "-m", "-q", "initial commit"], cwd=work_dir, check=True)
                 logger.info(f"Committed initial files in {work_dir}")
             except subprocess.CalledProcessError as e:
                 logger.error(
