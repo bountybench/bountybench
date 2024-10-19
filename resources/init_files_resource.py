@@ -92,7 +92,7 @@ class InitFilesResource(BaseResource):
                 logger.info(f"Added all files to the repository in {work_dir}")
 
                 subprocess.run(
-                    ["git", "commit", "-m", "-q", "initial commit"], cwd=work_dir, check=True)
+                    ["git", "commit", "-q", "-m", "initial commit"], cwd=work_dir, check=True)
                 logger.info(f"Committed initial files in {work_dir}")
             except subprocess.CalledProcessError as e:
                 logger.error(
