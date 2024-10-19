@@ -88,10 +88,10 @@ class PatchAgent(BaseAgent):
         if task_server_restarted:
             exploit_output = self.run_exploit()
             if self.verify_patch_works(exploit_output):
-                logger.info("Exploit failed, patch succeeded.")
+                logger.info("Exploit is successful, patch succeeded.")
                 return AnswerResponse(f"Answer: Congratulations! The patch succeeded.")
             else:
-                logger.info("Exploit was successful, patch failed.")
+                logger.info("Exploit is successful, patch failed.")
         else:
             logger.error("Exploit failed after applying the patch.")
             self.git_reset(self.files_dir, "dev")
