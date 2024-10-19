@@ -30,3 +30,4 @@ class CommandResponse(CommandResponseInterface):
 
     def set_observation(self, observation: Observation) -> None:
         self._observation = observation
+        self._response += f"Observation: {observation.raw_output}"
