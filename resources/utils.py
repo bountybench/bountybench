@@ -17,8 +17,6 @@ def run_command(command, work_dir=None):
     :param work_dir: Working directory to execute the command in.
     :return: subprocess.CompletedProcess instance
     """
-    cwd_display = work_dir if work_dir else Path.cwd()
-    logger.info(f"Executing command: {' '.join(command)} in {cwd_display}")
     result = subprocess.run(
         command,
         cwd=work_dir,
