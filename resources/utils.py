@@ -27,10 +27,6 @@ def run_command(command, work_dir=None):
         stderr=subprocess.PIPE,
         text=True
     )
-    if result.stdout:
-        logger.info(result.stdout.strip())
-    if result.stderr:
-        logger.warning(result.stderr.strip())
     return result
 
 
