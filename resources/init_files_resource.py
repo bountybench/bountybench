@@ -70,10 +70,10 @@ class InitFilesResource(BaseResource):
                 logger.info(f"Removed temporary directory: {tmp_dir_path}")
 
                 try:
-                    local_git_dir = os.path.join(self.files_dir, ".git")
+                    local_git_dir = os.path.join(self.task_repo_dir, self.files_dir, ".git")
                     if os.path.exists(local_git_dir):
                         subprocess.run(["rm", "-rf", local_git_dir], check=True)
-                        logger.info(f"Removed .git directory from {self.files_dir}")
+                        logger.info(f"Removed .git directory from {os.path.join(self.task_repo_dir, self.files_dir)}")
                 except subprocess.CalledProcessError as e:
                     logger.error(f"Failed to remove local repo directory: {e.stderr}")
                     
