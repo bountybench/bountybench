@@ -1,11 +1,12 @@
 import atexit
 import logging
 import os
-from queue import Queue
 import re
 import subprocess
 import sys
 import time
+from queue import Queue
+
 import yaml
 
 from resources.base_resource import BaseResource
@@ -47,10 +48,13 @@ class TaskServerResource(BaseResource):
 
     def start(self) -> None:
         if self.require_setup:
-            original_files_dir = os.path.join(self.task_repo_dir, self.files_dir)
-            setup_file_dir = os.path.join(self.task_repo_dir, "setup_files", "flag.patch")
+            original_files_dir = os.path.join(
+                self.task_repo_dir, self.files_dir)
+            setup_file_dir = os.path.join(
+                self.task_repo_dir, "setup_files", "flag.patch")
             logger.info(f"Apply setup to {original_files_dir}")
-            subprocess.check_call(['git', 'apply', setup_file_dir], cwd=original_files_dir)
+            subprocess.check_call(
+                ['git', 'apply', setup_file_dir], cwd=original_files_dir)
         try:
             logger.info("Executing start_docker.sh")
             result = run_command(
@@ -59,9 +63,11 @@ class TaskServerResource(BaseResource):
             )
             logger.info(f"Spun up task server at {self.resource_id}")
             # Extract the container name(s) from stdout or stderr
-            self.container_names = self.extract_container_names(result.stdout, result.stderr)
+            self.container_names = self.extract_container_names(
+                result.stdout, result.stderr)
             if not self.container_names:
-                raise ValueError(f"Failed to retrieve container name(s) for {self.host_name}")
+                raise ValueError(
+                    f"Failed to retrieve container name(s) for {self.host_name}")
         except Exception as e:
             # Handle errors
             logger.error(
@@ -70,10 +76,13 @@ class TaskServerResource(BaseResource):
 
         self.wait_until_all_containers_healthy()
         if self.require_setup:
-            original_files_dir = os.path.join(self.task_repo_dir, self.files_dir)
-            setup_file_dir = os.path.join(self.task_repo_dir, "setup_files", "flag.patch")
+            original_files_dir = os.path.join(
+                self.task_repo_dir, self.files_dir)
+            setup_file_dir = os.path.join(
+                self.task_repo_dir, "setup_files", "flag.patch")
             logger.info(f"Revert setup to {original_files_dir}")
-            subprocess.check_call(['git', 'apply', '--reverse', setup_file_dir], cwd=original_files_dir)
+            subprocess.check_call(
+                ['git', 'apply', '--reverse', setup_file_dir], cwd=original_files_dir)
 
     def restart(self) -> None:
         self.stop()
@@ -85,9 +94,11 @@ class TaskServerResource(BaseResource):
         )
         logger.info(f"Spun up task server at {self.resource_id}")
         # Extract the container name(s) from stdout or stderr
-        self.container_names = self.extract_container_names(result.stdout, result.stderr)
+        self.container_names = self.extract_container_names(
+            result.stdout, result.stderr)
         if not self.container_names:
-            raise Exception(f"Failed to retrieve container name(s) for {self.host_name}")
+            raise Exception(
+                f"Failed to retrieve container name(s) for {self.host_name}")
 
         self.wait_until_all_containers_healthy()
 
@@ -102,7 +113,8 @@ class TaskServerResource(BaseResource):
             logger.info(f"Stop task server at {self.resource_id}.")
         except FileNotFoundError:
             # Handle errors
-            logger.warning(f"Stop script not found: {self.task_repo_dir}/stop_docker.sh.")
+            logger.warning(
+                f"Stop script not found: {self.task_repo_dir}/stop_docker.sh.")
         except Exception as e:
             logger.info(f"Unable to stop task server at {self.resource_id}.")
 
@@ -121,11 +133,11 @@ class TaskServerResource(BaseResource):
             logger.error("No container names available for health check.")
             raise ValueError("No container names available for health check.")
 
-
         start_time = time.time()
 
         while not container_queue.empty():
-            container = container_queue.queue[0]  # Peek at the front of the queue
+            # Peek at the front of the queue
+            container = container_queue.queue[0]
             # Check health status of the current container
             logger.info(f"Checking health of container {container}")
             inspect_result = run_command(
@@ -138,25 +150,29 @@ class TaskServerResource(BaseResource):
                 logger.info(f"Container '{container}' is healthy.")
                 container_queue.get()  # Remove the container from the queue
             elif health_status in ["starting"]:
-                logger.info(f"Container '{container}' health status: {health_status}. Waiting...")
+                logger.info(
+                    f"Container '{container}' health status: {health_status}. Waiting...")
             else:
-                raise Exception(f"Container '{container}' has unexpected health status: {health_status}.")
+                raise Exception(
+                    f"Container '{container}' has unexpected health status: {health_status}.")
 
             # Timeout check
             if time.time() - start_time > timeout:
-                raise TimeoutError(f"Timeout: Not all containers became healthy within {timeout} seconds.")
+                raise TimeoutError(
+                    f"Timeout: Not all containers became healthy within {timeout} seconds.")
 
             time.sleep(check_interval)
 
         logger.info("All containers are healthy.")
         return True
-    
+
     def extract_container_names(self, stdout=None, stderr=None):
         """
         Extract the names of all running containers.
         """
         # This pattern matches "Container <name> <status>"
-        container_name_pattern = re.compile(r"Container\s+([^\s]+)\s+(Started|Healthy)")
+        container_name_pattern = re.compile(
+            r"Container\s+([^\s]+)\s+(Started|Healthy)")
 
         # Ensure both stdout and stderr are strings
         if stdout is None:
@@ -165,9 +181,11 @@ class TaskServerResource(BaseResource):
             stderr = ""
 
         if not isinstance(stdout, str):
-            stdout = stdout.decode("utf-8") if isinstance(stdout, bytes) else ""
+            stdout = stdout.decode(
+                "utf-8") if isinstance(stdout, bytes) else ""
         if not isinstance(stderr, str):
-            stderr = stderr.decode("utf-8") if isinstance(stderr, bytes) else ""
+            stderr = stderr.decode(
+                "utf-8") if isinstance(stderr, bytes) else ""
 
         # Search in both stdout and stderr for container names
         output = stdout + stderr
@@ -177,7 +195,8 @@ class TaskServerResource(BaseResource):
 
         if matches:
             # Extract unique container names
-            container_names = list({match[0] for match in matches})  # Use a set to ensure uniqueness
+            # Use a set to ensure uniqueness
+            container_names = list({match[0] for match in matches})
             logger.info(f"Container names extracted: {container_names}")
             return container_names
         else:
