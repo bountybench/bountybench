@@ -60,7 +60,7 @@ class PatchAgent(BaseAgent):
         response = responses[0]
         if issubclass(response.__class__, CommandResponseInterface):
             if self.get_git_diff(self.tmp_dir) != "":
-                return self.execute()
+                return self.execute(response)
             else:
                 return response
         else:
@@ -72,8 +72,7 @@ class PatchAgent(BaseAgent):
         This function executes the patching command
         """
 
-        tmp_dir_diff = self.get_git_diff(os.path.join(
-            self.init_files.task_repo_dir, self.tmp_dir))
+        tmp_dir_diff = self.get_git_diff(self.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.patch_dir)
         self.create_git_commit(self.tmp_dir)
         patch_path = os.path.abspath(os.path.join(
@@ -83,7 +82,7 @@ class PatchAgent(BaseAgent):
         flag_patch = True
         if self.task_server.require_setup:
             flag_patch_path = os.path.abspath(os.path.join(
-                self.files_dir, "setup_files", "flag.patch"))
+                self.init_files.task_repo_dir, "setup_files", "flag.patch"))
             flag_patch, flag_patch_msg = self.apply_git_patch(
                 flag_patch_path, self.files_dir, "dev")
 
