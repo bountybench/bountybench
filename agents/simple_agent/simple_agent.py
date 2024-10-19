@@ -200,19 +200,12 @@ class SimpleExecutorAgent(BaseAgent):
             )
 
             # Check for command execution without errors, even if no stdout was produced
-            if stdout.strip():
-                logger.info(f"Command succeeded: {stdout}")
-                return Observation(stdout)
-            elif stderr.strip():
-                # No stdout but there's stderr (may be an error or just output in stderr)
-                logger.error(f"Command failed with error: {stderr}")
-                return Observation(stderr)
-            else:
-                # Neither stdout nor stderr indicates an empty but successful execution
-                logger.info("Command succeeded with no output")
-                return Observation("")
+            observation = stdout.strip() + stderr.strip()
+            logger.info(f"Executed the command in agent environment: {command}.\n\nstdout: {stdout.strip()}\n\nstderr: {stderr.strip()}")
+
+            return Observation(observation)
         except Exception as e:
             # If an actual exception occurred during execution, log it as a failure
             logger.exception(
-                f"Failed to execute command: {command}. Exception: {str(e)}")
+                f"Failed to execute command in agent environment: {command}.\n\n Exception: {str(e)}")
             return Observation(str(e))
