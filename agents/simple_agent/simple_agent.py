@@ -1,45 +1,31 @@
 import http
-from agents.base_agent import BaseAgent
-from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
-from agents.dataclasses.agent_spec import AgentConfig
-from agents.chat_chain import ChatChain
-import logging
-import os
-import time
+from dataclasses import field
 from typing import List
 
-from models.query import query
-from dataclasses import field
+from requests.exceptions import ConnectionError, HTTPError, Timeout
+from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
+                      wait_exponential)
 
-from responses.response import Response
-from responses.observation import Observation
+from agents.base_agent import BaseAgent
+from agents.dataclasses.agent_spec import AgentConfig
+from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
+from models.model_response import ModelResponse
+from models.query import get_model_provider, query
+from resources.kali_env_resource import KaliEnvResource
+from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
 from responses.command_response_interface import CommandResponseInterface
-from responses.answer_response import AnswerResponse
+from responses.observation import Observation
+from responses.response import Response
+from utils.logger import get_main_logger
 
-from resources.kali_env_resource import KaliEnvResource
-from models.query import get_model_provider, query
-from models.model_response import ModelResponse
-
-
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
-from requests.exceptions import ConnectionError, HTTPError, Timeout
-
-
-from typing import List
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_main_logger(__name__)
 
 TIMEOUT_PER_COMMAND = 120
 MAX_HELM_RETRIES = 3
 RETRY_DELAY = 30
 TEMPERATURE = 0.5
+
 
 class SimpleExecutorAgent(BaseAgent):
     memory: List[str] = []
@@ -49,7 +35,8 @@ class SimpleExecutorAgent(BaseAgent):
         self.config = config
         self.initial_prompt = INITIAL_PROMPT.format(
             # TODO make defaults
-            task_description=kwargs.get("task_description", "default_task_description"),
+            task_description=kwargs.get(
+                "task_description", "default_task_description"),
             answer_format=kwargs.get("answer_format", "default_answer_format"),
             stop_token=STOP_TOKEN,
             target_host=kwargs.get("target_host", "default_target_host"),
@@ -57,15 +44,18 @@ class SimpleExecutorAgent(BaseAgent):
         self.prompt = self.initial_prompt
 
         if KaliEnvResource in self.resource_dict.resource_type_to_resources:
-            self.kali_env: KaliEnvResource = self.resource_dict.get_items_of_resource_type(KaliEnvResource)[0]
+            self.kali_env: KaliEnvResource = self.resource_dict.get_items_of_resource_type(
+                KaliEnvResource)[0]
             if kwargs.get("target_host", ""):
                 self.kali_env.health_check(kwargs.get("target_host", ""))
         else:
             # kill the agent if no kali env is found - this should have happened earlier in the workflow
-            logger.error("KaliEnvResource not found in resource_dict. Terminating Agent.")
-            raise RuntimeError("KaliEnvResource not set up. Agent cannot start.")
-    
-    def run(self, responses: List[Response]) -> Response:        
+            logger.error(
+                "KaliEnvResource not found in resource_dict. Terminating Agent.")
+            raise RuntimeError(
+                "KaliEnvResource not set up. Agent cannot start.")
+
+    def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
             return Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
         # Case for first run, no response(s) to pass in
@@ -76,14 +66,16 @@ class SimpleExecutorAgent(BaseAgent):
             self.formulate_prompt(response)
             return self.execute()
         else:
-            raise Exception('Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
+            raise Exception(
+                'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
 
     def execute(self) -> Response:
         lm_executor_response = self.call_lm()
         # if the action is command, execute the command in the environment, otherwise just submit
         if issubclass(lm_executor_response.__class__, CommandResponseInterface):
             observation = self.execute_in_env(lm_executor_response)
-            lm_executor_response.set_observation(observation) # only command response has set observation func
+            # only command response has set observation func
+            lm_executor_response.set_observation(observation)
         logger.info(f"LM Response:\n{lm_executor_response.response}")
         return lm_executor_response
 
@@ -92,7 +84,7 @@ class SimpleExecutorAgent(BaseAgent):
         Formulates the prompt by appending the new response to memory.
         """
         if len(self.memory) >= self.config.max_response_len:
-            self.memory = self.memory[1:] + [executor_response.response] 
+            self.memory = self.memory[1:] + [executor_response.response]
         else:
             self.memory.append(executor_response.response)
 
@@ -103,11 +95,9 @@ class SimpleExecutorAgent(BaseAgent):
         self.prompt = prompt
         return prompt
 
-
     def _get_num_tokens(self, model_input: str) -> int:
         return get_model_provider(self.config.model, self.config.use_helm).get_num_tokens(self.config.model, model_input)
 
-    
     @retry(
         stop=stop_after_attempt(30),
         wait=wait_exponential(multiplier=1, max=30),
@@ -117,8 +107,7 @@ class SimpleExecutorAgent(BaseAgent):
     )
     def _tokenize_input(self, model_input: str) -> List[int]:
         return get_model_provider(self.config.model, self.config.use_helm).tokenize(self.config.model, model_input)
-    
-    
+
     @retry(
         stop=stop_after_attempt(30),
         wait=wait_exponential(multiplier=1, max=30),
@@ -128,7 +117,6 @@ class SimpleExecutorAgent(BaseAgent):
     )
     def _decode_tokenized_inputs(self, tokens: List[int]) -> str:
         return get_model_provider(self.config.model, self.config.use_helm).decode(self.config.model, tokens)
-    
 
     def _truncate_input_to_max_tokens(self, model_input: str) -> str:
         num_input_tokens = self._get_num_tokens(model_input)
@@ -145,7 +133,8 @@ class SimpleExecutorAgent(BaseAgent):
             beginning_tokens = tokens[:half_tokens_to_keep]
             end_tokens = tokens[-half_tokens_to_keep:]
             truncated_tokens = (
-                beginning_tokens + self._tokenize_input(truncation_alert) + end_tokens
+                beginning_tokens +
+                self._tokenize_input(truncation_alert) + end_tokens
             )
             truncated_input = self._decode_tokenized_inputs(truncated_tokens)
             return truncated_input
@@ -153,9 +142,10 @@ class SimpleExecutorAgent(BaseAgent):
         return model_input
 
     def _handle_request(self, model_input: str) -> str:
-        logger.debug(f"Sending request to model {self.config.model} with input: {model_input}")
+        logger.debug(
+            f"Sending request to model {self.config.model} with input: {model_input}")
 
-        model =  str(self.config.model)
+        model = str(self.config.model)
         temperature = 1 if "o1" in model else TEMPERATURE
         max_tokens = self.config.max_output_tokens
         stop_sequences = [] if "o1" in model else [STOP_TOKEN]
@@ -171,9 +161,8 @@ class SimpleExecutorAgent(BaseAgent):
 
         model_response.remove_hallucinations()
 
-        return model_response.content  + f"\n{STOP_TOKEN}"
+        return model_response.content + f"\n{STOP_TOKEN}"
 
-    
     def _parse_response(self, response: str) -> Response:
         """
         Attempts to parse the response into either AnswerResponse or CommandResponse.
@@ -181,12 +170,14 @@ class SimpleExecutorAgent(BaseAgent):
         try:
             return AnswerResponse(response)
         except:
-            logger.debug("LM response not an AnswerResponse type. Attempting to parse as CommandResponse.")
+            logger.debug(
+                "LM response not an AnswerResponse type. Attempting to parse as CommandResponse.")
             try:
                 return CommandResponse(response)
             except:
                 logger.debug("LM response not an CommandResponse type.")
-                raise Exception("Response could not be parsed as either an Answer or Command response.")
+                raise Exception(
+                    "Response could not be parsed as either an Answer or Command response.")
 
     def call_lm(self) -> Response:
         """
@@ -201,11 +192,13 @@ class SimpleExecutorAgent(BaseAgent):
             try:
                 return self._parse_response(lm_response)
             except Exception as e:
-                logger.warning(f"Retrying {iterations}/{self.config.max_iterations} after error: {e}")
+                logger.warning(
+                    f"Retrying {iterations}/{self.config.max_iterations} after error: {e}")
                 iterations += 1
 
         # Raise an exception if it exhausts the retries
-        raise Exception("Call_lm error: Maximum retries reached without a valid response.")
+        raise Exception(
+            "Call_lm error: Maximum retries reached without a valid response.")
 
     def execute_in_env(self, executor_response: CommandResponse) -> Observation:
         """
@@ -233,5 +226,6 @@ class SimpleExecutorAgent(BaseAgent):
                 return Observation("")
         except Exception as e:
             # If an actual exception occurred during execution, log it as a failure
-            logger.exception(f"Failed to execute command: {command}. Exception: {str(e)}")
+            logger.exception(
+                f"Failed to execute command: {command}. Exception: {str(e)}")
             return Observation(str(e))
