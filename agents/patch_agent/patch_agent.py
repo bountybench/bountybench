@@ -12,6 +12,7 @@ from resources.task_server_resource import TaskServerResource
 from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 from responses.answer_response import AnswerResponse
+from responses.command_response import CommandResponse
 import subprocess
 import os
 
@@ -55,7 +56,7 @@ class PatchAgent(BaseAgent):
         atexit.register(self.cleanup)
         self.bounty_dir = kwargs.get('bounty_dir')
         self.patch_id = 1
-        self.patch_dir = os.path.abspath(os.path.join(os.path.dirname(self.init_files.task_repo_dir), "patches"))
+        self.patch_dir = os.path.abspath(os.path.join(os.path.dirname(self.init_files.files_dir), "patches"))
         
     def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
@@ -70,52 +71,43 @@ class PatchAgent(BaseAgent):
             raise Exception(
                 'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
 
-    def execute(self) -> Response:
+    def execute(self, command_response: CommandResponse) -> Response:
         """
         This function executes the patching command
         """
-        """
-        diff = self.get_git_diff()
-        self.create_git_patch(diff)
-        self.create_git_commit() # This will commit the changes to the tmp directory
-
-        res, msg = self.apply_git_patch(p2) # Apply the agent patch file (p2) to the tmp branch
-        res, msg = self.apply_git_patch(p1) # Apply the flag patch file (p1) to the tmp branch
-        """
-
 
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.patch_dir)
         self.create_git_commit(self.init_files.tmp_dir)
         patch_path = os.path.abspath(os.path.join(self.patch_dir, f"patch_{self.patch_id}.patch"))
-        res, msg = self.apply_git_patch(patch_path, self.init_files.task_repo_dir, "dev")
+        self.apply_git_patch(patch_path, self.init_files.files_dir, "dev")
+        self.create_git_commit(self.init_files.files_dir, "dev")
+        flag_patch = True
+        if self.task_server.require_setup:
+            flag_patch_path = os.path.abspath(os.path.join(self.init_files.files_dir, "setup_files", "flag.patch"))
+            flag_patch, flag_patch_msg = self.apply_git_patch(flag_patch_path, self.init_files.files_dir, "dev")
 
 
-        if res:
-
-            res = self.restart_task_server_resource()
-            if res:
-                flag = self.run_exploit()
-                if flag: #patch succeeded
-                    if self.run_verification_script(flag):
-                        logger.info("Exploit and verification successful. Patch succeeded.")
-                        self.create_git_commit(self.init_files.task_repo_dir, "dev")
-                        self.increment_patch_id()
-                        return AnswerResponse(f"Answer: {flag}")
-                    else:
-                        #should we reset? what do we return? 
-                else: #patch failed
-                    #TODO: what should we return in this case?
-                    pass
+        if flag_patch:
+            task_server_restarted = self.restart_task_server_resource()
+            if task_server_restarted:
+                exploit_output = self.run_exploit()
+                if self.check_patch_returns_no_flag(exploit_output):
+                    logger.info("Exploit is successful, patch succeeded.")
+                    return AnswerResponse(f"Answer: Congratulations! The patch succeeded.")
+                else:                    
+                    logger.info("Exploit is successful, patch failed.")
             else:
-                #TODO: Handle the case where the task server resource is not restarted successfully; git reset
                 logger.error("Exploit failed after applying the patch.")
-                self.git_reset(self.init_files.task_repo_dir)
-        else:
-            #TODO: Handle the case where the patch is not applied successfully i.e. merge conflicts; I think it will make sense to just set the observation field.; git reset
-            logger.error("Failed to apply patch.")
-            self.git_reset(self.init_files.task_repo_dir)
-
+                self.git_reset(self.init_files.files_dir, "dev")
+                self.git_reset(self.init_files.tmp_dir)
+                command_response.set_observation("The task server cannot restart after the changes.")
+        else: 
+            logger.info(f"Merge conflicts with applying the flag.patch: {flag_patch_msg}")
+            self.git_reset(self.init_files.files_dir, "dev")
+            self.git_reset(self.init_files.tmp_dir)
+            command_response.set_observation("The task server cannot restart after the changes.")
+        return command_response
 
     def run_exploit(self) -> str:
         """
@@ -189,8 +181,8 @@ class PatchAgent(BaseAgent):
         This function cleans up the temporary branch etc.
         """
         try:
-            subprocess.check_call(['git', 'checkout', 'master'], cwd=self.init_files.task_repo_dir)            
-            subprocess.check_call(['git', 'branch', '-D', 'dev'], cwd=self.init_files.task_repo_dir)
+            subprocess.check_call(['git', 'checkout', 'master'], cwd=self.init_files.files_dir)            
+            subprocess.check_call(['git', 'branch', '-D', 'dev'], cwd=self.init_files.files_dir)
             logger.info("Dev branch in task repo dir cleaned up successfully.")
             shutil.rmtree(self.init_files.tmp_files_dir)
             logger.info("Tmp directory deleted successfully.")
@@ -227,16 +219,17 @@ class PatchAgent(BaseAgent):
             logger.error(f"Failed to reset git repository on branch '{branch_name}' to HEAD~1: {e}")
     
 
-    def run_verification_script(self, execution_output: str) -> bool:
+    def check_patch_returns_no_flag(self, execution_output: str) -> bool:
         """
         Run the verify.sh script.
         """
-        try:
-            logger.info(f"Running verify.sh with execution output: {execution_output}")
-            subprocess.check_call(['./verify.sh', execution_output], cwd=self.bounty_dir)
-            logger.info("Verify.sh script ran successfully.")
-            return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Verify.sh script failed with error: {e}")
+        logger.info(f"Running verify.sh")
+        result = subprocess.run(['./verify.sh', execution_output], cwd=self.bounty_dir, capture_output=True, text=True)
+        if result.returncode == 0:
+            logger.info("Flag found. Patch failed.")
             return False
+        else:
+            logger.info("Flag not found. Patch succeeded.")
+            return True
+    
 

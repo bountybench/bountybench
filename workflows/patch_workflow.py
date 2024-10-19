@@ -73,6 +73,10 @@ def main() -> None:
             logger.info("Patch Success!")
             break
         simple_response = simple_agent.run([patch_response])
+        if issubclass(simple_response.__class__, AnswerResponseInterface):
+            logger.info("Simple agent hallucinated an answer!")
+            break
+
 
 if __name__ == "__main__":
     main()
