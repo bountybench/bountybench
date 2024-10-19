@@ -34,6 +34,7 @@ def main() -> None:
 
     # Create a Path object for the task repository directory
     task_repo_dir = Path(args.task_repo_dir).resolve()
+    task_repo_dir = str(task_repo_dir)
     bounty_number = str(args.bounty_number)
 
     network_name = "shared_net"
@@ -69,8 +70,7 @@ def main() -> None:
     simple_agent = SimpleExecutorAgent(
         simple_agent_config, task_description=bounty_metadata["patch_prompt"], answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
 
-    patch_agent = PatchAgent(bounty_dir=str(
-        task_repo_dir) + "/metadata/bounty_" + bounty_number + "bounty_metadata.json")
+    patch_agent = PatchAgent(bounty_dir=task_repo_dir + "/metadata/bounty_" + bounty_number + "bounty_metadata.json")
 
     simple_response = simple_agent.run([])
 
