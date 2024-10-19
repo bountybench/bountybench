@@ -63,9 +63,11 @@ def main() -> None:
         use_helm=True
     )
 
-    simple_agent = SimpleExecutorAgent(simple_agent_config, task_description=bounty_metadata["detect_prompt_less_info"], answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
+    #TODO: copy over exploit scripts to the agent env
 
-    patch_agent = PatchAgent() # TODO: Fill in the arguments if needed
+    simple_agent = SimpleExecutorAgent(simple_agent_config, task_description=bounty_metadata["patch_prompt"], answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
+
+    patch_agent = PatchAgent(bounty_dir=task_repo_dir + "/metadata/bounty_" + bounty_number + "bounty_metadata.json") 
 
     simple_response = simple_agent.run([])
 
