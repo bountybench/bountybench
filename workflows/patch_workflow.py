@@ -5,6 +5,7 @@ from pathlib import Path
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
 from agents.simple_agent.simple_agent import SimpleExecutorAgent
+from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.task_server_resource import TaskServerResource
@@ -49,8 +50,9 @@ def main() -> None:
 
     tmp_dir = "tmp"
     InitFilesResource(task_repo_dir, tmp_dir)
-    TaskServerResource(task_repo_dir, repo_metadata["target_host"])
+    TaskServerResource(task_repo_dir, repo_metadata["target_host"], True)
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
+    DockerResource("DockerHelper")
 
     simple_agent_config: AgentConfig = AgentConfig(
         model='openai/gpt-4o-2024-05-13',
