@@ -84,7 +84,7 @@ class InitFilesResource(BaseResource):
     def setup_repo(self, work_dir):
         if os.path.exists(work_dir):
             try:
-                subprocess.run(["git", "init"],
+                subprocess.run(["git", "init", "-q"],
                                cwd=work_dir, check=True)
 
                 subprocess.run(["git", "add", "."], cwd=work_dir, check=True)
