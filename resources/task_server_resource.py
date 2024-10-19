@@ -20,10 +20,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 class TaskServerResource(BaseResource):
     """Task Server Resource"""
 
-    def __init__(self, task_repo_dir: str, server_address: str, require_setup: bool = False) -> None:
+    def __init__(self, task_repo_dir: str, files_dir: str, server_address: str, require_setup: bool = False) -> None:
         try:
             # Split the server_address into hostname and port
-            hostname, port = server_address.split(":")
+            host_name, port_number = server_address.split(":")
         except ValueError:
             # Log error if the server_address format is invalid
             logger.error(
@@ -31,9 +31,13 @@ class TaskServerResource(BaseResource):
             )
             sys.exit(1)
         self.resource_id = server_address
-        self.task_repo_dir = task_repo_dir
+        self.task_repo_dir = os.path.abspath(task_repo_dir)
+        self.files_dir = files_dir
         self.require_setup = require_setup
-        self.host_name = hostname
+
+        self.host_name = host_name
+        self.port_number = port_number
+
         self.container_names = None
         self.health_check_timeout = 120
         self.start()
@@ -43,7 +47,7 @@ class TaskServerResource(BaseResource):
 
     def start(self) -> None:
         if self.require_setup:
-            original_files_dir = os.path.join(self.task_repo_dir, "original_files")
+            original_files_dir = os.path.join(self.task_repo_dir, self.files_dir)
             setup_file_dir = os.path.join(self.task_repo_dir, "setup_files", "flag.patch")
             logger.info(f"Apply setup to {original_files_dir}")
             subprocess.check_call(['git', 'apply', setup_file_dir], cwd=original_files_dir)
@@ -57,7 +61,7 @@ class TaskServerResource(BaseResource):
             # Extract the container name(s) from stdout or stderr
             self.container_names = self.extract_container_names(result.stdout, result.stderr)
             if not self.container_names:
-                raise Exception(f"Failed to retrieve container name(s) for {self.host_name}")
+                raise ValueError(f"Failed to retrieve container name(s) for {self.host_name}")
         except Exception as e:
             # Handle errors
             logger.error(
@@ -66,7 +70,7 @@ class TaskServerResource(BaseResource):
 
         self.wait_until_all_containers_healthy()
         if self.require_setup:
-            original_files_dir = os.path.join(self.task_repo_dir, "original_files")
+            original_files_dir = os.path.join(self.task_repo_dir, self.files_dir)
             setup_file_dir = os.path.join(self.task_repo_dir, "setup_files", "flag.patch")
             logger.info(f"Revert setup to {original_files_dir}")
             subprocess.check_call(['git', 'apply', '--reverse', setup_file_dir], cwd=original_files_dir)
@@ -117,8 +121,7 @@ class TaskServerResource(BaseResource):
             logger.error("No container names available for health check.")
             raise ValueError("No container names available for health check.")
 
-        logger.info(f"Waiting for all containers to become healthy...")
-        
+
         start_time = time.time()
 
         while not container_queue.empty():
@@ -155,8 +158,6 @@ class TaskServerResource(BaseResource):
         # This pattern matches "Container <name> <status>"
         container_name_pattern = re.compile(r"Container\s+([^\s]+)\s+(Started|Healthy)")
 
-        logger.info("Checking Docker container health status...")
-        logger.info("{stderr}")
         # Ensure both stdout and stderr are strings
         if stdout is None:
             stdout = ""
@@ -170,7 +171,6 @@ class TaskServerResource(BaseResource):
 
         # Search in both stdout and stderr for container names
         output = stdout + stderr
-        logger.info("Extracting container names from output...")
 
         # Find all matches of container names with the specified statuses (Started/Healthy)
         matches = container_name_pattern.findall(output)
