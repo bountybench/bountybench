@@ -5,6 +5,7 @@ import sys
 import threading
 from queue import Queue
 from typing import Dict, List, Optional, Tuple
+import time
 
 import docker
 from docker.models.containers import Container
@@ -20,6 +21,8 @@ logger = get_main_logger(__name__)
 DOCKER_IMAGE: str = "cybench/cybounty:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 
+MAX_RETRIES = 3  
+RETRY_DELAY = 10 
 
 def get_stdout_text(process_output: bytes) -> str:
     """
@@ -108,22 +111,28 @@ class KaliEnvResource(BaseResource):
         Raises:
             Exception: If the container fails to start.
         """
-        try:
-            logger.info("Starting a new Docker container...")
-            container: Container = self.client.containers.run(
-                image=DOCKER_IMAGE,
-                cgroupns="host",
-                volumes=volumes,
-                network="shared_net",
-                entrypoint=ENTRYPOINT,
-                detach=True,
-                name=name,
-            )
-            logger.info("Docker container started successfully.")
-            return container
-        except Exception as e:
-            logger.error(f"Failed to start Docker container: {e}")
-            sys.exit(1)
+        for attempt in range(MAX_RETRIES):
+            try:
+                logger.info(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
+                container: Container = self.client.containers.run(
+                    image=DOCKER_IMAGE,
+                    cgroupns="host",
+                    volumes=volumes,
+                    network="shared_net",
+                    entrypoint=ENTRYPOINT,
+                    detach=True,
+                    name=name,
+                )
+                logger.info("Docker container started successfully.")
+                return container
+            except Exception as e:
+                logger.error(f"Failed to start Docker container (Attempt {attempt + 1}/{MAX_RETRIES}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    logger.info(f"Retrying in {RETRY_DELAY} seconds...")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    logger.error(f"All {MAX_RETRIES} attempts to start the container have failed.")
+                    sys.exit(1)
 
     def stop(self) -> None:
         """
@@ -228,7 +237,7 @@ class KaliEnvResource(BaseResource):
 
     def health_check(self, target_hosts: str) -> None:
         """
-        Perform health checks on the specified target hosts.
+        Perform health checks on the specified target hosts with retries.
         Args:
             target_hosts (str): A string containing space-separated target hosts in the format hostname:port.
         """
@@ -237,53 +246,36 @@ class KaliEnvResource(BaseResource):
 
         for target_host in hosts:
             try:
-                # Split the target_host into hostname and port
                 hostname, port = target_host.split(":")
                 port = int(port)
             except ValueError:
-                # Log error if the target_host format is invalid
-                logger.error(
-                    f"Invalid target_host format: {target_host}. Expected format: hostname:port"
-                )
+                logger.error(f"Invalid target_host format: {target_host}. Expected format: hostname:port")
                 sys.exit(1)
 
             def nc_check():
-                # Run netcat to check if the specified port is open
-                stdout, stderr = self.run_command(
-                    command=f"nc -zv -w 5 {hostname} {port}", timeout=10)
-                # Log the netcat command output
-                logger.info(
-                    f"Netcat check output: {stdout}\n {stderr}")
-                if "open" in stderr:
-                    return True
-                else:
-                    logger.error(f"Netcat check failed for {hostname}:{port}")
-                    return False
+                stdout, stderr = self.run_command(f"nc -zv -w 5 {hostname} {port}", timeout=10)
+                logger.info(f"Netcat check output: {stdout}\n {stderr}")
+                return "open" in stderr
 
             def http_check():
-                # Run curl to check if the HTTP service is responding with status code 200
-                stdout, stderr = self.run_command(
-                    command=f"curl -sS -o /dev/null -w \"%{{http_code}}\" {hostname}:{port}", timeout=10)
+                stdout, stderr = self.run_command(f"curl -sS -o /dev/null -w \"%{{http_code}}\" {hostname}:{port}", timeout=10)
                 status_code = int(stdout)
-                # Log the HTTP check command output
-                logger.info(
-                    f"HTTP check output: {stdout}\n {stderr}")
-                if status_code == 200:
-                    return True
+                logger.info(f"HTTP check output: {stdout}\n {stderr}")
+                return status_code == 200
+
+            for attempt in range(MAX_RETRIES):
+                if http_check() or nc_check():
+                    logger.info(f"Health check passed for {hostname}:{port} on attempt {attempt + 1}.")
+                    break
                 else:
-                    logger.error(f"HTTP check failed for {hostname}:{port}")
-                    return False
+                    logger.warning(f"Health check failed for {hostname}:{port} (Attempt {attempt + 1}/{MAX_RETRIES}).")
+                    if attempt < MAX_RETRIES - 1:
+                        time.sleep(RETRY_DELAY)
+                    else:
+                        failed_hosts.append(target_host)
 
-            # Perform health checks: first using HTTP check, then netcat check if necessary
-            if not http_check() and not nc_check():
-                logger.error(f"Health check failed for {hostname}:{port}")
-                failed_hosts.append(target_host)
-
-        # Log results of health checks
         if failed_hosts:
-            logger.error(
-                f"Health checks failed for the following hosts: {', '.join(failed_hosts)}"
-            )
+            logger.error(f"Health checks failed for the following hosts: {', '.join(failed_hosts)}")
             sys.exit(1)
         else:
-            logger.info("All target hosts passed the health check")
+            logger.info("All target hosts passed the health check.")
