@@ -86,7 +86,6 @@ class InitFilesResource(BaseResource):
             try:
                 subprocess.run(["git", "init"],
                                cwd=work_dir, check=True)
-                logger.info(f"Initialized the repository in {work_dir}")
 
                 subprocess.run(["git", "add", "."], cwd=work_dir, check=True)
                 logger.info(f"Added all files to the repository in {work_dir}")
