@@ -1,6 +1,6 @@
 from typing import Optional
 
-def parse_field(text: str, field: str, multiline: bool = False, stop_str: Optional[str] = None) -> Optional[str]:
+def parse_field(text: str, field: str, multiline: bool = True, stop_str: Optional[str] = None) -> Optional[str]:
         """
         Extracts a field value from the input text based on the given field name.
         
@@ -18,8 +18,9 @@ def parse_field(text: str, field: str, multiline: bool = False, stop_str: Option
         
         # Find the start index for the field
         field_marker = f"{field}"
-        start_index = text.lower().find(field_marker.lower())
-        
+        start_index = text.find(field_marker)
+        print(field_marker)
+        print(start_index)
         if start_index == -1:
             # Field not found
             return None
@@ -29,7 +30,7 @@ def parse_field(text: str, field: str, multiline: bool = False, stop_str: Option
         
         # Define where to stop extraction
         if stop_str:
-            stop_index = text.lower().find(stop_str.lower(), start_index)
+            stop_index = text.find(stop_str, start_index)
             if stop_index == -1:
                 stop_index = len(text)  # Stop at the end of the text if stop_str is not found
         else:
@@ -37,7 +38,6 @@ def parse_field(text: str, field: str, multiline: bool = False, stop_str: Option
         
         # Extract the substring
         extracted_field = text[start_index:stop_index].strip()
-
         # If multiline is False, only return the first line
         if not multiline:
             extracted_field = extracted_field.split('\n', 1)[0].strip()
