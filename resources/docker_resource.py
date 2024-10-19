@@ -1,14 +1,12 @@
 import atexit
-import logging
 
 import docker
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
+from utils.logger import get_main_logger
 
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_main_logger(__name__)
 
 # Constants
 ENTRYPOINT = "/bin/bash"
@@ -45,7 +43,8 @@ class DockerResource(BaseResource):
         Returns:
             str: The logs from the container.
         """
-        logger.info(f"Running command in Docker: {command}, Work Dir: {work_dir}")
+        logger.info(
+            f"Running command in Docker: {command}, Work Dir: {work_dir}")
         container = self.client.containers.run(
             image=docker_image,
             command=f'-c "{command}"',
