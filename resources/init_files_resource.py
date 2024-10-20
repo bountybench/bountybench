@@ -17,20 +17,23 @@ logger = get_main_logger(__name__)
 class InitFilesResource(BaseResource):
     """Init Files Resource"""
 
-    def __init__(self, task_repo_dir: str, files_dir: str, tmp_dir: str, exploit_files_dir: str = None) -> None:
-        self.resource_id = os.path.join(task_repo_dir, tmp_dir)
-
+    def __init__(self, task_repo_dir: str, files_dir_name: str, tmp_dir_name: str, exploit_files_dir_name: str = None) -> None:
+        # Where dir_name is a path relative to task_repo_dir, and dir is an absolut path
         self.task_repo_dir = os.path.abspath(task_repo_dir)
-        self.files_dir = files_dir
-        self.tmp_dir = tmp_dir
-        self.exploit_files_dir = exploit_files_dir
+        self.files_dir = os.path.join(self.task_repo_dir, files_dir_name)
 
-        if self.exploit_files_dir: 
-            self.copy_files(self.exploit_files_dir, os.path.join(self.task_repo_dir, self.tmp_dir))
+        self.tmp_dir_name = tmp_dir_name
+        self.tmp_dir = os.path.join(task_repo_dir, self.tmp_dir_name)
+
+        self.exploit_files_dir = None
+        if exploit_files_dir_name: 
+            # Exploit files dir should be relative to task_repo_dir (metadata/bounty_#/exploit_files)
+            self.exploit_files_dir = os.path.join(task_repo_dir, exploit_files_dir_name)
+            self.copy_files(self.exploit_files_dir, self.tmp_dir)
 
         self.start()
 
-        resource_dict[self.resource_id] = self
+        resource_dict[self.tmp_dir] = self
         atexit.register(self.stop)
 
     def start(self) -> None:
@@ -40,9 +43,9 @@ class InitFilesResource(BaseResource):
         try:
             # Execute the init_script.sh script located in the task repo directory
             logger.info(
-                f"Executing init script with {os.path.join(self.task_repo_dir, self.tmp_dir)}")
+                f"Executing init script with {self.tmp_dir_name}")
             subprocess.run(
-                ["./init_script.sh", self.tmp_dir],
+                ["./init_script.sh", self.tmp_dir_name],
                 cwd=self.task_repo_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -55,28 +58,26 @@ class InitFilesResource(BaseResource):
             logger.error(f"Init script stderr: {e.stderr}")
             sys.exit(1)
         # Set up git repos
-        self.setup_repo(os.path.join(self.task_repo_dir, self.files_dir))
-        self.setup_dev_branch(os.path.join(self.task_repo_dir, self.files_dir))
-        self.setup_repo(os.path.join(self.task_repo_dir, self.tmp_dir))
+        self.setup_repo(self.files_dir)
+        self.setup_dev_branch(self.files_dir)
+        self.setup_repo(self.tmp_dir)
 
     def stop(self) -> None:
         """
         Remove the temporary directory used for the task.
         """
-        tmp_dir_path = os.path.join(self.task_repo_dir, self.tmp_dir)
-        if os.path.exists(tmp_dir_path):
+        if os.path.exists(self.tmp_dir):
             try:
-                subprocess.run(["rm", "-rf", tmp_dir_path], check=True)
-                logger.info(f"Removed temporary directory: {tmp_dir_path}")
+                subprocess.run(["rm", "-rf", self.tmp_dir], check=True)
+                logger.info(f"Removed temporary directory: {self.tmp_dir}")
 
                 try:
-                    local_git_dir = os.path.join(
-                        self.task_repo_dir, self.files_dir, ".git")
+                    local_git_dir = os.path.join(self.files_dir, ".git")
                     if os.path.exists(local_git_dir):
                         subprocess.run(
                             ["rm", "-rf", local_git_dir], check=True)
                         logger.info(
-                            f"Removed .git directory from {os.path.join(self.task_repo_dir, self.files_dir)}")
+                            f"Removed .git directory from {self.files_dir}")
                 except subprocess.CalledProcessError as e:
                     logger.error(
                         f"Failed to remove local repo directory: {e.stderr}")
@@ -85,7 +86,7 @@ class InitFilesResource(BaseResource):
                 logger.error(
                     f"Failed to remove temporary directory: {e.stderr}")
         else:
-            logger.error(f"Temporary directory does not exist: {tmp_dir_path}")
+            logger.error(f"Temporary directory does not exist: {self.tmp_dir}")
 
     def setup_repo(self, work_dir):
         if os.path.exists(work_dir):
