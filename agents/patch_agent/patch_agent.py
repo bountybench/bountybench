@@ -46,12 +46,11 @@ class PatchAgent(BaseAgent):
             )
 
         self.bounty_dir = kwargs.get('bounty_dir')
-        print(f"Bounty dir: {self.bounty_dir}")
         self.patch_dir_name = "patches"
-        self.patch_dir = os.path.join(self.init_files.files_dir, self.patch_dir_name)
+        self.patch_dir = os.path.join(self.init_files.task_repo_dir, self.patch_dir_name)
         
         os.makedirs(self.patch_dir, exist_ok=True)
-        atexit.register(self.store_patch)
+        atexit.register(self.cleanup)
 
 
         self.patch_id = 1
@@ -62,8 +61,10 @@ class PatchAgent(BaseAgent):
         response = responses[0]
         if issubclass(response.__class__, CommandResponseInterface):
             if self.get_git_diff(self.init_files.tmp_dir) != "":
+                logger.info("Git diff detected, applying changes...")
                 return self.execute(response)
             else:
+                logger.info("No git diff detected, skipping patching.")
                 return response
         else:
             raise Exception(
@@ -81,7 +82,7 @@ class PatchAgent(BaseAgent):
         self.apply_git_patch(patch_path, self.init_files.files_dir, "dev")
         self.create_git_commit(self.init_files.files_dir, "dev")
 
-
+        breakpoint()
         task_server_restarted = self.restart_task_server_resource()
         if task_server_restarted:
             exploit_output = self.run_exploit()
@@ -106,7 +107,7 @@ class PatchAgent(BaseAgent):
         volumes = {
             self.init_files.task_repo_dir: {"bind": "/app/", "mode": "rw"},
         }
-        return self.docker_helper.execute(docker_image="cybench/cybounty:latest", command=f"ls &&  ./metadata/requirements.sh && cd {self.bounty_dir}/exploit_files && ./exploit.sh", network="shared_net", work_dir=None, volumes=volumes)
+        return self.docker_helper.execute(docker_image="cybench/cybounty:latest", command=f"ls &&  metadata/requirements.sh && cd {self.bounty_dir}/exploit_files && ./exploit.sh", network="shared_net", work_dir=None, volumes=volumes)
 
     def get_git_diff(self, directory_path: str) -> str:
         """
@@ -211,7 +212,7 @@ class PatchAgent(BaseAgent):
         logger.info(f"Running verify.sh")
         result = subprocess.run(['./verify.sh', execution_output],
                                 cwd=os.path.join(self.init_files.task_repo_dir, self.bounty_dir), capture_output=True, text=True)
-        logger.info(result.stdout)
+        logger.info(f"Verify.sh output:\n{result.stdout}")
         if result.returncode == 1:
             logger.info("Patch succeeded.")
             return True
@@ -222,6 +223,18 @@ class PatchAgent(BaseAgent):
             logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
             return False
         
+    def cleanup(self):
+        self.store_patch()
+        
+        branch_name = "master"
+        try:
+            subprocess.check_call(
+                ['git', 'checkout', branch_name], cwd=self.init_files.files_dir)
+            logger.info(f"Checked out to branch '{branch_name}'.")
+        except subprocess.CalledProcessError as e:
+            logger.error(
+                f"Failed to checkout '{branch_name}': {e}")
+
     def store_patch(self):
         """
         At exit, move the patches folder into a timestamped folder.
@@ -237,9 +250,13 @@ class PatchAgent(BaseAgent):
 
             # Ensure the patches directory exists
             if os.path.exists(self.patch_dir) and os.path.isdir(self.patch_dir):
-                # Move the patches directory to the new timestamped directory
-                shutil.move(self.patch_dir, new_patch_dir)
-                logger.info(f"Patches successfully moved to {new_patch_dir}.")
+                if os.listdir(self.patch_dir):  # Returns True if the directory has files
+                    shutil.move(self.patch_dir, new_patch_dir)
+                    logger.info(f"Patches successfully moved to {new_patch_dir}.")
+                else:
+                    logger.info("Patches directory is empty. No need to move.")
+                    # Delete the old directory
+                    shutil.rmtree(self.patch_dir)
             else:
                 logger.warning(f"No patches directory found to move.")
             

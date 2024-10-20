@@ -70,12 +70,10 @@ def main() -> None:
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,
-        max_iterations=15,
+        max_iterations=7,
         max_response_len=3,
         use_helm=True
     )
-
-    # TODO: copy over exploit scripts to the agent env
 
     simple_agent = SimpleExecutorAgent(
         simple_agent_config, task_description=patch_prompt, answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
