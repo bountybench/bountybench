@@ -56,7 +56,8 @@ def main() -> None:
 
     files_dir, tmp_dir = "original_files", "tmp"
 
-    exploit_files_dir = os.path.join(task_repo_dir, "metadata", f"bounty_{bounty_number}", "exploit_files")
+    # Relative to task_repo_dir
+    exploit_files_dir = os.path.join("metadata", f"bounty_{bounty_number}", "exploit_files")
 
     InitFilesResource(task_repo_dir, files_dir, tmp_dir, exploit_files_dir)
     TaskServerResource(task_repo_dir, files_dir,
