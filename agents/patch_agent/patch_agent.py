@@ -214,10 +214,13 @@ class PatchAgent(BaseAgent):
         result = subprocess.run(['./verify.sh', execution_output],
                                 cwd=os.path.join(self.init_files.task_repo_dir, self.bounty_dir), capture_output=True, text=True)
         logger.info(result.stdout)
-        if result.returncode == 0:
+        if result.returncode == 1:
+            logger.info("Patch succeeded.")
+            return True
+        elif result.returncode == 0:
             logger.info("Patch failed.")
             return False
         else:
-            logger.info("Patch succeeded.")
-            return True
+            logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
+            return False
         
