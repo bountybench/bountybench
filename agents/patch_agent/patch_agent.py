@@ -2,6 +2,7 @@ import atexit
 import os
 import shutil
 import subprocess
+import time
 from typing import List, Tuple
 
 from agents.base_agent import BaseAgent
@@ -45,14 +46,12 @@ class PatchAgent(BaseAgent):
             )
 
         self.bounty_dir = kwargs.get('bounty_dir')
-        self.files_dir = os.path.join(
-            self.init_files.task_repo_dir, self.init_files.files_dir)
-        self.tmp_dir = os.path.join(
-            self.init_files.task_repo_dir, self.init_files.tmp_dir)
-        self.patch_dir = os.path.abspath(os.path.join(
-            os.path.dirname(self.files_dir), "patches"))
+        print(f"Bounty dir: {self.bounty_dir}")
+        self.patch_dir_name = "patches"
+        self.patch_dir = os.path.join(self.init_files.files_dir, self.patch_dir_name)
         
         os.makedirs(self.patch_dir, exist_ok=True)
+        atexit.register(self.store_patch)
 
 
         self.patch_id = 1
@@ -62,7 +61,7 @@ class PatchAgent(BaseAgent):
             return Exception(f'Accepts only a single response, you passed in {len(responses)} responses')
         response = responses[0]
         if issubclass(response.__class__, CommandResponseInterface):
-            if self.get_git_diff(self.tmp_dir) != "":
+            if self.get_git_diff(self.init_files.tmp_dir) != "":
                 return self.execute(response)
             else:
                 return response
@@ -75,13 +74,12 @@ class PatchAgent(BaseAgent):
         This function executes the patching command
         """
 
-        tmp_dir_diff = self.get_git_diff(self.tmp_dir)
+        tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.patch_dir)
-        self.create_git_commit(self.tmp_dir)
-        patch_path = os.path.abspath(os.path.join(
-            self.patch_dir, f"patch_{self.patch_id}.patch"))
-        self.apply_git_patch(patch_path, self.files_dir, "dev")
-        self.create_git_commit(self.files_dir, "dev")
+        self.create_git_commit(self.init_files.tmp_dir)
+        patch_path = os.path.join(self.patch_dir, f"patch_{self.patch_id}.patch")
+        self.apply_git_patch(patch_path, self.init_files.files_dir, "dev")
+        self.create_git_commit(self.init_files.files_dir, "dev")
 
 
         task_server_restarted = self.restart_task_server_resource()
@@ -94,8 +92,8 @@ class PatchAgent(BaseAgent):
                 logger.info("Exploit is successful, patch failed.")
         else:
             logger.error("Exploit failed after applying the patch.")
-            self.git_reset(self.files_dir, "dev")
-            self.git_reset(self.tmp_dir)
+            self.git_reset(self.init_files.files_dir, "dev")
+            self.git_reset(self.init_files.tmp_dir)
             command_response.set_observation(
                 Observation("The task server cannot restart after the changes."))
 
@@ -217,10 +215,33 @@ class PatchAgent(BaseAgent):
         if result.returncode == 1:
             logger.info("Patch succeeded.")
             return True
-        elif result.returncode == 0:
+        elif result.returncode == 0: # Case: exploit succeeded
             logger.info("Patch failed.")
             return False
         else:
             logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
             return False
         
+    def store_patch(self):
+        """
+        At exit, move the patches folder into a timestamped folder.
+        The `patches` folder will act as a staging area for active patching workflows.
+        The timestamped folders will store previous patch runs for future reference.
+        """
+        try:
+            # Get the current timestamp in 'YYYYMMDD-HHMMSS' format
+            timestamp = time.strftime('%Y%m%d-%H%M%S')
+
+            # Construct the new folder name with the timestamp
+            new_patch_dir = f"{self.patch_dir}-{timestamp}"
+
+            # Ensure the patches directory exists
+            if os.path.exists(self.patch_dir) and os.path.isdir(self.patch_dir):
+                # Move the patches directory to the new timestamped directory
+                shutil.move(self.patch_dir, new_patch_dir)
+                logger.info(f"Patches successfully moved to {new_patch_dir}.")
+            else:
+                logger.warning(f"No patches directory found to move.")
+            
+        except Exception as e:
+            logger.error(f"Failed to move patches directory: {e}")
