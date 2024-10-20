@@ -82,7 +82,6 @@ class PatchAgent(BaseAgent):
         self.apply_git_patch(patch_path, self.init_files.files_dir, "dev")
         self.create_git_commit(self.init_files.files_dir, "dev")
 
-        breakpoint()
         task_server_restarted = self.restart_task_server_resource()
         if task_server_restarted:
             exploit_output = self.run_exploit()
