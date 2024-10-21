@@ -121,7 +121,6 @@ class PatchAgent(BaseAgent):
         This function returns the git diff of the changes in the task repository
         """
         try:
-            logger.info(f"*******************************IN GET DIFF*******************************: {directory_path}")
             diff = subprocess.check_output(
                 ['git', 'diff'], cwd=directory_path).decode('utf-8')
             return diff
