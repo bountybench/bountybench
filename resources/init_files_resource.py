@@ -23,12 +23,12 @@ class InitFilesResource(BaseResource):
         self.files_dir = os.path.join(self.task_repo_dir, files_dir_name)
 
         self.tmp_dir_name = tmp_dir_name
-        self.tmp_dir = os.path.join(task_repo_dir, self.tmp_dir_name)
+        self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
 
         self.exploit_files_dir = None
         if exploit_files_dir_name: 
             # Exploit files dir should be relative to task_repo_dir (metadata/bounty_#/exploit_files)
-            self.exploit_files_dir = os.path.join(task_repo_dir, exploit_files_dir_name)
+            self.exploit_files_dir = os.path.join(self.task_repo_dir, exploit_files_dir_name)
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
 
         self.start()
