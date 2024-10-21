@@ -50,7 +50,7 @@ class PatchAgent(BaseAgent):
             raise ValueError(f"Accepts only a single response, but received {len(responses)} responses")
         response = responses[0]
         if issubclass(response.__class__, CommandResponseInterface):
-            if self.get_git_diff(self.tmp_dir):
+            if self.get_git_diff(self.init_files.tmp_dir):
                 logger.info("Git diff detected, applying changes...")
                 return self.execute(response)
             else: 
