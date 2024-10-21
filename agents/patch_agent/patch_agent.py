@@ -26,6 +26,9 @@ class PatchAgent(BaseAgent):
         self.bounty_dir = kwargs.get('bounty_dir')
         self.patch_dir_name = "patches"
         self.patch_dir = os.path.join(self.init_files.task_repo_dir, self.patch_dir_name)
+        self.exploit_files_dir_name = "exploit_files"
+        self.exploit_files_dir = os.path.join(self.bounty_dir, self.exploit_files_dir_name)
+
         self.patch_id = 1
         os.makedirs(self.patch_dir, exist_ok=True)
         atexit.register(self.cleanup)
@@ -83,7 +86,7 @@ class PatchAgent(BaseAgent):
                 logger.info("Exploit is successful, patch failed.")
                 self.patch_id += 1
         else:
-            logger.error("Exploit failed after applying the patch.")
+            logger.error("The task server cannot restart after the changes.")
             self.git_reset(self.init_files.files_dir, "dev")
             self.git_reset(self.init_files.tmp_dir)
             command_response.set_observation(
@@ -101,7 +104,7 @@ class PatchAgent(BaseAgent):
         
         exploit_command = (
             "./metadata/requirements.sh && "
-            f"cd {self.bounty_dir}/exploit_files && ./exploit.sh"
+            f"cd {self.exploit_files_dir} && ./exploit.sh"
         )
         
         return self.docker_helper.execute(
@@ -118,6 +121,7 @@ class PatchAgent(BaseAgent):
         This function returns the git diff of the changes in the task repository
         """
         try:
+            logger.info(f"*******************************IN GET DIFF*******************************: {directory_path}")
             diff = subprocess.check_output(
                 ['git', 'diff'], cwd=directory_path).decode('utf-8')
             return diff
