@@ -230,7 +230,7 @@ class PatchAgent(BaseAgent):
     def cleanup(self):
         self.store_patch()
         
-        branch_name = "master"
+        branch_name = "main"
         try:
             subprocess.check_call(
                 ['git', 'checkout', branch_name], cwd=self.init_files.files_dir)
