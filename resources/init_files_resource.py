@@ -24,6 +24,7 @@ class InitFilesResource(BaseResource):
 
         self.tmp_dir_name = tmp_dir_name
         self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
+        self.resource_id = self.tmp_dir 
 
         self.exploit_files_dir = None
         if exploit_files_dir_name: 
@@ -33,7 +34,7 @@ class InitFilesResource(BaseResource):
 
         self.start()
 
-        resource_dict[self.tmp_dir] = self
+        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def start(self) -> None:
