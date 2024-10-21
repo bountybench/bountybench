@@ -21,83 +21,62 @@ logger = get_main_logger(__name__)
 class PatchAgent(BaseAgent):
     def __init__(self, *args, **kwargs):
         super().__init__()
-        # Check if there are TaskServerResource and InitFilesResource
-        if InitFilesResource in self.resource_dict.resource_type_to_resources:
-            self.init_files: InitFilesResource = self.resource_dict.get_items_of_resource_type(
-                InitFilesResource)[0]
-        else:
-            raise RuntimeError(
-                "InitFilesResource not set up. Patch agent cannot start.")
-
-        if TaskServerResource in self.resource_dict.resource_type_to_resources:
-            self.task_server: TaskServerResource = self.resource_dict.get_items_of_resource_type(
-                TaskServerResource)[0]
-        else:
-            raise RuntimeError(
-                "TaskServerResource not set up. Patch agent cannot start.")
-
-        if DockerResource in self.resource_dict.resource_type_to_resources:
-            self.docker_helper: DockerResource = self.resource_dict.get_items_of_resource_type(
-                DockerResource)[0]
-        else:
-            raise RuntimeError(
-                "DockerResource not set up. Patch agent cannot start"
-            )
-
+        self._initialize_resources()
         self.bounty_dir = kwargs.get('bounty_dir')
-        self.files_dir = os.path.join(
-            self.init_files.task_repo_dir, self.init_files.files_dir)
-        self.tmp_dir = os.path.join(
-            self.init_files.task_repo_dir, self.init_files.tmp_dir)
-        self.patch_dir = os.path.abspath(os.path.join(
-            os.path.dirname(self.files_dir), "patches"))
-        
+        self.files_dir = os.path.join(self.init_files.task_repo_dir, self.init_files.files_dir)
+        self.tmp_dir = os.path.join(self.init_files.task_repo_dir, self.init_files.tmp_dir)
+        self.patch_dir = os.path.abspath(os.path.join(os.path.dirname(self.files_dir), "patches"))
         os.makedirs(self.patch_dir, exist_ok=True)
-
-
         self.patch_id = 1
+    
+    def _initialize_resources(self):
+        try:
+            self.init_files = self._get_resource(InitFilesResource)
+            self.task_server = self._get_resource(TaskServerResource)
+            self.docker_helper = self._get_resource(DockerResource)
+        except KeyError as e:
+            raise RuntimeError(f"{e.args[0]} not set up. Patch agent cannot start.")
+    
+    def _get_resource(self, resource_type):
+        resources = self.resource_dict.get_items_of_resource_type(resource_type)
+        if not resources:
+            raise KeyError(f"{resource_type.__name__}")
+        return resources[0]
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
-            return Exception(f'Accepts only a single response, you passed in {len(responses)} responses')
+            raise ValueError(f"Accepts only a single response, but received {len(responses)} responses")
         response = responses[0]
         if issubclass(response.__class__, CommandResponseInterface):
-            if self.get_git_diff(self.tmp_dir) != "":
+            if self.get_git_diff(self.tmp_dir):
                 return self.execute(response)
-            else:
-                return response
-        else:
-            raise Exception(
-                f'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
-
+            return response
+        raise TypeError(f"Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface")
+    
     def execute(self, command_response: CommandResponse) -> Response:
         """
         This function executes the patching command
         """
-
         tmp_dir_diff = self.get_git_diff(self.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.patch_dir)
         self.create_git_commit(self.tmp_dir)
-        patch_path = os.path.abspath(os.path.join(
-            self.patch_dir, f"patch_{self.patch_id}.patch"))
+        patch_path = os.path.join(self.patch_dir, f"patch_{self.patch_id}.patch")
         self.apply_git_patch(patch_path, self.files_dir, "dev")
         self.create_git_commit(self.files_dir, "dev")
 
-
-        task_server_restarted = self.restart_task_server_resource()
-        if task_server_restarted:
+        if self.restart_task_server_resource():
             exploit_output = self.run_exploit()
             if self.verify_patch_works(exploit_output):
-                logger.info("Exploit is successful, patch succeeded.")
+                logger.info("Exploit succeeded, patch applied.")
                 return AnswerResponse(f"Answer: Congratulations! The patch succeeded.")
             else:
-                logger.info("Exploit is successful, patch failed.")
+                logger.info("Exploit successful and patch failed.")
+                self.patch_id += 1
         else:
-            logger.error("Exploit failed after applying the patch.")
+            logger.error("Failed to restart task server after applying the patch.")
             self.git_reset(self.files_dir, "dev")
             self.git_reset(self.tmp_dir)
-            command_response.set_observation(
-                Observation("The task server cannot restart after the changes."))
+            command_response.set_observation(Observation("Task server failed to restart after changes."))
 
         return command_response
 
@@ -106,9 +85,21 @@ class PatchAgent(BaseAgent):
         This function runs the exploit
         """
         volumes = {
-            self.init_files.task_repo_dir: {"bind": "/app/", "mode": "rw"},
+            self.init_files.task_repo_dir: {"bind": "/app/", "mode": "rw"}
         }
-        return self.docker_helper.execute(docker_image="cybench/cybounty:latest", command=f"ls &&  ./metadata/requirements.sh && cd {self.bounty_dir}/exploit_files && ./exploit.sh", network="shared_net", work_dir=None, volumes=volumes)
+        
+        exploit_command = (
+            "ls && ./metadata/requirements.sh && "
+            f"cd {self.bounty_dir}/exploit_files && ./exploit.sh"
+        )
+        
+        return self.docker_helper.execute(
+            docker_image="cybench/cybounty:latest",
+            command=exploit_command,
+            network="shared_net",
+            work_dir=None,
+            volumes=volumes
+        )
 
     def get_git_diff(self, directory_path: str) -> str:
         """
@@ -173,9 +164,6 @@ class PatchAgent(BaseAgent):
             logger.error(f"Failed to apply patch '{patch_file}': {e}")
             return False, f"Failed to apply patch '{patch_file}': {e}"
 
-    def increment_patch_id(self) -> None:
-        self.patch_id += 1
-
 
     def restart_task_server_resource(self) -> bool:
         """
@@ -201,10 +189,10 @@ class PatchAgent(BaseAgent):
             subprocess.check_call(
                 ['git', 'reset', '--hard', 'HEAD~1'], cwd=directory_path)
             logger.info(
-                f"Git reset to HEAD~1 performed successfully on branch '{branch_name}' in {directory_path}.")
+                f"Git reset to HEAD~1 performed successfully in {directory_path}.")
         except subprocess.CalledProcessError as e:
             logger.error(
-                f"Failed to reset git repository on branch '{branch_name}' to HEAD~1: {e}")
+                f"Failed to reset git repository to HEAD~1: {e}")
 
     def verify_patch_works(self, execution_output: str) -> bool:
         """

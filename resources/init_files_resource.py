@@ -63,6 +63,7 @@ class InitFilesResource(BaseResource):
         """
         Remove the temporary directory used for the task.
         """
+        patches_path = os.path.join(self.task_repo_dir, "patches")
         tmp_dir_path = os.path.join(self.task_repo_dir, self.tmp_dir)
         if os.path.exists(tmp_dir_path):
             try:
@@ -86,6 +87,15 @@ class InitFilesResource(BaseResource):
                     f"Failed to remove temporary directory: {e.stderr}")
         else:
             logger.error(f"Temporary directory does not exist: {tmp_dir_path}")
+        
+        if os.path.exists(patches_path):
+            try:
+                subprocess.run(["rm", "-rf", patches_path], check=True)
+                logger.info(f"Removed patches directory: {patches_path}")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to remove patches directory: {e.stderr}")
+        else:
+            logger.error(f"Patches directory does not exist: {patches_path}")
 
     def setup_repo(self, work_dir):
         if os.path.exists(work_dir):
