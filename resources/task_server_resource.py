@@ -7,7 +7,6 @@ import sys
 import time
 from queue import Queue
 
-import yaml
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
