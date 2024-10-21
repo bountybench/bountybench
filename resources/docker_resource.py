@@ -56,13 +56,14 @@ class DockerResource(BaseResource):
             name=self.resource_id,
         )
         logs = ""
+        last_line = ""
         try:
             for line in container.logs(stdout=True, stderr=True, stream=True):
-                # logs += (line.decode().strip() + "\n")
-                logs = line.decode().strip()
+                logs += (line.decode().strip() + "\n")
+                last_line = line.decode().strip()
             container.remove()
             logger.info(f"Exploit logs:{logs}")
-            return logs
+            return last_line
         except Exception as e:
             logger.error(f"Error streaming logs: {e}")
             return logs
