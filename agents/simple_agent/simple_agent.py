@@ -26,8 +26,8 @@ TEMPERATURE = 0.5
 class SimpleExecutorAgent(BaseAgent):
     memory: List[str] = []
 
-    def __init__(self, config: AgentConfig, **kwargs):
-        super().__init__()
+    def __init__(self, config: AgentConfig, *args, **kwargs):
+        super().__init__(kwargs=kwargs)
         self.config = config
 
         self.initial_prompt = INITIAL_PROMPT.format(
