@@ -1,7 +1,7 @@
 from responses.response import Response
 
 
-class GeneralResponse(Response):
+class FailureResponse(Response):
     def __init__(self, response: str) -> None:
         self._response = response
  
