@@ -96,6 +96,9 @@ class InitFilesResource(BaseResource):
                                cwd=work_dir, check=True)
                 logger.info(f"Initialized git repository in {work_dir}")
 
+                subprocess.run(["git", "branch", "-m", "main"], cwd=work_dir, check=True)
+                logger.info("Branch named to main")
+
                 subprocess.run(["git", "add", "."], cwd=work_dir, check=True)
 
                 subprocess.run(
