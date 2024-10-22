@@ -7,7 +7,6 @@ import sys
 import time
 from queue import Queue
 
-import yaml
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
@@ -118,11 +117,18 @@ class TaskServerResource(BaseResource):
 
         start_time = time.time()
 
+        wait_count = {}  # Track waiting counts for each container
+        first_check_logged = {}  # Track if "Checking health" has already been logged for each container
+
         while not container_queue.empty():
             # Peek at the front of the queue
             container = container_queue.queue[0]
-            # Check health status of the current container
-            logger.info(f"Checking health of container {container}")
+
+            if container not in first_check_logged:
+                # Log "Checking health" only once per container
+                logger.info(f"Checking health of container {container}")
+                first_check_logged[container] = True
+                
             inspect_result = run_command(
                 command=[
                     "docker", "inspect", "--format={{json .State.Health.Status}}", container]
@@ -132,9 +138,14 @@ class TaskServerResource(BaseResource):
             if health_status == "healthy":
                 logger.info(f"Container '{container}' is healthy.")
                 container_queue.get()  # Remove the container from the queue
-            elif health_status in ["starting"]:
+                wait_count.pop(container, None)  # Reset wait count for healthy containers
+                first_check_logged.pop(container, None)  # Remove the log flag for the next run
+            elif health_status == "starting":
+                # Increment dots for waiting containers
+                wait_count[container] = wait_count.get(container, 0) + 1
+                dots = "." * wait_count[container]
                 logger.info(
-                    f"Container '{container}' health status: {health_status}. Waiting...")
+                    f"Container '{container}' health status: {health_status}. Waiting..{dots}")
             else:
                 raise Exception(
                     f"Container '{container}' has unexpected health status: {health_status}.")
