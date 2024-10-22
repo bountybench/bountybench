@@ -19,30 +19,36 @@ from responses.patch_response import PatchResponse
 import logging
 import io
 
+
 log_stream = io.StringIO()
 
 def get_main_logger(name: str):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
 
-    # Create an in-memory stream handler
-    stream_handler = logging.StreamHandler(log_stream)
-    stream_handler.setLevel(logging.DEBUG)
-
-    # Create a formatter and set it for the stream handler
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    stream_handler.setFormatter(formatter)
-
-    # Add the handler to the logger
     if not logger.handlers:
+        # Create an in-memory stream handler
+        stream_handler = logging.StreamHandler(log_stream)
+        stream_handler.setLevel(logging.DEBUG)
+
+        # Create a console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG)
+
+        # Create a formatter and set it for both handlers
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        stream_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+
+        # Add handlers to the logger
         logger.addHandler(stream_handler)
-    
+        logger.addHandler(console_handler)
+
     return logger
 
-# Function to retrieve log history from memory
 def get_logger_history():
+    log_stream.flush() 
     return log_stream.getvalue()
-
 
 
 
@@ -84,7 +90,8 @@ class PatchAgent(BaseAgent):
         if issubclass(response.__class__, CommandResponseInterface):
             if self.get_git_diff(self.init_files.tmp_dir):
                 self.logger.info("Git diff detected, applying changes...")
-                return self.execute(response)
+                execute_response =  self.execute(response)
+                return execute_response
             else: 
               self.logger.info("No git diff detected, skipping patching.")  
               return response
@@ -114,14 +121,20 @@ class PatchAgent(BaseAgent):
             else:
                 self.logger.info("Exploit is successful, patch failed.")
                 self.patch_id += 1
+                log_history = get_logger_history()[:1000].replace("\n", " ")              
+                patch_response = PatchResponse(f"{log_history}")
+                return patch_response
         else:
             self.logger.error("The task server cannot restart after the changes.")
             self.git_reset(self.init_files.files_dir, "dev")
             self.git_reset(self.init_files.tmp_dir)
             command_response.set_observation(
                 Observation("The task server cannot restart after the changes."))
-
-        return PatchResponse(f"{get_self.logger_history()}")
+            log_history = get_logger_history()[:1000].replace("\n", " ")
+            patch_response = PatchResponse(f"{log_history}")
+            
+            return patch_response
+        
 
     def run_exploit(self) -> str:
         """
@@ -144,7 +157,7 @@ class PatchAgent(BaseAgent):
             volumes=volumes
         )
 
-    '''
+    
     def get_git_diff(self, directory_path: str) -> str:
         """
         This function returns the git diff of the changes in the task repository
@@ -156,40 +169,7 @@ class PatchAgent(BaseAgent):
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Failed to get git diff: {e}")
             return ""
-    '''
-    def get_git_diff(self, directory_path: str) -> str:
-        """
-        This function returns the git diff of the changes in the task repository
-        and ensures the output is logged into history.
-        """
-        try:
-            result = subprocess.run(
-                ['git', 'diff'],
-                cwd=directory_path,
-                capture_output=True, text=True
-            )
-            
-            # Capture stdout and stderr
-            stdout = result.stdout
-            stderr = result.stderr
-
-            # Log stdout and stderr with manual addition to log stream
-            if stdout:
-                log_message = f"Git diff output:\n{stdout}"
-                self.logger.info(log_message)
-                log_stream.write(log_message + '\n')  # Add to the log history
-
-            if stderr:
-                error_message = f"Git diff errors:\n{stderr}"
-                self.logger.warning(error_message)
-                log_stream.write(error_message + '\n')  # Add to the log history
-
-            return stdout
-        except subprocess.CalledProcessError as e:
-            error_message = f"Failed to get git diff: {e}\n{e.stdout}\n{e.stderr}"
-            self.logger.error(error_message)
-            log_stream.write(error_message + '\n')  # Ensure error is logged to history
-            return ""
+    
     
     def create_git_patch(self, diff: str, directory_path: str) -> None:
         """

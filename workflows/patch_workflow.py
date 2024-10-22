@@ -91,7 +91,6 @@ def main() -> None:
     simple_response = simple_agent.run([])
 
     for iteration in range(simple_agent_config.max_iterations):
-        # Log simple agent input/output
         run_data = {}
         run_data["iteration"] = iteration + 1
         if run_data["iteration"] == 1: 
