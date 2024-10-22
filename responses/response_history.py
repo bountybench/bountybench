@@ -9,7 +9,7 @@ from responses.response import Response
 class ResponseHistory:
     def __init__(self):
         self.responses: List[Response] = []
-        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.model = SentenceTransformer('all-MiniLM-L6-v2', tokenizer_kwargs={'clean_up_tokenization_spaces': True})
 
     def log(self, response: Response):
         self.responses.append(response)
