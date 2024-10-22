@@ -17,13 +17,13 @@ class BaseAgent(ABC):
                 # Call the original 'run' method
                 new_response = original_run(responses)
 
-                # Log the response
-                self.response_history.log(new_response)
-
                 # Check for repetition
                 if self.response_history.is_repetitive(new_response):
                     # Handle repetition
                     new_response = FailureResponse("Repetitive response loop detected")
+                else:
+                    # Log the response
+                    self.response_history.log(new_response)
 
                 return new_response
 
