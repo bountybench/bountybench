@@ -14,13 +14,15 @@ class ResponseHistory:
     def log(self, response: Response):
         self.responses.append(response)
 
-    def is_repetitive(self, current_response: Response, n: int = 3, threshold: float = 0.95) -> bool:
+    def is_repetitive(self, current_response: Response, n: int = 3, threshold: float = 0.8) -> bool:
+        if len(self.responses) < n:
+            return False
         recent_responses = self.responses[-n:]
-        current_embedding = self.model.encode(current_response.content)
+        current_embedding = self.model.encode(current_response.response)
         for resp in recent_responses:
-            resp_embedding = self.model.encode(resp.content)
+            resp_embedding = self.model.encode(resp.response)
             similarity_score = cosine_similarity(
                 [current_embedding], [resp_embedding])[0][0]
-            if similarity_score >= threshold:
-                return True
-        return False
+            if similarity_score < threshold:
+                return False
+        return True
