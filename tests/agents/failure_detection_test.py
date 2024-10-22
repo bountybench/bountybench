@@ -1,5 +1,4 @@
 import unittest
-from typing import List
 from unittest.mock import MagicMock, patch
 
 from agents.dataclasses.agent_spec import AgentConfig
@@ -31,21 +30,17 @@ class TestSimpleExecutorAgent(unittest.TestCase):
             failure_detection=True,
         )
 
-        # Create a mock CommandResponse
         mock_command_response = CommandResponse(
             response="Command: Test Response",
         )
 
-        # Configure the mock to return the CommandResponse
         mock_execute.return_value = mock_command_response
 
-        # Call the run method with no prior responses (first run)
         response: Response = self.agent.run(responses=[])
         response: Response = self.agent.run(responses=[])
         response: Response = self.agent.run(responses=[])
         response: Response = self.agent.run(responses=[])
 
-        # Assert that the response is the mocked CommandResponse
         self.assertIsInstance(response, FailureResponse)
         self.assertEqual(
             response.response, "Failure Response")
@@ -57,20 +52,16 @@ class TestSimpleExecutorAgent(unittest.TestCase):
             failure_detection=True,
         )
 
-        # Create a mock CommandResponse
         mock_command_response = CommandResponse(
             response="Command: Test Response",
         )
 
-        # Configure the mock to return the CommandResponse
         mock_execute.return_value = mock_command_response
 
-        # Call the run method with no prior responses (first run)
         response: Response = self.agent.run(responses=[])
         response: Response = self.agent.run(responses=[])
         response: Response = self.agent.run(responses=[])
 
-        # Assert that the response is the mocked CommandResponse
         self.assertIsInstance(response, CommandResponse)
         self.assertEqual(response.command, "Test Response")
         self.assertEqual(response.response, "Command: Test Response")
@@ -82,31 +73,25 @@ class TestSimpleExecutorAgent(unittest.TestCase):
             failure_detection=True,
         )
 
-        # Create a mock CommandResponse
         mock_command_response1 = CommandResponse(
             response="Command: Test Response",
         )
 
-        # Create second mock CommandResponse
         mock_command_response2 = CommandResponse(
             response="Command: Random Random Random",
         )
 
-        # Configure the mock to return the CommandResponse
         mock_execute.return_value = mock_command_response1
 
-        # Call the run method with no prior responses (first run)
         response: Response = self.agent.run(responses=[])
         response: Response = self.agent.run(responses=[])
         response: Response = self.agent.run(responses=[])
 
-        # Configure the mock to return the CommandResponse
         mock_execute.return_value = mock_command_response2
 
         response: Response = self.agent.run(responses=[])
         response: Response = self.agent.run(responses=[])
 
-        # Assert that the response is the mocked CommandResponse
         self.assertIsInstance(response, CommandResponse)
         self.assertEqual(response.command, "Random Random Random")
         self.assertEqual(response.response, "Command: Random Random Random")
@@ -115,7 +100,6 @@ class TestSimpleExecutorAgent(unittest.TestCase):
         response: Response = self.agent.run(responses=[])
         response: Response = self.agent.run(responses=[])
 
-        # Assert that the response is the mocked CommandResponse
         self.assertIsInstance(response, FailureResponse)
         self.assertEqual(
             response.response, "Failure Response")
@@ -128,22 +112,18 @@ class TestSimpleExecutorAgent(unittest.TestCase):
             failure_detection=True,
         )
 
-        # Create a mock CommandResponse
         mock_command_response = CommandResponse(
             response="Command: Test Response",
         )
 
-        # Create a mock CommandResponse
         mock_command_response1 = CommandResponse(
             response="Command: Test Response1",
         )
 
-        # Create second mock CommandResponse
         mock_command_response2 = CommandResponse(
             response="Command: Test Response2",
         )
 
-        # Create second mock CommandResponse
         mock_command_response3 = CommandResponse(
             response="Command: Test Response3",
         )
