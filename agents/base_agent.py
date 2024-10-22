@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
-from responses.general_response import GeneralResponse
+from responses.failure_response import FailureResponse
 from responses.response import Response
 from resources.resource_dict import resource_dict
 from responses.response_history import ResponseHistory
@@ -23,7 +23,7 @@ class BaseAgent(ABC):
                 # Check for repetition
                 if self.response_history.is_repetitive(new_response):
                     # Handle repetition
-                    new_response = GeneralResponse("[Notice: Detected repetitive responses. Please try a different approach.]")
+                    new_response = FailureResponse("Repetitive response loop detected")
 
                 return new_response
 
