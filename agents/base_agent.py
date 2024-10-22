@@ -20,7 +20,7 @@ class BaseAgent(ABC):
                 # Check for repetition
                 if self.response_history.is_repetitive(new_response):
                     # Handle repetition
-                    new_response = FailureResponse("Repetitive response loop detected")
+                    new_response = FailureResponse("Repetitive response detected")
                 else:
                     # Log the response
                     self.response_history.log(new_response)
