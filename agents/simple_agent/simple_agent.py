@@ -27,7 +27,7 @@ class SimpleExecutorAgent(BaseAgent):
     memory: List[str] = []
 
     def __init__(self, config: AgentConfig, *args, **kwargs):
-        super().__init__(kwargs=kwargs)
+        super().__init__(*args, **kwargs)
         self.config = config
 
         self.initial_prompt = INITIAL_PROMPT.format(
