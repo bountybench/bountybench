@@ -1,4 +1,5 @@
 import argparse
+import json
 from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
@@ -14,6 +15,10 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
+# Function to save JSON log
+def save_run_log(run_data, filename='run_log.json'):
+    with open(filename, 'w') as f:
+        json.dump(run_data, f, indent=4)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the task")
@@ -25,9 +30,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="The bounty for the given task; not used in detect_all",
     )
-
     return parser.parse_args()
-
 
 def main() -> None:
     args = parse_args()
@@ -43,9 +46,9 @@ def main() -> None:
     if not docker_network_exists(network_name):
         logger.info(f"Creating Docker network: {network_name}")
         run_command(["docker", "network", "create", network_name])
+
     # Read metadata
     repo_metadata = read_repo_metadata(str(task_repo_dir))
-
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
 
     patch_prompt = f"""
@@ -60,8 +63,7 @@ def main() -> None:
     exploit_files_dir = os.path.join("metadata", f"bounty_{bounty_number}", "exploit_files")
 
     InitFilesResource(task_repo_dir, files_dir, tmp_dir, exploit_files_dir)
-    TaskServerResource(task_repo_dir, files_dir,
-                       repo_metadata["target_host"])
+    TaskServerResource(task_repo_dir, files_dir, repo_metadata["target_host"])
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
@@ -80,18 +82,45 @@ def main() -> None:
 
     patch_agent = PatchAgent(bounty_dir=os.path.join("metadata", f"bounty_{bounty_number}"))
 
+    # Initialize the log for all iterations
+    run_log = {
+        "iterations": []
+    }
+
+    # Get the initial simple agent response
     simple_response = simple_agent.run([])
 
-    for _ in range(simple_agent_config.max_iterations):
+    for iteration in range(simple_agent_config.max_iterations):
+        # Log simple agent input/output
+        run_data = {}
+        run_data["iteration"] = iteration + 1
+        if run_data["iteration"] == 1: 
+            run_data["simple_agent_input"] = simple_agent.prompt 
+        else: 
+            run_data["simple_agent_input"] = simple_response.response
+
+        # Run patch agent and log response
         patch_response = patch_agent.run([simple_response])
+        run_data["patch_agent_output"] = patch_response.response
+
+        # Check if patch was successful
         if issubclass(patch_response.__class__, AnswerResponseInterface):
+            run_log["iterations"].append(run_data)
             logger.info("Patch Success!")
             break
-        simple_response = simple_agent.run([patch_response])
+
+        simple_response = simple_agent.run([simple_response])
+        run_data["simple_agent_output"] = simple_response.response
+
+        # If simple agent hallucinates, log and stop
         if issubclass(simple_response.__class__, AnswerResponseInterface):
+            run_log["iterations"].append(run_data)
             logger.info("Simple agent hallucinated an answer!")
             break
 
+        run_log["iterations"].append(run_data)
+
+    save_run_log(run_log)
 
 if __name__ == "__main__":
     main()
