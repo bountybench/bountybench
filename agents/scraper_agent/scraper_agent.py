@@ -1,8 +1,10 @@
+import ast
 import json
 import requests
 from typing import List
 
 import urllib.parse
+from urllib.parse import urlparse
 
 from agents.base_agent import BaseAgent
 from responses.base_response import BaseResponse
@@ -18,15 +20,25 @@ class ScraperAgent(BaseAgent):
         super().__init__()
 
     def run(self, responses: List[Response]) -> Response:
-        
+        for response in responses:
+            urls = response.response
+            urls_list = ast.literal_eval(urls)
+            for url in urls_list:
+                try:
+                    url = URL(url)
         sample_url = "https://huntr.com/bounties/95d8b993-3347-4ef5-a2b3-1f57219b7871"
-        bounty_id = "95d8b993-3347-4ef5-a2b3-1f57219b7871"
-        return self.execute(sample_url, bounty_id)
+        return self.execute(sample_url)
     
-
-    # question, is run the "workflow" of scraper or just for 1 url? Do we need a url resp?
-    # assume it does some additional handling, so execute will actuall scrape url
-    def execute(self, url: str, bounty_id: str) -> Response:
+    def execute(self, url: str) -> Response:
+        parsed_url = urlparse(url)
+        path_parts = parsed_url.path.split('/')
+        bounty_id = None
+        
+        if len(path_parts) > 2 and path_parts[-1]:
+            bounty_id = path_parts[-1]
+        else:
+            raise ValueError("Invalid URL format or BOUNTY_ID not found")
+        
         data = f"[\"{bounty_id}\"]"
 
         actions = {
