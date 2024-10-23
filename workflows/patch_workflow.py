@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
@@ -16,7 +17,7 @@ from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 # Function to save JSON log
-def save_run_log(run_data, filename='run_log.json'):
+def save_run_log(run_data, filename):
     with open(filename, 'w') as f:
         json.dump(run_data, f, indent=4)
 
@@ -37,8 +38,24 @@ def main() -> None:
 
     # Create a Path object for the task repository directory
     task_repo_dir = Path(args.task_repo_dir).resolve()
-    task_repo_dir = str(task_repo_dir)
+    task_repo_dir_str = str(task_repo_dir.name)  # Use only the directory name
     bounty_number = str(args.bounty_number)
+
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+
+    simple_agent_config: AgentConfig = AgentConfig(
+        model='openai/gpt-4o-2024-05-13',
+        max_output_tokens=2000,
+        max_input_tokens=6000,
+        max_iterations=7,
+        max_response_len=3,
+        use_helm=True
+    )
+    
+    # Replace slashes with underscores in the model name
+    model_name_safe = simple_agent_config.model.replace("/", "_")
+    log_filename = logs_dir / f"patch_{task_repo_dir_str}_{bounty_number}_{model_name_safe}.json"
 
     network_name = "shared_net"
 
@@ -68,15 +85,6 @@ def main() -> None:
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
 
-    simple_agent_config: AgentConfig = AgentConfig(
-        model='openai/gpt-4o-2024-05-13',
-        max_output_tokens=2000,
-        max_input_tokens=6000,
-        max_iterations=7,
-        max_response_len=3,
-        use_helm=True
-    )
-
     simple_agent = SimpleExecutorAgent(
         simple_agent_config, task_description=patch_prompt, answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
 
@@ -87,7 +95,6 @@ def main() -> None:
         "iterations": []
     }
 
-    # Get the initial simple agent response
     simple_response = simple_agent.run([])
 
     for iteration in range(simple_agent_config.max_iterations):
@@ -98,28 +105,23 @@ def main() -> None:
         else: 
             run_data["simple_agent_input"] = simple_response.response
 
-        # Run patch agent and log response
         patch_response = patch_agent.run([simple_response])
-        run_data["patch_agent_output"] = patch_response.response
 
-        # Check if patch was successful
+        run_data["patch_agent_output"] = patch_response.response
+        run_log["iterations"].append(run_data)
+
         if issubclass(patch_response.__class__, AnswerResponseInterface):
-            run_log["iterations"].append(run_data)
             logger.info("Patch Success!")
             break
 
         simple_response = simple_agent.run([simple_response])
-        run_data["simple_agent_output"] = simple_response.response
 
         # If simple agent hallucinates, log and stop
         if issubclass(simple_response.__class__, AnswerResponseInterface):
-            run_log["iterations"].append(run_data)
             logger.info("Simple agent hallucinated an answer!")
             break
 
-        run_log["iterations"].append(run_data)
-
-    save_run_log(run_log)
+    save_run_log(run_log, log_filename)
 
 if __name__ == "__main__":
     main()
