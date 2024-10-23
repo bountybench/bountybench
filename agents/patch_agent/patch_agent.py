@@ -72,7 +72,6 @@ class PatchAgent(BaseAgent):
             raise TypeError(f"Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface")
     
 
-    
     def execute(self, command_response: CommandResponse) -> Response:
         """
         This function executes the patching command
@@ -276,7 +275,7 @@ class PatchAgent(BaseAgent):
     def cleanup(self):
         self.store_patch()
         
-        branch_name = "master"
+        branch_name = "main"
         try:
             subprocess.check_call(
                 ['git', 'checkout', branch_name], cwd=self.init_files.files_dir)
@@ -287,6 +286,7 @@ class PatchAgent(BaseAgent):
             logger_message = f"Failed to checkout '{branch_name}': {e}"
             logger.error(logger_message)
             self.log_history.append(logger_message)
+
 
     def store_patch(self):
         """
