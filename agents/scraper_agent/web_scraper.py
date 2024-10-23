@@ -60,7 +60,7 @@ def scrape_dynamic_webpage(url):
                 if name:
                     content['metadata'][name] = meta.get_attribute('content')
             
-            # Improved content extraction that preserves structure and context
+            # Extract content with preserved formatting
             content['content'] = page.evaluate('''
                 () => {
                     function isVisible(element) {
@@ -71,54 +71,86 @@ def scrape_dynamic_webpage(url):
                                style.opacity !== '0';
                     }
 
-                    function getElementContent(element) {
-                        // Skip hidden elements
-                        if (!isVisible(element)) return '';
+                    function processElement(element) {
+                        if (!isVisible(element)) return null;
                         
                         // Skip script and style elements
-                        if (element.tagName === 'SCRIPT' || element.tagName === 'STYLE') return '';
+                        if (element.tagName === 'SCRIPT' || element.tagName === 'STYLE') return null;
                         
-                        let content = [];
+                        // Check if this is a code block
+                        const isCodeBlock = element.tagName === 'PRE' || 
+                                          element.tagName === 'CODE' ||
+                                          element.classList.contains('code') ||
+                                          element.classList.contains('pre') ||
+                                          element.classList.contains('language-python') ||
+                                          element.closest('pre') !== null ||
+                                          element.querySelector('code') !== null;
                         
-                        // Handle different types of elements
-                        if (element.tagName === 'P' || 
-                            element.tagName === 'DIV' || 
-                            element.tagName === 'SECTION' || 
-                            element.tagName === 'ARTICLE') {
-                            // Get direct text content
-                            const text = Array.from(element.childNodes)
-                                .filter(node => node.nodeType === 3) // Text nodes only
-                                .map(node => node.textContent.trim())
-                                .filter(text => text)
-                                .join(' ');
-                            
-                            if (text) content.push(text);
-                            
-                            // Recursively get content from child elements
-                            for (const child of element.children) {
-                                const childContent = getElementContent(child);
-                                if (childContent) content.push(childContent);
-                            }
-                            
-                            return content.join(' ').trim();
+                        if (isCodeBlock) {
+                            // For code blocks, preserve exact formatting
+                            return {
+                                type: 'code',
+                                filename: element.previousElementSibling?.textContent || '',
+                                content: element.textContent,
+                                language: Array.from(element.classList)
+                                    .find(cls => cls.startsWith('language-'))
+                                    ?.replace('language-', '') || 'python'
+                            };
                         }
                         
-                        // For other elements, just get text content
-                        const text = element.textContent.trim();
-                        return text || '';
+                        // For headings
+                        if (element.tagName.match(/^H[1-6]$/)) {
+                            return {
+                                type: 'heading',
+                                content: element.textContent.trim()
+                            };
+                        }
+                        
+                        // For regular text content
+                        const textContent = element.textContent.trim();
+                        if (textContent) {
+                            return {
+                                type: 'text',
+                                content: textContent
+                            };
+                        }
+                        
+                        return null;
+                    }
+
+                    function extractContent(root) {
+                        const sections = [];
+                        
+                        // Process all direct children
+                        for (const child of root.children) {
+                            const content = processElement(child);
+                            if (content) {
+                                sections.push(content);
+                            }
+                            
+                            // If this element has children and isn't a code block,
+                            // process them too
+                            if (child.children.length > 0 && 
+                                !content?.type === 'code') {
+                                sections.push(...extractContent(child));
+                            }
+                        }
+                        
+                        return sections;
                     }
                     
                     // Get content from main content areas
                     const contentAreas = document.querySelectorAll('main, article, .content, .main-content');
                     if (contentAreas.length > 0) {
                         return Array.from(contentAreas)
-                            .map(area => getElementContent(area))
-                            .filter(text => text)
-                            .map(text => text.replace(/\\s+/g, ' ').trim());
+                            .map(area => extractContent(area))
+                            .flat()
+                            .filter(section => section !== null);
                     }
                     
-                    // Fallback: get content from body
-                    return [getElementContent(document.body)].filter(text => text);
+                    // Fallback to body
+                    return extractContent(document.body)
+                        .filter(section => section !== null);
                 }
             ''')
             
