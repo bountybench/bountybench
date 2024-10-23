@@ -1,9 +1,9 @@
-from responses.patch_response_interface import  PatchResponseInterface
+from responses.response import Response
 
-class PatchResponse(PatchResponseInterface):
+class PatchResponse(Response): 
     def __init__(self, response: str) -> None:
         self._response = response
- 
+
     @property
     def response(self) -> str:
         return self._response
