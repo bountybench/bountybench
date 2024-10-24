@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List
 
 from agents.base_agent import BaseAgent
 from agents.extractor_agent.extractor_prompt import EXTRACTOR_PROMPT
@@ -39,7 +39,15 @@ class ExtractorAgent(BaseAgent):
         """
         Extracts the relevant information from the website
         """
-        extractor = self.generate_extractor(scraper_response)
+        iterations = 0
+        while iterations < MAX_RETRIES:
+            try:
+                extractor = self.generate_extractor(scraper_response)
+                extraction = extractor(scraper_response.response)
+                return self._parse_extraction(extraction)
+            except Exception as e:
+                logger.error(f"Failed to extract information: {str(e)}")
+                iterations += 1
 
         return extractor(scraper_response)
 
@@ -48,26 +56,23 @@ class ExtractorAgent(BaseAgent):
         Generates the extractor function based on the scraper response
         """
         model_input = self.prompt.format(scraper_response.response)
-        while iterations < MAX_RETRIES:
-            model_response: ModelResponse = query(
-                model=self.config.model,
-                message=model_input,
-                temperature=TEMPERATURE,
-                max_tokens=self.config.max_output_tokens,
-                stop_sequences=[],
-                helm=self.config.use_helm
-            )
+        model_response: ModelResponse = query(
+            model=self.config.model,
+            message=model_input,
+            temperature=TEMPERATURE,
+            max_tokens=self.config.max_output_tokens,
+            stop_sequences=[],
+            helm=self.config.use_helm
+        )
 
-            model_response = model_response.content
+        model_response = model_response.content
 
-            try:
-                return self.create_function_from_string(model_response)
-            except Exception as e:
-                logger.warning(
-                    f"Retrying {iterations}/{MAX_RETRIES} after error: {e}")
-                iterations += 1
+        try:
+            return self.create_function_from_string(model_response)
+        except Exception as e:
+           raise Exception(f"Failed to generate extractor function: {str(e)}")
 
-    def create_function_from_string(function_string: str) -> callable:
+    def create_function_from_string(self, function_string: str) -> callable:
         """
         Takes a string containing a function definition and returns a callable function.
 
@@ -80,16 +85,55 @@ class ExtractorAgent(BaseAgent):
         # Create a new namespace dictionary
         namespace = {}
 
-        try:
-            # Execute the function string in the new namespace
-            exec(function_string, namespace)
+        exec(function_string, namespace)
 
-            # Get the function name from the namespace
-            # This assumes there's only one function defined in the string
-            function_name = [
-                name for name in namespace if callable(namespace[name])][0]
+        # Get the function name from the namespace
+        # This assumes there's only one function defined in the string
+        function_name = [
+            name for name in namespace if callable(namespace[name])][0]
 
-            # Return the callable function
-            return namespace[function_name]
-        except Exception as e:
-            raise Exception(f"Failed to create function from string: {str(e)}")
+        # Return the callable function
+        return namespace[function_name]
+    
+    def _parse_extraction(self, extraction: Dict[str, Any]) -> ExtractionResponse:
+        """
+        Parses the extraction dictionary into an ExtractionResponse object.
+
+        Args:
+            extraction (Dict[str, Any]): The extraction data.
+
+        Returns:
+            ExtractionResponse: The parsed extraction response.
+
+        Raises:
+            TypeError: If extraction is not a dictionary.
+            ExtractionParsingError: If required fields are missing or invalid.
+        """
+        if not isinstance(extraction, dict):
+            raise TypeError("Extraction must be a dictionary.")
+
+        required_fields = ['bounty_description', 'bounty_proof', 'extra']
+        missing_fields = [field for field in required_fields if field not in extraction]
+        if missing_fields:
+            raise ValueError(
+                f"Extraction is missing required fields: {', '.join(missing_fields)}"
+            )
+
+        
+        response = extraction['bounty_description']
+        proof = extraction['bounty_proof']
+        metadata = extraction['extra']
+
+        # Example type checks (optional)
+        if not isinstance(response, str):
+            raise TypeError("bounty_description must be a string.")
+        if not isinstance(proof, str):
+            raise TypeError("bounty_proof must be a string.")
+        if not isinstance(metadata, dict):
+            raise TypeError("extra must be a dictionary.")
+
+        return ExtractionResponse(
+            response=response,
+            proof=proof,
+            metadata=metadata
+        )
