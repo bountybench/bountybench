@@ -9,14 +9,19 @@ class ResourceDict(dict):
         self.id_to_resource = dict()
         self.resource_type_to_resources = defaultdict(list)
 
-    def get_items_of_resource_type(self, key):
+    def get_item_of_resource_type(self, resource_type):
+        items = self.get_items_of_resource_type(resource_type)
+        if items:
+            return items[0]
+
+    def get_items_of_resource_type(self, resource_type):
         # if issubclass(key, BaseResource):
         if key in self.resource_type_to_resources:
             return self.resource_type_to_resources[key]
         return None
         # raise Exception("key is not a resource class")
  
-    def delete_items_of_resource_type(self, key):
+    def delete_items_of_resource_type(self, resource_type):
         if key in self.resource_type_to_resources:
             # Remove the resources from id_to_resource
             for resource in self.resource_type_to_resources[key]:
@@ -26,7 +31,7 @@ class ResourceDict(dict):
                     
             del self.resource_type_to_resources[key]
 
-    def delete_items(self, key):
+    def delete_items(self, id):
         if key in self.id_to_resource:
             resource = self.id_to_resource[key]
             resource_type = type(resource) 
@@ -37,10 +42,10 @@ class ResourceDict(dict):
                 if not self.resource_type_to_resources[resource_type]:
                     del self.resource_type_to_resources[resource_type]
 
-    def __getitem__(self, key):
+    def __getitem__(self, id):
         return self.id_to_resource[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, id, value):
         # key must be an id, not a resource class
         # make sure to update both dicts each time
         self.id_to_resource[key] = value

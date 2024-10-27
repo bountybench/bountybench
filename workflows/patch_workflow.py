@@ -79,11 +79,6 @@ def main() -> None:
     # Relative to task_repo_dir
     exploit_files_dir = os.path.join("metadata", f"bounty_{bounty_number}", "exploit_files")
 
-    InitFilesResource(task_repo_dir, files_dir, tmp_dir, exploit_files_dir)
-    TaskServerResource(task_repo_dir, files_dir, repo_metadata["target_host"])
-    KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={
-                    os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
-    DockerResource("DockerHelper")
 
 
     simple_agent_config: AgentConfig = AgentConfig(
@@ -95,9 +90,14 @@ def main() -> None:
         use_helm=True
     )
 
+    KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={
+                    os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     simple_agent = SimpleExecutorAgent(
         simple_agent_config, task_description=patch_prompt, answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
 
+    InitFilesResource(task_repo_dir, files_dir, tmp_dir, exploit_files_dir)
+    TaskServerResource(task_repo_dir, files_dir, repo_metadata["target_host"])
+    DockerResource("DockerHelper")
     patch_agent = PatchAgent(bounty_dir=os.path.join("metadata", f"bounty_{bounty_number}"))
 
     # Initialize the log for all iterations

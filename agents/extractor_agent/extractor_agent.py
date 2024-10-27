@@ -6,8 +6,11 @@ from agents.extractor_agent.website_keywords import WEBSITE_KEYWORDS
 from models.model_response import ModelResponse
 from models.query import query
 from responses.extraction_response import ExtractionResponse
+from responses.scraper_response import ScraperResponse
+from responses.scraper_response_interface import ScraperResponseInterface
 from responses.response import Response
 from utils.logger import get_main_logger
+
 
 logger = get_main_logger(__name__)
 
@@ -28,7 +31,6 @@ class ExtractorAgent(BaseAgent):
             raise Exception(
                 'Need exactly 1 response to start the agent and got {len(responses)} responses')
         response = responses[0]
-        # TODO: Replace with the actual response object
         if issubclass(response.__class__, ScraperResponseInterface):
             return self.extract(response)
         else:
