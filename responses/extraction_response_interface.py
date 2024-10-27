@@ -6,6 +6,6 @@ class ExtractionResponseInterface(ABC):
         if cls is ExtractionResponseInterface:
             return all(
                 any(attr in B.__dict__ for B in subclass.__mro__)
-                for attr in ['proof', 'metadata', 'response']
+                for attr in ['response', 'description', 'proof', 'bug_commit', 'bug_tag', 'patch_commit', 'patch_tag', 'metadata', 'link']
             )
         return NotImplemented
