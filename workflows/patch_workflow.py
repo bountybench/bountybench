@@ -5,7 +5,7 @@ from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
-from agents.simple_agent.simple_agent import SimpleExecutorAgent
+from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
@@ -92,7 +92,7 @@ def main() -> None:
 
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
-    simple_agent = SimpleExecutorAgent(
+    simple_agent = ExecutorAgent(
         simple_agent_config, task_description=patch_prompt, answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
 
     InitFilesResource(task_repo_dir, files_dir, tmp_dir, exploit_files_dir)

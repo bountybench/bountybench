@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch
-from agents.simple_agent.simple_agent import SimpleExecutorAgent    
+from agents.executor_agent.executor_agent import ExecutorAgent    
 from models.query import query
-from agents.simple_agent.prompt import STOP_TOKEN
+from agents.executor_agent.prompt import STOP_TOKEN
 
 from models.model_response import ModelResponse
 from agents.dataclasses.agent_spec import AgentConfig
@@ -26,7 +26,7 @@ class TestHandleRequest(unittest.TestCase):
             max_response_len=3,
             use_helm=True
         )
-        self.agent = SimpleExecutorAgent(config=self.config)
+        self.agent = ExecutorAgent(config=self.config)
 
     @patch('agents.simple_agent.simple_agent.query')  
     def test_handle_request_with_o1_model(self, mock_query):

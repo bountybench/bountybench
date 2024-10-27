@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from agents.dataclasses.agent_spec import AgentConfig
 
-from agents.simple_agent.simple_agent import SimpleExecutorAgent
+from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.kali_env_resource import KaliEnvResource
 from responses.command_response import CommandResponse
 from responses.failure_response import FailureResponse
@@ -12,7 +12,7 @@ from responses.response import Response
 kali_env = KaliEnvResource(name=f"kali-env", volumes=None)
 
 
-class TestSimpleExecutorAgent(unittest.TestCase):
+class TestExecutorAgent(unittest.TestCase):
     def setUp(self):
         # Define the AgentConfig with necessary parameters
         self.config = AgentConfig(
@@ -23,9 +23,9 @@ class TestSimpleExecutorAgent(unittest.TestCase):
             use_helm=False
         )
 
-    @patch.object(SimpleExecutorAgent, 'execute')
+    @patch.object(ExecutorAgent, 'execute')
     def test_run_with_failure_detection(self, mock_execute):
-        self.agent = SimpleExecutorAgent(
+        self.agent = ExecutorAgent(
             config=self.config,
             failure_detection=True,
         )
@@ -45,9 +45,9 @@ class TestSimpleExecutorAgent(unittest.TestCase):
         self.assertEqual(
             response.response, "Failure Response")
     
-    @patch.object(SimpleExecutorAgent, 'execute')
+    @patch.object(ExecutorAgent, 'execute')
     def test_run_with_failure_detection_less(self, mock_execute):
-        self.agent = SimpleExecutorAgent(
+        self.agent = ExecutorAgent(
             config=self.config,
             failure_detection=True,
         )
@@ -66,9 +66,9 @@ class TestSimpleExecutorAgent(unittest.TestCase):
         self.assertEqual(response.command, "Test Response")
         self.assertEqual(response.response, "Command: Test Response")
     
-    @patch.object(SimpleExecutorAgent, 'execute')
+    @patch.object(ExecutorAgent, 'execute')
     def test_run_with_failure_detection_change(self, mock_execute):
-        self.agent = SimpleExecutorAgent(
+        self.agent = ExecutorAgent(
             config=self.config,
             failure_detection=True,
         )
@@ -105,9 +105,9 @@ class TestSimpleExecutorAgent(unittest.TestCase):
             response.response, "Failure Response")
         self.assertEqual(len(self.agent.response_history.responses), 6)
     
-    @patch.object(SimpleExecutorAgent, 'execute')
+    @patch.object(ExecutorAgent, 'execute')
     def test_run_with_failure_detection_vary(self, mock_execute):
-        self.agent = SimpleExecutorAgent(
+        self.agent = ExecutorAgent(
             config=self.config,
             failure_detection=True,
         )

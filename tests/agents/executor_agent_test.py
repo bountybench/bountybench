@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, Mock, ANY
-from agents.simple_agent.simple_agent import SimpleExecutorAgent    
+from agents.executor_agent.executor_agent import ExecutorAgent    
 from responses.command_response import CommandResponse
 from responses.answer_response import AnswerResponse
 from responses.observation import Observation   
@@ -13,7 +13,7 @@ counter = 0
 # Initialize KaliEnvResource for the testing instance
 kali_env = KaliEnvResource(name=f"kali-env", volumes=None)
 
-class TestSimpleExecutorAgent(unittest.TestCase):
+class TestExecutorAgent(unittest.TestCase):
     def setUp(self):
         global counter
         # Create a mock config for the agent
@@ -27,7 +27,7 @@ class TestSimpleExecutorAgent(unittest.TestCase):
         )
 
         # Initialize the agent
-        self.agent = SimpleExecutorAgent(config=self.config)
+        self.agent = ExecutorAgent(config=self.config)
 
     def test_run_with_invalid_response_type(self):
         """
@@ -94,7 +94,7 @@ class TestSimpleExecutorAgent(unittest.TestCase):
         response = CommandResponse("command: whoami")
         observation = self.agent.execute_in_env(response)
 
-        self.assertEqual(observation.raw_output, "Command succeeded: root\n")
+        self.assertEqual(observation.raw_output, "root")
 
     def test_execute_in_env_failure(self):
         """
