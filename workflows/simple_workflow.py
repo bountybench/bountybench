@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
-from agents.simple_agent.executor_agent import ExecutorAgent
+from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.task_server_resource import TaskServerResource

@@ -28,7 +28,7 @@ class TestHandleRequest(unittest.TestCase):
         )
         self.agent = ExecutorAgent(config=self.config)
 
-    @patch('agents.simple_agent.simple_agent.query')  
+    @patch('agents.executor_agent.executor_agent.query')  
     def test_handle_request_with_o1_model(self, mock_query):
         mock_model_response = MagicMock(spec=ModelResponse)
         mock_model_response.content = "Test response"
@@ -53,7 +53,7 @@ class TestHandleRequest(unittest.TestCase):
         self.assertEqual(response, "Test response\n<END>")
 
     
-    @patch('agents.simple_agent.simple_agent.query')  
+    @patch('agents.executor_agent.executor_agent.query')  
     def test_handle_request_with_non_o1_model(self, mock_query):
         """ Test with a model without 'o1' in its name. """
         mock_model_response = MagicMock(spec=ModelResponse)
@@ -77,7 +77,7 @@ class TestHandleRequest(unittest.TestCase):
         mock_model_response.remove_hallucinations.assert_called_once()
         self.assertEqual(response, "Second response\n<END>")
 
-    @patch('agents.simple_agent.simple_agent.query')  
+    @patch('agents.executor_agent.executor_agent.query')  
     def test_handle_request_empty_response(self, mock_query):
         """ Test when the query returns an empty response. """
         mock_model_response = MagicMock(spec=ModelResponse)
