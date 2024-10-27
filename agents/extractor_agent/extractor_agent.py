@@ -30,20 +30,22 @@ class ExtractorAgent(BaseAgent):
         response = responses[0]
         # TODO: Replace with the actual response object
         if issubclass(response.__class__, ScraperResponseInterface):
-            return self.extract(response)
+            return self._extract(response)
         else:
             raise Exception(
                 f'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of ScraperResponseInterface')
 
-    def extract(self, scraper_response: ScraperResponse) -> ExtractionResponse:
+    def _extract(self, scraper_response: ScraperResponse) -> ExtractionResponse:
         """
         Extracts the relevant information from the website
         """
         iterations = 0
         while iterations < MAX_RETRIES:
             try:
-                extractor = self.generate_extractor(scraper_response)
+                extractor = self._generate_extractor(scraper_response)
                 extraction = extractor(scraper_response.response)
+                extraction['response'] = scraper_response.response
+                extraction['link'] = scraper_response.link
                 return self._parse_extraction(extraction)
             except Exception as e:
                 logger.error(f"Failed to extract information: {str(e)}")
@@ -51,7 +53,7 @@ class ExtractorAgent(BaseAgent):
 
         return extractor(scraper_response)
 
-    def generate_extractor(self, scraper_response: ScraperResponse) -> callable:
+    def _generate_extractor(self, scraper_response: ScraperResponse) -> callable:
         """
         Generates the extractor function based on the scraper response
         """
@@ -68,11 +70,11 @@ class ExtractorAgent(BaseAgent):
         model_response = model_response.content
 
         try:
-            return self.create_function_from_string(model_response)
+            return self._create_function_from_string(model_response)
         except Exception as e:
            raise Exception(f"Failed to generate extractor function: {str(e)}")
 
-    def create_function_from_string(self, function_string: str) -> callable:
+    def _create_function_from_string(self, function_string: str) -> callable:
         """
         Takes a string containing a function definition and returns a callable function.
 
@@ -112,7 +114,7 @@ class ExtractorAgent(BaseAgent):
         if not isinstance(extraction, dict):
             raise TypeError("Extraction must be a dictionary.")
 
-        required_fields = ['bounty_description', 'bounty_proof', 'extra']
+        required_fields = ['response', 'description', 'proof', 'bug_commit', 'bug_tag', 'patch_commit', 'patch_tag', 'extra', 'link']
         missing_fields = [field for field in required_fields if field not in extraction]
         if missing_fields:
             raise ValueError(
@@ -120,20 +122,40 @@ class ExtractorAgent(BaseAgent):
             )
 
         
-        response = extraction['bounty_description']
-        proof = extraction['bounty_proof']
+        response = extraction['response']
+        description = extraction['description']
+        proof = extraction['proof']
+        bug_commit = extraction['bug_commit']
+        bug_tag = extraction['bug_tag']
+        patch_commit = extraction['patch_commit']
+        patch_tag = extraction['patch_tag']
         metadata = extraction['extra']
+        link = extraction['link']
 
         # Example type checks (optional)
-        if not isinstance(response, str):
-            raise TypeError("bounty_description must be a string.")
+        if not isinstance(description, str):
+            raise TypeError("description must be a string.")
         if not isinstance(proof, str):
-            raise TypeError("bounty_proof must be a string.")
+            raise TypeError("proof must be a string.")
+        if not isinstance(bug_commit, str):
+            raise TypeError("bug_commit must be a string.")
+        if not isinstance(bug_tag, str):
+            raise TypeError("bug_tag must be a string.")
+        if not isinstance(patch_commit, str):
+            raise TypeError("patch_commit must be a string.")
+        if not isinstance(patch_tag, str):
+            raise TypeError("patch_tag must be a string.")
         if not isinstance(metadata, dict):
             raise TypeError("extra must be a dictionary.")
 
         return ExtractionResponse(
             response=response,
+            description=description,
             proof=proof,
-            metadata=metadata
+            bug_commit=bug_commit,
+            bug_tag=bug_tag,
+            patch_commit=patch_commit,
+            patch_tag=patch_tag,
+            metadata=metadata,
+            link=link,
         )
