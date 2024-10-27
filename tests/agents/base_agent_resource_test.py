@@ -29,7 +29,8 @@ class TaskServerResource(BaseResource):
     def __init__(self, resource_id: str) -> None:
         resource_dict[resource_id] = self
     def stop(args, kwargs):
-        pass       
+        pass  
+
 class TestResourceRegistration(unittest.TestCase):
 
     def setUp(self):
@@ -46,15 +47,25 @@ class TestResourceRegistration(unittest.TestCase):
         init_files = InitFilesResource("init-id")
         task_server = TaskServerResource("task-id")
         docker = DockerResource("docker-id")
+        kali = KaliEnvResource("kali-id")
 
         # Initialize PatchAgent and verify resources are correctly registered
-        agent = PatchAgent()
-        self.assertEqual(agent.init_files, init_files)
-        self.assertEqual(agent.task_server, task_server)
-        self.assertEqual(agent.docker, docker)
+        patch_agent = PatchAgent()
+        executor_agent = ExecutorAgent()
+        self.assertEqual(patch_agent.init_files, init_files)
+        self.assertEqual(patch_agent.task_server, task_server)
+        self.assertEqual(patch_agent.docker, docker)
+        self.assertEqual(executor_agent.kali_env, kali)
+        
+        with self.assertRaises(AttributeError) as cm:
+            task_server_no_access = executor_agent.task_server
+        
+        self.assertIn("'ExecutorAgent' object has no attribute 'task_server'", str(cm.exception))
+
         resource_dict.delete_items("init-id")
         resource_dict.delete_items("task-id")
         resource_dict.delete_items("docker-id")
+        resource_dict.delete_items("kali-id")
 
     def test_unsuccessful_resource_registration(self):
         """Test that required resources are successfully registered in PatchAgent."""
@@ -70,6 +81,16 @@ class TestResourceRegistration(unittest.TestCase):
 
 class PatchAgent(BaseAgent):
     REQUIRED_RESOURCES = [InitFilesResource, TaskServerResource, DockerResource]
+    ACCESSIBLE_RESOURCES = [InitFilesResource, TaskServerResource, DockerResource]
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        
+    def run(self, responses: List[Response]) -> Response:
+        pass
+
+class ExecutorAgent(BaseAgent):
+    REQUIRED_RESOURCES = [InitFilesResource, TaskServerResource, KaliEnvResource]
+    ACCESSIBLE_RESOURCES = [KaliEnvResource]
     def __init__(self, *args, **kwargs):
         super().__init__()
         

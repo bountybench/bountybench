@@ -27,6 +27,8 @@ TEMPERATURE = 0.5
 
 class ExecutorAgent(BaseAgent):
     REQUIRED_RESOURCES = [InitFilesResource, TaskServerResource, KaliEnvResource]
+    ACCESSIBLE_RESOURCES = [KaliEnvResource]
+
     memory: List[str] = []
 
     def __init__(self, config: AgentConfig, *args, **kwargs):

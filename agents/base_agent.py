@@ -34,18 +34,26 @@ class BaseAgent(ABC):
 
     def _register_resources(self):
         """Registers required resources based on the inheriting class's needs."""
-        required_resources = getattr(self, "REQUIRED_RESOURCES", [])
-
+        required_resources = set(getattr(self, "REQUIRED_RESOURCES", []))
+        accessible_resources = set(getattr(self, "ACCESSIBLE_RESOURCES", []))
+        
+        if not accessible_resources.issubset(required_resources):
+            raise ValueError(
+                f"{self.__class__.__name__} ACCESSIBLE_RESOURCES should be a subset of REQUIRED_RESOURCES"
+            )
+        
         for resource_type in required_resources:
-            attr_name = '_'.join(word.lower() for word in re.findall(r'[A-Z][a-z]*|\d+', resource_type.__name__.split('Resource')[0]))
-
             try:
-                setattr(self, attr_name, self._get_resource(resource_type))
+                self._get_resource(resource_type)
             except KeyError as e:
                 # Raise an error with the inheriting class's name
                 raise RuntimeError(
                     f"Resource '{e.args[0]}' not set up. {self.__class__.__name__} cannot start."
                 ) from e
+            
+        for resource_type in accessible_resources:
+            attr_name = '_'.join(word.lower() for word in re.findall(r'[A-Z][a-z]*|\d+', resource_type.__name__.split('Resource')[0]))
+            setattr(self, attr_name, self._get_resource(resource_type))
 
     def _get_resource(self, resource_type):
         resource = self.resource_dict.get_item_of_resource_type(resource_type)

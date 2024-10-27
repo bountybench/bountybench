@@ -23,6 +23,7 @@ logger = get_main_logger(__name__)
 
 class PatchAgent(BaseAgent):
     REQUIRED_RESOURCES = [InitFilesResource, TaskServerResource, DockerResource]
+    ACCESSIBLE_RESOURCES = [InitFilesResource, TaskServerResource, DockerResource]
     
     def __init__(self, *args, **kwargs):
         super().__init__()
