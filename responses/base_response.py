@@ -1,6 +1,6 @@
 from responses.response import Response
 
-class PatchResponse(Response): 
+class BaseResponse(Response): 
     def __init__(self, response: str) -> None:
         self._response = response
 
