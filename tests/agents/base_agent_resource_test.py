@@ -5,10 +5,6 @@ from resources.resource_dict import resource_dict
 from agents.base_agent import BaseAgent
 from responses.response import Response
 
-class ResourceInitializationError(RuntimeError):
-    def __init__(self, resource_name, agent_name):
-        super().__init__(f"{resource_name} not set up. {agent_name} cannot start.")
-
 class InitFilesResource(BaseResource):
     def __init__(self, resource_id: str) -> None:
         resource_dict[resource_id] = self
@@ -32,24 +28,13 @@ class TaskServerResource(BaseResource):
         pass  
 
 class TestResourceRegistration(unittest.TestCase):
-
-    def setUp(self):
-        # Clear resource_dict before each test
-        resource_dict.clear()
-
-    def tearDown(self):
-        # Clear resource_dict after each test
-        resource_dict.clear()
-
     def test_successful_resource_registration(self):
         """Test that required resources are successfully registered in PatchAgent."""
-        # Instantiate resources; start is mocked so no actual initialization occurs
         init_files = InitFilesResource("init-id")
         task_server = TaskServerResource("task-id")
         docker = DockerResource("docker-id")
         kali = KaliEnvResource("kali-id")
 
-        # Initialize PatchAgent and verify resources are correctly registered
         patch_agent = PatchAgent()
         executor_agent = ExecutorAgent()
         self.assertEqual(patch_agent.init_files, init_files)
@@ -75,9 +60,10 @@ class TestResourceRegistration(unittest.TestCase):
         with self.assertRaises(RuntimeError) as cm:
             agent = PatchAgent()
 
-        # Assert that the exception message contains the expected text
         self.assertIn("Resource 'DockerResource' not set up", str(cm.exception))
         self.assertIn("PatchAgent cannot start", str(cm.exception))
+        resource_dict.delete_items("init-id")
+        resource_dict.delete_items("task-id")
 
 class PatchAgent(BaseAgent):
     REQUIRED_RESOURCES = [InitFilesResource, TaskServerResource, DockerResource]
@@ -97,6 +83,5 @@ class ExecutorAgent(BaseAgent):
     def run(self, responses: List[Response]) -> Response:
         pass
 
-# Run the tests
 if __name__ == "__main__":
     unittest.main()
