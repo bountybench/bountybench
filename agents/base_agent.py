@@ -59,7 +59,7 @@ class BaseAgent(ABC):
             setattr(self, attr_name, self._get_resource(resource_type))
 
     def _get_resource(self, resource_type):
-        if resource_type == TaskServerResource and not self.target_host_address:
+        if resource_type == TaskServerResource and self.target_host_address:
             resource = self.resource_dict[self.target_host_address]
         else:
             resource = self.resource_dict.get_item_of_resource_type(resource_type)
