@@ -56,9 +56,10 @@ class BaseAgent(ABC):
             setattr(self, attr_name, self._get_resource(resource_type))
 
     def _get_resource(self, resource_type):
-        resource = self.resource_dict.get_item_of_resource_type(resource_type)
+        resource_name = resource_type.__name__
+        resource = self.resource_dict.get_item_of_resource_type(resource_name)
         if not resource:
-            raise KeyError(f"{resource_type.__name__}")
+            raise KeyError(f"{resource_name}")
         return resource
     
     @abstractmethod

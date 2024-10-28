@@ -33,7 +33,7 @@ class ResourceDict(dict):
     def delete_items(self, id):
         if id in self.id_to_resource:
             resource = self.id_to_resource[id]
-            resource_type = type(resource) 
+            resource_type = type(resource).__name__ 
             del self.id_to_resource[id]
             if resource_type in self.resource_type_to_resources:
                 self.resource_type_to_resources[resource_type].remove(resource)
@@ -48,7 +48,7 @@ class ResourceDict(dict):
         # key must be an id, not a resource class
         # make sure to update both dicts each time
         self.id_to_resource[id] = value
-        self.resource_type_to_resources[type(value)].append(value)
+        self.resource_type_to_resources[type(value).__name__].append(value)
 
 
     """
