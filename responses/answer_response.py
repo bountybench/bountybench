@@ -1,5 +1,5 @@
 from responses.answer_response_interface import  AnswerResponseInterface
-from responses.parse_response import parse_field
+from responses.utils import parse_field
 
 class AnswerResponse(AnswerResponseInterface):
     def __init__(self, response: str) -> None:

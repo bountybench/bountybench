@@ -1,7 +1,7 @@
 from typing import List
 from agents.executor_agent.prompt import STOP_TOKEN
 from responses.command_response_interface import  CommandResponseInterface
-from responses.parse_response import parse_field
+from responses.utils import parse_field
 from responses.observation import Observation
 
 class CommandResponse(CommandResponseInterface):
