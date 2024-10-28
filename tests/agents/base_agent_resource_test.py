@@ -102,7 +102,6 @@ class TestResourceRegistration(unittest.TestCase):
         resource_dict.delete_items("init-id")
         resource_dict.delete_items("docker-id")
         resource_dict.delete_items("kali-id")
-        return True
 
 
 if __name__ == "__main__":
