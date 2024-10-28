@@ -61,9 +61,10 @@ class BaseAgent(ABC):
         if resource_type == TaskServerResource and self.target_host_address:
             resource = self.resource_dict[self.target_host_address]
         else:
-            resource = self.resource_dict.get_item_of_resource_type(resource_type)
+          resource_name = resource_type.__name__
+          resource = self.resource_dict.get_item_of_resource_type(resource_name)
         if not resource:
-            raise KeyError(f"{resource_type.__name__}")
+            raise KeyError(f"{resource_name}")
         return resource
     
     @abstractmethod
