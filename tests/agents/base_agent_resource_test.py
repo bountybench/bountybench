@@ -14,7 +14,6 @@ class InitFilesResource(BaseResource):
 class DockerResource(BaseResource):
     def __init__(self, resource_id: str):
         resource_dict[resource_id] = self
-
     def stop(args, kwargs):
         pass
 
@@ -36,7 +35,6 @@ class PatchAgent(BaseAgent):
     ACCESSIBLE_RESOURCES = [InitFilesResource, TaskServerResource, DockerResource]
     def __init__(self, *args, **kwargs):
         super().__init__(**kwargs)
-        
     def run(self, responses: List[Response]) -> Response:
         pass
 
@@ -45,13 +43,11 @@ class ExecutorAgent(BaseAgent):
     ACCESSIBLE_RESOURCES = [KaliEnvResource]
     def __init__(self, *args, **kwargs):
         super().__init__()
-        
     def run(self, responses: List[Response]) -> Response:
         pass
 
-"""END SET-UP"""
-
 class TestResourceRegistration(unittest.TestCase):
+
     def test_successful_resource_registration(self):
         """Test that required resources are successfully registered in PatchAgent."""
         init_files = InitFilesResource("init-id")
@@ -76,6 +72,7 @@ class TestResourceRegistration(unittest.TestCase):
         resource_dict.delete_items("docker-id")
         resource_dict.delete_items("kali-id")
 
+
     def test_unsuccessful_resource_registration(self):
         """Test that required resources are successfully registered in PatchAgent."""
         init_files = InitFilesResource("init-id")
@@ -86,6 +83,7 @@ class TestResourceRegistration(unittest.TestCase):
 
         self.assertIn("Resource 'DockerResource' not set up", str(cm.exception))
         self.assertIn("PatchAgent cannot start", str(cm.exception))
+    
     
     def test_id_task_server(self):
         # verify target host address is being used (if provided) for task_server resource creation
