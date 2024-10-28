@@ -27,7 +27,6 @@ class PatchAgent(BaseAgent):
     
     def __init__(self, *args, **kwargs):
         super().__init__()
-        # self._initialize_resources()
         self.bounty_dir = kwargs.get('bounty_dir')
         self.patch_dir_name = "patches"
         self.patch_dir = os.path.join(self.init_files.task_repo_dir, self.patch_dir_name)

@@ -11,10 +11,9 @@ class BaseAgent(ABC):
     def __init__(self, *args, **kwargs):
         self.resource_dict = resource_dict
         self.response_history = ResponseHistory()
-
         self.target_host_address = kwargs.get("target_host", "")
 
-        self._register_resources(kwargs)
+        self._register_resources()
 
         if hasattr(self, 'run') and kwargs.get('failure_detection', False):
             original_run = self.run
