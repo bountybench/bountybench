@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
-from agents.simple_agent.simple_agent import SimpleExecutorAgent
+from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.task_server_resource import TaskServerResource
@@ -70,7 +70,7 @@ def main() -> None:
         use_helm=True
     )
 
-    agent = SimpleExecutorAgent(agent_config, task_description=bounty_metadata["detect_prompt_less_info"], answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
+    agent = ExecutorAgent(agent_config, task_description=bounty_metadata["detect_prompt_less_info"], answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
 
     response = agent.run([])
 

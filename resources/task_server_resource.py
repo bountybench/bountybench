@@ -39,12 +39,12 @@ class TaskServerResource(BaseResource):
 
         self.container_names = None
         self.health_check_timeout = 120
-        self.start()
+        self._start()
 
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
-    def start(self) -> None:
+    def _start(self) -> None:
         try:
             logger.info("Executing start_docker.sh")
             result = run_command(

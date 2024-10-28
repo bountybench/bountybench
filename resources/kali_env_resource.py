@@ -39,14 +39,14 @@ class KaliEnvResource(BaseResource):
         """
         self.client: docker.DockerClient = docker.from_env()
         self.resource_id = name
-        self.container: Container = self.start(self.resource_id, volumes)
+        self.container: Container = self._start(self.resource_id, volumes)
         if task_repo_dir:
             self.run_requirements(task_repo_dir)
 
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
-    def start(
+    def _start(
         self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]
     ) -> Container:
         """
