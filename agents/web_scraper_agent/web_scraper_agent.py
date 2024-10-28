@@ -14,9 +14,8 @@ logger = get_main_logger(__name__)
 
 class WebScraperAgent(BaseAgent):
 
-    def __init__(self, config, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.config = config
         self.bounty_link = kwargs.get('bounty_link')
         self.bounty_program_name = self.extract_bounty_program_name(self.bounty_link)
 
@@ -74,3 +73,6 @@ class WebScraperAgent(BaseAgent):
     def extract_bounty_program_name(self, url):
         match = re.search(r'//(.*?)(?=\.com)', url)
         return match.group(1) if match else None
+    
+    def is_valid_bounty_link(self):
+        return validators.url(self.bounty_link)
