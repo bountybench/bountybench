@@ -15,7 +15,7 @@ from responses.observation import Observation
 from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 from utils.logger import get_main_logger
-from responses.patch_response import PatchResponse
+from responses.base_response import BaseResponse
 
 
 logger = get_main_logger(__name__)
@@ -55,7 +55,7 @@ class PatchAgent(BaseAgent):
               logger_message = "No git diff detected, skipping patching."
               logger.info(logger_message)
               self.log_history.append(logger_message)
-              patch_response = PatchResponse("\n".join(self.log_history))
+              patch_response = BaseResponse("\n".join(self.log_history))
               self.log_history.clear()
               return patch_response
         else: 
