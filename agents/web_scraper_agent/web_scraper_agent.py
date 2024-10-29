@@ -4,8 +4,9 @@ from responses.scraper_response import ScraperResponse
 from responses.response import Response
 from utils.logger import get_main_logger
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
-import validators 
+from validators import url as validate_url
 import re
+import time
 
 
 logger = get_main_logger(__name__)
@@ -24,7 +25,7 @@ class WebScraperAgent(BaseAgent):
     
     def run(self, responses: List[Response]) -> Response:
 
-        if not self.is_valid_bounty_link():
+        if not validate_url(self.bounty_link):
             raise Exception(f"Invalid bounty_link {self.bounty_link}: The provided bounty link is not a valid URL.")
         else: 
             return self.extract_raw_html()
@@ -56,20 +57,171 @@ class WebScraperAgent(BaseAgent):
                 if response is None or not response.ok:
                     return ScraperResponse({'error': f"Failed to load page. Status: {response.status if response else 'Unknown'}"})
                 
-                print("Extracting raw HTML content...")
-                raw_html = page.content()
+
+                print("Waiting for content to load...")
+                try:
+                    page.wait_for_selector('main, #root, #__next, .main-content', timeout=60000)
+                except PlaywrightTimeout:
+                    print("Warning: Timeout waiting for main content selector, continuing anyway...")
                 
-                scraper_response = ScraperResponse(raw_html)
+                time.sleep(5)
+                
+                print("Extracting content...")
+                content = {
+                    'title': '',
+                    'metadata': {},
+                    'bounty_info': {},
+                    'content': [],
+                    'links': []
+                }
+                
+                content['title'] = page.title()
+                
+                # Get metadata
+                for meta in page.query_selector_all('meta'):
+                    name = meta.get_attribute('name')
+                    if name:
+                        content['metadata'][name] = meta.get_attribute('content')
+                
+                # Extract content with preserved formatting
+                content['content'] = page.evaluate('''
+                    () => {
+                        function isVisible(element) {
+                            if (!element) return false;
+                            const style = window.getComputedStyle(element);
+                            return style.display !== 'none' && 
+                                style.visibility !== 'hidden' && 
+                                style.opacity !== '0';
+                        }
+
+                        function processElement(element) {
+                            if (!isVisible(element)) return null;
+                            
+                            // Skip script and style elements
+                            if (element.tagName === 'SCRIPT' || element.tagName === 'STYLE') return null;
+                            
+                            // Check if this is a code block
+                            const isCodeBlock = element.tagName === 'PRE' || 
+                                            element.tagName === 'CODE' ||
+                                            element.classList.contains('code') ||
+                                            element.classList.contains('pre') ||
+                                            element.classList.contains('language-python') ||
+                                            element.closest('pre') !== null ||
+                                            element.querySelector('code') !== null;
+                            
+                            if (isCodeBlock) {
+                                // For code blocks, preserve exact formatting
+                                return {
+                                    type: 'code',
+                                    filename: element.previousElementSibling?.textContent || '',
+                                    content: element.textContent,
+                                    language: Array.from(element.classList)
+                                        .find(cls => cls.startsWith('language-'))
+                                        ?.replace('language-', '') || 'python'
+                                };
+                            }
+                            
+                            // For headings
+                            if (element.tagName.match(/^H[1-6]$/)) {
+                                return {
+                                    type: 'heading',
+                                    content: element.textContent.trim()
+                                };
+                            }
+                            
+                            // For regular text content
+                            const textContent = element.textContent.trim();
+                            if (textContent) {
+                                return {
+                                    type: 'text',
+                                    content: textContent
+                                };
+                            }
+                            
+                            return null;
+                        }
+
+                        function extractContent(root) {
+                            const sections = [];
+                            
+                            // Process all direct children
+                            for (const child of root.children) {
+                                const content = processElement(child);
+                                if (content) {
+                                    sections.push(content);
+                                }
+                                
+                                // If this element has children and isn't a code block,
+                                // process them too
+                                if (child.children.length > 0 && 
+                                    !content?.type === 'code') {
+                                    sections.push(...extractContent(child));
+                                }
+                            }
+                            
+                            return sections;
+                        }
+                        
+                        // Get content from main content areas
+                        const contentAreas = document.querySelectorAll('main, article, .content, .main-content');
+                        if (contentAreas.length > 0) {
+                            return Array.from(contentAreas)
+                                .map(area => extractContent(area))
+                                .flat()
+                                .filter(section => section !== null);
+                        }
+                        
+                        // Fallback to body
+                        return extractContent(document.body)
+                            .filter(section => section !== null);
+                    }
+                ''')
+                
+                # Get links
+                links = page.query_selector_all('a')
+                content['links'] = [
+                    {
+                        'text': link.inner_text().strip(),
+                        'href': link.get_attribute('href')
+                    }
+                    for link in links
+                    if link.get_attribute('href')
+                ]
+                
+                # Try to get bounty-specific information
+                try:
+                    selectors = {
+                        'title': 'h1, .bounty-title',
+                        'status': '.status, .bounty-status',
+                        'severity': '.severity',
+                        'description': '.description, .bounty-description',
+                        'reward': '.reward, .bounty-reward'
+                    }
+                    
+                    content['bounty_info'] = {
+                        key: page.query_selector(selector).inner_text().strip() if page.query_selector(selector) else ''
+                        for key, selector in selectors.items()
+                    }
+                except Exception as e:
+                    print(f"Warning: Error extracting bounty info: {str(e)}")
+                
+                scraped_content =  "\n".join(content.values())
+                scraper_response = ScraperResponse(scraped_content)
                 scraper_response._bounty_program_name = self.bounty_program_name
                 scraper_response._bounty_link = self.bounty_link
                 return scraper_response
-
+                
             except PlaywrightTimeout as e:
-                raise TimeoutError(f"Timeout error: {str(e)}")
+                return {'error': f"Timeout error: {str(e)}"}
             except Exception as e:
-                raise Exception(f"Error scraping {self.bounty_link}: {str(e)}")
+                return {'error': f"Error scraping {self.bounty_link}: {str(e)}"}
             finally:
                 browser.close()
+                    
+                
+
+        
+        
     
     def extract_bounty_program_name(self, url):
         match = re.search(r'//(.*?)(?=\.com)', url)
