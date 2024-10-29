@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import re
 from typing import List
+from resources.task_server_resource import TaskServerResource
 from responses.failure_response import FailureResponse
 from responses.response import Response
 from resources.resource_dict import resource_dict
@@ -10,6 +11,7 @@ class BaseAgent(ABC):
     def __init__(self, *args, **kwargs):
         self.resource_dict = resource_dict
         self.response_history = ResponseHistory()
+        self.target_host_address = kwargs.get("target_host", "")
 
         self._register_resources()
 
@@ -56,8 +58,11 @@ class BaseAgent(ABC):
             setattr(self, attr_name, self._get_resource(resource_type))
 
     def _get_resource(self, resource_type):
-        resource_name = resource_type.__name__
-        resource = self.resource_dict.get_item_of_resource_type(resource_name)
+        if resource_type == TaskServerResource and self.target_host_address:
+            resource = self.resource_dict[self.target_host_address]
+        else:
+          resource_name = resource_type.__name__
+          resource = self.resource_dict.get_item_of_resource_type(resource_name)
         if not resource:
             raise KeyError(f"{resource_name}")
         return resource
