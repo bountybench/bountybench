@@ -13,7 +13,7 @@ class BaseAgent(ABC):
         if hasattr(self, 'run') and kwargs.get('failure_detection', False):
             original_run = self.run
 
-            def wrapped_run(responses: List[Response]) -> Response:
+            def wrapped_run(response: Response) -> Response:
                 # Call the original 'run' method
                 new_response = original_run(responses)
 
@@ -30,5 +30,6 @@ class BaseAgent(ABC):
             self.run = wrapped_run
 
     @abstractmethod
-    def run(self, responses: List[Response]) -> Response:
+    def run(self, response: Response) -> Response:
+        # The pattern will be, if you need to pass in multiple Responses to a single agent, the workflow will need to handle the construction / coordination of the higher order Response. For now with single Responses though, things are simpler and this way we still have flexibility
         pass
