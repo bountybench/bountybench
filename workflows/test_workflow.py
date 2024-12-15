@@ -6,7 +6,7 @@ import shutil
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
-from agents.simple_agent.prompt import DETECT_PROMPT, INITIAL_PROMPT, STOP_TOKEN, VULN_INFORMATION
+from agents.simple_agent.prompt import DETECT_PROMPT, INITIAL_PROMPT, NO_INFORMATION, STOP_TOKEN, VULN_INFORMATION
 from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
@@ -32,6 +32,13 @@ def parse_args() -> argparse.Namespace:
         "--bounty_number",
         type=str,
         help="The bounty for the given task; not used in detect_all",
+    )
+    
+    parser.add_argument(
+        "--vuln_info",
+        action="store_true",
+        help="Share the CWE of the vulnerability in the prompt",
+        default=False,
     )
     return parser.parse_args()
 
@@ -70,9 +77,12 @@ def main() -> None:
     repo_metadata = read_repo_metadata(str(task_repo_dir))
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
 
-    vuln_information = VULN_INFORMATION.format(
-        cwe=bounty_metadata["CWE"]
-    )
+
+    vuln_information = NO_INFORMATION
+    if (args.vuln_info):
+        vuln_information = VULN_INFORMATION .format(
+            cwe=bounty_metadata["CWE"]
+        )
     detect_prompt = DETECT_PROMPT.format(
             additional_information=vuln_information,
             stop_token=STOP_TOKEN,
