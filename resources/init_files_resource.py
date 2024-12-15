@@ -53,7 +53,9 @@ class InitFilesResource(BaseResource):
                 stderr=subprocess.PIPE,
                 check=True,
                 text=True)
-            git_dir = os.path.join(self.files_dir, ".git")
+            
+            self.copy_files(self.files_dir, self.tmp_dir)
+            git_dir = os.path.join(self.tmp_dir, ".git")
 
             if os.path.exists(git_dir):
                 if os.path.isdir(git_dir):
@@ -72,7 +74,6 @@ class InitFilesResource(BaseResource):
             sys.exit(1)
         # Set up git repos
 
-        self.setup_repo(self.files_dir)
         self.setup_dev_branch(self.files_dir)
         self.setup_repo(self.tmp_dir)
 
@@ -84,17 +85,6 @@ class InitFilesResource(BaseResource):
             try:
                 subprocess.run(["rm", "-rf", self.tmp_dir], check=True)
                 logger.info(f"Removed temporary directory: {self.tmp_dir}")
-
-                try:
-                    local_git_dir = os.path.join(self.files_dir, ".git")
-                    if os.path.exists(local_git_dir):
-                        subprocess.run(
-                            ["rm", "-rf", local_git_dir], check=True)
-                        logger.info(
-                            f"Removed .git directory from {self.files_dir}")
-                except subprocess.CalledProcessError as e:
-                    logger.error(
-                        f"Failed to remove local repo directory: {e.stderr}")
 
             except subprocess.CalledProcessError as e:
                 logger.error(
@@ -138,7 +128,7 @@ class InitFilesResource(BaseResource):
                 if "dev" in branch_exists.stdout:
                     logger.info(
                         "Branch 'dev' already exists. Switching to 'master' branch...")
-                    subprocess.run(["git", "checkout", "master"],
+                    subprocess.run(["git", "checkout", "main"],
                                    cwd=files_dir, check=True)
 
                     logger.info("Deleting 'dev' branch...")
