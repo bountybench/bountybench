@@ -28,7 +28,7 @@ RETRY_DELAY = 10
 class KaliEnvResource(BaseResource):
     """Kali Linux Environment Resource"""
 
-    def __init__(self, name: str, task_repo_dir: str = None, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
+    def __init__(self, name: str, task_repo_dir: str = None, bounty_number: str=None, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
         """
         Initialize the Kali Linux Environment with optional volume bindings.
 
@@ -40,8 +40,11 @@ class KaliEnvResource(BaseResource):
         self.client: docker.DockerClient = docker.from_env()
         self.resource_id = name
         self.container: Container = self.start(self.resource_id, volumes)
+        self.bounty_dir = os.path.join(
+                str(task_repo_dir) + "/bounties/bounty_" + bounty_number
+        )
         if task_repo_dir:
-            self.run_requirements(task_repo_dir)
+            self.run_requirements(self.bounty_dir)
 
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
@@ -105,7 +108,7 @@ class KaliEnvResource(BaseResource):
                 logger.error(f"Error cleaning up Docker container: {e}")
 
     def run_command(
-        self, command: str, timeout: int = 60, workdir: Optional[str] = None
+        self, command: str, timeout: int = 120, workdir: Optional[str] = None
     ) -> Tuple[str, str]:
         """
         Run a command inside the running container with a timeout.
@@ -181,9 +184,10 @@ class KaliEnvResource(BaseResource):
         Execute any required setup scripts from the provided repository directory.
 
         Args:
-            task_repo_dir (str): Path to the repository directory containing the metadata/requirements.sh script.
+            task_repo_dir (str): Path to the repository directory containing the setup_files/requirements.sh script.
         """
-        requirements_path = f"{task_repo_dir}/metadata/requirements.sh"
+        print(task_repo_dir)
+        requirements_path = f"{task_repo_dir}/setup_files/requirements.sh"
         if not os.path.isfile(requirements_path):
             logger.error(f"Requirements file not found at {requirements_path}")
             sys.exit(1)

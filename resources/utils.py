@@ -18,15 +18,21 @@ def run_command(command, work_dir=None):
     :param work_dir: Working directory to execute the command in.
     :return: subprocess.CompletedProcess instance
     """
-    result = subprocess.run(
-        command,
-        cwd=work_dir,
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
-    )
-    return result
+    try:
+        result = subprocess.run(
+            command,
+            cwd=work_dir,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        return result
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command '{' '.join(command)}' failed with return code {e.returncode}")
+        logger.error(f"stdout: {e.stdout}")
+        logger.error(f"stderr: {e.stderr}")
+        raise
 
 
 def docker_network_exists(network_name):
@@ -51,7 +57,7 @@ def docker_network_exists(network_name):
 
 def read_repo_metadata(task_repo_dir: str) -> dict[str, Union[str, dict]]:
     repo_metadata_file_path = os.path.join(
-        task_repo_dir, "metadata/metadata.json")
+        task_repo_dir, "metadata.json")
     if not os.path.exists(repo_metadata_file_path):
         logger.error("Repository metadata file not found")
         sys.exit(1)
@@ -66,7 +72,7 @@ def read_bounty_metadata(
     task_repo_dir: str, bounty_number: str
 ) -> dict[str, Union[str, dict]]:
     bounty_metadata_file_path = os.path.join(
-        task_repo_dir + "/metadata/bounty_" + bounty_number, "bounty_metadata.json"
+        task_repo_dir + "/bounties/bounty_" + bounty_number, "bounty_metadata.json"
     )
     if not os.path.exists(bounty_metadata_file_path):
         logger.error("Bounty metadata file not found")

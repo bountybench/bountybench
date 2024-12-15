@@ -20,7 +20,7 @@ logger = get_main_logger(__name__)
 class TaskServerResource(BaseResource):
     """Task Server Resource"""
 
-    def __init__(self, task_repo_dir: str, files_dir: str, server_address: str) -> None:
+    def __init__(self, task_repo_dir: str, bounty_number: str, server_address: str) -> None:
         try:
             # Split the server_address into hostname and port
             host_name, port_number = server_address.split(":")
@@ -32,7 +32,10 @@ class TaskServerResource(BaseResource):
             sys.exit(1)
         self.resource_id = server_address
         self.task_repo_dir = os.path.abspath(task_repo_dir)
-        self.files_dir = files_dir
+        self.bounty_dir = os.path.join(
+                str(task_repo_dir) + "/bounties/bounty_" + bounty_number
+        )
+
 
         self.host_name = host_name
         self.port_number = port_number
@@ -44,13 +47,35 @@ class TaskServerResource(BaseResource):
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
+    def find_bounty_setup_script(self, setup_script) -> str:
+        """
+        Search for the `setup_bounty_env.sh` script in the current directory and subfolders.
+
+        Returns:
+            The path to the script if found, otherwise None.
+        """
+        for root, _, files in os.walk(self.bounty_dir):
+            if "setup_bounty_env.sh" in files:
+                return os.path.join(root, setup_script)
+        return None
+    
     def start(self) -> None:
-        try:
-            logger.info("Executing start_docker.sh")
-            result = run_command(
-                command=["./start_docker.sh"],
-                work_dir=str(self.task_repo_dir),
+        setup_script_path = self.find_bounty_setup_script("setup_bounty_env.sh")
+        if not setup_script_path:
+            raise FileNotFoundError(
+                "The `setup_bounty_env.sh` script could not be found in the current directory or subfolders."
             )
+
+        logger.info(f"Found `setup_bounty_env.sh` at: {setup_script_path}")
+
+        try:
+            logger.info("Executing setup_bounty_env.sh")
+            result = run_command(
+                command=[setup_script_path],
+                work_dir=str(self.bounty_dir),
+            )
+            
+
             logger.info(f"Spun up task server at {self.resource_id}")
             # Extract the container name(s) from stdout or stderr
             self.container_names = self.extract_container_names(
@@ -70,9 +95,17 @@ class TaskServerResource(BaseResource):
         self.stop()
         logger.info(f"Restarting task server {self.resource_id}")
         logger.info("Executing start_docker.sh")
+        setup_script_path = self.find_bounty_setup_script("setup_bounty_env.sh")
+        if not setup_script_path:
+            raise FileNotFoundError(
+                "The `setup_bounty_env.sh` script could not be found in the current directory or subfolders."
+            )
+
+        logger.info(f"Found `setup_bounty_env.sh` at: {setup_script_path}")
+
         result = run_command(
-            command=["./start_docker.sh"],
-            work_dir=str(self.task_repo_dir),
+            command=[setup_script_path],
+            work_dir=str(self.bounty_dir),
         )
         logger.info(f"Spun up task server at {self.resource_id}")
         # Extract the container name(s) from stdout or stderr
@@ -85,11 +118,19 @@ class TaskServerResource(BaseResource):
         self.wait_until_all_containers_healthy()
 
     def stop(self) -> None:
+        stop_script_path = self.find_bounty_setup_script("stop_docker.sh")
+        if not stop_script_path:
+            raise FileNotFoundError(
+                "The `stop_docker.sh` script could not be found in the current directory or subfolders."
+            )
+
+        logger.info(f"Found `stop_docker.sh` at: {stop_script_path}")
+
         try:
             logger.info("Executing stop_docker.sh")
             result = run_command(
-                command=["./stop_docker.sh"],
-                work_dir=str(self.task_repo_dir),
+                command=[stop_script_path],
+                work_dir=str(self.bounty_dir),
             )
             # Print the output
             logger.info(f"Stop task server at {self.resource_id}.")
