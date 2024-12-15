@@ -5,7 +5,7 @@ from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
-from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
+from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN, VULN_INFORMATION
 from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
