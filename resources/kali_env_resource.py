@@ -44,7 +44,7 @@ class KaliEnvResource(BaseResource):
                 str(task_repo_dir) + "/bounties/bounty_" + bounty_number
         )
         if task_repo_dir:
-            self.run_requirements(self.bounty_dir )
+            self.run_requirements(self.bounty_dir)
 
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
@@ -189,18 +189,17 @@ class KaliEnvResource(BaseResource):
         requirements_path = f"{task_repo_dir}/setup_files/requirements.sh"
         if not os.path.isfile(requirements_path):
             logger.error(f"Requirements file not found at {requirements_path}")
-            sys.exit(1)
+        else:
+            # Parse and execute the requirements script commands
+            requirement_commands = parse_shell_script(requirements_path)
+            for command in requirement_commands:
+                stdout, stderr = self.run_command(command)
 
-        # Parse and execute the requirements script commands
-        requirement_commands = parse_shell_script(requirements_path)
-        for command in requirement_commands:
-            stdout, stderr = self.run_command(command)
-
-            # Log output and error for each command
-            if stdout:
-                logger.info(f"Requirements.sh Output:\n{stdout}")
-            if stderr:
-                logger.error(f"Requirements.sh Error:\n{stderr}")
+                # Log output and error for each command
+                if stdout:
+                    logger.info(f"Requirements.sh Output:\n{stdout}")
+                if stderr:
+                    logger.error(f"Requirements.sh Error:\n{stderr}")
 
     def parse_target_host(self, target_host: str) -> Tuple[str, int]:
         """
