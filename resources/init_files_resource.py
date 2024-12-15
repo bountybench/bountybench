@@ -36,6 +36,8 @@ class InitFilesResource(BaseResource):
         self.start()
 
         resource_dict[self.resource_id] = self
+        print(f"Resource registered: {self.resource_id}, Current dict: {resource_dict}")
+
         atexit.register(self.stop)
 
     def start(self) -> None:

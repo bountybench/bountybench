@@ -32,6 +32,7 @@ class PatchAgent(BaseAgent):
         self.exploit_files_dir = os.path.join(self.bounty_dir, self.exploit_files_dir_name)
         self.log_history = []
         self.patch_id = 1
+
         os.makedirs(self.patch_dir, exist_ok=True)
         atexit.register(self.cleanup)
        
@@ -39,10 +40,15 @@ class PatchAgent(BaseAgent):
     def _initialize_resources(self):
         try:
             self.init_files = self._get_resource(InitFilesResource)
-            self.task_server = self._get_resource(TaskServerResource)
             self.docker_helper = self._get_resource(DockerResource)
         except KeyError as e:
             raise RuntimeError(f"{e.args[0]} not set up. Patch agent cannot start.")
+        try:
+            self.task_server = self._get_resource(TaskServerResource)
+        except KeyError:
+            # It's possible some bounties don't have a task server
+            self.task_server = None
+            logger.warning("TaskServerResource not found. Continuing without a task server.")
     
     def _get_resource(self, resource_type):
         resources = self.resource_dict.get_items_of_resource_type(resource_type)

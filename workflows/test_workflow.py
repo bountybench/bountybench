@@ -15,6 +15,7 @@ from resources.task_server_resource import TaskServerResource
 from resources.utils import *
 from responses.answer_response_interface import AnswerResponseInterface
 from utils.logger import get_main_logger
+from resources.resource_dict import resource_dict
 
 logger = get_main_logger(__name__)
 
@@ -94,12 +95,16 @@ def main() -> None:
     # Relative to task_repo_dir
 
 
+    print(f"Initial resource_dict: {resource_dict} (ID: {id(resource_dict)})")
+
     InitFilesResource(task_repo_dir, files_dir, tmp_dir, None, bounty_metadata['vulnerable_commit'])
     if repo_metadata["target_host"]: 
         TaskServerResource(task_repo_dir, bounty_number, files_dir, repo_metadata["target_host"])
+
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
+
 
 
     simple_agent_config: AgentConfig = AgentConfig(
