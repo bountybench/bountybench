@@ -5,7 +5,7 @@ from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
-from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN, VULN_INFORMATION
+from agents.simple_agent.prompt import DETECT_PROMPT, INITIAL_PROMPT, STOP_TOKEN, VULN_INFORMATION
 from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
@@ -72,7 +72,7 @@ def main() -> None:
     vuln_information = VULN_INFORMATION .format(
         cwe=bounty_metadata["CWE"]
     )
-    detect_prompt = INITIAL_PROMPT.format(
+    detect_prompt = DETECT_PROMPT.format(
             additional_information=vuln_information,
             stop_token=STOP_TOKEN,
             target_host=repo_metadata["target_host"],
