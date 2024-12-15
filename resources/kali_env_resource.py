@@ -40,7 +40,7 @@ class KaliEnvResource(BaseResource):
         self.client: docker.DockerClient = docker.from_env()
         self.resource_id = name
         self.container: Container = self.start(self.resource_id, volumes)
-        = os.path.join(
+        self.bounty_dir = os.path.join(
                 str(task_repo_dir) + "/bounties/bounty_" + bounty_number
         )
         if task_repo_dir:
