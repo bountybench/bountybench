@@ -108,7 +108,7 @@ class KaliEnvResource(BaseResource):
                 logger.error(f"Error cleaning up Docker container: {e}")
 
     def run_command(
-        self, command: str, timeout: int = 60, workdir: Optional[str] = None
+        self, command: str, timeout: int = 120, workdir: Optional[str] = None
     ) -> Tuple[str, str]:
         """
         Run a command inside the running container with a timeout.

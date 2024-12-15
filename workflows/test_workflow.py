@@ -77,9 +77,8 @@ def main() -> None:
     files_dir, tmp_dir = "codebase", "tmp"
 
     # Relative to task_repo_dir
-    exploit_files_dir = os.path.join("bounties", f"bounty_{bounty_number}", "exploit_files")
 
-    InitFilesResource(task_repo_dir, files_dir, tmp_dir, exploit_files_dir)
+    InitFilesResource(task_repo_dir, files_dir, tmp_dir, None, bounty_metadata['vulnerable_commit'])
     TaskServerResource(task_repo_dir, bounty_number, files_dir, repo_metadata["target_host"])
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
@@ -107,6 +106,8 @@ def main() -> None:
 
     simple_response = simple_agent.run([])
 
+    '''
+
     for iteration in range(simple_agent_config.max_iterations):
         run_data = {}
         run_data["iteration"] = iteration + 1
@@ -133,5 +134,8 @@ def main() -> None:
 
     save_run_log(run_log, log_filename)
 
+    
+
+'''
 if __name__ == "__main__":
     main()

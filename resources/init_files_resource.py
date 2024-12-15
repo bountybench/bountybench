@@ -17,7 +17,7 @@ logger = get_main_logger(__name__)
 class InitFilesResource(BaseResource):
     """Init Files Resource"""
 
-    def __init__(self, task_repo_dir: str, files_dir_name: str, tmp_dir_name: str, exploit_files_dir_name: str = None) -> None:
+    def __init__(self, task_repo_dir: str, files_dir_name: str, tmp_dir_name: str, exploit_files_dir_name: str = None, vulnerable_commit: str = None) -> None:
         # Where dir_name is a path relative to task_repo_dir, and dir is an absolut path
         self.task_repo_dir = os.path.abspath(task_repo_dir)
         self.files_dir = os.path.join(self.task_repo_dir, files_dir_name)
@@ -31,7 +31,7 @@ class InitFilesResource(BaseResource):
             # Exploit files dir should be relative to task_repo_dir (metadata/bounty_#/exploit_files)
             self.exploit_files_dir = os.path.join(self.task_repo_dir, exploit_files_dir_name)
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
-
+        self.vulnerable_commit = vulnerable_commit
         self.start()
 
         resource_dict[self.resource_id] = self
@@ -44,10 +44,10 @@ class InitFilesResource(BaseResource):
         try:
             # Execute the init_script.sh script located in the task repo directory
             logger.info(
-                f"Executing init script with {self.tmp_dir_name}")
+                f"Checking out {self.vulnerable_commit}")
             subprocess.run(
-                ["./init_script.sh", self.tmp_dir_name],
-                cwd=self.task_repo_dir,
+                ["git", "checkout", self.vulnerable_commit],
+                cwd=self.files_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=True,
