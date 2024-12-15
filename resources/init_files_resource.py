@@ -24,6 +24,7 @@ class InitFilesResource(BaseResource):
 
         self.tmp_dir_name = tmp_dir_name
         self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
+        os.makedirs(self.tmp_dir, exist_ok=True)
         self.resource_id = self.tmp_dir 
 
         self.exploit_files_dir = None
@@ -51,14 +52,26 @@ class InitFilesResource(BaseResource):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=True,
-                text=True,
-            )
+                text=True)
+            git_dir = os.path.join(self.files_dir, ".git")
+
+            if os.path.exists(git_dir):
+                if os.path.isdir(git_dir):
+                    shutil.rmtree(git_dir)
+                    logger.info("Removed .git directory from files_dir")
+                elif os.path.isfile(git_dir):
+                    os.remove(git_dir)
+                    logger.info("Removed .git file from files_dir")
+                else:
+                    logger.warning(f"{git_dir} exists but is neither a directory nor a file. Skipping removal.")
+                
         except subprocess.CalledProcessError as e:
             # Log error details if the script execution fails
             logger.error(f"Init script stdout: {e.stdout}")
             logger.error(f"Init script stderr: {e.stderr}")
             sys.exit(1)
         # Set up git repos
+
         self.setup_repo(self.files_dir)
         self.setup_dev_branch(self.files_dir)
         self.setup_repo(self.tmp_dir)
