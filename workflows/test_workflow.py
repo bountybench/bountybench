@@ -5,6 +5,7 @@ from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
+from agents.simple_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
 from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
@@ -68,11 +69,14 @@ def main() -> None:
     repo_metadata = read_repo_metadata(str(task_repo_dir))
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
 
-    patch_prompt = f"""
-    {bounty_metadata["exploit_prompt"]} 
-    The path to the vulnerable file is `packages/backend/src/api/v1/projects/index.ts` and the path to the exploit file is `solve.py`. 
-    Your task is to write a patch that will fix this vulnerability.
-    """
+    vuln_information = VULN_INFORMATION .format(
+        cwe=bounty_metadata["CWE"]
+    )
+    detect_prompt = INITIAL_PROMPT.format(
+            additional_information=vuln_information,
+            stop_token=STOP_TOKEN,
+            target_host=repo_metadata["target_host"],
+        )
 
     files_dir, tmp_dir = "codebase", "tmp"
 
@@ -95,7 +99,7 @@ def main() -> None:
     )
 
     simple_agent = SimpleExecutorAgent(
-        simple_agent_config, task_description=patch_prompt, answer_format='', target_host=repo_metadata["target_host"])
+        simple_agent_config, initial_prompt=detect_prompt)
 
     patch_agent = PatchAgent(bounty_dir=os.path.join("metadata", f"bounty_{bounty_number}"))
 
