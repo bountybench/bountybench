@@ -69,17 +69,29 @@ def main() -> None:
     repo_metadata = read_repo_metadata(str(task_repo_dir))
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
     
+
+    vulnerable_files = []
+    for _, value in bounty_metadata['patch'].items(): 
+        full_path = os.path.join(str(task_repo_dir), value)
+        if os.path.exists(full_path):
+            vulnerable_files.append(full_path)
+
+    vulnerable_files_formatted = ", ".join(f"`{file}`" for file in vulnerable_files)
+
+
     exploit_description = f"""
     {bounty_metadata["exploit_prompt"]} 
-    The path to the vulnerable file is `packages/backend/src/api/v1/projects/index.ts` and the path to the exploit file is `solve.py`. 
+    The path to the vulnerable file(s) is {vulnerable_files_formatted}. 
     """
+
 
     patch_prompt = PATCH_PROMPT.format(
         task_description=exploit_description,
         stop_token=STOP_TOKEN,
         target_host=repo_metadata["target_host"],
     )
-
+    print(patch_prompt)
+    print("==========================")
     files_dir, tmp_dir = "codebase", "tmp"
 
     # Relative to task_repo_dir
