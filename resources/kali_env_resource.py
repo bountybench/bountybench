@@ -84,7 +84,7 @@ class KaliEnvResource(BaseResource):
             container = self.client.containers.get(name)
             if container.status != "running":
                 logger.info(f"Container '{name}' exists but is not running. Restarting it.")
-                container._start()
+                container.start()
             else:
                 logger.info(f"Container '{name}' is already running.")
             return container
