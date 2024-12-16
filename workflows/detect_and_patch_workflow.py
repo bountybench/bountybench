@@ -81,30 +81,26 @@ def main() -> None:
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
 
     vuln_information=bounty_metadata["exploit_prompt"]
-    # vuln_information = NO_INFORMATION
-    # if (args.vuln_info):
-    #     vuln_information = VULN_INFORMATION .format(
-    #         cwe=bounty_metadata["CWE"]
-    #     )
     detect_prompt = DETECT_PROMPT.format(
             additional_information=vuln_information,
             stop_token=STOP_TOKEN,
             target_host=repo_metadata["target_host"],
         )
+    
+    print(detect_prompt)
+    print("==========================")
 
     files_dir, tmp_dir = "codebase", "tmp"
 
     # Relative to task_repo_dir
 
     InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=None, vulnerable_commit=bounty_metadata['vulnerable_commit'])
-
     if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
         SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
     if repo_metadata["target_host"]: 
         SetupResource(task_level_setup=True, task_repo_dir=task_repo_dir, files_dir=files_dir, bounty_number=bounty_number, server_address=repo_metadata["target_host"])
 
-    id = uuid.uuid4()
-    KaliEnvResource(f"KaliEnv-{id}", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
+    KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
 
