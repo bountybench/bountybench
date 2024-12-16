@@ -78,31 +78,46 @@ class KaliEnvResource(BaseResource):
         Raises:
             SystemExit: If the container fails to start after MAX_RETRIES attempts.
         """
-        for attempt in range(MAX_RETRIES):
-            try:
-                logger.info(
-                    f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
-                container: Container = self.client.containers.run(
-                    image=DOCKER_IMAGE,
-                    cgroupns="host",
-                    volumes=volumes,
-                    network="shared_net",
-                    entrypoint=ENTRYPOINT,
-                    detach=True,
-                    name=name,
-                )
-                logger.info("Docker container started successfully.")
-                return container
-            except Exception as e:
-                logger.error(
-                    f"Failed to start Docker container (Attempt {attempt + 1}/{MAX_RETRIES}): {e}")
-                if attempt < MAX_RETRIES - 1:
-                    logger.info(f"Retrying in {RETRY_DELAY} seconds...")
-                    time.sleep(RETRY_DELAY)
-                else:
+
+        try:
+            # Check if a container with the given name already exists
+            container = self.client.containers.get(name)
+            if container.status != "running":
+                logger.info(f"Container '{name}' exists but is not running. Restarting it.")
+                container.start()
+            else:
+                logger.info(f"Container '{name}' is already running.")
+            return container
+        except docker.errors.NotFound:
+            logger.info(f"Container '{name}' does not exist. Creating a new one.")
+            for attempt in range(MAX_RETRIES):
+                try:
+                    logger.info(
+                        f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})..."
+                    )
+                    container = self.client.containers.run(
+                        image=DOCKER_IMAGE,
+                        cgroupns="host",
+                        network="shared_net",
+                        volumes=volumes,
+                        entrypoint=ENTRYPOINT,
+                        detach=True,
+                        name=name,
+                    )
+                    logger.info("Docker container started successfully.")
+                    return container
+                except Exception as e:
                     logger.error(
-                        f"All {MAX_RETRIES} attempts to start the container have failed.")
-                    sys.exit(1)
+                        f"Failed to start Docker container (Attempt {attempt + 1}/{MAX_RETRIES}): {e}"
+                    )
+                    if attempt < MAX_RETRIES - 1:
+                        logger.info(f"Retrying in {RETRY_DELAY} seconds...")
+                        time.sleep(RETRY_DELAY)
+                    else:
+                        logger.error(
+                        )
+                        sys.exit(1)
+
 
     def stop(self) -> None:
         """
