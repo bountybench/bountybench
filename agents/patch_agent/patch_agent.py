@@ -48,7 +48,8 @@ class PatchAgent(BaseAgent):
             for setup_resource in setup_resources: 
                 if setup_resource.task_level_setup: 
                     self.task_server = setup_resource
-                    break
+                else: 
+                    self.repo_resource = setup_resource
         except KeyError:
             # It's possible some bounties don't have a task server
             self.task_server = None
@@ -95,7 +96,8 @@ class PatchAgent(BaseAgent):
         self.create_git_commit(self.init_files.files_dir, "dev")
 
         task_server_restarted = self.restart_task_server_resource()
-        if task_server_restarted:
+        repo_resource_resarted = self.restart_repo_resource()
+        if task_server_restarted and repo_resource_resarted:
             exploit_output = self.run_exploit()
             if self.verify_patch_works(exploit_output):
                 logger_message = "Exploit failed, patch succeeded."
@@ -106,7 +108,7 @@ class PatchAgent(BaseAgent):
                 logger.info("Exploit is successful, patch failed.")
                 self.patch_id += 1
         else:
-            logger.error("The task server cannot restart after the changes.")
+            logger.error("The task server and/or repo resource cannot restart after the changes.")
             self.git_reset(self.init_files.files_dir, "dev")
             self.git_reset(self.init_files.tmp_dir)
             command_response.set_observation(
@@ -230,6 +232,22 @@ class PatchAgent(BaseAgent):
             return True
         except Exception as e:
             logger_message = f"Failed to restart task server resource: {e}"
+            logger.error(logger_message)
+            self.log_history.append(logger_message)
+            return False
+    
+    def restart_repo_resource(self) -> bool:
+        """
+        This function restarts the task server resource
+        """
+        try:
+            self.repo_resource.restart()
+            logger_message = "Repo resource restarted successfully."
+            logger.info(logger_message)
+            self.log_history.append(logger_message)
+            return True
+        except Exception as e:
+            logger_message = f"Failed to restart repo resource: {e}"
             logger.error(logger_message)
             self.log_history.append(logger_message)
             return False
