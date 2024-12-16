@@ -1,39 +1,157 @@
-from agent import BaseAgent
-class ExecuterAgent(BaseAgent):
-    def __init__(self, config):
+
+from typing import List
+
+from agents.base_agent import BaseAgent
+from agents.dataclasses.agent_spec import AgentConfig
+from agents.executor_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
+from agents.utils import truncate_input_to_max_tokens
+from models.model_response import ModelResponse
+from models.query import query
+from resources.kali_env_resource import KaliEnvResource
+from responses.answer_response import AnswerResponse
+from responses.command_response import CommandResponse
+from responses.command_response_interface import CommandResponseInterface
+from responses.observation import Observation
+from responses.response import Response
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
+
+TIMEOUT_PER_COMMAND = 120
+MAX_RETRIES = 3
+RETRY_DELAY = 30
+TEMPERATURE = 0.5
+
+
+class ExecutorAgent(BaseAgent):
+    memory: List[str] = []
+
+    def __init__(self, config: AgentConfig, initial_prompt: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.config = config
 
-    # Standard agent function; every agent can be "run" on Responses, including no response. i.e. list can be empty. PlannerAgent... or should it still require metadata but perhaps there is no Response
-    def run(self, responses: List[Response]) -> Response:
-        if len(responses) != 1:
-            return Exception(f'Accepts exactly a single response, you passed in {len(responses)} responses')
-        response = responses[0]
-        # Need to be careful with collissions of ResponseInterfaces, e.g. what if something both has a command and a plan. need to be sure it's specific enough. Maybe more specific/detail response types that have more specific mandates / requirements
-        if issubclass(response.__class__, CommandResponseInterface):
-            formulate_prompt_from_execution(response)
-            self.execute_with_new_prompt()
-        elif issubclass(response.__class__, PlanResponseInterface):
-            formulate_prompt_from_plan(response)
-            self.execute_with_new_prompt()
+        self.initial_prompt = initial_prompt
+        self.prompt = self.initial_prompt
+
+        if KaliEnvResource in self.resource_dict.resource_type_to_resources:
+            self.kali_env: KaliEnvResource = self.resource_dict.get_items_of_resource_type(
+                KaliEnvResource)[0]
+            if kwargs.get("target_host", ""):
+                self.kali_env.health_check(kwargs.get("target_host", ""))
         else:
-            raise Exception('Response not of an interpretable type. The response type is {response.__class__} but we expect a class of either Command or PlanResponseInterface')
+            raise RuntimeError(
+                "KaliEnvResource not set up. Agent cannot start.")
 
-    def execute_with_new_prompt(self):
-        self.call_lm()
-        self.parse_observation()
-        self.execute_in_env()
+    def run(self, responses: List[Response]) -> Response:
+        if len(responses) > 1:
+            raise Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
+        # Case for first run, no response(s) to pass in
+        if len(responses) == 0:
+            return self.execute()
+        response = responses[0]
+        if issubclass(response.__class__, CommandResponseInterface):
+            self.formulate_prompt(response)
+            return self.execute()
+        else:
+            raise Exception(
+                f'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
 
-    def formulate_prompt_from_plan(self, planner_response: PlannerResponse) -> str:
+    def execute(self) -> Response:
+        lm_executor_response = self.call_lm()
+        # if the action is command, execute the command in the environment, otherwise just submit
+        if issubclass(lm_executor_response.__class__, CommandResponseInterface):
+            observation = self.execute_in_env(lm_executor_response)
+            # only command response has set observation func
+            lm_executor_response.set_observation(observation)
+        logger.info(f"LM Response:\n{lm_executor_response.response}")
+        return lm_executor_response
+
+    def formulate_prompt(self, executor_response: CommandResponse) -> str:
         """
+        Formulates the prompt by appending the new response to memory.
         """
-        prompt = combine_response_with_prompt(self.config.prompt, planner_response)
+        if len(self.memory) >= self.config.max_response_len:
+            self.memory = self.memory[1:] + [executor_response.response]
+        else:
+            self.memory.append(executor_response.response)
+
+        truncated_input = truncate_input_to_max_tokens(
+            max_input_tokens=self.config.max_input_tokens,
+            model_input="\n".join(self.memory),
+            model=self.config.model,
+            use_helm=self.config.use_helm,
+        )
+        prompt = self.initial_prompt + truncated_input
         self.prompt = prompt
         return prompt
 
-    def formulate_prompt_from_execution(self, executor_response: ExecutorResponse) -> str:
+    def _parse_response(self, response: str) -> Response:
         """
+        Attempts to parse the response into either AnswerResponse or CommandResponse.
         """
-        prompt = combine_response_with_prompt(self.config.prompt, executor_response)
-        self.prompt = prompt
-        return prompt
-       
+        try:
+            return AnswerResponse(response)
+        except:
+            logger.debug(
+                "LM response not an AnswerResponse type. Attempting to parse as CommandResponse.")
+            try:
+                return CommandResponse(response)
+            except:
+                logger.debug("LM response not an CommandResponse type.")
+                raise Exception(
+                    "Response could not be parsed as either an Answer or Command response.")
+
+    def call_lm(self) -> Response:
+        """
+        Calls the language model and ensures the response is in valid format.
+        Retries up to MAX_ITERATIONS if the response is invalid.
+        """
+        model_input = self.prompt
+        # logger.info(f"LM Input:\n{model_input}")
+        iterations = 0
+        while iterations < MAX_RETRIES:
+            model_response: ModelResponse = query(
+                model=self.config.model,
+                message=model_input,
+                temperature=TEMPERATURE,
+                max_tokens=self.config.max_output_tokens,
+                stop_sequences=[STOP_TOKEN],
+                helm=self.config.use_helm
+            )
+
+            model_response = model_response.remove_hallucinations()
+
+            lm_response = model_response + f"\n{STOP_TOKEN}"
+            try:
+                return self._parse_response(lm_response)
+            except Exception as e:
+                logger.warning(
+                    f"Retrying {iterations}/{MAX_RETRIES} after error: {e}")
+                iterations += 1
+
+        # Raise an exception if it exhausts the retries
+        raise Exception(
+            "Call_lm error: Maximum retries reached without a valid response.")
+
+    def execute_in_env(self, executor_response: CommandResponse) -> Observation:
+        """
+        Executes the command in the environment based on the ExecutorResponse.
+        Captures the output and creates an observation based on command execution.
+        """
+        command = executor_response.command
+        try:
+            # Use kali_env to execute the command inside the container
+            stdout, stderr = self.kali_env.run_command(
+                command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/"
+            )
+
+            # Check for command execution without errors, even if no stdout was produced
+            observation = stdout.strip() + stderr.strip()
+            logger.info(f"Executed the command in agent environment: {command}.\n\nstdout: {stdout.strip()}\n\nstderr: {stderr.strip()}")
+
+            return Observation(observation)
+        except Exception as e:
+            # If an actual exception occurred during execution, log it as a failure
+            logger.exception(
+                f"Failed to execute command in agent environment: {command}.\n\n Exception: {str(e)}")
+            return Observation(str(e))

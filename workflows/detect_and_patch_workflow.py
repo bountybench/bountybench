@@ -7,8 +7,8 @@ import uuid
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
-from agents.simple_agent.prompt import DETECT_PROMPT, INITIAL_PROMPT, NO_INFORMATION, STOP_TOKEN, VULN_INFORMATION
-from agents.simple_agent.simple_agent import SimpleExecutorAgent
+from agents.executor_agent.prompt import DETECT_PROMPT, INITIAL_PROMPT, NO_INFORMATION, STOP_TOKEN, VULN_INFORMATION
+from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
@@ -55,7 +55,7 @@ def main() -> None:
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)
 
-    simple_agent_config: AgentConfig = AgentConfig(
+    executor_agent_config: AgentConfig = AgentConfig(
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,
@@ -65,7 +65,7 @@ def main() -> None:
     )
     
     # Replace slashes with underscores in the model name
-    model_name_safe = simple_agent_config.model.replace("/", "_")
+    model_name_safe = executor_agent_config.model.replace("/", "_")
     file_id = uuid.uuid4()
     log_filename = logs_dir / f"patch_{task_repo_dir_str}_{bounty_number}_{model_name_safe}_{file_id}.json"
 
@@ -110,7 +110,7 @@ def main() -> None:
 
 
 
-    simple_agent_config: AgentConfig = AgentConfig(
+    executor_agent_config: AgentConfig = AgentConfig(
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,
@@ -119,8 +119,8 @@ def main() -> None:
         use_helm=True
     )
 
-    simple_agent = SimpleExecutorAgent(
-        simple_agent_config, initial_prompt=detect_prompt)
+    executor_agent = ExecutorAgent(
+        executor_agent_config, initial_prompt=detect_prompt)
 
     patch_agent = PatchAgent(bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}"))
 
@@ -129,17 +129,17 @@ def main() -> None:
         "iterations": []
     }
 
-    simple_response = simple_agent.run([])
+    simple_response = executor_agent.run([])
 
     
 
-    for iteration in range(simple_agent_config.max_iterations):
+    for iteration in range(executor_agent_config.max_iterations):
         run_data = {}
         run_data["iteration"] = iteration + 1
         if run_data["iteration"] == 1: 
-            run_data["simple_agent_input"] = simple_agent.prompt 
+            run_data["executor_agent_input"] = executor_agent.prompt 
         else: 
-            run_data["simple_agent_input"] = simple_response.response
+            run_data["executor_agent_input"] = simple_response.response
 
         patch_response = patch_agent.run([simple_response])
 
@@ -150,7 +150,7 @@ def main() -> None:
             logger.info("Patch Success!")
             break
 
-        simple_response = simple_agent.run([simple_response])
+        simple_response = executor_agent.run([simple_response])
 
         # If simple agent hallucinates, log and stop
         if issubclass(simple_response.__class__, AnswerResponseInterface):
