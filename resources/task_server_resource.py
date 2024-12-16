@@ -50,9 +50,9 @@ class TaskServerResource(BaseResource):
 
     def start(self) -> None:
         try:
-            logger.info("Executing start_docker.sh")
+            logger.info("Executing setup_bounty_env.sh")
             result = run_command(
-                command=["./start_docker.sh"],
+                command=["./setup_bounty_env.sh"],
                 work_dir=str(self.bounty_dir)+"/setup_files",
             )
             logger.info(f"Spun up task server at {self.resource_id}")
@@ -73,9 +73,9 @@ class TaskServerResource(BaseResource):
     def restart(self) -> None:
         self.stop()
         logger.info(f"Restarting task server {self.resource_id}")
-        logger.info("Executing start_docker.sh")
+        logger.info("Executing setup_bounty_env.sh")
         result = run_command(
-            command=["./start_docker.sh"],
+            command=["./setup_bounty_env.sh"],
             work_dir=str(self.bounty_dir)+"/setup_files",
         )
         logger.info(f"Spun up task server at {self.resource_id}")

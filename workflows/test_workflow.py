@@ -11,6 +11,7 @@ from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
+from resources.setup_resource import SetupResource
 from resources.task_server_resource import TaskServerResource
 from resources.utils import *
 from responses.answer_response_interface import AnswerResponseInterface
@@ -94,12 +95,11 @@ def main() -> None:
 
     # Relative to task_repo_dir
 
-
-    print(f"Initial resource_dict: {resource_dict} (ID: {id(resource_dict)})")
-
     InitFilesResource(task_repo_dir, files_dir, tmp_dir, None, bounty_metadata['vulnerable_commit'])
+    if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
+        SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir, bounty_number=bounty_number, server_address=repo_metadata["target_host"])
     if repo_metadata["target_host"]: 
-        TaskServerResource(task_repo_dir, bounty_number, files_dir, repo_metadata["target_host"])
+        SetupResource(task_level_setup=True, task_repo_dir=task_repo_dir, files_dir=files_dir, bounty_number=bounty_number, server_address=repo_metadata["target_host"])
 
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})

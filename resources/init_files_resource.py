@@ -36,7 +36,6 @@ class InitFilesResource(BaseResource):
         self.start()
 
         resource_dict[self.resource_id] = self
-        print(f"Resource registered: {self.resource_id}, Current dict: {resource_dict}")
 
         atexit.register(self.stop)
 
@@ -60,12 +59,9 @@ class InitFilesResource(BaseResource):
             git_dir = os.path.join(self.tmp_dir, ".git")
 
             if os.path.exists(git_dir):
-                if os.path.isdir(git_dir):
-                    shutil.rmtree(git_dir)
-                    logger.info("Removed .git directory from files_dir")
-                elif os.path.isfile(git_dir):
+                if os.path.isfile(git_dir):
                     os.remove(git_dir)
-                    logger.info("Removed .git file from files_dir")
+                    logger.info(f"Removed .git file from {self.tmp_dir}")
                 else:
                     logger.warning(f"{git_dir} exists but is neither a directory nor a file. Skipping removal.")
                 

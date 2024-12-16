@@ -8,7 +8,7 @@ from typing import List, Tuple
 from agents.base_agent import BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
-from resources.task_server_resource import TaskServerResource
+from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
 from responses.observation import Observation
@@ -39,12 +39,16 @@ class PatchAgent(BaseAgent):
     
     def _initialize_resources(self):
         try:
-            self.init_files = self._get_resource(InitFilesResource)
-            self.docker_helper = self._get_resource(DockerResource)
+            self.init_files = self._get_resource(InitFilesResource)[0]
+            self.docker_helper = self._get_resource(DockerResource)[0]
         except KeyError as e:
             raise RuntimeError(f"{e.args[0]} not set up. Patch agent cannot start.")
         try:
-            self.task_server = self._get_resource(TaskServerResource)
+            setup_resources = self._get_resource(SetupResource)
+            for setup_resource in setup_resources: 
+                if setup_resource.task_level_setup: 
+                    self.task_server = setup_resource
+                    break
         except KeyError:
             # It's possible some bounties don't have a task server
             self.task_server = None
@@ -54,7 +58,7 @@ class PatchAgent(BaseAgent):
         resources = self.resource_dict.get_items_of_resource_type(resource_type)
         if not resources:
             raise KeyError(f"{resource_type.__name__}")
-        return resources[0]
+        return resources
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
