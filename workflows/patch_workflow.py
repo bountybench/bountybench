@@ -111,6 +111,7 @@ def main() -> None:
     DockerResource("DockerHelper")
 
 
+    
     simple_agent_config: AgentConfig = AgentConfig(
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
@@ -157,6 +158,6 @@ def main() -> None:
             break
 
     save_run_log(run_log, log_filename)
-
+    
 if __name__ == "__main__":
     main()
