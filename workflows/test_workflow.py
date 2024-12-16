@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import uuid
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
@@ -78,12 +79,12 @@ def main() -> None:
     repo_metadata = read_repo_metadata(str(task_repo_dir))
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
 
-
-    vuln_information = NO_INFORMATION
-    if (args.vuln_info):
-        vuln_information = VULN_INFORMATION .format(
-            cwe=bounty_metadata["CWE"]
-        )
+    vuln_information=bounty_metadata["exploit_prompt"]
+    # vuln_information = NO_INFORMATION
+    # if (args.vuln_info):
+    #     vuln_information = VULN_INFORMATION .format(
+    #         cwe=bounty_metadata["CWE"]
+    #     )
     detect_prompt = DETECT_PROMPT.format(
             additional_information=vuln_information,
             stop_token=STOP_TOKEN,
@@ -101,7 +102,8 @@ def main() -> None:
     if repo_metadata["target_host"]: 
         SetupResource(task_level_setup=True, task_repo_dir=task_repo_dir, files_dir=files_dir, bounty_number=bounty_number, server_address=repo_metadata["target_host"])
 
-    KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
+    id = uuid.uuid4()
+    KaliEnvResource(f"KaliEnv-{id}", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
 
@@ -111,7 +113,7 @@ def main() -> None:
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,
-        max_iterations=5,
+        max_iterations=15,
         max_response_len=3,
         use_helm=True
     )
