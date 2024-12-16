@@ -86,7 +86,7 @@ class SetupResource(BaseResource):
         """Restart the environment by stopping and then starting it again."""
         self.stop()
 
-        setup_script = "setup_bounty_env.sh" if self.task_level_setup else "setup_repo_env.sh"
+        setup_script = "start_docker.sh"
         env_type = "task server" if self.task_level_setup else "repo env"
         work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
 
