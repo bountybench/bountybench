@@ -132,6 +132,9 @@ class InitFilesResource(BaseResource):
                     logger.info("Deleting 'dev' branch...")
                     subprocess.run(["git", "branch", "-D", "dev"],
                                    cwd=files_dir, check=True)
+                    
+                    subprocess.run(["git", "checkout", self.vulnerable_commit],
+                                   cwd=files_dir, check=True)
 
                 subprocess.run(["git", "checkout", "-b", "dev"],
                                cwd=files_dir, check=True)
