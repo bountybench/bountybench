@@ -2,10 +2,12 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shutil
+import uuid
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
-from agents.simple_agent.prompt import INITIAL_PROMPT, PATCH_PROMPT, STOP_TOKEN
+from agents.simple_agent.prompt import DETECT_PROMPT, INITIAL_PROMPT, NO_INFORMATION, STOP_TOKEN, VULN_INFORMATION
 from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
@@ -14,6 +16,7 @@ from resources.setup_resource import SetupResource
 from resources.utils import *
 from responses.answer_response_interface import AnswerResponseInterface
 from utils.logger import get_main_logger
+from resources.resource_dict import resource_dict
 
 logger = get_main_logger(__name__)
 
@@ -31,6 +34,13 @@ def parse_args() -> argparse.Namespace:
         "--bounty_number",
         type=str,
         help="The bounty for the given task; not used in detect_all",
+    )
+    
+    parser.add_argument(
+        "--vuln_info",
+        action="store_true",
+        help="Share the CWE of the vulnerability in the prompt",
+        default=False,
     )
     return parser.parse_args()
 
@@ -56,7 +66,8 @@ def main() -> None:
     
     # Replace slashes with underscores in the model name
     model_name_safe = simple_agent_config.model.replace("/", "_")
-    log_filename = logs_dir / f"patch_{task_repo_dir_str}_{bounty_number}_{model_name_safe}.json"
+    file_id = uuid.uuid4()
+    log_filename = logs_dir / f"patch_{task_repo_dir_str}_{bounty_number}_{model_name_safe}_{file_id}.json"
 
     network_name = "shared_net"
 
@@ -68,47 +79,35 @@ def main() -> None:
     # Read metadata
     repo_metadata = read_repo_metadata(str(task_repo_dir))
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
-    
 
-    vulnerable_files = []
-    for _, value in bounty_metadata['patch'].items(): 
-        relative_path = os.path.relpath(value, start="codebase")
+    vuln_information=bounty_metadata["exploit_prompt"]
+    # vuln_information = NO_INFORMATION
+    # if (args.vuln_info):
+    #     vuln_information = VULN_INFORMATION .format(
+    #         cwe=bounty_metadata["CWE"]
+    #     )
+    detect_prompt = DETECT_PROMPT.format(
+            additional_information=vuln_information,
+            stop_token=STOP_TOKEN,
+            target_host=repo_metadata["target_host"],
+        )
 
-        full_path = os.path.join(str(task_repo_dir), value)
-        if os.path.exists(full_path):
-            vulnerable_files.append(relative_path)
-
-    vulnerable_files_formatted = ", ".join(f"`{file}`" for file in vulnerable_files)
-
-
-    exploit_description = f"""
-    {bounty_metadata["exploit_prompt"]} 
-    The path to the vulnerable file(s) is {vulnerable_files_formatted}. 
-    """
-
-
-    patch_prompt = PATCH_PROMPT.format(
-        task_description=exploit_description,
-        stop_token=STOP_TOKEN,
-        target_host=repo_metadata["target_host"],
-    )
-    print(patch_prompt)
-    print("==========================")
     files_dir, tmp_dir = "codebase", "tmp"
 
     # Relative to task_repo_dir
-    exploit_files_dir = os.path.join("bounties", f"bounty_{bounty_number}", "exploit_files")
 
+    InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=None, vulnerable_commit=bounty_metadata['vulnerable_commit'])
 
-    InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=exploit_files_dir, vulnerable_commit=bounty_metadata['vulnerable_commit'])
     if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
         SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
     if repo_metadata["target_host"]: 
         SetupResource(task_level_setup=True, task_repo_dir=task_repo_dir, files_dir=files_dir, bounty_number=bounty_number, server_address=repo_metadata["target_host"])
 
-    KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
+    id = uuid.uuid4()
+    KaliEnvResource(f"KaliEnv-{id}", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
+
 
 
     simple_agent_config: AgentConfig = AgentConfig(
@@ -121,7 +120,7 @@ def main() -> None:
     )
 
     simple_agent = SimpleExecutorAgent(
-        config=simple_agent_config, initial_prompt=patch_prompt, target_host=repo_metadata["target_host"])
+        simple_agent_config, initial_prompt=detect_prompt)
 
     patch_agent = PatchAgent(bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}"))
 
@@ -131,6 +130,8 @@ def main() -> None:
     }
 
     simple_response = simple_agent.run([])
+
+    
 
     for iteration in range(simple_agent_config.max_iterations):
         run_data = {}
@@ -157,6 +158,9 @@ def main() -> None:
             break
 
     save_run_log(run_log, log_filename)
+
+    
+
 
 if __name__ == "__main__":
     main()

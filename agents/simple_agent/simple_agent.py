@@ -26,18 +26,11 @@ TEMPERATURE = 0.5
 class SimpleExecutorAgent(BaseAgent):
     memory: List[str] = []
 
-    def __init__(self, config: AgentConfig, *args, **kwargs):
+    def __init__(self, config: AgentConfig, initial_prompt: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.config = config
 
-        self.initial_prompt = INITIAL_PROMPT.format(
-            # TODO make defaults
-            task_description=kwargs.get(
-                "task_description", "default_task_description"),
-            answer_format=kwargs.get("answer_format", "default_answer_format"),
-            stop_token=STOP_TOKEN,
-            target_host=kwargs.get("target_host", "default_target_host"),
-        )
+        self.initial_prompt = initial_prompt
         self.prompt = self.initial_prompt
 
         if KaliEnvResource in self.resource_dict.resource_type_to_resources:

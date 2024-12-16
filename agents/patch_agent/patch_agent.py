@@ -8,7 +8,7 @@ from typing import List, Tuple
 from agents.base_agent import BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
-from resources.task_server_resource import TaskServerResource
+from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
 from responses.observation import Observation
@@ -32,23 +32,36 @@ class PatchAgent(BaseAgent):
         self.exploit_files_dir = os.path.join(self.bounty_dir, self.exploit_files_dir_name)
         self.log_history = []
         self.patch_id = 1
+        self.task_server = None
+        self.repo_resource = None
+
         os.makedirs(self.patch_dir, exist_ok=True)
         atexit.register(self.cleanup)
        
     
     def _initialize_resources(self):
         try:
-            self.init_files = self._get_resource(InitFilesResource)
-            self.task_server = self._get_resource(TaskServerResource)
-            self.docker_helper = self._get_resource(DockerResource)
+            self.init_files = self._get_resource(InitFilesResource)[0]
+            self.docker_helper = self._get_resource(DockerResource)[0]
         except KeyError as e:
             raise RuntimeError(f"{e.args[0]} not set up. Patch agent cannot start.")
+        try:
+            setup_resources = self._get_resource(SetupResource)
+            for setup_resource in setup_resources: 
+                if setup_resource.task_level_setup: 
+                    self.task_server = setup_resource
+                else: 
+                    self.repo_resource = setup_resource
+        except KeyError:
+            # It's possible some bounties don't have a task server
+            self.task_server = None
+            logger.warning("TaskServerResource not found. Continuing without a task server.")
     
     def _get_resource(self, resource_type):
         resources = self.resource_dict.get_items_of_resource_type(resource_type)
         if not resources:
             raise KeyError(f"{resource_type.__name__}")
-        return resources[0]
+        return resources
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
@@ -84,8 +97,21 @@ class PatchAgent(BaseAgent):
         self.apply_git_patch(patch_path, self.init_files.files_dir, "dev")
         self.create_git_commit(self.init_files.files_dir, "dev")
 
-        task_server_restarted = self.restart_task_server_resource()
-        if task_server_restarted:
+        # Track restart results
+        task_server_restarted = self.task_server and self.restart_task_server_resource()
+        repo_resource_restarted = self.repo_resource and self.restart_repo_resource()
+
+        # Handle restart conditions
+        if self.task_server and self.repo_resource and not (task_server_restarted and repo_resource_restarted):
+            # Both exist but restart failed
+            logger.error("Both the task server and repo resource must restart successfully but did not.")
+            self.git_reset(self.init_files.files_dir, "dev")
+            self.git_reset(self.init_files.tmp_dir)
+            command_response.set_observation(
+                Observation("The task server and/or repo resource cannot restart after the changes.")
+            )
+        else:
+            # Either restarts successfully, or neither exists
             exploit_output = self.run_exploit()
             if self.verify_patch_works(exploit_output):
                 logger_message = "Exploit failed, patch succeeded."
@@ -95,12 +121,8 @@ class PatchAgent(BaseAgent):
             else:
                 logger.info("Exploit is successful, patch failed.")
                 self.patch_id += 1
-        else:
-            logger.error("The task server cannot restart after the changes.")
-            self.git_reset(self.init_files.files_dir, "dev")
-            self.git_reset(self.init_files.tmp_dir)
-            command_response.set_observation(
-                Observation("The task server cannot restart after the changes."))     
+
+        # Clear log and return response
         patch_response = PatchResponse("\n".join(self.log_history))
         self.log_history.clear()
         return patch_response
@@ -115,7 +137,6 @@ class PatchAgent(BaseAgent):
         }
         
         exploit_command = (
-            "./metadata/requirements.sh && "
             f"cd {self.exploit_files_dir} && ./exploit.sh"
         )
         
@@ -221,6 +242,22 @@ class PatchAgent(BaseAgent):
             return True
         except Exception as e:
             logger_message = f"Failed to restart task server resource: {e}"
+            logger.error(logger_message)
+            self.log_history.append(logger_message)
+            return False
+    
+    def restart_repo_resource(self) -> bool:
+        """
+        This function restarts the task server resource
+        """
+        try:
+            self.repo_resource.restart()
+            logger_message = "Repo resource restarted successfully."
+            logger.info(logger_message)
+            self.log_history.append(logger_message)
+            return True
+        except Exception as e:
+            logger_message = f"Failed to restart repo resource: {e}"
             logger.error(logger_message)
             self.log_history.append(logger_message)
             return False

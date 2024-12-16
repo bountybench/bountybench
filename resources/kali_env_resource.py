@@ -17,6 +17,19 @@ from utils.logger import get_main_logger
 # Configure logging
 logger = get_main_logger(__name__)
 
+import signal
+from contextlib import contextmanager
+
+@contextmanager
+def timeout_context(seconds):
+    def signal_handler(signum, frame):
+        raise TimeoutError("Timed out!")
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
 # Constants with type annotations
 DOCKER_IMAGE: str = "cybench/cybounty:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
@@ -28,7 +41,7 @@ RETRY_DELAY = 10
 class KaliEnvResource(BaseResource):
     """Kali Linux Environment Resource"""
 
-    def __init__(self, name: str, task_repo_dir: str = None, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
+    def __init__(self, name: str, task_repo_dir: str = None, bounty_number: str=None, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
         """
         Initialize the Kali Linux Environment with optional volume bindings.
 
@@ -40,8 +53,11 @@ class KaliEnvResource(BaseResource):
         self.client: docker.DockerClient = docker.from_env()
         self.resource_id = name
         self.container: Container = self.start(self.resource_id, volumes)
+        self.bounty_dir = os.path.join(
+                str(task_repo_dir) + "/bounties/bounty_" + bounty_number
+        )
         if task_repo_dir:
-            self.run_requirements(task_repo_dir)
+            self.run_requirements(self.bounty_dir)
 
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
@@ -62,31 +78,46 @@ class KaliEnvResource(BaseResource):
         Raises:
             SystemExit: If the container fails to start after MAX_RETRIES attempts.
         """
-        for attempt in range(MAX_RETRIES):
-            try:
-                logger.info(
-                    f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
-                container: Container = self.client.containers.run(
-                    image=DOCKER_IMAGE,
-                    cgroupns="host",
-                    volumes=volumes,
-                    network="shared_net",
-                    entrypoint=ENTRYPOINT,
-                    detach=True,
-                    name=name,
-                )
-                logger.info("Docker container started successfully.")
-                return container
-            except Exception as e:
-                logger.error(
-                    f"Failed to start Docker container (Attempt {attempt + 1}/{MAX_RETRIES}): {e}")
-                if attempt < MAX_RETRIES - 1:
-                    logger.info(f"Retrying in {RETRY_DELAY} seconds...")
-                    time.sleep(RETRY_DELAY)
-                else:
+
+        try:
+            # Check if a container with the given name already exists
+            container = self.client.containers.get(name)
+            if container.status != "running":
+                logger.info(f"Container '{name}' exists but is not running. Restarting it.")
+                container.start()
+            else:
+                logger.info(f"Container '{name}' is already running.")
+            return container
+        except docker.errors.NotFound:
+            logger.info(f"Container '{name}' does not exist. Creating a new one.")
+            for attempt in range(MAX_RETRIES):
+                try:
+                    logger.info(
+                        f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})..."
+                    )
+                    container = self.client.containers.run(
+                        image=DOCKER_IMAGE,
+                        cgroupns="host",
+                        network="shared_net",
+                        volumes=volumes,
+                        entrypoint=ENTRYPOINT,
+                        detach=True,
+                        name=name,
+                    )
+                    logger.info("Docker container started successfully.")
+                    return container
+                except Exception as e:
                     logger.error(
-                        f"All {MAX_RETRIES} attempts to start the container have failed.")
-                    sys.exit(1)
+                        f"Failed to start Docker container (Attempt {attempt + 1}/{MAX_RETRIES}): {e}"
+                    )
+                    if attempt < MAX_RETRIES - 1:
+                        logger.info(f"Retrying in {RETRY_DELAY} seconds...")
+                        time.sleep(RETRY_DELAY)
+                    else:
+                        logger.error(
+                        )
+                        sys.exit(1)
+
 
     def stop(self) -> None:
         """
@@ -104,77 +135,43 @@ class KaliEnvResource(BaseResource):
             except Exception as e:
                 logger.error(f"Error cleaning up Docker container: {e}")
 
-    def run_command(
-        self, command: str, timeout: int = 60, workdir: Optional[str] = None
-    ) -> Tuple[str, str]:
-        """
-        Run a command inside the running container with a timeout.
 
-        Args:
-            command (str): The command to execute inside the container.
-            timeout (int): Maximum time to wait for the command to execute, in seconds. Defaults to 60.
-            workdir (Optional[str]): The working directory inside the container to execute the command. Defaults to None.
 
-        Returns:
-            Tuple[str, str]: A tuple containing stdout and stderr output as strings.
-        """
+    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None) -> Tuple[str, str]:
         logger.info(f"Running command in Docker container: {command}")
 
-        result_queue: Queue = Queue()
-        stop_event = threading.Event()
-
-        def exec_command() -> None:
-            """
-            Execute the command inside the Docker container and put the result in the queue.
-
-            Uses Docker's exec_run method to run the command inside the container.
-            """
-            try:
-                exec_result: docker.models.exec.ExecResult = self.container.exec_run(
+        try:
+            with timeout_context(timeout):
+                exec_id = self.client.api.exec_create(
+                    container=self.container.id,
                     cmd=["/bin/bash", "-c", command],
+                    workdir=workdir,
+                    stdin=False,
                     stdout=True,
                     stderr=True,
-                    workdir=workdir,
-                    demux=True,
-                )
-                if not stop_event.is_set():
-                    stdout: bytes = exec_result.output[0]
-                    stderr: bytes = exec_result.output[1]
-                    result_queue.put((stdout, stderr))
-            except Exception as e:
-                if not stop_event.is_set():
-                    logger.error(
-                        f"Failed to execute command in Docker container: {e}")
-                    result_queue.put(
-                        (None, f"Exception occurred: {e}".encode("utf-8")))
+                )["Id"]
 
-        # Start the command thread
-        command_thread: threading.Thread = threading.Thread(
-            target=exec_command)
-        command_thread.start()
-        command_thread.join(timeout)
+                output = self.client.api.exec_start(exec_id, stream=False, demux=True)
+                stdout, stderr = output or (None, None)
 
-        if command_thread.is_alive():
-            # If command hasn't finished, kill it
-            logger.warning(
-                f"Command '{command}' timed out after {timeout} seconds. Stopping the command thread.")
-            stop_event.set()
-            command_thread.join()  # Ensure the thread stops
+            stdout_text = get_stdout_text(stdout)
+            stderr_text = get_stdout_text(stderr)
+            logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
+            return stdout_text, stderr_text
+
+        except TimeoutError:
+            logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
+            # We can't stop the execution, but we can log that it timed out
             return f"Command '{command}' timed out after {timeout} seconds.", ""
 
-        # If the command finished, retrieve results from the queue
-        if not result_queue.empty():
-            stdout_bytes: bytes
-            stderr_bytes: bytes
-            stdout_bytes, stderr_bytes = result_queue.get()
-            stdout: str = get_stdout_text(stdout_bytes)
-            stderr: str = get_stdout_text(stderr_bytes)
-            logger.info(
-                f"Command executed successfully.\nstdout: {stdout}\nstderr: {stderr}"
-            )
-            return stdout, stderr
+        except docker.errors.APIError as e:
+            logger.error(f"Docker API error while executing command: {e}")
+            return "", f"Docker API error: {str(e)}"
 
-        return "", "Failed to retrieve output from the command."
+        except Exception as e:
+            logger.error(f"Unexpected error while executing command: {e}")
+            return "", f"Unexpected error: {str(e)}"
+
 
     def run_requirements(self, task_repo_dir: str) -> None:
         """
@@ -183,21 +180,20 @@ class KaliEnvResource(BaseResource):
         Args:
             task_repo_dir (str): Path to the repository directory containing the metadata/requirements.sh script.
         """
-        requirements_path = f"{task_repo_dir}/metadata/requirements.sh"
+        requirements_path = f"{task_repo_dir}/setup_files/requirements.sh"
         if not os.path.isfile(requirements_path):
             logger.error(f"Requirements file not found at {requirements_path}")
-            sys.exit(1)
+        else:
+            # Parse and execute the requirements script commands
+            requirement_commands = parse_shell_script(requirements_path)
+            for command in requirement_commands:
+                stdout, stderr = self.run_command(command)
 
-        # Parse and execute the requirements script commands
-        requirement_commands = parse_shell_script(requirements_path)
-        for command in requirement_commands:
-            stdout, stderr = self.run_command(command)
-
-            # Log output and error for each command
-            if stdout:
-                logger.info(f"Requirements.sh Output:\n{stdout}")
-            if stderr:
-                logger.error(f"Requirements.sh Error:\n{stderr}")
+                # Log output and error for each command
+                if stdout:
+                    logger.info(f"Requirements.sh Output:\n{stdout}")
+                if stderr:
+                    logger.error(f"Requirements.sh Error:\n{stderr}")
 
     def parse_target_host(self, target_host: str) -> Tuple[str, int]:
         """

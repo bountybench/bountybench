@@ -17,13 +17,14 @@ logger = get_main_logger(__name__)
 class InitFilesResource(BaseResource):
     """Init Files Resource"""
 
-    def __init__(self, task_repo_dir: str, files_dir_name: str, tmp_dir_name: str, exploit_files_dir_name: str = None) -> None:
+    def __init__(self, task_repo_dir: str, files_dir_name: str, tmp_dir_name: str, exploit_files_dir_name: str = None, vulnerable_commit: str = None) -> None:
         # Where dir_name is a path relative to task_repo_dir, and dir is an absolut path
         self.task_repo_dir = os.path.abspath(task_repo_dir)
         self.files_dir = os.path.join(self.task_repo_dir, files_dir_name)
 
         self.tmp_dir_name = tmp_dir_name
         self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
+        os.makedirs(self.tmp_dir, exist_ok=True)
         self.resource_id = self.tmp_dir 
 
         self.exploit_files_dir = None
@@ -31,10 +32,11 @@ class InitFilesResource(BaseResource):
             # Exploit files dir should be relative to task_repo_dir (metadata/bounty_#/exploit_files)
             self.exploit_files_dir = os.path.join(self.task_repo_dir, exploit_files_dir_name)
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
-
+        self.vulnerable_commit = vulnerable_commit
         self.start()
 
         resource_dict[self.resource_id] = self
+
         atexit.register(self.stop)
 
     def start(self) -> None:
@@ -44,22 +46,32 @@ class InitFilesResource(BaseResource):
         try:
             # Execute the init_script.sh script located in the task repo directory
             logger.info(
-                f"Executing init script with {self.tmp_dir_name}")
+                f"Checking out {self.vulnerable_commit}")
             subprocess.run(
-                ["./init_script.sh", self.tmp_dir_name],
-                cwd=self.task_repo_dir,
+                ["git", "checkout", self.vulnerable_commit],
+                cwd=self.files_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=True,
-                text=True,
-            )
+                text=True)
+            
+            self.copy_files(self.files_dir, self.tmp_dir)
+            git_dir = os.path.join(self.tmp_dir, ".git")
+
+            if os.path.exists(git_dir):
+                if os.path.isfile(git_dir):
+                    os.remove(git_dir)
+                    logger.info(f"Removed .git file from {self.tmp_dir}")
+                else:
+                    logger.warning(f"{git_dir} exists but is neither a directory nor a file. Skipping removal.")
+                
         except subprocess.CalledProcessError as e:
             # Log error details if the script execution fails
             logger.error(f"Init script stdout: {e.stdout}")
             logger.error(f"Init script stderr: {e.stderr}")
             sys.exit(1)
         # Set up git repos
-        self.setup_repo(self.files_dir)
+
         self.setup_dev_branch(self.files_dir)
         self.setup_repo(self.tmp_dir)
 
@@ -72,20 +84,19 @@ class InitFilesResource(BaseResource):
                 subprocess.run(["rm", "-rf", self.tmp_dir], check=True)
                 logger.info(f"Removed temporary directory: {self.tmp_dir}")
 
-                try:
-                    local_git_dir = os.path.join(self.files_dir, ".git")
-                    if os.path.exists(local_git_dir):
-                        subprocess.run(
-                            ["rm", "-rf", local_git_dir], check=True)
-                        logger.info(
-                            f"Removed .git directory from {self.files_dir}")
-                except subprocess.CalledProcessError as e:
-                    logger.error(
-                        f"Failed to remove local repo directory: {e.stderr}")
-
             except subprocess.CalledProcessError as e:
                 logger.error(
                     f"Failed to remove temporary directory: {e.stderr}")
+            
+            try:
+                subprocess.run(["git", "branch", "-D", "dev"],
+                                   cwd=self.files_dir, check=True)
+                logger.info(
+                        f"Removed dev branch from {self.files_dir}")
+            except subprocess.CalledProcessError as e:
+                logger.error(
+                    f"Failed to remove dev branch from directory: {e.stderr}")
+
         else:
             logger.error(f"Temporary directory does not exist: {self.tmp_dir}")
 
@@ -125,11 +136,14 @@ class InitFilesResource(BaseResource):
                 if "dev" in branch_exists.stdout:
                     logger.info(
                         "Branch 'dev' already exists. Switching to 'master' branch...")
-                    subprocess.run(["git", "checkout", "master"],
+                    subprocess.run(["git", "checkout", "main"],
                                    cwd=files_dir, check=True)
 
                     logger.info("Deleting 'dev' branch...")
                     subprocess.run(["git", "branch", "-D", "dev"],
+                                   cwd=files_dir, check=True)
+                    
+                    subprocess.run(["git", "checkout", self.vulnerable_commit],
                                    cwd=files_dir, check=True)
 
                 subprocess.run(["git", "checkout", "-b", "dev"],
