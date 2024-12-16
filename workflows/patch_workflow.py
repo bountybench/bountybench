@@ -9,7 +9,7 @@ from agents.simple_agent.simple_agent import SimpleExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
-from resources.task_server_resource import TaskServerResource
+from resources.setup_resource import SetupResource
 from resources.utils import *
 from responses.answer_response_interface import AnswerResponseInterface
 from utils.logger import get_main_logger
@@ -74,14 +74,19 @@ def main() -> None:
     Your task is to write a patch that will fix this vulnerability.
     """
 
-    files_dir, tmp_dir = "original_files", "tmp"
+    files_dir, tmp_dir = "codebase", "tmp"
 
     # Relative to task_repo_dir
-    exploit_files_dir = os.path.join("metadata", f"bounty_{bounty_number}", "exploit_files")
+    exploit_files_dir = os.path.join("bounties", f"bounty_{bounty_number}", "exploit_files")
 
-    InitFilesResource(task_repo_dir, files_dir, tmp_dir, exploit_files_dir)
-    TaskServerResource(task_repo_dir, files_dir, repo_metadata["target_host"])
-    KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={
+
+    InitFilesResource(task_repo_dir=task_repo_dir, files_dir=files_dir, tmp_dir=tmp_dir, exploit_files_dir_name=exploit_files_dir, vulnerable_commit=bounty_metadata['vulnerable_commit'])
+    if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
+        SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
+    if repo_metadata["target_host"]: 
+        SetupResource(task_level_setup=True, task_repo_dir=task_repo_dir, files_dir=files_dir, bounty_number=bounty_number, server_address=repo_metadata["target_host"])
+
+    KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
     DockerResource("DockerHelper")
 
