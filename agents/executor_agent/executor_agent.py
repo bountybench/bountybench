@@ -7,7 +7,9 @@ from agents.executor_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
 from agents.utils import truncate_input_to_max_tokens
 from models.model_response import ModelResponse
 from models.query import query
+from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
+from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
 from responses.command_response_interface import CommandResponseInterface
@@ -24,7 +26,10 @@ TEMPERATURE = 0.5
 
 
 class ExecutorAgent(BaseAgent):
-    memory: List[str] = []
+    memory: List[str] = []    
+    REQUIRED_RESOURCES = [InitFilesResource, SetupResource, KaliEnvResource]
+    OPTIONAL_RESOURCES = []
+    ACCESSIBLE_RESOURCES = [KaliEnvResource]
 
     def __init__(self, config: AgentConfig, initial_prompt: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -33,14 +38,8 @@ class ExecutorAgent(BaseAgent):
         self.initial_prompt = initial_prompt
         self.prompt = self.initial_prompt
 
-        if KaliEnvResource in self.resource_dict.resource_type_to_resources:
-            self.kali_env: KaliEnvResource = self.resource_dict.get_items_of_resource_type(
-                KaliEnvResource)[0]
-            if kwargs.get("target_host", ""):
-                self.kali_env.health_check(kwargs.get("target_host", ""))
-        else:
-            raise RuntimeError(
-                "KaliEnvResource not set up. Agent cannot start.")
+        if kwargs.get("target_host", ""):
+            self.kali_env.health_check(kwargs.get("target_host", ""))
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:

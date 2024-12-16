@@ -16,10 +16,11 @@ class ResourceDict(dict):
         return None
 
     def get_items_of_resource_type(self, resource_type):
-        if resource_type in self.resource_type_to_resources:
-            return self.resource_type_to_resources[resource_type]
+        resource_name = resource_type.__name__
+        if resource_name in self.resource_type_to_resources:
+            return self.resource_type_to_resources[resource_name]
         return []
- 
+    
     def delete_items_of_resource_type(self, resource_type):
         if resource_type in self.resource_type_to_resources:
             # Remove the resources from id_to_resource
