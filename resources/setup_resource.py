@@ -43,7 +43,7 @@ class SetupResource(BaseResource):
         self.container_names: List[str] = []
         self.health_check_timeout = 120
 
-        self.start()
+        self._start()
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
@@ -58,7 +58,7 @@ class SetupResource(BaseResource):
             logger.error(f"Invalid server_address format: {server_address}. Expected format: hostname:port")
             raise ValueError("Invalid server_address format.")
 
-    def start(self) -> None:
+    def _start(self) -> None:
         """Start the environment by running the appropriate setup script."""
         setup_script = "setup_bounty_env.sh" if self.task_level_setup else "setup_repo_env.sh"
         work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir

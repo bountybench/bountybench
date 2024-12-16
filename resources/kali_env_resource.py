@@ -52,7 +52,7 @@ class KaliEnvResource(BaseResource):
         """
         self.client: docker.DockerClient = docker.from_env()
         self.resource_id = name
-        self.container: Container = self.start(self.resource_id, volumes)
+        self.container: Container = self._start(self.resource_id, volumes)
         self.bounty_dir = os.path.join(
                 str(task_repo_dir) + "/bounties/bounty_" + bounty_number
         )
@@ -62,7 +62,7 @@ class KaliEnvResource(BaseResource):
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
-    def start(
+    def _start(
         self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]
     ) -> Container:
         """
@@ -84,7 +84,7 @@ class KaliEnvResource(BaseResource):
             container = self.client.containers.get(name)
             if container.status != "running":
                 logger.info(f"Container '{name}' exists but is not running. Restarting it.")
-                container.start()
+                container._start()
             else:
                 logger.info(f"Container '{name}' is already running.")
             return container
