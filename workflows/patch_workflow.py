@@ -72,9 +72,11 @@ def main() -> None:
 
     vulnerable_files = []
     for _, value in bounty_metadata['patch'].items(): 
+        relative_path = os.path.relpath(value, start="codebase")
+
         full_path = os.path.join(str(task_repo_dir), value)
         if os.path.exists(full_path):
-            vulnerable_files.append(full_path)
+            vulnerable_files.append(relative_path)
 
     vulnerable_files_formatted = ", ".join(f"`{file}`" for file in vulnerable_files)
 
