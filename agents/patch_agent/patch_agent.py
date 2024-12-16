@@ -125,7 +125,7 @@ class PatchAgent(BaseAgent):
         }
         
         exploit_command = (
-            "./metadata/requirements.sh && "
+            "setup_files/requirements.sh && "
             f"cd {self.exploit_files_dir} && ./exploit.sh"
         )
         

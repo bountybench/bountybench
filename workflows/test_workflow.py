@@ -119,7 +119,7 @@ def main() -> None:
     simple_agent = SimpleExecutorAgent(
         simple_agent_config, initial_prompt=detect_prompt)
 
-    patch_agent = PatchAgent(bounty_dir=os.path.join("metadata", f"bounty_{bounty_number}"))
+    patch_agent = PatchAgent(bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}"))
 
     # Initialize the log for all iterations
     run_log = {
