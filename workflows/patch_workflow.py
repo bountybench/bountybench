@@ -121,7 +121,7 @@ def main() -> None:
     )
 
     simple_agent = SimpleExecutorAgent(
-        config=simple_agent_config, initial_prompt=patch_prompt, answer_format=bounty_metadata["answer_format"], target_host=repo_metadata["target_host"])
+        config=simple_agent_config, initial_prompt=patch_prompt, target_host=repo_metadata["target_host"])
 
     patch_agent = PatchAgent(bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}"))
 
