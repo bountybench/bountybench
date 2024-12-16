@@ -68,7 +68,12 @@ def main() -> None:
     # Read metadata
     repo_metadata = read_repo_metadata(str(task_repo_dir))
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
+
+    vulnerable_commit=bounty_metadata['vulnerable_commit']
     
+    
+    print(task_repo_dir_str + "/codebase")
+    run_command(["git", "checkout", vulnerable_commit], str(task_repo_dir) + "/codebase")
 
     vulnerable_files = []
     for _, value in bounty_metadata['patch'].items(): 
@@ -77,6 +82,9 @@ def main() -> None:
         full_path = os.path.join(str(task_repo_dir), value)
         if os.path.exists(full_path):
             vulnerable_files.append(relative_path)
+    
+    run_command(["git", "checkout", "main"], str(task_repo_dir) + "/codebase")
+
 
     vulnerable_files_formatted = ", ".join(f"`{file}`" for file in vulnerable_files)
 
@@ -100,7 +108,7 @@ def main() -> None:
     exploit_files_dir = os.path.join("bounties", f"bounty_{bounty_number}", "exploit_files")
 
 
-    InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=exploit_files_dir, vulnerable_commit=bounty_metadata['vulnerable_commit'])
+    InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=exploit_files_dir, vulnerable_commit=vulnerable_commit)
     if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
         SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
     if repo_metadata["target_host"]: 
