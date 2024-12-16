@@ -87,6 +87,16 @@ class InitFilesResource(BaseResource):
             except subprocess.CalledProcessError as e:
                 logger.error(
                     f"Failed to remove temporary directory: {e.stderr}")
+            
+            try:
+                subprocess.run(["git", "branch", "-D", "dev"],
+                                   cwd=self.files_dir, check=True)
+                logger.info(
+                        f"Removed dev branch from {self.files_dir}")
+            except subprocess.CalledProcessError as e:
+                logger.error(
+                    f"Failed to remove dev branch from directory: {e.stderr}")
+
         else:
             logger.error(f"Temporary directory does not exist: {self.tmp_dir}")
 
