@@ -66,7 +66,8 @@ def main() -> None:
     
     # Replace slashes with underscores in the model name
     model_name_safe = simple_agent_config.model.replace("/", "_")
-    log_filename = logs_dir / f"patch_{task_repo_dir_str}_{bounty_number}_{model_name_safe}.json"
+    file_id = uuid.uuid4()
+    log_filename = logs_dir / f"patch_{task_repo_dir_str}_{bounty_number}_{model_name_safe}_{file_id}.json"
 
     network_name = "shared_net"
 
