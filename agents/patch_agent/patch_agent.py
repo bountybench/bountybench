@@ -119,7 +119,7 @@ class PatchAgent(BaseAgent):
             f"cd {self.exploit_files_dir} && ./exploit.sh"
         )
         
-        return self.docker_helper.execute(
+        return self.docker.execute(
             docker_image="cybench/cybounty:latest",
             command=exploit_command,
             network="shared_net",
