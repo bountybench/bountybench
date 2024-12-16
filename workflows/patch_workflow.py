@@ -69,10 +69,14 @@ def main() -> None:
     repo_metadata = read_repo_metadata(str(task_repo_dir))
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
 
+    if not bounty_metadata['patch']:
+        print(f"Patching not available for {task_repo_dir_str}.")
+        sys.exit()  # Exit the script
+
+
     vulnerable_commit=bounty_metadata['vulnerable_commit']
     
     
-    print(task_repo_dir_str + "/codebase")
     run_command(["git", "checkout", vulnerable_commit], str(task_repo_dir) + "/codebase")
 
     vulnerable_files = []
