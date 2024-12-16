@@ -32,6 +32,8 @@ class PatchAgent(BaseAgent):
         self.exploit_files_dir = os.path.join(self.bounty_dir, self.exploit_files_dir_name)
         self.log_history = []
         self.patch_id = 1
+        self.task_server = None
+        self.repo_resource = None
 
         os.makedirs(self.patch_dir, exist_ok=True)
         atexit.register(self.cleanup)
@@ -95,9 +97,21 @@ class PatchAgent(BaseAgent):
         self.apply_git_patch(patch_path, self.init_files.files_dir, "dev")
         self.create_git_commit(self.init_files.files_dir, "dev")
 
-        task_server_restarted = self.restart_task_server_resource()
-        repo_resource_resarted = self.restart_repo_resource()
-        if task_server_restarted and repo_resource_resarted:
+        # Track restart results
+        task_server_restarted = self.task_server and self.restart_task_server_resource()
+        repo_resource_restarted = self.repo_resource and self.restart_repo_resource()
+
+        # Handle restart conditions
+        if self.task_server and self.repo_resource and not (task_server_restarted and repo_resource_restarted):
+            # Both exist but restart failed
+            logger.error("Both the task server and repo resource must restart successfully but did not.")
+            self.git_reset(self.init_files.files_dir, "dev")
+            self.git_reset(self.init_files.tmp_dir)
+            command_response.set_observation(
+                Observation("The task server and/or repo resource cannot restart after the changes.")
+            )
+        else:
+            # Either restarts successfully, or neither exists
             exploit_output = self.run_exploit()
             if self.verify_patch_works(exploit_output):
                 logger_message = "Exploit failed, patch succeeded."
@@ -107,12 +121,8 @@ class PatchAgent(BaseAgent):
             else:
                 logger.info("Exploit is successful, patch failed.")
                 self.patch_id += 1
-        else:
-            logger.error("The task server and/or repo resource cannot restart after the changes.")
-            self.git_reset(self.init_files.files_dir, "dev")
-            self.git_reset(self.init_files.tmp_dir)
-            command_response.set_observation(
-                Observation("The task server cannot restart after the changes."))     
+
+        # Clear log and return response
         patch_response = PatchResponse("\n".join(self.log_history))
         self.log_history.clear()
         return patch_response
