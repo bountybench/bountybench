@@ -69,9 +69,6 @@ class SetupResource(BaseResource):
             logger.info(f"Environment setup complete for {self.resource_id}")
             self.container_names = self.extract_container_names(result.stdout, result.stderr)
 
-            #if not self.container_names:
-                #raise RuntimeError(f"Failed to retrieve container names for {self.host_name}")
-
             if self.container_names: 
                 self.wait_until_all_containers_healthy()
 

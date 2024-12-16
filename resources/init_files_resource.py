@@ -33,13 +33,13 @@ class InitFilesResource(BaseResource):
             self.exploit_files_dir = os.path.join(self.task_repo_dir, exploit_files_dir_name)
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
         self.vulnerable_commit = vulnerable_commit
-        self.start()
+        self._start()
 
         resource_dict[self.resource_id] = self
 
         atexit.register(self.stop)
 
-    def start(self) -> None:
+    def _start(self) -> None:
         """
         Run the initialization script for the task.
         """
