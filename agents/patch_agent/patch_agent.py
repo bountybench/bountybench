@@ -36,8 +36,6 @@ class PatchAgent(BaseAgent):
         self.exploit_files_dir = os.path.join(self.bounty_dir, self.exploit_files_dir_name)
         self.log_history = []
         self.patch_id = 1
-        print("DOCKER HELPER", self.docker_helper)
-        print("MY TASK SERVER", self.task_server)
 
         os.makedirs(self.patch_dir, exist_ok=True)
         atexit.register(self.cleanup)
