@@ -94,7 +94,7 @@ def main() -> None:
 
     # Relative to task_repo_dir
 
-    InitFilesResource(task_repo_dir=task_repo_dir, files_dir=files_dir, tmp_dir=tmp_dir, exploit_files_dir_name=None, vulnerable_commit=bounty_metadata['vulnerable_commit'])
+    InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=None, vulnerable_commit=bounty_metadata['vulnerable_commit'])
 
     if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
         SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
