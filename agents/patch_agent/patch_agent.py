@@ -21,10 +21,14 @@ from responses.patch_response import PatchResponse
 logger = get_main_logger(__name__)
 
 
-class PatchAgent(BaseAgent):
+class PatchAgent(BaseAgent):    
+
+    REQUIRED_RESOURCES = [ InitFilesResource, DockerResource ]
+    OPTIONAL_RESOURCES = [ (SetupResource, "task_server"), (SetupResource, "repo_resource") ]
+    ACCESSIBLE_RESOURCES = [ (SetupResource, "task_server"), (SetupResource, "repo_resource"), InitFilesResource, DockerResource ]
+
     def __init__(self, *args, **kwargs):
-        super().__init__()
-        self._initialize_resources()
+        super().__init__(*args, **kwargs)
         self.bounty_dir = kwargs.get('bounty_dir')
         self.patch_dir_name = "patches"
         self.patch_dir = os.path.join(self.init_files.task_repo_dir, self.patch_dir_name)
@@ -32,36 +36,9 @@ class PatchAgent(BaseAgent):
         self.exploit_files_dir = os.path.join(self.bounty_dir, self.exploit_files_dir_name)
         self.log_history = []
         self.patch_id = 1
-        self.task_server = None
-        self.repo_resource = None
 
         os.makedirs(self.patch_dir, exist_ok=True)
         atexit.register(self.cleanup)
-       
-    
-    def _initialize_resources(self):
-        try:
-            self.init_files = self._get_resource(InitFilesResource)[0]
-            self.docker_helper = self._get_resource(DockerResource)[0]
-        except KeyError as e:
-            raise RuntimeError(f"{e.args[0]} not set up. Patch agent cannot start.")
-        try:
-            setup_resources = self._get_resource(SetupResource)
-            for setup_resource in setup_resources: 
-                if setup_resource.task_level_setup: 
-                    self.task_server = setup_resource
-                else: 
-                    self.repo_resource = setup_resource
-        except KeyError:
-            # It's possible some bounties don't have a task server
-            self.task_server = None
-            logger.warning("TaskServerResource not found. Continuing without a task server.")
-    
-    def _get_resource(self, resource_type):
-        resources = self.resource_dict.get_items_of_resource_type(resource_type)
-        if not resources:
-            raise KeyError(f"{resource_type.__name__}")
-        return resources
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) != 1:
@@ -140,7 +117,7 @@ class PatchAgent(BaseAgent):
             f"cd {self.exploit_files_dir} && ./exploit.sh"
         )
         
-        return self.docker_helper.execute(
+        return self.docker.execute(
             docker_image="cybench/cybounty:latest",
             command=exploit_command,
             network="shared_net",
