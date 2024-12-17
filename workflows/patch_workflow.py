@@ -185,6 +185,8 @@ def main() -> None:
             
         workflow_logger.end_iteration("in_progress")
 
+        prev_response = simple_response.response
+
     # If we reached max iterations without success
     if iteration == executor_agent_config.max_iterations - 1:
         workflow_logger.finalize("completed_max_iterations")
