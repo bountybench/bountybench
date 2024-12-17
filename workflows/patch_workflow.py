@@ -109,8 +109,7 @@ def main() -> None:
         stop_token=STOP_TOKEN,
         target_host=repo_metadata["target_host"],
     )
-    print(patch_prompt)
-    print("==========================")
+
     files_dir, tmp_dir = "codebase", "tmp"
 
     # Relative to task_repo_dir
