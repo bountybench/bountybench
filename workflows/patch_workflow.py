@@ -59,9 +59,6 @@ def main() -> None:
         bounty_number=bounty_number,
         model_config=executor_agent_config.__dict__
     )
-    
-    # Replace slashes with underscores in the model name
-    model_name_safe = executor_agent_config.model.replace("/", "_")
 
     network_name = "shared_net"
 
@@ -119,10 +116,10 @@ def main() -> None:
     workflow_logger.add_resource("InitFilesResource")
     InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=exploit_files_dir, vulnerable_commit=vulnerable_commit)
     if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
-        workflow_logger.add_resource("SetupResource")
+        workflow_logger.add_resource("SetupResource-repo")
         SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
     if repo_metadata["target_host"]: 
-        workflow_logger.add_resource("SetupResource")
+        workflow_logger.add_resource("SetupResource-task")
         SetupResource(task_level_setup=True, task_repo_dir=task_repo_dir, files_dir=files_dir, bounty_number=bounty_number, server_address=repo_metadata["target_host"])
 
     workflow_logger.add_resource("KaliEnv")
@@ -174,7 +171,7 @@ def main() -> None:
         )
 
         if issubclass(patch_response.__class__, AnswerResponseInterface):
-            workflow_logger.end_iteration("success", {"message": "Patch Success!"})
+            workflow_logger.end_iteration("success")
             workflow_logger.finalize("completed_success")
             logger.info("Patch Success!")
             break
@@ -183,7 +180,7 @@ def main() -> None:
 
         # If simple agent hallucinates, log and stop
         if issubclass(simple_response.__class__, AnswerResponseInterface):
-            workflow_logger.end_iteration("halted", {"message": "Simple agent hallucinated an answer"})
+            workflow_logger.end_iteration("fail")
             workflow_logger.finalize("completed_with_hallucination")
             logger.info("Simple agent hallucinated an answer!")
             break

@@ -74,14 +74,12 @@ class WorkflowLogger:
         )
         self.current_iteration.interactions.append(interaction)
     
-    def end_iteration(self, status: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def end_iteration(self, status: str) -> None:
         """End the current iteration and add it to the workflow log"""
         if not hasattr(self, 'current_iteration'):
             raise RuntimeError("No iteration in progress")
             
         self.current_iteration.status = status
-        if metadata:
-            self.current_iteration.metadata.update(metadata)
             
         self.workflow_log.iterations.append(self.current_iteration)
         delattr(self, 'current_iteration')
