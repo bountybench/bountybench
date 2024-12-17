@@ -15,7 +15,6 @@ class WorkflowIteration:
     iteration_number: int
     interactions: List[AgentInteraction]
     status: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class WorkflowMetadata:

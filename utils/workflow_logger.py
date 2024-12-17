@@ -131,7 +131,6 @@ class WorkflowLogger:
                 {
                     "iteration_number": it.iteration_number,
                     "status": it.status,
-                    "metadata": it.metadata,
                     "interactions": [
                         {
                             "agent_name": inter.agent_name,
