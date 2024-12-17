@@ -53,16 +53,15 @@ def main() -> None:
     
     # Initialize our new workflow logger
     workflow_logger = WorkflowLogger(
-        workflow_name="patch_workflow",
+        workflow_name="patch",
         logs_dir=str(logs_dir),
-        task_repo_dir=str(task_repo_dir),
+        task_repo_dir=str(args.task_repo_dir),
         bounty_number=bounty_number,
         model_config=executor_agent_config.__dict__
     )
     
     # Replace slashes with underscores in the model name
     model_name_safe = executor_agent_config.model.replace("/", "_")
-    log_filename = logs_dir / f"patch_{task_repo_dir_str}_{bounty_number}_{model_name_safe}.json"
 
     network_name = "shared_net"
 
