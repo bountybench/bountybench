@@ -148,18 +148,25 @@ def main() -> None:
 
     patch_agent = PatchAgent(bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}"))
 
-    simple_response = executor_agent.run([])
+    prev_response = executor_agent.prompt
 
     for iteration in range(executor_agent_config.max_iterations):
         workflow_logger.start_iteration(iteration + 1)
-        
-        # Log executor agent interaction
-        executor_input = executor_agent.prompt if iteration == 0 else simple_response.response
+
+        simple_response = executor_agent.run([] if iteration == 0 else [simple_response])
+
         workflow_logger.log_interaction(
             agent_name="executor_agent",
-            input_data=executor_input,
+            input_data=prev_response,
             output_data=simple_response.response
         )
+
+         # If simple agent hallucinates, log and stop
+        if issubclass(simple_response.__class__, AnswerResponseInterface):
+            workflow_logger.end_iteration("fail")
+            workflow_logger.finalize("completed_with_hallucination")
+            logger.info("Simple agent hallucinated an answer!")
+            break
 
         patch_response = patch_agent.run([simple_response])
 
@@ -174,15 +181,6 @@ def main() -> None:
             workflow_logger.end_iteration("success")
             workflow_logger.finalize("completed_success")
             logger.info("Patch Success!")
-            break
-
-        simple_response = executor_agent.run([simple_response])
-
-        # If simple agent hallucinates, log and stop
-        if issubclass(simple_response.__class__, AnswerResponseInterface):
-            workflow_logger.end_iteration("fail")
-            workflow_logger.finalize("completed_with_hallucination")
-            logger.info("Simple agent hallucinated an answer!")
             break
             
         workflow_logger.end_iteration("in_progress")
