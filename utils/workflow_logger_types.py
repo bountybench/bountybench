@@ -14,14 +14,16 @@ class Action:
     action_type: ActionType
     input_data: Any
     output_data: Any
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class AgentInteraction:
     agent_name: str
-    input_data: Response
-    output_data: Response
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    input_response: Response
+    output_response: Response
+    start_time: str
+    end_time: str
     actions: List[Action] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 

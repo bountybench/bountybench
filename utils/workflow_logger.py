@@ -4,7 +4,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from responses.response import Response
+
 from .workflow_logger_types import (
+    Action,
     AgentInteraction,
     WorkflowIteration,
     WorkflowLog,
@@ -55,24 +58,40 @@ class WorkflowLogger:
             status="in_progress"
         )
     
-    def log_interaction(
+    def start_interaction(self, agent_name: str, input_response: Response) -> None:
+        """Start a new interaction within the current iteration"""
+        if not hasattr(self, 'current_iteration'):
+            raise RuntimeError("Must call start_iteration before logging interactions")
+            
+        self.current_interaction = AgentInteraction(
+            agent_name=agent_name,
+            input_response=input_response,
+            output_response=None,
+            start_time=datetime.now().isoformat(),
+            end_time=None,
+            actions=[],
+            metadata={}
+        )
+    
+    def log_action(
         self,
-        agent_name: str,
+        action_name: str,
         input_data: Any,
         output_data: Any,
         metadata: Optional[Dict[str, Any]] = None
     ) -> None:
-        """Log an interaction within the current iteration"""
-        if not hasattr(self, 'current_iteration'):
-            raise RuntimeError("Must call start_iteration before logging interactions")
+        """Log an action within the current interaction"""
+        if not hasattr(self, 'current_interaction'):
+            raise RuntimeError("Must call start_interaction before logging actions")
             
-        interaction = AgentInteraction(
-            agent_name=agent_name,
-            input_data=input_data,
-            output_data=output_data,
-            metadata=metadata or {}
+        self.current_interaction.actions.append(
+            Action(
+                action_type=action_name,
+                input_data=input_data,
+                output_data=output_data,
+                metadata=metadata
+            )
         )
-        self.current_iteration.interactions.append(interaction)
     
     def end_iteration(self, status: str) -> None:
         """End the current iteration and add it to the workflow log"""
@@ -87,6 +106,18 @@ class WorkflowLogger:
         # Save after each iteration for durability
         self.save()
     
+    def end_interaction(self, output_response: Response) -> None:
+        """End the current interaction and add it to the current iteration"""
+        if not hasattr(self, 'current_interaction'):
+            raise RuntimeError("No interaction in progress")
+            
+        self.current_interaction.output_response = output_response
+        self.current_interaction.end_time = datetime.now().isoformat()
+        #TODO: Add aggregate metadata
+
+        self.current_interaction.interactions.append(self.current_interaction)
+        delattr(self, 'current_interaction')
+
     def add_resource(self, resource_name: str) -> None:
         """Log a resource being used in the workflow"""
         if resource_name not in self.workflow_log.resources_used:
@@ -132,9 +163,20 @@ class WorkflowLogger:
                     "interactions": [
                         {
                             "agent_name": inter.agent_name,
-                            "timestamp": inter.timestamp,
-                            "input_data": inter.input_data,
-                            "output_data": inter.output_data,
+                            "input_response": inter.input_response,
+                            "output_response": inter.output_response,
+                            "start_time": inter.start_time,
+                            "end_time": inter.end_time,
+                            "actions": [
+                                {
+                                    "action_type": action.action_type,
+                                    "input_data": action.input_data,
+                                    "output_data": action.output_data,
+                                    "timestamp": action.timestamp,
+                                    "metadata": action.metadata
+                                }
+                                for action in inter.actions
+                            ],
                             "metadata": inter.metadata
                         }
                         for inter in it.interactions
