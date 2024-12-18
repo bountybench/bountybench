@@ -33,3 +33,10 @@ class CommandResponse(CommandResponseInterface):
     def set_observation(self, observation: Observation) -> None:
         self._observation = observation
         self._response += f"\nObservation: {observation.raw_output}"
+    
+    def to_dict(self) -> dict:
+        return {
+            "response": self.response,
+            "command": self.command,
+            "observation": self.observation
+        }

@@ -13,3 +13,9 @@ class FailureResponse(Response):
     @property
     def failure_reason(self) -> str:
         return self._failure_reason
+    
+    def to_dict(self) -> dict:
+        return {
+            "response": self.response,
+            "failure_reason": self.failure_reason
+        }

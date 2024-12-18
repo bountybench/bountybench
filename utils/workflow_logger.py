@@ -163,8 +163,8 @@ class WorkflowLogger:
                     "interactions": [
                         {
                             "agent_name": inter.agent_name,
-                            "input_response": inter.input_response,
-                            "output_response": inter.output_response,
+                            "input_response": inter.input_response.to_dict() if inter.input_response else None,
+                            "output_response": inter.output_response.to_dict() if inter.output_response else None,
                             "start_time": inter.start_time,
                             "end_time": inter.end_time,
                             "actions": [
