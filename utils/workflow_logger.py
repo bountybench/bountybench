@@ -115,7 +115,7 @@ class WorkflowLogger:
         self.current_interaction.end_time = datetime.now().isoformat()
         #TODO: Add aggregate metadata
 
-        self.current_interaction.interactions.append(self.current_interaction)
+        self.current_iteration.interactions.append(self.current_interaction)
         delattr(self, 'current_interaction')
 
     def add_resource(self, resource_name: str) -> None:
