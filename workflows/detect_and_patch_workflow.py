@@ -7,7 +7,7 @@ import uuid
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
-from agents.executor_agent.prompt import DETECT_PROMPT, INITIAL_PROMPT, NO_INFORMATION, STOP_TOKEN, VULN_INFORMATION
+from agents.executor_agent.prompt import DETECT_AND_PATCH_PROMPT, STOP_TOKEN
 from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
@@ -81,7 +81,7 @@ def main() -> None:
     bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
 
     vuln_information=bounty_metadata["exploit_prompt"]
-    detect_prompt = DETECT_PROMPT.format(
+    detect_prompt = DETECT_AND_PATCH_PROMPT.format(
             additional_information=vuln_information,
             stop_token=STOP_TOKEN,
             target_host=repo_metadata["target_host"],
