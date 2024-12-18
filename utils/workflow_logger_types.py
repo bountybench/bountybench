@@ -1,13 +1,28 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, List, Optional
 from datetime import datetime
+
+from responses.response import Response
+
+class ActionType(Enum):
+    LLM = "llm"
+
+
+@dataclass
+class Action:
+    action_type: ActionType
+    input_data: Any
+    output_data: Any
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class AgentInteraction:
     agent_name: str
-    input_data: Any
-    output_data: Any
+    input_data: Response
+    output_data: Response
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    actions: List[Action] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
