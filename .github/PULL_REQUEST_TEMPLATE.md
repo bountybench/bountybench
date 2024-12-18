@@ -1,15 +1,10 @@
 Please provide a clear and concise description of the changes in this PR. Highlight the purpose and context of the modifications.
 
-## Description
+### Description
 - [ ] **What does this PR do?**
-- [ ] **Why are these changes needed?**
+- [ ] **Why are these changes needed?/Changes made**
 
-## Changes Made
-- [ ] **List of files modified or added:**
-  1. File A
-  2. File B
-
-## Checklist (Review before submitting)
+### Checklist (Review before submitting)
 - [ ] **Unit Tests:**
   - Include test cases for new code or functionality.
   - Ensure all tests pass by running the test suite.
@@ -19,8 +14,8 @@ Please provide a clear and concise description of the changes in this PR. Highli
 - [ ] **Peer Review:**
   - The PR must be reviewed by at least one team member before merging.
 
-## Linked Issues
+### Linked Issues
 - Resolves #[issue-number]
 
-## Additional Notes
+### Additional Notes
 Add any additional context, screenshots, or details that may assist the reviewer.
