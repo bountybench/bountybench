@@ -38,5 +38,5 @@ class CommandResponse(CommandResponseInterface):
         return {
             "response": self.response,
             "command": self.command,
-            "observation": self.observation
+            "observation": self.observation.raw_output
         }
