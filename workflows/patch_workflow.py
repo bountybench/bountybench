@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
@@ -14,13 +15,9 @@ from resources.setup_resource import SetupResource
 from resources.utils import *
 from responses.answer_response_interface import AnswerResponseInterface
 from utils.logger import get_main_logger
+from utils.workflow_logger import WorkflowLogger
 
 logger = get_main_logger(__name__)
-
-# Function to save JSON log
-def save_run_log(run_data, filename):
-    with open(filename, 'w') as f:
-        json.dump(run_data, f, indent=4)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the task")
@@ -54,9 +51,14 @@ def main() -> None:
         use_helm=True
     )
     
-    # Replace slashes with underscores in the model name
-    model_name_safe = executor_agent_config.model.replace("/", "_")
-    log_filename = logs_dir / f"patch_{task_repo_dir_str}_{bounty_number}_{model_name_safe}.json"
+    # Initialize our new workflow logger
+    workflow_logger = WorkflowLogger(
+        workflow_name="patch",
+        logs_dir=str(logs_dir),
+        task_repo_dir=str(args.task_repo_dir),
+        bounty_number=bounty_number,
+        model_config=executor_agent_config.__dict__
+    )
 
     network_name = "shared_net"
 
@@ -104,26 +106,34 @@ def main() -> None:
         stop_token=STOP_TOKEN,
         target_host=repo_metadata["target_host"],
     )
-    print(patch_prompt)
-    print("==========================")
+
     files_dir, tmp_dir = "codebase", "tmp"
 
     # Relative to task_repo_dir
     exploit_files_dir = os.path.join("bounties", f"bounty_{bounty_number}", "exploit_files")
 
 
+    workflow_logger.add_resource("InitFilesResource")
     InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=exploit_files_dir, vulnerable_commit=vulnerable_commit)
     if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
+        workflow_logger.add_resource("SetupResource-repo")
         SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
     if repo_metadata["target_host"]: 
+        workflow_logger.add_resource("SetupResource-task")
         SetupResource(task_level_setup=True, task_repo_dir=task_repo_dir, files_dir=files_dir, bounty_number=bounty_number, server_address=repo_metadata["target_host"])
 
+    workflow_logger.add_resource("KaliEnv")
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
+    workflow_logger.add_resource("DockerHelper")
     DockerResource("DockerHelper")
-
-
     
+    # Add workflow metadata
+    workflow_logger.add_metadata("vulnerable_files", vulnerable_files)
+    workflow_logger.add_metadata("exploit_description", exploit_description)
+    workflow_logger.add_metadata("repo_metadata", repo_metadata)
+    workflow_logger.add_metadata("bounty_metadata", bounty_metadata)
+
     executor_agent_config: AgentConfig = AgentConfig(
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
@@ -134,42 +144,50 @@ def main() -> None:
     )
 
     executor_agent = ExecutorAgent(
-        config=executor_agent_config, initial_prompt=patch_prompt, target_host=repo_metadata["target_host"])
+        config=executor_agent_config, initial_prompt=patch_prompt, logger=workflow_logger, target_host=repo_metadata["target_host"])
 
     patch_agent = PatchAgent(bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}"))
 
-    # Initialize the log for all iterations
-    run_log = {
-        "iterations": []
-    }
-
-    simple_response = executor_agent.run([])
+    prev_response = None
 
     for iteration in range(executor_agent_config.max_iterations):
-        run_data = {}
-        run_data["iteration"] = iteration + 1
-        if run_data["iteration"] == 1: 
-            run_data["executor_agent_input"] = executor_agent.prompt 
-        else: 
-            run_data["executor_agent_input"] = simple_response.response
+        workflow_logger.start_iteration(iteration + 1)
 
-        patch_response = patch_agent.run([simple_response])
+        workflow_logger.start_interaction(
+            agent_name="executor_agent",
+            input_response=prev_response
+        )
+        simple_response = executor_agent.run([] if iteration == 0 else [prev_response])
 
-        run_data["patch_agent_output"] = patch_response.response
-        run_log["iterations"].append(run_data)
+        workflow_logger.end_interaction(output_response=simple_response)
 
-        if issubclass(patch_response.__class__, AnswerResponseInterface):
-            logger.info("Patch Success!")
-            break
-
-        simple_response = executor_agent.run([simple_response])
-
-        # If simple agent hallucinates, log and stop
+         # If simple agent hallucinates, log and stop
         if issubclass(simple_response.__class__, AnswerResponseInterface):
+            workflow_logger.end_iteration("fail")
+            workflow_logger.finalize("completed_with_hallucination")
             logger.info("Simple agent hallucinated an answer!")
             break
 
-    save_run_log(run_log, log_filename)
-    
+        workflow_logger.start_interaction(
+            agent_name="patch_agent",
+            input_response=simple_response
+        )
+        patch_response = patch_agent.run([simple_response])
+        workflow_logger.end_interaction(output_response=patch_response)
+
+        if issubclass(patch_response.__class__, AnswerResponseInterface):
+            workflow_logger.end_iteration("success")
+            workflow_logger.finalize("completed_success")
+            logger.info("Patch Success!")
+            break
+            
+        workflow_logger.end_iteration("in_progress")
+
+        prev_response = simple_response
+
+    # If we reached max iterations without success
+    if iteration == executor_agent_config.max_iterations - 1:
+        workflow_logger.finalize("completed_max_iterations")
+
 if __name__ == "__main__":
     main()

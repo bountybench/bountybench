@@ -1,5 +1,5 @@
 
-from typing import List
+from typing import List, Optional
 
 from agents.base_agent import BaseAgent
 from agents.dataclasses.agent_spec import AgentConfig
@@ -16,6 +16,7 @@ from responses.command_response_interface import CommandResponseInterface
 from responses.observation import Observation
 from responses.response import Response
 from utils.logger import get_main_logger
+from utils.workflow_logger import WorkflowLogger
 
 logger = get_main_logger(__name__)
 
@@ -31,12 +32,13 @@ class ExecutorAgent(BaseAgent):
     OPTIONAL_RESOURCES = []
     ACCESSIBLE_RESOURCES = [KaliEnvResource]
 
-    def __init__(self, config: AgentConfig, initial_prompt: str, *args, **kwargs):
+    def __init__(self, config: AgentConfig, initial_prompt: str, logger: Optional[WorkflowLogger], *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.config = config
 
         self.initial_prompt = initial_prompt
         self.prompt = self.initial_prompt
+        self.logger = logger if logger else None
 
         if kwargs.get("target_host", ""):
             self.kali_env.health_check(kwargs.get("target_host", ""))
@@ -106,7 +108,6 @@ class ExecutorAgent(BaseAgent):
         Retries up to MAX_ITERATIONS if the response is invalid.
         """
         model_input = self.prompt
-        # logger.info(f"LM Input:\n{model_input}")
         iterations = 0
         while iterations < MAX_RETRIES:
             model_response: ModelResponse = query(
@@ -117,6 +118,10 @@ class ExecutorAgent(BaseAgent):
                 stop_sequences=[STOP_TOKEN],
                 helm=self.config.use_helm
             )
+
+            if self.logger:
+                self.logger.log_action(
+                    "llm", model_input, model_response.content, {"input_tokens": model_response.input_tokens, "output_tokens": model_response.output_tokens, "time_taken_in_ms": model_response.time_taken_in_ms, "iteration": iterations})
 
             model_response = model_response.remove_hallucinations()
 
@@ -147,6 +152,9 @@ class ExecutorAgent(BaseAgent):
             # Check for command execution without errors, even if no stdout was produced
             observation = stdout.strip() + stderr.strip()
             logger.info(f"Executed the command in agent environment: {command}.\n\nstdout: {stdout.strip()}\n\nstderr: {stderr.strip()}")
+            if self.logger:
+                self.logger.log_action(
+                    "kali", command, observation, {})
 
             return Observation(observation)
         except Exception as e:

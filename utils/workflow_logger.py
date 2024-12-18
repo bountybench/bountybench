@@ -1,0 +1,193 @@
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from responses.response import Response
+
+from .workflow_logger_types import (
+    Action,
+    AgentInteraction,
+    WorkflowIteration,
+    WorkflowLog,
+    WorkflowMetadata,
+)
+
+class WorkflowLogger:
+    def __init__(
+        self,
+        workflow_name: str,
+        logs_dir: str = "logs",
+        task_repo_dir: Optional[str] = None,
+        bounty_number: Optional[str] = None,
+        model_config: Optional[Dict[str, Any]] = None,
+    ):
+        self.workflow_name = workflow_name
+        self.logs_dir = Path(logs_dir)
+        self.logs_dir.mkdir(exist_ok=True)
+        
+        # Initialize workflow log
+        self.workflow_log = WorkflowLog(
+            metadata=WorkflowMetadata(
+                workflow_name=workflow_name,
+                start_time=datetime.now().isoformat(),
+                task_repo_dir=task_repo_dir,
+                bounty_number=bounty_number,
+                model_config=model_config
+            ),
+            iterations=[]
+        )
+        
+        # Generate log filename
+        components = [workflow_name]
+        if task_repo_dir:
+            components.append(Path(task_repo_dir).name)
+        if bounty_number:
+            components.append(str(bounty_number))
+        if model_config and "model" in model_config:
+            components.append(model_config["model"].replace("/", "_"))
+            
+        self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    
+    def start_iteration(self, iteration_number: int) -> None:
+        """Start a new workflow iteration"""
+        self.current_iteration = WorkflowIteration(
+            iteration_number=iteration_number,
+            interactions=[],
+            status="in_progress"
+        )
+    
+    def start_interaction(self, agent_name: str, input_response: Response) -> None:
+        """Start a new interaction within the current iteration"""
+        if not hasattr(self, 'current_iteration'):
+            raise RuntimeError("Must call start_iteration before logging interactions")
+            
+        self.current_interaction = AgentInteraction(
+            agent_name=agent_name,
+            input_response=input_response,
+            output_response=None,
+            start_time=datetime.now().isoformat(),
+            end_time=None,
+            actions=[],
+            metadata={}
+        )
+    
+    def log_action(
+        self,
+        action_name: str,
+        input_data: Any,
+        output_data: Any,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Log an action within the current interaction"""
+        if not hasattr(self, 'current_interaction'):
+            raise RuntimeError("Must call start_interaction before logging actions")
+            
+        self.current_interaction.actions.append(
+            Action(
+                action_type=action_name,
+                input_data=input_data,
+                output_data=output_data,
+                metadata=metadata
+            )
+        )
+    
+    def end_iteration(self, status: str) -> None:
+        """End the current iteration and add it to the workflow log"""
+        if not hasattr(self, 'current_iteration'):
+            raise RuntimeError("No iteration in progress")
+            
+        self.current_iteration.status = status
+            
+        self.workflow_log.iterations.append(self.current_iteration)
+        delattr(self, 'current_iteration')
+        
+        # Save after each iteration for durability
+        self.save()
+    
+    def end_interaction(self, output_response: Response) -> None:
+        """End the current interaction and add it to the current iteration"""
+        if not hasattr(self, 'current_interaction'):
+            raise RuntimeError("No interaction in progress")
+            
+        self.current_interaction.output_response = output_response
+        self.current_interaction.end_time = datetime.now().isoformat()
+        #TODO: Add aggregate metadata
+
+        self.current_iteration.interactions.append(self.current_interaction)
+        delattr(self, 'current_interaction')
+
+    def add_resource(self, resource_name: str) -> None:
+        """Log a resource being used in the workflow"""
+        if resource_name not in self.workflow_log.resources_used:
+            self.workflow_log.resources_used.append(resource_name)
+    
+    def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
+        """Log an error that occurred during the workflow"""
+        error_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "message": error_msg,
+            **(error_data or {})
+        }
+        self.workflow_log.error_log.append(error_entry)
+        self.save()
+    
+    def add_metadata(self, key: str, value: Any) -> None:
+        """Add additional metadata to the workflow"""
+        self.workflow_log.metadata.additional_metadata[key] = value
+    
+    def finalize(self, final_status: str = "completed") -> None:
+        """Finalize the workflow log"""
+        self.workflow_log.metadata.end_time = datetime.now().isoformat()
+        self.workflow_log.final_status = final_status
+        self.save()
+    
+    def save(self) -> None:
+        """Save the workflow log to a JSON file"""
+        # Convert the workflow log to a dictionary
+        log_dict = {
+            "metadata": {
+                "workflow_name": self.workflow_log.metadata.workflow_name,
+                "start_time": self.workflow_log.metadata.start_time,
+                "end_time": self.workflow_log.metadata.end_time,
+                "task_repo_dir": self.workflow_log.metadata.task_repo_dir,
+                "bounty_number": self.workflow_log.metadata.bounty_number,
+                "model_config": self.workflow_log.metadata.model_config,
+                "additional_metadata": self.workflow_log.metadata.additional_metadata
+            },
+            "iterations": [
+                {
+                    "iteration_number": it.iteration_number,
+                    "status": it.status,
+                    "interactions": [
+                        {
+                            "agent_name": inter.agent_name,
+                            "input_response": inter.input_response.to_dict() if inter.input_response else None,
+                            "output_response": inter.output_response.to_dict() if inter.output_response else None,
+                            "start_time": inter.start_time,
+                            "end_time": inter.end_time,
+                            "actions": [
+                                {
+                                    "action_type": action.action_type,
+                                    "input_data": action.input_data,
+                                    "output_data": action.output_data,
+                                    "timestamp": action.timestamp,
+                                    "metadata": action.metadata
+                                }
+                                for action in inter.actions
+                            ],
+                            "metadata": inter.metadata
+                        }
+                        for inter in it.interactions
+                    ]
+                }
+                for it in self.workflow_log.iterations
+            ],
+            "resources_used": self.workflow_log.resources_used,
+            "final_status": self.workflow_log.final_status,
+            "error_log": self.workflow_log.error_log
+        }
+        
+        with open(self.log_file, 'w') as f:
+            json.dump(log_dict, f, indent=4)
