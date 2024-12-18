@@ -36,6 +36,7 @@ class PatchAgent(BaseAgent):
         self.exploit_files_dir = os.path.join(self.bounty_dir, self.exploit_files_dir_name)
         self.log_history = []
         self.patch_id = 1
+        self.logger = kwargs.get("logger", None)
 
         os.makedirs(self.patch_dir, exist_ok=True)
         atexit.register(self.cleanup)
