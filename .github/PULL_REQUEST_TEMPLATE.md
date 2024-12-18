@@ -18,14 +18,6 @@ Please provide a clear and concise description of the changes in this PR. Highli
   - Update any relevant README or documentation files.
 - [ ] **Peer Review:**
   - The PR must be reviewed by at least one team member before merging.
-- [ ] **Style and Quality:**
-  - Follow code style guidelines.
-  - Lint checks pass without warnings/errors.
-
-## Test Plan
-Explain the testing strategy used to validate the changes:
-1. **Manual testing:** Describe what manual testing was done (if any).
-2. **Automated testing:** Provide details of the unit tests, including edge cases.
 
 ## Linked Issues
 - Resolves #[issue-number]
