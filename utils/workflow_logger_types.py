@@ -5,13 +5,10 @@ from datetime import datetime
 
 from responses.response import Response
 
-class ActionType(Enum):
-    LLM = "llm"
-
 
 @dataclass
 class Action:
-    action_type: ActionType
+    action_type: str
     input_data: Any
     output_data: Any
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
