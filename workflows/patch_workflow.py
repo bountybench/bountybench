@@ -148,7 +148,7 @@ def main() -> None:
 
     bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}")
     exploit_files_dir = os.path.join(bounty_dir, "exploit_files")
-    patch_agent = PatchAgent(bounty_dir=bounty_dir, exploit_files_dir=exploit_files_dir)
+    patch_agent = PatchAgent(bounty_dir=bounty_dir, exploit_files_dir=exploit_files_dir, use_verify_script=True)
 
     prev_response = None
 
