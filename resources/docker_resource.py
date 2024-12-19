@@ -1,5 +1,5 @@
 import atexit
-
+import uuid
 import docker
 
 from resources.base_resource import BaseResource
@@ -10,7 +10,6 @@ logger = get_main_logger(__name__)
 
 # Constants
 ENTRYPOINT = "/bin/bash"
-
 
 class DockerResource(BaseResource):
     """
@@ -44,21 +43,23 @@ class DockerResource(BaseResource):
             tuple: A tuple containing the logs from the container and the exit code.
         """
         
-        logger.info(
-            f"Running command in Docker: {command}, Work Dir: {work_dir}")
-        container = self.client.containers.run(
-            image=docker_image,
-            command=f'-c "{command}"',
-            volumes=volumes,
-            network=network,
-            entrypoint=ENTRYPOINT,
-            working_dir=work_dir,
-            detach=detach,
-            name=self.resource_id,
-        )
-        logs = ""
-        last_line = ""
+        unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
+        
+        logger.info(f"Running command in Docker: {command}, Work Dir: {work_dir}")
         try:
+            container = self.client.containers.run(
+                image=docker_image,
+                command=f'-c "{command}"',
+                volumes=volumes,
+                network=network,
+                entrypoint=ENTRYPOINT,
+                working_dir=work_dir,
+                detach=True,
+                name=unique_name,
+            )
+            
+            logs = ""
+            last_line = ""
             for line in container.logs(stdout=True, stderr=True, stream=True):
                 logs += (line.decode().strip() + "\n")
                 last_line = line.decode().strip()
@@ -67,13 +68,22 @@ class DockerResource(BaseResource):
             result = container.wait()
             exit_code = result['StatusCode']
             
-            container.remove()
             logger.info(f"Exploit logs:{logs}")
             logger.info(f"Exit code: {exit_code}")
+            
             return last_line, exit_code
+        
+        except docker.errors.APIError as e:
+            logger.error(f"Docker API error: {str(e)}")
+            return str(e), -1
         except Exception as e:
-            logger.error(f"Error streaming logs: {e}")
-            return logs, -1
+            logger.error(f"Error running Docker container: {e}")
+            return str(e), -1
+        finally:
+            try:
+                container.remove(force=True)
+            except:
+                pass  # If container removal fails, just ignore it
 
     def stop(self) -> None:
         """
