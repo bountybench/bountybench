@@ -42,7 +42,9 @@ class DockerResource(BaseResource):
 
         Returns:
             str: The logs from the container.
+            exit_code
         """
+
         logger.info(
             f"Running command in Docker: {command}, Work Dir: {work_dir}")
         container = self.client.containers.run(
@@ -55,19 +57,24 @@ class DockerResource(BaseResource):
             detach=detach,
             name=self.resource_id,
         )
+
         logs = ""
         last_line = ""
+
         try:
             for line in container.logs(stdout=True, stderr=True, stream=True):
                 logs += (line.decode().strip() + "\n")
                 last_line = line.decode().strip()
+            res = container.wait()
+            exit_code = res["StatusCode"]
             container.remove()
-            logger.info(f"Exploit logs:{logs}")
-            return last_line
+            logger.info(f"Command completed with exit code {exit_code}")
+            return last_line, exit_code
         except Exception as e:
             logger.error(f"Error streaming logs: {e}")
-            return logs
+            return logs, exit_code
 
+        
     def stop(self) -> None:
         """
         Stop the Docker client by closing the connection.
