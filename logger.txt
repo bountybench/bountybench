@@ -1,0 +1,621 @@
+I am writing code to enable logging for an LLM agentic workflow, where we have multiple agents in a complex infrastructure. Below is an example of the workflow_logger code. However, I believe that the use case for the common user is just way too complex. I think the workflow logging process should basically just be invisible, e.g. it's given by default to agents and resources and responses based on agent definitions for free and is overridden only for specific needs. e.g. you import workflow_logging and set some verbosity and bam, magic just happens and everything is good. Of course, you can use a more sophisticated override system for complex use cases, but most people just want this to happen invisibly and never need to learn about how to log for the common case (besides for say additional logging).
+
+But here are the code snippets. Please think through different possible designs and provide code for those designs.
+
+----------------
+
+
+# Workflow Logger Documentation
+
+## TLDR
+The Workflow Logger is a logging system designed to track and record the execution of workflows in the bountyagent system that can be generalized to any workflow. It captures detailed information about workflow iterations, agent interactions, actions, and metadata. The logger creates structured JSON logs that can be used for debugging, analysis, and monitoring of workflow execution.
+
+## Detailed Description
+
+### Components
+
+#### 1. Data Types (`workflow_logger_types.py`)
+- **Action**: Records individual actions performed by a specific agent within an iteration with:
+  - Action type
+  - Input/output data
+  - Timestamp
+  - Metadata
+
+- **AgentInteraction**: Captures individual agent interaction within an iteration including:
+  - Agent name
+  - Input/output responses
+  - Start/end times
+  - List of Actions
+  - Metadata
+
+- **WorkflowIteration**: Represents a single iteration within a **workflow** with:
+  - Iteration number
+  - List of AgentInteractions
+  - Status
+
+- **WorkflowMetadata**: Stores workflow-level information:
+  - Workflow name
+  - Start/end times
+  - Task repository directory
+  - Bounty number
+  - Model configuration
+  - Additional metadata
+
+- **WorkflowLog**: The main log structure containing:
+  - Workflow metadata
+  - List of WorkflowIterations
+  - Resources used
+  - Final status
+  - Error logs
+
+#### 2. Logger Implementation (`workflow_logger.py`)
+The `WorkflowLogger` class provides the following key functionalities:
+
+**Initialization**:
+```python
+def __init__(self, workflow_name: str, logs_dir: str = "logs", 
+             task_repo_dir: Optional[str] = None, 
+             bounty_number: Optional[str] = None,
+             model_config: Optional[Dict[str, Any]] = None)
+```
+- Creates a new workflow log with metadata
+- Generates a unique log filename based on workflow parameters
+- Creates the logs directory if it doesn't exist
+
+**Core Logging Methods**:
+```python
+def start_iteration(self, iteration_number: int) -> None:
+    """Start a new workflow iteration"""
+
+def start_interaction(self, agent_name: str, input_response: Response) -> None:
+    """Start a new interaction within the current iteration"""
+
+def log_action(self, action_name: str, input_data: Any, 
+               output_data: Any, metadata: Optional[Dict[str, Any]] = None) -> None:
+    """Log an action within the current interaction"""
+
+def end_iteration(self, status: str) -> None:
+    """End the current iteration and add it to the workflow log"""
+
+def end_interaction(self, output_response: Response) -> None:
+    """End the current interaction and add it to the current iteration"""
+```
+
+**Resource and Error Tracking**:
+```python
+def add_resource(self, resource_name: str) -> None:
+    """Log a resource being used in the workflow"""
+
+def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
+    """Log an error that occurred during the workflow"""
+
+def add_metadata(self, key: str, value: Any) -> None:
+    """Add additional metadata to the workflow"""
+```
+
+**Finalization and Saving**:
+```python
+def finalize(self, final_status: str = "completed") -> None:
+    """Finalize the workflow log"""
+
+def save(self) -> None:
+    """Save the workflow log to a JSON file"""
+```
+
+## Tutorial: Using the Workflow Logger
+
+### 1. Creating a New Workflow with Logging
+
+```python
+from utils.workflow_logger import WorkflowLogger
+
+def my_workflow():
+    # Initialize the logger
+    logger = WorkflowLogger(
+        workflow_name="my_workflow",
+        logs_dir="logs",
+        task_repo_dir="/path/to/repo",
+        bounty_number="123"
+    )
+
+    # Start an iteration
+    logger.start_iteration(iteration_number=1)
+
+    try:
+        # Log agent interaction
+        logger.start_interaction("my_agent", input_response)
+        
+        # Log specific actions
+        logger.log_action(
+            action_name="process_data",
+            input_data={"data": "input"},
+            output_data={"result": "output"},
+            metadata={"duration": "1s"}
+        )
+
+        # End interaction
+        logger.end_interaction(output_response)
+
+        # End iteration successfully
+        logger.end_iteration("completed")
+
+    except Exception as e:
+        # Log any errors
+        logger.log_error(str(e))
+        logger.end_iteration("failed")
+
+    # Finalize the workflow
+    logger.finalize()
+```
+
+### 2. Adding Logging to an Existing Agent
+
+```python
+class MyAgent:
+    def __init__(self, workflow_logger: WorkflowLogger):
+        self.logger = workflow_logger
+
+    def process(self, input_data):
+        """ start and end interaction in the workflow-level """
+        output_data = llm(input_data)
+        # Log specific actions
+        self.logger.log_action(
+            "llm",
+            input_data=input_data,
+            output_data=output_data
+        )
+```
+
+### Example: Patch Workflow Implementation
+
+The patch workflow demonstrates how to use the workflow logger in a complex scenario involving multiple agents and resources. Here's a detailed breakdown:
+
+1. **Initialize the Logger**:
+```python
+workflow_logger = WorkflowLogger(
+    workflow_name="patch",
+    logs_dir=str(logs_dir),
+    task_repo_dir=str(args.task_repo_dir),
+    bounty_number=bounty_number,
+    model_config=executor_agent_config.__dict__
+)
+```
+
+2. **Track Resources**:
+```python
+# Log initialization of resources
+workflow_logger.add_resource("InitFilesResource")
+InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir)
+
+workflow_logger.add_resource("KaliEnv")
+KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number)
+```
+
+3. **Add Workflow Context**:
+```python
+# Add important workflow metadata
+workflow_logger.add_metadata("vulnerable_files", vulnerable_files)
+workflow_logger.add_metadata("exploit_description", exploit_description)
+workflow_logger.add_metadata("repo_metadata", repo_metadata)
+```
+
+4. **Log Iterations and Agent Interactions**:
+```python
+for iteration in range(max_iterations):
+    # Start a new iteration
+    workflow_logger.start_iteration(iteration + 1)
+
+    # Log executor agent interaction
+    workflow_logger.start_interaction(
+        agent_name="executor_agent",
+        input_response=prev_response
+    )
+    response = executor_agent.run(inputs)
+    workflow_logger.end_interaction(output_response=response)
+
+    # Log patch agent interaction
+    workflow_logger.start_interaction(
+        agent_name="patch_agent",
+        input_response=response
+    )
+    patch_response = patch_agent.run([response])
+    workflow_logger.end_interaction(output_response=patch_response)
+
+    # Handle iteration status
+    if issubclass(patch_response.__class__, AnswerResponseInterface):
+        workflow_logger.end_iteration("success")
+        workflow_logger.finalize("completed_success")
+        break
+    
+    workflow_logger.end_iteration("in_progress")
+```
+
+5. **Handle Completion and Errors**:
+```python
+# Handle successful completion
+if success:
+    workflow_logger.finalize("completed_success")
+else:
+    # Log error if max iterations reached
+    workflow_logger.finalize("completed_max_iterations")
+```
+
+The resulting log file will contain:
+- Complete workflow metadata
+- Detailed record of each iteration
+- All agent interactions and their responses
+- Resources used throughout the workflow
+- Final workflow status and any errors
+
+## Best Practices
+
+1. **Always finalize workflows**: Call `finalize()` at the end of your workflow to ensure proper completion.
+2. **Error handling**: Use `log_error()` to track exceptions and issues.
+3. **Metadata**: Use `add_metadata()` to include additional context when needed.
+4. **Resource tracking**: Use `add_resource()` to track external resources being used.
+5. **Proper nesting**: Always maintain the proper nesting of iterations and interactions:
+   - Workflow → Iteration → Interaction → Action
+
+------------------
+
+
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from responses.response import Response
+
+from .workflow_logger_types import (
+    Action,
+    AgentInteraction,
+    WorkflowIteration,
+    WorkflowLog,
+    WorkflowMetadata,
+)
+
+class WorkflowLogger:
+    def __init__(
+        self,
+        workflow_name: str,
+        logs_dir: str = "logs",
+        task_repo_dir: Optional[str] = None,
+        bounty_number: Optional[str] = None,
+        model_config: Optional[Dict[str, Any]] = None,
+    ):
+        self.workflow_name = workflow_name
+        self.logs_dir = Path(logs_dir)
+        self.logs_dir.mkdir(exist_ok=True)
+        
+        # Initialize workflow log
+        self.workflow_log = WorkflowLog(
+            metadata=WorkflowMetadata(
+                workflow_name=workflow_name,
+                start_time=datetime.now().isoformat(),
+                task_repo_dir=task_repo_dir,
+                bounty_number=bounty_number,
+                model_config=model_config
+            ),
+            iterations=[]
+        )
+        
+        # Generate log filename
+        components = [workflow_name]
+        if task_repo_dir:
+            components.append(Path(task_repo_dir).name)
+        if bounty_number:
+            components.append(str(bounty_number))
+        if model_config and "model" in model_config:
+            components.append(model_config["model"].replace("/", "_"))
+            
+        self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    
+    def start_iteration(self, iteration_number: int) -> None:
+        """Start a new workflow iteration"""
+        self.current_iteration = WorkflowIteration(
+            iteration_number=iteration_number,
+            interactions=[],
+            status="in_progress"
+        )
+    
+    def start_interaction(self, agent_name: str, input_response: Response) -> None:
+        """Start a new interaction within the current iteration"""
+        if not hasattr(self, 'current_iteration'):
+            raise RuntimeError("Must call start_iteration before logging interactions")
+            
+        self.current_interaction = AgentInteraction(
+            agent_name=agent_name,
+            input_response=input_response,
+            output_response=None,
+            start_time=datetime.now().isoformat(),
+            end_time=None,
+            actions=[],
+            metadata={}
+        )
+    
+    def log_action(
+        self,
+        action_name: str,
+        input_data: Any,
+        output_data: Any,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Log an action within the current interaction"""
+        if not hasattr(self, 'current_interaction'):
+            raise RuntimeError("Must call start_interaction before logging actions")
+            
+        self.current_interaction.actions.append(
+            Action(
+                action_type=action_name,
+                input_data=input_data,
+                output_data=output_data,
+                metadata=metadata
+            )
+        )
+    
+    def end_iteration(self, status: str) -> None:
+        """End the current iteration and add it to the workflow log"""
+        if not hasattr(self, 'current_iteration'):
+            raise RuntimeError("No iteration in progress")
+            
+        self.current_iteration.status = status
+            
+        self.workflow_log.iterations.append(self.current_iteration)
+        delattr(self, 'current_iteration')
+        
+        # Save after each iteration for durability
+        self.save()
+    
+    def end_interaction(self, output_response: Response) -> None:
+        """End the current interaction and add it to the current iteration"""
+        if not hasattr(self, 'current_interaction'):
+            raise RuntimeError("No interaction in progress")
+            
+        self.current_interaction.output_response = output_response
+        self.current_interaction.end_time = datetime.now().isoformat()
+        #TODO: Add aggregate metadata
+
+        self.current_iteration.interactions.append(self.current_interaction)
+        delattr(self, 'current_interaction')
+
+    def add_resource(self, resource_name: str) -> None:
+        """Log a resource being used in the workflow"""
+        if resource_name not in self.workflow_log.resources_used:
+            self.workflow_log.resources_used.append(resource_name)
+    
+    def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
+        """Log an error that occurred during the workflow"""
+        error_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "message": error_msg,
+            **(error_data or {})
+        }
+        self.workflow_log.error_log.append(error_entry)
+        self.save()
+    
+    def add_metadata(self, key: str, value: Any) -> None:
+        """Add additional metadata to the workflow"""
+        self.workflow_log.metadata.additional_metadata[key] = value
+    
+    def finalize(self, final_status: str = "completed") -> None:
+        """Finalize the workflow log"""
+        self.workflow_log.metadata.end_time = datetime.now().isoformat()
+        self.workflow_log.final_status = final_status
+        self.save()
+    
+    def save(self) -> None:
+        """Save the workflow log to a JSON file"""
+        # Convert the workflow log to a dictionary
+        log_dict = {
+            "metadata": {
+                "workflow_name": self.workflow_log.metadata.workflow_name,
+                "start_time": self.workflow_log.metadata.start_time,
+                "end_time": self.workflow_log.metadata.end_time,
+                "task_repo_dir": self.workflow_log.metadata.task_repo_dir,
+                "bounty_number": self.workflow_log.metadata.bounty_number,
+                "model_config": self.workflow_log.metadata.model_config,
+                "additional_metadata": self.workflow_log.metadata.additional_metadata
+            },
+            "iterations": [
+                {
+                    "iteration_number": it.iteration_number,
+                    "status": it.status,
+                    "interactions": [
+                        {
+                            "agent_name": inter.agent_name,
+                            "input_response": inter.input_response.to_dict() if inter.input_response else None,
+                            "output_response": inter.output_response.to_dict() if inter.output_response else None,
+                            "start_time": inter.start_time,
+                            "end_time": inter.end_time,
+                            "actions": [
+                                {
+                                    "action_type": action.action_type,
+                                    "input_data": action.input_data,
+                                    "output_data": action.output_data,
+                                    "timestamp": action.timestamp,
+                                    "metadata": action.metadata
+                                }
+                                for action in inter.actions
+                            ],
+                            "metadata": inter.metadata
+                        }
+                        for inter in it.interactions
+                    ]
+                }
+                for it in self.workflow_log.iterations
+            ],
+            "resources_used": self.workflow_log.resources_used,
+            "final_status": self.workflow_log.final_status,
+            "error_log": self.workflow_log.error_log
+        }
+        
+        with open(self.log_file, 'w') as f:
+            json.dump(log_dict, f, indent=4)
+
+--------------------
+
+
+from typing import List, Optional
+
+from agents.base_agent import BaseAgent
+from agents.dataclasses.agent_spec import AgentConfig
+from agents.executor_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
+from agents.utils import truncate_input_to_max_tokens
+from models.model_response import ModelResponse
+from models.query import query
+from resources.init_files_resource import InitFilesResource
+from resources.kali_env_resource import KaliEnvResource
+from resources.setup_resource import SetupResource
+from responses.answer_response import AnswerResponse
+from responses.command_response import CommandResponse
+from responses.command_response_interface import CommandResponseInterface
+from responses.observation import Observation
+from responses.response import Response
+from utils.logger import get_main_logger
+from utils.workflow_logger import WorkflowLogger
+
+logger = get_main_logger(__name__)
+
+TIMEOUT_PER_COMMAND = 120
+MAX_RETRIES = 3
+RETRY_DELAY = 30
+TEMPERATURE = 0.5
+
+
+class ExecutorAgent(BaseAgent):
+    memory: List[str] = []    
+    REQUIRED_RESOURCES = [InitFilesResource, SetupResource, KaliEnvResource]
+    OPTIONAL_RESOURCES = []
+    ACCESSIBLE_RESOURCES = [KaliEnvResource]
+
+    def __init__(self, config: AgentConfig, initial_prompt: str, logger: Optional[WorkflowLogger], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.config = config
+
+        self.initial_prompt = initial_prompt
+        self.prompt = self.initial_prompt
+        self.logger = logger if logger else None
+
+        if kwargs.get("target_host", ""):
+            self.kali_env.health_check(kwargs.get("target_host", ""))
+
+    def run(self, responses: List[Response]) -> Response:
+        if len(responses) > 1:
+            raise Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
+        # Case for first run, no response(s) to pass in
+        if len(responses) == 0:
+            return self.execute()
+        response = responses[0]
+        if issubclass(response.__class__, CommandResponseInterface):
+            self.formulate_prompt(response)
+            return self.execute()
+        else:
+            raise Exception(
+                f'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
+
+    def execute(self) -> Response:
+        lm_executor_response = self.call_lm()
+        # if the action is command, execute the command in the environment, otherwise just submit
+        if issubclass(lm_executor_response.__class__, CommandResponseInterface):
+            observation = self.execute_in_env(lm_executor_response)
+            # only command response has set observation func
+            lm_executor_response.set_observation(observation)
+        logger.info(f"LM Response:\n{lm_executor_response.response}")
+        return lm_executor_response
+
+    def formulate_prompt(self, executor_response: CommandResponse) -> str:
+        """
+        Formulates the prompt by appending the new response to memory.
+        """
+        if len(self.memory) >= self.config.max_response_len:
+            self.memory = self.memory[1:] + [executor_response.response]
+        else:
+            self.memory.append(executor_response.response)
+
+        truncated_input = truncate_input_to_max_tokens(
+            max_input_tokens=self.config.max_input_tokens,
+            model_input="\n".join(self.memory),
+            model=self.config.model,
+            use_helm=self.config.use_helm,
+        )
+        prompt = self.initial_prompt + truncated_input
+        self.prompt = prompt
+        return prompt
+
+    def _parse_response(self, response: str) -> Response:
+        """
+        Attempts to parse the response into either AnswerResponse or CommandResponse.
+        """
+        try:
+            return AnswerResponse(response)
+        except:
+            logger.debug(
+                "LM response not an AnswerResponse type. Attempting to parse as CommandResponse.")
+            try:
+                return CommandResponse(response)
+            except:
+                logger.debug("LM response not an CommandResponse type.")
+                raise Exception(
+                    "Response could not be parsed as either an Answer or Command response.")
+
+    def call_lm(self) -> Response:
+        """
+        Calls the language model and ensures the response is in valid format.
+        Retries up to MAX_ITERATIONS if the response is invalid.
+        """
+        model_input = self.prompt
+        iterations = 0
+        while iterations < MAX_RETRIES:
+            model_response: ModelResponse = query(
+                model=self.config.model,
+                message=model_input,
+                temperature=TEMPERATURE,
+                max_tokens=self.config.max_output_tokens,
+                stop_sequences=[STOP_TOKEN],
+                helm=self.config.use_helm
+            )
+
+            if self.logger:
+                self.logger.log_action(
+                    "llm", model_input, model_response.content, {"input_tokens": model_response.input_tokens, "output_tokens": model_response.output_tokens, "time_taken_in_ms": model_response.time_taken_in_ms, "iteration": iterations})
+
+            model_response = model_response.remove_hallucinations()
+
+            lm_response = model_response + f"\n{STOP_TOKEN}"
+            try:
+                return self._parse_response(lm_response)
+            except Exception as e:
+                logger.warning(
+                    f"Retrying {iterations}/{MAX_RETRIES} after error: {e}")
+                iterations += 1
+
+        # Raise an exception if it exhausts the retries
+        raise Exception(
+            "Call_lm error: Maximum retries reached without a valid response.")
+
+    def execute_in_env(self, executor_response: CommandResponse) -> Observation:
+        """
+        Executes the command in the environment based on the ExecutorResponse.
+        Captures the output and creates an observation based on command execution.
+        """
+        command = executor_response.command
+        try:
+            # Use kali_env to execute the command inside the container
+            stdout, stderr = self.kali_env.run_command(
+                command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/"
+            )
+
+            # Check for command execution without errors, even if no stdout was produced
+            observation = stdout.strip() + stderr.strip()
+            logger.info(f"Executed the command in agent environment: {command}.\n\nstdout: {stdout.strip()}\n\nstderr: {stderr.strip()}")
+            if self.logger:
+                self.logger.log_action(
+                    "kali", command, observation, {})
+
+            return Observation(observation)
+        except Exception as e:
+            # If an actual exception occurred during execution, log it as a failure
+            logger.exception(
+                f"Failed to execute command in agent environment: {command}.\n\n Exception: {str(e)}")
+            return Observation(str(e))
