@@ -25,6 +25,9 @@ class InitFilesResource(BaseResource):
         self.tmp_dir_name = tmp_dir_name
         self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
         os.makedirs(self.tmp_dir, exist_ok=True)
+        self.tmp_exploits_dir = os.path.join(self.tmp_dir, "exploit_files")
+        os.makedirs(self.tmp_exploits_dir, exist_ok=True)
+
         self.resource_id = self.tmp_dir 
 
         self.exploit_files_dir = None
