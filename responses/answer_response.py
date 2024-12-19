@@ -19,3 +19,9 @@ class AnswerResponse(AnswerResponseInterface):
         if not answer:
             raise Exception("Answer is missing from response, cannot be a answer response.")
         return answer
+
+    def to_dict(self) -> dict:
+        return {
+            "response": self._response,
+            "answer": self._answer
+        }

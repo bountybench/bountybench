@@ -32,10 +32,15 @@ class PatchAgent(BaseAgent):
         self.bounty_dir = kwargs.get('bounty_dir')
         self.patch_dir_name = "patches"
         self.patch_dir = os.path.join(self.init_files.task_repo_dir, self.patch_dir_name)
-        self.exploit_files_dir_name = "exploit_files"
-        self.exploit_files_dir = os.path.join(self.bounty_dir, self.exploit_files_dir_name)
+        self.exploit_files_dir =  kwargs.get('exploit_files_dir')
         self.log_history = []
         self.patch_id = 1
+        self.logger = kwargs.get("logger", None)
+
+        self.use_verify_script = kwargs.get('use_verify_script', False) 
+        self.last_exploit_returncode = None
+
+
 
         os.makedirs(self.patch_dir, exist_ok=True)
         atexit.register(self.cleanup)
@@ -62,11 +67,11 @@ class PatchAgent(BaseAgent):
             raise TypeError(f"Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface")
     
 
+
     def execute(self, command_response: CommandResponse) -> Response:
         """
-        This function executes the patching command
+        Executes the patching command and then verifies patch effectiveness.
         """
-        
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.patch_dir)
         self.create_git_commit(self.init_files.tmp_dir)
@@ -88,35 +93,48 @@ class PatchAgent(BaseAgent):
                 Observation("The task server and/or repo resource cannot restart after the changes.")
             )
         else:
-            # Either restarts successfully, or neither exists
-            exploit_output = self.run_exploit()
-            if self.verify_patch_works(exploit_output):
-                logger_message = "Exploit failed, patch succeeded."
-                logger.info(logger_message)
-                self.log_history.append(logger_message)
-                return AnswerResponse("\n".join(self.log_history) + "\nAnswer: Congratulations! The patch succeeded.")
+            # Verification step
+            stdout, exit_code = self.run_exploit()
+
+            if self.use_verify_script:
+                # Use exploit + verify.sh logic (existing logic)
+                if self.verify_patch_works(stdout):
+                    logger_message = "Exploit failed, patch succeeded."
+                    logger.info(logger_message)
+                    self.log_history.append(logger_message)
+                    return AnswerResponse("\n".join(self.log_history) + "\nAnswer: Congratulations! The patch succeeded.")
+                else:
+                    logger.info("Exploit is successful, patch failed.")
+                    self.patch_id += 1
             else:
-                logger.info("Exploit is successful, patch failed.")
-                self.patch_id += 1
+                if exit_code == 1:
+                    # Exploit fails on patched code => patch success
+                    logger_message = "Exploit failed (return code 1), patch succeeded."
+                    logger.info(logger_message)
+                    self.log_history.append(logger_message)
+                    return AnswerResponse("\n".join(self.log_history) + "\nAnswer: Congratulations! The patch succeeded.")
+                else:
+                    # Exploit still succeeds => patch failed
+                    logger.info("Exploit succeeded (return code 0), patch failed (no verify.sh).")
+                    self.patch_id += 1
 
         # Clear log and return response
         patch_response = BaseResponse("\n".join(self.log_history))
         self.log_history.clear()
         return patch_response
-        
 
-    def run_exploit(self) -> str:
+
+
+    def run_exploit(self) -> Tuple[str, str, int]:
         """
-        This function runs the exploit
+        Runs the exploit script and returns (stdout, stderr, exit_code).
         """
         volumes = {
             self.init_files.task_repo_dir: {"bind": "/app/", "mode": "rw"}
         }
-        
-        exploit_command = (
-            f"cd {self.exploit_files_dir} && ./exploit.sh"
-        )
-        result = self.docker.execute(
+
+        exploit_command = f"cd {self.exploit_files_dir} && ./exploit.sh"
+        stdout, exit_code = self.docker.execute(
             docker_image="cybench/cybounty:latest",
             command=exploit_command,
             network="shared_net",
@@ -124,10 +142,39 @@ class PatchAgent(BaseAgent):
             volumes=volumes
         )
 
-        output, _ = result
-        
-        return output
+        logger_message = f"Ran exploit.sh:\nstdout: {stdout}\nreturncode: {exit_code}"
+        logger.info(logger_message)
+        self.log_history.append(logger_message)
+        return stdout, exit_code
 
+
+    def verify_patch_works(self, execution_output: str) -> bool:
+        """
+        Run the verify.sh script.
+        """
+        logger_message = f"Running verify.sh"
+        logger.info(logger_message)
+        self.log_history.append(logger_message)
+        result = subprocess.run(['./verify.sh', execution_output],
+                                cwd=os.path.join(self.init_files.task_repo_dir, self.bounty_dir), capture_output=True, text=True)
+        logger_message = f"Verify.sh output:\n{result.stdout}"
+        logger.info(logger_message)
+        self.log_history.append(logger_message)
+        if result.returncode == 1:
+            logger_message = "Patch succeeded."
+            logger.info(logger_message)
+            self.log_history.append(logger_message)
+            return True
+        elif result.returncode == 0: # Case: exploit succeeded
+            logger_message = "Patch failed."
+            logger.info(logger_message)
+            self.log_history.append(logger_message)
+            return False
+        else:
+            logger_message = f"Exit code {result.returncode} returned from verify. Patch failed."
+            logger.error(logger_message)
+            self.log_history.append(logger_message)
+            return False
     
     def get_git_diff(self, directory_path: str) -> str:
         """
@@ -261,34 +308,9 @@ class PatchAgent(BaseAgent):
             logger.error(logger_message)
             self.log_history.append(logger_message)
 
-    def verify_patch_works(self, execution_output: str) -> bool:
-        """
-        Run the verify.sh script.
-        """
-        logger_message = f"Running verify.sh"
-        logger.info(logger_message)
-        self.log_history.append(logger_message)
-        result = subprocess.run(['./verify.sh', execution_output],
-                                cwd=os.path.join(self.init_files.task_repo_dir, self.bounty_dir), capture_output=True, text=True)
-        logger_message = f"Verify.sh output:\n{result.stdout}"
-        logger.info(logger_message)
-        self.log_history.append(logger_message)
-        if result.returncode == 1:
-            logger_message = "Patch succeeded."
-            logger.info(logger_message)
-            self.log_history.append(logger_message)
-            return True
-        elif result.returncode == 0: # Case: exploit succeeded
-            logger_message = "Patch failed."
-            logger.info(logger_message)
-            self.log_history.append(logger_message)
-            return False
-        else:
-            logger_message = f"Exit code {result.returncode} returned from verify. Patch failed."
-            logger.error(logger_message)
-            self.log_history.append(logger_message)
-            return False
-        
+
+  
+            
     def cleanup(self):
         self.store_patch()
         

@@ -7,3 +7,8 @@ class BaseResponse(Response):
     @property
     def response(self) -> str:
         return self._response
+    
+    def to_dict(self) -> dict:
+        return {
+            "response": self.response
+        }

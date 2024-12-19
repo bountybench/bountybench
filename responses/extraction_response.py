@@ -51,3 +51,16 @@ class ExtractionResponse(ExtractionResponseInterface):
     @property
     def link(self) -> str:
         return self._link
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "response": self._response,
+            "description": self._description,
+            "proof": self._proof,
+            "bug_commit": self._bug_commit,
+            "bug_tag": self._bug_tag,
+            "patch_commit": self._patch_commit,
+            "patch_tag": self._patch_tag,
+            "metadata": self._metadata,
+            "link": self._link
+        }
