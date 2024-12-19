@@ -118,7 +118,9 @@ def main() -> None:
     executor_agent = ExecutorAgent(
         executor_agent_config, initial_prompt=detect_prompt)
 
-    patch_agent = PatchAgent(bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}"))
+    bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}")
+    exploit_files_dir = os.path.join(bounty_dir, "exploit_files")
+    patch_agent = PatchAgent(bounty_dir=bounty_dir, exploit_files_dir)
 
     # Initialize the log for all iterations
     run_log = {

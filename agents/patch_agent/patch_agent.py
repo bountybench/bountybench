@@ -32,8 +32,7 @@ class PatchAgent(BaseAgent):
         self.bounty_dir = kwargs.get('bounty_dir')
         self.patch_dir_name = "patches"
         self.patch_dir = os.path.join(self.init_files.task_repo_dir, self.patch_dir_name)
-        self.exploit_files_dir_name = "exploit_files"
-        self.exploit_files_dir = os.path.join(self.bounty_dir, self.exploit_files_dir_name)
+        self.exploit_files_dir =  kwargs.get('exploit_files_dir')
         self.log_history = []
         self.patch_id = 1
         self.logger = kwargs.get("logger", None)
