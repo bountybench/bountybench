@@ -61,12 +61,18 @@ class DockerResource(BaseResource):
             for line in container.logs(stdout=True, stderr=True, stream=True):
                 logs += (line.decode().strip() + "\n")
                 last_line = line.decode().strip()
+            
+            # Wait for the container to finish and get the exit code
+            result = container.wait()
+            exit_code = result['StatusCode']
+            
             container.remove()
             logger.info(f"Exploit logs:{logs}")
-            return last_line
+            logger.info(f"Exit code: {exit_code}")
+            return last_line, exit_code
         except Exception as e:
             logger.error(f"Error streaming logs: {e}")
-            return logs
+            return logs, -1
 
     def stop(self) -> None:
         """
