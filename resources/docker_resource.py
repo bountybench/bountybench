@@ -27,8 +27,8 @@ class DockerResource(BaseResource):
         atexit.register(self.stop)
 
     def execute(
-        self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = True
-    ) -> str:
+        self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = False
+    ) -> tuple:
         """
         Run a Docker container with the specified configuration.
 
@@ -38,11 +38,12 @@ class DockerResource(BaseResource):
             network (Optional[str]): The Docker network to attach the container to.
             work_dir (Optional[str]): The working directory inside the container.
             volumes (Optional[dict]): The volumes to mount in the container.
-            detach (bool): Run the container in detached mode. Defaults to True.
+            detach (bool): Run the container in detached mode. Defaults to False.
 
         Returns:
-            str: The logs from the container.
+            tuple: A tuple containing the logs from the container and the exit code.
         """
+        
         logger.info(
             f"Running command in Docker: {command}, Work Dir: {work_dir}")
         container = self.client.containers.run(
