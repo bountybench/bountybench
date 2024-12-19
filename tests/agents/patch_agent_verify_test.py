@@ -26,8 +26,14 @@ def init_files(tmp_path):
 
 @pytest.fixture
 def docker_resource():
-    # Using the actual DockerResource
-    return DockerResource("test_docker_resource")
+    # Create the DockerResource
+    dr = DockerResource("test_docker_resource")
+    
+    # Provide the resource to the test
+    yield dr
+    
+    # Cleanup code after the test finishes
+    dr.stop()
 
 @pytest.fixture
 def patch_agent(init_files, docker_resource, tmp_path):
