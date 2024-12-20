@@ -3,8 +3,15 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
+from models.model_response import ModelResponse
 from responses.response import Response
 
+@dataclass
+class LLMInteraction:
+    LLMCalls: List[ModelResponse]
+    total_input_tokens: int
+    total_output_tokens: int
+    total_time_taken_in_ms: float
 
 @dataclass
 class Action:
@@ -47,3 +54,4 @@ class WorkflowLog:
     resources_used: List[str] = field(default_factory=list)
     final_status: str = "in_progress"
     error_log: List[Dict[str, Any]] = field(default_factory=list)
+    llm_interaction: LLMInteraction

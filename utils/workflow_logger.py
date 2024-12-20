@@ -4,11 +4,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from models.model_response import ModelResponse
 from responses.response import Response
 
 from .workflow_logger_types import (
     Action,
     AgentInteraction,
+    LLMInteraction,
     WorkflowIteration,
     WorkflowLog,
     WorkflowMetadata,
@@ -46,7 +48,13 @@ class WorkflowLogger:
                 bounty_number=bounty_number,
                 model_config=model_config
             ),
-            iterations=[]
+            iterations=[],
+            llm_interaction=LLMInteraction(
+                LLMCalls=[],
+                total_input_tokens=0,
+                total_output_tokens=0,
+                total_time_taken_in_ms=0
+            )
         )
         
         # Generate log filename
@@ -163,6 +171,13 @@ class WorkflowLogger:
         self._ensure_initialized()
         self.workflow_log.metadata.additional_metadata[key] = value
     
+    def add_llm_call(self, llm_call: ModelResponse) -> None:
+        self._ensure_initialized()
+        self.workflow_log.llm_interaction.LLMCalls.append(llm_call)
+        self.workflow_log.llm_interaction.total_input_tokens += llm_call.input_tokens
+        self.workflow_log.llm_interaction.total_output_tokens += llm_call.output_tokens
+        self.workflow_log.llm_interaction.total_time_taken_in_ms += llm_call.time_taken_in_ms
+    
     def finalize(self, final_status: str = "completed") -> None:
         """Finalize the workflow log"""
         self._ensure_initialized()
@@ -214,7 +229,13 @@ class WorkflowLogger:
             ],
             "resources_used": self.workflow_log.resources_used,
             "final_status": self.workflow_log.final_status,
-            "error_log": self.workflow_log.error_log
+            "error_log": self.workflow_log.error_log,
+            "llm_interaction": {
+                "LLMCalls": [llm_call.to_dict() for llm_call in self.workflow_log.llm_interaction.LLMCalls],
+                "total_input_tokens": self.workflow_log.llm_interaction.total_input_tokens,
+                "total_output_tokens": self.workflow_log.llm_interaction.total_output_tokens,
+                "total_time_taken_in_ms": self.workflow_log.llm_interaction.total_time_taken_in_ms
+            }
         }
         
         with open(self.log_file, 'w') as f:
