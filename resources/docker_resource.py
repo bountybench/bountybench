@@ -26,8 +26,8 @@ class DockerResource(BaseResource):
         atexit.register(self.stop)
 
     def execute(
-        self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = False
-    ) -> tuple:
+    self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = False
+) -> tuple:
         """
         Run a Docker container with the specified configuration.
 
@@ -47,12 +47,15 @@ class DockerResource(BaseResource):
         
         logger.info(f"Running command in Docker: {command}, Work Dir: {work_dir}")
         try:
+            # If command is a string, convert it to a list
+            if isinstance(command, str):
+                command = ['/bin/bash', '-c', command]
+                
             container = self.client.containers.run(
                 image=docker_image,
-                command=f'-c "{command}"',
+                command=command,  # Pass command directly without additional formatting
                 volumes=volumes,
                 network=network,
-                entrypoint=ENTRYPOINT,
                 working_dir=work_dir,
                 detach=True,
                 name=unique_name,
@@ -61,14 +64,16 @@ class DockerResource(BaseResource):
             logs = ""
             last_line = ""
             for line in container.logs(stdout=True, stderr=True, stream=True):
-                logs += (line.decode().strip() + "\n")
-                last_line = line.decode().strip()
+                decoded_line = line.decode().strip()
+                logs += (decoded_line + "\n")
+                if decoded_line:  # Only update last_line if non-empty
+                    last_line = decoded_line
             
             # Wait for the container to finish and get the exit code
             result = container.wait()
             exit_code = result['StatusCode']
             
-            logger.info(f"Exploit logs:{logs}")
+            logger.info(f"Container logs:\n{logs.strip()}")
             logger.info(f"Exit code: {exit_code}")
             
             return last_line, exit_code
