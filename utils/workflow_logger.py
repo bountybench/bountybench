@@ -50,7 +50,7 @@ class WorkflowLogger:
             ),
             iterations=[],
             llm_interaction=LLMInteraction(
-                LLMCalls=[],
+                llm_calls=[],
                 total_input_tokens=0,
                 total_output_tokens=0,
                 total_time_taken_in_ms=0
@@ -173,7 +173,7 @@ class WorkflowLogger:
     
     def add_llm_call(self, llm_call: ModelResponse) -> None:
         self._ensure_initialized()
-        self.workflow_log.llm_interaction.LLMCalls.append(llm_call)
+        self.workflow_log.llm_interaction.llm_calls.append(llm_call)
         self.workflow_log.llm_interaction.total_input_tokens += llm_call.input_tokens
         self.workflow_log.llm_interaction.total_output_tokens += llm_call.output_tokens
         self.workflow_log.llm_interaction.total_time_taken_in_ms += llm_call.time_taken_in_ms
@@ -231,7 +231,7 @@ class WorkflowLogger:
             "final_status": self.workflow_log.final_status,
             "error_log": self.workflow_log.error_log,
             "llm_interaction": {
-                "LLMCalls": [llm_call.to_dict() for llm_call in self.workflow_log.llm_interaction.LLMCalls],
+                "llm_calls": [llm_call.to_dict() for llm_call in self.workflow_log.llm_interaction.llm_calls],
                 "total_input_tokens": self.workflow_log.llm_interaction.total_input_tokens,
                 "total_output_tokens": self.workflow_log.llm_interaction.total_output_tokens,
                 "total_time_taken_in_ms": self.workflow_log.llm_interaction.total_time_taken_in_ms

@@ -8,7 +8,7 @@ from responses.response import Response
 
 @dataclass
 class LLMInteraction:
-    LLMCalls: List[ModelResponse]
+    llm_calls: List[ModelResponse]
     total_input_tokens: int
     total_output_tokens: int
     total_time_taken_in_ms: float
