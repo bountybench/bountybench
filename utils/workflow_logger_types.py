@@ -51,7 +51,7 @@ class WorkflowMetadata:
 class WorkflowLog:
     metadata: WorkflowMetadata
     iterations: List[WorkflowIteration]
+    llm_interaction: LLMInteraction
     resources_used: List[str] = field(default_factory=list)
     final_status: str = "in_progress"
     error_log: List[Dict[str, Any]] = field(default_factory=list)
-    llm_interaction: LLMInteraction
