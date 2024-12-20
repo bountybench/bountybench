@@ -3,12 +3,11 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
-from models.model_response import ModelResponse
 from responses.response import Response
 
 @dataclass
 class LLMInteraction:
-    llm_calls: List[ModelResponse]
+    llm_calls: List[Dict[str, Any]]
     total_input_tokens: int
     total_output_tokens: int
     total_time_taken_in_ms: float

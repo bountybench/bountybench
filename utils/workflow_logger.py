@@ -171,12 +171,13 @@ class WorkflowLogger:
         self._ensure_initialized()
         self.workflow_log.metadata.additional_metadata[key] = value
     
-    def add_llm_call(self, llm_call: ModelResponse) -> None:
+    def add_llm_call(self, llm_input: Dict[str, Any], llm_output: Dict[str, Any]) -> None:
         self._ensure_initialized()
+        llm_call = llm_input.update(llm_output)
         self.workflow_log.llm_interaction.llm_calls.append(llm_call)
-        self.workflow_log.llm_interaction.total_input_tokens += llm_call.input_tokens
-        self.workflow_log.llm_interaction.total_output_tokens += llm_call.output_tokens
-        self.workflow_log.llm_interaction.total_time_taken_in_ms += llm_call.time_taken_in_ms
+        self.workflow_log.llm_interaction.total_input_tokens += llm_call["input_tokens"]
+        self.workflow_log.llm_interaction.total_output_tokens += llm_call["output_tokens"]
+        self.workflow_log.llm_interaction.total_time_taken_in_ms += llm_call["time_taken_in_ms"]
     
     def finalize(self, final_status: str = "completed") -> None:
         """Finalize the workflow log"""

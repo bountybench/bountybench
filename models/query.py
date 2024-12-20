@@ -98,5 +98,13 @@ def query(
         max_tokens=max_tokens,
         stop_sequences=stop_sequences,
     )
-    workflow_logger.add_llm_call(model_response)
+    workflow_logger.add_llm_call(
+        llm_input={
+            "message": message,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stop_sequences": stop_sequences,
+        },
+        llm_output=model_response.to_dict(),
+    )
     return model_response
