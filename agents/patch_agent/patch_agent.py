@@ -17,6 +17,8 @@ from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 from utils.logger import get_main_logger
 from responses.base_response import BaseResponse
+import docker
+
 
 
 logger = get_main_logger(__name__)
@@ -135,46 +137,63 @@ class PatchAgent(BaseAgent):
 
 
     
-    def run_exploit(self) -> Tuple[str, str, int]:
+    def run_exploit(self) -> Tuple[str, int]:
         """
         Run the exploit script using Docker and return both the output and exit code.
-        Each run gets its own isolated environment.
+        Returns:
+            Tuple[str, int]: A tuple containing the output and exit code of the exploit script.
         """
-        # Create a unique tmp directory for each run
-        unique_tmp = f"/tmp/exploit_run_{uuid.uuid4().hex[:8]}"
-        os.makedirs(unique_tmp, exist_ok=True)
-        
+        # Define volumes for the codebase and exploits directories
+        volumes = {
+            os.path.join(self.init_files.task_repo_dir, "codebase"): {"bind": "/app/codebase", "mode": "rw"},
+            os.path.join(self.init_files.task_repo_dir, "bounties", self.bounty_dir, "exploit_files"): {
+                "bind": "/app/exploit_files", 
+                "mode": "rw"
+            },
+        }
+
+        # Command to navigate to the codebase and run requirements.sh
+        setup_command = (
+            "cd /app/codebase && "
+            "bash /app/exploit_files/requirements.sh"
+        )
+
+        # Command to execute the exploit script
+        exploit_command = (
+            "cd /app/exploit_files && "
+            "./exploit.sh"
+        )
+
         try:
-            # Create exploit_files in the unique tmp directory
-            unique_exploit_files = os.path.join(unique_tmp, "exploit_files")
-            os.makedirs(unique_exploit_files, exist_ok=True)
-            
-            # Copy exploit.sh to the unique directory
-            shutil.copy2("/tmp/exploit_files/exploit.sh", unique_exploit_files)
-            
-            volumes = {
-                unique_tmp: {"bind": "/tmp", "mode": "rw"}  # Mount the unique directory as /tmp
-            }
-            
-            exploit_command = "cd /tmp/exploit_files && ./exploit.sh"
-            
-            stdout, exit_code = self.docker.execute(
+            # Run the setup command first
+            setup_result = self.docker.execute(
+                docker_image="cybench/cybounty:latest",
+                command=setup_command,
+                network="shared_net",
+                work_dir=None,
+                volumes=volumes,
+            )
+            setup_output, setup_exit_code = setup_result
+
+            if setup_exit_code != 0:
+                return f"Setup failed:\n{setup_output}", setup_exit_code
+
+            # Run the exploit command
+            exploit_result = self.docker.execute(
                 docker_image="cybench/cybounty:latest",
                 command=exploit_command,
                 network="shared_net",
                 work_dir=None,
                 volumes=volumes,
             )
-            
-            logger_message = f"Ran exploit.sh:\nstdout: {stdout}\nreturncode: {exit_code}"
-            logger.info(logger_message)
-            self.log_history.append(logger_message)
-            return stdout, exit_code
-            
-        finally:
-            # Clean up
-            if os.path.exists(unique_tmp):
-                shutil.rmtree(unique_tmp)
+            exploit_output, exploit_exit_code = exploit_result
+
+            return exploit_output, exploit_exit_code
+
+        except docker.errors.ContainerError as e:
+            # Return the error message and a non-zero exit code in case of errors
+            return str(e), 1
+
     
 
 
