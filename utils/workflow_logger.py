@@ -201,6 +201,8 @@ class WorkflowLogger:
                 "model_config": self.workflow_log.metadata.model_config,
                 "additional_metadata": self.workflow_log.metadata.additional_metadata
             },
+            "resources_used": self.workflow_log.resources_used,
+            "final_status": self.workflow_log.final_status,
             "iterations": [
                 {
                     "iteration_number": it.iteration_number,
@@ -229,15 +231,13 @@ class WorkflowLogger:
                 }
                 for it in self.workflow_log.iterations
             ],
-            "resources_used": self.workflow_log.resources_used,
-            "final_status": self.workflow_log.final_status,
-            "error_log": self.workflow_log.error_log,
             "llm_interaction": {
                 "llm_calls": self.workflow_log.llm_interaction.llm_calls,
                 "total_input_tokens": self.workflow_log.llm_interaction.total_input_tokens,
                 "total_output_tokens": self.workflow_log.llm_interaction.total_output_tokens,
                 "total_time_taken_in_ms": self.workflow_log.llm_interaction.total_time_taken_in_ms
-            }
+            },
+            "error_log": self.workflow_log.error_log
         }
         
         with open(self.log_file, 'w') as f:
