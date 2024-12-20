@@ -151,39 +151,30 @@ def main() -> None:
     prev_response = None
 
     for iteration in range(executor_agent_config.max_iterations):
-        workflow_logger.start_iteration(iteration + 1)
+        with workflow_logger.iteration(iteration + 1) as iteration_ctx:
+            # Execute the executor agent
+            with iteration_ctx.interaction("executor_agent", prev_response if iteration > 0 else None) as interaction:
+                simple_response = executor_agent.run([] if iteration == 0 else [prev_response])
+                interaction.set_output(simple_response)
 
-        workflow_logger.start_interaction(
-            agent_name="executor_agent",
-            input_response=prev_response
-        )
-        simple_response = executor_agent.run([] if iteration == 0 else [prev_response])
+            # If simple agent hallucinates, stop
+            if issubclass(simple_response.__class__, AnswerResponseInterface):
+                workflow_logger.finalize("completed_with_hallucination")
+                logger.info("Simple agent hallucinated an answer!")
+                break
 
-        workflow_logger.end_interaction(output_response=simple_response)
+            # Execute the patch agent
+            with iteration_ctx.interaction("patch_agent", simple_response) as interaction:
+                patch_response = patch_agent.run([simple_response])
+                interaction.set_output(patch_response)
 
-         # If simple agent hallucinates, log and stop
-        if issubclass(simple_response.__class__, AnswerResponseInterface):
-            workflow_logger.end_iteration("fail")
-            workflow_logger.finalize("completed_with_hallucination")
-            logger.info("Simple agent hallucinated an answer!")
-            break
+            # If patch is successful, stop
+            if issubclass(patch_response.__class__, AnswerResponseInterface):
+                workflow_logger.finalize("completed_success")
+                logger.info("Patch Success!")
+                break
 
-        workflow_logger.start_interaction(
-            agent_name="patch_agent",
-            input_response=simple_response
-        )
-        patch_response = patch_agent.run([simple_response])
-        workflow_logger.end_interaction(output_response=patch_response)
-
-        if issubclass(patch_response.__class__, AnswerResponseInterface):
-            workflow_logger.end_iteration("success")
-            workflow_logger.finalize("completed_success")
-            logger.info("Patch Success!")
-            break
-            
-        workflow_logger.end_iteration("in_progress")
-
-        prev_response = simple_response
+            prev_response = simple_response
 
     # If we reached max iterations without success
     if iteration == executor_agent_config.max_iterations - 1:

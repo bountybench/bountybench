@@ -191,3 +191,61 @@ class WorkflowLogger:
         
         with open(self.log_file, 'w') as f:
             json.dump(log_dict, f, indent=4)
+
+    class IterationContext:
+        def __init__(self, logger: 'WorkflowLogger', iteration_number: int):
+            self.logger = logger
+            self.iteration_number = iteration_number
+
+        def __enter__(self):
+            self.logger.start_iteration(self.iteration_number)
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            status = "failed" if exc_type else "completed"
+            self.logger.end_iteration(status)
+            return False  # Don't suppress exceptions
+
+        def interaction(self, agent_name: str, input_response: Response):
+            """Create a new interaction context within this iteration"""
+            return self.logger.InteractionContext(self.logger, agent_name, input_response)
+
+    class InteractionContext:
+        def __init__(self, logger: 'WorkflowLogger', agent_name: str, input_response: Response):
+            self.logger = logger
+            self.agent_name = agent_name
+            self.input_response = input_response
+            self.output_response = None
+
+        def __enter__(self):
+            self.logger.start_interaction(self.agent_name, self.input_response)
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            if exc_type:
+                # In case of exception, create an error response
+                self.output_response = Response(
+                    answer=str(exc_val),
+                    error=True,
+                    metadata={"exception_type": exc_type.__name__}
+                )
+            elif not self.output_response:
+                # If no output response was set, create a default one
+                self.output_response = Response(
+                    answer="Interaction completed without explicit response",
+                    error=False
+                )
+            self.logger.end_interaction(self.output_response)
+            return False  # Don't suppress exceptions
+
+        def set_output(self, output_response: Response):
+            """Set the output response for this interaction"""
+            self.output_response = output_response
+
+        def log_action(self, action_name: str, input_data: Any, output_data: Any, metadata: Optional[Dict[str, Any]] = None):
+            """Log an action within this interaction"""
+            self.logger.log_action(action_name, input_data, output_data, metadata)
+
+    def iteration(self, iteration_number: int) -> IterationContext:
+        """Create a new iteration context"""
+        return self.IterationContext(self, iteration_number)
