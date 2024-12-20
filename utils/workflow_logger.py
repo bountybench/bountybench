@@ -173,7 +173,8 @@ class WorkflowLogger:
     
     def add_llm_call(self, llm_input: Dict[str, Any], llm_output: Dict[str, Any]) -> None:
         self._ensure_initialized()
-        llm_call = llm_input.update(llm_output)
+        llm_input.update(llm_output)
+        llm_call = llm_input
         self.workflow_log.llm_interaction.llm_calls.append(llm_call)
         self.workflow_log.llm_interaction.total_input_tokens += llm_call["input_tokens"]
         self.workflow_log.llm_interaction.total_output_tokens += llm_call["output_tokens"]
