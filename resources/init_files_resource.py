@@ -6,6 +6,7 @@ import sys
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
+from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 import shutil
 
@@ -25,7 +26,7 @@ class InitFilesResource(BaseResource):
         self.tmp_dir_name = tmp_dir_name
         self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
         os.makedirs(self.tmp_dir, exist_ok=True)
-        self.resource_id = self.tmp_dir 
+        self.resource_id = self.tmp_dir_name 
 
         self.exploit_files_dir = None
         if exploit_files_dir_name: 
@@ -33,6 +34,7 @@ class InitFilesResource(BaseResource):
             self.exploit_files_dir = os.path.join(self.task_repo_dir, exploit_files_dir_name)
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
         self.vulnerable_commit = vulnerable_commit
+        workflow_logger.add_resource(f"InitFilesResource: {self.resource_id}")
         self._start()
 
         resource_dict[self.resource_id] = self

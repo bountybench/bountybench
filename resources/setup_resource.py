@@ -9,6 +9,7 @@ from typing import List, Optional
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
 from resources.utils import run_command
+from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -42,7 +43,7 @@ class SetupResource(BaseResource):
 
         self.container_names: List[str] = []
         self.health_check_timeout = 120
-
+        workflow_logger.add_resource(f"SetupResource: {self.resource_id}")
         self._start()
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)

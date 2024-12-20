@@ -51,7 +51,7 @@ def main() -> None:
         use_helm=True
     )
     
-    # Initialize our workflow logger
+    # Initialize workflow logger
     workflow_logger.initialize(
         workflow_name="patch",
         logs_dir=str(logs_dir),
@@ -113,19 +113,14 @@ def main() -> None:
     exploit_files_dir = os.path.join("bounties", f"bounty_{bounty_number}", "exploit_files")
 
 
-    workflow_logger.add_resource("InitFilesResource")
     InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=exploit_files_dir, vulnerable_commit=vulnerable_commit)
     if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
-        workflow_logger.add_resource("SetupResource-repo")
         SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
     if repo_metadata["target_host"]: 
-        workflow_logger.add_resource("SetupResource-task")
         SetupResource(task_level_setup=True, task_repo_dir=task_repo_dir, files_dir=files_dir, bounty_number=bounty_number, server_address=repo_metadata["target_host"])
 
-    workflow_logger.add_resource("KaliEnv")
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
-    workflow_logger.add_resource("DockerHelper")
     DockerResource("DockerHelper")
     
     # Add workflow metadata
