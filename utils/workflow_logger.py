@@ -232,7 +232,7 @@ class WorkflowLogger:
             "final_status": self.workflow_log.final_status,
             "error_log": self.workflow_log.error_log,
             "llm_interaction": {
-                "llm_calls": [llm_call.to_dict() for llm_call in self.workflow_log.llm_interaction.llm_calls],
+                "llm_calls": self.workflow_log.llm_interaction.llm_calls,
                 "total_input_tokens": self.workflow_log.llm_interaction.total_input_tokens,
                 "total_output_tokens": self.workflow_log.llm_interaction.total_output_tokens,
                 "total_time_taken_in_ms": self.workflow_log.llm_interaction.total_time_taken_in_ms
