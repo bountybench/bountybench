@@ -15,7 +15,7 @@ from resources.setup_resource import SetupResource
 from resources.utils import *
 from responses.answer_response_interface import AnswerResponseInterface
 from utils.logger import get_main_logger
-from utils.workflow_logger import WorkflowLogger
+from utils.workflow_logger import WorkflowLogger, workflow_logger
 
 logger = get_main_logger(__name__)
 
@@ -51,8 +51,8 @@ def main() -> None:
         use_helm=True
     )
     
-    # Initialize our new workflow logger
-    workflow_logger = WorkflowLogger(
+    # Initialize our workflow logger
+    workflow_logger.initialize(
         workflow_name="patch",
         logs_dir=str(logs_dir),
         task_repo_dir=str(args.task_repo_dir),

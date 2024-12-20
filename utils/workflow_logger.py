@@ -15,14 +15,24 @@ from .workflow_logger_types import (
 )
 
 class WorkflowLogger:
-    def __init__(
+    _initialized = False
+
+    def __init__(self):
+        # Only initialize once
+        if not WorkflowLogger._initialized:
+            self.workflow_log = None
+            self.log_file = None
+            WorkflowLogger._initialized = True
+
+    def initialize(
         self,
         workflow_name: str,
         logs_dir: str = "logs",
         task_repo_dir: Optional[str] = None,
         bounty_number: Optional[str] = None,
         model_config: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
+        """Initialize the workflow logger with the given parameters"""
         self.workflow_name = workflow_name
         self.logs_dir = Path(logs_dir)
         self.logs_dir.mkdir(exist_ok=True)
@@ -49,9 +59,18 @@ class WorkflowLogger:
             components.append(model_config["model"].replace("/", "_"))
             
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    
+
+    def _ensure_initialized(self):
+        """Ensure the logger is initialized before use"""
+        if not self.workflow_log:
+            raise RuntimeError("WorkflowLogger must be initialized before use. Call initialize() first.")
+
     def start_iteration(self, iteration_number: int) -> None:
         """Start a new workflow iteration"""
+        self._ensure_initialized()
+        if hasattr(self, 'current_iteration'):
+            raise RuntimeError("Previous iteration not ended")
+        
         self.current_iteration = WorkflowIteration(
             iteration_number=iteration_number,
             interactions=[],
@@ -60,6 +79,7 @@ class WorkflowLogger:
     
     def start_interaction(self, agent_name: str, input_response: Response) -> None:
         """Start a new interaction within the current iteration"""
+        self._ensure_initialized()
         if not hasattr(self, 'current_iteration'):
             raise RuntimeError("Must call start_iteration before logging interactions")
             
@@ -81,6 +101,7 @@ class WorkflowLogger:
         metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """Log an action within the current interaction"""
+        self._ensure_initialized()
         if not hasattr(self, 'current_interaction'):
             raise RuntimeError("Must call start_interaction before logging actions")
             
@@ -95,6 +116,7 @@ class WorkflowLogger:
     
     def end_iteration(self, status: str) -> None:
         """End the current iteration and add it to the workflow log"""
+        self._ensure_initialized()
         if not hasattr(self, 'current_iteration'):
             raise RuntimeError("No iteration in progress")
             
@@ -108,6 +130,7 @@ class WorkflowLogger:
     
     def end_interaction(self, output_response: Response) -> None:
         """End the current interaction and add it to the current iteration"""
+        self._ensure_initialized()
         if not hasattr(self, 'current_interaction'):
             raise RuntimeError("No interaction in progress")
             
@@ -120,11 +143,13 @@ class WorkflowLogger:
 
     def add_resource(self, resource_name: str) -> None:
         """Log a resource being used in the workflow"""
+        self._ensure_initialized()
         if resource_name not in self.workflow_log.resources_used:
             self.workflow_log.resources_used.append(resource_name)
     
     def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
         """Log an error that occurred during the workflow"""
+        self._ensure_initialized()
         error_entry = {
             "timestamp": datetime.now().isoformat(),
             "message": error_msg,
@@ -135,16 +160,19 @@ class WorkflowLogger:
     
     def add_metadata(self, key: str, value: Any) -> None:
         """Add additional metadata to the workflow"""
+        self._ensure_initialized()
         self.workflow_log.metadata.additional_metadata[key] = value
     
     def finalize(self, final_status: str = "completed") -> None:
         """Finalize the workflow log"""
+        self._ensure_initialized()
         self.workflow_log.metadata.end_time = datetime.now().isoformat()
         self.workflow_log.final_status = final_status
         self.save()
     
     def save(self) -> None:
         """Save the workflow log to a JSON file"""
+        self._ensure_initialized()
         # Convert the workflow log to a dictionary
         log_dict = {
             "metadata": {
@@ -249,3 +277,5 @@ class WorkflowLogger:
     def iteration(self, iteration_number: int) -> IterationContext:
         """Create a new iteration context"""
         return self.IterationContext(self, iteration_number)
+
+workflow_logger = WorkflowLogger()
