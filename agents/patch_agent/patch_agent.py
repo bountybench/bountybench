@@ -38,7 +38,9 @@ class PatchAgent(BaseAgent):
         self.logger = kwargs.get("logger", None)
 
         self.use_verify_script = kwargs.get('use_verify_script', False) 
-        self.last_exploit_returncode = None
+
+        self.task_server = self._get_resource(SetupResource, "task_server")
+        self.repo_resource =  self._get_resource(SetupResource, "repo_resource")
 
 
 
@@ -79,11 +81,11 @@ class PatchAgent(BaseAgent):
         self.apply_git_patch(patch_path, self.init_files.files_dir, "dev")
         self.create_git_commit(self.init_files.files_dir, "dev")
 
-        # Track restart results
+
         task_server_restarted = self.task_server and self.restart_task_server_resource()
         repo_resource_restarted = self.repo_resource and self.restart_repo_resource()
 
-        # Handle restart conditions
+
         if self.task_server and self.repo_resource and not (task_server_restarted and repo_resource_restarted):
             # Both exist but restart failed
             logger.error("Both the task server and repo resource must restart successfully but did not.")
@@ -124,16 +126,22 @@ class PatchAgent(BaseAgent):
         return patch_response
 
 
-
+    '''
     def run_exploit(self) -> Tuple[str, str, int]:
         """
         Runs the exploit script and returns (stdout, stderr, exit_code).
         """
+        print("THIS IS MY EXPLOIT_FILES_DIR", self.exploit_files_dir)
         volumes = {
-            self.init_files.task_repo_dir: {"bind": "/app/", "mode": "rw"}
+            self.init_files.task_repo_dir: {"bind": "/tmp/", "mode": "rw"}
         }
 
-        exploit_command = f"cd {self.exploit_files_dir} && ./exploit.sh"
+        # Convert exploit_files_dir to be relative to task_repo_dir
+        relative_exploit_dir = os.path.relpath(self.exploit_files_dir, self.init_files.task_repo_dir)
+        
+        # Now use the relative path in the container
+        exploit_command = f"cd /tmp/{relative_exploit_dir} && ./exploit.sh"
+        
         stdout, exit_code = self.docker.execute(
             docker_image="cybench/cybounty:latest",
             command=exploit_command,
@@ -146,7 +154,67 @@ class PatchAgent(BaseAgent):
         logger.info(logger_message)
         self.log_history.append(logger_message)
         return stdout, exit_code
+    '''
 
+    '''
+    def run_exploit(self) -> Tuple[str, str, int]:
+        """
+        Runs the exploit script and returns (stdout, stderr, exit_code).
+        """
+        volumes = {
+            self.init_files.task_repo_dir: {"bind": "/tmp/", "mode": "rw"}
+        }
+
+        # Convert both paths to absolute first
+        abs_task_repo = os.path.abspath(self.init_files.task_repo_dir)
+        abs_exploit_dir = os.path.abspath(self.exploit_files_dir)
+
+        # Get the relative path
+        relative_exploit_dir = os.path.relpath(abs_exploit_dir, abs_task_repo)
+        
+        # Log paths for debugging
+        logger.info(f"Task repo dir: {abs_task_repo}")
+        logger.info(f"Exploit files dir: {abs_exploit_dir}")
+        logger.info(f"Relative path: {relative_exploit_dir}")
+        
+        exploit_command = f"cd /tmp/{relative_exploit_dir} && ./exploit.sh"
+        
+        stdout, exit_code = self.docker.execute(
+            docker_image="cybench/cybounty:latest",
+            command=exploit_command,
+            network="shared_net",
+            work_dir=None,
+            volumes=volumes
+        )
+
+        logger_message = f"Ran exploit.sh:\nstdout: {stdout}\nreturncode: {exit_code}"
+        logger.info(logger_message)
+        self.log_history.append(logger_message)
+        return stdout, exit_code
+    
+    '''
+    def run_exploit(self)  -> Tuple[str, str, int]:
+        """
+        Run the exploit script using Docker and return both the output and exit code.
+        """
+        volumes = {
+            "/tmp": {"bind": "/tmp", "mode": "rw"}
+        }
+
+        
+        exploit_command = "cd /tmp/exploit_files && cat ./exploit.sh && ./exploit.sh"
+        
+        stdout, exit_code = self.docker.execute(
+                docker_image="cybench/cybounty:latest",
+                command=exploit_command,
+                network="shared_net",
+                work_dir=None,
+                volumes=volumes,
+        )
+        logger_message = f"Ran exploit.sh:\nstdout: {stdout}\nreturncode: {exit_code}"
+        logger.info(logger_message)
+        self.log_history.append(logger_message)
+        return stdout, exit_code
 
     def verify_patch_works(self, execution_output: str) -> bool:
         """
