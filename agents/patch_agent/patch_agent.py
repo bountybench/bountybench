@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import time
 from typing import List, Tuple
+import uuid
 
 from agents.base_agent import BaseAgent
 from resources.docker_resource import DockerResource
@@ -40,7 +41,13 @@ class PatchAgent(BaseAgent):
         self.use_verify_script = kwargs.get('use_verify_script', False) 
 
         self.task_server = self._get_resource(SetupResource, "task_server")
+        print("this is my task_server", self.task_server)
         self.repo_resource =  self._get_resource(SetupResource, "repo_resource")
+        print("this is my repo_resource", self.repo_resource)
+        self.docker = self._get_resource(DockerResource)
+        print("this is my docker", self.docker)
+
+ 
 
 
 
@@ -96,6 +103,7 @@ class PatchAgent(BaseAgent):
             )
         else:
             # Verification step
+
             stdout, exit_code = self.run_exploit()
 
             if self.use_verify_script:
@@ -193,6 +201,7 @@ class PatchAgent(BaseAgent):
         return stdout, exit_code
     
     '''
+    '''
     def run_exploit(self)  -> Tuple[str, str, int]:
         """
         Run the exploit script using Docker and return both the output and exit code.
@@ -202,7 +211,11 @@ class PatchAgent(BaseAgent):
         }
 
         
-        exploit_command = "cd /tmp/exploit_files && cat ./exploit.sh && ./exploit.sh"
+        exploit_command = "cd /tmp/exploit_files && ./exploit.sh"
+
+        exploit_command2 = "cd /tmp/exploit_files && cat exploit.sh"
+
+
         
         stdout, exit_code = self.docker.execute(
                 docker_image="cybench/cybounty:latest",
@@ -211,10 +224,62 @@ class PatchAgent(BaseAgent):
                 work_dir=None,
                 volumes=volumes,
         )
+
+        self.docker.execute(
+                docker_image="cybench/cybounty:latest",
+                command=exploit_command2,
+                network="shared_net",
+                work_dir=None,
+                volumes=volumes,
+        )
+
         logger_message = f"Ran exploit.sh:\nstdout: {stdout}\nreturncode: {exit_code}"
         logger.info(logger_message)
         self.log_history.append(logger_message)
         return stdout, exit_code
+    '''
+
+
+    def run_exploit(self) -> Tuple[str, str, int]:
+        """
+        Run the exploit script using Docker and return both the output and exit code.
+        Each run gets its own isolated environment.
+        """
+        # Create a unique tmp directory for each run
+        unique_tmp = f"/tmp/exploit_run_{uuid.uuid4().hex[:8]}"
+        os.makedirs(unique_tmp, exist_ok=True)
+        
+        try:
+            # Create exploit_files in the unique tmp directory
+            unique_exploit_files = os.path.join(unique_tmp, "exploit_files")
+            os.makedirs(unique_exploit_files, exist_ok=True)
+            
+            # Copy exploit.sh to the unique directory
+            shutil.copy2("/tmp/exploit_files/exploit.sh", unique_exploit_files)
+            
+            volumes = {
+                unique_tmp: {"bind": "/tmp", "mode": "rw"}  # Mount the unique directory as /tmp
+            }
+            
+            exploit_command = "cd /tmp/exploit_files && ./exploit.sh"
+            
+            stdout, exit_code = self.docker.execute(
+                docker_image="cybench/cybounty:latest",
+                command=exploit_command,
+                network="shared_net",
+                work_dir=None,
+                volumes=volumes,
+            )
+            
+            logger_message = f"Ran exploit.sh:\nstdout: {stdout}\nreturncode: {exit_code}"
+            logger.info(logger_message)
+            self.log_history.append(logger_message)
+            return stdout, exit_code
+            
+        finally:
+            # Clean up
+            if os.path.exists(unique_tmp):
+                shutil.rmtree(unique_tmp)
 
     def verify_patch_works(self, execution_output: str) -> bool:
         """
