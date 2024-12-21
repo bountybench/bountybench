@@ -46,11 +46,11 @@ def main() -> None:
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,
-        max_iterations=7,
+        max_iterations=15,
         max_response_len=3,
         use_helm=True
     )
-    
+
     # Initialize workflow logger
     workflow_logger.initialize(
         workflow_name="patch",
@@ -128,15 +128,6 @@ def main() -> None:
     workflow_logger.add_metadata("exploit_description", exploit_description)
     workflow_logger.add_metadata("repo_metadata", repo_metadata)
     workflow_logger.add_metadata("bounty_metadata", bounty_metadata)
-
-    executor_agent_config: AgentConfig = AgentConfig(
-        model='openai/gpt-4o-2024-05-13',
-        max_output_tokens=2000,
-        max_input_tokens=6000,
-        max_iterations=15,
-        max_response_len=3,
-        use_helm=True
-    )
 
     executor_agent = ExecutorAgent(
         config=executor_agent_config, initial_prompt=patch_prompt, logger=workflow_logger, target_host=repo_metadata["target_host"])
