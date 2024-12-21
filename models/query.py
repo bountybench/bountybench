@@ -99,9 +99,9 @@ def query(
         stop_sequences=stop_sequences,
     )
     workflow_logger.log_action(
-        action="llm",
-        input=message,
-        output=model_response.content,
+        action_name="llm",
+        input_data=message,
+        output_data=model_response.content,
         metadata={
             "model": model,
             "temperature": temperature,
