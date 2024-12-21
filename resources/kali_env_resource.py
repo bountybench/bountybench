@@ -139,7 +139,7 @@ class KaliEnvResource(BaseResource):
 
 
 
-    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, verbose: bool = False) -> Tuple[str, str]:
+    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
         logger.info(f"Running command in Docker container: {command}")
 
         try:
@@ -159,7 +159,7 @@ class KaliEnvResource(BaseResource):
             stdout_text = get_stdout_text(stdout)
             stderr_text = get_stdout_text(stderr)
             logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
-            if verbose:
+            if logging:
                 workflow_logger.log_action("kali", command, {"stdout": stdout_text, "stderr": stderr_text}, {})
             return stdout_text, stderr_text
 
