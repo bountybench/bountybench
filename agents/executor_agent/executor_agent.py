@@ -142,7 +142,7 @@ class ExecutorAgent(BaseAgent):
         try:
             # Use kali_env to execute the command inside the container
             stdout, stderr = self.kali_env.run_command(
-                command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/"
+                command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/", verbose=True
             )
 
             # Check for command execution without errors, even if no stdout was produced
