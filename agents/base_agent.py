@@ -21,7 +21,7 @@ class BaseAgent(ABC):
         self.resource_dict = resource_dict
         self.response_history = ResponseHistory()
         self.target_host_address = kwargs.get("target_host", "")
-
+        self.repo_server_address = "repo:1234"
         # Register resources
         self._register_resources()
 
@@ -92,17 +92,19 @@ class BaseAgent(ABC):
         if not accessible_types.issubset(all_types):
             raise ValueError(f"{self.__class__.__name__} ACCESSIBLE_RESOURCES must be a subset of REQUIRED_RESOURCES and OPTIONAL_RESOURCES.")
 
+    
     def _get_resource(self, resource_type, role: Optional[str] = None):
-        """
-        Retrieves the resource of the specified type from the resource dictionary.
-        """
-        if role == "task_server" and resource_type == SetupResource and self.target_host_address:
-            return self.resource_dict.get(self.target_host_address)
-        else:
-            resources = self.resource_dict.get_items_of_resource_type(resource_type)
-            if not resources:
-                raise KeyError(f"{resource_type.__name__}")
-            return resources[0]  # Assume the first instance unless otherwise specified
+        resources = self.resource_dict.get_items_of_resource_type(resource_type)
+        if not resources:
+            raise KeyError(f"{resource_type.__name__}")
+        
+        if role:
+            resource = resources[0]
+            if hasattr(resource, 'role') and resource.role == role:
+                return resource
+            raise KeyError(f"No resource of type {resource_type.__name__} with role '{role}' found")
+        
+        return resources[0]
 
     @staticmethod
     def _generate_attr_name(resource_type) -> str:

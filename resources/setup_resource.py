@@ -34,11 +34,21 @@ class SetupResource(BaseResource):
         
         self.resource_id = server_address
         self.task_level_setup = task_level_setup
+
+        self.role = "task_server" if self.task_level_setup else "repo_resource"
+
+
         self.task_repo_dir = os.path.abspath(task_repo_dir)
         self.files_dir = files_dir
         self.bounty_dir = os.path.join(self.task_repo_dir, "bounties", f"bounty_{bounty_number}")
 
-        self.host_name, self.port_number = self.parse_server_address(server_address)
+        if server_address:
+            self.host_name, self.port_number = self.parse_server_address(server_address)
+            self.resource_id = f"{self.role }_{server_address}"
+        else:
+            self.host_name, self.port_number = None, None
+            self.resource_id = f"{self.role }_local"
+
 
         self.container_names: List[str] = []
         self.health_check_timeout = 120

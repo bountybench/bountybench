@@ -43,15 +43,9 @@ class PatchAgent(BaseAgent):
         self.use_verify_script = kwargs.get('use_verify_script', False) 
 
         self.task_server = self._get_resource(SetupResource, "task_server")
-        print("this is my task_server", self.task_server)
-        self.repo_resource =  self._get_resource(SetupResource, "repo_resource")
-        print("this is my repo_resource", self.repo_resource)
+        self.repo_resource = self._get_resource(SetupResource, "repo_resource")
         self.docker = self._get_resource(DockerResource)
-        print("this is my docker", self.docker)
-
  
-
-
 
         os.makedirs(self.patch_dir, exist_ok=True)
         atexit.register(self.cleanup)
