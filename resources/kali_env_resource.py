@@ -159,6 +159,7 @@ class KaliEnvResource(BaseResource):
             stdout_text = get_stdout_text(stdout)
             stderr_text = get_stdout_text(stderr)
             logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
+            workflow_logger.log_action("kali", command, {"stdout": stdout_text, "stderr": stderr_text}, {})
             return stdout_text, stderr_text
 
         except TimeoutError:

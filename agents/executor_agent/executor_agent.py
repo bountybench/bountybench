@@ -148,9 +148,6 @@ class ExecutorAgent(BaseAgent):
             # Check for command execution without errors, even if no stdout was produced
             observation = stdout.strip() + stderr.strip()
             logger.info(f"Executed the command in agent environment: {command}.\n\nstdout: {stdout.strip()}\n\nstderr: {stderr.strip()}")
-            if self.logger:
-                self.logger.log_action(
-                    "kali", command, observation, {})
 
             return Observation(observation)
         except Exception as e:
