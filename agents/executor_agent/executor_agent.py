@@ -119,10 +119,6 @@ class ExecutorAgent(BaseAgent):
                 helm=self.config.use_helm
             )
 
-            if self.logger:
-                self.logger.log_action(
-                    "llm", model_input, model_response.content, {"input_tokens": model_response.input_tokens, "output_tokens": model_response.output_tokens, "time_taken_in_ms": model_response.time_taken_in_ms, "iteration": iterations})
-
             model_response = model_response.remove_hallucinations()
 
             lm_response = model_response + f"\n{STOP_TOKEN}"

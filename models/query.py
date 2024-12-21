@@ -98,13 +98,18 @@ def query(
         max_tokens=max_tokens,
         stop_sequences=stop_sequences,
     )
-    workflow_logger.add_llm_call(
-        llm_input={
-            "message": message,
+    workflow_logger.log_action(
+        action="llm",
+        input=message,
+        output=model_response.content,
+        metadata={
+            "model": model,
             "temperature": temperature,
-            "max_tokens": max_tokens,
+            "max_input_tokens": max_tokens,
             "stop_sequences": stop_sequences,
+            "input_tokens": model_response.input_tokens,
+            "output_tokens": model_response.output_tokens,
+            "time_taken_in_ms": model_response.time_taken_in_ms,
         },
-        llm_output=model_response.to_dict(),
     )
     return model_response
