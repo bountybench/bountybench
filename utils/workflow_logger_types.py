@@ -6,13 +6,6 @@ from datetime import datetime
 from responses.response import Response
 
 @dataclass
-class LLMInteraction:
-    llm_calls: List[Dict[str, Any]]
-    total_input_tokens: int
-    total_output_tokens: int
-    total_time_taken_in_ms: float
-
-@dataclass
 class Action:
     action_type: str
     input_data: Any
@@ -50,7 +43,6 @@ class WorkflowMetadata:
 class WorkflowLog:
     metadata: WorkflowMetadata
     iterations: List[WorkflowIteration]
-    llm_interaction: LLMInteraction
     resources_used: List[str] = field(default_factory=list)
     final_status: str = "in_progress"
     error_log: List[Dict[str, Any]] = field(default_factory=list)
