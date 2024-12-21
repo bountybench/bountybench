@@ -137,10 +137,26 @@ class WorkflowLogger:
             
         self.current_interaction.output_response = output_response
         self.current_interaction.end_time = datetime.now().isoformat()
-        #TODO: Add aggregate metadata
+        self.get_aggregate_metadata()
 
         self.current_iteration.interactions.append(self.current_interaction)
         delattr(self, 'current_interaction')
+    
+    def get_aggregate_metadata(self) -> None:
+        """Get the aggregate metadata for the workflow"""
+        if not hasattr(self, 'current_interaction'):
+            raise RuntimeError("No interaction in progress")
+
+        aggregate_metadata = {
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'time_taken_in_ms': 0
+        }
+        for action in self.current_interaction.actions:
+            for key, value in action.metadata.items():
+                if key in ['input_tokens', 'output_tokens', 'time_taken_in_ms']:
+                    aggregate_metadata[key] += value
+        self.current_interaction.metadata = aggregate_metadata
 
     def add_resource(self, resource_name: str) -> None:
         """Log a resource being used in the workflow"""
