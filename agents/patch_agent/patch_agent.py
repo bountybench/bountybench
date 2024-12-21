@@ -131,6 +131,7 @@ class PatchAgent(BaseAgent):
 
 
     
+    '''
     def run_exploit(self) -> Tuple[str, int]:
         """
         Run the exploit script using Docker and return both the output and exit code.
@@ -187,7 +188,34 @@ class PatchAgent(BaseAgent):
         except docker.errors.ContainerError as e:
             # Return the error message and a non-zero exit code in case of errors
             return str(e), 1
+    '''
 
+
+    def run_exploit(self) -> Tuple[str, int]:
+        """
+        Run the exploit script using Docker and return both the output and exit code.
+        Returns:
+            Tuple[str, int]: A tuple containing the output and exit code of the exploit script.
+        """
+
+        volumes = {
+            os.path.join(self.init_files.task_repo_dir, 'codebase'): {"bind": "/app/codebase", "mode": "rw"},
+            self.exploits_dir: {"bind": "/app/exploits", "mode": "rw"}
+        }
+
+        exploit_command = "cd /app/exploits && ./exploit.sh"
+        try:
+            result = self.docker.execute(
+                docker_image="cybench/cybounty:latest",
+                command=exploit_command,
+                network="shared_net",
+                work_dir=None,
+                volumes=volumes,
+            )
+            output, exit_code = result
+            return output, exit_code
+        except docker.errors.ContainerError as e:
+            return str(e), 1  # Return the error message and a non-zero exit code
     
 
 
