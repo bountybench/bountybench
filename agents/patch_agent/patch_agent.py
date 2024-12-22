@@ -99,18 +99,19 @@ class PatchAgent(BaseAgent):
             )
         else:
             # Verification step
-
             stdout, exit_code = self.run_exploit()
 
             if self.use_verify_script:
                 # Use exploit + verify.sh logic (existing logic)
                 if self.verify_patch_works(stdout):
-                    logger_message = "Exploit failed, patch succeeded."
+                    logger_message = "Exploit failed (return code 1), patch succeeded."
                     logger.info(logger_message)
                     self.log_history.append(logger_message)
                     return AnswerResponse("\n".join(self.log_history) + "\nAnswer: Congratulations! The patch succeeded.")
                 else:
-                    logger.info("Exploit is successful, patch failed.")
+                    logger_message = "Exploit is successful, patch failed."
+                    logger.info(logger_message)
+                    self.log_history.append(logger_message)
                     self.patch_id += 1
             else:
                 if exit_code == 1:
@@ -121,75 +122,15 @@ class PatchAgent(BaseAgent):
                     return AnswerResponse("\n".join(self.log_history) + "\nAnswer: Congratulations! The patch succeeded.")
                 else:
                     # Exploit still succeeds => patch failed
-                    logger.info("Exploit succeeded (return code 0), patch failed (no verify.sh).")
+                    logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
+                    logger.info(logger_message)
+                    self.log_history.append(logger_message)
                     self.patch_id += 1
 
         # Clear log and return response
         patch_response = BaseResponse("\n".join(self.log_history))
         self.log_history.clear()
         return patch_response
-
-
-    
-    '''
-    def run_exploit(self) -> Tuple[str, int]:
-        """
-        Run the exploit script using Docker and return both the output and exit code.
-        Returns:
-            Tuple[str, int]: A tuple containing the output and exit code of the exploit script.
-        """
-        # Define volumes for the codebase and exploits directories
-        volumes = {
-            os.path.join(self.init_files.task_repo_dir, "codebase"): {"bind": "/app/codebase", "mode": "rw"},
-            os.path.join(self.init_files.task_repo_dir, "bounties", self.bounty_dir, "exploit_files"): {
-                "bind": "/app/exploit_files", 
-                "mode": "rw"
-            },
-        }
-
-        # Command to navigate to the codebase and run requirements.sh
-        setup_command = (
-            "cd /app/codebase && "
-            "bash /app/exploit_files/requirements.sh"
-        )
-
-        # Command to execute the exploit script
-        exploit_command = (
-            "cd /app/exploit_files && "
-            "./exploit.sh"
-        )
-
-        try:
-            # Run the setup command first
-            setup_result = self.docker.execute(
-                docker_image="cybench/cybounty:latest",
-                command=setup_command,
-                network="shared_net",
-                work_dir=None,
-                volumes=volumes,
-            )
-            setup_output, setup_exit_code = setup_result
-
-            if setup_exit_code != 0:
-                return f"Setup failed:\n{setup_output}", setup_exit_code
-
-            # Run the exploit command
-            exploit_result = self.docker.execute(
-                docker_image="cybench/cybounty:latest",
-                command=exploit_command,
-                network="shared_net",
-                work_dir=None,
-                volumes=volumes,
-            )
-            exploit_output, exploit_exit_code = exploit_result
-
-            return exploit_output, exploit_exit_code
-
-        except docker.errors.ContainerError as e:
-            # Return the error message and a non-zero exit code in case of errors
-            return str(e), 1
-    '''
-
 
     def run_exploit(self) -> Tuple[str, int]:
         """
@@ -217,9 +158,6 @@ class PatchAgent(BaseAgent):
         except docker.errors.ContainerError as e:
             return str(e), 1  # Return the error message and a non-zero exit code
     
-
-
-
     def verify_patch_works(self, execution_output: str) -> bool:
         """
         Run the verify.sh script.
@@ -247,6 +185,7 @@ class PatchAgent(BaseAgent):
             logger.error(logger_message)
             self.log_history.append(logger_message)
             return False
+        
     
     def get_git_diff(self, directory_path: str) -> str:
         """
@@ -380,8 +319,6 @@ class PatchAgent(BaseAgent):
             logger.error(logger_message)
             self.log_history.append(logger_message)
 
-
-  
             
     def cleanup(self):
         self.store_patch()
@@ -397,7 +334,6 @@ class PatchAgent(BaseAgent):
             logger_message = f"Failed to checkout '{branch_name}': {e}"
             logger.error(logger_message)
             self.log_history.append(logger_message)
-
 
     def store_patch(self):
         """
