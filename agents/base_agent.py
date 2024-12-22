@@ -93,15 +93,20 @@ class BaseAgent(ABC):
             raise ValueError(f"{self.__class__.__name__} ACCESSIBLE_RESOURCES must be a subset of REQUIRED_RESOURCES and OPTIONAL_RESOURCES.")
 
     
-    def _get_resource(self, resource_type, role: Optional[str] = None):
+    def _get_resource(self, resource_type, role: Optional[str] = None, optional: bool = False):
         resources = self.resource_dict.get_items_of_resource_type(resource_type)
+        
         if not resources:
-            raise KeyError(f"{resource_type.__name__}")
+            if optional:
+                return None
+            raise KeyError(f"No resource of type {resource_type.__name__} found")
         
         if role:
-            resource = resources[0]
-            if hasattr(resource, 'role') and resource.role == role:
-                return resource
+            for resource in resources:
+                if hasattr(resource, 'role') and resource.role == role:
+                    return resource
+            if optional:
+                return None
             raise KeyError(f"No resource of type {resource_type.__name__} with role '{role}' found")
         
         return resources[0]

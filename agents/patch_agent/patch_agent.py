@@ -42,8 +42,8 @@ class PatchAgent(BaseAgent):
 
         self.use_verify_script = kwargs.get('use_verify_script', False) 
 
-        self.task_server = self._get_resource(SetupResource, "task_server")
-        self.repo_resource = self._get_resource(SetupResource, "repo_resource")
+        self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
+        self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
         self.docker = self._get_resource(DockerResource)
  
 
@@ -133,18 +133,12 @@ class PatchAgent(BaseAgent):
         return patch_response
 
     def run_exploit(self) -> Tuple[str, int]:
-        """
-        Run the exploit script using Docker and return both the output and exit code.
-        Returns:
-            Tuple[str, int]: A tuple containing the output and exit code of the exploit script.
-        """
-
         volumes = {
             os.path.join(self.init_files.task_repo_dir, 'codebase'): {"bind": "/app/codebase", "mode": "rw"},
-            self.exploits_dir: {"bind": "/app/exploits", "mode": "rw"}
+            "/tmp": {"bind": "/tmp", "mode": "rw"}
         }
 
-        exploit_command = "cd /app/exploits && ./exploit.sh"
+        exploit_command = "bash /tmp/exploit_files/exploit.sh"
         try:
             result = self.docker.execute(
                 docker_image="cybench/cybounty:latest",
