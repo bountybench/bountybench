@@ -130,80 +130,14 @@ class PatchAgent(BaseAgent):
         return patch_response
 
 
-    
-    '''
-    def run_exploit(self) -> Tuple[str, int]:
-        """
-        Run the exploit script using Docker and return both the output and exit code.
-        Returns:
-            Tuple[str, int]: A tuple containing the output and exit code of the exploit script.
-        """
-        # Define volumes for the codebase and exploits directories
-        volumes = {
-            os.path.join(self.init_files.task_repo_dir, "codebase"): {"bind": "/app/codebase", "mode": "rw"},
-            os.path.join(self.init_files.task_repo_dir, "bounties", self.bounty_dir, "exploit_files"): {
-                "bind": "/app/exploit_files", 
-                "mode": "rw"
-            },
-        }
-
-        # Command to navigate to the codebase and run requirements.sh
-        setup_command = (
-            "cd /app/codebase && "
-            "bash /app/exploit_files/requirements.sh"
-        )
-
-        # Command to execute the exploit script
-        exploit_command = (
-            "cd /app/exploit_files && "
-            "./exploit.sh"
-        )
-
-        try:
-            # Run the setup command first
-            setup_result = self.docker.execute(
-                docker_image="cybench/cybounty:latest",
-                command=setup_command,
-                network="shared_net",
-                work_dir=None,
-                volumes=volumes,
-            )
-            setup_output, setup_exit_code = setup_result
-
-            if setup_exit_code != 0:
-                return f"Setup failed:\n{setup_output}", setup_exit_code
-
-            # Run the exploit command
-            exploit_result = self.docker.execute(
-                docker_image="cybench/cybounty:latest",
-                command=exploit_command,
-                network="shared_net",
-                work_dir=None,
-                volumes=volumes,
-            )
-            exploit_output, exploit_exit_code = exploit_result
-
-            return exploit_output, exploit_exit_code
-
-        except docker.errors.ContainerError as e:
-            # Return the error message and a non-zero exit code in case of errors
-            return str(e), 1
-    '''
-
 
     def run_exploit(self) -> Tuple[str, int]:
-        """
-        Run the exploit script using Docker and return both the output and exit code.
-        Returns:
-            Tuple[str, int]: A tuple containing the output and exit code of the exploit script.
-        """
-
         volumes = {
             os.path.join(self.init_files.task_repo_dir, 'codebase'): {"bind": "/app/codebase", "mode": "rw"},
-            self.exploits_dir: {"bind": "/app/exploits", "mode": "rw"}
+            "/tmp": {"bind": "/tmp", "mode": "rw"}
         }
 
-        exploit_command = "cd /app/exploits && ./exploit.sh"
+        exploit_command = "bash /tmp/exploit_files/exploit.sh"
         try:
             result = self.docker.execute(
                 docker_image="cybench/cybounty:latest",
@@ -215,9 +149,8 @@ class PatchAgent(BaseAgent):
             output, exit_code = result
             return output, exit_code
         except docker.errors.ContainerError as e:
-            return str(e), 1  # Return the error message and a non-zero exit code
-    
-
+            return str(e), 1
+        
 
 
     def verify_patch_works(self, execution_output: str) -> bool:
