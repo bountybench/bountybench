@@ -15,7 +15,7 @@ from resources.setup_resource import SetupResource
 from resources.utils import *
 from responses.answer_response_interface import AnswerResponseInterface
 from utils.logger import get_main_logger
-from utils.workflow_logger import WorkflowLogger
+from utils.workflow_logger import WorkflowLogger, workflow_logger
 
 logger = get_main_logger(__name__)
 
@@ -46,13 +46,13 @@ def main() -> None:
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,
-        max_iterations=7,
+        max_iterations=15,
         max_response_len=3,
         use_helm=True
     )
-    
-    # Initialize our new workflow logger
-    workflow_logger = WorkflowLogger(
+
+    # Initialize workflow logger
+    workflow_logger.initialize(
         workflow_name="patch",
         logs_dir=str(logs_dir),
         task_repo_dir=str(args.task_repo_dir),
@@ -113,19 +113,14 @@ def main() -> None:
     exploit_files_dir = os.path.join("bounties", f"bounty_{bounty_number}", "exploit_files")
 
 
-    workflow_logger.add_resource("InitFilesResource")
     InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=exploit_files_dir, vulnerable_commit=vulnerable_commit)
     if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
-        workflow_logger.add_resource("SetupResource-repo")
         SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
     if repo_metadata["target_host"]: 
-        workflow_logger.add_resource("SetupResource-task")
         SetupResource(task_level_setup=True, task_repo_dir=task_repo_dir, files_dir=files_dir, bounty_number=bounty_number, server_address=repo_metadata["target_host"])
 
-    workflow_logger.add_resource("KaliEnv")
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, bounty_number=bounty_number, volumes={
                     os.path.join(task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}})
-    workflow_logger.add_resource("DockerHelper")
     DockerResource("DockerHelper")
     
     # Add workflow metadata
@@ -133,15 +128,6 @@ def main() -> None:
     workflow_logger.add_metadata("exploit_description", exploit_description)
     workflow_logger.add_metadata("repo_metadata", repo_metadata)
     workflow_logger.add_metadata("bounty_metadata", bounty_metadata)
-
-    executor_agent_config: AgentConfig = AgentConfig(
-        model='openai/gpt-4o-2024-05-13',
-        max_output_tokens=2000,
-        max_input_tokens=6000,
-        max_iterations=15,
-        max_response_len=3,
-        use_helm=True
-    )
 
     executor_agent = ExecutorAgent(
         config=executor_agent_config, initial_prompt=patch_prompt, logger=workflow_logger, target_host=repo_metadata["target_host"])
@@ -151,39 +137,30 @@ def main() -> None:
     prev_response = None
 
     for iteration in range(executor_agent_config.max_iterations):
-        workflow_logger.start_iteration(iteration + 1)
+        with workflow_logger.iteration(iteration + 1) as iteration_ctx:
+            # Execute the executor agent
+            with iteration_ctx.interaction("executor_agent", prev_response if iteration > 0 else None) as interaction:
+                simple_response = executor_agent.run([] if iteration == 0 else [prev_response])
+                interaction.set_output(simple_response)
 
-        workflow_logger.start_interaction(
-            agent_name="executor_agent",
-            input_response=prev_response
-        )
-        simple_response = executor_agent.run([] if iteration == 0 else [prev_response])
+            # If simple agent hallucinates, stop
+            if issubclass(simple_response.__class__, AnswerResponseInterface):
+                workflow_logger.finalize("completed_with_hallucination")
+                logger.info("Simple agent hallucinated an answer!")
+                break
 
-        workflow_logger.end_interaction(output_response=simple_response)
+            # Execute the patch agent
+            with iteration_ctx.interaction("patch_agent", simple_response) as interaction:
+                patch_response = patch_agent.run([simple_response])
+                interaction.set_output(patch_response)
 
-         # If simple agent hallucinates, log and stop
-        if issubclass(simple_response.__class__, AnswerResponseInterface):
-            workflow_logger.end_iteration("fail")
-            workflow_logger.finalize("completed_with_hallucination")
-            logger.info("Simple agent hallucinated an answer!")
-            break
+            # If patch is successful, stop
+            if issubclass(patch_response.__class__, AnswerResponseInterface):
+                workflow_logger.finalize("completed_success")
+                logger.info("Patch Success!")
+                break
 
-        workflow_logger.start_interaction(
-            agent_name="patch_agent",
-            input_response=simple_response
-        )
-        patch_response = patch_agent.run([simple_response])
-        workflow_logger.end_interaction(output_response=patch_response)
-
-        if issubclass(patch_response.__class__, AnswerResponseInterface):
-            workflow_logger.end_iteration("success")
-            workflow_logger.finalize("completed_success")
-            logger.info("Patch Success!")
-            break
-            
-        workflow_logger.end_iteration("in_progress")
-
-        prev_response = simple_response
+            prev_response = simple_response
 
     # If we reached max iterations without success
     if iteration == executor_agent_config.max_iterations - 1:

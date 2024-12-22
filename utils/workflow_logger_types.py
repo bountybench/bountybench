@@ -5,7 +5,6 @@ from datetime import datetime
 
 from responses.response import Response
 
-
 @dataclass
 class Action:
     action_type: str

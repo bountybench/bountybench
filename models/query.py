@@ -8,6 +8,7 @@ from models.openai_models.openai_models import OpenAIModels
 from models.openai_models.azure_openai_models import AzureOpenAIModels
 from models.model_mapping import ModelRegistry 
 from models.model_response import ModelResponse
+from utils.workflow_logger import workflow_logger
 
 
 
@@ -90,10 +91,25 @@ def query(
     """
     model_provider: ModelProvider
     model_provider = get_model_provider(model=model, helm=helm)
-    return model_provider.request(
+    model_response = model_provider.request(
         model=model,
         message=message,
         temperature=temperature,
         max_tokens=max_tokens,
         stop_sequences=stop_sequences,
     )
+    workflow_logger.log_action(
+        action_name="llm",
+        input_data=message,
+        output_data=model_response.content,
+        metadata={
+            "model": model,
+            "temperature": temperature,
+            "max_input_tokens": max_tokens,
+            "stop_sequences": stop_sequences,
+            "input_tokens": model_response.input_tokens,
+            "output_tokens": model_response.output_tokens,
+            "time_taken_in_ms": model_response.time_taken_in_ms,
+        },
+    )
+    return model_response

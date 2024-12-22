@@ -4,6 +4,7 @@ import docker
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
+from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -23,6 +24,7 @@ class DockerResource(BaseResource):
         """
         self.client = docker.from_env()
         self.resource_id = name
+        workflow_logger.add_resource(f"DockerResource: {self.resource_id}")
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 

@@ -12,6 +12,7 @@ from docker.models.containers import Container
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
 from resources.utils import get_stdout_text, parse_shell_script
+from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 
 # Configure logging
@@ -59,6 +60,7 @@ class KaliEnvResource(BaseResource):
         if task_repo_dir:
             self.run_requirements(self.bounty_dir)
 
+        workflow_logger.add_resource(f"KaliEnvResource: {self.resource_id}")
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
@@ -137,7 +139,7 @@ class KaliEnvResource(BaseResource):
 
 
 
-    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None) -> Tuple[str, str]:
+    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
         logger.info(f"Running command in Docker container: {command}")
 
         try:
@@ -157,6 +159,8 @@ class KaliEnvResource(BaseResource):
             stdout_text = get_stdout_text(stdout)
             stderr_text = get_stdout_text(stderr)
             logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
+            if logging:
+                workflow_logger.log_action(action_name="kali", input_data=command, output_data={"stdout": stdout_text, "stderr": stderr_text}, metadata={})
             return stdout_text, stderr_text
 
         except TimeoutError:
