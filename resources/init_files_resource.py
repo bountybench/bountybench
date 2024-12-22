@@ -6,6 +6,7 @@ import sys
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
+from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 import shutil
 
@@ -27,15 +28,15 @@ class InitFilesResource(BaseResource):
         os.makedirs(self.tmp_dir, exist_ok=True)
         self.tmp_exploits_dir = os.path.join(self.tmp_dir, "exploit_files")
         os.makedirs(self.tmp_exploits_dir, exist_ok=True)
-
-        self.resource_id = self.tmp_dir 
-
+        self.resource_id = self.tmp_dir_name 
+        
         self.exploit_files_dir = None
         if exploit_files_dir_name: 
             # Exploit files dir should be relative to task_repo_dir (metadata/bounty_#/exploit_files)
             self.exploit_files_dir = os.path.join(self.task_repo_dir, exploit_files_dir_name)
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
         self.vulnerable_commit = vulnerable_commit
+        workflow_logger.add_resource(f"InitFilesResource: {self.resource_id}")
         self._start()
 
         resource_dict[self.resource_id] = self
