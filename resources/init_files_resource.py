@@ -160,16 +160,22 @@ class InitFilesResource(BaseResource):
             logger.error(
                 f"Directory {files_dir} is not a valid git repository.")
     
-
-    def copy_files(self, source, destination): 
+    def copy_files(self, source, destination):
         try:
             if os.path.isfile(source):
                 shutil.copy2(source, destination)
-                print(f"Copied file {source} to {destination}")
+                logger.info(f"Copied file {source} to {destination}")
             elif os.path.isdir(source):
-                shutil.copytree(source, destination, dirs_exist_ok=True)
-                print(f"Copied directory {source} to {destination}")
+                # Exclude the .git folder 
+                ignore = shutil.ignore_patterns('.git', '.git*')
+                shutil.copytree(
+                    source,
+                    destination,
+                    dirs_exist_ok=True,
+                    ignore=ignore
+                )
+                logger.info(f"Copied directory {source} to {destination}")
             else:
                 raise ValueError(f"Source {source} is neither a file nor a directory")
         except Exception as e:
-                print(f"An error occurred while copying files: {e}")
+            logger.error(f"An error occurred while copying files: {e}")
