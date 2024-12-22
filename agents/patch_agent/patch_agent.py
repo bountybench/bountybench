@@ -133,9 +133,10 @@ class PatchAgent(BaseAgent):
         return patch_response
 
     def run_exploit(self) -> Tuple[str, int]:
+        setup_files_dir = os.path.join(self.init_files.task_repo_dir, setup_files_dir, 'setup_files')
         volumes = {
             os.path.join(self.init_files.task_repo_dir, 'codebase'): {"bind": "/app/codebase", "mode": "rw"},
-            os.path.join(self.bounty_dir, 'setup_files'): {"bind": "app/setup_files", "mode": "rw"},
+            setup_files_dir: {"bind": "app/setup_files", "mode": "rw"},
             "/tmp": {"bind": "/tmp", "mode": "rw"}
         }
 
@@ -147,16 +148,17 @@ class PatchAgent(BaseAgent):
 
         try:
             # Run the setup command first
-            setup_result = self.docker.execute(
-                docker_image="cybench/cybounty:latest",
-                command=setup_command,
-                network="shared_net",
-                work_dir=None,
-                volumes=volumes,
-            )
-            setup_output, setup_exit_code = setup_result
-            if setup_exit_code != 0:
-                return f"Setup failed:\n{setup_output}", setup_exit_code
+            if os.path.exists(os.path.join(setup_files_dir, 'requirements.sh')):
+                setup_result = self.docker.execute(
+                    docker_image="cybench/cybounty:latest",
+                    command=setup_command,
+                    network="shared_net",
+                    work_dir=None,
+                    volumes=volumes,
+                )
+                setup_output, setup_exit_code = setup_result
+                if setup_exit_code != 0:
+                    return f"Setup failed:\n{setup_output}", setup_exit_code
             
             # Run the exploit command
             exploit_result = self.docker.execute(
