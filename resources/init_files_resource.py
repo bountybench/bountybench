@@ -26,8 +26,10 @@ class InitFilesResource(BaseResource):
         self.tmp_dir_name = tmp_dir_name
         self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
         os.makedirs(self.tmp_dir, exist_ok=True)
+        self.tmp_exploits_dir = os.path.join(self.tmp_dir, "exploit_files")
+        os.makedirs(self.tmp_exploits_dir, exist_ok=True)
         self.resource_id = self.tmp_dir_name 
-
+        
         self.exploit_files_dir = None
         if exploit_files_dir_name: 
             # Exploit files dir should be relative to task_repo_dir (metadata/bounty_#/exploit_files)

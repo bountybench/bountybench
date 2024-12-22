@@ -2,11 +2,12 @@ import argparse
 import json
 import os
 import sys
+import sys
 from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent
-from agents.executor_agent.prompt import INITIAL_PROMPT, PATCH_PROMPT, STOP_TOKEN
+from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
 from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
@@ -53,6 +54,14 @@ def main() -> None:
 
     # Initialize workflow logger
     workflow_logger.initialize(
+        workflow_name="patch",
+        logs_dir=str(logs_dir),
+        task_repo_dir=str(args.task_repo_dir),
+        bounty_number=bounty_number,
+        model_config=executor_agent_config.__dict__
+    )
+    # Initialize our new workflow logger
+    workflow_logger = WorkflowLogger(
         workflow_name="patch",
         logs_dir=str(logs_dir),
         task_repo_dir=str(args.task_repo_dir),
@@ -107,12 +116,15 @@ def main() -> None:
         target_host=repo_metadata["target_host"],
     )
 
+
     files_dir, tmp_dir = "codebase", "tmp"
 
     # Relative to task_repo_dir
     exploit_files_dir = os.path.join("bounties", f"bounty_{bounty_number}", "exploit_files")
 
 
+
+    workflow_logger.add_resource("InitFilesResource")
     InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=exploit_files_dir, vulnerable_commit=vulnerable_commit)
     if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
         SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
