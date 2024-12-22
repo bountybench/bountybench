@@ -105,7 +105,7 @@ class PatchAgent(BaseAgent):
         setup_files_dir = Path(self.init_files.task_repo_dir) / 'setup_files'
         volumes = {
             Path(self.init_files.task_repo_dir) / 'codebase': {"bind": "/app/codebase", "mode": "rw"},
-            setup_files_dir: {"bind": "app/setup_files", "mode": "rw"},
+            setup_files_dir: {"bind": "/app/setup_files", "mode": "rw"},
             "/tmp": {"bind": "/tmp", "mode": "rw"}
         }
 
