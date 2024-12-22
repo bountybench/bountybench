@@ -25,19 +25,33 @@ class OpenAIModels(ModelProvider):
     ) -> ModelResponse:
 
         start_time = datetime.now()
-        response = self.client.Completion.create(
-            model=model,
-            prompt=message,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stop=stop_sequences,
-        )
+
+        model_name = model.split("/")[1]
+        if model_name[0] == 'o':
+            response = self.client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "user", "content": message},
+                ],
+                max_completion_tokens=max_tokens,
+                stop=stop_sequences,
+            )
+        else:
+            response = self.client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "user", "content": message},
+                ],
+                temperature=temperature,
+                max_completion_tokens=max_tokens,
+                stop=stop_sequences,
+            )
 
         end_time = datetime.now()
         response_request_duration = (
             end_time - start_time).total_seconds() * 1000
 
-        return ModelResponse(content=response.choices[0].text,
+        return ModelResponse(content=response.choices[0].message.content,
                              input_tokens=response.usage.prompt_tokens,
                              output_tokens=response.usage.completion_tokens,
                              time_taken_in_ms=response_request_duration)
