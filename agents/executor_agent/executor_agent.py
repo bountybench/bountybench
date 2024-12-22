@@ -32,13 +32,12 @@ class ExecutorAgent(BaseAgent):
     OPTIONAL_RESOURCES = []
     ACCESSIBLE_RESOURCES = [KaliEnvResource]
 
-    def __init__(self, config: AgentConfig, initial_prompt: str, logger: Optional[WorkflowLogger], *args, **kwargs):
+    def __init__(self, config: AgentConfig, initial_prompt: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.config = config
 
         self.initial_prompt = initial_prompt
         self.prompt = self.initial_prompt
-        self.logger = logger if logger else None
 
         if kwargs.get("target_host", ""):
             self.kali_env.health_check(kwargs.get("target_host", ""))
