@@ -57,13 +57,13 @@ class OpenAIModels(ModelProvider):
                              time_taken_in_ms=response_request_duration)
 
     def tokenize(self, model: str, message: str) -> List[int]:
-        encoding = tiktoken.encoding_for_model(model)
+        encoding = tiktoken.encoding_for_model("gpt-4o")
         return encoding.encode(message)
 
     def decode(self, model: str, tokens: List[int]) -> str:
-        encoding = tiktoken.encoding_for_model(model)
+        encoding = tiktoken.encoding_for_model("gpt-4o")
         return encoding.decode(tokens)
     
     def get_num_tokens(self, model: str, message: str) -> int:
-        encoding = tiktoken.encoding_for_model(model)
+        encoding = tiktoken.encoding_for_model("gpt-4o")
         return len(encoding.encode(message))
