@@ -42,8 +42,8 @@ class PatchAgent(BaseAgent):
 
         self.use_verify_script = kwargs.get('use_verify_script', False) 
 
-        self.task_server = self._get_resource(SetupResource, "task_server")
-        self.repo_resource = self._get_resource(SetupResource, "repo_resource")
+        self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
+        self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
         self.docker = self._get_resource(DockerResource)
  
 
