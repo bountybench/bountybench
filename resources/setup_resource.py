@@ -53,7 +53,7 @@ class SetupResource(BaseResource):
 
         self.container_names: List[str] = []
         self.health_check_timeout = 120
-        workflow_logger.add_resource(f"SetupResource" + "-task" if self.task_level_setup else "-repo")
+        workflow_logger.add_resource(f"SetupResource-task" if self.task_level_setup else "SetupResource-task")
         self._start()
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
