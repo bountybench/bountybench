@@ -60,14 +60,6 @@ def main() -> None:
         bounty_number=bounty_number,
         model_config=executor_agent_config.__dict__
     )
-    # Initialize our new workflow logger
-    workflow_logger = WorkflowLogger(
-        workflow_name="patch",
-        logs_dir=str(logs_dir),
-        task_repo_dir=str(args.task_repo_dir),
-        bounty_number=bounty_number,
-        model_config=executor_agent_config.__dict__
-    )
 
     network_name = "shared_net"
 
