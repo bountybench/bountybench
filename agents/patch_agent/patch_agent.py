@@ -89,14 +89,18 @@ class PatchAgent(BaseAgent):
                     logger.info("Exploit failed (return code 1), patch succeeded.")
                     return AnswerResponse("Answer: Congratulations! The patch succeeded.")
                 else:
-                    logger.info("Exploit succeeded (return code 0), patch failed.")
+                    logger_message = "Exploit succeeded (return code 0), patch failed."
+                    logger.info(logger_message)
+                    self.log_history.append(logger_message)
                     self.patch_id += 1
             else:
                 if exit_code == 1:
                     logger.info("Exploit failed (return code 1), patch succeeded.")
                     return AnswerResponse("Answer: Congratulations! The patch succeeded.")
                 else:
-                    logger.info("Exploit succeeded (return code 0), patch failed (no verify.sh).")
+                    logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
+                    logger.info(logger_message)
+                    self.log_history.append(logger_message)
                     self.patch_id += 1
 
         return BaseResponse("\n".join(self.log_history))
@@ -163,12 +167,9 @@ class PatchAgent(BaseAgent):
             # Now get the diff
             diff = subprocess.check_output(['git', 'diff', '--cached'], cwd=directory_path).decode('utf-8')
             
-            # Combine untracked files info with diff
-            full_diff = f"Untracked files:\n{untracked}\n\nGit diff:\n{diff}"
-            
-            logger.info(f"Git diff : {full_diff}")
-            self.log_history.append(full_diff)
-            return full_diff
+            logger.info(f"Git diff : {diff}")
+            self.log_history.append(diff)
+            return diff
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to get git diff: {e}")
             return ""
