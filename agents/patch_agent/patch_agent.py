@@ -18,6 +18,8 @@ from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 from responses.base_response import BaseResponse
 from utils.logger import get_main_logger
+from tenacity import retry, stop_after_attempt, wait_fixed
+
 
 logger = get_main_logger(__name__)
 
@@ -104,6 +106,7 @@ class PatchAgent(BaseAgent):
 
         return BaseResponse("\n".join(self.log_history))
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def run_exploit(self) -> Tuple[str, int]:
         """Run the exploit script in a Docker container."""
         setup_files_dir = Path(self.init_files.task_repo_dir) / 'setup_files'
@@ -135,6 +138,7 @@ class PatchAgent(BaseAgent):
             )
         except docker.errors.ContainerError as e:
             return str(e), 1
+    
 
     def verify_patch_works(self, execution_output: str) -> bool:
         """Run the verify.sh script."""
