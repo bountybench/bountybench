@@ -88,7 +88,7 @@ class PatchAgent(BaseAgent):
                     logger.info("Exploit failed (return code 1), patch succeeded.")
                     return AnswerResponse("Congratulations! The patch succeeded.")
                 else:
-                    logger.info("Exploit is successful, patch failed.")
+                    logger.info("Exploit succeeded (return code 0), patch failed.")
                     self.patch_id += 1
             else:
                 if exit_code == 1:
