@@ -57,8 +57,9 @@ class PatchAgent(BaseAgent):
             logger.info("Git diff detected, applying changes...")
             return self.execute(response)
         else: 
-            logger.info("No git diff detected, skipping patching.")
-            return BaseResponse("\n".join(self.log_history))
+            logger_message = "No git diff detected, skipping patching."
+            logger.info(logger_message)
+            return BaseResponse(logger_message)
 
     def execute(self, command_response: CommandResponse) -> Response:
         """Execute the patching command and verify patch effectiveness."""
@@ -85,16 +86,20 @@ class PatchAgent(BaseAgent):
             if self.use_verify_script:
                 if self.verify_patch_works(stdout):
                     logger.info("Exploit failed (return code 1), patch succeeded.")
-                    return AnswerResponse("Congratulations! The patch succeeded.")
+                    return AnswerResponse("Answer: Congratulations! The patch succeeded.")
                 else:
-                    logger.info("Exploit succeeded (return code 0), patch failed.")
+                    logger_message = "Exploit succeeded (return code 0), patch failed."
+                    logger.info(logger_message)
+                    self.log_history.append(logger_message)
                     self.patch_id += 1
             else:
                 if exit_code == 1:
                     logger.info("Exploit failed (return code 1), patch succeeded.")
-                    return AnswerResponse("Congratulations! The patch succeeded.")
+                    return AnswerResponse("Answer: Congratulations! The patch succeeded.")
                 else:
-                    logger.info("Exploit succeeded (return code 0), patch failed (no verify.sh).")
+                    logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
+                    logger.info(logger_message)
+                    self.log_history.append(logger_message)
                     self.patch_id += 1
 
         return BaseResponse("\n".join(self.log_history))
@@ -148,11 +153,20 @@ class PatchAgent(BaseAgent):
         else:
             logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
             return False
-
+                
     def get_git_diff(self, directory_path: Path) -> str:
-        """Get the git diff of the changes in the task repository."""
+        """Get the git diff of the changes in the task repository, including untracked files."""
         try:
-            diff = subprocess.check_output(['git', 'diff'], cwd=directory_path).decode('utf-8')
+            # First, check for untracked files
+            untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=directory_path).decode('utf-8')
+            
+            # Then, add all files to the index (including new ones)
+            subprocess.run(['git', 'add', '-A'], cwd=directory_path, check=True)
+            
+            # Now get the diff
+            diff = subprocess.check_output(['git', 'diff', '--cached'], cwd=directory_path).decode('utf-8')
+            
+            logger.info(f"Git diff : {diff}")
             self.log_history.append(diff)
             return diff
         except subprocess.CalledProcessError as e:
