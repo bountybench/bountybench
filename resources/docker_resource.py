@@ -1,6 +1,8 @@
 import atexit
 import uuid
 import docker
+import os
+from pathlib import Path
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
@@ -28,8 +30,8 @@ class DockerResource(BaseResource):
         atexit.register(self.stop)
 
     def execute(
-    self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = False
-) -> tuple:
+        self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = False
+    ) -> tuple:
         """
         Run a Docker container with the specified configuration.
 
@@ -91,6 +93,37 @@ class DockerResource(BaseResource):
                 container.remove(force=True)
             except:
                 pass  # If container removal fails, just ignore it
+
+    def copy_from_container(self, container_name: str, source_path: str, dest_path: str) -> None:
+        """
+        Copy a file or directory from a container to the host system.
+
+        Args:
+            container_name (str): The name of the container to copy from.
+            source_path (str): The path of the file or directory in the container.
+            dest_path (str): The destination path on the host system.
+        """
+        try:
+            container = self.client.containers.get(container_name)
+            
+            # Get file/directory data from container
+            bits, stat = container.get_archive(source_path)
+            
+            # Ensure the destination directory exists
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            
+            # Write the file/directory data to the destination
+            with open(dest_path, 'wb') as f:
+                for chunk in bits:
+                    f.write(chunk)
+            
+            logger.info(f"Copied from container {container_name}: {source_path} -> {dest_path}")
+        except docker.errors.NotFound:
+            logger.error(f"Container not found: {container_name}")
+        except docker.errors.APIError as e:
+            logger.error(f"Docker API error while copying: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error copying from container: {e}")
 
     def stop(self) -> None:
         """

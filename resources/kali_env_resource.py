@@ -31,6 +31,7 @@ def timeout_context(seconds):
         yield
     finally:
         signal.alarm(0)
+        
 # Constants with type annotations
 DOCKER_IMAGE: str = "cybench/cybounty:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
