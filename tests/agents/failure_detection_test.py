@@ -16,7 +16,7 @@ class TestExecutorAgent(unittest.TestCase):
     def setUp(self):
         # Define the AgentConfig with necessary parameters
         self.config = AgentConfig(
-            max_response_len=100,
+            max_iterations_stored_in_memory=100,
             max_input_tokens=500,
             model="test-model",
             max_output_tokens=150,
