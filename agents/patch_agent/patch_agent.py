@@ -34,7 +34,6 @@ class PatchAgent(BaseAgent):
         self.exploit_files_dir = kwargs.get('exploit_files_dir')
         self.log_history = []
         self.patch_id = 1
-        self.logger = kwargs.get("logger", logger)
 
         self.use_verify_script = kwargs.get('use_verify_script', False) 
 

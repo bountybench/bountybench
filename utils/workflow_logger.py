@@ -184,7 +184,7 @@ class WorkflowLogger:
         """Finalize the workflow log"""
         self._ensure_initialized()
         self.workflow_log.metadata.end_time = datetime.now().isoformat()
-        self.workflow_log.final_status = final_status
+        self.workflow_log.final_status.append(final_status)
         self.save()
     
     def save(self) -> None:
