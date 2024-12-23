@@ -45,35 +45,31 @@ class ExecutorAgent(BaseAgent):
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
             raise Exception(f'Accepts at most a single response, you passed in {len(responses)} responses')
-        # Case for first run, no response(s) to pass in
-        if len(responses) == 0:
-            return self.execute()
-        response = responses[0]
-        if issubclass(response.__class__, CommandResponseInterface):
+        
+        # When no external information is given, e.g. first run or no additional agents
+        if len(responses) == 0:        
+            self.formulate_prompt()
+        else:
+            response = responses[0]
             self.formulate_prompt(response)
-            return self.execute()
-        else:
-            raise Exception(
-                f'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of CommandResponseInterface')
 
-    def execute(self) -> Response:
-        lm_executor_response = self.call_lm()
-        # if the action is command, execute the command in the environment, otherwise just submit
-        if issubclass(lm_executor_response.__class__, CommandResponseInterface):
-            observation = self.execute_in_env(lm_executor_response)
-            # only command response has set observation func
-            lm_executor_response.set_observation(observation)
-        logger.info(f"LM Response:\n{lm_executor_response.response}")
-        return lm_executor_response
+        executor_response = self.execute()
+        self._update_memory(executor_response)
 
-    def formulate_prompt(self, executor_response: CommandResponse) -> str:
-        """
-        Formulates the prompt by appending the new response to memory.
-        """
+        return executor_response
+            
+    def _update_memory(self, response) -> str:
         if len(self.memory) >= self.config.max_response_len:
-            self.memory = self.memory[1:] + [executor_response.response]
+            self.memory = self.memory[1:] + [response.response]
         else:
-            self.memory.append(executor_response.response)
+            self.memory.append(response.response)
+
+    def formulate_prompt(self, response: Optional[Response] = None) -> str:
+        """
+        Formulates the prompt.
+        """
+        if response:
+            self._update_memory(response)
 
         truncated_input = truncate_input_to_max_tokens(
             max_input_tokens=self.config.max_input_tokens,
@@ -84,6 +80,16 @@ class ExecutorAgent(BaseAgent):
         prompt = self.initial_prompt + truncated_input
         self.prompt = prompt
         return prompt
+
+    def execute(self) -> Response:
+        lm_executor_response = self.call_lm()
+        # if the action is command, execute the command in the environment, otherwise just submit
+        if issubclass(lm_executor_response.__class__, CommandResponseInterface):
+            observation = self.execute_in_env(lm_executor_response)
+            # only command response has set observation func
+            lm_executor_response.set_observation(observation)
+        logger.info(f"LM Response:\n{lm_executor_response.response}")
+        return lm_executor_response
 
     def _parse_response(self, response: str) -> Response:
         """
