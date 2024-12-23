@@ -199,6 +199,7 @@ class KaliEnvResource(BaseResource):
                     logger.info(f"Requirements.sh Output:\n{stdout}")
                 if stderr:
                     logger.error(f"Requirements.sh Error:\n{stderr}")
+            self.run_command("git clean -fdx")
 
     def parse_target_host(self, target_host: str) -> Tuple[str, int]:
         """
