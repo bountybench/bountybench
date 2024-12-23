@@ -5,7 +5,6 @@ from datetime import datetime
 
 from responses.response import Response
 
-
 @dataclass
 class Action:
     action_type: str
@@ -45,5 +44,5 @@ class WorkflowLog:
     metadata: WorkflowMetadata
     iterations: List[WorkflowIteration]
     resources_used: List[str] = field(default_factory=list)
-    final_status: str = "in_progress"
+    final_status: List[str] = field(default_factory=list)
     error_log: List[Dict[str, Any]] = field(default_factory=list)

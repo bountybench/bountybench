@@ -1,16 +1,18 @@
 import atexit
-
+import uuid
 import docker
+import os
+from pathlib import Path
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
+from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
 # Constants
 ENTRYPOINT = "/bin/bash"
-
 
 class DockerResource(BaseResource):
     """
@@ -23,12 +25,13 @@ class DockerResource(BaseResource):
         """
         self.client = docker.from_env()
         self.resource_id = name
+        workflow_logger.add_resource(f"DockerResource: {self.resource_id}")
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def execute(
-        self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = True
-    ) -> str:
+        self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = False
+    ) -> tuple:
         """
         Run a Docker container with the specified configuration.
 
@@ -38,35 +41,89 @@ class DockerResource(BaseResource):
             network (Optional[str]): The Docker network to attach the container to.
             work_dir (Optional[str]): The working directory inside the container.
             volumes (Optional[dict]): The volumes to mount in the container.
-            detach (bool): Run the container in detached mode. Defaults to True.
+            detach (bool): Run the container in detached mode. Defaults to False.
 
         Returns:
-            str: The logs from the container.
+            tuple: A tuple containing the logs from the container and the exit code.
         """
-        logger.info(
-            f"Running command in Docker: {command}, Work Dir: {work_dir}")
-        container = self.client.containers.run(
-            image=docker_image,
-            command=f'-c "{command}"',
-            volumes=volumes,
-            network=network,
-            entrypoint=ENTRYPOINT,
-            working_dir=work_dir,
-            detach=detach,
-            name=self.resource_id,
-        )
-        logs = ""
-        last_line = ""
+        
+        unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
+        
+        logger.info(f"Running command in Docker: {command}, Work Dir: {work_dir}")
         try:
+            # If command is a string, convert it to a list
+            if isinstance(command, str):
+                command = ['/bin/bash', '-c', command]
+                
+            container = self.client.containers.run(
+                image=docker_image,
+                command=command,  # Pass command directly without additional formatting
+                volumes=volumes,
+                network=network,
+                working_dir=work_dir,
+                detach=True,
+                name=unique_name,
+            )
+            
+            logs = ""
+            last_line = ""
             for line in container.logs(stdout=True, stderr=True, stream=True):
-                logs += (line.decode().strip() + "\n")
-                last_line = line.decode().strip()
-            container.remove()
-            logger.info(f"Exploit logs:{logs}")
-            return last_line
+                decoded_line = line.decode().strip()
+                logs += (decoded_line + "\n")
+                if decoded_line:  # Only update last_line if non-empty
+                    last_line = decoded_line
+            
+            # Wait for the container to finish and get the exit code
+            result = container.wait()
+            exit_code = result['StatusCode']
+            
+            logger.info(f"Container logs:\n{logs.strip()}")
+            logger.info(f"Exit code: {exit_code}")
+            
+            return last_line, exit_code
+        
+        except docker.errors.APIError as e:
+            logger.error(f"Docker API error: {str(e)}")
+            return str(e), -1
         except Exception as e:
-            logger.error(f"Error streaming logs: {e}")
-            return logs
+            logger.error(f"Error running Docker container: {e}")
+            return str(e), -1
+        finally:
+            try:
+                container.remove(force=True)
+            except:
+                pass  # If container removal fails, just ignore it
+
+    def copy_from_container(self, container_name: str, source_path: str, dest_path: str) -> None:
+        """
+        Copy a file or directory from a container to the host system.
+
+        Args:
+            container_name (str): The name of the container to copy from.
+            source_path (str): The path of the file or directory in the container.
+            dest_path (str): The destination path on the host system.
+        """
+        try:
+            container = self.client.containers.get(container_name)
+            
+            # Get file/directory data from container
+            bits, stat = container.get_archive(source_path)
+            
+            # Ensure the destination directory exists
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            
+            # Write the file/directory data to the destination
+            with open(dest_path, 'wb') as f:
+                for chunk in bits:
+                    f.write(chunk)
+            
+            logger.info(f"Copied from container {container_name}: {source_path} -> {dest_path}")
+        except docker.errors.NotFound:
+            logger.error(f"Container not found: {container_name}")
+        except docker.errors.APIError as e:
+            logger.error(f"Docker API error while copying: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error copying from container: {e}")
 
     def stop(self) -> None:
         """

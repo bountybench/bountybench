@@ -32,13 +32,12 @@ class ExecutorAgent(BaseAgent):
     OPTIONAL_RESOURCES = []
     ACCESSIBLE_RESOURCES = [KaliEnvResource]
 
-    def __init__(self, config: AgentConfig, initial_prompt: str, logger: Optional[WorkflowLogger], *args, **kwargs):
+    def __init__(self, config: AgentConfig, initial_prompt: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.config = config
 
         self.initial_prompt = initial_prompt
         self.prompt = self.initial_prompt
-        self.logger = logger if logger else None
 
         if kwargs.get("target_host", ""):
             self.kali_env.health_check(kwargs.get("target_host", ""))
@@ -119,10 +118,6 @@ class ExecutorAgent(BaseAgent):
                 helm=self.config.use_helm
             )
 
-            if self.logger:
-                self.logger.log_action(
-                    "llm", model_input, model_response.content, {"input_tokens": model_response.input_tokens, "output_tokens": model_response.output_tokens, "time_taken_in_ms": model_response.time_taken_in_ms, "iteration": iterations})
-
             model_response = model_response.remove_hallucinations()
 
             lm_response = model_response + f"\n{STOP_TOKEN}"
@@ -146,15 +141,12 @@ class ExecutorAgent(BaseAgent):
         try:
             # Use kali_env to execute the command inside the container
             stdout, stderr = self.kali_env.run_command(
-                command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/"
+                command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/", logging=True
             )
 
             # Check for command execution without errors, even if no stdout was produced
             observation = stdout.strip() + stderr.strip()
             logger.info(f"Executed the command in agent environment: {command}.\n\nstdout: {stdout.strip()}\n\nstderr: {stderr.strip()}")
-            if self.logger:
-                self.logger.log_action(
-                    "kali", command, observation, {})
 
             return Observation(observation)
         except Exception as e:

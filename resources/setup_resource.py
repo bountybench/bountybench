@@ -9,6 +9,7 @@ from typing import List, Optional
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
 from resources.utils import run_command
+from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -34,15 +35,25 @@ class SetupResource(BaseResource):
         
         self.resource_id = server_address
         self.task_level_setup = task_level_setup
+
+        self.role = "task_server" if self.task_level_setup else "repo_resource"
+
+
         self.task_repo_dir = os.path.abspath(task_repo_dir)
         self.files_dir = files_dir
         self.bounty_dir = os.path.join(self.task_repo_dir, "bounties", f"bounty_{bounty_number}")
 
-        self.host_name, self.port_number = self.parse_server_address(server_address)
+        if server_address:
+            self.host_name, self.port_number = self.parse_server_address(server_address)
+            self.resource_id = f"{self.role }_{server_address}"
+        else:
+            self.host_name, self.port_number = None, None
+            self.resource_id = f"{self.role }_local"
+
 
         self.container_names: List[str] = []
         self.health_check_timeout = 120
-
+        workflow_logger.add_resource(f"SetupResource-{self.role}")
         self._start()
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
@@ -87,39 +98,43 @@ class SetupResource(BaseResource):
         env_type = "task server" if self.task_level_setup else "repo env"
         work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
 
-        logger.info(f"Restarting {env_type} {self.resource_id}")
-        logger.info(f"Executing {setup_script} in {work_dir}")
-        try:
-            result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
-            logger.info(f"{env_type.capitalize()} restarted at {self.resource_id}")
-            self.container_names = self.extract_container_names(result.stdout, result.stderr)
 
-            #if not self.container_names:
-                #raise RuntimeError(f"Failed to retrieve container names for {self.host_name}")
-            if self.container_names: 
-                self.wait_until_all_containers_healthy()
 
-        except FileNotFoundError:
-            logger.error(f"Setup script not found: {os.path.join(work_dir, setup_script)}")
-            raise
-        except Exception as e:
-            logger.error(f"Unable to restart {env_type} at {self.resource_id}: {e}")
-            raise
+        if os.path.exists(str(work_dir) + setup_script): 
+            logger.info(f"Restarting {env_type} {self.resource_id}")
+            logger.info(f"Executing {setup_script} in {work_dir}")
+            try:
+                result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
+                logger.info(f"{env_type.capitalize()} restarted at {self.resource_id}")
+                self.container_names = self.extract_container_names(result.stdout, result.stderr)
+
+                #if not self.container_names:
+                    #raise RuntimeError(f"Failed to retrieve container names for {self.host_name}")
+                if self.container_names: 
+                    self.wait_until_all_containers_healthy()
+
+            except FileNotFoundError:
+                logger.error(f"Setup script not found: {os.path.join(work_dir, setup_script)}")
+                raise
+            except Exception as e:
+                logger.error(f"Unable to restart {env_type} at {self.resource_id}: {e}")
+                raise
 
     def stop(self) -> None:
         """Stop the environment by running 'stop_docker.sh'."""
         work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
         stop_script = os.path.join(work_dir, "stop_docker.sh")
 
-        logger.info(f"Executing stop_docker.sh in {work_dir}")
 
-        try:
-            run_command(command=["./stop_docker.sh"], work_dir=work_dir)
-            logger.info(f"Stopped environment at {self.resource_id}.")
-        except FileNotFoundError:
-            logger.warning(f"Stop script not found: {stop_script}.")
-        except Exception as e:
-            logger.info(f"Unable to stop environment at {self.resource_id}: {e}")
+        if os.path.exists(str(work_dir) + stop_script): 
+            logger.info(f"Executing stop_docker.sh in {work_dir}")
+            try:
+                run_command(command=["./stop_docker.sh"], work_dir=work_dir)
+                logger.info(f"Stopped environment at {self.resource_id}.")
+            except FileNotFoundError:
+                logger.warning(f"Stop script not found: {stop_script}.")
+            except Exception as e:
+                logger.info(f"Unable to stop environment at {self.resource_id}: {e}")
 
     def wait_until_all_containers_healthy(self, timeout: int = 300, check_interval: int = 2) -> bool:
         """

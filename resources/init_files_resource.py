@@ -6,6 +6,7 @@ import sys
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
+from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 import shutil
 
@@ -25,14 +26,17 @@ class InitFilesResource(BaseResource):
         self.tmp_dir_name = tmp_dir_name
         self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
         os.makedirs(self.tmp_dir, exist_ok=True)
-        self.resource_id = self.tmp_dir 
-
+        self.tmp_exploits_dir = os.path.join(self.tmp_dir, "exploit_files")
+        os.makedirs(self.tmp_exploits_dir, exist_ok=True)
+        self.resource_id = self.tmp_dir_name 
+        
         self.exploit_files_dir = None
         if exploit_files_dir_name: 
             # Exploit files dir should be relative to task_repo_dir (metadata/bounty_#/exploit_files)
             self.exploit_files_dir = os.path.join(self.task_repo_dir, exploit_files_dir_name)
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
         self.vulnerable_commit = vulnerable_commit
+        workflow_logger.add_resource(f"InitFilesResource: {self.resource_id}")
         self._start()
 
         resource_dict[self.resource_id] = self
@@ -156,16 +160,22 @@ class InitFilesResource(BaseResource):
             logger.error(
                 f"Directory {files_dir} is not a valid git repository.")
     
-
-    def copy_files(self, source, destination): 
+    def copy_files(self, source, destination):
         try:
             if os.path.isfile(source):
                 shutil.copy2(source, destination)
-                print(f"Copied file {source} to {destination}")
+                logger.info(f"Copied file {source} to {destination}")
             elif os.path.isdir(source):
-                shutil.copytree(source, destination, dirs_exist_ok=True)
-                print(f"Copied directory {source} to {destination}")
+                # Exclude the .git folder 
+                ignore = shutil.ignore_patterns('.git', '.git*')
+                shutil.copytree(
+                    source,
+                    destination,
+                    dirs_exist_ok=True,
+                    ignore=ignore
+                )
+                logger.info(f"Copied directory {source} to {destination}")
             else:
                 raise ValueError(f"Source {source} is neither a file nor a directory")
         except Exception as e:
-                print(f"An error occurred while copying files: {e}")
+            logger.error(f"An error occurred while copying files: {e}")

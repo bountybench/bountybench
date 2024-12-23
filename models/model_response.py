@@ -29,3 +29,11 @@ class ModelResponse:
     @staticmethod
     def from_dict(d: dict) -> "ModelResponse":
         return ModelResponse(d["content"], d["input_tokens"], d["output_tokens"], d["time_taken_in_ms"])
+
+    def to_dict(self):
+        return {
+            "content": self.content,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "time_taken_in_ms": self.time_taken_in_ms,
+        }
