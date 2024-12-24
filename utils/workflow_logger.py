@@ -49,8 +49,7 @@ class WorkflowLogger:
                 workflow_name=workflow_name,
                 start_time=datetime.now().isoformat(),
                 task_repo_dir=task_repo_dir,
-                bounty_number=bounty_number,
-                model_config=model_config
+                bounty_number=bounty_number
             ),
             iterations=[],
         )
@@ -61,8 +60,6 @@ class WorkflowLogger:
             components.append(Path(task_repo_dir).name)
         if bounty_number:
             components.append(str(bounty_number))
-        if model_config and "model" in model_config:
-            components.append(model_config["model"].replace("/", "_"))
             
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
