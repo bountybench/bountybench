@@ -70,7 +70,7 @@ class ExecutorAgent(BaseAgent):
         """
         Formulates the prompt by appending the new response to memory.
         """
-        if len(self.memory) >= self.config.max_response_len:
+        if len(self.memory) >= self.config.max_iterations_stored_in_memory:
             self.memory = self.memory[1:] + [executor_response.response]
         else:
             self.memory.append(executor_response.response)
