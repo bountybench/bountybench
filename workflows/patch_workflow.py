@@ -163,7 +163,7 @@ def main() -> None:
                 logger.info("Patch Success!")
                 break
 
-            prev_response = simple_response
+            prev_response = patch_response
 
     # If we reached max iterations without success
     if iteration == executor_agent_config.max_iterations - 1:

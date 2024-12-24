@@ -11,6 +11,7 @@ logger = get_main_logger(__name__)
 
 from models.model_response import ModelResponse
 from responses.response import Response
+from responses.error_response import ErrorResponse
 
 from .workflow_logger_types import (
     Action,
@@ -291,14 +292,14 @@ class WorkflowLogger:
         def __exit__(self, exc_type, exc_val, exc_tb):
             if exc_type:
                 # In case of exception, create an error response
-                self.output_response = Response(
+                self.output_response = ErrorResponse(
                     answer=str(exc_val),
                     error=True,
                     metadata={"exception_type": exc_type.__name__}
                 )
             elif not self.output_response:
                 # If no output response was set, create a default one
-                self.output_response = Response(
+                self.output_response = ErrorResponse(
                     answer="Interaction completed without explicit response",
                     error=False
                 )
