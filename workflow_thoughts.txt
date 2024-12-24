@@ -1,0 +1,9 @@
+So currently, there are iterations, which contain interactions between agents. 
+
+So a workflow consists of iterations, which consists of interactions. Each interaction consists of an input and output response and a list of actions. Each action consists of input and output data.
+
+There are a few things:
+1. It feels like there are phases of workflows, e.g. initially it goes through execute / exploit; then it goes through execute / patch. i.e. the exploit and patch are two different phases. 
+2. It feels a bit confusing that there are interactions vs iterations vs if we just iterated once per each agent input output.
+3. It feels like we should have a Workflow class / primitive (or something similar) to capture shared logic / enforce common structure to guarantee that folks don't mess up. i.e. it should be hard to fail (and it should be obvious when someone does). That is, if someone writes a bad workflow e.g. doesn't log properly, we would rather it fail to run, than to somehow work and we find out months later (this is why static typing is nice vs dynamic typing, where success when behavior is erroneous is worse than nothing)
+
