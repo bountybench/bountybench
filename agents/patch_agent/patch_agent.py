@@ -56,7 +56,9 @@ class PatchAgent(BaseAgent):
             raise TypeError(f"Expected CommandResponseInterface, got {type(response)}")
 
         if self.get_git_diff(self.init_files.tmp_dir):
-            logger.info("Git diff detected, applying changes...")
+            log_message = "Git diff detected, applying changes..."
+            logger.info(log_message)
+            self.log_history.append(log_message)
             return self.execute(response)
         else: 
             logger_message = "No git diff detected, skipping patching."
@@ -83,6 +85,9 @@ class PatchAgent(BaseAgent):
                 Observation("The task server and/or repo resource cannot restart after the changes.")
             )
         else:
+            log_message = "Running exploit..."
+            logger.info(log_message)
+            self.log_history.append(log_message)
             stdout, exit_code = self.run_exploit()
 
             if self.use_verify_script:
@@ -103,8 +108,9 @@ class PatchAgent(BaseAgent):
                     logger.info(logger_message)
                     self.log_history.append(logger_message)
                     self.patch_id += 1
-
-        return BaseResponse("\n".join(self.log_history))
+        patch_response = "\n".join(self.log_history)
+        self.log_history.clear()
+        return BaseResponse(patch_response)
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def run_exploit(self) -> Tuple[str, int]:
@@ -171,7 +177,6 @@ class PatchAgent(BaseAgent):
             diff = subprocess.check_output(['git', 'diff', '--cached'], cwd=directory_path).decode('utf-8')
             
             logger.info(f"Git diff : {diff}")
-            self.log_history.append(diff)
             return diff
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to get git diff: {e}")
