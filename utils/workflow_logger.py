@@ -2,6 +2,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from utils.logger import get_main_logger
@@ -173,20 +174,7 @@ class WorkflowLogger:
         self._ensure_initialized()
         
         if resource_name not in self.workflow_log.resources_used:
-            self.workflow_log.resources_used.append(resource_name)
-            
-            # If resource instance is provided and has serialization methods
-            if resource and hasattr(resource, 'to_dict'):
-                try:
-                    # Create resources directory if it doesn't exist
-                    resources_dir = os.path.join(os.path.dirname(self.log_file), 'resources')
-                    os.makedirs(resources_dir, exist_ok=True)
-                    
-                    # Save resource state to a JSON file
-                    resource_file = os.path.join(resources_dir, f"{resource_name}.json")
-                    resource.save_to_file(resource_file)
-                except Exception as e:
-                    logger.error(f"Failed to save resource state for {resource_name}: {e}")
+            self.workflow_log.resources_used[resource_name] = resource.to_dict()
     
     def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
         """Log an error that occurred during the workflow"""
