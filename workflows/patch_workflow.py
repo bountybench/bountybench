@@ -2,7 +2,6 @@ import argparse
 import json
 import os
 import sys
-import sys
 from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
@@ -58,7 +57,6 @@ def main() -> None:
         logs_dir=str(logs_dir),
         task_repo_dir=str(args.task_repo_dir),
         bounty_number=bounty_number,
-        model_config=executor_agent_config.__dict__
     )
 
     network_name = "shared_net"
@@ -134,8 +132,10 @@ def main() -> None:
 
     executor_agent = ExecutorAgent(
         config=executor_agent_config, initial_prompt=patch_prompt, logger=workflow_logger, target_host=repo_metadata["target_host"])
+    workflow_logger.add_agent("ExecutorAgent", executor_agent)
 
     patch_agent = PatchAgent(bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}"))
+    workflow_logger.add_agent("PatchAgent", patch_agent)
 
     prev_response = None
 

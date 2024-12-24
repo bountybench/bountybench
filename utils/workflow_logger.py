@@ -163,17 +163,30 @@ class WorkflowLogger:
                     aggregate_metadata[key] += value
         self.current_interaction.metadata = aggregate_metadata
 
-    def add_resource(self, resource_name: str, resource=None) -> None:
+    def add_agent(self, agent_name: str, agent) -> None:
         """
-        Log a resource being used in the workflow and save its state if provided.
+        Log an agent being used in the workflow and save its state.
         
         Args:
-            resource_name (str): Name of the resource
-            resource: Optional resource instance that has serialization methods
+            agent_name (str): Name of the agent
+            agent: Agent instance that has serialization methods
         """
         self._ensure_initialized()
         
-        if resource_name not in self.workflow_log.resources_used:
+        if agent_name not in self.workflow_log.agent_used and hasattr(agent, 'to_dict'):
+            self.workflow_log.agent_used[agent_name] = agent.to_dict()
+
+    def add_resource(self, resource_name: str, resource) -> None:
+        """
+        Log a resource being used in the workflow and save its state.
+        
+        Args:
+            resource_name (str): Name of the resource
+            resource: Resource instance that has serialization methods
+        """
+        self._ensure_initialized()
+        
+        if resource_name not in self.workflow_log.resources_used and hasattr(resource, 'to_dict'):
             self.workflow_log.resources_used[resource_name] = resource.to_dict()
     
     def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
@@ -210,9 +223,9 @@ class WorkflowLogger:
                 "end_time": self.workflow_log.metadata.end_time,
                 "task_repo_dir": self.workflow_log.metadata.task_repo_dir,
                 "bounty_number": self.workflow_log.metadata.bounty_number,
-                "model_config": self.workflow_log.metadata.model_config,
                 "additional_metadata": self.workflow_log.metadata.additional_metadata
             },
+            "agent_used": self.workflow_log.agent_used,
             "resources_used": self.workflow_log.resources_used,
             "final_status": self.workflow_log.final_status,
             "iterations": [
