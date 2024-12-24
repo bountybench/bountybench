@@ -58,7 +58,7 @@ class ExecutorAgent(BaseAgent):
         return executor_response
             
     def _update_memory(self, response) -> str:
-        if len(self.memory) >= self.config.max_response_len:
+        if len(self.memory) >= self.config.max_iterations_stored_in_memory:
             self.memory = self.memory[1:] + [response.response]
         else:
             self.memory.append(response.response)
