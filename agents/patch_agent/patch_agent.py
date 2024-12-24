@@ -316,3 +316,53 @@ class PatchAgent(BaseAgent):
             
         except Exception as e:
             logger.error(f"Failed to move patches directory: {e}")
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the PatchAgent state to a dictionary.
+        """
+        return {
+            'bounty_dir': str(self.bounty_dir),
+            'patch_dir': str(self.patch_dir),
+            'exploit_files_dir': self.exploit_files_dir,
+            'log_history': self.log_history,
+            'patch_id': self.patch_id,
+            'use_verify_script': self.use_verify_script,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'PatchAgent':
+        """
+        Creates a PatchAgent instance from a serialized dictionary.
+        """
+        kwargs.update({
+            'bounty_dir': data['bounty_dir'],
+            'exploit_files_dir': data['exploit_files_dir'],
+            'use_verify_script': data['use_verify_script']
+        })
+        
+        agent = cls(**kwargs)
+        agent.patch_dir = Path(data['patch_dir'])
+        agent.log_history = data['log_history']
+        agent.patch_id = data['patch_id']
+        return agent
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the agent state to a JSON file.
+        """
+        import json
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'PatchAgent':
+        """
+        Loads an agent state from a JSON file.
+        """
+        import json
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)
