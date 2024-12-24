@@ -36,13 +36,13 @@ class WorkflowMetadata:
     end_time: Optional[str] = None
     task_repo_dir: Optional[str] = None
     bounty_number: Optional[str] = None
-    model_config: Optional[Dict[str, Any]] = None
     additional_metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class WorkflowLog:
     metadata: WorkflowMetadata
     iterations: List[WorkflowIteration]
-    resources_used: List[str] = field(default_factory=list)
+    resources_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    agent_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     final_status: List[str] = field(default_factory=list)
     error_log: List[Dict[str, Any]] = field(default_factory=list)

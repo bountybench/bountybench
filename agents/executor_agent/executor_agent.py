@@ -1,4 +1,3 @@
-
 from typing import List, Optional
 
 from agents.base_agent import BaseAgent
@@ -160,3 +159,75 @@ class ExecutorAgent(BaseAgent):
             logger.exception(
                 f"Failed to execute command in agent environment: {command}.\n\n Exception: {str(e)}")
             return Observation(str(e))
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the ExecutorAgent state to a dictionary.
+        """
+        return {
+            'config': self.config.__dict__,
+            'memory': self.memory,
+            'initial_prompt': self.initial_prompt,
+            'prompt': self.prompt,
+            'timestamp': self.timestamp if hasattr(self, 'timestamp') else None
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'ExecutorAgent':
+        """
+        Creates an ExecutorAgent instance from a serialized dictionary.
+        
+        Args:
+            data: Dictionary containing the serialized agent state
+            **kwargs: Additional arguments to pass to the agent constructor
+            
+        Returns:
+            ExecutorAgent: Reconstructed agent instance
+        """
+        config = AgentConfig(**data['config'])
+        agent = cls(
+            config=config,
+            initial_prompt=data['initial_prompt'],
+            **kwargs
+        )
+        agent.memory = data['memory']
+        agent.prompt = data['prompt']
+        if data.get('timestamp'):
+            agent.timestamp = data['timestamp']
+        return agent
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the agent state to a JSON file.
+        
+        Args:
+            filepath: Path to save the agent state
+        """
+        import json
+        from datetime import datetime
+        
+        # Add timestamp to state
+        state = self.to_dict()
+        state['timestamp'] = datetime.now().isoformat()
+        
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'ExecutorAgent':
+        """
+        Loads an agent state from a JSON file.
+        
+        Args:
+            filepath: Path to the saved agent state
+            **kwargs: Additional arguments to pass to the agent constructor
+            
+        Returns:
+            ExecutorAgent: Reconstructed agent instance
+        """
+        import json
+        
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        
+        return cls.from_dict(data, **kwargs)

@@ -1,8 +1,13 @@
 import json
 import os
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional, Any
+
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
 
 from models.model_response import ModelResponse
 from responses.response import Response
@@ -45,8 +50,7 @@ class WorkflowLogger:
                 workflow_name=workflow_name,
                 start_time=datetime.now().isoformat(),
                 task_repo_dir=task_repo_dir,
-                bounty_number=bounty_number,
-                model_config=model_config
+                bounty_number=bounty_number
             ),
             iterations=[],
         )
@@ -57,8 +61,6 @@ class WorkflowLogger:
             components.append(Path(task_repo_dir).name)
         if bounty_number:
             components.append(str(bounty_number))
-        if model_config and "model" in model_config:
-            components.append(model_config["model"].replace("/", "_"))
             
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
@@ -159,11 +161,31 @@ class WorkflowLogger:
                     aggregate_metadata[key] += value
         self.current_interaction.metadata = aggregate_metadata
 
-    def add_resource(self, resource_name: str) -> None:
-        """Log a resource being used in the workflow"""
+    def add_agent(self, agent_name: str, agent) -> None:
+        """
+        Log an agent being used in the workflow and save its state.
+        
+        Args:
+            agent_name (str): Name of the agent
+            agent: Agent instance that has serialization methods
+        """
         self._ensure_initialized()
-        if resource_name not in self.workflow_log.resources_used:
-            self.workflow_log.resources_used.append(resource_name)
+        
+        if agent_name not in self.workflow_log.agent_used and hasattr(agent, 'to_dict'):
+            self.workflow_log.agent_used[agent_name] = agent.to_dict()
+
+    def add_resource(self, resource_name: str, resource) -> None:
+        """
+        Log a resource being used in the workflow and save its state.
+        
+        Args:
+            resource_name (str): Name of the resource
+            resource: Resource instance that has serialization methods
+        """
+        self._ensure_initialized()
+        
+        if resource_name not in self.workflow_log.resources_used and hasattr(resource, 'to_dict'):
+            self.workflow_log.resources_used[resource_name] = resource.to_dict()
     
     def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
         """Log an error that occurred during the workflow"""
@@ -199,9 +221,9 @@ class WorkflowLogger:
                 "end_time": self.workflow_log.metadata.end_time,
                 "task_repo_dir": self.workflow_log.metadata.task_repo_dir,
                 "bounty_number": self.workflow_log.metadata.bounty_number,
-                "model_config": self.workflow_log.metadata.model_config,
                 "additional_metadata": self.workflow_log.metadata.additional_metadata
             },
+            "agent_used": self.workflow_log.agent_used,
             "resources_used": self.workflow_log.resources_used,
             "final_status": self.workflow_log.final_status,
             "iterations": [

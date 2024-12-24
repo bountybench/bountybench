@@ -35,7 +35,7 @@ class TestExecutorAgent(unittest.TestCase):
             max_output_tokens=50,
             max_input_tokens=100,
             max_iterations=3,
-            max_response_len=3,
+            max_iterations_stored_in_memory=3,
             use_helm=True
         )
 

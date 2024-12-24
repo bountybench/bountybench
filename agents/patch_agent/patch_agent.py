@@ -108,10 +108,56 @@ class PatchAgent(BaseAgent):
                     logger.info(logger_message)
                     self.log_history.append(logger_message)
                     self.patch_id += 1
+                    
         patch_response = "\n".join(self.log_history)
         self.log_history.clear()
         return BaseResponse(patch_response)
+    
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    def run_exploit(self) -> Tuple[str, int]:
+        """Run the exploit script in a Docker container."""
+        setup_files_dir = Path(self.init_files.task_repo_dir) / 'setup_files'
+        volumes = {
+            Path(self.init_files.task_repo_dir) / 'codebase': {"bind": "/app/codebase", "mode": "rw"},
+            setup_files_dir: {"bind": "/app/setup_files", "mode": "rw"},
+            "/tmp": {"bind": "/tmp", "mode": "rw"}
+        }
 
+        # Clear the /tmp directory
+        clear_tmp_command = "rm -rf /tmp/* /tmp/.*"
+        self.docker.execute(
+            docker_image="cybench/cybounty:latest",
+            command=clear_tmp_command,
+            network="shared_net",
+            volumes=volumes,
+        )
+
+        setup_command = "bash /app/setup_files/requirements.sh"
+        
+        # Use self.exploit_files_dir to run the exploit
+        exploit_command = f"bash {self.exploit_files_dir}/exploit.sh"
+
+        try:
+            if (setup_files_dir / 'requirements.sh').exists():
+                setup_result = self.docker.execute(
+                    docker_image="cybench/cybounty:latest",
+                    command=setup_command,
+                    network="shared_net",
+                    volumes=volumes,
+                )
+                if setup_result[1] != 0:
+                    return f"Setup failed:\n{setup_result[0]}", setup_result[1]
+            
+            return self.docker.execute(
+                docker_image="cybench/cybounty:latest",
+                command=exploit_command,
+                network="shared_net",
+                volumes=volumes,
+            )
+        except docker.errors.ContainerError as e:
+            return str(e), 1
+
+    '''
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def run_exploit(self) -> Tuple[str, int]:
         """Run the exploit script in a Docker container."""
@@ -144,7 +190,7 @@ class PatchAgent(BaseAgent):
             )
         except docker.errors.ContainerError as e:
             return str(e), 1
-    
+    '''
 
     def verify_patch_works(self, execution_output: str) -> bool:
         """Run the verify.sh script."""
@@ -276,3 +322,53 @@ class PatchAgent(BaseAgent):
             
         except Exception as e:
             logger.error(f"Failed to move patches directory: {e}")
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the PatchAgent state to a dictionary.
+        """
+        return {
+            'bounty_dir': str(self.bounty_dir),
+            'patch_dir': str(self.patch_dir),
+            'exploit_files_dir': self.exploit_files_dir,
+            'log_history': self.log_history,
+            'patch_id': self.patch_id,
+            'use_verify_script': self.use_verify_script,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'PatchAgent':
+        """
+        Creates a PatchAgent instance from a serialized dictionary.
+        """
+        kwargs.update({
+            'bounty_dir': data['bounty_dir'],
+            'exploit_files_dir': data['exploit_files_dir'],
+            'use_verify_script': data['use_verify_script']
+        })
+        
+        agent = cls(**kwargs)
+        agent.patch_dir = Path(data['patch_dir'])
+        agent.log_history = data['log_history']
+        agent.patch_id = data['patch_id']
+        return agent
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the agent state to a JSON file.
+        """
+        import json
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'PatchAgent':
+        """
+        Loads an agent state from a JSON file.
+        """
+        import json
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)

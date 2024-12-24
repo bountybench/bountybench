@@ -2,7 +2,6 @@ import argparse
 import json
 import os
 import sys
-import sys
 from pathlib import Path
 
 from agents.dataclasses.agent_spec import AgentConfig
@@ -45,10 +44,10 @@ def main() -> None:
 
     executor_agent_config: AgentConfig = AgentConfig(
         model='openai/o3-mini-2024-12-17',
-        max_output_tokens=2000,
-        max_input_tokens=6000,
-        max_iterations=15,
-        max_response_len=3,
+        max_output_tokens=25000,
+        max_input_tokens=25000,
+        max_iterations=25,
+        max_iterations_stored_in_memory=3,
         use_helm=False
     )
 
@@ -58,7 +57,6 @@ def main() -> None:
         logs_dir=str(logs_dir),
         task_repo_dir=str(args.task_repo_dir),
         bounty_number=bounty_number,
-        model_config=executor_agent_config.__dict__
     )
 
     network_name = "shared_net"
@@ -116,7 +114,6 @@ def main() -> None:
 
 
 
-    workflow_logger.add_resource("InitFilesResource")
     InitFilesResource(task_repo_dir=task_repo_dir, files_dir_name=files_dir, tmp_dir_name=tmp_dir, exploit_files_dir_name=exploit_files_dir, vulnerable_commit=vulnerable_commit)
     if os.path.exists(str(task_repo_dir) + "/setup_repo_env.sh"): 
         SetupResource(task_level_setup=False, task_repo_dir=task_repo_dir, files_dir=files_dir)
@@ -135,8 +132,10 @@ def main() -> None:
 
     executor_agent = ExecutorAgent(
         config=executor_agent_config, initial_prompt=patch_prompt, logger=workflow_logger, target_host=repo_metadata["target_host"])
+    workflow_logger.add_agent("ExecutorAgent", executor_agent)
 
     patch_agent = PatchAgent(bounty_dir=os.path.join("bounties", f"bounty_{bounty_number}"))
+    workflow_logger.add_agent("PatchAgent", patch_agent)
 
     prev_response = None
 
