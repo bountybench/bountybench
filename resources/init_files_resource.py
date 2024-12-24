@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
@@ -36,7 +37,7 @@ class InitFilesResource(BaseResource):
             self.exploit_files_dir = os.path.join(self.task_repo_dir, exploit_files_dir_name)
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
         self.vulnerable_commit = vulnerable_commit
-        workflow_logger.add_resource(f"InitFilesResource: {self.resource_id}")
+        workflow_logger.add_resource(f"InitFilesResource: {self.resource_id}", self)
         self._start()
 
         resource_dict[self.resource_id] = self
@@ -179,3 +180,49 @@ class InitFilesResource(BaseResource):
                 raise ValueError(f"Source {source} is neither a file nor a directory")
         except Exception as e:
             logger.error(f"An error occurred while copying files: {e}")
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the InitFilesResource state to a dictionary.
+        """
+        return {
+            'task_repo_dir': self.task_repo_dir,
+            'files_dir': self.files_dir,
+            'tmp_dir': self.tmp_dir,
+            'tmp_exploits_dir': self.tmp_exploits_dir,
+            'exploit_files_dir': self.exploit_files_dir,
+            'vulnerable_commit': self.vulnerable_commit,
+            'resource_id': self.resource_id,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'InitFilesResource':
+        """
+        Creates an InitFilesResource instance from a serialized dictionary.
+        """
+        return cls(
+            task_repo_dir=data['task_repo_dir'],
+            files_dir_name=os.path.basename(data['files_dir']),
+            exploit_files_dir_name=os.path.basename(data['exploit_files_dir']) if data['exploit_files_dir'] else None,
+            vulnerable_commit=data['vulnerable_commit']
+        )
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the resource state to a JSON file.
+        """
+        import json
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'InitFilesResource':
+        """
+        Loads a resource state from a JSON file.
+        """
+        import json
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)

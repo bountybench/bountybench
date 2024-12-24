@@ -53,7 +53,7 @@ class SetupResource(BaseResource):
 
         self.container_names: List[str] = []
         self.health_check_timeout = 120
-        workflow_logger.add_resource(f"SetupResource-{self.role}")
+        workflow_logger.add_resource(f"SetupResource: {self.role}", self)
         self._start()
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
@@ -206,3 +206,57 @@ class SetupResource(BaseResource):
         else:
             logger.warning("No container names found in the output.")
             return []
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the SetupResource state to a dictionary.
+        """
+        return {
+            'task_level_setup': self.task_level_setup,
+            'task_repo_dir': self.task_repo_dir,
+            'files_dir': self.files_dir,
+            'bounty_dir': self.bounty_dir,
+            'host_name': self.host_name,
+            'port_number': self.port_number,
+            'resource_id': self.resource_id,
+            'role': self.role,
+            'container_names': self.container_names,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'SetupResource':
+        """
+        Creates a SetupResource instance from a serialized dictionary.
+        """
+        bounty_number = os.path.basename(data['bounty_dir']).replace('bounty_', '')
+        server_address = f"{data['host_name']}:{data['port_number']}" if data['host_name'] and data['port_number'] else None
+        
+        instance = cls(
+            task_level_setup=data['task_level_setup'],
+            task_repo_dir=data['task_repo_dir'],
+            files_dir=data['files_dir'],
+            bounty_number=bounty_number,
+            server_address=server_address
+        )
+        instance.container_names = data['container_names']
+        return instance
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the resource state to a JSON file.
+        """
+        import json
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'SetupResource':
+        """
+        Loads a resource state from a JSON file.
+        """
+        import json
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)

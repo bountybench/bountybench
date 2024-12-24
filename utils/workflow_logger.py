@@ -1,8 +1,12 @@
 import json
 import os
+from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional, Any
+
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
 
 from models.model_response import ModelResponse
 from responses.response import Response
@@ -158,11 +162,31 @@ class WorkflowLogger:
                     aggregate_metadata[key] += value
         self.current_interaction.metadata = aggregate_metadata
 
-    def add_resource(self, resource_name: str) -> None:
-        """Log a resource being used in the workflow"""
+    def add_resource(self, resource_name: str, resource=None) -> None:
+        """
+        Log a resource being used in the workflow and save its state if provided.
+        
+        Args:
+            resource_name (str): Name of the resource
+            resource: Optional resource instance that has serialization methods
+        """
         self._ensure_initialized()
+        
         if resource_name not in self.workflow_log.resources_used:
             self.workflow_log.resources_used.append(resource_name)
+            
+            # If resource instance is provided and has serialization methods
+            if resource and hasattr(resource, 'to_dict'):
+                try:
+                    # Create resources directory if it doesn't exist
+                    resources_dir = os.path.join(os.path.dirname(self.log_file), 'resources')
+                    os.makedirs(resources_dir, exist_ok=True)
+                    
+                    # Save resource state to a JSON file
+                    resource_file = os.path.join(resources_dir, f"{resource_name}.json")
+                    resource.save_to_file(resource_file)
+                except Exception as e:
+                    logger.error(f"Failed to save resource state for {resource_name}: {e}")
     
     def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
         """Log an error that occurred during the workflow"""

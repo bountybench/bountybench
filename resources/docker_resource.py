@@ -3,6 +3,8 @@ import uuid
 import docker
 import os
 from pathlib import Path
+import time
+import json
 
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
@@ -25,7 +27,7 @@ class DockerResource(BaseResource):
         """
         self.client = docker.from_env()
         self.resource_id = name
-        workflow_logger.add_resource(f"DockerResource: {self.resource_id}")
+        workflow_logger.add_resource(f"DockerResource: {self.resource_id}", self)
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
@@ -130,3 +132,36 @@ class DockerResource(BaseResource):
         Stop the Docker client by closing the connection.
         """
         self.client.close()
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the DockerResource state to a dictionary.
+        """
+        return {
+            'resource_id': self.resource_id,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'DockerResource':
+        """
+        Creates a DockerResource instance from a serialized dictionary.
+        """
+        return cls(name=data['resource_id'])
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the resource state to a JSON file.
+        """
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'DockerResource':
+        """
+        Loads a resource state from a JSON file.
+        """
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)

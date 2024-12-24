@@ -61,7 +61,7 @@ class KaliEnvResource(BaseResource):
         if task_repo_dir:
             self.run_requirements(self.bounty_dir)
 
-        workflow_logger.add_resource(f"KaliEnvResource: {self.resource_id}")
+        workflow_logger.add_resource(f"KaliEnvResource: {self.resource_id}", self)
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
@@ -277,3 +277,47 @@ class KaliEnvResource(BaseResource):
                 "Health checks failed for one or more target hosts.")
         else:
             logger.info("All target hosts passed the health check.")
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the KaliEnvResource state to a dictionary.
+        """
+        return {
+            'resource_id': self.resource_id,
+            'bounty_dir': self.bounty_dir,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'KaliEnvResource':
+        """
+        Creates a KaliEnvResource instance from a serialized dictionary.
+        """
+        task_repo_dir = os.path.dirname(os.path.dirname(data['bounty_dir']))
+        bounty_number = os.path.basename(data['bounty_dir']).replace('bounty_', '')
+        
+        return cls(
+            name=data['resource_id'],
+            task_repo_dir=task_repo_dir,
+            bounty_number=bounty_number,
+            **kwargs
+        )
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the resource state to a JSON file.
+        """
+        import json
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'KaliEnvResource':
+        """
+        Loads a resource state from a JSON file.
+        """
+        import json
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)
