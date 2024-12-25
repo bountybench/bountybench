@@ -63,13 +63,14 @@ class BasePhase(ABC):
 
         If anything is missing, raises ValueError/TypeError, etc.
         """
-        if not self.REQUIRED_AGENTS:
+        required_agents = getattr(self, "REQUIRED_AGENTS", [])
+        if not required_agents:
             return  # No special requirement
 
         # For each required agent type, ensure at least one config.agents matches
         agent_classes_in_config = [type(agent_instance) for (_name, agent_instance) in self.phase_config.agents]
 
-        for required_cls in self.REQUIRED_AGENTS:
+        for required_cls in required_agents:
             # Check if any agent in config is an instance of required_cls
             if not any(isinstance(agent_instance, required_cls) for (_n, agent_instance) in self.phase_config.agents):
                 raise ValueError(
@@ -93,8 +94,8 @@ class BasePhase(ABC):
         success_flag = False
 
         # 1) Start phase context
-        with self.workflow_logger.phase(self.config.phase_number, self.config.phase_name) as phase_ctx:
-            for iteration_num in range(1, self.config.max_iterations + 1):
+        with self.workflow_logger.phase(self.phase_config.phase_number, self.phase_config.phase_name) as phase_ctx:
+            for iteration_num in range(1, self.phase_config.max_iterations + 1):
                 if self._done:
                     break
 
@@ -122,8 +123,8 @@ class BasePhase(ABC):
 
     def _get_agent(self, iteration_num: int) -> Tuple[str, BaseAgent]:
         # Pick the next agent from config.agents (cycling if >1 agent)
-        agent_index = (iteration_num - 1) % len(self.config.agents)
-        agent_name, agent_instance = self.config.agents[agent_index]
+        agent_index = (iteration_num - 1) % len(self.phase_config.agents)
+        agent_name, agent_instance = self.phase_config.agents[agent_index]
         return agent_name, agent_instance
 
     @abstractmethod
