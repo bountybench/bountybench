@@ -1,0 +1,189 @@
+Below is a refactored design introducing abstract base classes for workflows and phases, along with examples of how to derive specific phases and workflows. This approach encapsulates the logic of each phase, enforces structure, and simplifies chaining between phases while integrating logging and resource constraints.
+
+───────────────────────────────────────────────────────────────────────────────
+### Abstract Base Classes
+
+Start with abstract base classes to formalize the workflow and its phases:
+
+```python
+from abc import ABC, abstractmethod
+from typing import Any, Optional, List
+from dataclasses import dataclass, field
+from datetime import datetime
+
+@dataclass
+class WorkflowMetadata:
+    workflow_name: str
+    start_time: str = field(default_factory=lambda: datetime.now().isoformat())
+    end_time: Optional[str] = None
+    # Additional metadata fields...
+
+@dataclass
+class WorkflowLog:
+    metadata: WorkflowMetadata
+    iterations: List[Any] = field(default_factory=list)
+    # Other global logging fields...
+
+class BasePhase(ABC):
+    def __init__(self, name: str, log: WorkflowLog):
+        self.name = name
+        self.log = log
+
+    @abstractmethod
+    def run(self, input_data: Optional[Any] = None) -> Any:
+        """Run the phase logic, given optional input data from previous phase."""
+        pass
+
+class BaseWorkflow(ABC):
+    def __init__(self, metadata: WorkflowMetadata):
+        self.metadata = metadata
+        self.log = WorkflowLog(metadata=metadata)
+        self.phases: List[BasePhase] = []
+
+    def add_phase(self, phase: BasePhase) -> None:
+        self.phases.append(phase)
+
+    @abstractmethod
+    def setup_resources(self) -> None:
+        """Initialize resources needed for the workflow."""
+        pass
+
+    def run(self) -> Any:
+        """Execute the workflow sequentially through its phases."""
+        self.setup_resources()
+        input_data = None
+        for phase in self.phases:
+            input_data = phase.run(input_data)
+        # Optionally finalize workflow, update metadata.end_time, etc.
+        return input_data
+```
+
+───────────────────────────────────────────────────────────────────────────────
+### Concrete Phases for Exploit and Patch
+
+Derive specific phases from `BasePhase`. These classes encapsulate the logic for each phase, using agents and logging as needed.
+
+```python
+# Assume required imports and agent/resource initialization done earlier
+
+class ExploitPhase(BasePhase):
+    def __init__(self, executor_agent, exploit_agent, max_iterations: int, log: WorkflowLog):
+        super().__init__("ExploitPhase", log)
+        self.executor_agent = executor_agent
+        self.exploit_agent = exploit_agent
+        self.max_iterations = max_iterations
+
+    def run(self, input_data: Optional[Any] = None) -> Any:
+        # input_data can be None for first iteration
+        prev_response = input_data
+        for iteration in range(self.max_iterations):
+            # Logging iteration start
+            # Use self.log to record iteration details
+
+            # Execute steps with executor and exploit agents
+            executor_response = self.executor_agent.run([prev_response] if prev_response else [])
+            # Log executor interaction
+
+            if isinstance(executor_response, SomeFailureType):
+                # Handle errors, finalize workflow if needed
+                break
+
+            exploit_response = self.exploit_agent.run([executor_response])
+            # Log exploit interaction
+
+            if isinstance(exploit_response, SomeSuccessType):
+                # Successful exploit found, finalize phase
+                return exploit_response
+
+            prev_response = exploit_response
+
+        # If no success, return last response or handle failure
+        return None
+
+class PatchPhase(BasePhase):
+    def __init__(self, executor_agent, patch_agent, max_iterations: int, log: WorkflowLog):
+        super().__init__("PatchPhase", log)
+        self.executor_agent = executor_agent
+        self.patch_agent = patch_agent
+        self.max_iterations = max_iterations
+
+    def run(self, input_data: Optional[Any] = None) -> Any:
+        prev_response = input_data
+        for iteration in range(self.max_iterations):
+            # Logging iteration start
+            executor_response = self.executor_agent.run([prev_response] if prev_response else [])
+            # Log executor interaction
+
+            if isinstance(executor_response, SomeFailureType):
+                break
+
+            patch_response = self.patch_agent.run([executor_response])
+            # Log patch interaction
+
+            if isinstance(patch_response, SomeSuccessType):
+                return patch_response
+
+            prev_response = patch_response
+
+        return False  # or an appropriate value indicating patch failure
+```
+
+───────────────────────────────────────────────────────────────────────────────
+### Concrete Workflow Implementation
+
+Now define a concrete workflow that composes phases, configures resources, and initiates execution:
+
+```python
+class ExploitAndPatchWorkflow(BaseWorkflow):
+    def __init__(self, metadata: WorkflowMetadata, 
+                 executor_agent, exploit_agent, patch_agent, 
+                 max_iterations: int, resource_setup_func):
+        super().__init__(metadata)
+        self.executor_agent = executor_agent
+        self.exploit_agent = exploit_agent
+        self.patch_agent = patch_agent
+        self.max_iterations = max_iterations
+        self.setup_resources_func = resource_setup_func
+
+    def setup_resources(self) -> None:
+        # Call provided resource setup function or inline resource initialization
+        self.setup_resources_func()
+        # Add phases after resources are ready
+        exploit_phase = ExploitPhase(self.executor_agent, self.exploit_agent, self.max_iterations, self.log)
+        patch_phase = PatchPhase(self.executor_agent, self.patch_agent, self.max_iterations, self.log)
+        self.add_phase(exploit_phase)
+        self.add_phase(patch_phase)
+```
+
+───────────────────────────────────────────────────────────────────────────────
+### Using the Refactored Structure
+
+In the main script, instead of manually calling phase functions, set up and run the workflow as follows:
+
+```python
+def main() -> None:
+    args = parse_args()
+    # ... (initialize variables, parse configurations) ...
+
+    metadata = WorkflowMetadata(workflow_name="exploit_patch")
+    # Initialize agents, resources, max_iterations as before
+
+    def resource_setup():
+        setup_resources(task_repo_dir, bounty_number, repo_metadata, vulnerable_commit)
+        # Additional setup if necessary
+
+    workflow = ExploitAndPatchWorkflow(metadata, executor_agent, exploit_agent, patch_agent, max_iterations, resource_setup)
+    final_result = workflow.run()
+    # final_result contains the output of the last phase or indicates workflow status
+```
+
+───────────────────────────────────────────────────────────────────────────────
+### Summary
+
+This refactored design introduces:
+
+• **BaseWorkflow and BasePhase**: Abstract constructs enforcing structure and simplifying chaining.  
+• **Concrete Phase Classes**: Each phase encapsulates its logic, interacts with agents, and logs progress.  
+• **Concrete Workflow**: Composes phases, handles global setup, and runs phases sequentially.
+
+This structure ensures a clear definition of phases, simplifies chaining, and enforces consistent logging and resource constraints across the workflow.

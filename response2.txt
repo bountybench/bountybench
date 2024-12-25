@@ -1,0 +1,29 @@
+This sounds pretty reasonable. Could you draft up the abstract base classes / refactor the given code accordingly?
+
+
+
+A workflow, in essence, is a structured, repeatable process that coordinates a series of actions by agents under specific constraints. It’s defined by its requirements for logging, resource management, and the logical sequence of phases. Each phase is a coordinated subset of the workflow that focuses on a particular goal or task involving one or more agents. Here’s a breakdown:
+
+• The Workflow: 
+  – Acts as the top-level controller: it holds metadata, defines resource constraints (e.g., time, computation budgets), and sets logging requirements for traceability and debugging.
+  – Consists of one or more sequential (or potentially parallel) phases, each designed to accomplish part of the overall task.
+  – Enforces a structure that ensures each phase adheres to its expected input/output patterns and logs are captured consistently.
+  
+• A Phase:
+  – Defines a specific stage or goal within the workflow. For example, an “Exploit” phase where agents test vulnerabilities followed by a “Patch” phase to remediate issues.
+  – Contains one or more agents, specifying the order or interaction patterns. A phase may have a fixed sequence or a dynamic set of agents based on prior outcomes.
+  – Specifies how agents interact: an agent takes an input response, processes it, and returns an output response followed by a series of actions. These interactions and actions are logged under the phase.
+  – Can include phase-specific resource constraints or conditions. For example, an “Exploit” phase may limit certain resource usage or enforce stricter data checks.
+  
+• Chaining Phases:
+  – Phases are typically arranged sequentially, where the output of one phase can serve as an input to the next. This chaining is defined by the workflow’s logic.
+  – Transitions between phases may be triggered by completion criteria, specific outcomes, or time-based milestones.
+  – The workflow controller monitors the completion of one phase before initializing the next, ensuring that logging, resource cleanup, and state consistency are maintained before moving on.
+  – Communication or state data passed between phases ensures continuity. For instance, if an “Exploit” phase discovers a vulnerability, that information becomes part of the input for the subsequent “Patch” phase.
+  
+By defining a workflow as a container for phases, you provide a clear structure:
+– The workflow handles global concerns like logging and resource tracking.
+– Each phase defines its specific group of agents, interactions, and constraints.
+– The chaining logic in the workflow ensures that phases execute in order, pass data appropriately, and enforce rules at transitions.
+  
+This approach not only simplifies the design but also enforces consistency and error-checking at the boundaries of phases, making it easier to catch deviations or mistakes early. It effectively creates a blueprint, where any workflow must start with logging and resource constraints, then progress through clearly defined, chained phases that sequentially achieve complex goals.
