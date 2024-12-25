@@ -100,7 +100,6 @@ class BasePhase(ABC):
 
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_name, last_output) as iteration_ctx:
-                    # 3) Subclass logic for one iteration
                     iteration_output, iteration_done = self.run_one_iteration(
                         agent_instance=agent_instance,
                         previous_output=last_output,
