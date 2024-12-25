@@ -40,7 +40,6 @@ class WorkflowLogger:
         logs_dir: str = "logs",
         task_repo_dir: Optional[str] = None,
         bounty_number: Optional[str] = None,
-        model_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize the workflow logger with the given parameters"""
         self.workflow_name = workflow_name
