@@ -110,12 +110,9 @@ class BaseWorkflow(ABC):
         """
         pass
 
-    def run(self) -> Tuple[Optional[Response], bool]:
+    def run(self) -> None:
         """
         Execute the workflow by running phases in sequence.
-        
-        Returns:
-            Tuple[Optional[Response], bool]: (final response, success flag)
         """
         try:
             self._validate_phase_configs()
@@ -123,7 +120,6 @@ class BaseWorkflow(ABC):
             self.status = WorkflowStatus.INCOMPLETE
             
             prev_response = None
-            workflow_success = False
             
             # Execute phases in sequence
             for phase_idx, phase_config in enumerate(self.config.phase_configs):
@@ -147,11 +143,9 @@ class BaseWorkflow(ABC):
             # If we completed all phases successfully
             if phase_success and phase_idx == len(self.config.phase_configs) - 1:
                 self.status = WorkflowStatus.COMPLETED_SUCCESS
-                workflow_success = True
                 
             # Finalize workflow
             self.workflow_logger.finalize(self.status.value)
-            return prev_response, workflow_success
             
         except Exception as e:
             self.status = WorkflowStatus.INCOMPLETE
