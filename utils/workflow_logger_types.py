@@ -14,20 +14,26 @@ class Action:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
-class AgentInteraction:
+class PhaseIteration:
+    iteration_number: int
     agent_name: str
-    input_response: Response
-    output_response: Response
+    input_response: Optional[Response]
+    output_response: Optional[Response]
     start_time: str
-    end_time: str
+    end_time: Optional[str]
     actions: List[Action] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    status: str = "in_progress"
 
 @dataclass
-class WorkflowIteration:
-    iteration_number: int
-    interactions: List[AgentInteraction]
-    status: str
+class WorkflowPhase:
+    phase_number: int
+    phase_name: str
+    start_time: str
+    end_time: Optional[str]
+    status: str = "in_progress"
+    iterations: List[PhaseIteration] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class WorkflowMetadata:
@@ -41,7 +47,7 @@ class WorkflowMetadata:
 @dataclass
 class WorkflowLog:
     metadata: WorkflowMetadata
-    iterations: List[WorkflowIteration]
+    phases: List[WorkflowPhase] = field(default_factory=list)
     resources_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     agent_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     final_status: List[str] = field(default_factory=list)
