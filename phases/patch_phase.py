@@ -47,7 +47,7 @@ class PatchPhase(BasePhase):
         elif agent_name == "PatchAgent":
             if isinstance(response, AnswerResponseInterface):
                 logger.info("Patch Success!")
-                self.workflow_logger.finalize("completed_success")
+                self.workflow_logger.finalize("patch_success")
                 return response, True
 
         return response, False
