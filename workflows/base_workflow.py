@@ -115,8 +115,8 @@ class BaseWorkflow(ABC):
         Execute the workflow by running phases in sequence.
         """
         try:
-            self._validate_phase_configs()
             self.setup_phases()
+            self._validate_phase_configs()
             self.status = WorkflowStatus.INCOMPLETE
             
             prev_response = None
