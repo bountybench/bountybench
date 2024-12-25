@@ -79,7 +79,7 @@ class BaseWorkflow(ABC):
         This orchestrates the setup process in the correct order with logging.
         """
         try:
-            # Network setup
+            # Initial setup
             self.setup_init()
 
             # Resource setup
