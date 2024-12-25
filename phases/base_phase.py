@@ -26,8 +26,10 @@ class BasePhase(ABC):
       - max_iterations (int)
       - agents (List[BaseAgent])
     
-    Subclasses only need to implement how to run one iteration with a given agent.
+    Subclasses only need to implement how to run one iteration with a given agent. 
+    Subclass can define expected (required) agents, BasePhase automatically ensures compliance with expected list.
     """
+
     def __init__(
         self,
         workflow_logger: WorkflowLogger,
@@ -47,7 +49,33 @@ class BasePhase(ABC):
         self._done = False  # Set to True when phase logic completes early
         self._iteration_count = 0  # Will increment up to max_iterations
 
-        # TODO: Register agent for each phase?
+        # TODO: Log agent for each phase?
+
+        # Check that the agents in config match what we require (if any)
+        self._register_agents()
+
+    def _register_agents(self):
+        """
+        Checks that all REQUIRED_AGENTS are present among the agents in `phase_config`.
+        For example, if REQUIRED_AGENTS = [ExecutorAgent, ExploitAgent],
+        then among the config.agents, we must have at least one instance of ExecutorAgent,
+        and at least one instance of ExploitAgent.
+
+        If anything is missing, raises ValueError/TypeError, etc.
+        """
+        if not self.REQUIRED_AGENTS:
+            return  # No special requirement
+
+        # For each required agent type, ensure at least one config.agents matches
+        agent_classes_in_config = [type(agent_instance) for (_name, agent_instance) in self.phase_config.agents]
+
+        for required_cls in self.REQUIRED_AGENTS:
+            # Check if any agent in config is an instance of required_cls
+            if not any(isinstance(agent_instance, required_cls) for (_n, agent_instance) in self.phase_config.agents):
+                raise ValueError(
+                    f"{self.__class__.__name__} requires an agent of type {required_cls.__name__}, "
+                    f"but none was found in phase_config.agents: {agent_classes_in_config}"
+                )
 
     def run_phase(self) -> Tuple[Optional[Response], bool]:
         """
