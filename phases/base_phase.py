@@ -4,7 +4,7 @@ from typing import Any, List, Optional, Tuple
 
 from agents.base_agent import BaseAgent
 from responses.response import Response
-from utils.workflow_logger import WorkflowLogger
+from utils.workflow_logger import workflow_logger
 
 @dataclass
 class PhaseConfig:
@@ -32,17 +32,14 @@ class BasePhase(ABC):
 
     def __init__(
         self,
-        workflow_logger: WorkflowLogger,
         phase_config: PhaseConfig,
         initial_response: Optional[Response] = None
     ):
         """
         Args:
-            workflow_logger (WorkflowLogger): The shared logger instance.
             phase_config (PhaseConfig): Contains phase_number, phase_name, max_iterations, agents list.
             initial_response (Optional[Response]): Response context from previous phase.
         """
-        self.workflow_logger = workflow_logger
         self.phase_config = phase_config
         self.initial_response = initial_response
 
@@ -94,7 +91,7 @@ class BasePhase(ABC):
         success_flag = False
 
         # 1) Start phase context
-        with self.workflow_logger.phase(self.phase_config.phase_number, self.phase_config.phase_name) as phase_ctx:
+        with workflow_logger.phase(self.phase_config.phase_number, self.phase_config.phase_name) as phase_ctx:
             for iteration_num in range(1, self.phase_config.max_iterations + 1):
                 if self._done:
                     break
