@@ -20,6 +20,7 @@ dacite==1.8.1
 datasets==2.21.0
 dill==0.3.8
 distro==1.9.0
+docker==7.0.0
 extension-helpers==1.2.0
 frozenlist==1.5.0
 fsspec==2024.6.1
