@@ -110,7 +110,7 @@ class PatchWorkflow(BaseWorkflow):
             "KaliEnv",
             task_repo_dir=self.task_repo_dir,
             bounty_number=self.bounty_number,
-            volumes={os.path.join(self.task_repo_dir, tmp_dir): {"bind": "/app", "mode": "rw"}}
+            volumes={os.path.join(str(self.task_repo_dir.absolute()), tmp_dir): {"bind": "/app", "mode": "rw"}}
         )
         DockerResource("DockerHelper")
 
@@ -183,7 +183,7 @@ def main() -> None:
     logs_dir.mkdir(exist_ok=True)
     
     # Run workflow
-    workflow = PatchWorkflow(Path(args.task_repo_dir).resolve(), args.bounty_number)
+    workflow = PatchWorkflow(Path(args.task_repo_dir), args.bounty_number)
     workflow.run()
 
 if __name__ == "__main__":
