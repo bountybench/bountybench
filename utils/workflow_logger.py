@@ -75,14 +75,14 @@ class WorkflowLogger:
     # PHASE MANAGEMENT
     ################################################################
 
-    def start_phase(self, phase_number: int, phase_name: str) -> None:
+    def start_phase(self, phase_idx: int, phase_name: str) -> None:
         """Create a new workflow phase"""
         self._ensure_initialized()
         if self.current_phase is not None:
             raise RuntimeError("A phase is already in progress. End it before starting a new one.")
 
         self.current_phase = WorkflowPhase(
-            phase_number=phase_number,
+            phase_idx=phase_idx,
             phase_name=phase_name,
             start_time=datetime.now().isoformat(),
             end_time=None,
@@ -284,7 +284,7 @@ class WorkflowLogger:
             "final_status": self.workflow_log.final_status,
             "phases": [
                 {
-                    "phase_number": ph.phase_number,
+                    "phase_idx": ph.phase_idx,
                     "phase_name": ph.phase_name,
                     "start_time": ph.start_time,
                     "end_time": ph.end_time,
@@ -334,11 +334,11 @@ class WorkflowLogger:
         def __init__(self, logger: 'WorkflowLogger', phase_instance):
             self.logger = logger
             self.phase_instance = phase_instance
-            self.phase_number = phase_instance.phase_config.phase_number
+            self.phase_idx = phase_instance.phase_config.phase_idx
             self.phase_name = phase_instance.phase_config.phase_name
 
         def __enter__(self):
-            self.logger.start_phase(self.phase_number, self.phase_name)
+            self.logger.start_phase(self.phase_idx, self.phase_name)
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):

@@ -128,7 +128,7 @@ class PatchWorkflow(BaseWorkflow):
             model='openai/o3-mini-2024-12-17',
             max_output_tokens=25000,
             max_input_tokens=25000,
-            max_iterations=5,
+            max_iterations=25,
             max_iterations_stored_in_memory=3,
             use_helm=False
         )
@@ -157,7 +157,7 @@ class PatchWorkflow(BaseWorkflow):
         phase_config = PhaseConfig(
             phase_idx=0,
             phase_name="patch",
-            max_iterations=5,
+            max_iterations=25,
             agents=[
                 ("executor_agent", self.executor_agent),
                 ("patch_agent", self.patch_agent)
