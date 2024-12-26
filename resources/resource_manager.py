@@ -4,6 +4,11 @@ from phases.base_phase import PhaseConfig
 from resources.base_resource import BaseResource
 from resources.resource_dict import resource_dict
 
+"""
+Shouldn't a Resource contain a ResourceConfig? That is, a Resource is instantiated based on parameters?
+
+"""
+
 @dataclass
 class ResourceConfig:
     resource_type: Type[BaseResource]
@@ -12,10 +17,16 @@ class ResourceConfig:
 
 class ResourceManager:
     def __init__(self):
-        self.resources: Dict[str, BaseResource] = {}
-        self.phase_resources: Dict[str, Set[str]] = {}
-        self.allocated_resources: Set[str] = set()
+        # resource_id to resources. What is purpose of resource_id? 
+        # set of all resources that will be required as part of a workflow lifecycle
+        self.required_resources: Set[BaseResource] = {}
+        # phase_id to resource_ids [why this vs just to resources?]
+        self.phase_resources: Dict[str, Set[BaseResource]] = {}
+        # BaseResource contains a ResourceConfig?
+        # 
+        self.currently_allocated_resources: Set[str] = set()
         self.active_phases: Set[str] = set()
+        # 
         self.resource_configs: Dict[str, ResourceConfig] = {}
         self.resource_dict = resource_dict
 

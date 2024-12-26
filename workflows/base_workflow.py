@@ -179,6 +179,10 @@ class BaseWorkflow(ABC):
         """
         pass
 
+    """
+    Update the code according to this comment: 
+    Rather than just "run", you want to go phase by phase and use yield so that you can call next(workflow) and transition to run only a single phase. run can be an api where you continue runninguntil the end. This way you refactor the logic of running just a single phase vs running the netire workflow.
+    """
     def run(self) -> None:
         """
         Execute the workflow by running phases in sequence.

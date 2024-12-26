@@ -45,6 +45,8 @@ class KaliEnvResource(BaseResource):
 
     def __init__(self, name: str, task_repo_dir: str = None, bounty_number: str=None, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
         """
+        r/name/id
+
         Initialize the Kali Linux Environment with optional volume bindings.
 
         Args:
