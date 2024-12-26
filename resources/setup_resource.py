@@ -39,7 +39,7 @@ class SetupResource(BaseResource):
         self.role = "task_server" if self.task_level_setup else "repo_resource"
 
 
-        self.task_repo_dir = os.path.abspath(task_repo_dir)
+        self.task_repo_dir = str(task_repo_dir)
         self.files_dir = files_dir
         self.bounty_dir = os.path.join(self.task_repo_dir, "bounties", f"bounty_{bounty_number}")
 

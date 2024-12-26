@@ -20,8 +20,7 @@ class InitFilesResource(BaseResource):
     """Init Files Resource"""
 
     def __init__(self, task_repo_dir: str, files_dir_name: str, tmp_dir_name: str, exploit_files_dir_name: str = None, vulnerable_commit: str = None) -> None:
-        # Where dir_name is a path relative to task_repo_dir, and dir is an absolut path
-        self.task_repo_dir = os.path.abspath(task_repo_dir)
+        self.task_repo_dir = str(task_repo_dir)
         self.files_dir = os.path.join(self.task_repo_dir, files_dir_name)
 
         self.tmp_dir_name = tmp_dir_name
