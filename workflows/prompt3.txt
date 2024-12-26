@@ -1,0 +1,15 @@
+Let's make it easy to iterate, i.e. 
+a. init scripts for environment etc. make it easy to run ResourceSetup without running agent (i.e. a dry run agent)
+
+May be a bit interesting... how to best do this?
+It would be really cool if we could get this for free for every agent / workflow automagically.
+
+There will always be the need for interactive mode / testing by human and refining (think to nodes and human).
+
+Can you refactor the code to make it so that we can just say OK phase 1. setup all the resources and stuff and just wait, and/or have human in the loop for hook. 
+
+Don't do anything but don't kill the resources, e.g. do phase 1 resource init and then have human be there.
+
+Another one is that we have LLM calls, but perhaps we could just have a flag for "interactive" where it blocks and human modifies.
+
+Maybe discuss the pros and cons of multiple approaches and then take the one that seems most sensible.

@@ -40,7 +40,6 @@ class WorkflowLogger:
         logs_dir: str = "logs",
         task_repo_dir: Optional[str] = None,
         bounty_number: Optional[str] = None,
-        model_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize the workflow logger with the given parameters"""
         self.workflow_name = workflow_name
@@ -233,6 +232,33 @@ class WorkflowLogger:
         self._ensure_initialized()
         self.workflow_log.metadata.additional_metadata[key] = value
     
+    def add_agent(self, agent_name: str, agent) -> None:
+        """
+        Log an agent being used in the workflow and save its state.
+        
+        Args:
+            agent_name (str): Name of the agent
+            agent: Agent instance that has serialization methods
+        """
+        self._ensure_initialized()
+
+        if agent_name not in self.workflow_log.agent_used and hasattr(agent, 'to_dict'):
+            self.workflow_log.agent_used[agent_name] = agent.to_dict()
+
+    def add_resource(self, resource_name: str, resource) -> None:
+        """
+        Log a resource being used in the workflow and save its state.
+        
+        Args:
+            resource_name (str): Name of the resource
+            resource: Resource instance that has serialization methods
+        """
+        self._ensure_initialized()
+
+        if resource_name not in self.workflow_log.resources_used and hasattr(resource, 'to_dict'):
+            self.workflow_log.resources_used[resource_name] = resource.to_dict()
+
+    
     def finalize(self, final_status: str = "completed") -> None:
         """Finalize the workflow log: mark the end time, record final status, and save."""
         self._ensure_initialized()
@@ -321,13 +347,14 @@ class WorkflowLogger:
             # If we return False, we do NOT suppress exceptions.
             return False
 
-        def iteration(self, iteration_number: int, input_response: Optional[Response]):
+        def iteration(self, iteration_number: int, agent_name: str, input_response: Optional[Response]):
             """
             Returns an iteration context within this phase.
             """
             return self.logger.IterationContext(
                 self.logger,
                 iteration_number,
+                agent_name,
                 input_response
             )
 
