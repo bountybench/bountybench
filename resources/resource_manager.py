@@ -1,6 +1,14 @@
-from typing import Dict, List, Set, Type
+from typing import Dict, List, Set, Type, Optional, Any, Union, Tuple
+from dataclasses import dataclass
 from phases.base_phase import PhaseConfig
 from resources.base_resource import BaseResource
+from resources.resource_dict import resource_dict
+
+@dataclass
+class ResourceConfig:
+    resource_type: Type[BaseResource]
+    config_params: Dict[str, Any]
+    identifier: Optional[str] = None
 
 class ResourceManager:
     def __init__(self):
@@ -8,41 +16,166 @@ class ResourceManager:
         self.phase_resources: Dict[str, Set[str]] = {}
         self.allocated_resources: Set[str] = set()
         self.active_phases: Set[str] = set()
+        self.resource_configs: Dict[str, ResourceConfig] = {}
+        self.resource_dict = resource_dict
 
     def register_phase(self, phase_config: PhaseConfig):
+        """Register a phase and its required resources without creating them"""
         phase_name = phase_config.phase_name
         self.phase_resources[phase_name] = set()
+        
         for _, agent in phase_config.agents:
-            for resource_list in [agent.REQUIRED_RESOURCES, agent.OPTIONAL_RESOURCES, agent.ACCESSIBLE_RESOURCES]:
-                for resource in resource_list:
-                    resource_name = resource[0].__name__ if isinstance(resource, tuple) else resource.__name__
-                    self.phase_resources[phase_name].add(resource_name)
+            # Process required resources
+            for resource in getattr(agent, "REQUIRED_RESOURCES", []):
+                resource_name = self._get_resource_name(resource)
+                self.phase_resources[phase_name].add(resource_name)
+
+            # Process optional resources
+            for resource in getattr(agent, "OPTIONAL_RESOURCES", []):
+                if isinstance(resource, tuple):
+                    resource_type, identifier = resource
+                    resource_name = f"{resource_type.__name__}_{identifier}"
+                    # Only add optional resources that have configurations
+                    if resource_name in self.resource_configs:
+                        self.phase_resources[phase_name].add(resource_name)
+                else:
+                    resource_name = resource.__name__
+                    if resource_name in self.resource_configs:
+                        self.phase_resources[phase_name].add(resource_name)
+
+    def _get_resource_name(self, resource) -> str:
+        """Get the resource name from either a type or a (type, identifier) tuple"""
+        if isinstance(resource, tuple):
+            resource_type, identifier = resource
+            return f"{resource_type.__name__}_{identifier}"
+        return resource.__name__
+
+    def register_resource_config(self, resource_config: ResourceConfig) -> str:
+        """Register a resource configuration for later creation"""
+        if resource_config.identifier:
+            resource_name = f"{resource_config.resource_type.__name__}_{resource_config.identifier}"
+        else:
+            resource_name = resource_config.resource_type.__name__
+        
+        self.resource_configs[resource_name] = resource_config
+        return resource_name
+
+    def create_resource(self, resource_name: str) -> BaseResource:
+        """Create a resource from its registered configuration"""
+        if resource_name not in self.resource_configs:
+            raise ValueError(f"No configuration found for resource {resource_name}")
+
+        config = self.resource_configs[resource_name]
+        resource = config.resource_type(**config.config_params)
+        self.resources[resource_name] = resource
+        return resource
 
     def allocate_resources(self, phase_name: str):
+        """Allocate and create resources needed for a specific phase"""
         if phase_name not in self.phase_resources:
             raise ValueError(f"Phase {phase_name} not registered")
+        
         self.active_phases.add(phase_name)
-        for resource_name in self.phase_resources[phase_name]:
+        
+        # Get resources needed for this phase
+        phase_required_resources = self.phase_resources[phase_name]
+        
+        # Create only the resources needed for this phase
+        for resource_name in phase_required_resources:
             if resource_name not in self.allocated_resources:
-                self.allocated_resources.add(resource_name)
+                # Only try to create resources that have configurations
+                if resource_name in self.resource_configs:
+                    # Check if resource already exists in resource_dict
+                    resource_type = self.resource_configs[resource_name].resource_type
+                    existing_resources = self.resource_dict.get_items_of_resource_type(resource_type)
+                    
+                    if not existing_resources:
+                        # Create resource only if it doesn't exist
+                        self.create_resource(resource_name)
+                    else:
+                        # Use existing resource
+                        self.resources[resource_name] = existing_resources[0]
+                    
+                    self.allocated_resources.add(resource_name)
 
+    
     def release_resources(self, phase_name: str):
+        """Release resources that are no longer needed by any active phase"""
         if phase_name not in self.phase_resources:
             raise ValueError(f"Phase {phase_name} not registered")
+        
         self.active_phases.remove(phase_name)
-        resources_to_release = set(self.allocated_resources)
-        for active_phase in self.active_phases:
-            resources_to_release -= self.phase_resources[active_phase]
-        self.allocated_resources -= resources_to_release
+        resources_to_release = set()
+        
+        # Find resources that were needed by this phase
+        phase_resources = self.phase_resources[phase_name]
+        
+        # Check each resource to see if it's still needed by other active phases
+        for resource_name in phase_resources:
+            if resource_name in self.allocated_resources:
+                still_needed = False
+                for active_phase in self.active_phases:
+                    if resource_name in self.phase_resources[active_phase]:
+                        still_needed = True
+                        break
+                
+                if not still_needed:
+                    resources_to_release.add(resource_name)
+        
+        # Release resources and clean up
+        for resource_name in resources_to_release:
+            self.allocated_resources.remove(resource_name)
+            if resource_name in self.resources:
+                # Clean up the resource if it has a stop method
+                resource = self.resources[resource_name]
+                if hasattr(resource, 'stop'):
+                    resource.stop()
+                # Remove from our tracking
+                del self.resources[resource_name]
+                
+                # Get base resource type (without identifier)
+                if '_' in resource_name:
+                    base_resource_name = resource_name.split('_')[0]
+                else:
+                    base_resource_name = resource_name
+                
+                # Find the corresponding resource type
+                for config in self.resource_configs.values():
+                    if config.resource_type.__name__ == base_resource_name:
+                        self.resource_dict.delete_items_of_resource_type(config.resource_type)
+                        break
+        
+    
 
-    def _is_resource_needed_by_other_phases(self, resource_name: str, current_phase: str) -> bool:
-        return any(resource_name in resources for phase, resources in self.phase_resources.items() if phase != current_phase and phase in self.active_phases)
 
-    def add_resource(self, resource: BaseResource):
-        self.resources[resource.__class__.__name__] = resource
+    def get_resource(self, resource_type: Union[Type[BaseResource], Tuple[Type[BaseResource], str]]) -> BaseResource:
+        """Get a resource by type and optional identifier"""
+        if isinstance(resource_type, tuple):
+            resource_class, identifier = resource_type
+            resource_name = f"{resource_class.__name__}_{identifier}"
+        else:
+            resource_name = resource_type.__name__
 
-    def get_resource(self, resource_name: str) -> BaseResource:
-        return self.resources[resource_name]
+        # First check resource_dict
+        if isinstance(resource_type, tuple):
+            resources = self.resource_dict.get_items_of_resource_type(resource_type[0])
+        else:
+            resources = self.resource_dict.get_items_of_resource_type(resource_type)
+            
+        if resources:
+            return resources[0]
+            
+        # Then check our internal resources
+        if resource_name in self.resources:
+            return self.resources[resource_name]
+
+        raise ValueError(f"Resource {resource_name} not found")
 
     def get_all_resources_by_phases(self) -> Dict[str, Set[str]]:
-        return self.phase_resources.copy()
+        """Get all registered resources by phase"""
+        # Only include resources that have configurations
+        filtered_phases = {}
+        for phase_name, resources in self.phase_resources.items():
+            filtered_resources = {r for r in resources if r in self.resource_configs}
+            filtered_phases[phase_name] = filtered_resources
+        return filtered_phases

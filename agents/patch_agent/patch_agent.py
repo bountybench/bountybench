@@ -29,25 +29,43 @@ class PatchAgent(BaseAgent):
     ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), InitFilesResource, DockerResource]
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
         self.bounty_dir = Path(kwargs.get('bounty_dir'))
         self.patch_dir_name = "patches"
-        self.patch_dir = Path(self.init_files.task_repo_dir) / self.patch_dir_name
+        self._patch_dir = None
         self.exploit_files_dir = kwargs.get('exploit_files_dir')
         self.log_history = []
         self.patch_id = 1
-
-        self.use_verify_script = kwargs.get('use_verify_script', False) 
-
-        self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
-        self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
-        self.docker = self._get_resource(DockerResource)
-
-        self.patch_dir.mkdir(parents=True, exist_ok=True)
+        self.use_verify_script = kwargs.get('use_verify_script', False)
+        
+        super().__init__(*args, **kwargs)
+        
+        # Register cleanup on exit
         atexit.register(self.cleanup)
+
+    @property
+    def patch_dir(self) -> Path:
+        """Lazy initialization of patch_dir"""
+        if self._patch_dir is None and self.init_files is not None:
+            self._patch_dir = Path(self.init_files.task_repo_dir) / self.patch_dir_name
+            self._patch_dir.mkdir(parents=True, exist_ok=True)
+        return self._patch_dir
+
+    @patch_dir.setter
+    def patch_dir(self, value):
+        """Setter for patch_dir to support serialization"""
+        self._patch_dir = value
+
+    def ensure_resources(self):
+        """Ensure all required resources are available"""
+        if self.init_files is None:
+            raise RuntimeError("InitFilesResource not available. Phase must be activated first.")
+        if self.docker is None:
+            raise RuntimeError("DockerResource not available. Phase must be activated first.")
 
     def run(self, responses: List[Response]) -> Response:
         """Execute the main workflow of the PatchAgent."""
+        self.ensure_resources()  # Check resources before running
+        
         if len(responses) != 1:
             raise ValueError(f"Accepts only a single response, but received {len(responses)} responses")
         
@@ -67,6 +85,8 @@ class PatchAgent(BaseAgent):
 
     def execute(self, command_response: CommandResponse) -> Response:
         """Execute the patching command and verify patch effectiveness."""
+        self.ensure_resources()  # Check resources before executing
+        
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.patch_dir)
         self.create_git_commit(self.init_files.tmp_dir)
@@ -296,14 +316,14 @@ class PatchAgent(BaseAgent):
 
     def cleanup(self):
         """Perform cleanup operations."""
-        self.store_patch()
-        
-        try:
-            subprocess.check_call(['git', 'checkout', 'main'], cwd=self.init_files.files_dir)
-            logger.info("Checked out to branch 'main'.")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to checkout 'main': {e}")
-
+        if self.init_files is not None:  # Only cleanup if resources are available
+            self.store_patch()
+            try:
+                subprocess.check_call(['git', 'checkout', 'main'], cwd=self.init_files.files_dir)
+                logger.info("Checked out to branch 'main'.")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to checkout 'main': {e}")
+                
     def store_patch(self):
         """Store the patches in a timestamped folder."""
         try:
@@ -324,12 +344,10 @@ class PatchAgent(BaseAgent):
             logger.error(f"Failed to move patches directory: {e}")
 
     def to_dict(self) -> dict:
-        """
-        Serializes the PatchAgent state to a dictionary.
-        """
+        """Serializes the PatchAgent state to a dictionary."""
         return {
             'bounty_dir': str(self.bounty_dir),
-            'patch_dir': str(self.patch_dir),
+            'patch_dir': str(self.patch_dir) if self._patch_dir is not None else None,
             'exploit_files_dir': self.exploit_files_dir,
             'log_history': self.log_history,
             'patch_id': self.patch_id,
@@ -339,9 +357,7 @@ class PatchAgent(BaseAgent):
 
     @classmethod
     def from_dict(cls, data: dict, **kwargs) -> 'PatchAgent':
-        """
-        Creates a PatchAgent instance from a serialized dictionary.
-        """
+        """Creates a PatchAgent instance from a serialized dictionary."""
         kwargs.update({
             'bounty_dir': data['bounty_dir'],
             'exploit_files_dir': data['exploit_files_dir'],
@@ -349,11 +365,12 @@ class PatchAgent(BaseAgent):
         })
         
         agent = cls(**kwargs)
-        agent.patch_dir = Path(data['patch_dir'])
+        if data['patch_dir'] is not None:
+            agent.patch_dir = Path(data['patch_dir'])
         agent.log_history = data['log_history']
         agent.patch_id = data['patch_id']
         return agent
-
+    
     def save_to_file(self, filepath: str) -> None:
         """
         Saves the agent state to a JSON file.
