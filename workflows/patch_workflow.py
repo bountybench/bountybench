@@ -155,7 +155,7 @@ class PatchWorkflow(BaseWorkflow):
 
         # Configure patch phase
         phase_config = PhaseConfig(
-            phase_number=1,
+            phase_idx=0,
             phase_name="patch",
             max_iterations=25,
             agents=[
