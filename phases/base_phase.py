@@ -178,8 +178,6 @@ class BasePhase(ABC):
     def _edit_response(self, response: Optional[Response]) -> EditResponse:
         if response is None:
             edit_response = EditResponse("")
-        elif isinstance(response, EditResponse):
-            edit_response = response
         else:
             edit_response = EditResponse(response.response)
 

@@ -52,8 +52,8 @@ class PatchAgent(BaseAgent):
             raise ValueError(f"Accepts only a single response, but received {len(responses)} responses")
         
         response = responses[0]
-        if not isinstance(response, CommandResponseInterface):
-            raise TypeError(f"Expected CommandResponseInterface, got {type(response)}")
+        # if not isinstance(response, CommandResponseInterface):
+        #     raise TypeError(f"Expected CommandResponseInterface, got {type(response)}")
 
         if self.get_git_diff(self.init_files.tmp_dir):
             log_message = "Git diff detected, applying changes..."
