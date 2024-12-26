@@ -166,10 +166,10 @@ class BaseWorkflow(ABC):
         if not self.config.phase_configs:
             raise ValueError("No phase configurations provided")
             
-        # Validate phase numbers are sequential starting from 1
-        phase_numbers = [p.phase_number for p in self.config.phase_configs]
-        if sorted(phase_numbers) != list(range(1, len(phase_numbers) + 1)):
-            raise ValueError("Phase numbers must be sequential starting from 1")
+        # Validate phase numbers are sequential starting from 0
+        phase_numbers = [p.phase_idx for p in self.config.phase_configs]
+        if sorted(phase_numbers) != list(range(0, len(phase_numbers))):
+            raise ValueError("Phase numbers must be sequential starting from 0")
 
     @abstractmethod
     def create_phase(self, phase_config: PhaseConfig, prev_response: Optional[Response]) -> BasePhase:
