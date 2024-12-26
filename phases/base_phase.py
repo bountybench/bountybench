@@ -44,7 +44,8 @@ class BasePhase(ABC):
         self.initial_response = initial_response
 
         self._done = False  # Set to True when phase logic completes early
-        self._iteration_count = 0  # Will increment up to max_iterations
+        self.phase_summary: Optional[str] = None
+        self.iteration_count = 0  # Will increment up to max_iterations
 
         # TODO: Log agent for each phase?
 
@@ -91,13 +92,15 @@ class BasePhase(ABC):
         success_flag = False
 
         # 1) Start phase context
-        with workflow_logger.phase(self.phase_config.phase_number, self.phase_config.phase_name) as phase_ctx:
+        with workflow_logger.phase(self) as phase_ctx:
             for iteration_num in range(1, self.phase_config.max_iterations + 1):
                 if self._done:
                     break
 
                 agent_name, agent_instance = self._get_agent(iteration_num)
 
+                # Increment the iteration count
+                self.iteration_count += 1
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_name, last_output) as iteration_ctx:
                     iteration_output, iteration_done = self.run_one_iteration(
@@ -114,7 +117,8 @@ class BasePhase(ABC):
                     break
 
                 last_output = iteration_output
-
+        if not self.phase_summary:
+            self._set_phase_summary("completed_max_phase_iterations")
         return last_output, success_flag
 
     def _get_agent(self, iteration_num: int) -> Tuple[str, BaseAgent]:
@@ -122,6 +126,12 @@ class BasePhase(ABC):
         agent_index = (iteration_num - 1) % len(self.phase_config.agents)
         agent_name, agent_instance = self.phase_config.agents[agent_index]
         return agent_name, agent_instance
+
+    def _set_phase_summary(self, summary: str):
+        """Allows a subclass to record a short message describing the phase outcome.
+        Example: self.set_phase_summary("exploit_success")
+        Or sets as completed_max_phase_iterations if no summary set"""
+        self.phase_summary = summary
 
     @abstractmethod
     def run_one_iteration(

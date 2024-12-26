@@ -41,13 +41,13 @@ class PatchPhase(BasePhase):
         if agent_name == "ExecutorAgent":
             if isinstance(response, AnswerResponseInterface):
                 logger.info("Executor agent hallucinated an answer!")
-                self.workflow_logger.finalize("completed_with_hallucination")
+                self._set_phase_summary("completed_with_hallucination")
                 return response, True
 
         elif agent_name == "PatchAgent":
             if isinstance(response, AnswerResponseInterface):
                 logger.info("Patch Success!")
-                self.workflow_logger.finalize("patch_success")
+                self._set_phase_summary("patch_success")
                 return response, True
 
         return response, False

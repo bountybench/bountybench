@@ -42,7 +42,7 @@ class SamplePhase(BasePhase):
 
         if isinstance(response, AnswerResponseInterface):
             logger.info("SamplePhase success condition met!")
-            # workflow_logger.finalize("completed_success")
+            self._set_phase_summary("completed_success")
             return response, True
 
         return response, False
@@ -95,7 +95,7 @@ class TestBasePhase(unittest.TestCase):
         self.assertEqual(agent2.run_count, 2)
         self.assertEqual(final_response.response, "Regular response")
 
-        mock_logger.phase.assert_called_with(1, "Sample")
+        mock_logger.phase.assert_called_with(phase)
 
     @patch("phases.base_phase.workflow_logger")
     def test_base_phase_stops_early(self, mock_logger):
@@ -120,7 +120,7 @@ class TestBasePhase(unittest.TestCase):
         self.assertTrue(success_flag)
         self.assertIsInstance(final_response, AnswerResponseInterface)
 
-        # mock_logger.finalize.assert_called_with("completed_success")
+        self.assertEqual(phase.phase_summary, "completed_success")
 
     @patch("phases.base_phase.workflow_logger")
     def test_base_phase_with_initial_response(self, mock_logger):

@@ -91,7 +91,7 @@ class WorkflowLogger:
             iterations=[],
         )
 
-    def end_phase(self, status: str) -> None:
+    def end_phase(self, status: str, phase_instance) -> None:
         """
         Finalize the current phase, append it to the list of phases, and reset.
         """
@@ -100,6 +100,7 @@ class WorkflowLogger:
             raise RuntimeError("No phase in progress to end.")
 
         self.current_phase.status = status
+        self.get_phase_metadata(phase_instance)
         self.current_phase.end_time = datetime.now().isoformat()
         self.workflow_log.phases.append(self.current_phase)
         self.current_phase = None
@@ -107,6 +108,20 @@ class WorkflowLogger:
         # For durability, save after each phase
         self.save()
 
+    def get_phase_metadata(self, phase_instance) -> None:
+        """
+        Aggregate certain metadata from the current phase
+        into the phase's metadata field (e.g., phase_summary).
+        """
+        if not self.current_phase:
+            raise RuntimeError("No phase in progress to gather metadata for.")
+
+        metadata = {
+            'phase_summary': phase_instance.phase_summary if phase_instance.phase_summary else "not_set",
+            'iterations_used': phase_instance.iteration_count
+        }
+
+        self.current_phase.metadata = metadata
     ################################################################
     # ITERATION MANAGEMENT
     ################################################################
@@ -290,10 +305,11 @@ class WorkflowLogger:
         Context manager for a single phase. On enter: start_phase(...).
         On exit: end_phase(...).
         """
-        def __init__(self, logger: 'WorkflowLogger', phase_number: int, phase_name: str):
+        def __init__(self, logger: 'WorkflowLogger', phase_instance):
             self.logger = logger
-            self.phase_number = phase_number
-            self.phase_name = phase_name
+            self.phase_instance = phase_instance
+            self.phase_number = phase_instance.phase_config.phase_number
+            self.phase_name = phase_instance.phase_config.phase_name
 
         def __enter__(self):
             self.logger.start_phase(self.phase_number, self.phase_name)
@@ -301,7 +317,7 @@ class WorkflowLogger:
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             status = "failed" if exc_type else "completed"
-            self.logger.end_phase(status)
+            self.logger.end_phase(status, self.phase_instance)
             # If we return False, we do NOT suppress exceptions.
             return False
 
@@ -369,8 +385,8 @@ class WorkflowLogger:
             """Convenience helper: log an action to the current iteration"""
             self.logger.log_action(action_name, input_data, output_data, metadata)
 
-    def phase(self, phase_number: int, phase_name: str) -> PhaseContext:
+    def phase(self, phase_instance) -> PhaseContext:
         """Create a new phase context manager"""
-        return self.PhaseContext(self, phase_number, phase_name)
+        return self.PhaseContext(self, phase_instance)
 
 workflow_logger = WorkflowLogger()

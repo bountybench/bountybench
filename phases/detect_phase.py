@@ -36,7 +36,7 @@ class DetectPhase(BasePhase):
         # Check for answer submission (ExecutorAgent)
         if isinstance(response, AnswerResponseInterface):
             logger.info("Detect successful!")
-            self.workflow_logger.finalize("detect_success")
+            self._set_phase_summary("detect_success")
             return response, True
             
         # Otherwise, continue looping
