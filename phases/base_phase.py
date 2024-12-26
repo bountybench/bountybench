@@ -49,6 +49,7 @@ class BasePhase(ABC):
         self._done = False  # Set to True when phase logic completes early
         self.phase_summary: Optional[str] = None
         self.iteration_count = 0  # Will increment up to max_iterations
+        self.current_agent_index = 0
 
         # TODO: Log agent for each phase?
 
@@ -102,7 +103,7 @@ class BasePhase(ABC):
                 if self._done:
                     break
 
-                agent_name, agent_instance = self._get_agent(iteration_num)
+                agent_name, agent_instance = self._get_agent()
 
                 # Increment the iteration count
                 self.iteration_count += 1
@@ -130,6 +131,8 @@ class BasePhase(ABC):
                     break
 
                 last_output = iteration_output
+                self.current_agent_index = (self.current_agent_index + 1) % len(self.phase_config.agents)
+
         if not self.phase_summary:
             self._set_phase_summary("completed_max_phase_iterations")
         return last_output, success_flag
@@ -138,13 +141,9 @@ class BasePhase(ABC):
         while True:
             user_input = input(f"Iteration {iteration_num}.\n"
                                f"To step through run: Press Enter to continue, 'q' to quit, or 'c#' to continue # iterations.\n"
-                               f"To edit run: Press 'a' to edit or add to current Response, 'e' to edit last Response (will clear current iteration), 'E' to edit initial_prompt (will clear subsequent iterations). Editing will not reset environment.\n"
+                               f"To edit run: Press 'a' to edit or add to current Response, 'e' to edit last Response (will revert current agent iteration), 'E' to edit initial_prompt (will reset agents but not iteration count).\n"
                                f"Input: ")
-            """
-            2 issues to consider: 
-            1) environment not reset e.g. if prev iteration created an exploit.sh already.
-            2) ExecutorAgent memory is automatic, so will maintain old memory. Not a full/clean "rety" in this case, more like reprompting
-            """
+
             if user_input.lower() == 'q':
                 self._done = True
                 return 0, current_response
@@ -161,8 +160,20 @@ class BasePhase(ABC):
                 return 0, current_response
             elif user_input.lower() == 'a':
                 current_response = self._edit_response(current_response)
+            elif user_input == 'e':
+                # Implement 'e' option if needed
+                pass
+            elif user_input == 'E':
+                if hasattr(self, 'initial_response') and self.initial_response:
+                    new_initial_response = self._edit_response(EditResponse(self.initial_response.response))
+                    self.initial_response = new_initial_response
+                    
+                    self.current_agent_index = 0
+                    return 0, new_initial_response
+                else:
+                    print("Cannot edit initial prompt: workflow reference or initial prompt not available.")
             else:
-                print("Invalid input. Press Enter to continue, 'q' to quit, 'c#' to continue # iterations, or 'a' to edit/add to the current Response.")
+                print("Invalid input. Press Enter to continue, 'q' to quit, 'c#' to continue # iterations, 'a' to edit current Response, or 'E' to edit initial prompt.")
 
     def _edit_response(self, response: Optional[Response]) -> EditResponse:
         if response is None:
@@ -183,10 +194,8 @@ class BasePhase(ABC):
         print(f"Updated response:\n{edit_response.response}\n")
         return edit_response
     
-    def _get_agent(self, iteration_num: int) -> Tuple[str, BaseAgent]:
-        # Pick the next agent from config.agents (cycling if >1 agent)
-        agent_index = (iteration_num - 1) % len(self.phase_config.agents)
-        agent_name, agent_instance = self.phase_config.agents[agent_index]
+    def _get_agent(self) -> Tuple[str, BaseAgent]:
+        agent_name, agent_instance = self.phase_config.agents[self.current_agent_index]
         return agent_name, agent_instance
 
     def _set_phase_summary(self, summary: str):
