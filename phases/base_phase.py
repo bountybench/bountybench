@@ -105,16 +105,17 @@ class BasePhase(ABC):
 
                 agent_name, agent_instance = self._get_agent()
 
-                # Increment the iteration count
-                self.iteration_count += 1
-                self.current_agent_index += 1
-
                 if self.phase_config.interactive and skip_interactive <= 0:
                     skip_interactive, last_output = self._interactive_prompt(iteration_num, last_output)
                     if self._done:
                         break
                 else:
                     skip_interactive -= 1
+
+                # Increment the iteration count
+                self.iteration_count += 1
+                self.current_agent_index += 1
+
 
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_name, last_output) as iteration_ctx:
@@ -168,7 +169,7 @@ class BasePhase(ABC):
                     new_initial_response = self._edit_response(EditResponse(self.initial_response.response))
                     self.initial_response = new_initial_response
                     
-                    self.current_agent_index = 1
+                    self.current_agent_index = 0
                     return 0, new_initial_response
                 else:
                     print("Cannot edit initial prompt: workflow reference or initial prompt not available.")
