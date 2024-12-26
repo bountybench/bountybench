@@ -107,6 +107,7 @@ class BasePhase(ABC):
 
                 # Increment the iteration count
                 self.iteration_count += 1
+                self.current_agent_index += 1
 
                 if self.phase_config.interactive and skip_interactive <= 0:
                     skip_interactive, last_output = self._interactive_prompt(iteration_num, last_output)
@@ -131,7 +132,6 @@ class BasePhase(ABC):
                     break
 
                 last_output = iteration_output
-                self.current_agent_index = (self.current_agent_index + 1) % len(self.phase_config.agents)
 
         if not self.phase_summary:
             self._set_phase_summary("completed_max_phase_iterations")
@@ -168,7 +168,7 @@ class BasePhase(ABC):
                     new_initial_response = self._edit_response(EditResponse(self.initial_response.response))
                     self.initial_response = new_initial_response
                     
-                    self.current_agent_index = 0
+                    self.current_agent_index = 1
                     return 0, new_initial_response
                 else:
                     print("Cannot edit initial prompt: workflow reference or initial prompt not available.")
@@ -193,6 +193,7 @@ class BasePhase(ABC):
         return edit_response
     
     def _get_agent(self) -> Tuple[str, BaseAgent]:
+        agent_index = (self.current_agent_index - 1) % len(self.phase_config.agents)
         agent_name, agent_instance = self.phase_config.agents[self.current_agent_index]
         return agent_name, agent_instance
 
