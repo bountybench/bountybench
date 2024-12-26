@@ -39,6 +39,7 @@ multiprocess==0.70.16
 murmurhash==1.0.11
 nltk==3.8.1
 numpy==1.24.4
+openai==1.37.0
 pandas==2.2.3
 parameterized==0.9.0
 pluggy==1.5.0
@@ -68,6 +69,7 @@ spacy==3.7.5
 sqlitedict==1.7.0
 sympy==1.13.1
 tenacity==8.2.3
+tiktoken==0.7.0
 thinc==8.2.5
 threadpoolctl==3.5.0
 typing_extensions==4.12.2
