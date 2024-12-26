@@ -1,3 +1,64 @@
+Could we do something smarter, more akin to 2. Introduce a dedicated ResourceManager. I think the approach would basically be:
+
+Each Agent defines the Resources it needs. 
+Each Phase has N associated Agents with K Resources.
+Then, the ResourceManager dynamically handles Resource allocation and release based on the defined Resources.
+
+This would involve creating a ResourceGraph (or PhaseGraph).
+Here, you start at the first phase. 
+
+Let me write some pseudocode:
+
+root_phase = self.root_phase
+resources = root_phase.resources
+for child in root_phase.children:
+    # 
+
+Actually, we don't need to compute the entire graph beforehand.
+Well we do if we want to be smart (i.e. know whether to retain a resource later)
+Ok let's continue with psuedocode
+
+root_phase = self.root_phase
+resources = root_phase.resources
+for child in root_phase.children:
+    #go through children and see which resources are retained until when
+
+Then for each Resource, there is an initialization phase and a termination phase. i.e. 
+
+imagine:
+Resources: R1, R2, R3
+Phases: P1, P2, P3
+
+P1: R1, R2
+P2: R1, R3
+P3: R2
+
+Then:
+R1: Init_phase P1, termination P2
+R2: Init_phase P1, termination P3
+R3: Init_phase P2, termination P2
+
+
+One effective solution is to shift resource allocation from a one-time global setup to a dynamic, per–phase process. This means that instead of allocating all resources at the beginning of the workflow, resources are allocated just before each phase runs and then released immediately afterward. 
+
+Possible approaches included: 
+
+1. Continue global allocation at startup: 
+ • Pros: Simplest to implement. 
+ • Cons: Can lead to resource overcommitment, poor efficiency, and potential out-of-memory errors.
+
+2. Introduce a dedicated ResourceManager: 
+ • Pros: Separates concerns, encapsulates resource logic. 
+ • Cons: Introduces additional abstraction layers, increasing complexity for a relatively straightforward need.
+
+3. Dynamic per–phase resource management (chosen): 
+ • Pros: Efficient use of resources, minimizes memory footprint, reduces OOM risk. 
+ • Cons: Requires additional methods and more complex orchestration, but offers the best balance of efficiency and control.
+
+By adding abstract methods to allocate and release resources for each phase, the BaseWorkflow can automatically handle resource management on a per–phase basis. The setup_phases method is updated to remove the global resource setup, delegating resource handling to the run loop. 
+
+Here’s the updated code with the preferred solution implemented: 
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -30,41 +91,6 @@ class WorkflowConfig:
 class BaseWorkflow(ABC):
     """
     Base class for defining workflows that coordinate phases and their agents.
-    
-    A workflow:
-    - Acts as top-level controller for phases
-    - Manages workflow-level logging
-    - Coordinates phase transitions and data flow between phases
-    - Tracks overall workflow state and completion status
-    """
-
-    """
-    Conceptually:
-        1 Workflow - N Phases
-        Worklow ~ Task ??
-        A Workflow __ task
-        solves? attempts?
-        can a worklow attempt multiple tasks? 
-        Will multiple workflows attempt a single task? Sounds wrong since we want to manage Resources / State at a workflow level
-
-        So typically
-        A workflow solves a single task
-        But potentially many
-        1: 1/N. But not N: 1 (never no future of this, vs N tasks could be supported potentially if shared resources etc.)
-            for now, 1:1
-
-        But actually...
-        maybe not. Like I want to detect a new bounty
-        I spin up N workers and then combine their efforts. This seems like a single task / find the best of them?
-
-        Or are these Phases? And the Phases are distributed across machines? Probably easiest to just call them a Phase, and I can spin up N phases.
-
-        How do Resources fit in?
-            Workflows manage Resources
-
-        A workflow solves a bounty
-
-        Exploit (phase) + Patch  (phase) => Workflow for a task
     """
 
     def __init__(self, config: WorkflowConfig):
@@ -104,59 +130,13 @@ class BaseWorkflow(ABC):
 
     def setup_phases(self) -> None:
         """
-        Setup workflow phases and resources.
-        This orchestrates the setup process in the correct order with logging.
+        Setup workflow phases without allocating all resources globally.
+        Resource allocation will happen per phase during run.
         """
         try:
-            """ 
-            Wait does this do all the setup at once? for resources etc. versus per agent of the workflow?
-
-            e.g. 
-            setup_resources: sets up all resources (K, T, P) at the beginning? Resource allocation should be per phase / as needed. 
-
-            K (10) + T (6)= 16 GB
-            total memory 18 GB
-            P = 4 GB
-            OOM
-
-
-            Phase 1:
-                K + T => 16GB
-                Agent 1: Kali 
-                Agent 2: Task Server
-                Execute + Exploit 
-            Release: T
-            Phase 2:
-                Allocate: P 
-                Agent 1: Kali + Task Server
-                Agent 3: Patch Server
-                Execute + Patch
-
-            Maybe can be bad now. But not horrible
-
-            This is the magic of infra / workflow
-
-            Workflow base class "invisbly" handles all the resource allocation, management, etc.
-
-            If each atgent / phase defines the resouces it needs, the workflow will automagically handle all the resource allocations
-
-            ALloca
-            Malloc
-            Free
-
-            Resource.setup
-
-            You have to fix now, because once workflows are written like this, hard refactor. 
-            """
-            # Initial setup
             self.setup_init()
-
-            # Resource setup
-            self.setup_resources()
-
-            # Agent setup
+            # Removed global resource setup; will handle per phase.
             self.setup_agents()
-
         except Exception as e:
             self.status = WorkflowStatus.INCOMPLETE
             raise e
@@ -179,43 +159,64 @@ class BaseWorkflow(ABC):
         """
         pass
 
+    @abstractmethod
+    def allocate_resources_for_phase(self, phase_config: PhaseConfig) -> None:
+        """
+        Allocate resources needed for a given phase.
+        Implementation should allocate only the resources 
+        required by this phase.
+        """
+        pass
+
+    @abstractmethod
+    def release_resources_for_phase(self, phase_config: PhaseConfig) -> None:
+        """
+        Release resources allocated for a given phase.
+        Implementation should free resources after phase completion.
+        """
+        pass
+
     def run(self) -> None:
         """
-        Execute the workflow by running phases in sequence.
+        Execute the workflow by running phases in sequence, 
+        handling resource allocation dynamically per phase.
         """
         try:
             self.setup_phases()
             self._validate_phase_configs()
             self.status = WorkflowStatus.INCOMPLETE
-            
+
             prev_response = None
-            
-            # Execute phases in sequence
+
             for phase_idx, phase_config in enumerate(self.config.phase_configs):
                 self._current_phase_idx = phase_idx
-                
-                # Create and run phase
-                phase = self.create_phase(phase_config, prev_response)
-                phase_response, phase_success = phase.run_phase()
-                
-                # Update workflow state
+
+                # Allocate resources for this phase
+                self.allocate_resources_for_phase(phase_config)
+                try:
+                    # Create and run phase
+                    phase = self.create_phase(phase_config, prev_response)
+                    phase_response, phase_success = phase.run_phase()
+                finally:
+                    # Always release resources regardless of phase success/failure
+                    self.release_resources_for_phase(phase_config)
+
                 prev_response = phase_response
                 if not phase_success:
                     self.status = WorkflowStatus.COMPLETED_FAILURE
                     break
-                    
-                self._iteration_count += 1
-                if self._iteration_count >= self.config.max_iterations:
+
+                self._workflow_iteration_count += 1
+                if self._workflow_iteration_count >= self.config.max_iterations:
                     self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
                     break
-                    
-            # If we completed all phases successfully
+
+            # If all phases completed successfully
             if phase_success and phase_idx == len(self.config.phase_configs) - 1:
                 self.status = WorkflowStatus.COMPLETED_SUCCESS
-                
-            # Finalize workflow
+
             self.workflow_logger.finalize(self.status.value)
-            
+
         except Exception as e:
             self.status = WorkflowStatus.INCOMPLETE
             self.workflow_logger.finalize(self.status.value)
@@ -227,3 +228,5 @@ class BaseWorkflow(ABC):
         if 0 <= self._current_phase_idx < len(self.config.phase_configs):
             return self.config.phase_configs[self._current_phase_idx]
         return None
+
+This update delegates resource allocation to each phase, minimizing upfront allocation and reducing memory pressure. Subclasses then implement the new allocate/release methods according to their specific resource requirements.

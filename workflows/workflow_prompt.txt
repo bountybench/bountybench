@@ -1,3 +1,4 @@
+I want to update the BaseWorkflow class, specifically setup_phases to handle resource management and allocation in an efficient way. See the notes below and the workflow class. Please go through and come up with various suggestions with their pros and cons and then choose the best one and rewrite the code accordingly.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
