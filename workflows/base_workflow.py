@@ -179,9 +179,10 @@ class BaseWorkflow(ABC):
         """
         pass
 
-    def run(self) -> None:
+    def run_phases(self):
         """
-        Execute the workflow by running phases in sequence.
+        Generator that executes workflow phases one at a time.
+        Yields (phase_response, phase_success) after each phase execution.
         """
         try:
             self.setup_phases()
@@ -202,12 +203,17 @@ class BaseWorkflow(ABC):
                 prev_response = phase_response
                 if not phase_success:
                     self.status = WorkflowStatus.COMPLETED_FAILURE
+                    yield phase_response, phase_success
                     break
                     
-                self._iteration_count += 1
-                if self._iteration_count >= self.config.max_iterations:
+                self._workflow_iteration_count += 1
+                if self._workflow_iteration_count >= self.config.max_iterations:
                     self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
+                    yield phase_response, phase_success
                     break
+                
+                # Yield current phase results
+                yield phase_response, phase_success
                     
             # If we completed all phases successfully
             if phase_success and phase_idx == len(self.config.phase_configs) - 1:
@@ -220,6 +226,15 @@ class BaseWorkflow(ABC):
             self.status = WorkflowStatus.INCOMPLETE
             self.workflow_logger.finalize(self.status.value)
             raise e
+
+    def run(self) -> None:
+        """
+        Execute the entire workflow by running all phases in sequence.
+        This is a convenience method that runs the workflow to completion.
+        """
+        # Run through all phases
+        for _ in self.run_phases():
+            continue
 
     @property
     def current_phase(self) -> Optional[PhaseConfig]:
