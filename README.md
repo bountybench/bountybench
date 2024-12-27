@@ -45,9 +45,19 @@ python3 -m workflows.exploit_and_patch_workflow_v2 \
 ```
 
 ### Running the Workflow UI
+To start, install the latest requirements.txt:
+```
+pip install -r requirements.txt
+```
+
 To run the workflow UI, use the following command:
 ```
 cd frontend
 npm install
 npm run
+```
+
+To start the backend server, use the following command:
+```
+uvicorn api.server:app --reload-exclude=bountybench
 ```
