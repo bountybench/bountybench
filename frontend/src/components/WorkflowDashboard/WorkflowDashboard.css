@@ -1,0 +1,20 @@
+.dashboard-container {
+  flex-grow: 1;
+  padding: 24px;
+  overflow: hidden;
+}
+
+.dashboard-grid {
+  height: calc(100vh - 100px);
+}
+
+.dashboard-panel {
+  padding: 16px;
+  height: 100%;
+  overflow: auto;
+  background-color: #132f4c !important;
+}
+
+.right-panel {
+  height: 100%;
+}

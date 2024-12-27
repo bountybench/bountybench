@@ -1,0 +1,51 @@
+.interactions-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.interactions-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.messages-container {
+  flex-grow: 1;
+  overflow: auto;
+  margin-bottom: 16px;
+}
+
+.message-container {
+  display: flex;
+  margin-bottom: 16px;
+}
+
+.message-container.agent {
+  justify-content: flex-start;
+}
+
+.message-container.user {
+  justify-content: flex-end;
+}
+
+.message-bubble {
+  max-width: 80%;
+}
+
+.agent-bubble {
+  background-color: #1e3a5f !important;
+}
+
+.user-bubble {
+  background-color: #2a5285 !important;
+}
+
+.input-container {
+  display: flex;
+  gap: 8px;
+}
+
+.message-input {
+  background-color: #132f4c;
+}

@@ -1,0 +1,23 @@
+.resources-container {
+  height: 100%;
+}
+
+.resources-list {
+  overflow: auto;
+}
+
+.resource-item {
+  &:hover {
+    background-color: rgba(144, 202, 249, 0.08) !important;
+  }
+}
+
+.resource-icon {
+  min-width: 40px !important;
+}
+
+.resource-text {
+  & .MuiListItemText-secondary {
+    color: rgba(255, 255, 255, 0.5);
+  }
+}
