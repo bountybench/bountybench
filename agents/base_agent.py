@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import re
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Set, Tuple, Union
 
 from resources.base_resource import BaseResource
 from responses.failure_response import FailureResponse
@@ -58,6 +58,11 @@ class BaseAgent(ABC):
 
             self.run = wrapped_run
 
+
+    @classmethod
+    def get_required_resources(cls) -> Set[str]:
+        return cls.REQUIRED_RESOURCES
+    
     def register_resources(self):
         """
         Binds required and optional resources from the ResourceManager.

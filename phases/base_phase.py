@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Set, Tuple, Union
 
 from agents.base_agent import BaseAgent
 from responses.response import Response
@@ -19,7 +19,8 @@ class BasePhase(ABC):
     Minimal example of a Phase that can allocate its agents' resources
     before run_phase.
     """
-    REQUIRED_AGENTS = []
+
+    REQUIRED_AGENTS: List[Union[str, Tuple[BaseAgent, str]]] = []
 
     def __init__(self, phase_config: PhaseConfig, initial_response: Optional[Response] = None, resource_manager=None):
         self.phase_config = phase_config
@@ -30,6 +31,13 @@ class BasePhase(ABC):
         self.iteration_count = 0
         self._register_agents()
 
+    @classmethod
+    def get_required_resources(cls) -> Set[str]:
+        resources = set()
+        for agent_cls in cls.REQUIRED_AGENTS:
+            resources.update(agent_cls.get_required_resources())
+        return resources
+    
     def _register_agents(self):
         required = getattr(self, "REQUIRED_AGENTS", [])
         agent_classes = [type(a) for _, a in self.phase_config.agents]

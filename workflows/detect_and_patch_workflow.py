@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 import uuid
 
-from agents.dataclasses.agent_spec import AgentConfig
+from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from agents.patch_agent.patch_agent import PatchAgent
 from agents.executor_agent.prompt import DETECT_AND_PATCH_PROMPT, STOP_TOKEN
 from agents.executor_agent.executor_agent import ExecutorAgent
@@ -55,7 +55,7 @@ def main() -> None:
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)
 
-    executor_agent_config: AgentConfig = AgentConfig(
+    executor_agent_config: AgentLMConfig = AgentLMConfig(
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,
@@ -106,7 +106,7 @@ def main() -> None:
 
 
 
-    executor_agent_config: AgentConfig = AgentConfig(
+    executor_agent_config: AgentLMConfig = AgentLMConfig(
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,

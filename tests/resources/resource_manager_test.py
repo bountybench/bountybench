@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
+from typing import Dict, Any
 
 from agents.base_agent import BaseAgent
 from phases.base_phase import BasePhase, PhaseConfig
@@ -7,143 +8,106 @@ from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.resource_manager import ResourceManager
 from responses.response import Response
 
-
-# A concrete subclass of Response so we can instantiate it
-class MockResponse(Response):
-    def __init__(self, content="mock response"):
-        self.content = content
-
-    def to_dict(self):
-        return {"content": self.content}
-
-
 class MockResourceConfig(BaseResourceConfig):
-    pass
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
 
 class MockResource(BaseResource):
+    def __init__(self, resource_id, resource_config):
+        super().__init__(resource_id, resource_config)
+        self.initialized = True
+
     def stop(self):
-        pass
+        self.initialized = False
 
-class AnotherMockResource(BaseResource):
-    def stop(self):
-        pass
+class MockAgent1(BaseAgent):
+    REQUIRED_RESOURCES = {"resource1", "resource2"}
 
+class MockAgent2(BaseAgent):
+    REQUIRED_RESOURCES = {"resource2", "resource3"}
 
-class MockAgent(BaseAgent):
-    REQUIRED_RESOURCES = [(MockResource, "mock_resource")]
-    OPTIONAL_RESOURCES = [(AnotherMockResource, "another_resource")]
-    ACCESSIBLE_RESOURCES = [
-        (MockResource, "mock_resource"), 
-        (AnotherMockResource, "another_resource")
-    ]
+class MockPhase1(BasePhase):
+    REQUIRED_AGENTS = [MockAgent1]
 
-    def run(self, responses: list) -> Response:
-        return MockResponse("mock agent output")
+    @classmethod
+    def get_required_resources(cls):
+        return {"resource1", "resource2"}
 
+class MockPhase2(BasePhase):
+    REQUIRED_AGENTS = [MockAgent1, MockAgent2]
 
-class MockPhase(BasePhase):
-    REQUIRED_AGENTS = [MockAgent]
+PHASES = [MockPhase1, MockPhase2]
 
-    def run_one_iteration(self, agent_instance, previous_output, iteration_num: int):
-        input_responses = []
-        if previous_output:
-            input_responses.append(previous_output)
+@patch("utils.logger.get_main_logger")
+class TestResourceManager(unittest.TestCase):
+    def setUp(self):
+        self.resource_manager = ResourceManager()
 
-        new_response = agent_instance.run(input_responses)
-        done = (iteration_num == self.phase_config.max_iterations)
-        return new_response, done
+    def test_resource_lifecycle(self, mock_logger):
+        # Register resources
+        for i in range(1, 4):
+            self.resource_manager.register_resource(f"resource{i}", MockResource, MockResourceConfig())
 
+        # Compute schedule
+        self.resource_manager.compute_schedule(PHASES)
 
-@patch("phases.base_phase.workflow_logger")
-class TestResourceManagerWorkflow(unittest.TestCase):
-    """
-    Patching `phases.base_phase.workflow_logger` to avoid the "logger not initialized" error.
-    """
+        # Check resource lifecycle
+        self.assertEqual(self.resource_manager._resource_lifecycle["resource1"], (0, 1))
+        self.assertEqual(self.resource_manager._resource_lifecycle["resource2"], (0, 1))
+        self.assertEqual(self.resource_manager._resource_lifecycle["resource3"], (1, 1))
 
-    def setUp(self, mock_logger=None):
-        # Mock the workflow_logger to avoid initialization errors
-        mock_logger = MagicMock()
-        mock_logger.phase.return_value.__enter__.return_value = MagicMock()
+        # Initialize resources for Phase1
+        self.resource_manager.initialize_phase_resources(0)
+        self.assertIn("resource1", self.resource_manager._resources)
+        self.assertIn("resource2", self.resource_manager._resources)
+        self.assertNotIn("resource3", self.resource_manager._resources)
 
-    def test_resource_allocation_workflow(self, mock_logger):
-        """
-        Test resource allocation and release across phases with strict agent binding.
-        """
-        # Mock the logger context manager
-        mock_logger.phase.return_value.__enter__.return_value = MagicMock()
+        # Deallocate resources after Phase1
+        self.resource_manager.deallocate_phase_resources(0)
+        self.assertIn("resource1", self.resource_manager._resources)
+        self.assertIn("resource2", self.resource_manager._resources)
 
-        # 1) Create the ResourceManager
-        rm = ResourceManager()
+        # Initialize resources for Phase2
+        self.resource_manager.initialize_phase_resources(1)
+        self.assertIn("resource1", self.resource_manager._resources)
+        self.assertIn("resource2", self.resource_manager._resources)
+        self.assertIn("resource3", self.resource_manager._resources)
 
-        # 2) Register resource definitions
-        rm.register_resource("mock_resource", MockResource, MockResourceConfig())
-        rm.register_resource("another_resource", AnotherMockResource, MockResourceConfig())
+        # Deallocate resources after Phase2
+        self.resource_manager.deallocate_phase_resources(1)
+        self.assertNotIn("resource1", self.resource_manager._resources)
+        self.assertNotIn("resource2", self.resource_manager._resources)
+        self.assertNotIn("resource3", self.resource_manager._resources)
 
-        # --- PHASE 1 ---
-        # 3) Create the agent first
-        agent1 = MockAgent(resource_manager=rm)
+    def test_get_resource(self, mock_logger):
+        self.resource_manager.register_resource("resource1", MockResource, MockResourceConfig())
+        self.resource_manager.register_resource("resource2", MockResource, MockResourceConfig())
+        self.resource_manager.compute_schedule([MockPhase1])
+        self.resource_manager.initialize_phase_resources(0)
 
-        # 4) Build Phase1 config that includes the agent
-        phase1_config = PhaseConfig(
-            phase_idx=0,
-            phase_name="Phase1",
-            max_iterations=2,
-            agents=[("mock_agent1", agent1)]
-        )
+        resource = self.resource_manager.get_resource("resource1")
+        self.assertIsInstance(resource, MockResource)
 
-        # 5) Register the phase so ResourceManager knows what resources are needed
-        rm.register_phase(phase1_config)
+        resource = self.resource_manager.get_resource("resource2")
+        self.assertIsInstance(resource, MockResource)
 
-        # 6) Create the phase object with resource_manager
-        phase1 = MockPhase(phase_config=phase1_config, resource_manager=rm)
+        with self.assertRaises(KeyError):
+            self.resource_manager.get_resource("non_existent_resource")
 
-        # 7) Let the phase allocate resources and strictly bind the agent's resources
-        phase1.allocate_resources()
+    def test_error_handling(self, mock_logger):
+        # Test initializing resources without computing schedule
+        with self.assertRaises(KeyError):
+            self.resource_manager.initialize_phase_resources(0)
 
-        # 8) Run Phase1
-        last_output, success_flag = phase1.run_phase()
+        # Register resource and compute schedule
+        self.resource_manager.register_resource("resource1", MockResource, MockResourceConfig())
+        self.resource_manager.register_resource("resource2", MockResource, MockResourceConfig())
+        self.resource_manager.compute_schedule([MockPhase1])
 
-        # Check resources allocated
-        self.assertIn("mock_resource", rm._instances)
-        self.assertIn("another_resource", rm._instances)
-
-        # 9) Release Phase1 => no phases active => resources freed
-        rm.release_resources_for_phase("Phase1")
-        self.assertNotIn("mock_resource", rm._instances)
-        self.assertNotIn("another_resource", rm._instances)
-
-        # --- PHASE 2 ---
-        agent2 = MockAgent(resource_manager=rm)
-        phase2_config = PhaseConfig(
-            phase_idx=1,
-            phase_name="Phase2",
-            max_iterations=1,
-            agents=[("mock_agent2", agent2)]
-        )
-        rm.register_phase(phase2_config)
-
-        # Create the phase
-        phase2 = MockPhase(phase_config=phase2_config, resource_manager=rm)
-
-        # Allocate & strictly bind
-        phase2.allocate_resources()
-
-        # Run Phase2
-        last_output2, success_flag2 = phase2.run_phase()
-
-        # Check resources re-allocated
-        self.assertIn("mock_resource", rm._instances)
-        self.assertIn("another_resource", rm._instances)
-
-        # Release
-        rm.release_resources_for_phase("Phase2")
-        self.assertNotIn("mock_resource", rm._instances)
-        self.assertNotIn("another_resource", rm._instances)
-
-        rm.stop_all_resources()
-
-        print("Test passed: resource allocation/release.")
-
+        # Test with a mocked resource that raises an exception during initialization
+        with patch.object(MockResource, '__init__', side_effect=Exception("Initialization error")):
+            with self.assertRaises(Exception):
+                self.resource_manager.initialize_phase_resources(0)
 
 if __name__ == "__main__":
     unittest.main()

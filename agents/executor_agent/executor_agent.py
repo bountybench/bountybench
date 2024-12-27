@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from agents.base_agent import BaseAgent
-from agents.dataclasses.agent_spec import AgentConfig
+from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from agents.executor_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
 from agents.utils import truncate_input_to_max_tokens
 from models.model_response import ModelResponse
@@ -41,10 +41,10 @@ class ExecutorAgent(BaseAgent):
         KaliEnvResource
     ]
 
-    def __init__(self, config: AgentConfig, initial_prompt: str, *args, **kwargs):
+    def __init__(self, config: AgentLMConfig, initial_prompt: str, *args, **kwargs):
         """
         Args:
-            config: AgentConfig with model, max tokens, etc.
+            config: AgentLMConfig with model, max tokens, etc.
             initial_prompt: The initial conversation text or system prompt.
             resource_manager: (passed via kwargs) - the ResourceManager object from BaseAgent
             ...
@@ -182,7 +182,7 @@ class ExecutorAgent(BaseAgent):
         """
         Creates an ExecutorAgent instance from a serialized dictionary.
         """
-        config = AgentConfig(**data["config"])
+        config = AgentLMConfig(**data["config"])
         agent = cls(
             config=config,
             initial_prompt=data["initial_prompt"],
