@@ -147,7 +147,7 @@ class BasePhase(ABC):
         while True:
             user_input = input(f"Iteration {iteration_num}.\n"
                                f"To step through run: Press Enter to continue, 'q' to quit, or 'c#' to continue # iterations.\n"
-                               f"To edit run: Press 'a' to edit or add to current Response, 'e' to edit last Response (will revert current agent iteration), 'E' to edit initial_prompt (will reset agents but not iteration count).\n"
+                               f"To edit run: Press 'a' to edit or add to current Response, 'E' to edit initial_prompt (will reset agents but not iteration count).\n"
                                f"Input: ")
 
             if user_input.lower() == 'q':
