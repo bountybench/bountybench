@@ -5,13 +5,6 @@ from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
 
-"""
-Shouldn't a Resource contain a ResourceConfig? That is, a Resource is instantiated based on parameters?
-
-"""
-
-
-
 logger = get_main_logger(__name__)
 
 class ResourceManager:
@@ -19,7 +12,6 @@ class ResourceManager:
     Manages the lifecycle of resources across multiple phases.
     Each resource is identified by a unique `resource_id`.
     """
-
     def __init__(self, resource_dict=None):
         """
         Args:
