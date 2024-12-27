@@ -7,6 +7,7 @@ import time
 import json
 
 from resources.base_resource import BaseResource
+from resources.configs.docker_resource_config import DockerResourceConfig
 from resources.resource_dict import resource_dict
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
@@ -21,12 +22,10 @@ class DockerResource(BaseResource):
     Docker Resource to manage Docker containers.
     """
 
-    def __init__(self, name: str):
-        """
-        Initialize Docker client from environment.
-        """
+    def __init__(self, resource_id: str, config: DockerResourceConfig):
+        super().__init__(resource_id, config)
+        
         self.client = docker.from_env()
-        self.resource_id = name
         workflow_logger.add_resource(f"DockerResource: {self.resource_id}", self)
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)

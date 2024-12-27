@@ -1,13 +1,10 @@
-"""
-Is there a smart way to ensure any Resource always sets a resource_id / it exists statically in python (vs dynamic failure on access?)
-"""
 from abc import ABC, abstractmethod
+
 
 class BaseResource(ABC):
     @abstractmethod
     def stop(*args, **kwargs):
         pass
-
 
     def __init__(self, resource_id, resource_config):
         self._resource_id = resource_id

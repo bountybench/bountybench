@@ -10,6 +10,7 @@ from resources.resource_dict import resource_dict
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 import shutil
+from resources.configs.init_files_resource_config import InitFilesResourceConfig
 
 
 # Configure logging
@@ -19,29 +20,35 @@ logger = get_main_logger(__name__)
 class InitFilesResource(BaseResource):
     """Init Files Resource"""
 
-    def __init__(self, task_repo_dir: str, files_dir_name: str, tmp_dir_name: str, exploit_files_dir_name: str = None, vulnerable_commit: str = None) -> None:
-        # Where dir_name is a path relative to task_repo_dir, and dir is an absolut path
-        self.task_repo_dir = os.path.abspath(task_repo_dir)
-        self.files_dir = os.path.join(self.task_repo_dir, files_dir_name)
-
-        self.tmp_dir_name = tmp_dir_name
+    def __init__(self, resource_id: str, config: InitFilesResourceConfig):
+        super().__init__(resource_id, config)
+        
+        # Initialize from config
+        self.task_repo_dir = os.path.abspath(self._resource_config.task_repo_dir)
+        self.files_dir = os.path.join(self.task_repo_dir, self._resource_config.files_dir_name)
+        self.tmp_dir_name = self._resource_config.tmp_dir_name
         self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
+        
+        # Create necessary directories
         os.makedirs(self.tmp_dir, exist_ok=True)
         self.tmp_exploits_dir = os.path.join(self.tmp_dir, "exploit_files")
         os.makedirs(self.tmp_exploits_dir, exist_ok=True)
-        self.resource_id = self.tmp_dir_name 
         
+        # Handle exploit files if specified
         self.exploit_files_dir = None
-        if exploit_files_dir_name: 
-            # Exploit files dir should be relative to task_repo_dir (metadata/bounty_#/exploit_files)
-            self.exploit_files_dir = os.path.join(self.task_repo_dir, exploit_files_dir_name)
+        if self._resource_config.exploit_files_dir_name:
+            self.exploit_files_dir = os.path.join(
+                self.task_repo_dir, 
+                self._resource_config.exploit_files_dir_name
+            )
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
-        self.vulnerable_commit = vulnerable_commit
+            
+        self.vulnerable_commit = self._resource_config.vulnerable_commit
+        
+        # Initialize resource
         workflow_logger.add_resource(f"InitFilesResource: {self.resource_id}", self)
         self._start()
-
         resource_dict[self.resource_id] = self
-
         atexit.register(self.stop)
 
     def _start(self) -> None:
@@ -82,28 +89,42 @@ class InitFilesResource(BaseResource):
 
     def stop(self) -> None:
         """
-        Remove the temporary directory used for the task.
+        Remove the temporary directory used for the task and clean up git branches.
         """
-        if os.path.exists(self.tmp_dir):
-            try:
-                subprocess.run(["rm", "-rf", self.tmp_dir], check=True)
-                logger.info(f"Removed temporary directory: {self.tmp_dir}")
-
-            except subprocess.CalledProcessError as e:
-                logger.error(
-                    f"Failed to remove temporary directory: {e.stderr}")
+        try:
+            # Clean up temporary directory
+            if os.path.exists(self.tmp_dir):
+                try:
+                    shutil.rmtree(self.tmp_dir)
+                    logger.info(f"Removed temporary directory: {self.tmp_dir}")
+                except Exception as e:
+                    logger.error(f"Failed to remove temporary directory: {str(e)}")
             
+            # Clean up git branches
             try:
-                subprocess.run(["git", "branch", "-D", "dev"],
-                                   cwd=self.files_dir, check=True)
-                logger.info(
-                        f"Removed dev branch from {self.files_dir}")
-            except subprocess.CalledProcessError as e:
-                logger.error(
-                    f"Failed to remove dev branch from directory: {e.stderr}")
+                if os.path.exists(self.files_dir):
+                    # First try to check out main branch
+                    subprocess.run(
+                        ["git", "checkout", "main"],
+                        cwd=self.files_dir,
+                        capture_output=True,
+                        check=False
+                    )
+                    
+                    # Then try to delete the dev branch
+                    subprocess.run(
+                        ["git", "branch", "-D", "dev"],
+                        cwd=self.files_dir,
+                        capture_output=True,
+                        check=False
+                    )
+                    logger.info(f"Removed dev branch from {self.files_dir}")
+            except Exception as e:
+                logger.error(f"Failed to clean up git branches: {str(e)}")
+                
+        except Exception as e:
+            logger.error(f"Error during cleanup: {str(e)}")
 
-        else:
-            logger.error(f"Temporary directory does not exist: {self.tmp_dir}")
 
     def setup_repo(self, work_dir):
         if os.path.exists(work_dir):
