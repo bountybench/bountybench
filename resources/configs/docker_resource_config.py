@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
-from resources.configs.base_resource_config import BaseResourceConfig
+from resources.base_resource import BaseResourceConfig
 
 @dataclass
 class DockerResourceConfig(BaseResourceConfig):

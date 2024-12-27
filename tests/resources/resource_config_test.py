@@ -59,7 +59,7 @@ class TestInitFilesResource(unittest.TestCase):
         setup_repo_config = SetupResourceConfig(
             task_level_setup=False,
             task_repo_dir=cls.task_repo_dir,
-            files_dir=cls.files_dir,
+            files_dir=cls.files_dir
         )
 
         setup_task_config = SetupResourceConfig(

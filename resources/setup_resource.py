@@ -7,6 +7,7 @@ from queue import Queue
 from typing import List, Optional
 
 from resources.base_resource import BaseResource
+from resources.configs.setup_resources_config import SetupResourceConfig
 from resources.resource_dict import resource_dict
 from resources.utils import run_command
 from utils.workflow_logger import workflow_logger
@@ -16,43 +17,40 @@ logger = get_main_logger(__name__)
 
 
 class SetupResource(BaseResource):
-    """
-    SetupResource is responsible for initializing and managing a set of containers
-    either at the "task" (bounty) level or at the "repo" level.
-    It runs the appropriate setup script, extracts container names, waits for their health,
-    and provides methods to restart or stop them.
-    """
+    """SetupResource for initializing and managing containers"""
 
-    def __init__(self, task_level_setup: bool, task_repo_dir: str, files_dir: str, bounty_number: Optional[str]=None, server_address: Optional[str]=None) -> None:
-        """
-        :param task_level_setup: If True, runs 'setup_bounty_env.sh'; otherwise runs 'setup_repo_env.sh'.
-        :param task_repo_dir: The path to the repository directory.
-        :param bounty_number: The bounty identifier string.
-        :param files_dir: The directory containing setup files.
-        :param server_address: The server address in 'hostname:port' format.
-        """
+    def __init__(self, resource_id: str, config: SetupResourceConfig):
+        super().__init__(resource_id, config)
 
-        
-        self.resource_id = server_address
-        self.task_level_setup = task_level_setup
+        self._resource_config.validate()
 
+
+        self.task_level_setup = self._resource_config.task_level_setup
         self.role = "task_server" if self.task_level_setup else "repo_resource"
-
-
-        self.task_repo_dir = os.path.abspath(task_repo_dir)
-        self.files_dir = files_dir
-        self.bounty_dir = os.path.join(self.task_repo_dir, "bounties", f"bounty_{bounty_number}")
-
-        if server_address:
-            self.host_name, self.port_number = self.parse_server_address(server_address)
-            self.resource_id = f"{self.role }_{server_address}"
+        
+        self.task_repo_dir = os.path.abspath(self._resource_config.task_repo_dir)
+        self.files_dir = self._resource_config.files_dir
+        
+        # Initialize bounty directory if bounty number provided
+        self.bounty_dir = None
+        if self._resource_config.bounty_number:
+            self.bounty_dir = os.path.join(
+                self.task_repo_dir,
+                "bounties",
+                f"bounty_{self._resource_config.bounty_number}"
+            )
+        
+        # Handle server address if provided
+        if self._resource_config.server_address:
+            self.host_name, self.port_number = self.parse_server_address(
+                self._resource_config.server_address
+            )
         else:
             self.host_name, self.port_number = None, None
-            self.resource_id = f"{self.role }_local"
-
-
+            
         self.container_names: List[str] = []
         self.health_check_timeout = 120
+        
         workflow_logger.add_resource(f"SetupResource: {self.role}", self)
         self._start()
         resource_dict[self.resource_id] = self

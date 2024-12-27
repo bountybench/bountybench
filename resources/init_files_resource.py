@@ -22,6 +22,8 @@ class InitFilesResource(BaseResource):
 
     def __init__(self, resource_id: str, config: InitFilesResourceConfig):
         super().__init__(resource_id, config)
+
+        self._resource_config.validate()
         
         # Initialize from config
         self.task_repo_dir = os.path.abspath(self._resource_config.task_repo_dir)

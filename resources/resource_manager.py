@@ -9,11 +9,6 @@ Shouldn't a Resource contain a ResourceConfig? That is, a Resource is instantiat
 
 """
 
-@dataclass
-class ResourceConfig:
-    resource_type: Type[BaseResource]
-    config_params: Dict[str, Any]
-    identifier: Optional[str] = None
 
 class ResourceManager:
     def __init__(self):

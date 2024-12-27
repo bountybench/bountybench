@@ -25,6 +25,7 @@ class DockerResource(BaseResource):
     def __init__(self, resource_id: str, config: DockerResourceConfig):
         super().__init__(resource_id, config)
         
+        self._resource_config.validate()
         self.client = docker.from_env()
         workflow_logger.add_resource(f"DockerResource: {self.resource_id}", self)
         resource_dict[self.resource_id] = self

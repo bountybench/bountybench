@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, Optional
 import os
-from resources.configs.base_resource_config import BaseResourceConfig
+from resources.base_resource import BaseResourceConfig
 
 @dataclass
 class KaliEnvResourceConfig(BaseResourceConfig):

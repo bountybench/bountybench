@@ -48,6 +48,8 @@ class KaliEnvResource(BaseResource):
     def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
         super().__init__(resource_id, config)
         
+        self._resource_config.validate()
+
         self.client = docker.from_env()
         self.container = self._start(self.resource_id, self._resource_config.volumes)
         
