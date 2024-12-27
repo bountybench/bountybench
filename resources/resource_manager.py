@@ -30,9 +30,7 @@ class ResourceManager:
         return self._resources
     
     def register_resource(self, resource_id: str, resource_class: Type[BaseResource], resource_config: Optional[BaseResourceConfig] = None):
-        """
-        Register a resource with its class and configuration.
-        """
+        """Register a resource with its class and configuration."""
         self._resource_registration[resource_id] = (resource_class, resource_config)
         logger.debug(f"Registered resource '{resource_id}' with {resource_class.__name__}.")
 
@@ -57,10 +55,8 @@ class ResourceManager:
             term_phase = max(phases)
             self._resource_lifecycle[resource_id] = (init_phase, term_phase)
 
-    def initialize_resources(self, phase_index: int):
-        """
-        Initialize resources required for a specific phase.
-        """
+    def initialize_phase_resources(self, phase_index: int):
+        """Initialize resources required for a specific phase."""
         for resource_id in self._phase_resources[phase_index]:
             if resource_id not in self._resources:
                 init_phase, _ = self._resource_lifecycle[resource_id]
@@ -78,10 +74,8 @@ class ResourceManager:
                         logger.error(f"Failed to initialize resource '{resource_id}': {str(e)}")
                         raise
 
-    def deallocate_resources(self, phase_index: int):
-        """
-        Deallocate resources that are no longer needed after a specific phase.
-        """
+    def deallocate_phase_resources(self, phase_index: int):
+        """Deallocate resources that are no longer needed after a specific phase."""
         for resource_id in self._phase_resources[phase_index]:
             _, term_phase = self._resource_lifecycle[resource_id]
             if phase_index == term_phase and resource_id in self._resources:
@@ -94,9 +88,20 @@ class ResourceManager:
                     logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
 
     def get_resource(self, resource_id: str) -> BaseResource:
-        """
-        Retrieve an initialized resource by its ID.
-        """
+        """Retrieve an initialized resource by its ID."""
         if resource_id not in self._resources:
             raise KeyError(f"Resource '{resource_id}' not initialized")
         return self._resources[resource_id]
+    
+    def get_phase_resources(self, phase_index: int) -> Dict[str, BaseResource]:
+        """Retrieve resources used by a phase by its ID."""
+        return {resource_id: self.get_resource(resource_id) 
+                for resource_id in self._phase_resources.get(phase_index, [])}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for resource in self._resources.values():
+            resource.stop()
+        self._resources.clear()
