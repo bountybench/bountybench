@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
 from phases.base_phase import BasePhase, PhaseConfig
+from responses.base_response import BaseResponse
 from utils.workflow_logger import workflow_logger
 from responses.response import Response
 
@@ -26,6 +27,7 @@ class WorkflowConfig:
     bounty_number: int
     metadata: Dict[str, Any] = field(default_factory=dict)
     phase_configs: List[PhaseConfig] = field(default_factory=list)
+    initial_prompt: str = ""
 
 class BaseWorkflow(ABC):
     """
@@ -190,7 +192,9 @@ class BaseWorkflow(ABC):
             self.status = WorkflowStatus.INCOMPLETE
             
             prev_response = None
-            
+            if hasattr(self.config, "initial_prompt") and self.config.initial_prompt:
+                prev_response = BaseResponse(self.config.initial_prompt)
+
             # Execute phases in sequence
             for phase_idx, phase_config in enumerate(self.config.phase_configs):
                 self._current_phase_idx = phase_idx

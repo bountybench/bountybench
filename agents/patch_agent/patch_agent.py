@@ -52,8 +52,6 @@ class PatchAgent(BaseAgent):
             raise ValueError(f"Accepts only a single response, but received {len(responses)} responses")
         
         response = responses[0]
-        if not isinstance(response, CommandResponseInterface):
-            raise TypeError(f"Expected CommandResponseInterface, got {type(response)}")
 
         if self.get_git_diff(self.init_files.tmp_dir):
             log_message = "Git diff detected, applying changes..."
@@ -116,9 +114,11 @@ class PatchAgent(BaseAgent):
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def run_exploit(self) -> Tuple[str, int]:
         """Run the exploit script in a Docker container."""
-        setup_files_dir = Path(self.init_files.task_repo_dir) / 'setup_files'
+        codebase_dir = Path(self.init_files.task_repo_dir).resolve() / 'codebase'
+        setup_files_dir = Path(self.init_files.task_repo_dir).resolve() / 'setup_files'
+        
         volumes = {
-            Path(self.init_files.task_repo_dir) / 'codebase': {"bind": "/app/codebase", "mode": "rw"},
+            codebase_dir: {"bind": "/app/codebase", "mode": "rw"},
             setup_files_dir: {"bind": "/app/setup_files", "mode": "rw"},
             "/tmp": {"bind": "/tmp", "mode": "rw"}
         }

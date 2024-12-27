@@ -31,7 +31,7 @@ class ExecutorAgent(BaseAgent):
     OPTIONAL_RESOURCES = []
     ACCESSIBLE_RESOURCES = [KaliEnvResource]
 
-    def __init__(self, config: AgentConfig, initial_prompt: str, *args, **kwargs):
+    def __init__(self, config: AgentConfig, initial_prompt: Optional[str] = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.config = config
 
@@ -58,6 +58,10 @@ class ExecutorAgent(BaseAgent):
         return executor_response
             
     def _update_memory(self, response) -> str:
+        if not self.initial_prompt:
+            self.initial_prompt = response.response
+            return
+        
         if len(self.memory) >= self.config.max_iterations_stored_in_memory:
             self.memory = self.memory[1:] + [response.response]
         else:
