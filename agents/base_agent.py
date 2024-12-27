@@ -15,20 +15,32 @@ class AgentConfig:
 
 class BaseAgent(ABC):
     """
-    Base class for agents that declares REQUIRED_RESOURCES, OPTIONAL_RESOURCES, etc.
-    Instead of directly creating or finding resources in resource_dict, it fetches
-    them from the resource_manager, which is responsible for the resource lifecycle.
+    A base agent that automatically binds resources from a ResourceManager.
+    Resource references can be declared in three lists:
+      1) REQUIRED_RESOURCES  -> must exist, or KeyError is raised
+      2) OPTIONAL_RESOURCES  -> if missing, attribute is omitted (no exception)
+      3) ACCESSIBLE_RESOURCES -> must be subset of (required+optional).
+    
+    Each list entry can be:
+      - A resource class (e.g. DockerResource)
+      - A tuple (ResourceClass, "custom_attr_name")
+    
+    If only a class is given, `_generate_attr_name` is used to create a Python
+    attribute name automatically (e.g. DockerResource -> "docker_resource").
+    For optional resources, if not found, the attribute is *omitted* (not None).
     """
 
-    REQUIRED_RESOURCES: List[Union[str, Tuple[BaseResource, str]]] = []
-    OPTIONAL_RESOURCES: List[Union[str, Tuple[BaseResource, str]]] = []
-    ACCESSIBLE_RESOURCES: List[Union[str, Tuple[BaseResource, str]]] = []
+    # By default, these lists can be either a class or (class, "string").
+    REQUIRED_RESOURCES: List[Union[type, Tuple[type, str]]] = []
+    OPTIONAL_RESOURCES: List[Union[type, Tuple[type, str]]] = []
+    ACCESSIBLE_RESOURCES: List[Union[type, Tuple[type, str]]] = []
 
     def __init__(self, agent_config: AgentConfig, resource_manager=None):
         """
-        Args:
-            resource_manager: An instance of ResourceManager, which can provide .get_resource(resource_id).
-            failure_detection: Whether or not to wrap the run() method with repetitive-response checks.
+        We do NOT fetch resources here. We'll do that in `register_resources()` 
+        once we know they've been allocated by the ResourceManager.
+        
+        If `failure_detection=True` is passed, we wrap `run()` to detect repetitive responses.
         """
         self.resource_manager = resource_manager
         self.response_history = ResponseHistory()
@@ -38,8 +50,8 @@ class BaseAgent(ABC):
         # We do NOT call _register_resources() here. Instead, we wait until
         # the user calls `initialize_resources()` after ResourceManager has allocated them.
 
-        # Optional: Wrap the `run` method for failure detection
-        if hasattr(self, "run") and hasattr(self.agent_config, "failure_detection"):
+        # Optional: wrap the run(...) method for failure detection
+        if hasattr(self, "run") and kwargs.get("failure_detection", False):
             original_run = self.run
 
             def wrapped_run(responses: List[Response]) -> Response:
@@ -52,91 +64,106 @@ class BaseAgent(ABC):
 
             self.run = wrapped_run
 
+
     @classmethod
     def get_required_resources(cls) -> Set[str]:
         return cls.REQUIRED_RESOURCES
     
-    def initialize_resources(self):
+    def register_resources(self):
         """
-        Public method to fetch and attach required/optional resources as attributes on the agent.
-        Call this AFTER the ResourceManager has allocated them for the relevant phase.
+        Binds required and optional resources from the ResourceManager.
+        
+        - For required resources: raises KeyError if missing.
+        - For optional resources: if missing, we omit the attribute entirely
+          (rather than setting it to None).
+        - Ensures ACCESSIBLE_RESOURCES is a subset of (REQUIRED_RESOURCES + OPTIONAL_RESOURCES).
         """
-        required_resources = getattr(self, "REQUIRED_RESOURCES", [])
-        optional_resources = getattr(self, "OPTIONAL_RESOURCES", [])
-        accessible_resources = getattr(self, "ACCESSIBLE_RESOURCES", [])
-
-        # Bind required resources
-        for resource_entry in required_resources:
-            self._bind_resource_to_agent(resource_entry, optional=False)
-
-        # Bind optional resources (set to None if not found)
-        for resource_entry in optional_resources:
-            try:
-                self._bind_resource_to_agent(resource_entry, optional=True)
-            except KeyError:
-                # Resource not allocated? Just set to None
-                if isinstance(resource_entry, tuple):
-                    _, resource_id = resource_entry
-                    attr_name = resource_id
-                else:
-                    attr_name = resource_entry
-                setattr(self, attr_name, None)
-                logger.warning(f"Optional resource '{attr_name}' not available. Setting to None.")
-
-        # Check that ACCESSIBLE_RESOURCES is subset of (REQUIRED + OPTIONAL)
-        all_declared = set(required_resources) | set(optional_resources)
-        accessible_set = set(accessible_resources)
-        declared_strings = {self._entry_to_str(e) for e in all_declared}
-        accessible_strings = {self._entry_to_str(e) for e in accessible_set}
-        missing = accessible_strings - declared_strings
-        if missing:
-            raise ValueError(
-                f"{self.__class__.__name__} ACCESSIBLE_RESOURCES must be a subset of "
-                f"REQUIRED_RESOURCES + OPTIONAL_RESOURCES. Missing: {missing}"
+        if not self.resource_manager:
+            raise RuntimeError(
+                f"Agent '{self.__class__.__name__}' has no resource_manager set; "
+                "cannot fetch resources."
             )
 
-    def _bind_resource_to_agent(self, resource_entry: Union[str, Tuple[BaseResource, str]], optional: bool):
+        required = getattr(self, "REQUIRED_RESOURCES", [])
+        optional = getattr(self, "OPTIONAL_RESOURCES", [])
+        accessible = getattr(self, "ACCESSIBLE_RESOURCES", [])
+
+        # 1) Bind required resources (KeyError if missing)
+        for entry in required:
+            self._bind_resource(entry, optional=False)
+
+        # 2) Bind optional resources (skip if KeyError)
+        for entry in optional:
+            try:
+                self._bind_resource(entry, optional=True)
+            except KeyError:
+                # Omit attribute if not found
+                if isinstance(entry, tuple):
+                    _, attr_name = entry
+                    logger.warning(f"Optional resource '{attr_name}' not allocated. Omitting attribute.")
+                else:
+                    attr_name = self._generate_attr_name(entry)
+                    logger.warning(f"Optional resource '{attr_name}' not allocated. Omitting attribute.")
+                # Don't set anything
+
+        # 3) Check that ACCESSIBLE_RESOURCES is a subset of (REQUIRED + OPTIONAL).
+        declared_entries = set(required) | set(optional)
+        declared_attr_names = {self._entry_to_str(e) for e in declared_entries}
+        accessible_attr_names = {self._entry_to_str(e) for e in accessible}
+        missing = accessible_attr_names - declared_attr_names
+        if missing:
+            raise ValueError(
+                f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset "
+                f"of REQUIRED + OPTIONAL. Missing: {missing}"
+            )
+
+    def _bind_resource(
+        self, entry: Union[type, Tuple[type, str]], optional: bool
+    ):
         """
-        Fetch the resource from resource_manager and set it as an attribute on the agent.
-        resource_entry can be:
-          - "kali_env" (a string resource_id), or
-          - (KaliEnvResource, "kali_env") if you prefer that notation.
+        Automatically derive the attribute name if `entry` is a resource class.
+        If `entry` is (ResourceClass, "custom"), use "custom".
+        Then fetch from the ResourceManager (KeyError if not found).
         """
-        if isinstance(resource_entry, tuple):
-            # e.g. (KaliEnvResource, "kali_env") => resource_id = "kali_env"
-            _, resource_id = resource_entry
+        if isinstance(entry, tuple):
+            resource_cls, attr_name = entry
         else:
-            resource_id = resource_entry
+            resource_cls = entry
+            attr_name = self._generate_attr_name(resource_cls)
 
-        if not self.resource_manager:
-            # If no resource_manager, we can't fetch resources
-            if optional:
-                setattr(self, resource_id, None)
-                return
-            raise RuntimeError(f"Agent '{self.__class__.__name__}' has no resource_manager set.")
+        resource_obj = self.resource_manager.get_resource(attr_name)
+        setattr(self, attr_name, resource_obj)
 
-        try:
-            resource_instance = self.resource_manager.get_resource(resource_id)
-            setattr(self, resource_id, resource_instance)
-        except KeyError:
-            if optional:
-                setattr(self, resource_id, None)
-                logger.debug(f"Optional resource '{resource_id}' not found. Setting to None.")
-            else:
-                raise
-
-    def _entry_to_str(self, entry: Union[str, Tuple[BaseResource, str]]) -> str:
+    @staticmethod
+    def _generate_attr_name(resource_cls: type) -> str:
         """
-        Convert either "kali_env" or (KaliEnvResource, "kali_env") into "kali_env".
+        Convert a Resource class into a snake_case attribute name.
+        For instance, DockerResource -> "docker_resource",
+        KaliEnvResource -> "kali_env", etc.
+        """
+        # 1) Remove trailing "Resource" if present
+        name = resource_cls.__name__
+        if name.endswith("Resource"):
+            name = name[: -len("Resource")]  # remove the trailing "Resource"
+
+        # 2) snake-case it
+        words = re.findall(r'[A-Z][a-z]*|\d+', name)
+        return '_'.join(word.lower() for word in words)
+
+    def _entry_to_str(self, entry: Union[type, Tuple[type, str]]) -> str:
+        """
+        Return the attribute name used for subset-checking in ACCESSIBLE_RESOURCES.
+        If we have (ResourceClass, "my_attr"), that's "my_attr".
+        If we only have ResourceClass, we derive it automatically with _generate_attr_name.
         """
         if isinstance(entry, tuple):
             return entry[1]
-        return entry
+        return self._generate_attr_name(entry)
 
     @abstractmethod
     def run(self, responses: List[Response]) -> Response:
         """
-        Must be implemented by inheriting classes.
-        Process input responses and return a new Response.
+        Subclasses must implement how they handle input responses
+        and produce a new response.
         """
         pass

@@ -10,12 +10,37 @@ from resources.resource_dict import resource_dict
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 import shutil
-from resources.configs.init_files_resource_config import InitFilesResourceConfig
+
+from dataclasses import dataclass
+from typing import Optional
+import os
+from resources.base_resource import BaseResourceConfig
 
 
 # Configure logging
 logger = get_main_logger(__name__)
 
+
+
+@dataclass
+class InitFilesResourceConfig(BaseResourceConfig):
+    """Configuration for InitFilesResource"""
+    task_repo_dir: str
+    files_dir_name: str
+    tmp_dir_name: str
+    exploit_files_dir_name: Optional[str] = None
+    vulnerable_commit: Optional[str] = None
+
+    def validate(self) -> None:
+        """Validate InitFiles configuration"""
+        if not self.task_repo_dir or not os.path.exists(self.task_repo_dir):
+            raise ValueError(f"Invalid task_repo_dir: {self.task_repo_dir}")
+        if not self.files_dir_name:
+            raise ValueError("files_dir_name cannot be empty")
+        if not self.tmp_dir_name:
+            raise ValueError("tmp_dir_name cannot be empty")
+        if not self.tmp_dir_name:
+            raise ValueError("tmp_dir_name cannot be empty")
 
 class InitFilesResource(BaseResource):
     """Init Files Resource"""
@@ -23,7 +48,6 @@ class InitFilesResource(BaseResource):
     def __init__(self, resource_id: str, config: InitFilesResourceConfig):
         super().__init__(resource_id, config)
 
-        self._resource_config.validate()
         
         # Initialize from config
         self.task_repo_dir = str(self._resource_config.task_repo_dir)

@@ -4,13 +4,11 @@ import os
 from pathlib import Path
 import unittest
 
-from resources.configs.init_files_resource_config import InitFilesResourceConfig
-from resources.configs.kali_env_resource_config import KaliEnvResourceConfig
-from resources.configs.setup_resources_config import SetupResourceConfig
-from resources.configs.docker_resource_config import DockerResourceConfig
+from resources.init_files_resource import InitFilesResourceConfig
+from resources.setup_resource import SetupResourceConfig
+
 
 from resources.init_files_resource import InitFilesResource
-from resources.kali_env_resource import KaliEnvResource
 from resources.setup_resource import SetupResource
 from resources.utils import read_repo_metadata, read_bounty_metadata
 from utils.workflow_logger import workflow_logger

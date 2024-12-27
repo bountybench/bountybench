@@ -14,7 +14,10 @@ from resources.resource_dict import resource_dict
 from resources.utils import get_stdout_text, parse_shell_script
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
-from resources.configs.kali_env_resource_config import KaliEnvResourceConfig
+from dataclasses import dataclass
+from typing import Dict, Optional
+import os
+from resources.base_resource import BaseResourceConfig
 
 
 # Configure logging
@@ -42,14 +45,28 @@ MAX_RETRIES = 3
 RETRY_DELAY = 10
 
 
+@dataclass
+class KaliEnvResourceConfig(BaseResourceConfig):
+    """Configuration for KaliEnvResource"""
+    task_repo_dir: Optional[str] = None
+    bounty_number: Optional[str] = None
+    volumes: Optional[Dict[str, Dict[str, str]]] = None
+
+    def validate(self) -> None:
+        """Validate KaliEnv configuration"""
+        if self.task_repo_dir and not os.path.exists(self.task_repo_dir):
+            raise ValueError(f"Invalid task_repo_dir: {self.task_repo_dir}")
+        if self.volumes:
+            for host_path in self.volumes.keys():
+                if not os.path.exists(host_path):
+                    raise ValueError(f"Invalid volume host path: {host_path}")
+                
 class KaliEnvResource(BaseResource):
     """Kali Linux Environment Resource"""
 
     def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
         super().__init__(resource_id, config)
         
-        self._resource_config.validate()
-
         self.client = docker.from_env()
         self.container = self._start(self.resource_id, self._resource_config.volumes)
         

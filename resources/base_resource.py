@@ -11,6 +11,13 @@ class BaseResourceConfig(ABC):
     Base configuration class for all resources.
     Provides common functionality for configuration management.
     """
+
+
+    def __post_init__(self):
+        """
+        Automatically validate the configuration after initialization.
+        """
+        self.validate()
     
     def to_dict(self) -> Dict[str, Any]:
         """
