@@ -112,10 +112,11 @@ class BasePhase(ABC):
                 else:
                     skip_interactive -= 1
 
-                # Increment the iteration count
-                self.iteration_count += 1
-                self.current_agent_index += 1
 
+                if last_output:
+                    print(f"Last output was {last_output.response}")
+                else:
+                    print("No last output")
 
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_name, last_output) as iteration_ctx:
@@ -134,6 +135,10 @@ class BasePhase(ABC):
 
                 last_output = iteration_output
 
+                # Increment the iteration count
+                self.iteration_count += 1
+                self.current_agent_index += 1
+                
         if not self.phase_summary:
             self._set_phase_summary("completed_max_phase_iterations")
         return last_output, success_flag
@@ -194,8 +199,13 @@ class BasePhase(ABC):
         return edit_response
     
     def _get_agent(self) -> Tuple[str, BaseAgent]:
-        agent_index = (self.current_agent_index - 1) % len(self.phase_config.agents)
+        agent_index = (self.current_agent_index) % len(self.phase_config.agents)
+        print("===========================")
+        print(f"Current agent index: {self.current_agent_index}")
+        print(f"agent index: {agent_index} in {len(self.phase_config.agents)}")
         agent_name, agent_instance = self.phase_config.agents[agent_index]
+        print(f"Returning agent {agent_name}")
+        print("===========================")
         return agent_name, agent_instance
 
     def _set_phase_summary(self, summary: str):
