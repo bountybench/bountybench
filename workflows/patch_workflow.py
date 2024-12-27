@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from agents.dataclasses.agent_spec import AgentConfig
+from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from agents.patch_agent.patch_agent import PatchAgent
 from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
 from agents.executor_agent.executor_agent import ExecutorAgent
@@ -124,7 +124,7 @@ class PatchWorkflow(BaseWorkflow):
         """
         
         # Configure and create agents
-        executor_agent_config = AgentConfig(
+        executor_agent_config = AgentLMConfig(
             model='openai/o3-mini-2024-12-17',
             max_output_tokens=25000,
             max_input_tokens=25000,
