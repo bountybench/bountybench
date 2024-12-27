@@ -14,10 +14,11 @@ python3.11 -m venv venv
 ```
 
 ### 3. Activate and Set Up the Environment
-Activate the virtual environment and install required dependencies:
+Activate the virtual environment, install required dependencies, and initialize submodules:
 ```
 source venv/bin/activate
 pip install -r requirements.txt
+git submodule update --init
 ```
 
 ### 4. Configure the .env File
