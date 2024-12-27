@@ -57,24 +57,24 @@ class TestResourceManager(unittest.TestCase):
         self.assertEqual(self.resource_manager._resource_lifecycle["resource3"], (1, 1))
 
         # Initialize resources for Phase1
-        self.resource_manager.initialize_resources(0)
+        self.resource_manager.initialize_phase_resources(0)
         self.assertIn("resource1", self.resource_manager._resources)
         self.assertIn("resource2", self.resource_manager._resources)
         self.assertNotIn("resource3", self.resource_manager._resources)
 
         # Deallocate resources after Phase1
-        self.resource_manager.deallocate_resources(0)
+        self.resource_manager.deallocate_phase_resources(0)
         self.assertIn("resource1", self.resource_manager._resources)
         self.assertIn("resource2", self.resource_manager._resources)
 
         # Initialize resources for Phase2
-        self.resource_manager.initialize_resources(1)
+        self.resource_manager.initialize_phase_resources(1)
         self.assertIn("resource1", self.resource_manager._resources)
         self.assertIn("resource2", self.resource_manager._resources)
         self.assertIn("resource3", self.resource_manager._resources)
 
         # Deallocate resources after Phase2
-        self.resource_manager.deallocate_resources(1)
+        self.resource_manager.deallocate_phase_resources(1)
         self.assertNotIn("resource1", self.resource_manager._resources)
         self.assertNotIn("resource2", self.resource_manager._resources)
         self.assertNotIn("resource3", self.resource_manager._resources)
@@ -83,7 +83,7 @@ class TestResourceManager(unittest.TestCase):
         self.resource_manager.register_resource("resource1", MockResource, MockResourceConfig())
         self.resource_manager.register_resource("resource2", MockResource, MockResourceConfig())
         self.resource_manager.compute_schedule([MockPhase1])
-        self.resource_manager.initialize_resources(0)
+        self.resource_manager.initialize_phase_resources(0)
 
         resource = self.resource_manager.get_resource("resource1")
         self.assertIsInstance(resource, MockResource)
@@ -97,7 +97,7 @@ class TestResourceManager(unittest.TestCase):
     def test_error_handling(self, mock_logger):
         # Test initializing resources without computing schedule
         with self.assertRaises(KeyError):
-            self.resource_manager.initialize_resources(0)
+            self.resource_manager.initialize_phase_resources(0)
 
         # Register resource and compute schedule
         self.resource_manager.register_resource("resource1", MockResource, MockResourceConfig())
@@ -107,7 +107,7 @@ class TestResourceManager(unittest.TestCase):
         # Test with a mocked resource that raises an exception during initialization
         with patch.object(MockResource, '__init__', side_effect=Exception("Initialization error")):
             with self.assertRaises(Exception):
-                self.resource_manager.initialize_resources(0)
+                self.resource_manager.initialize_phase_resources(0)
 
 if __name__ == "__main__":
     unittest.main()
