@@ -43,3 +43,11 @@ python3 -m workflows.exploit_and_patch_workflow_v2 \
     --bounty_number 0 \
     --interactive
 ```
+
+### Running the Workflow UI
+To run the workflow UI, use the following command:
+```
+cd frontend
+npm install
+npm run
+```
