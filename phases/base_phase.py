@@ -195,7 +195,7 @@ class BasePhase(ABC):
     
     def _get_agent(self) -> Tuple[str, BaseAgent]:
         agent_index = (self.current_agent_index - 1) % len(self.phase_config.agents)
-        agent_name, agent_instance = self.phase_config.agents[self.current_agent_index]
+        agent_name, agent_instance = self.phase_config.agents[agent_index]
         return agent_name, agent_instance
 
     def _set_phase_summary(self, summary: str):
