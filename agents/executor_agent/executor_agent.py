@@ -32,13 +32,13 @@ class ExecutorAgent(BaseAgent):
     # BaseAgent will do: self.init_files = resource_manager.get_resource("init_files")
     # etc.
     REQUIRED_RESOURCES = [
-        (InitFilesResource, "init_files"),
+       InitFilesResource,
         (SetupResource, "setup_resource"),
-        (KaliEnvResource, "kali_env"),
+        KaliEnvResource
     ]
     OPTIONAL_RESOURCES = []
     ACCESSIBLE_RESOURCES = [
-        (KaliEnvResource, "kali_env"),
+        KaliEnvResource
     ]
 
     def __init__(self, config: AgentConfig, initial_prompt: str, *args, **kwargs):
