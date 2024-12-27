@@ -10,6 +10,7 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
+
 class BaseAgent(ABC):
     REQUIRED_RESOURCES: List[Union[str, Tuple[BaseResource, str]]] = []
     OPTIONAL_RESOURCES: List[Union[str, Tuple[BaseResource, str]]] = []
@@ -17,8 +18,8 @@ class BaseAgent(ABC):
 
     def __init__(self, resource_manager=None, *args, **kwargs):
         """
-        We do NOT fetch resources here. We'll do that in bind_resources_strict() once
-        we're sure they've been allocated by ResourceManager.
+        We do NOT fetch resources here. We'll do that in register_resources() 
+        once we're sure they've been allocated by ResourceManager.
         """
         self.resource_manager = resource_manager
         self.response_history = ResponseHistory()
@@ -27,6 +28,7 @@ class BaseAgent(ABC):
         # Optional: wrap run(...) for failure detection
         if hasattr(self, "run") and kwargs.get("failure_detection", False):
             original_run = self.run
+
             def wrapped_run(responses: List[Response]) -> Response:
                 new_response = original_run(responses)
                 if self.response_history.is_repetitive(new_response):
@@ -34,58 +36,69 @@ class BaseAgent(ABC):
                 else:
                     self.response_history.log(new_response)
                 return new_response
+
             self.run = wrapped_run
 
     def register_resources(self):
         """
-        'Strict environment' binding: must be called AFTER the ResourceManager has allocated
-        the resources for this agent's phase. If any required resource is missing, KeyError is raised.
+        Binds required and optional resources from the ResourceManager.
+        If an optional resource is missing, we simply do NOT create the attribute 
+        (rather than setting it to None).
         """
         if not self.resource_manager:
             raise RuntimeError(
-                f"Agent '{self.__class__.__name__}' has no resource_manager set; cannot fetch resources."
+                f"Agent '{self.__class__.__name__}' has no resource_manager set; "
+                "cannot fetch resources."
             )
 
         required = getattr(self, "REQUIRED_RESOURCES", [])
         optional = getattr(self, "OPTIONAL_RESOURCES", [])
         accessible = getattr(self, "ACCESSIBLE_RESOURCES", [])
 
-        # 1) Bind required
+        # 1) Bind required resources
         for entry in required:
             self._bind_resource(entry, optional=False)
 
-        # 2) Bind optional
+        # 2) Bind optional resources
+        #    If a KeyError is thrown, skip creating the attribute
         for entry in optional:
             try:
                 self._bind_resource(entry, optional=True)
             except KeyError:
-                # set to None if not found
                 if isinstance(entry, tuple):
-                    _, rid = entry
-                    attr_name = rid
+                    _, resource_id = entry
+                    logger.warning(f"Optional resource '{resource_id}' not allocated. Omitting attribute.")
                 else:
-                    attr_name = entry
-                setattr(self, attr_name, None)
-                logger.warning(f"Optional resource '{attr_name}' not allocated. Setting to None.")
+                    logger.warning(f"Optional resource '{entry}' not allocated. Omitting attribute.")
+                # DO NOT create the attribute if missing
 
-        # 3) Check accessibility subset
+        # 3) Check that ACCESSIBLE_RESOURCES is a subset of (REQUIRED + OPTIONAL)
         declared = set(required) | set(optional)
         declared_ids = {self._entry_to_str(e) for e in declared}
         accessible_ids = {self._entry_to_str(e) for e in accessible}
         missing = accessible_ids - declared_ids
         if missing:
             raise ValueError(
-                f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset of "
-                f"REQUIRED + OPTIONAL. Missing: {missing}"
+                f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset "
+                f"of REQUIRED + OPTIONAL. Missing: {missing}"
             )
 
-    def _bind_resource(self, entry: Union[str, Tuple[BaseResource, str]], optional: bool):
+    def _bind_resource(
+        self,
+        entry: Union[str, Tuple[BaseResource, str]],
+        optional: bool,
+    ):
+        """
+        Fetch the resource from resource_manager, and create an attribute if found.
+        If 'optional' is False and the resource is missing, raise KeyError.
+        If 'optional' is True and the resource is missing, raise KeyError 
+        (caught by caller to skip creating the attribute).
+        """
         if isinstance(entry, tuple):
             _, resource_id = entry
         else:
             resource_id = entry
-        
-        # fetch from resource_manager, strict => KeyError if missing
+
         resource_instance = self.resource_manager.get_resource(resource_id)
         setattr(self, resource_id, resource_instance)
 
@@ -97,4 +110,8 @@ class BaseAgent(ABC):
 
     @abstractmethod
     def run(self, responses: List[Response]) -> Response:
+        """
+        Subclasses must implement how they handle input responses
+        and produce a new response.
+        """
         pass
