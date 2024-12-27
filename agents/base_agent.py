@@ -10,6 +10,8 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
+class AgentConfig:
+    id: str
 
 class BaseAgent(ABC):
     """
@@ -22,7 +24,7 @@ class BaseAgent(ABC):
     OPTIONAL_RESOURCES: List[Union[str, Tuple[BaseResource, str]]] = []
     ACCESSIBLE_RESOURCES: List[Union[str, Tuple[BaseResource, str]]] = []
 
-    def __init__(self, resource_manager=None, *args, **kwargs):
+    def __init__(self, agent_config: AgentConfig, resource_manager=None):
         """
         Args:
             resource_manager: An instance of ResourceManager, which can provide .get_resource(resource_id).
@@ -30,13 +32,14 @@ class BaseAgent(ABC):
         """
         self.resource_manager = resource_manager
         self.response_history = ResponseHistory()
-        self.target_host_address = kwargs.get("target_host", "")
+        self.agent_config = agent_config
+        self.target_host_address = getattr(self.agent_config, "target_host", "")
 
         # We do NOT call _register_resources() here. Instead, we wait until
         # the user calls `initialize_resources()` after ResourceManager has allocated them.
 
         # Optional: Wrap the `run` method for failure detection
-        if hasattr(self, "run") and kwargs.get("failure_detection", False):
+        if hasattr(self, "run") and hasattr(self.agent_config, "failure_detection"):
             original_run = self.run
 
             def wrapped_run(responses: List[Response]) -> Response:

@@ -1,8 +1,112 @@
+import os
+from agents.base_agent import BaseAgent, AgentConfig
+from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.configs.init_files_resource_config import InitFilesResourceConfig
+from resources.init_files_resource import InitFilesResource
+from resources.resource_manager import ResourceManager
+from resources.setup_resource import SetupResource, SetupResourceConfig
+from resources.utils import docker_network_exists, read_bounty_metadata, read_repo_metadata, run_command
+
+class BaseWorkflow(ABC):
+    def __init__(self, workflow_config):
+        self.workflow_config = workflow_config #initialization logic from args parsing, should be automatic?
+        self.resource_manager = ResourceManager()
+        self.resource_manager.compute_schedule(self.PHASES)
+        self._agent_registration: Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]] = {}
+        
+    def setup_phase(phase_idx: int):
+        pass
+
+    def takedown_phase(phase_idx:int):
+        pass
+
+    def setup_init(self) -> None:
+        """Setup initial state of the workflow"""
+        network_name = "shared_net"
+        if not docker_network_exists(network_name):
+            logger.info(f"Creating Docker network: {network_name}")
+            run_command(["docker", "network", "create", network_name])
+
+        vulnerable_commit = self.bounty_metadata['vulnerable_commit']
+        run_command(["git", "checkout", vulnerable_commit], str(self.task_repo_dir) + "/codebase")
+        
+        for _, value in self.bounty_metadata['patch'].items():
+            relative_path = os.path.relpath(value, start="codebase")
+            full_path = os.path.join(str(self.task_repo_dir), value)
+            if os.path.exists(full_path):
+                self.vulnerable_files.append(relative_path)
+        
+        run_command(["git", "checkout", "main"], str(self.task_repo_dir) + "/codebase")
+
+        self.workflow_logger.add_metadata("vulnerable_files", self.vulnerable_files)
+        self.workflow_logger.add_metadata("exploit_description", self.exploit_description)
+        
+    def register_resource(self, resource_id:str, resource_class: Type[BaseResource], resource_config: BaseResourceConfig):
+        self.resource_manager.register_resource(resource_id, resource_class, resource_config)
+    
+    def register_agent(self, agent_id:str, agent_class: Type[BaseAgent], agent_config: AgentConfig):
+        self._agent_registration[agent_id] = (agent_class, agent_config)
+        self.workflow_logger.add_agent(agent_id, self.patch_agent)
+
+    def register_phase(self, phase_class: Type[BasePhase], phase_config: PhaseConfig):
+        self.config.phase_configs.append(phase_class, phase_config)
+
+    @abstractmethod
+    def get_initial_prompt(self):
+        pass
+
+    @abstractmethod
+    def define_agents(self):
+        pass
+
+    @abstractmethod
+    def define_phases(self):
+        pass
+
+    # @abstractmethod
+    def define_resources(self):
+        # Universal across all task setup: InitFilesResource and SetupResource(s)
+        
+        # Initialize files
+        init_files_config = InitFilesResourceConfig(
+            task_repo_dir=self.task_repo_dir,
+            files_dir_name=files_dir,
+            tmp_dir_name=tmp_dir,
+            exploit_files_dir_name=exploit_files_dir,
+            vulnerable_commit=vulnerable_commit
+        )
+        self.register_resource("InitFiles", InitFilesResource, init_files_config)
+
+        # Setup repository environment if needed
+        if os.path.exists(str(self.task_repo_dir) + "/setup_repo_env.sh"):
+            repo_env_config = SetupResourceConfig(
+                task_level_setup=False, 
+                task_repo_dir=self.task_repo_dir, 
+                files_dir=files_dir
+            )
+            self.register_resource("RepoResource", SetupResource, repo_env_config)
+            
+        # Setup target host if specified
+        if self.repo_metadata["target_host"]:
+            task_server_config = SetupResourceConfig(
+                task_level_setup=True,
+                task_repo_dir=self.task_repo_dir,
+                files_dir=files_dir,
+                bounty_number=self.bounty_number,
+                server_address=self.repo_metadata["target_host"]
+            )
+            self.register_resource("task_server", SetupResource, task_server_config)
+            
+        
+
+
+
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Type
 
 from phases.base_phase import BasePhase, PhaseConfig
 from utils.workflow_logger import workflow_logger
@@ -19,7 +123,7 @@ class WorkflowStatus(Enum):
 @dataclass
 class WorkflowConfig:
     """Configuration for a workflow"""
-    name: str
+    id: str
     max_iterations: int
     logs_dir: Path
     task_repo_dir: Path
@@ -37,38 +141,28 @@ class BaseWorkflow(ABC):
     - Coordinates phase transitions and data flow between phases
     - Tracks overall workflow state and completion status
     """
+    # PHASES = []
 
-    """
-    Conceptually:
-        1 Workflow - N Phases
-        Worklow ~ Task ??
-        A Workflow __ task
-        solves? attempts?
-        can a worklow attempt multiple tasks? 
-        Will multiple workflows attempt a single task? Sounds wrong since we want to manage Resources / State at a workflow level
-
-        So typically
-        A workflow solves a single task
-        But potentially many
-        1: 1/N. But not N: 1 (never no future of this, vs N tasks could be supported potentially if shared resources etc.)
-            for now, 1:1
-
-        But actually...
-        maybe not. Like I want to detect a new bounty
-        I spin up N workers and then combine their efforts. This seems like a single task / find the best of them?
-
-        Or are these Phases? And the Phases are distributed across machines? Probably easiest to just call them a Phase, and I can spin up N phases.
-
-        How do Resources fit in?
-            Workflows manage Resources
-
-        A workflow solves a bounty
-
-        Exploit (phase) + Patch  (phase) => Workflow for a task
-    """
-
-    def __init__(self, config: WorkflowConfig):
+    def __init__(self, task_repo_dir: Path, bounty_number: str, workflow_id: Optional[str] = "base_workflow", interactive: Optional[bool] = False):
         """Initialize workflow with configuration"""
+        self.task_repo_dir = task_repo_dir
+        self.bounty_number = bounty_number
+        self.repo_metadata = read_repo_metadata(str(task_repo_dir))
+        self.bounty_metadata = read_bounty_metadata(str(task_repo_dir), bounty_number)
+        
+        # Setup workflow config
+        config = WorkflowConfig(
+            id=workflow_id,
+            max_iterations=25,
+            logs_dir=Path("logs"),
+            task_repo_dir=task_repo_dir,
+            bounty_number=int(bounty_number),
+            metadata={
+                "repo_metadata": self.repo_metadata,
+                "bounty_metadata": self.bounty_metadata
+            }
+        )
+
         self.config = config
         self.status = WorkflowStatus.INITIALIZED
         self._current_phase_idx = 0
@@ -77,7 +171,7 @@ class BaseWorkflow(ABC):
         # Initialize workflow logger
         self.workflow_logger = workflow_logger
         self.workflow_logger.initialize(
-            workflow_name=config.name,
+            workflow_id=config.id,
             logs_dir=str(config.logs_dir),
             task_repo_dir=str(config.task_repo_dir),
             bounty_number=str(config.bounty_number)
@@ -86,76 +180,56 @@ class BaseWorkflow(ABC):
         # Add workflow metadata
         for key, value in config.metadata.items():
             self.workflow_logger.add_metadata(key, value)
-    
-    @abstractmethod
-    def setup_init(self) -> None:
-        """Setup workflow initialization"""
+
+        # Setup workflow config
+        config = WorkflowConfig(
+            id=workflow_id,
+            max_iterations=25,
+            logs_dir=Path("logs"),
+            task_repo_dir=task_repo_dir,
+            bounty_number=int(bounty_number),
+            metadata={
+                "repo_metadata": self.repo_metadata,
+                "bounty_metadata": self.bounty_metadata
+            },
+            initial_prompt=self.get_initial_prompt()
+        )
+
+    def setup_phase_resources(self, phase_index: int) -> None:
+        """Setup all required resources for a phase"""
+        self.resource_manager.allocate_phase_resources(phase_index)
+
+    def takedown_phase_resources(self, phase_index: int) -> None:
+        """Take down all resources no longer required in rest of the workflow"""
+        self.resource_manager.deallocate_phase_resources(phase_index)
+
+    def create_agent(self):
         pass
 
-    @abstractmethod
-    def setup_resources(self) -> None:
-        """Setup all required resources"""
-        pass
-
-    @abstractmethod
-    def setup_agents(self) -> None:
+    def setup_phase_agents(self, phase_index: int) -> None:
         """Setup and configure agents"""
         pass
 
-    def setup_phases(self) -> None:
+    def create_phase(self, phase_class: Type[BasePhase], phase_config: PhaseConfig):
+        pass
+
+    # def create_phase(self, phase_config: PhaseConfig, prev_response: Optional[Response]) -> BasePhase:
+    #     """Create phase instance based on config"""
+    #     if phase_config.phase_name == "exploit":
+    #         return ExploitPhase(phase_config, prev_response)
+    #     elif phase_config.phase_name == "patch":
+    #         return PatchPhase(phase_config, prev_response)
+    #     else:
+    #         raise ValueError(f"Unknown phase: {phase_config.phase_name}")
+
+    def setup_phase(self, phase_index: int) -> None:
         """
         Setup workflow phases and resources.
         This orchestrates the setup process in the correct order with logging.
         """
         try:
-            """ 
-            Wait does this do all the setup at once? for resources etc. versus per agent of the workflow?
-
-            e.g. 
-            setup_resources: sets up all resources (K, T, P) at the beginning? Resource allocation should be per phase / as needed. 
-
-            K (10) + T (6)= 16 GB
-            total memory 18 GB
-            P = 4 GB
-            OOM
-
-
-            Phase 1:
-                K + T => 16GB
-                Agent 1: Kali 
-                Agent 2: Task Server
-                Execute + Exploit 
-            Release: T
-            Phase 2:
-                Allocate: P 
-                Agent 1: Kali + Task Server
-                Agent 3: Patch Server
-                Execute + Patch
-
-            Maybe can be bad now. But not horrible
-
-            This is the magic of infra / workflow
-
-            Workflow base class "invisbly" handles all the resource allocation, management, etc.
-
-            If each atgent / phase defines the resouces it needs, the workflow will automagically handle all the resource allocations
-
-            ALloca
-            Malloc
-            Free
-
-            Resource.setup
-
-            You have to fix now, because once workflows are written like this, hard refactor. 
-            """
-            # Initial setup
-            self.setup_init()
-
-            # Resource setup
-            self.setup_resources()
-
-            # Agent setup
-            self.setup_agents()
+            self.setup_phase_resources(phase_index)
+            self.setup_phase_agents(phase_index)
 
         except Exception as e:
             self.status = WorkflowStatus.INCOMPLETE
@@ -171,18 +245,16 @@ class BaseWorkflow(ABC):
         if sorted(phase_numbers) != list(range(0, len(phase_numbers))):
             raise ValueError("Phase numbers must be sequential starting from 0")
 
-    @abstractmethod
-    def create_phase(self, phase_config: PhaseConfig, prev_response: Optional[Response]) -> BasePhase:
-        """
-        Create a phase instance from config.
-        Must be implemented by subclasses to return appropriate phase types.
-        """
-        pass
-
     """
     Update the code according to this comment: 
     Rather than just "run", you want to go phase by phase and use yield so that you can call next(workflow) and transition to run only a single phase. run can be an api where you continue runninguntil the end. This way you refactor the logic of running just a single phase vs running the netire workflow.
     """
+    
+    @abstractmethod
+    def setup_init(self) -> None:
+        """Setup workflow initialization"""
+        pass
+
     def run(self) -> None:
         """
         Execute the workflow by running phases in sequence.
