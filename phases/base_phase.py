@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Set, Tuple, Union
 
 from agents.base_agent import BaseAgent
 from responses.response import Response
@@ -29,6 +29,7 @@ class BasePhase(ABC):
     Subclasses only need to implement how to run one iteration with a given agent. 
     Subclass can define expected (required) agents, BasePhase automatically ensures compliance with expected list.
     """
+    REQUIRED_AGENTS: List[Union[str, Tuple[BaseAgent, str]]] = []
 
     def __init__(
         self,
@@ -52,6 +53,13 @@ class BasePhase(ABC):
         # Check that the agents in config match what we require (if any)
         self._register_agents()
 
+    @classmethod
+    def get_required_resources(cls) -> Set[str]:
+        resources = set()
+        for agent_cls in cls.REQUIRED_AGENTS:
+            resources.update(agent_cls.get_required_resources())
+        return resources
+    
     def _register_agents(self):
         """
         Checks that all REQUIRED_AGENTS are present among the agents in `phase_config`.

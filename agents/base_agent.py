@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import re
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Set, Tuple, Union
 
 from resources.base_resource import BaseResource
 from responses.failure_response import FailureResponse
@@ -49,6 +49,10 @@ class BaseAgent(ABC):
 
             self.run = wrapped_run
 
+    @classmethod
+    def get_required_resources(cls) -> Set[str]:
+        return cls.REQUIRED_RESOURCES
+    
     def initialize_resources(self):
         """
         Public method to fetch and attach required/optional resources as attributes on the agent.
