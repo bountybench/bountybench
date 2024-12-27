@@ -86,6 +86,7 @@ rouge_score==0.1.2
 safetensors==0.4.5
 scikit-learn==1.6.0
 scipy==1.14.1
+sentence_transformers==3.3.1
 shellingham==1.5.4
 six==1.17.0
 smart-open==7.1.0
