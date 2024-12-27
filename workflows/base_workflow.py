@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
 from phases.base_phase import BasePhase, PhaseConfig
-from resources.resource_manager import ResourceManager
 from utils.workflow_logger import workflow_logger
 from responses.response import Response
 
@@ -75,10 +74,6 @@ class BaseWorkflow(ABC):
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
         
-        # define phases list
-        self.resource_manager = ResourceManager()
-        self.resource_manager.compute_schedule(self.phases)
-
         # Initialize workflow logger
         self.workflow_logger = workflow_logger
         self.workflow_logger.initialize(
@@ -92,17 +87,6 @@ class BaseWorkflow(ABC):
         for key, value in config.metadata.items():
             self.workflow_logger.add_metadata(key, value)
     
-    def next(self):
-        if self.current_phase_index >= 0:
-            self.resource_manager.deallocate_resources(self.current_phase_index)
-        
-        self.current_phase_index += 1
-        if self.current_phase_index < len(self.phases):
-            self.resource_manager.initialize_resources(self.current_phase_index)
-            return self.phases[self.current_phase_index]
-        else:
-            return None
-        
     @abstractmethod
     def setup_init(self) -> None:
         """Setup workflow initialization"""
