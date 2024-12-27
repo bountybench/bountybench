@@ -7,26 +7,56 @@ from queue import Queue
 from typing import List, Optional
 
 from resources.base_resource import BaseResource
-from resources.configs.setup_resources_config import SetupResourceConfig
 from resources.resource_dict import resource_dict
 from resources.utils import run_command
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 
+from dataclasses import dataclass
+from typing import Dict, Optional
+import os
+from resources.base_resource import BaseResourceConfig
+
+
 logger = get_main_logger(__name__)
 
+
+@dataclass
+class SetupResourceConfig(BaseResourceConfig):
+    """Configuration for SetupResource"""
+    task_level_setup: bool
+    task_repo_dir: str
+    files_dir: str
+    bounty_number: Optional[str] = None
+    server_address: Optional[str] = None
+
+    def validate(self) -> None:
+        """Validate Setup configuration"""
+        if not os.path.exists(self.task_repo_dir):
+            raise ValueError(f"Invalid task_repo_dir: {self.task_repo_dir}")
+        if self.server_address and ":" not in self.server_address:
+            raise ValueError(f"Invalid server_address format: {self.server_address}")
+        
 
 class SetupResource(BaseResource):
     """SetupResource for initializing and managing containers"""
 
     def __init__(self, resource_id: str, config: SetupResourceConfig):
+        # Call the superclass constructor first
         super().__init__(resource_id, config)
-
-        self._resource_config.validate()
-
-
+        
+        # Access the configuration
         self.task_level_setup = self._resource_config.task_level_setup
         self.role = "task_server" if self.task_level_setup else "repo_resource"
+
+        # Handle server address if provided
+        if self._resource_config.server_address:
+            self.host_name, self.port_number = self.parse_server_address(
+                self._resource_config.server_address
+            )
+        else:
+            self.host_name, self.port_number = None, None
+
         self.task_repo_dir = str(self._resource_config.task_repo_dir)
         self.files_dir = self._resource_config.files_dir
 
@@ -38,16 +68,8 @@ class SetupResource(BaseResource):
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}"
             )
-        
-        # Handle server address if provided
-        if self._resource_config.server_address:
-            self.host_name, self.port_number = self.parse_server_address(
-                self._resource_config.server_address
-            )
-            self.resource_id = f"{self.role }_{self._resource_config.server_address}"
-        else:
-            self.host_name, self.port_number = None, None
-            
+
+    
         self.container_names: List[str] = []
         self.health_check_timeout = 120
         
