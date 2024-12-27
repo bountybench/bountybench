@@ -284,7 +284,7 @@ class WorkflowLogger:
             "final_status": self.workflow_log.final_status,
             "phases": [
                 {
-                    "phase_number": ph.phase_number,
+                    "phase_idx": ph.phase_idx,
                     "phase_name": ph.phase_name,
                     "start_time": ph.start_time,
                     "end_time": ph.end_time,

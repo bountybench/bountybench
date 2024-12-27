@@ -27,7 +27,7 @@ class PhaseIteration:
 
 @dataclass
 class WorkflowPhase:
-    phase_number: int
+    phase_idx: int
     phase_name: str
     start_time: str
     end_time: Optional[str]

@@ -26,8 +26,9 @@ class InitFilesResource(BaseResource):
         self._resource_config.validate()
         
         # Initialize from config
-        self.task_repo_dir = os.path.abspath(self._resource_config.task_repo_dir)
+        self.task_repo_dir = str(self._resource_config.task_repo_dir)
         self.files_dir = os.path.join(self.task_repo_dir, self._resource_config.files_dir_name)
+
         self.tmp_dir_name = self._resource_config.tmp_dir_name
         self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
         

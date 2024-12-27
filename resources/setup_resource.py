@@ -27,10 +27,9 @@ class SetupResource(BaseResource):
 
         self.task_level_setup = self._resource_config.task_level_setup
         self.role = "task_server" if self.task_level_setup else "repo_resource"
-        
-        self.task_repo_dir = os.path.abspath(self._resource_config.task_repo_dir)
+        self.task_repo_dir = str(self._resource_config.task_repo_dir)
         self.files_dir = self._resource_config.files_dir
-        
+
         # Initialize bounty directory if bounty number provided
         self.bounty_dir = None
         if self._resource_config.bounty_number:
@@ -45,6 +44,7 @@ class SetupResource(BaseResource):
             self.host_name, self.port_number = self.parse_server_address(
                 self._resource_config.server_address
             )
+            self.resource_id = f"{self.role }_{self._resource_config.server_address}"
         else:
             self.host_name, self.port_number = None, None
             
