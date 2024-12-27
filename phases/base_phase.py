@@ -138,7 +138,7 @@ class BasePhase(ABC):
                 # Increment the iteration count
                 self.iteration_count += 1
                 self.current_agent_index += 1
-                
+
         if not self.phase_summary:
             self._set_phase_summary("completed_max_phase_iterations")
         return last_output, success_flag
@@ -200,12 +200,7 @@ class BasePhase(ABC):
     
     def _get_agent(self) -> Tuple[str, BaseAgent]:
         agent_index = (self.current_agent_index) % len(self.phase_config.agents)
-        print("===========================")
-        print(f"Current agent index: {self.current_agent_index}")
-        print(f"agent index: {agent_index} in {len(self.phase_config.agents)}")
         agent_name, agent_instance = self.phase_config.agents[agent_index]
-        print(f"Returning agent {agent_name}")
-        print("===========================")
         return agent_name, agent_instance
 
     def _set_phase_summary(self, summary: str):
