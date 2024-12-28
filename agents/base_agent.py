@@ -11,6 +11,10 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
+class ResourceNotInitializedError(Exception):
+    """Custom error for when a resource is accessed before initialization."""
+    pass
+
 @dataclass
 class AgentConfig:
     id: str
@@ -48,9 +52,20 @@ class BaseAgent(ABC):
         self.response_history = ResponseHistory()
         self.agent_config = agent_config
         self.target_host_address = getattr(self.agent_config, "target_host", "")
+        self._resources_initialized = False
+        
+        # Initialize all possible resource attributes to None
+        for resource in self.REQUIRED_RESOURCES + self.OPTIONAL_RESOURCES:
+            attr_name = self._entry_to_str(resource)
+            setattr(self, attr_name, None)
 
-        # We do NOT call _register_resources() here. Instead, we wait until
-        # the user calls `initialize_resources()` after ResourceManager has allocated them.
+        # Wrap the run method to ensure resources are initialized
+        self._original_run = self.run
+        def _wrapped_run(self, responses: List[Response]) -> Response:
+            if not self._resources_initialized:
+                raise ResourceNotInitializedError("Resources have not been initialized. Call register_resources() before running the agent.")
+            return self._original_run(responses)
+        self.run = self._wrapped_run
 
         # Optional: wrap the run(...) method for failure detection
         # if hasattr(self, "run") and kwargs.get("failure_detection", False):
@@ -69,72 +84,40 @@ class BaseAgent(ABC):
 
     @classmethod
     def get_required_resources(cls) -> Set[str]:
-        return cls.REQUIRED_RESOURCES
-    
+        return set(cls._entry_to_str(resource) for resource in cls.REQUIRED_RESOURCES)
+
     def register_resources(self):
         """
         Binds required and optional resources from the ResourceManager.
         
         - For required resources: raises KeyError if missing.
-        - For optional resources: if missing, we omit the attribute entirely
-          (rather than setting it to None).
+        - For optional resources: if missing, we omit the attribute entirely.
         - Ensures ACCESSIBLE_RESOURCES is a subset of (REQUIRED_RESOURCES + OPTIONAL_RESOURCES).
+        - Only sets attributes for resources in ACCESSIBLE_RESOURCES.
         """
         if not self.resource_manager:
-            raise RuntimeError(
-                f"Agent '{self.__class__.__name__}' has no resource_manager set; "
-                "cannot fetch resources."
-            )
+            raise RuntimeError(f"Agent '{self.__class__.__name__}' has no resource_manager set; cannot fetch resources.")
 
-        required = getattr(self, "REQUIRED_RESOURCES", [])
-        optional = getattr(self, "OPTIONAL_RESOURCES", [])
-        accessible = getattr(self, "ACCESSIBLE_RESOURCES", [])
+        declared_resources = set(self.REQUIRED_RESOURCES) | set(self.OPTIONAL_RESOURCES)
+        declared_attr_names = {self._entry_to_str(e) for e in declared_resources}
+        accessible_attr_names = {self._entry_to_str(e) for e in self.ACCESSIBLE_RESOURCES}
 
-        # 1) Bind required resources (KeyError if missing)
-        for entry in required:
-            self._bind_resource(entry, optional=False)
-
-        # 2) Bind optional resources (skip if KeyError)
-        for entry in optional:
-            try:
-                self._bind_resource(entry, optional=True)
-            except KeyError:
-                # Omit attribute if not found
-                if isinstance(entry, tuple):
-                    _, attr_name = entry
-                    logger.warning(f"Optional resource '{attr_name}' not allocated. Omitting attribute.")
-                else:
-                    attr_name = self._generate_attr_name(entry)
-                    logger.warning(f"Optional resource '{attr_name}' not allocated. Omitting attribute.")
-                # Don't set anything
-
-        # 3) Check that ACCESSIBLE_RESOURCES is a subset of (REQUIRED + OPTIONAL).
-        declared_entries = set(required) | set(optional)
-        declared_attr_names = {self._entry_to_str(e) for e in declared_entries}
-        accessible_attr_names = {self._entry_to_str(e) for e in accessible}
+        # Check that ACCESSIBLE_RESOURCES is a subset of (REQUIRED + OPTIONAL)
         missing = accessible_attr_names - declared_attr_names
         if missing:
-            raise ValueError(
-                f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset "
-                f"of REQUIRED + OPTIONAL. Missing: {missing}"
-            )
+            raise ValueError(f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset of REQUIRED + OPTIONAL. Missing: {missing}")
 
-    def _bind_resource(
-        self, entry: Union[type, Tuple[type, str]], optional: bool
-    ):
-        """
-        Automatically derive the attribute name if `entry` is a resource class.
-        If `entry` is (ResourceClass, "custom"), use "custom".
-        Then fetch from the ResourceManager (KeyError if not found).
-        """
-        if isinstance(entry, tuple):
-            resource_cls, attr_name = entry
-        else:
-            resource_cls = entry
-            attr_name = self._generate_attr_name(resource_cls)
+        for entry in self.ACCESSIBLE_RESOURCES:
+            attr_name = self._entry_to_str(entry)
+            try:
+                resource_obj = self.resource_manager.get_resource(attr_name)
+                setattr(self, attr_name, resource_obj)
+            except KeyError:
+                if entry in self.REQUIRED_RESOURCES:
+                    raise
+                logger.warning(f"Optional resource '{attr_name}' not allocated. Attribute remains None.")
 
-        resource_obj = self.resource_manager.get_resource(attr_name)
-        setattr(self, attr_name, resource_obj)
+        self._resources_initialized = True
 
     @staticmethod
     def _generate_attr_name(resource_cls: type) -> str:
@@ -152,7 +135,8 @@ class BaseAgent(ABC):
         words = re.findall(r'[A-Z][a-z]*|\d+', name)
         return '_'.join(word.lower() for word in words)
 
-    def _entry_to_str(self, entry: Union[type, Tuple[type, str]]) -> str:
+    @classmethod
+    def _entry_to_str(cls, entry: Union[type, Tuple[type, str]]) -> str:
         """
         Return the attribute name used for subset-checking in ACCESSIBLE_RESOURCES.
         If we have (ResourceClass, "my_attr"), that's "my_attr".
@@ -160,7 +144,18 @@ class BaseAgent(ABC):
         """
         if isinstance(entry, tuple):
             return entry[1]
-        return self._generate_attr_name(entry)
+        return cls._generate_attr_name(entry)
+
+    def __getattribute__(self, name):
+        try:
+            attr = super().__getattribute__(name)
+            if name in self.get_required_resources() and attr is None:
+                raise ResourceNotInitializedError(f"Resource '{name}' has not been initialized. You must first initialize resources before accessing them.")
+            return attr
+        except AttributeError:
+            if name in self.get_required_resources():
+                raise ResourceNotInitializedError(f"Resource '{name}' has not been initialized. You must first initialize resources before accessing them.")
+            raise
 
     @abstractmethod
     def run(self, responses: List[Response]) -> Response:
