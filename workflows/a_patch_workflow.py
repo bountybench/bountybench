@@ -1,15 +1,17 @@
 import os
 from pathlib import Path
+
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from agents.executor_agent.executor_agent import ExecutorAgent
-from agents.executor_agent.prompt import PATCH_PROMPT
+from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
+from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
+from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
 from phases.base_phase import PhaseConfig
 from phases.patch_phase import PatchPhase
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
-from responses.command_response import STOP_TOKEN
-from workflows.base_workflow import BaseWorkflow, WorkflowConfig
-
+from resources.utils import read_exploit_report
+from utils.logger import get_main_logger
+from workflows.base_workflow import BaseWorkflow
 #handling of optional resources todo
 
 class PatchWorkflow(BaseWorkflow):
@@ -22,42 +24,23 @@ class PatchWorkflow(BaseWorkflow):
         workflow_id = "patch_workflow"
         super().__init__(task_repo_dir, bounty_number, workflow_id, interactive)
 
-    def define_resources(self):
-        super().__init__(self)
-        
-        # Setup Kali environment and Docker
-        kali_env_config = KaliEnvResourceConfig(
-            task_repo_dir=self.task_repo_dir,
-            bounty_number=self.bounty_number,
-            volumes={
-                os.path.join(str(self.task_repo_dir.absolute()), tmp_dir): {"bind": "/app", "mode": "rw"}
-                }
+    ################################
+    def define_phases(self) -> None:
+        """Configure phases"""
+        # Configure patch phase
+        phase_config = PhaseConfig(
+            phase_idx=0,
+            phase_name="patch",
+            max_iterations=25,
+            agents=[
+                ("executor_agent", self.executor_agent),
+                ("patch_agent", self.patch_agent)
+            ]
         )
-        self.register_resource("KaliEnv", KaliEnvResource, kali_env_config)
+        self.register_phase(PatchPhase, phase_config)
 
-        docker_config = DockerResourceConfig()
-        self.register_resource("DockerHelper", DockerResource, docker_config)
-
-
-    def get_initial_prompt(self):
-        prompt = PATCH_PROMPT.format(
-            task_description=self.exploit_description,
-            stop_token=STOP_TOKEN,
-            target_host=self.repo_metadata["target_host"],
-        )
-    
-        return prompt
-    
     def define_agents(self) -> None:
         """Configure agents"""
-        # Format exploit description
-        vulnerable_files_formatted = ", ".join(f"`{file}`" for file in self.vulnerable_files)
-        self.exploit_description = f"""
-        {self.bounty_metadata["exploit_prompt"]} 
-        The path to the vulnerable file(s) is {vulnerable_files_formatted}. 
-        """
-        
-        # Configure and create agents
         executor_lm_agent_config = AgentLMConfig(
             model='openai/o3-mini-2024-12-17',
             max_output_tokens=25000,
@@ -77,35 +60,41 @@ class PatchWorkflow(BaseWorkflow):
         patch_agent_config = PatchAgentConfig(
             bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}")
             )
-        self.register_agent("PatchAgent", patch_agent_config)
-
-    def define_phases(self) -> None:
-        super().define_phases()
-
-        # Configure patch phase
-        phase_config = PhaseConfig(
-            phase_idx=0,
-            phase_name="patch",
-            max_iterations=25,
-            agents=[
-                ("executor_agent", self.executor_agent),
-                ("patch_agent", self.patch_agent)
-            ]
-        )
-        self.register_phase(PatchPhase, phase_config)
-
+        self.register_agent("PatchAgent", PatchAgent, patch_agent_config)
         
-    def setup_directories(self):
-        # No specific directories needed for PatchWorkflow
-        pass
+    def define_resources(self):
+        super().__init__(self)
+        
+        tmp_dir = os.path.join(str(self.task_repo_dir), "tmp")
+        self.patch_files_path = os.path.join(tmp_dir, "patch_files")
 
-    def setup_workflow_specific(self):
-        # No specific setup needed for PatchWorkflow
-        pass
+        os.makedirs(self.patch_files_path, exist_ok=True)
+        logger.info(f"Created patch_files directory at: {self.patch_files_path}")
 
-    def log_metadata(self):
-        self.workflow_logger.add_metadata("vulnerable_files", self.vulnerable_files)
-        self.workflow_logger.add_metadata("exploit_description", self.exploit_description)
+        kali_env_config = KaliEnvResourceConfig(
+            task_repo_dir=self.task_repo_dir,
+            bounty_number=self.bounty_number,
+            volumes={
+                os.path.abspath(os.path.join(str(self.task_repo_dir), tmp_dir)): {"bind": "/app", "mode": "rw"},
+                os.path.abspath(self.patch_files_path): {"bind": "/app/patch_files", "mode": "rw"},
+                "/tmp": {"bind": "/tmp", "mode": "rw"}
+            }
+        )
+        self.register_resource("KaliEnv", KaliEnvResource, kali_env_config)
+
+        docker_config = DockerResourceConfig()
+        self.register_resource("DockerHelper", DockerResource, docker_config)
+    ###############################    
+
+    def get_initial_prompt(self):
+        exploit_report = read_exploit_report(self.task_repo_dir, self.bounty_number)
+        prompt = PATCH_PROMPT.format(
+            task_description=exploit_report,
+            stop_token=STOP_TOKEN,
+            target_host=self.repo_metadata["target_host"],
+        )
+    
+        return prompt
 
 def main() -> None:
     """Main entry point"""

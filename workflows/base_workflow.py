@@ -1,10 +1,14 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+from dataclasses import field
+from enum import Enum
 import os
+from typing import Dict, Any, List
 from pathlib import Path
 from agents.base_agent import BaseAgent, AgentConfig
 from phases.base_phase import BasePhase, PhaseConfig
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.configs.init_files_resource_config import InitFilesResourceConfig
+from resources.docker_resource import dataclass
 from resources.init_files_resource import InitFilesResource
 from resources.resource_manager import ResourceManager, Type
 from resources.setup_resource import SetupResource, SetupResourceConfig
@@ -17,7 +21,6 @@ class WorkflowStatus(Enum):
     COMPLETED_SUCCESS = "completed_success"
     COMPLETED_FAILURE = "completed_failure"
     COMPLETED_MAX_ITERATIONS = "completed_max_iterations"
-
 
 @dataclass
 class WorkflowConfig:
@@ -42,7 +45,6 @@ class BaseWorkflow(ABC):
     """
     # PHASES = []
 
-    
     def __init__(self, task_repo_dir: Path, bounty_number: str, workflow_id: Optional[str] = "base_workflow", interactive: Optional[bool] = False):
         """Initialize workflow with configuration"""
         self.task_repo_dir = task_repo_dir
@@ -91,6 +93,44 @@ class BaseWorkflow(ABC):
     @abstractmethod
     def get_initial_prompt(self):
         pass
+
+
+    @abstractmethod
+    def define_resources(self):
+        # Universal across all task setup: InitFilesResource and SetupResource(s)
+        files_dir, tmp_dir = "codebase", "tmp"
+        exploit_files_dir = os.path.join("bounties", f"bounty_{self.bounty_number}", "exploit_files")
+        vulnerable_commit = self.bounty_metadata['vulnerable_commit']
+        
+        # Initialize files
+        init_files_config = InitFilesResourceConfig(
+            task_repo_dir=self.task_repo_dir,
+            files_dir_name=files_dir,
+            tmp_dir_name=tmp_dir,
+            exploit_files_dir_name=exploit_files_dir,
+            vulnerable_commit=vulnerable_commit
+        )
+        self.register_resource("InitFiles", InitFilesResource, init_files_config)
+
+        # Setup repository environment if needed
+        if os.path.exists(str(self.task_repo_dir) + "/setup_repo_env.sh"):
+            repo_env_config = SetupResourceConfig(
+                task_level_setup=False, 
+                task_repo_dir=self.task_repo_dir, 
+                files_dir=files_dir
+            )
+            self.register_resource("RepoResource", SetupResource, repo_env_config)
+            
+        # Setup target host if specified
+        if self.repo_metadata["target_host"]:
+            task_server_config = SetupResourceConfig(
+                task_level_setup=True,
+                task_repo_dir=self.task_repo_dir,
+                files_dir=files_dir,
+                bounty_number=self.bounty_number,
+                server_address=self.repo_metadata["target_host"]
+            )
+            self.register_resource("task_server", SetupResource, task_server_config)
 
     @abstractmethod
     def define_agents(self):
@@ -160,8 +200,6 @@ class BaseWorkflow(ABC):
         self.setup_network()
         self.setup_directories()
         self.setup_git_state()
-        self.setup_workflow_specific()
-        self.log_metadata()
 
     def _setup_network(self):
         network_name = "shared_net"
@@ -181,14 +219,6 @@ class BaseWorkflow(ABC):
         
         run_command(["git", "checkout", "main"], str(self.task_repo_dir) + "/codebase")
 
-    @abstractmethod
-    def setup_directories(self):
-        pass
-
-    @abstractmethod
-    def log_metadata(self):
-        pass
-    
     def register_resource(self, resource_id:str, resource_class: Type[BaseResource], resource_config: BaseResourceConfig):
         self.resource_manager.register_resource(resource_id, resource_class, resource_config)
     
@@ -200,43 +230,6 @@ class BaseWorkflow(ABC):
         self.config.phase_configs.append(phase_class, phase_config) #wrong struct?
 
 
-    # @abstractmethod
-    def define_resources(self):
-        # Universal across all task setup: InitFilesResource and SetupResource(s)
-        
-        # Initialize files
-        init_files_config = InitFilesResourceConfig(
-            task_repo_dir=self.task_repo_dir,
-            files_dir_name=files_dir,
-            tmp_dir_name=tmp_dir,
-            exploit_files_dir_name=exploit_files_dir,
-            vulnerable_commit=vulnerable_commit
-        )
-        self.register_resource("InitFiles", InitFilesResource, init_files_config)
-
-        # Setup repository environment if needed
-        if os.path.exists(str(self.task_repo_dir) + "/setup_repo_env.sh"):
-            repo_env_config = SetupResourceConfig(
-                task_level_setup=False, 
-                task_repo_dir=self.task_repo_dir, 
-                files_dir=files_dir
-            )
-            self.register_resource("RepoResource", SetupResource, repo_env_config)
-            
-        # Setup target host if specified
-        if self.repo_metadata["target_host"]:
-            task_server_config = SetupResourceConfig(
-                task_level_setup=True,
-                task_repo_dir=self.task_repo_dir,
-                files_dir=files_dir,
-                bounty_number=self.bounty_number,
-                server_address=self.repo_metadata["target_host"]
-            )
-            self.register_resource("task_server", SetupResource, task_server_config)
-            
-        
-
-
 
 
 
@@ -245,11 +238,6 @@ class BaseWorkflow(ABC):
     Update the code according to this comment: 
     Rather than just "run", you want to go phase by phase and use yield so that you can call next(workflow) and transition to run only a single phase. run can be an api where you continue runninguntil the end. This way you refactor the logic of running just a single phase vs running the netire workflow.
     """
-    
-    @abstractmethod
-    def setup_init(self) -> None:
-        """Setup workflow initialization"""
-        pass
 
     def run(self) -> None:
         """
