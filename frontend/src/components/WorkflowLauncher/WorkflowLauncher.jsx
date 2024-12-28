@@ -116,10 +116,12 @@ export const WorkflowLauncher = ({ onWorkflowStart }) => {
         >
           {workflows.map((workflow) => (
             <MenuItem key={workflow.name} value={workflow.name}>
-              {workflow.name}
-              <Typography variant="caption" color="textSecondary" className="workflow-description">
-                {workflow.description}
-              </Typography>
+              <Box>
+                {workflow.name}
+                <Typography variant="caption" color="textSecondary" display="block">
+                  {workflow.description}
+                </Typography>
+              </Box>
             </MenuItem>
           ))}
         </TextField>
