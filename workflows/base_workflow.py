@@ -40,6 +40,7 @@ class WorkflowConfig:
     logs_dir: Path
     task_repo_dir: Path
     bounty_number: int
+    initial_prompt: str
     metadata: Dict[str, Any] = field(default_factory=dict)
     phase_configs: List['PhaseConfig'] = field(default_factory=list)  
 
@@ -76,6 +77,7 @@ class BaseWorkflow(ABC):
             logs_dir=Path("logs"),
             task_repo_dir=task_repo_dir,
             bounty_number=self.bounty_number,
+            initial_prompt=self.get_initial_prompt(),
             metadata={
                 "repo_metadata": self.repo_metadata,
                 "bounty_metadata": self.bounty_metadata
@@ -105,6 +107,7 @@ class BaseWorkflow(ABC):
         # Initialize tracking structures
         self.agents: Dict[str, BaseAgent] = {}  # Maps agent_id to agent_instance
         self.phases: List[BasePhase] = []       # List to store phase instances
+        self.phase_class_map = {}
 
         # Initialize additional attributes
         self.vulnerable_files: List[str] = []
@@ -136,7 +139,7 @@ class BaseWorkflow(ABC):
         Compute the resource usage schedule across all phases.
         Populates the phase_resources and resource_lifecycle dictionaries in ResourceManager.
         """
-        phase_classes = [phase_config.phase_name for phase_config in self.config.phase_configs]
+        phase_classes = [self.phase_class_map[phase_config.phase_name] for phase_config in self.config.phase_configs]
         self.resource_manager.compute_schedule(phase_classes)
         logger.debug("Computed resource schedule for all phases.")
 
@@ -148,7 +151,7 @@ class BaseWorkflow(ABC):
             phase_index (int): The index of the phase to set up.
         """
         try:
-            logger.info(f"Setting up phase {phase_index}")
+            logger.info(f"Setting up phase {phase_index} with initial response {initial_response}")
             
             # Step 1: Setup resources for the phase
             self.setup_phase_resources(phase_index)
@@ -182,7 +185,9 @@ class BaseWorkflow(ABC):
             # Iterate over all agents defined for this phase
             for agent_id, agent_instance in phase_config.agents:
                 # Register the agent
-                self.register_agent(agent_id, type(agent_instance), agent_instance.agent_config)
+                for _, agent in phase_config.agents:
+                    agent.register_resources()
+                # self.register_agent(type(agent_instance), agent_instance.agent_config)
                 
                 # Log the setup
                 logger.info(f"Agent '{agent_id}' of type '{type(agent_instance).__name__}' set up for phase {phase_index}")
@@ -239,7 +244,7 @@ class BaseWorkflow(ABC):
             
             # Register the agent in the agents dictionary
             self.agents[agent_config.id] = agent_instance
-            
+            logger.info(self.agents[agent_config.id])
             setattr(self, agent_config.id, agent_instance)
             
             # Log the creation
@@ -262,7 +267,7 @@ class BaseWorkflow(ABC):
         """
         try:
             phase_config = self.config.phase_configs[phase_index]
-            phase_class = phase_config.phase_name
+            phase_class = self.phase_class_map[phase_config.phase_name]
             phase_instance = phase_class(phase_config=phase_config, initial_response=initial_response)
             self.phases.append(phase_instance)
             logger.debug(f"Created phase: {phase_class.__name__} for Workflow ID: {self.config.id}")
@@ -369,7 +374,6 @@ class BaseWorkflow(ABC):
         self,
         phase_class: Type[BasePhase],
         phase_specific_config: Any,
-        agents: List[Tuple[str, BaseAgent]] = []
     ) -> None:
         """
         Registers a phase with its configuration and associated agents.
@@ -377,17 +381,17 @@ class BaseWorkflow(ABC):
         Args:
             phase_class (Type[BasePhase]): The class of the phase to register.
             phase_specific_config (Any): The specific configuration for the phase.
-            agents (List[Tuple[str, BaseAgent]]): A list of tuples containing agent IDs and their instances.
         """
         phase_config_instance = PhaseConfig(
-            phase_idx=len(self.config.phase_configs),  # Automatically assign the next index
-            phase_name=phase_class,
+            phase_idx=len(self.config.phase_configs),
+            phase_name=phase_class.__name__,  # Use the class name as a string
             max_iterations=phase_specific_config.max_iterations,
-            agents=agents
+            agents=phase_specific_config.agents
         )
         self.config.phase_configs.append(phase_config_instance)
+        self.phase_class_map[phase_class.__name__] = phase_class  # Store the mapping
         logger.debug(f"Registered phase '{phase_class.__name__}' with config: {phase_specific_config}")
-    
+
     @abstractmethod
     def define_resources(self) -> None:
         """
@@ -463,6 +467,7 @@ class BaseWorkflow(ABC):
                 
                 # Create and run phase
                 phase = self.setup_phase(phase_idx, prev_response)
+                logger.info(f"Phase {phase.phase_config.phase_name} set up")
                 phase_response, phase_success = phase.run_phase()
                 
                 # Update workflow state
