@@ -83,7 +83,7 @@ class ExecutorAgent(BaseAgent):
         return executor_response
 
     def _update_memory(self, response: Response) -> None:
-        if len(self.memory) >= self.config.max_iterations_stored_in_memory:
+        if len(self.memory) >= self.agent_config.lm_config.max_iterations_stored_in_memory:
             self.memory = self.memory[1:] + [response.response]
         else:
             self.memory.append(response.response)
@@ -96,10 +96,10 @@ class ExecutorAgent(BaseAgent):
             self._update_memory(response)
 
         truncated_input = truncate_input_to_max_tokens(
-            max_input_tokens=self.config.max_input_tokens,
+            max_input_tokens=self.agent_config.lm_config.max_input_tokens,
             model_input="\n".join(self.memory),
-            model=self.config.model,
-            use_helm=self.config.use_helm,
+            model=self.agent_config.lm_config.model,
+            use_helm=self.agent_config.lm_config.use_helm,
         )
         prompt = self.initial_prompt + truncated_input
         self.prompt = prompt
@@ -137,12 +137,12 @@ class ExecutorAgent(BaseAgent):
         iterations = 0
         while iterations < MAX_RETRIES:
             model_response: ModelResponse = query(
-                model=self.config.model,
+                model=self.agent_config.lm_config.model,
                 message=model_input,
                 temperature=TEMPERATURE,
-                max_tokens=self.config.max_output_tokens,
+                max_tokens=self.agent_config.lm_config.max_output_tokens,
                 stop_sequences=[STOP_TOKEN],
-                helm=self.config.use_helm
+                helm=self.agent_config.lm_config.use_helm
             )
 
             model_response = model_response.remove_hallucinations()
@@ -178,7 +178,7 @@ class ExecutorAgent(BaseAgent):
         Serializes the ExecutorAgent state to a dictionary.
         """
         return {
-            "config": self.config.__dict__,
+            "config": self.agent_config.lm_config.__dict__,
             "memory": self.memory,
             "initial_prompt": self.initial_prompt,
             "prompt": self.prompt,
