@@ -25,18 +25,32 @@ class PatchWorkflow(BaseWorkflow):
         super().__init__(task_repo_dir, bounty_number, workflow_id, interactive)
         self.patch_files_path: Optional[str] = None
 
-    def define_phases(self) -> None:
-        """Configure phases"""
-        phase_config = PhaseConfig(
-            phase_idx=0,
-            phase_name=PatchPhase,
-            max_iterations=25,
-            agents=[
-                ("executor_agent", self.executor_agent),
-                ("patch_agent", self.patch_agent)
-            ]
-        )
-        self.register_phase(PatchPhase, phase_config)
+    def define_resources(self) -> None:
+        try:
+            super().define_resources()
+            
+            tmp_dir = os.path.join(str(self.task_repo_dir), "tmp")
+            self.patch_files_path = os.path.join(tmp_dir, "patch_files")
+
+            os.makedirs(self.patch_files_path, exist_ok=True)
+            logger.info(f"Created patch_files directory at: {self.patch_files_path}")
+
+            kali_env_config = KaliEnvResourceConfig(
+                task_repo_dir=self.task_repo_dir,
+                bounty_number=self.bounty_number,
+                volumes={
+                    os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
+                    os.path.abspath(self.patch_files_path): {"bind": "/app/patch_files", "mode": "rw"},
+                    "/tmp": {"bind": "/tmp", "mode": "rw"}
+                }
+            )
+            self.register_resource("KaliEnv", KaliEnvResource, kali_env_config)
+
+            docker_config = DockerResourceConfig()
+            self.register_resource("DockerHelper", DockerResource, docker_config)
+        except Exception as e:
+            logger.error(f"Failed to define resources: {e}")
+            raise
 
     def define_agents(self) -> None:
         """Configure agents"""
@@ -62,28 +76,21 @@ class PatchWorkflow(BaseWorkflow):
         )
         self.register_agent(PatchAgent, patch_agent_config)
 
-    def define_resources(self) -> None:
-        super().define_resources()
-        
-        tmp_dir = os.path.join(str(self.task_repo_dir), "tmp")
-        self.patch_files_path = os.path.join(tmp_dir, "patch_files")
+        # # Add agents to the phase config after they're defined
+        # self.config.phase_configs[0].agents = [
+        #     ("executor_agent", self.agents["executor_agent"]),
+        #     ("patch_agent", self.agents["patch_agent"])
+        # ]
 
-        os.makedirs(self.patch_files_path, exist_ok=True)
-        logger.info(f"Created patch_files directory at: {self.patch_files_path}")
-
-        kali_env_config = KaliEnvResourceConfig(
-            task_repo_dir=self.task_repo_dir,
-            bounty_number=self.bounty_number,
-            volumes={
-                os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
-                os.path.abspath(self.patch_files_path): {"bind": "/app/patch_files", "mode": "rw"},
-                "/tmp": {"bind": "/tmp", "mode": "rw"}
-            }
+    def define_phases(self) -> None:
+        """Configure phases"""
+        phase_config = PhaseConfig(
+            phase_idx=0,
+            phase_name=PatchPhase,
+            max_iterations=25,
+            agents=[]  # We'll add agents after they're defined
         )
-        self.register_resource("KaliEnv", KaliEnvResource, kali_env_config)
-
-        docker_config = DockerResourceConfig()
-        self.register_resource("DockerHelper", DockerResource, docker_config)
+        self.register_phase(PatchPhase, phase_config)
 
     def get_initial_prompt(self) -> str:
         exploit_report = read_exploit_report(self.task_repo_dir, self.bounty_number)
