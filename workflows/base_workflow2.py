@@ -11,7 +11,7 @@ import logging
 from agents.base_agent import BaseAgent, AgentConfig
 from phases.base_phase import BasePhase, PhaseConfig
 from resources.base_resource import BaseResource, BaseResourceConfig
-from resources.i.init_files_resource_config import InitFilesResourceConfig
+from resources.init_files_resource import InitFilesResourceConfig
 from resources.init_files_resource import InitFilesResource
 from resources.resource_manager import ResourceManager
 from resources.setup_resource import SetupResource, SetupResourceConfig
