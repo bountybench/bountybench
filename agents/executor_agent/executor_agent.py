@@ -92,8 +92,13 @@ class ExecutorAgent(BaseAgent):
         """
         Formulates the prompt, including the truncated memory.
         """
+        logger.info(f"Input reponse in ExecutorAgent is {response}")
         if response:
-            self._update_memory(response)
+            if self.initial_prompt:
+                self._update_memory(response)
+            else:
+                self.initial_prompt = response.response
+        
 
         truncated_input = truncate_input_to_max_tokens(
             max_input_tokens=self.agent_config.lm_config.max_input_tokens,

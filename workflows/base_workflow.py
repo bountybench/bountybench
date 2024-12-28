@@ -40,6 +40,7 @@ class WorkflowConfig:
     logs_dir: Path
     task_repo_dir: Path
     bounty_number: int
+    initial_prompt: str
     metadata: Dict[str, Any] = field(default_factory=dict)
     phase_configs: List['PhaseConfig'] = field(default_factory=list)  
 
@@ -76,6 +77,7 @@ class BaseWorkflow(ABC):
             logs_dir=Path("logs"),
             task_repo_dir=task_repo_dir,
             bounty_number=self.bounty_number,
+            initial_prompt=self.get_initial_prompt(),
             metadata={
                 "repo_metadata": self.repo_metadata,
                 "bounty_metadata": self.bounty_metadata
@@ -149,7 +151,7 @@ class BaseWorkflow(ABC):
             phase_index (int): The index of the phase to set up.
         """
         try:
-            logger.info(f"Setting up phase {phase_index}")
+            logger.info(f"Setting up phase {phase_index} with initial response {initial_response}")
             
             # Step 1: Setup resources for the phase
             self.setup_phase_resources(phase_index)
@@ -465,6 +467,7 @@ class BaseWorkflow(ABC):
                 
                 # Create and run phase
                 phase = self.setup_phase(phase_idx, prev_response)
+                logger.info(f"Phase {phase.phase_config.phase_name} set up")
                 phase_response, phase_success = phase.run_phase()
                 
                 # Update workflow state
