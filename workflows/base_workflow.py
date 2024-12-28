@@ -182,7 +182,7 @@ class BaseWorkflow(ABC):
             # Iterate over all agents defined for this phase
             for agent_id, agent_instance in phase_config.agents:
                 # Register the agent
-                self.register_agent(agent_id, type(agent_instance), agent_instance.agent_config)
+                self.register_agent(type(agent_instance), agent_instance.agent_config)
                 
                 # Log the setup
                 logger.info(f"Agent '{agent_id}' of type '{type(agent_instance).__name__}' set up for phase {phase_index}")
@@ -239,7 +239,7 @@ class BaseWorkflow(ABC):
             
             # Register the agent in the agents dictionary
             self.agents[agent_config.id] = agent_instance
-            
+            logger.info(self.agents[agent_config.id])
             setattr(self, agent_config.id, agent_instance)
             
             # Log the creation
@@ -369,7 +369,6 @@ class BaseWorkflow(ABC):
         self,
         phase_class: Type[BasePhase],
         phase_specific_config: Any,
-        agents: List[Tuple[str, BaseAgent]] = []
     ) -> None:
         """
         Registers a phase with its configuration and associated agents.
@@ -383,7 +382,7 @@ class BaseWorkflow(ABC):
             phase_idx=len(self.config.phase_configs),  # Automatically assign the next index
             phase_name=phase_class,
             max_iterations=phase_specific_config.max_iterations,
-            agents=agents
+            agents=phase_specific_config.agents
         )
         self.config.phase_configs.append(phase_config_instance)
         logger.debug(f"Registered phase '{phase_class.__name__}' with config: {phase_specific_config}")
