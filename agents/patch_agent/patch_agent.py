@@ -1,4 +1,5 @@
 import atexit
+from dataclasses import dataclass
 import shutil
 import subprocess
 import time
@@ -7,9 +8,10 @@ from typing import List, Tuple, Optional
 
 import docker
 
-from agents.base_agent import BaseAgent
+from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
+from resources.resource_manager import ResourceManager
 from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
@@ -23,21 +25,28 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 
 logger = get_main_logger(__name__)
 
+
+@dataclass
+class PatchAgentConfig(AgentConfig):
+    bounty_dir: str
+    exploit_files_dir: Optional[str] = None
+    use_verify_script: Optional[bool] = False
+
 class PatchAgent(BaseAgent):    
     REQUIRED_RESOURCES = [InitFilesResource, DockerResource]
     OPTIONAL_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource")]
     ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), InitFilesResource, DockerResource]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.bounty_dir = Path(kwargs.get('bounty_dir'))
+    def __init__(self, agent_config: PatchAgentConfig, resource_manager: ResourceManager):
+        super().__init__(agent_config, resource_manager)
+        self.bounty_dir = Path(agent_config.bounty_dir)
         self.patch_dir_name = "patches"
         self.patch_dir = Path(self.init_files.task_repo_dir) / self.patch_dir_name
-        self.exploit_files_dir = kwargs.get('exploit_files_dir')
+        self.exploit_files_dir = agent_config.exploit_files_dir
         self.log_history = []
         self.patch_id = 1
 
-        self.use_verify_script = kwargs.get('use_verify_script', False) 
+        self.use_verify_script = agent_config.use_verify_script
 
         self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
         self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
@@ -157,40 +166,6 @@ class PatchAgent(BaseAgent):
         except docker.errors.ContainerError as e:
             return str(e), 1
 
-    '''
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-    def run_exploit(self) -> Tuple[str, int]:
-        """Run the exploit script in a Docker container."""
-        setup_files_dir = Path(self.init_files.task_repo_dir) / 'setup_files'
-        volumes = {
-            Path(self.init_files.task_repo_dir) / 'codebase': {"bind": "/app/codebase", "mode": "rw"},
-            setup_files_dir: {"bind": "/app/setup_files", "mode": "rw"},
-            "/tmp": {"bind": "/tmp", "mode": "rw"}
-        }
-
-        setup_command = "bash /app/setup_files/requirements.sh"
-        exploit_command = "bash /tmp/exploit_files/exploit.sh"
-
-        try:
-            if (setup_files_dir / 'requirements.sh').exists():
-                setup_result = self.docker.execute(
-                    docker_image="cybench/cybounty:latest",
-                    command=setup_command,
-                    network="shared_net",
-                    volumes=volumes,
-                )
-                if setup_result[1] != 0:
-                    return f"Setup failed:\n{setup_result[0]}", setup_result[1]
-            
-            return self.docker.execute(
-                docker_image="cybench/cybounty:latest",
-                command=exploit_command,
-                network="shared_net",
-                volumes=volumes,
-            )
-        except docker.errors.ContainerError as e:
-            return str(e), 1
-    '''
 
     def verify_patch_works(self, execution_output: str) -> bool:
         """Run the verify.sh script."""

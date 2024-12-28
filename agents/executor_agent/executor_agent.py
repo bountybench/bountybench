@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 from typing import List, Optional
 
-from agents.base_agent import BaseAgent
+from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from agents.executor_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
 from agents.utils import truncate_input_to_max_tokens
@@ -8,6 +9,7 @@ from models.model_response import ModelResponse
 from models.query import query
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
+from resources.resource_manager import ResourceManager
 from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
@@ -23,6 +25,12 @@ TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
 RETRY_DELAY = 30
 TEMPERATURE = 0.5
+
+@dataclass
+class ExecutorAgentConfig(AgentConfig):
+    lm_config: AgentLMConfig
+    target_host: str
+    initial_prompt: str
 
 
 class ExecutorAgent(BaseAgent):
@@ -40,24 +48,22 @@ class ExecutorAgent(BaseAgent):
     ACCESSIBLE_RESOURCES = [
         KaliEnvResource
     ]
-
-    def __init__(self, config: AgentLMConfig, initial_prompt: str, *args, **kwargs):
+    def __init__(self, agent_config: ExecutorAgentConfig, resource_manager: ResourceManager):
         """
         Args:
-            config: AgentLMConfig with model, max tokens, etc.
-            initial_prompt: The initial conversation text or system prompt.
-            resource_manager: (passed via kwargs) - the ResourceManager object from BaseAgent
-            ...
+            agent_config: ExecutorAgentConfig containing model, initial prompt, and target host.
+            resource_manager: ResourceManager instance responsible for managing resources.
         """
-        super().__init__(*args, **kwargs)
+        # Pass the agent_config and resource_manager to BaseAgent
+        super().__init__(agent_config, resource_manager)
 
-        self.config = config
-        self.initial_prompt = initial_prompt
+        # Initialize specific attributes
+        self.initial_prompt = agent_config.initial_prompt
         self.prompt = self.initial_prompt
 
         # If a target_host is provided, run health_check on self.kali_env
-        if kwargs.get("target_host", ""):
-            self.kali_env.health_check(kwargs.get("target_host", ""))
+        if agent_config.target_host:
+            self.kali_env.health_check(agent_config.target_host)
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
