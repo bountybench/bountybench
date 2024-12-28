@@ -88,7 +88,7 @@ class InitFilesResource(BaseResource):
                 f"Checking out {self.vulnerable_commit}")
             subprocess.run(
                 ["git", "checkout", self.vulnerable_commit],
-                cwd=self.files_dir,
+                cwd=os.path.abspath(self.files_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=True,

@@ -395,9 +395,9 @@ class BaseWorkflow(ABC):
         """
         try:
             # Define resource directories and configurations by retrieving from metadata or providing defaults
-            files_dir = self.bounty_metadata.get('files_dir', 'files')
+            files_dir = self.bounty_metadata.get('files_dir', 'codebase')
             tmp_dir = self.bounty_metadata.get('tmp_dir', 'tmp')
-            exploit_files_dir = self.bounty_metadata.get('exploit_files_dir', 'exploit_files')
+            exploit_files_dir = self.bounty_metadata.get('exploit_files_dir', f'bounties/bounty_{self.bounty_number}/exploit_files')
             vulnerable_commit = self.bounty_metadata.get('vulnerable_commit', 'main')
 
             # Initialize InitFilesResource
