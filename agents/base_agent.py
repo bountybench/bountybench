@@ -12,7 +12,7 @@ from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 class ResourceNotInitializedError(Exception):
-    """Custom error for when a resource is accessed before initialization."""
+    """Raised when a resource is accessed before initialization."""
     pass
 
 @dataclass
@@ -21,32 +21,26 @@ class AgentConfig:
 
 class BaseAgent(ABC):
     """
-    A base agent that automatically binds resources from a ResourceManager.
-    Resource references can be declared in three lists:
-      1) REQUIRED_RESOURCES  -> must exist, or KeyError is raised
-      2) OPTIONAL_RESOURCES  -> if missing, attribute is omitted (no exception)
-      3) ACCESSIBLE_RESOURCES -> must be subset of (required+optional).
-    
-    Each list entry can be:
-      - A resource class (e.g. DockerResource)
-      - A tuple (ResourceClass, "custom_attr_name")
-    
-    If only a class is given, `_generate_attr_name` is used to create a Python
-    attribute name automatically (e.g. DockerResource -> "docker_resource").
-    For optional resources, if not found, the attribute is *omitted* (not None).
+    Abstract base class for agents with managed resources.
+
+    Resources are declared in three lists:
+    - REQUIRED_RESOURCES: Must exist, or KeyError is raised
+    - OPTIONAL_RESOURCES: Used if available, no exception if missing
+    - ACCESSIBLE_RESOURCES: Subset of required and optional that will be bound as attributes
+
+    Resource entries can be:
+    - A resource class (e.g., DockerResource)
+    - A tuple (ResourceClass, "custom_attr_name")
     """
 
-    # By default, these lists can be either a class or (class, "string").
     REQUIRED_RESOURCES: List[Union[type, Tuple[type, str]]] = []
     OPTIONAL_RESOURCES: List[Union[type, Tuple[type, str]]] = []
     ACCESSIBLE_RESOURCES: List[Union[type, Tuple[type, str]]] = []
 
     def __init__(self, agent_config: AgentConfig, resource_manager=None):
         """
-        We do NOT fetch resources here. We'll do that in `register_resources()` 
-        once we know they've been allocated by the ResourceManager.
-        
-        If `failure_detection=True` is passed, we wrap `run()` to detect repetitive responses.
+        Initialize the agent without fetching resources.
+        Resources are initialized later via register_resources().
         """
         object.__setattr__(self, '_initializing', True)
         object.__setattr__(self, '_resources_initialized', False)
@@ -66,6 +60,7 @@ class BaseAgent(ABC):
         self.run = self._wrapped_run
         
         object.__setattr__(self, '_initializing', False)
+        
         # Optional: wrap the run(...) method for failure detection
         # if hasattr(self, "run") and kwargs.get("failure_detection", False):
         #     original_run = self.run
@@ -79,27 +74,30 @@ class BaseAgent(ABC):
         #         return new_response
 
         #     self.run = wrapped_run
+    
         
     def _wrapped_run(self, responses: List[Response]) -> Response:
+        """Ensure resources are initialized before running the agent."""
         if not self._resources_initialized:
-            raise ResourceNotInitializedError("Resources have not been initialized. Call register_resources() before running the agent.")
+            raise ResourceNotInitializedError("Resources not initialized. Call register_resources() first.")
         return self._original_run(responses)
 
     @classmethod
     def get_required_resources(cls) -> Set[str]:
+        """Get the set of required resource attribute names."""
         return set(cls._entry_to_str(resource) for resource in cls.REQUIRED_RESOURCES)
 
     def register_resources(self):
         """
-        Binds required and optional resources from the ResourceManager.
+        Bind resources from the ResourceManager to the agent.
         
-        - For required resources: raises KeyError if missing.
-        - For optional resources: if missing, we omit the attribute entirely.
-        - Ensures ACCESSIBLE_RESOURCES is a subset of (REQUIRED_RESOURCES + OPTIONAL_RESOURCES).
-        - Only sets attributes for resources in ACCESSIBLE_RESOURCES.
+        Raises:
+            RuntimeError: If ResourceManager is not set.
+            ValueError: If ACCESSIBLE_RESOURCES is not a subset of (REQUIRED + OPTIONAL).
+            KeyError: If a required resource is missing.
         """
         if not self.resource_manager:
-            raise RuntimeError(f"Agent '{self.__class__.__name__}' has no resource_manager set; cannot fetch resources.")
+            raise RuntimeError(f"Agent '{self.__class__.__name__}' has no ResourceManager set.")
 
         declared_resources = set(self.REQUIRED_RESOURCES) | set(self.OPTIONAL_RESOURCES)
         declared_attr_names = {self._entry_to_str(e) for e in declared_resources}
@@ -123,47 +121,33 @@ class BaseAgent(ABC):
 
     @staticmethod
     def _generate_attr_name(resource_cls: type) -> str:
-        """
-        Convert a Resource class into a snake_case attribute name.
-        For instance, DockerResource -> "docker_resource",
-        KaliEnvResource -> "kali_env", etc.
-        """
-        # 1) Remove trailing "Resource" if present
+        """Generate a snake_case attribute name from a resource class name."""
         name = resource_cls.__name__
         if name.endswith("Resource"):
-            name = name[: -len("Resource")]  # remove the trailing "Resource"
-
-        # 2) snake-case it
+            name = name[:-len("Resource")]
         words = re.findall(r'[A-Z][a-z]*|\d+', name)
         return '_'.join(word.lower() for word in words)
 
     @classmethod
     def _entry_to_str(cls, entry: Union[type, Tuple[type, str]]) -> str:
-        """
-        Return the attribute name used for subset-checking in ACCESSIBLE_RESOURCES.
-        If we have (ResourceClass, "my_attr"), that's "my_attr".
-        If we only have ResourceClass, we derive it automatically with _generate_attr_name.
-        """
-        if isinstance(entry, tuple):
-            return entry[1]
-        return cls._generate_attr_name(entry)
-
+        """Get the attribute name for a resource entry."""
+        return entry[1] if isinstance(entry, tuple) else cls._generate_attr_name(entry)
 
     def __getattribute__(self, name):
-        # First, check if we're accessing one of the special attributes
+        """Custom attribute access to enforce resource initialization."""
         if name in ['_resources_initialized', '_initializing', 'get_required_resources', 'REQUIRED_RESOURCES']:
             return object.__getattribute__(self, name)
         
-        # Now check if we're trying to access a required resource
         required_resources = object.__getattribute__(self, 'get_required_resources')()
         resources_initialized = object.__getattribute__(self, '_resources_initialized')
         
         if name in required_resources and not resources_initialized:
-            raise ResourceNotInitializedError(f"Resource '{name}' has not been initialized. You must first initialize resources before accessing them.")
+            raise ResourceNotInitializedError(f"Resource '{name}' not initialized. Call register_resources() first.")
         
         return object.__getattribute__(self, name)
 
     def __setattr__(self, name, value):
+        """Custom attribute setting to enforce resource initialization."""
         if name in ['_resources_initialized', '_initializing']:
             object.__setattr__(self, name, value)
             return
@@ -173,14 +157,19 @@ class BaseAgent(ABC):
         required_resources = object.__getattribute__(self, 'get_required_resources')()
         
         if not initializing and name in required_resources and not resources_initialized:
-            raise ResourceNotInitializedError(f"Cannot set resource '{name}'. Resources must be initialized through register_resources().")
+            raise ResourceNotInitializedError(f"Cannot set resource '{name}'. Call register_resources() first.")
         
         object.__setattr__(self, name, value)
 
     @abstractmethod
     def run(self, responses: List[Response]) -> Response:
         """
-        Subclasses must implement how they handle input responses
-        and produce a new response.
+        Execute the agent's main logic and produce a response.
+        
+        Args:
+            responses: List of previous responses, if any.
+        
+        Returns:
+            The agent's response after processing.
         """
         pass
