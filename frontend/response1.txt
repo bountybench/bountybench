@@ -1,0 +1,268 @@
+Debugging WebSocket issues can be tricky; often it’s a mix of client-side connection management, server-side request handling, and environmental factors. Here are some potential explanations and next steps, along with some code suggestions:
+
+● Check the WebSocket URL and server connectivity. 
+ – Confirm that ws://localhost:8000/ws/workflow/{id} is reachable from your browser. You can paste the URL into a WebSocket testing tool or console to see if it connects successfully. 
+ – Verify that the server is up and running on port 8000. 
+
+● Ensure proper exception handling on the server. 
+ – In your WebSocket endpoint, you catch WebSocketDisconnect but haven’t imported it. Import it with: 
+   from starlette.websockets import WebSocketDisconnect 
+ – Add more logging inside the try/except blocks to catch unexpected errors during message processing. 
+
+● Manage WebSocket state on the client. 
+ – The client code uses useState to store the WebSocket, which can trigger re-renders and reinitializations. Consider using a useRef to hold the WebSocket instance so it persists across renders without causing loops. 
+ – Clean up connections properly in useEffect’s cleanup to avoid zombie connections. 
+
+● Watch browser console and network tab for handshake errors and message flow details. 
+ – The network tab can show if the WebSocket handshake succeeded or if there were protocol errors. 
+
+● Verify compatibility between server and client regarding message types and formats. 
+ – Ensure the client and server agree on the JSON structure for sending and receiving messages. 
+ – Check that the server is correctly handling the “user_input” message type and sending “agent_response” messages.
+
+Now, here are some code tweaks:
+
+1. Update the server WebSocket handler to import WebSocketDisconnect and improve exception handling:
+
+--- server snippet ---
+from starlette.websockets import WebSocketDisconnect
+
+@app.websocket("/ws/workflow/{workflow_id}")
+async def workflow_websocket(websocket: WebSocket, workflow_id: str):
+    try:
+        await websocket.accept()
+        if workflow_id not in active_workflows:
+            await websocket.send_json({
+                "type": "error",
+                "content": "Workflow not found"
+            })
+            return
+
+        workflow = active_workflows[workflow_id]
+        while True:
+            try:
+                data = await websocket.receive_text()
+                message = json.loads(data)
+                if message["type"] == "user_input":
+                    response = await process_user_input(workflow, message["content"])
+                    await websocket.send_json({
+                        "type": "agent_response",
+                        "content": response,
+                        "agent": "current_agent"
+                    })
+            except WebSocketDisconnect:
+                print("Client disconnected.")
+                break
+            except Exception as e:
+                await websocket.send_json({
+                    "type": "error",
+                    "content": str(e)
+                })
+    except Exception as e:
+        print(f"WebSocket connection failed: {e}")
+--------------------------------
+
+2. Refactor the client-side WebSocket connection management:
+
+--- snippet from AgentInteractions.jsx ---
+import React from 'react';
+// ...other imports
+
+export const AgentInteractions = ({ workflow, interactiveMode }) => {
+  const [userInput, setUserInput] = React.useState('');
+  const [messages, setMessages] = React.useState([]);
+  const socketRef = React.useRef(null);  // useRef for WebSocket
+  const [isConnected, setIsConnected] = React.useState(false);
+  const [error, setError] = React.useState(null);
+  const messagesEndRef = React.useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  React.useEffect(() => {
+    if (workflow?.id && !socketRef.current) {
+      const ws = new WebSocket(`ws://localhost:8000/ws/workflow/${workflow.id}`);
+
+      ws.onopen = () => {
+        console.log('WebSocket Connected');
+        setIsConnected(true);
+        setError(null);
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'agent_response') {
+          setMessages(prev => [...prev, {
+            content: message.content,
+            agent: message.agent,
+            isUser: false
+          }]);
+        } else if (message.type === 'error') {
+          setError(message.content);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket Disconnected');
+        setIsConnected(false);
+        socketRef.current = null;
+      };
+
+      ws.onerror = (err) => {
+        console.error('WebSocket Error:', err);
+        setError('Connection error. Please try again later.');
+        setIsConnected(false);
+      };
+
+      socketRef.current = ws;
+
+      return () => {
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+          socketRef.current.close();
+        }
+      };
+    }
+  }, [workflow?.id]);
+
+  React.useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = () => {
+    if (userInput.trim() && socketRef.current && isConnected) {
+      const message = {
+        type: 'user_input',
+        content: userInput
+      };
+      try {
+        socketRef.current.send(JSON.stringify(message));
+        setMessages(prev => [...prev, {
+          content: userInput,
+          isUser: true
+        }]);
+        setUserInput('');
+        setError(null);
+      } catch (err) {
+        setError('Failed to send message. Please try again.');
+      }
+    }
+  };
+
+  // ... rest of component code remains unchanged
+
+This refactor uses useRef to maintain a stable WebSocket connection and cleans up properly. 
+
+Additional next steps:
+• Test the connection with simple hardcoded messages to isolate the issue. 
+• Log server-side messages when receiving or sending to verify flow. 
+• Confirm that the workflow ID from the client matches one stored on the server. 
+• Check browser and server logs for error messages. 
+
+By systematically verifying connection URLs, importing necessary exceptions, handling state with useRef, and adding logging, you can pinpoint where the WebSocket interaction is failing and adjust accordingly.
+--------------------------
+
+Certainly. Let's pinpoint specific lines that could cause issues and suggest precise changes. We'll refer to line numbers approximately based on your code snippets and explain why each is problematic.
+
+● In AgentInteractions.jsx, using useState for storing the WebSocket can cause unexpected re-renders and reconnections:
+
+– Around line 24, the code initializes:
+  const [socket, setSocket] = React.useState(null);
+This can be problematic because setting state for the WebSocket may trigger re-renders. Instead, using a ref stabilizes the WebSocket instance.
+
+– Later in the first useEffect (around line 36), where the WebSocket connection is established:
+  if (workflow?.id && !socket) {
+    const ws = new WebSocket(`ws://localhost:8000/ws/workflow/${workflow.id}`);
+    ...
+    setSocket(ws);
+  }
+Using setSocket() here can cause multiple re-renders. Moreover, the cleanup section returns a cleanup function that checks:
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.close();
+  }
+This cleanup might not run correctly if the component re-renders, leaving open connections.
+
+● Also in the server code (main.py):
+
+– Near the start of the WebSocket endpoint (around line 100), WebSocketDisconnect is referenced in except blocks but not imported. You need:
+  from starlette.websockets import WebSocketDisconnect
+This import is missing and can cause runtime errors.
+
+● Recommended changes with exact lines:
+
+1. Replace the useState for WebSocket with useRef in AgentInteractions.jsx.
+   Change at line 24:
+   // Original:
+   // const [socket, setSocket] = React.useState(null);
+   // Revised:
+   const socketRef = React.useRef(null);
+
+2. Update the WebSocket setup useEffect starting around line 36:
+   // Original condition using socket state:
+   if (workflow?.id && !socket) {
+   // Revised condition using ref:
+   if (workflow?.id && !socketRef.current) {
+
+   Then replace usages of 'socket' with 'socketRef.current' and remove setSocket. For example:
+   - Instead of setSocket(ws), use: socketRef.current = ws;
+   - Instead of checking 'if (socket && isConnected)' in handleSendMessage, use 'if (socketRef.current && isConnected)'.
+
+3. Add the missing import in main.py at the top of the WebSocket endpoint section:
+   // Add:
+   from starlette.websockets import WebSocketDisconnect
+
+   This ensures WebSocketDisconnect is recognized and handled.
+
+● How to verify functionality and catch errors:
+
+– Manual verification:
+  • Open browser console and network tab to monitor WebSocket handshake and message traffic.
+  • Introduce deliberate errors (e.g., invalid workflow ID) to see if error paths are handled.
+
+– Unit testing (server-side):
+  Use FastAPI TestClient and WebSocket testing. For example:
+
+  from fastapi.testclient import TestClient
+  from main import app
+  import json
+
+  client = TestClient(app)
+
+  def test_websocket_error_for_invalid_workflow():
+      with client.websocket_connect("/ws/workflow/invalid_id") as websocket:
+          data = websocket.receive_json()
+          assert data["type"] == "error"
+          assert data["content"] == "Workflow not found"
+
+  This test ensures that connecting with an invalid ID returns the proper error.
+
+– For React component testing:
+  Use Jest with a WebSocket mocking library like 'mock-socket'. For example:
+
+  import { Server } from 'mock-socket';
+  import { render, fireEvent, waitFor } from '@testing-library/react';
+  import { AgentInteractions } from './AgentInteractions';
+
+  test('sends user input over WebSocket', async () => {
+    const mockServer = new Server('ws://localhost:8000/ws/workflow/test');
+    let receivedMessage;
+    mockServer.on('message', message => {
+      receivedMessage = message;
+    });
+
+    // Render component with test workflow prop
+    const { getByPlaceholderText } = render(
+      <AgentInteractions workflow={{ id: 'test' }} interactiveMode={true} />
+    );
+
+    const input = getByPlaceholderText('Type your message...');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    fireEvent.keyPress(input, { key: 'Enter', code: 'Enter', charCode: 13 });
+
+    await waitFor(() => expect(receivedMessage).toContain('Hello'));
+    mockServer.close();
+  });
+
+  This mocks the WebSocket and checks that user messages are sent correctly.
+
+By updating the code at these specific lines, adding proper imports, and employing unit and integration tests as shown, you can catch potential errors early and verify that the WebSocket logic works as expected.

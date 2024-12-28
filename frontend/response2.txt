@@ -1,0 +1,225 @@
+Based on your description and the code you've provided, it seems like you're facing issues with the WebSocket connections between your React frontend and FastAPI backend. From the initial analysis, a primary concern is that the backend isn't sending messages to the frontend unless the client initiates the communication, and the workflow isn't being run as expected when the WebSocket connection is established.
+
+Let's walk through the potential issues and the steps to debug and resolve them.
+
+---
+
+### **Potential Issues**
+
+1. **Backend WebSocket Handler**: The WebSocket handler in your `main.py` isn't running the workflow or sending messages to the client unless the client sends a message first.
+
+2. **Workflow Execution**: The workflow isn't being executed in a way that streams messages back to the client as they are generated.
+
+3. **Frontend WebSocket Reconnection**: The React frontend might not be handling reconnection appropriately when the WebSocket connection is closed or if an error occurs.
+
+4. **WebSocket Lifecycle**: The WebSocket connection isn't maintained as expected, and the initialization logic might not handle reconnection properly.
+
+---
+
+### **Next Steps and Solutions**
+
+#### **1. Modify the Backend WebSocket Handler to Run the Workflow**
+
+Currently, your WebSocket handler is waiting for messages from the client but isn't initiating the workflow or sending agent messages on its own. You need to modify the handler to start the workflow when a client connects and stream messages back to the client as they are generated.
+
+Here's how you can adjust your backend code:
+
+```python
+import asyncio
+from fastapi import WebSocketDisconnect
+
+@app.websocket("/ws/workflow/{workflow_id}")
+async def workflow_websocket(websocket: WebSocket, workflow_id: str):
+    try:
+        await websocket.accept()
+
+        if workflow_id not in active_workflows:
+            await websocket.send_json({
+                "type": "error",
+                "content": "Workflow not found"
+            })
+            return
+
+        workflow = active_workflows[workflow_id]
+
+        # Start the workflow in a background task
+        task = asyncio.create_task(run_workflow(workflow, websocket))
+
+        try:
+            while True:
+                # Keep the websocket connection alive and handle incoming messages
+                data = await websocket.receive_text()
+                message = json.loads(data)
+
+                if message["type"] == "user_input":
+                    # Handle user input for interactive mode
+                    response = await process_user_input(workflow, message["content"])
+                    await websocket.send_json({
+                        "type": "agent_response",
+                        "content": response,
+                        "agent": "current_agent"  # Update with actual agent
+                    })
+        except WebSocketDisconnect:
+            task.cancel()
+        except Exception as e:
+            await websocket.send_json({
+                "type": "error",
+                "content": str(e)
+            })
+    except Exception as e:
+        print(f"WebSocket error: {str(e)}")
+
+async def run_workflow(workflow, websocket):
+    """Run the workflow and send messages to the websocket as they are generated."""
+    async for message in workflow.run():
+        await websocket.send_json({
+            "type": "agent_response",
+            "content": message.content,
+            "agent": message.agent,
+        })
+```
+
+**Explanation:**
+
+- **Background Task**: We use `asyncio.create_task` to run the workflow in a background task so that it doesn't block the WebSocket message handling loop.
+
+- **Streaming Messages**: The `run_workflow` coroutine runs the workflow and asynchronously yields messages, which are then sent to the client over the WebSocket.
+
+#### **2. Implement Async Workflow Execution**
+
+You'll need to modify the `ExploitAndPatchWorkflow` to support asynchronous execution and message yielding. For example:
+
+```python
+class ExploitAndPatchWorkflow:
+    async def run(self):
+        # Example logic for the workflow
+        for step in self.steps:
+            # Perform step
+            await asyncio.sleep(1)  # Simulate async operation
+            yield AgentMessage(
+                workflow_id=self.id,
+                content=f"Completed step: {step}",
+                agent="AgentName"
+            )
+```
+
+**Note**: Make sure all I/O operations in your workflow are asynchronous to avoid blocking the event loop.
+
+#### **3. Improve Frontend WebSocket Lifecycle Management**
+
+In your React component `AgentInteractions`, the `useEffect` that initializes the WebSocket connection doesn't re-run when the `socket` becomes `null` after a disconnection. To fix this, adjust the dependency array and handle reconnection logic.
+
+```jsx
+React.useEffect(() => {
+  let ws;
+
+  if (workflow?.id) {
+    ws = new WebSocket(`ws://localhost:8000/ws/workflow/${workflow.id}`);
+
+    ws.onopen = () => {
+      console.log('WebSocket Connected');
+      setIsConnected(true);
+      setError(null);
+    };
+
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === 'agent_response') {
+        setMessages(prev => [...prev, {
+          content: message.content,
+          agent: message.agent,
+          isUser: false
+        }]);
+      } else if (message.type === 'error') {
+        setError(message.content);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket Disconnected');
+      setIsConnected(false);
+      // Attempt to reconnect after a delay
+      setTimeout(() => {
+        setSocket(null);  // Trigger useEffect to reconnect
+      }, 5000); // Reconnect after 5 seconds
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket Error:', error);
+      setError('Connection error. Please try again later.');
+      setIsConnected(false);
+    };
+
+    setSocket(ws);
+
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
+  }
+}, [workflow?.id, socket]);
+```
+
+**Explanation:**
+
+- **Dependency Array**: By adding `socket` to the dependency array, the `useEffect` will re-run when `socket` changes.
+
+- **Reconnection Logic**: When the WebSocket is closed, we set `socket` to `null` after a delay, triggering a reconnection attempt.
+
+#### **4. Handle WebSocket Messages and Errors**
+
+Ensure that both the frontend and backend are properly handling all types of messages and errors. Add logging and error handling where necessary to aid in debugging.
+
+- **Frontend**: Add console logs in your WebSocket event handlers to trace the connection state and messages received.
+
+- **Backend**: Use logging to output the state of the workflow and any exceptions that occur.
+
+#### **5. Verify CORS and Network Configurations**
+
+Since WebSockets can be sensitive to CORS settings, make sure that your backend's CORS configuration allows connections from your frontend's origin.
+
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Adjust if necessary
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+---
+
+### **Testing and Debugging Steps**
+
+1. **Check WebSocket Connection**: Open your browser's developer tools and verify that the WebSocket connection is established successfully. Look for any error messages in the console or network tab.
+
+2. **Log Backend Events**: Add print statements or use the `logging` module in your backend code to confirm that the workflow is running and that messages are being sent over the WebSocket.
+
+3. **Simulate Workflow Messages**: If the workflow isn't ready for asynchronous operation, temporarily simulate the workflow messages to test the WebSocket communication.
+
+```python
+async def run_workflow(workflow, websocket):
+    for i in range(10):
+        await asyncio.sleep(1)  # Simulate work being done
+        await websocket.send_json({
+            "type": "agent_response",
+            "content": f"Message {i}",
+            "agent": "TestAgent",
+        })
+```
+
+4. **Handle Exceptions**: Make sure that any exceptions in the backend are caught and logged, and appropriate error messages are sent to the frontend.
+
+5. **Test Reconnection**: Simulate network interruptions to test the reconnection logic in your frontend.
+
+---
+
+### **Final Thoughts**
+
+By adjusting your backend to actively run the workflow and stream messages to the frontend, and by enhancing your frontend to manage the WebSocket connection lifecycle effectively, you should be able to resolve the issues you're encountering.
+
+Remember to thoroughly test each part of your application independently before integrating everything together. This will make it easier to pinpoint and fix any problems.
+
+If you have any further questions or need assistance with specific parts of the code, feel free to ask!

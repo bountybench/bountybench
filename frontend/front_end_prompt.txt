@@ -1,0 +1,366 @@
+So I'm trying to build a website that allows for back and forth interactions with a language model and an environment with a human user. To support this, I am using websockets but I'm encountering some issues. Could you provide a few potential explanations / next steps and help me debug / rewrite the code?
+
+So to give background, let's start by walking through the code.
+
+# FILE: App.jsx
+
+import React, { useState } from 'react';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import Box from '@mui/material/Box';
+import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
+import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
+import { Header } from './components/Header/Header';
+import { darkTheme } from './theme';
+import './App.css';
+
+function App() {
+  const [selectedWorkflow, setSelectedWorkflow] = useState(null);
+  const [interactiveMode, setInteractiveMode] = useState(false);
+
+  const handleWorkflowStart = (workflowId) => {
+    setSelectedWorkflow({ id: workflowId });
+  };
+
+  return (
+    <ThemeProvider theme={darkTheme}>
+      <CssBaseline />
+      <Box className="app-container">
+        <Header 
+          onInteractiveModeToggle={() => setInteractiveMode(!interactiveMode)}
+          interactiveMode={interactiveMode}
+        />
+        {selectedWorkflow ? (
+          <WorkflowDashboard 
+            selectedWorkflow={selectedWorkflow}
+            interactiveMode={interactiveMode}
+          />
+        ) : (
+          <WorkflowLauncher onWorkflowStart={handleWorkflowStart} />
+        )}
+      </Box>
+    </ThemeProvider>
+  );
+}
+
+export default App;
+
+# File AgentInteractions.jsx
+
+import React from 'react';
+import { Box, Typography, Card, CardContent, IconButton, TextField, Alert } from '@mui/material';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PauseIcon from '@mui/icons-material/Pause';
+import ReactMarkdown from 'react-markdown';
+import './AgentInteractions.css';
+
+const MessageBubble = ({ message, isAgent }) => (
+  <Box className={`message-container ${isAgent ? 'agent' : 'user'}`}>
+    <Card className={`message-bubble ${isAgent ? 'agent-bubble' : 'user-bubble'}`}>
+      <CardContent>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          {isAgent ? message.agent : 'User'}
+        </Typography>
+        <ReactMarkdown>{message.content}</ReactMarkdown>
+      </CardContent>
+    </Card>
+  </Box>
+);
+
+export const AgentInteractions = ({ workflow, interactiveMode }) => {
+  const [userInput, setUserInput] = React.useState('');
+  const [messages, setMessages] = React.useState([]);
+  const [socket, setSocket] = React.useState(null);
+  const [isConnected, setIsConnected] = React.useState(false);
+  const [error, setError] = React.useState(null);
+  const messagesEndRef = React.useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  React.useEffect(() => {
+    if (workflow?.id && !socket) {
+      const ws = new WebSocket(`ws://localhost:8000/ws/workflow/${workflow.id}`);
+      
+      ws.onopen = () => {
+        console.log('WebSocket Connected');
+        setIsConnected(true);
+        setError(null);
+      };
+      
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'agent_response') {
+          setMessages(prev => [...prev, {
+            content: message.content,
+            agent: message.agent,
+            isUser: false
+          }]);
+        } else if (message.type === 'error') {
+          setError(message.content);
+        }
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket Disconnected');
+        setIsConnected(false);
+        setSocket(null);
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket Error:', error);
+        setError('Connection error. Please try again later.');
+        setIsConnected(false);
+      };
+      
+      setSocket(ws);
+      
+      return () => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      };
+    }
+  }, [workflow?.id]);
+
+  React.useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = () => {
+    if (userInput.trim() && socket && isConnected) {
+      const message = {
+        type: 'user_input',
+        content: userInput
+      };
+      
+      try {
+        socket.send(JSON.stringify(message));
+        
+        setMessages(prev => [...prev, {
+          content: userInput,
+          isUser: true
+        }]);
+        
+        setUserInput('');
+        setError(null);
+      } catch (err) {
+        setError('Failed to send message. Please try again.');
+      }
+    }
+  };
+
+  return (
+    <Box className="interactions-container">
+      <Box className="interactions-header">
+        <Typography variant="h6">Agent Interactions</Typography>
+        <Box>
+          <IconButton size="small" disabled={!isConnected}>
+            <PlayArrowIcon />
+          </IconButton>
+          <IconButton size="small" disabled={!isConnected}>
+            <PauseIcon />
+          </IconButton>
+        </Box>
+      </Box>
+
+      {error && (
+        <Alert severity="error" className="interactions-alert" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      <Box className="messages-container">
+        {messages.map((msg, index) => (
+          <MessageBubble key={index} message={msg} isAgent={!msg.isUser} />
+        ))}
+        <div ref={messagesEndRef} />
+      </Box>
+
+      {interactiveMode && (
+        <Box className="input-container">
+          <TextField
+            fullWidth
+            variant="outlined"
+            size="small"
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            placeholder="Type your message..."
+            className="message-input"
+            disabled={!isConnected}
+          />
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+# main.py backend code
+
+from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import os
+from pathlib import Path
+import uuid
+import json
+from typing import List, Dict, Optional
+
+# Import workflow related modules
+from workflows.exploit_and_patch_workflow_v2 import ExploitAndPatchWorkflow
+from utils.workflow_logger import workflow_logger
+
+app = FastAPI()
+
+# Add CORS middleware to allow frontend requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # React dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Store active workflows
+active_workflows: Dict[str, ExploitAndPatchWorkflow] = {}
+
+class WorkflowStartRequest(BaseModel):
+    workflow_name: str
+    task_repo_dir: str
+    bounty_number: str
+    interactive: bool = True
+
+class WorkflowResponse(BaseModel):
+    workflow_id: str
+    status: str
+    message: str
+
+class AgentMessage(BaseModel):
+    workflow_id: str
+    content: str
+    agent: str
+
+@app.get("/workflow/list")
+async def list_workflows():
+    """List all available workflows"""
+    # For now we only have one workflow type
+    workflows = [{
+        "name": "exploit_and_patch_workflow",
+        "description": "Workflow for exploiting and patching vulnerabilities"
+    }]
+    return {"workflows": workflows}
+
+@app.post("/workflow/start", response_model=WorkflowResponse)
+async def start_workflow(request: WorkflowStartRequest):
+    """Start a new workflow instance"""
+    try:
+        # Generate unique workflow ID
+        workflow_id = str(uuid.uuid4())
+        
+        # Create workflow instance
+        if request.workflow_name == "exploit_and_patch_workflow":
+            workflow = ExploitAndPatchWorkflow(
+                task_repo_dir=Path(request.task_repo_dir),
+                bounty_number=request.bounty_number,
+                interactive=request.interactive
+            )
+            
+            # Store workflow instance
+            active_workflows[workflow_id] = workflow
+            
+            return WorkflowResponse(
+                workflow_id=workflow_id,
+                status="started",
+                message="Workflow started successfully"
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown workflow type: {request.workflow_name}")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/workflow/{workflow_id}/status")
+async def get_workflow_status(workflow_id: str):
+    """Get the current status of a workflow"""
+    if workflow_id not in active_workflows:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    workflow = active_workflows[workflow_id]
+    # Get current phase and iteration from workflow logger
+    return {
+        "status": "running",  # This will be enhanced later
+        "current_phase": workflow_logger.current_phase.phase_name if workflow_logger.current_phase else None,
+        "current_iteration": workflow_logger.current_iteration.iteration_idx if workflow_logger.current_iteration else None
+    }
+
+@app.websocket("/ws/workflow/{workflow_id}")
+async def workflow_websocket(websocket: WebSocket, workflow_id: str):
+    """WebSocket endpoint for real-time workflow updates"""
+    try:
+        await websocket.accept()
+        
+        if workflow_id not in active_workflows:
+            await websocket.send_json({
+                "type": "error",
+                "content": "Workflow not found"
+            })
+            return
+            
+        workflow = active_workflows[workflow_id]
+        
+        while True:
+            try:
+                # Receive message from client
+                data = await websocket.receive_text()
+                message = json.loads(data)
+                
+                # Process message based on type
+                if message["type"] == "user_input":
+                    # Handle user input for interactive mode
+                    response = await process_user_input(workflow, message["content"])
+                    await websocket.send_json({
+                        "type": "agent_response",
+                        "content": response,
+                        "agent": "current_agent"  # This will be updated with actual agent
+                    })
+                
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                await websocket.send_json({
+                    "type": "error",
+                    "content": str(e)
+                })
+                
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"WebSocket error: {str(e)}")
+
+@app.get("/workflow/{workflow_id}/logs")
+async def get_workflow_logs(workflow_id: str):
+    """Get all logs for a workflow"""
+    if workflow_id not in active_workflows:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    # Get logs from workflow logger
+    try:
+        log_file = workflow_logger.log_file
+        if log_file and log_file.exists():
+            with open(log_file, 'r') as f:
+                logs = json.load(f)
+            return logs
+        return {"error": "No logs found"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading logs: {str(e)}")
+
+async def process_user_input(workflow: ExploitAndPatchWorkflow, user_input: str):
+    """Process user input in interactive mode"""
+    # This will be implemented based on your workflow's interactive mode
+    return "Agent response to user input"
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

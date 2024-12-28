@@ -1,0 +1,513 @@
+Certainly! Let's dive into the specific issues in your code and provide exact lines that need attention. We'll also discuss how you can verify the functionality and set up unit tests to catch such errors in the future.
+
+---
+
+### **Problematic Code Sections and Recommended Changes**
+
+#### **1. Backend WebSocket Handler (`main.py`)**
+
+**Issue:** The `workflow_websocket` function in your backend waits for messages from the client but doesn't initiate or run the workflow. It also doesn't send any messages to the client unless the client sends something first.
+
+**Specific Lines to Change:**
+
+- **Original Code (Lines 98-121 in `main.py`):**
+
+  ```python
+  @app.websocket("/ws/workflow/{workflow_id}")
+  async def workflow_websocket(websocket: WebSocket, workflow_id: str):
+      """WebSocket endpoint for real-time workflow updates"""
+      try:
+          await websocket.accept()
+          
+          if workflow_id not in active_workflows:
+              await websocket.send_json({
+                  "type": "error",
+                  "content": "Workflow not found"
+              })
+              return
+              
+          workflow = active_workflows[workflow_id]
+          
+          while True:
+              try:
+                  # Receive message from client
+                  data = await websocket.receive_text()
+                  message = json.loads(data)
+                  
+                  # Process message based on type
+                  if message["type"] == "user_input":
+                      # Handle user input for interactive mode
+                      response = await process_user_input(workflow, message["content"])
+                      await websocket.send_json({
+                          "type": "agent_response",
+                          "content": response,
+                          "agent": "current_agent"  # This will be updated with actual agent
+                      })
+                  
+              except WebSocketDisconnect:
+                  break
+              except Exception as e:
+                  await websocket.send_json({
+                      "type": "error",
+                      "content": str(e)
+                  })
+                  
+      except WebSocketDisconnect:
+          pass
+      except Exception as e:
+          print(f"WebSocket error: {str(e)}")
+  ```
+
+**Recommended Changes:**
+
+- **Modify the WebSocket handler to start the workflow when a client connects and stream messages back to the client as they are generated.**
+
+- Insert the following code to run the workflow in a background task and handle asynchronous message sending:
+
+  ```python
+  import asyncio  # Make sure to import asyncio at the top of your file
+  
+  @app.websocket("/ws/workflow/{workflow_id}")
+  async def workflow_websocket(websocket: WebSocket, workflow_id: str):
+      """WebSocket endpoint for real-time workflow updates"""
+      try:
+          await websocket.accept()
+          
+          if workflow_id not in active_workflows:
+              await websocket.send_json({
+                  "type": "error",
+                  "content": "Workflow not found"
+              })
+              return
+              
+          workflow = active_workflows[workflow_id]
+          
+          # Start the workflow in a background task
+          workflow_task = asyncio.create_task(run_workflow(workflow, websocket))
+          
+          try:
+              while True:
+                  try:
+                      # Receive message from client
+                      data = await websocket.receive_text()
+                      message = json.loads(data)
+                      
+                      # Process message based on type
+                      if message["type"] == "user_input":
+                          # Handle user input for interactive mode
+                          response = await process_user_input(workflow, message["content"])
+                          await websocket.send_json({
+                              "type": "agent_response",
+                              "content": response,
+                              "agent": "current_agent"  # Update with actual agent name
+                          })
+                      
+                  except WebSocketDisconnect:
+                      break  # Exit the loop if the client disconnects
+                  except Exception as e:
+                      await websocket.send_json({
+                          "type": "error",
+                          "content": str(e)
+                      })
+          finally:
+              # Cancel the workflow task when the loop exits
+              workflow_task.cancel()
+              
+      except WebSocketDisconnect:
+          pass
+      except Exception as e:
+          print(f"WebSocket error: {str(e)}")
+  
+  async def run_workflow(workflow, websocket):
+      """Run the workflow and send messages to the websocket as they are generated."""
+      try:
+          # Assuming workflow.run() is an async generator
+          async for message in workflow.run():
+              await websocket.send_json({
+                  "type": "agent_response",
+                  "content": message.content,
+                  "agent": message.agent,
+              })
+      except asyncio.CancelledError:
+          # Handle task cancellation (e.g., when the client disconnects)
+          pass
+      except Exception as e:
+          await websocket.send_json({
+              "type": "error",
+              "content": str(e)
+          })
+  ```
+
+**Explanation:**
+
+- **Line 114:** We create a background task to run the workflow using `asyncio.create_task(run_workflow(workflow, websocket))`. This allows the workflow to run concurrently with the message handling loop.
+
+- **Lines 142-155:** The `run_workflow` coroutine runs the workflow asynchronously and streams messages to the client as they are generated.
+
+- **Line 138 (Inside the `while True` loop):** We wrap the loop in a `try` block and use `finally` to ensure that the workflow task is canceled if the client disconnects.
+
+#### **2. Modify the Workflow Class to Support Async Execution**
+
+**Issue:** Your `ExploitAndPatchWorkflow` class’s `run()` method is likely synchronous. To integrate with the asynchronous WebSocket, it needs to be an asynchronous generator.
+
+**Specific Lines to Add/Change:**
+
+- **In your workflow class (`ExploitAndPatchWorkflow`), modify the `run()` method:**
+
+  ```python
+  from typing import AsyncGenerator
+  
+  class ExploitAndPatchWorkflow:
+      async def run(self) -> AsyncGenerator[AgentMessage, None]:
+          """Asynchronously run the workflow and yield messages."""
+          # Example logic for the workflow
+          for step in self.steps:
+              # Perform step (replace with actual async calls as needed)
+              await asyncio.sleep(1)  # Simulate async operation
+              # Yield an AgentMessage instance
+              yield AgentMessage(
+                  workflow_id=self.id,
+                  content=f"Completed step: {step}",
+                  agent="AgentName"  # Replace with actual agent name
+              )
+  ```
+
+**Explanation:**
+
+- **Make `run()` an Async Generator:** By defining `run()` as an asynchronous generator (`async def run(self) -> AsyncGenerator[...]`), you can use `async for` to iterate over it.
+
+- **Simulate Asynchronous Operations:** Replace `await asyncio.sleep(1)` with actual asynchronous calls in your workflow.
+
+#### **3. Frontend WebSocket Lifecycle Management (`AgentInteractions.jsx`)**
+
+**Issue:** The React component might not handle WebSocket reconnections properly. The `useEffect` hook that initializes the WebSocket does not re-run when `socket` changes to `null` after disconnection.
+
+**Specific Lines to Change:**
+
+- **Original Code (Lines 35-66 in `AgentInteractions.jsx`):**
+
+  ```jsx
+  React.useEffect(() => {
+    if (workflow?.id && !socket) {
+      const ws = new WebSocket(`ws://localhost:8000/ws/workflow/${workflow.id}`);
+      
+      ws.onopen = () => {
+        console.log('WebSocket Connected');
+        setIsConnected(true);
+        setError(null);
+      };
+      
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'agent_response') {
+          setMessages(prev => [...prev, {
+            content: message.content,
+            agent: message.agent,
+            isUser: false
+          }]);
+        } else if (message.type === 'error') {
+          setError(message.content);
+        }
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket Disconnected');
+        setIsConnected(false);
+        setSocket(null);
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket Error:', error);
+        setError('Connection error. Please try again later.');
+        setIsConnected(false);
+      };
+      
+      setSocket(ws);
+      
+      return () => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      };
+    }
+  }, [workflow?.id]);
+  ```
+
+**Recommended Changes:**
+
+- **Include `socket` in the dependency array of the `useEffect` hook to handle reconnection logic:**
+
+  ```jsx
+  React.useEffect(() => {
+    if (workflow?.id && !socket) {
+      const ws = new WebSocket(`ws://localhost:8000/ws/workflow/${workflow.id}`);
+      
+      ws.onopen = () => {
+        console.log('WebSocket Connected');
+        setIsConnected(true);
+        setError(null);
+      };
+      
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'agent_response') {
+          setMessages(prev => [...prev, {
+            content: message.content,
+            agent: message.agent,
+            isUser: false
+          }]);
+        } else if (message.type === 'error') {
+          setError(message.content);
+        }
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket Disconnected');
+        setIsConnected(false);
+        setSocket(null);  // Trigger reconnection
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket Error:', error);
+        setError('Connection error. Please try again later.');
+        setIsConnected(false);
+      };
+      
+      setSocket(ws);
+      
+      return () => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      };
+    }
+  }, [workflow?.id, socket]);  // Added 'socket' to dependency array
+  ```
+
+**Explanation:**
+
+- **Dependency Array Modification (Line 87):** By adding `socket` to the dependency array, the `useEffect` hook will re-run whenever `socket` changes, allowing the component to attempt reconnection when the WebSocket is closed.
+
+- **Reconnection Logic (Line 81):** Setting `setSocket(null)` in `ws.onclose` triggers the `useEffect` to reinitialize the WebSocket connection.
+
+**Additional Improvement (Optional):**
+
+- **Throttle or Limit Reconnection Attempts:** To prevent rapid reconnection attempts, you can implement a backoff strategy. Here's an example using a simple timeout:
+
+  ```jsx
+  ws.onclose = () => {
+    console.log('WebSocket Disconnected');
+    setIsConnected(false);
+    setTimeout(() => {
+      setSocket(null);
+    }, 5000); // Attempt to reconnect after 5 seconds
+  };
+  ```
+
+---
+
+### **Verification and Testing**
+
+To ensure that your changes work as expected and to catch errors in the future, you should set up both manual testing and unit tests.
+
+#### **1. Manual Testing**
+
+- **Backend Testing with WebSocket Clients:**
+
+  - Use tools like **`wscat`** or **`websocat`** to connect to your WebSocket endpoint and observe the messages.
+
+    ```bash
+    wscat -c ws://localhost:8000/ws/workflow/{workflow_id}
+    ```
+
+- **Frontend Testing:**
+
+  - Run your React application and interact with the interface to verify that messages are received and displayed correctly.
+
+  - Open the browser's developer console to check for any errors or warnings.
+
+#### **2. Unit Testing**
+
+**Backend Unit Tests with `pytest` and `pytest-asyncio`:**
+
+- **Install Required Packages:**
+
+  ```bash
+  pip install pytest pytest-asyncio
+  ```
+
+- **Write Unit Tests for the WebSocket Endpoint (`test_main.py`):**
+
+  ```python
+  import pytest
+  import asyncio
+  from httpx import AsyncClient
+  from fastapi.testclient import TestClient
+  from fastapi.websockets import WebSocketDisconnect
+  from main import app, active_workflows, ExploitAndPatchWorkflow
+  from utils.workflow_logger import workflow_logger
+
+  @pytest.mark.asyncio
+  async def test_workflow_websocket():
+      # Create a test workflow
+      workflow_id = 'test_workflow_id'
+      test_workflow = ExploitAndPatchWorkflow(
+          task_repo_dir=Path('/tmp'),  # Use a valid path
+          bounty_number='123',
+          interactive=True
+      )
+      active_workflows[workflow_id] = test_workflow
+
+      # Mock the run method to yield test messages
+      async def mock_run():
+          for i in range(3):
+              await asyncio.sleep(0.1)
+              yield AgentMessage(
+                  workflow_id=workflow_id,
+                  content=f"Test message {i}",
+                  agent="TestAgent"
+              )
+      test_workflow.run = mock_run
+
+      async with AsyncClient(app=app, base_url="http://testserver") as client:
+          with pytest.raises(WebSocketDisconnect):
+              async with client.websocket_connect(f"/ws/workflow/{workflow_id}") as websocket:
+                  # Receive messages from the server
+                  for i in range(3):
+                      message = await websocket.receive_json()
+                      assert message['type'] == 'agent_response'
+                      assert message['content'] == f"Test message {i}"
+                      assert message['agent'] == 'TestAgent'
+                  
+                  # Simulate client disconnect
+                  await websocket.close()
+  ```
+
+**Explanation:**
+
+- **Mocking the Workflow Run Method:** We replace the `run()` method with `mock_run()` to yield predefined test messages.
+
+- **Testing Message Reception:** We assert that the messages received over the WebSocket match the expected content.
+
+**Frontend Unit Tests with Jest and React Testing Library:**
+
+- **Setup Testing Environment:**
+
+  - Install testing libraries:
+
+    ```bash
+    npm install --save-dev @testing-library/react @testing-library/jest-dom jest
+    ```
+
+- **Write Tests for `AgentInteractions.jsx`:**
+
+  ```jsx
+  // AgentInteractions.test.jsx
+  import React from 'react';
+  import { render, screen, act } from '@testing-library/react';
+  import { AgentInteractions } from './AgentInteractions';
+
+  // Mock WebSocket
+  global.WebSocket = class {
+    constructor(url) {
+      this.url = url;
+      this.onopen = null;
+      this.onmessage = null;
+      this.onclose = null;
+      this.onerror = null;
+    }
+    send(data) {
+      // Simulate server response
+      if (this.onmessage) {
+        const message = JSON.parse(data);
+        if (message.type === 'user_input') {
+          this.onmessage({
+            data: JSON.stringify({
+              type: 'agent_response',
+              content: `Echo: ${message.content}`,
+              agent: 'TestAgent',
+            }),
+          });
+        }
+      }
+    }
+    close() {
+      if (this.onclose) {
+        this.onclose();
+      }
+    }
+    readyState = 1; // OPEN
+  };
+
+  test('renders messages and handles user input', async () => {
+    render(<AgentInteractions workflow={{ id: 'test_workflow' }} interactiveMode={true} />);
+
+    // Simulate WebSocket connection
+    await act(async () => {
+      // Wait for component to handle WebSocket events
+    });
+
+    // Simulate user typing and sending a message
+    const input = screen.getByPlaceholderText('Type your message...');
+    const sendMessage = () => {
+      // Simulate Enter key press
+      act(() => {
+        input.value = 'Hello';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
+      });
+    };
+
+    sendMessage();
+
+    // Check if the message is displayed
+    expect(await screen.findByText('Echo: Hello')).toBeInTheDocument();
+  });
+  ```
+
+**Explanation:**
+
+- **Mocking the WebSocket:** We mock the `WebSocket` class to simulate server responses without needing an actual server.
+
+- **Testing Message Handling:** We simulate user input and verify that the echoed message from the "server" is displayed.
+
+---
+
+### **Additional Tips**
+
+- **Logging and Debugging:**
+
+  - Add logging statements in your backend to track the workflow progress and any exceptions.
+
+  - Use `console.log` in your frontend to debug WebSocket events and state changes.
+
+- **Exception Handling:**
+
+  - Ensure that all exceptions in asynchronous methods are properly caught and handled to prevent unhandled exceptions from crashing your application.
+
+- **Async Considerations:**
+
+  - If your workflow involves synchronous operations that block the event loop, consider running them in a separate thread using `run_in_executor()`.
+
+  - For example:
+
+    ```python
+    from concurrent.futures import ThreadPoolExecutor
+
+    executor = ThreadPoolExecutor(max_workers=1)
+
+    async def run_workflow(workflow, websocket):
+        try:
+            await asyncio.get_event_loop().run_in_executor(executor, workflow.run_sync)
+            # Send messages as they are generated
+        except asyncio.CancelledError:
+            pass
+    ```
+
+---
+
+### **Conclusion**
+
+By modifying the specific lines mentioned and implementing the above changes, you should resolve the issues with your WebSocket interactions. Setting up the suggested unit tests will help you catch similar errors in the future and ensure your application behaves as expected.
+
+If you encounter any further issues or need clarification on any part of the code, feel free to ask!
