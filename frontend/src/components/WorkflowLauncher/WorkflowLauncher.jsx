@@ -51,18 +51,27 @@ export const WorkflowLauncher = ({ onWorkflowStart }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          workflow_name: formData.workflow_name,
+          task_repo_dir: formData.task_repo_dir,
+          bounty_number: formData.bounty_number,
+          interactive: formData.interactive
+        }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start workflow');
+      }
+
       const data = await response.json();
-      
       if (data.error) {
         setError(data.error);
       } else {
         onWorkflowStart(data.workflow_id);
       }
     } catch (err) {
-      setError('Failed to start workflow. Make sure the backend server is running.');
+      setError(err.message || 'Failed to start workflow. Make sure the backend server is running.');
     }
   };
 
