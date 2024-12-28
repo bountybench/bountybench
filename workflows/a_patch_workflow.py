@@ -14,13 +14,12 @@ from workflows.base_workflow import BaseWorkflow, WorkflowConfig
 
 class PatchWorkflow(BaseWorkflow):
     """Workflow for patching vulnerabilities"""
-    
     PHASES = [PatchPhase]
     # Agents = ExecutorAgent, PatchAgent
     # Resource =  KaliEnvResource, DockerResource (InitFilesResource, (maybe SetupFilesResource (2x)) handled in super)
     
     def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool=False):
-        workflow_id = "exploit_and_patch_workflow"
+        workflow_id = "patch_workflow"
         super().__init__(task_repo_dir, bounty_number, workflow_id, interactive)
 
     def define_resources(self):
@@ -94,6 +93,19 @@ class PatchWorkflow(BaseWorkflow):
             ]
         )
         self.register_phase(PatchPhase, phase_config)
+
+        
+    def setup_directories(self):
+        # No specific directories needed for PatchWorkflow
+        pass
+
+    def setup_workflow_specific(self):
+        # No specific setup needed for PatchWorkflow
+        pass
+
+    def log_metadata(self):
+        self.workflow_logger.add_metadata("vulnerable_files", self.vulnerable_files)
+        self.workflow_logger.add_metadata("exploit_description", self.exploit_description)
 
 def main() -> None:
     """Main entry point"""
