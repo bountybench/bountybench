@@ -48,25 +48,24 @@ class BaseAgent(ABC):
         
         If `failure_detection=True` is passed, we wrap `run()` to detect repetitive responses.
         """
+        object.__setattr__(self, '_initializing', True)
+        object.__setattr__(self, '_resources_initialized', False)
+        
         self.resource_manager = resource_manager
         self.response_history = ResponseHistory()
         self.agent_config = agent_config
-        self.target_host_address = getattr(self.agent_config, "target_host", "")
-        self._resources_initialized = False
+        self.target_host_address = getattr(agent_config, "target_host", "")
         
         # Initialize all possible resource attributes to None
         for resource in self.REQUIRED_RESOURCES + self.OPTIONAL_RESOURCES:
             attr_name = self._entry_to_str(resource)
-            setattr(self, attr_name, None)
+            object.__setattr__(self, attr_name, None)
 
         # Wrap the run method to ensure resources are initialized
         self._original_run = self.run
-        def _wrapped_run(self, responses: List[Response]) -> Response:
-            if not self._resources_initialized:
-                raise ResourceNotInitializedError("Resources have not been initialized. Call register_resources() before running the agent.")
-            return self._original_run(responses)
         self.run = self._wrapped_run
-
+        
+        object.__setattr__(self, '_initializing', False)
         # Optional: wrap the run(...) method for failure detection
         # if hasattr(self, "run") and kwargs.get("failure_detection", False):
         #     original_run = self.run
@@ -80,7 +79,11 @@ class BaseAgent(ABC):
         #         return new_response
 
         #     self.run = wrapped_run
-
+        
+    def _wrapped_run(self, responses: List[Response]) -> Response:
+        if not self._resources_initialized:
+            raise ResourceNotInitializedError("Resources have not been initialized. Call register_resources() before running the agent.")
+        return self._original_run(responses)
 
     @classmethod
     def get_required_resources(cls) -> Set[str]:
@@ -102,7 +105,6 @@ class BaseAgent(ABC):
         declared_attr_names = {self._entry_to_str(e) for e in declared_resources}
         accessible_attr_names = {self._entry_to_str(e) for e in self.ACCESSIBLE_RESOURCES}
 
-        # Check that ACCESSIBLE_RESOURCES is a subset of (REQUIRED + OPTIONAL)
         missing = accessible_attr_names - declared_attr_names
         if missing:
             raise ValueError(f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset of REQUIRED + OPTIONAL. Missing: {missing}")
@@ -111,13 +113,13 @@ class BaseAgent(ABC):
             attr_name = self._entry_to_str(entry)
             try:
                 resource_obj = self.resource_manager.get_resource(attr_name)
-                setattr(self, attr_name, resource_obj)
+                object.__setattr__(self, attr_name, resource_obj)
             except KeyError:
                 if entry in self.REQUIRED_RESOURCES:
                     raise
                 logger.warning(f"Optional resource '{attr_name}' not allocated. Attribute remains None.")
 
-        self._resources_initialized = True
+        object.__setattr__(self, '_resources_initialized', True)
 
     @staticmethod
     def _generate_attr_name(resource_cls: type) -> str:
@@ -146,16 +148,34 @@ class BaseAgent(ABC):
             return entry[1]
         return cls._generate_attr_name(entry)
 
+
     def __getattribute__(self, name):
-        try:
-            attr = super().__getattribute__(name)
-            if name in self.get_required_resources() and attr is None:
-                raise ResourceNotInitializedError(f"Resource '{name}' has not been initialized. You must first initialize resources before accessing them.")
-            return attr
-        except AttributeError:
-            if name in self.get_required_resources():
-                raise ResourceNotInitializedError(f"Resource '{name}' has not been initialized. You must first initialize resources before accessing them.")
-            raise
+        # First, check if we're accessing one of the special attributes
+        if name in ['_resources_initialized', '_initializing', 'get_required_resources', 'REQUIRED_RESOURCES']:
+            return object.__getattribute__(self, name)
+        
+        # Now check if we're trying to access a required resource
+        required_resources = object.__getattribute__(self, 'get_required_resources')()
+        resources_initialized = object.__getattribute__(self, '_resources_initialized')
+        
+        if name in required_resources and not resources_initialized:
+            raise ResourceNotInitializedError(f"Resource '{name}' has not been initialized. You must first initialize resources before accessing them.")
+        
+        return object.__getattribute__(self, name)
+
+    def __setattr__(self, name, value):
+        if name in ['_resources_initialized', '_initializing']:
+            object.__setattr__(self, name, value)
+            return
+        
+        initializing = object.__getattribute__(self, '_initializing')
+        resources_initialized = object.__getattribute__(self, '_resources_initialized')
+        required_resources = object.__getattribute__(self, 'get_required_resources')()
+        
+        if not initializing and name in required_resources and not resources_initialized:
+            raise ResourceNotInitializedError(f"Cannot set resource '{name}'. Resources must be initialized through register_resources().")
+        
+        object.__setattr__(self, name, value)
 
     @abstractmethod
     def run(self, responses: List[Response]) -> Response:
