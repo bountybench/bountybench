@@ -52,7 +52,6 @@ class PatchWorkflow(BaseWorkflow):
         executor_agent_config = ExecutorAgentConfig(
             id="executor_agent",
             lm_config=executor_lm_agent_config,
-            logger=self.workflow_logger,
             target_host=self.repo_metadata["target_host"]
         )
         self.register_agent(ExecutorAgent, executor_agent_config)
