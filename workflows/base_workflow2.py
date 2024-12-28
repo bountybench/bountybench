@@ -103,8 +103,6 @@ class BaseWorkflow(ABC):
         self.define_phases()
         self._compute_schedule()
 
-
-
     @abstractmethod
     def get_initial_prompt(self) -> str:
         """Provide the initial prompt for the workflow."""
@@ -271,8 +269,7 @@ class BaseWorkflow(ABC):
         self.setup_network()
         self.setup_directories()
         self.setup_git_state()
-        self.setup_workflow_specific()
-        self.log_metadata()
+        # self.log_metadata()
 
     def setup_network(self) -> None:
         """Setup Docker network if it does not exist."""
@@ -306,17 +303,10 @@ class BaseWorkflow(ABC):
         """Setup necessary directories for the workflow."""
         pass
 
-    @abstractmethod
-    def log_metadata(self) -> None:
-        """Log workflow metadata."""
-        pass
-
-    def setup_workflow_specific(self) -> None:
-        """Setup workflow-specific configurations or states."""
-        # Implement any workflow-specific setup here
-        # Example:
-        # self.some_workflow_specific_attribute = compute_something()
-        pass
+    # @abstractmethod
+    # def log_metadata(self) -> None:
+    #     """Log workflow metadata."""
+    #     pass
 
     def register_resource(
         self,

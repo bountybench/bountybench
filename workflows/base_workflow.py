@@ -7,9 +7,8 @@ from pathlib import Path
 from agents.base_agent import BaseAgent, AgentConfig
 from phases.base_phase import BasePhase, PhaseConfig
 from resources.base_resource import BaseResource, BaseResourceConfig
-from resources.configs.init_files_resource_config import InitFilesResourceConfig
+from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 from resources.docker_resource import dataclass
-from resources.init_files_resource import InitFilesResource
 from resources.resource_manager import ResourceManager, Type
 from resources.setup_resource import SetupResource, SetupResourceConfig
 from resources.utils import docker_network_exists, read_bounty_metadata, read_repo_metadata, run_command
