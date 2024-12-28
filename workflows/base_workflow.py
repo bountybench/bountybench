@@ -10,6 +10,7 @@ import logging
 # Import your specific modules and classes here
 from agents.base_agent import BaseAgent, AgentConfig
 from phases.base_phase import BasePhase, PhaseConfig
+from responses.base_response import BaseResponse
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.init_files_resource import InitFilesResourceConfig
 from resources.init_files_resource import InitFilesResource
@@ -127,7 +128,7 @@ class BaseWorkflow(ABC):
         self.resource_manager.compute_schedule(phase_classes)
         logger.debug("Computed resource schedule for all phases.")
 
-    def setup_phase(self, phase_index: int) -> None:
+    def setup_phase(self, phase_index: int, initial_response: Optional[BaseResponse] = None) -> None:
         """
         Setup a specific phase by allocating resources, setting up agents, and creating the phase instance.
 
@@ -144,9 +145,10 @@ class BaseWorkflow(ABC):
             self.setup_phase_agents(phase_index)
             
             # Step 3: Create the phase instance
-            phase_instance = self._create_phase(phase_index)
+            phase_instance = self._create_phase(phase_index, initial_response)
             
             logger.info(f"Phase {phase_index} setup complete: {phase_instance.__class__.__name__}")
+            return phase_instance
         
         except Exception as e:
             self.status = WorkflowStatus.INCOMPLETE
@@ -194,6 +196,20 @@ class BaseWorkflow(ABC):
             logger.error(f"Error allocating resources for phase {phase_index}: {e}")
             raise
 
+    def takedown_phase_resources(self, phase_index: int) -> None:
+        """
+        Setup all required resources for a phase by allocating them through the ResourceManager.
+
+        Args:
+            phase_index (int): The index of the phase for which to allocate resources.
+        """
+        try:
+            self.resource_manager.deallocate_phase_resources(phase_index)
+            logger.info(f"Relevant resources deallocated after phase {phase_index}")
+        except Exception as e:
+            logger.error(f"Error deallocating resources after phase {phase_index}: {e}")
+            raise
+
     def create_agent(self, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> BaseAgent:
         """
         Creates and registers an agent.
@@ -220,7 +236,7 @@ class BaseWorkflow(ABC):
             logger.error(f"Failed to create agent '{agent_config.id}': {e}")
             raise
 
-    def _create_phase(self, phase_index: int) -> BasePhase:
+    def _create_phase(self, phase_index: int, initial_response: Optional[BaseResponse] = None) -> BasePhase:
         """
         Creates an instance of a phase based on its configuration.
 
@@ -235,7 +251,7 @@ class BaseWorkflow(ABC):
             phase_config = self.config.phase_configs[phase_index]
             
             # Instantiate the phase
-            phase_instance = phase_config.phase_class(config=phase_config, workflow=self)
+            phase_instance = phase_config.phase_class(config=phase_config, initial_response=initial_response)
             
             # Append the phase instance to the phases list
             self.phases.append(phase_instance)
@@ -420,3 +436,70 @@ class BaseWorkflow(ABC):
         except Exception as e:
             logger.error(f"Failed to define resources: {e}")
             raise
+
+    def run_phases(self):
+        """
+        Generator that executes workflow phases one at a time.
+        Yields (phase_response, phase_success) after each phase execution.
+        """
+        try:
+            self.setup_phases()
+            self._validate_phase_configs()
+            self.status = WorkflowStatus.INCOMPLETE
+            
+            prev_response = None
+            if hasattr(self.config, "initial_prompt") and self.config.initial_prompt:
+                prev_response = BaseResponse(self.config.initial_prompt)
+
+            # Execute phases in sequence
+            for phase_idx, phase_config in enumerate(self.config.phase_configs):
+                self._current_phase_idx = phase_idx
+                
+                # Create and run phase
+                phase = self.setup_phase(phase_idx, prev_response)
+                phase_response, phase_success = phase.run_phase()
+                
+                # Update workflow state
+                prev_response = phase_response
+                if not phase_success:
+                    self.status = WorkflowStatus.COMPLETED_FAILURE
+                    yield phase_response, phase_success
+                    break
+                    
+                self._workflow_iteration_count += 1
+                if self._workflow_iteration_count >= self.config.max_iterations:
+                    self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
+                    yield phase_response, phase_success
+                    break
+                
+                # Yield current phase results
+                yield phase_response, phase_success
+                self.takedown_phase_resources(phase_idx)
+                    
+            # If we completed all phases successfully
+            if phase_success and phase_idx == len(self.config.phase_configs) - 1:
+                self.status = WorkflowStatus.COMPLETED_SUCCESS
+                
+            # Finalize workflow
+            self.workflow_logger.finalize(self.status.value)
+            
+        except Exception as e:
+            self.status = WorkflowStatus.INCOMPLETE
+            self.workflow_logger.finalize(self.status.value)
+            raise e
+
+    def run(self) -> None:
+        """
+        Execute the entire workflow by running all phases in sequence.
+        This is a convenience method that runs the workflow to completion.
+        """
+        # Run through all phases
+        for _ in self.run_phases():
+            continue
+
+    @property
+    def current_phase(self) -> Optional[PhaseConfig]:
+        """Get current phase configuration"""
+        if 0 <= self._current_phase_idx < len(self.config.phase_configs):
+            return self.config.phase_configs[self._current_phase_idx]
+        return None
