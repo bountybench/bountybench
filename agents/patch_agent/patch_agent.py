@@ -28,6 +28,7 @@ logger = get_main_logger(__name__)
 
 @dataclass
 class PatchAgentConfig(AgentConfig):
+    id: str
     bounty_dir: str
     exploit_files_dir: Optional[str] = None
     use_verify_script: Optional[bool] = False
@@ -40,20 +41,23 @@ class PatchAgent(BaseAgent):
     def __init__(self, agent_config: PatchAgentConfig, resource_manager: ResourceManager):
         super().__init__(agent_config, resource_manager)
         self.bounty_dir = Path(agent_config.bounty_dir)
-        self.patch_dir_name = "patches"
-        self.patch_dir = Path(self.init_files.task_repo_dir) / self.patch_dir_name
         self.exploit_files_dir = agent_config.exploit_files_dir
         self.log_history = []
         self.patch_id = 1
 
         self.use_verify_script = agent_config.use_verify_script
 
-        self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
-        self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
-        self.docker = self._get_resource(DockerResource)
+        # self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
+        # self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
+        # self.docker = self._get_resource(DockerResource)
 
-        self.patch_dir.mkdir(parents=True, exist_ok=True)
         atexit.register(self.cleanup)
+
+    def register_resources(self):
+        super().register_resources()
+        self.patch_dir_name = "patches"
+        self.patch_dir = Path(self.init_files.task_repo_dir) / self.patch_dir_name
+        self.patch_dir.mkdir(parents=True, exist_ok=True)
 
     def run(self, responses: List[Response]) -> Response:
         """Execute the main workflow of the PatchAgent."""

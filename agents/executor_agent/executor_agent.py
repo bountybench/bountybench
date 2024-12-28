@@ -28,9 +28,10 @@ TEMPERATURE = 0.5
 
 @dataclass
 class ExecutorAgentConfig(AgentConfig):
+    id: str
     lm_config: AgentLMConfig
     target_host: str
-    initial_prompt: str
+    initial_prompt: Optional[str]=None
 
 
 class ExecutorAgent(BaseAgent):
@@ -58,7 +59,8 @@ class ExecutorAgent(BaseAgent):
         super().__init__(agent_config, resource_manager)
 
         # Initialize specific attributes
-        self.initial_prompt = agent_config.initial_prompt
+        if hasattr(agent_config, "initial_prompt"):
+            self.initial_prompt = agent_config.initial_prompt
         self.prompt = self.initial_prompt
 
         # If a target_host is provided, run health_check on self.kali_env

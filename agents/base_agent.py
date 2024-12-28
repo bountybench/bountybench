@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import re
 from typing import List, Optional, Set, Tuple, Union
 
@@ -10,6 +11,7 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
+@dataclass
 class AgentConfig:
     id: str
 
@@ -51,18 +53,18 @@ class BaseAgent(ABC):
         # the user calls `initialize_resources()` after ResourceManager has allocated them.
 
         # Optional: wrap the run(...) method for failure detection
-        if hasattr(self, "run") and kwargs.get("failure_detection", False):
-            original_run = self.run
+        # if hasattr(self, "run") and kwargs.get("failure_detection", False):
+        #     original_run = self.run
 
-            def wrapped_run(responses: List[Response]) -> Response:
-                new_response = original_run(responses)
-                if self.response_history.is_repetitive(new_response):
-                    new_response = FailureResponse("Repetitive response detected")
-                else:
-                    self.response_history.log(new_response)
-                return new_response
+        #     def wrapped_run(responses: List[Response]) -> Response:
+        #         new_response = original_run(responses)
+        #         if self.response_history.is_repetitive(new_response):
+        #             new_response = FailureResponse("Repetitive response detected")
+        #         else:
+        #             self.response_history.log(new_response)
+        #         return new_response
 
-            self.run = wrapped_run
+        #     self.run = wrapped_run
 
 
     @classmethod

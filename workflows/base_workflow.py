@@ -17,6 +17,7 @@ from resources.init_files_resource import InitFilesResource
 from resources.resource_manager import ResourceManager
 from resources.setup_resource import SetupResource, SetupResourceConfig
 from resources.utils import docker_network_exists, read_bounty_metadata, read_repo_metadata, run_command
+from utils.workflow_logger import workflow_logger
 
 # Initialize the module-level logger
 logger = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ class BaseWorkflow(ABC):
         self.task_repo_dir = task_repo_dir
         self.bounty_number = int(bounty_number)  # Ensure it's an integer
         self.repo_metadata = read_repo_metadata(str(task_repo_dir))
-        self.bounty_metadata = read_bounty_metadata(str(task_repo_dir), self.bounty_number)
+        self.bounty_metadata = read_bounty_metadata(str(task_repo_dir), str(self.bounty_number))
         
         # Setup workflow config
         config = WorkflowConfig(
@@ -86,6 +87,17 @@ class BaseWorkflow(ABC):
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
 
+        self.workflow_logger = workflow_logger
+        self.workflow_logger.initialize(
+            workflow_name=config.id,
+            logs_dir=str(config.logs_dir),
+            task_repo_dir=str(config.task_repo_dir),
+            bounty_number=str(config.bounty_number)
+        )
+
+        # Add workflow metadata
+        for key, value in config.metadata.items():
+            self.workflow_logger.add_metadata(key, value)
 
         # Initialize ResourceManager
         self.resource_manager = ResourceManager()
@@ -124,7 +136,7 @@ class BaseWorkflow(ABC):
         Compute the resource usage schedule across all phases.
         Populates the phase_resources and resource_lifecycle dictionaries in ResourceManager.
         """
-        phase_classes = [phase_config.phase_class for phase_config in self.config.phase_configs]
+        phase_classes = [phase_config.phase_name for phase_config in self.config.phase_configs]
         self.resource_manager.compute_schedule(phase_classes)
         logger.debug("Computed resource schedule for all phases.")
 
@@ -228,12 +240,14 @@ class BaseWorkflow(ABC):
             # Register the agent in the agents dictionary
             self.agents[agent_config.id] = agent_instance
             
+            setattr(self, agent_config.id, agent_instance)
+            
             # Log the creation
             logger.debug(f"Created agent: {agent_config.id} of type {agent_class.__name__}")
             
             return agent_instance
         except Exception as e:
-            logger.error(f"Failed to create agent '{agent_config.id}': {e}")
+            logger.error(f"Failed to create agent '{agent_config}': {e}")
             raise
 
     def _create_phase(self, phase_index: int, initial_response: Optional[BaseResponse] = None) -> BasePhase:
@@ -247,18 +261,11 @@ class BaseWorkflow(ABC):
             BasePhase: The instantiated phase.
         """
         try:
-            # Retrieve the PhaseConfig for the given index
             phase_config = self.config.phase_configs[phase_index]
-            
-            # Instantiate the phase
-            phase_instance = phase_config.phase_class(config=phase_config, initial_response=initial_response)
-            
-            # Append the phase instance to the phases list
+            phase_class = phase_config.phase_name
+            phase_instance = phase_class(phase_config=phase_config, initial_response=initial_response)
             self.phases.append(phase_instance)
-            
-            # Log the creation
-            logger.debug(f"Created phase: {phase_config.phase_name} for Workflow ID: {self.config.id}")
-            
+            logger.debug(f"Created phase: {phase_class.__name__} for Workflow ID: {self.config.id}")
             return phase_instance
         except Exception as e:
             logger.error(f"Failed to create phase at index {phase_index}: {e}")
@@ -343,7 +350,6 @@ class BaseWorkflow(ABC):
 
     def register_agent(
         self,
-        agent_id: str,
         agent_class: Type[BaseAgent],
         agent_config: AgentConfig
     ) -> None:
@@ -357,7 +363,7 @@ class BaseWorkflow(ABC):
         """
         # Instantiate and register the agent
         agent_instance = self.create_agent(agent_class, agent_config)
-        logger.debug(f"Registered agent '{agent_id}' of type '{agent_class.__name__}'")
+        logger.debug(f"Registered agent '{agent_config.id}' of type '{agent_class.__name__}'")
 
     def register_phase(
         self,
@@ -375,7 +381,7 @@ class BaseWorkflow(ABC):
         """
         phase_config_instance = PhaseConfig(
             phase_idx=len(self.config.phase_configs),  # Automatically assign the next index
-            phase_name=phase_class.__name__,
+            phase_name=phase_class,
             max_iterations=phase_specific_config.max_iterations,
             agents=agents
         )
@@ -443,7 +449,7 @@ class BaseWorkflow(ABC):
         Yields (phase_response, phase_success) after each phase execution.
         """
         try:
-            self.setup_phases()
+            # self.setup_phases()
             self._validate_phase_configs()
             self.status = WorkflowStatus.INCOMPLETE
             
