@@ -44,10 +44,10 @@ class PatchWorkflow(BaseWorkflow):
                     "/tmp": {"bind": "/tmp", "mode": "rw"}
                 }
             )
-            self.register_resource("KaliEnv", KaliEnvResource, kali_env_config)
+            self.register_resource("kali_env", KaliEnvResource, kali_env_config)
 
             docker_config = DockerResourceConfig()
-            self.register_resource("DockerHelper", DockerResource, docker_config)
+            self.register_resource("docker", DockerResource, docker_config)
         except Exception as e:
             logger.error(f"Failed to define resources: {e}")
             raise
@@ -76,19 +76,16 @@ class PatchWorkflow(BaseWorkflow):
         )
         self.register_agent(PatchAgent, patch_agent_config)
 
-        # # Add agents to the phase config after they're defined
-        # self.config.phase_configs[0].agents = [
-        #     ("executor_agent", self.agents["executor_agent"]),
-        #     ("patch_agent", self.agents["patch_agent"])
-        # ]
-
     def define_phases(self) -> None:
         """Configure phases"""
         phase_config = PhaseConfig(
             phase_idx=0,
             phase_name=PatchPhase,
             max_iterations=25,
-            agents=[]  # We'll add agents after they're defined
+            agents=[
+                ("executor_agent", self.agents["executor_agent"]),
+                ("patch_agent", self.agents["patch_agent"])
+            ]
         )
         self.register_phase(PatchPhase, phase_config)
 

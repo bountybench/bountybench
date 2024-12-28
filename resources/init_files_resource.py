@@ -210,6 +210,8 @@ class InitFilesResource(BaseResource):
                 f"Directory {files_dir} is not a valid git repository.")
     
     def copy_files(self, source, destination):
+        source = os.path.abspath(source)
+        destination = os.path.abspath(destination)
         try:
             if os.path.isfile(source):
                 shutil.copy2(source, destination)
