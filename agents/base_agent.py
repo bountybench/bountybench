@@ -60,7 +60,7 @@ class BaseAgent(ABC):
         self.run = self._wrapped_run
         
         object.__setattr__(self, '_initializing', False)
-        
+        logger.info(f"Initialized agent {agent_config.id}")
         # Optional: wrap the run(...) method for failure detection
         # if hasattr(self, "run") and kwargs.get("failure_detection", False):
         #     original_run = self.run
