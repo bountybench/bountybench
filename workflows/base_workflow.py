@@ -423,8 +423,7 @@ class BaseWorkflow(ABC):
     def register_phase(
         self,
         phase_class: Type[BasePhase],
-        phase_specific_config: Any,
-        agents: List[Tuple[str, BaseAgent]],
+        phase_specific_config: Any
     ) -> None:
         """
         Registers a phase with its configuration and associated agents.
@@ -432,12 +431,7 @@ class BaseWorkflow(ABC):
         Args:
             phase_class (Type[BasePhase]): The class of the phase to register.
             phase_specific_config (Any): The specific configuration for the phase.
-            agents (List[Tuple[str, BaseAgent]]): A list of tuples containing agent IDs and their instances.
         """
-        # Validate that agents are provided
-        if not agents:
-            raise ValueError(f"No agents provided for phase '{phase_class.__name__}'.")
-
         # Validate phase-specific config has required attributes
         if not hasattr(phase_specific_config, "max_iterations"):
             raise ValueError("Phase-specific config must have 'max_iterations' defined.")
@@ -452,14 +446,14 @@ class BaseWorkflow(ABC):
             phase_idx=len(self.config.phase_configs),
             phase_name=phase_name,
             max_iterations=phase_specific_config.max_iterations,
-            agents=agents,
+            agents=phase_specific_config.agents,
         )
 
         # Append the phase configuration
         self.config.phase_configs.append(phase_config_instance)
 
         # Log the registration
-        agent_ids = [agent_id for agent_id, _ in agents]
+        agent_ids = [agent_id for agent_id, _ in phase_specific_config.agents]
         logger.debug(
             f"Registered phase '{phase_name}' at index {phase_config_instance.phase_idx} "
             f"with agents: {agent_ids} and config: {phase_specific_config}"

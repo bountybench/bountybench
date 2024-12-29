@@ -100,7 +100,6 @@ class ExecutorAgent(BaseAgent):
         """
         Formulates the prompt, including the truncated memory.
         """
-        logger.info(f"Input reponse in ExecutorAgent is {response}")
         if response:
             if self.initial_prompt:
                 self._update_memory(response)

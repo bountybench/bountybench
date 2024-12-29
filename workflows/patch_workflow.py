@@ -55,12 +55,12 @@ class PatchWorkflow(BaseWorkflow):
     def define_agent_configs(self) -> None:
         """Configure agents"""
         executor_lm_agent_config = AgentLMConfig(
-            model='openai/o3-mini-2024-12-17',
+            model="anthropic/claude-3-5-sonnet-20240620",
             max_output_tokens=25000,
             max_input_tokens=25000,
             max_iterations=25,
             max_iterations_stored_in_memory=3,
-            use_helm=False
+            use_helm=True
         )
 
         executor_agent_config = ExecutorAgentConfig(
@@ -98,10 +98,7 @@ class PatchWorkflow(BaseWorkflow):
         )
 
         # Register the phase
-        self.register_phase(PatchPhase, phase_config, [
-            ("executor_agent", self.agents["executor_agent"]),
-            ("patch_agent", self.agents["patch_agent"]),
-        ])
+        self.register_phase(PatchPhase, phase_config)
 
     def get_initial_prompt(self) -> str:
         exploit_report = read_exploit_report(self.task_repo_dir, self.bounty_number)
