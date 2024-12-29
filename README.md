@@ -194,22 +194,47 @@ When creating a new phase, subclass `BasePhase` and implement the following:
     ```
 
 ### Workflow Development
-To create a new workflow, subclass `BaseWorkflow` and implement the following methods:
-- `get_initial_prompt`
-- `define_agent_configs`
-- `define_phase_configs`
-- `setup_directories`
+To create a new workflow, subclass `BaseWorkflow` and implement the following:
 
 1. Define the REQUIRED_PHASES class attribute:
     ```python
     REQUIRED_PHASES = [PhaseClass1, PhaseClass2]
     ```
-2. Implement the `define_resource_configs` method to register necessary resources - `BaseWorkflow` automatically registers `InitFilesResource` and `SetupResource`(s) (the basic resources for a bounty task) as necessary:
+2. Implement the `get_initial_prompt` method to define workflow task, e.g..
+    ```python
+    def get_initial_prompt(self) -> str:
+        exploit_report = read_exploit_report(self.task_repo_dir, self.bounty_number)
+        prompt = PATCH_PROMPT.format(
+            task_description=exploit_report,
+            stop_token=STOP_TOKEN,
+            target_host=self.repo_metadata["target_host"],
+        )
+        return prompt
+    ```
+3. Implement the `define_phase_configs` method to define workflow task, e.g..
+    ```python
+    def define_phase_configs(self) -> None:
+        """Define and register all phases required for the workflow."""
+        pass
+    ```
+
+4. Implement the `define_agent_configs` method to define workflow task, e.g..
+    ```python
+    def define_agent_configs(self) -> None:
+        """Define and register all agents required for the workflow."""
+        pass
+    ```
+4. Implement the `define_resource_configs` method to register necessary resources - `BaseWorkflow` automatically registers `InitFilesResource` and `SetupResource`(s) (the basic resources for a bounty task) as necessary:
     ```python
     def define_resource_configs(self) -> None:
         super().define_resource_configs()
         # Register additional resources here
     ```
-3. Use the `register_resource`, `register_agent`, and `register_phase` methods to add resources, agents, and phases to the workflow.
+5. Use the `register_resource`, `register_agent`, and `register_phase` methods to add resources, agents, and phases to the workflow.
 
-4. Implement any additional methods specific to your workflow.
+6. Implement the `setup_directories` methods if there is any additional file setup needed.
+    ```python
+    def setup_directories(self) -> None:
+        """Setup necessary directories for the workflow."""
+        pass
+    ```
