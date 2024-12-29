@@ -88,6 +88,25 @@ Automatic processes:
 - Allocation to agents when required
 - Cleanup and deallocation when no longer needed
 
+### Validation Process
+The `BaseWorkflow` class includes a built-in validation process to ensure that all required components are properly registered and configured. This validation occurs automatically during workflow initialization and includes the following checks:
+
+#### Required Phases Validation:
+
+Ensures that all phases specified in the `REQUIRED_PHASES` class attribute are properly registered.
+Raises a `ValueError` if any required phase is missing.
+#### Required Agents Validation:
+Checks that all agents specified in each phase's `REQUIRED_AGENTS` attribute are registered.
+Raises a `ValueError` if any required agent is missing for a particular phase.
+#### Required Resources Validation:
+Verifies that all resources specified in each agent's `REQUIRED_RESOURCES` attribute are registered with the ResourceManager.
+Raises a `ValueError` if any required resource is missing.
+
+To leverage this validation process:
+Ensure that your workflow subclass correctly defines the `REQUIRED_PHASES` attribute, each phase class properly defines`REQUIRED_AGENTS`, each agent class properly defines `REQUIRED_RESOURCES`.
+Use the `register_resource`, `register_agent`, and `register_phase` methods in your workflow's configuration methods to register all necessary components.
+The validation process will automatically run during workflow initialization, helping to catch configuration errors early in the development process.
+
 ## Development
 
 This section provides guidelines for developing new components within the project.
@@ -111,9 +130,9 @@ When developing a new agent, subclass `BaseAgent` and implement the following:
 3. Optionally, implement additional helper methods as needed.
 
 4. Ensure proper resource handling:
-- Required resources will automatically raise a KeyError if missing.
-- Optional resources will be None if not available.
-- Only resources listed in ACCESSIBLE_RESOURCES will be bound as attributes.
+    - Required resources will automatically raise a KeyError if missing.
+    - Optional resources will be None if not available.
+    - Only resources listed in ACCESSIBLE_RESOURCES will be bound as attributes.
 
 ### Phase Development
 When creating a new phase, subclass `BasePhase` and implement the following:
@@ -142,7 +161,11 @@ To create a new workflow, subclass `BaseWorkflow` and implement the following me
 - `define_phase_configs`
 - `setup_directories`
 
-2. Implement the `define_resource_configs` method to register necessary resources - `BaseWorkflow` automatically registers `InitFilesResource` and `SetupResource`(s) as necessary:
+1. Define the REQUIRED_PHASES class attribute:
+    ```python
+    REQUIRED_PHASES = [PhaseClass1, PhaseClass2]
+    ```
+2. Implement the `define_resource_configs` method to register necessary resources - `BaseWorkflow` automatically registers `InitFilesResource` and `SetupResource`(s) (the basic resources for a bounty task) as necessary:
     ```python
     def define_resource_configs(self) -> None:
         super().define_resource_configs()
