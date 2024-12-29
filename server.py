@@ -9,7 +9,7 @@ import uvicorn
 import signal
 import sys
 
-from workflows.exploit_and_patch_workflow_v2 import ExploitAndPatchWorkflow
+from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from utils.workflow_logger import workflow_logger
 from utils.websocket_manager import websocket_manager
 

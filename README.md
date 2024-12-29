@@ -78,7 +78,7 @@ npm run
 
 To start the backend server, use the following command:
 ```
-uvicorn api.server:app --reload-exclude=bountybench
+uvicorn server:app --reload-exclude=bountybench
 ```
 
 ## System Architecture
@@ -231,21 +231,3 @@ To create a new workflow, subclass `BaseWorkflow` and implement the following me
 3. Use the `register_resource`, `register_agent`, and `register_phase` methods to add resources, agents, and phases to the workflow.
 
 4. Implement any additional methods specific to your workflow.
-
-### Running the Workflow UI
-To start, install the latest requirements.txt:
-```
-pip install -r requirements.txt
-```
-
-To run the workflow UI, use the following command:
-```
-cd frontend
-npm install
-npm run
-```
-
-To start the backend server, use the following command:
-```
-uvicorn api.server:app --reload-exclude=bountybench
-```
