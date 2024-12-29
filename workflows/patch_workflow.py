@@ -55,12 +55,12 @@ class PatchWorkflow(BaseWorkflow):
     def define_agent_configs(self) -> None:
         """Configure agents"""
         executor_lm_agent_config = AgentLMConfig(
-            model="anthropic/claude-3-5-sonnet-20240620",
+            model='openai/o3-mini-2024-12-17',
             max_output_tokens=25000,
             max_input_tokens=25000,
             max_iterations=25,
             max_iterations_stored_in_memory=3,
-            use_helm=True
+            use_helm=False
         )
 
         executor_agent_config = ExecutorAgentConfig(
