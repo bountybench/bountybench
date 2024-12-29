@@ -42,7 +42,8 @@ class ExecutorAgent(BaseAgent):
     # etc.
     REQUIRED_RESOURCES = [
        InitFilesResource,
-        (SetupResource, "setup_resource"),
+        (SetupResource, "task_server"),
+        (SetupResource, "repo_resource"),
         KaliEnvResource
     ]
     OPTIONAL_RESOURCES = []

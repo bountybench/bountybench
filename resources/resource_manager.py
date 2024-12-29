@@ -35,6 +35,7 @@ class ResourceManager:
         logger.debug(f"Registered resource '{resource_id}' with {resource_class.__name__}.")
 
 
+    
     def compute_schedule(self, phases: List[Type[BasePhase]]):
         """
         Compute the resource usage schedule across all phases.
