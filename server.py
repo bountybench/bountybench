@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from datetime import datetime
 import uvicorn
+import signal
+import sys
 
 from workflows.exploit_and_patch_workflow_v2 import ExploitAndPatchWorkflow
 from utils.workflow_logger import workflow_logger
@@ -22,8 +24,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Store active workflow instances
+# Store active workflow instances and connections
 active_workflows: Dict[str, dict] = {}
+should_exit = False
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    global should_exit
+    print("\nShutdown signal received. Cleaning up...")
+    should_exit = True
+    # Close all WebSocket connections
+    for workflow_id in list(websocket_manager.active_connections.keys()):
+        for connection in list(websocket_manager.active_connections[workflow_id]):
+            try:
+                connection.close()
+            except:
+                pass
+    sys.exit(0)
+
+# Register signal handlers
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Handle FastAPI shutdown event"""
+    global should_exit
+    should_exit = True
+    # Close all WebSocket connections
+    for workflow_id in list(websocket_manager.active_connections.keys()):
+        for connection in list(websocket_manager.active_connections[workflow_id]):
+            try:
+                await connection.close()
+            except:
+                pass
 
 @app.get("/workflow/list")
 async def list_workflows():
@@ -90,7 +124,9 @@ async def execute_workflow(workflow_id: str):
 
 async def run_workflow(workflow_id: str):
     """Run workflow in background and broadcast updates"""
-    if workflow_id not in active_workflows:
+    global should_exit
+    
+    if workflow_id not in active_workflows or should_exit:
         return
     
     workflow_data = active_workflows[workflow_id]
@@ -106,27 +142,31 @@ async def run_workflow(workflow_id: str):
         # Run the workflow
         await workflow.run()
         
-        workflow_data["status"] = "completed"
-        await websocket_manager.broadcast(workflow_id, {
-            "type": "status_update",
-            "status": "completed"
-        })
+        if not should_exit:
+            workflow_data["status"] = "completed"
+            await websocket_manager.broadcast(workflow_id, {
+                "type": "status_update",
+                "status": "completed"
+            })
         
     except Exception as e:
-        print(f"Workflow error: {e}")  # Add error logging
-        workflow_data["status"] = "error"
-        await websocket_manager.broadcast(workflow_id, {
-            "type": "status_update",
-            "status": "error",
-            "error": str(e)
-        })
+        if not should_exit:
+            print(f"Workflow error: {e}")
+            workflow_data["status"] = "error"
+            await websocket_manager.broadcast(workflow_id, {
+                "type": "status_update",
+                "status": "error",
+                "error": str(e)
+            })
 
 @app.websocket("/ws/{workflow_id}")
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     """WebSocket endpoint for real-time workflow updates"""
+    global should_exit
+    
     try:
         await websocket_manager.connect(workflow_id, websocket)
-        print(f"WebSocket connected for workflow {workflow_id}")  # Add connection logging
+        print(f"WebSocket connected for workflow {workflow_id}")
         
         # Send initial workflow state
         if workflow_id in active_workflows:
@@ -135,31 +175,40 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 "type": "initial_state",
                 "status": workflow_data["status"]
             })
-            print(f"Sent initial state for workflow {workflow_id}: {workflow_data['status']}")  # Add state logging
+            print(f"Sent initial state for workflow {workflow_id}: {workflow_data['status']}")
         
         # Handle incoming messages
-        while True:
+        while not should_exit:
             try:
                 data = await websocket.receive_json()
-                print(f"Received message from workflow {workflow_id}: {data}")  # Add message logging
+                if should_exit:
+                    break
+                    
+                print(f"Received message from workflow {workflow_id}: {data}")
                 
                 if data.get("type") == "user_input" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
-                    # Handle user input if workflow is interactive
                     if workflow.interactive:
                         # TODO: Implement user input handling
                         pass
                 elif data.get("type") == "start_execution":
-                    print(f"Starting execution for workflow {workflow_id}")  # Add execution logging
+                    print(f"Starting execution for workflow {workflow_id}")
                     asyncio.create_task(run_workflow(workflow_id))
+            except WebSocketDisconnect:
+                print(f"WebSocket disconnected for workflow {workflow_id}")
+                break
             except Exception as e:
-                print(f"Error handling message: {e}")  # Add error logging
+                print(f"Error handling message: {e}")
+                if "disconnect" in str(e).lower():
+                    break
                 
     except WebSocketDisconnect:
-        print(f"WebSocket disconnected for workflow {workflow_id}")  # Add disconnect logging
-        websocket_manager.disconnect(workflow_id, websocket)
+        print(f"WebSocket disconnected for workflow {workflow_id}")
     except Exception as e:
-        print(f"WebSocket error for workflow {workflow_id}: {e}")  # Add error logging
+        print(f"WebSocket error for workflow {workflow_id}: {e}")
+    finally:
+        websocket_manager.disconnect(workflow_id, websocket)
+        print(f"Cleaned up connection for workflow {workflow_id}")
 
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
