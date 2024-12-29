@@ -58,12 +58,18 @@ class WorkflowLogger:
     async def _broadcast_update(self, data: dict):
         """Broadcast update to WebSocket clients"""
         if self.workflow_id:
-            await websocket_manager.broadcast(self.workflow_id, data)
+            try:
+                await websocket_manager.broadcast(self.workflow_id, data)
+            except Exception as e:
+                print(f"Error broadcasting update: {e}")
 
-    @run_async
-    async def broadcast_update(self, data: dict):
+    def broadcast_update(self, data: dict):
         """Synchronous wrapper for _broadcast_update"""
-        await self._broadcast_update(data)
+        loop = asyncio.get_running_loop()
+        if not loop.is_running():
+            return asyncio.run(self._broadcast_update(data))
+        else:
+            return asyncio.create_task(self._broadcast_update(data))
 
     def initialize(
         self,
@@ -98,6 +104,8 @@ class WorkflowLogger:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         self.workflow_id = f"{workflow_name}_{timestamp}"
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{timestamp}.json"
+        
+        print(f"Initialized workflow logger with ID: {self.workflow_id}")
 
     def start_phase(self, phase_idx: int, phase_name: str) -> None:
         """Create a new workflow phase"""

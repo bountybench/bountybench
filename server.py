@@ -113,6 +113,7 @@ async def run_workflow(workflow_id: str):
         })
         
     except Exception as e:
+        print(f"Workflow error: {e}")  # Add error logging
         workflow_data["status"] = "error"
         await websocket_manager.broadcast(workflow_id, {
             "type": "status_update",
@@ -123,9 +124,10 @@ async def run_workflow(workflow_id: str):
 @app.websocket("/ws/{workflow_id}")
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     """WebSocket endpoint for real-time workflow updates"""
-    await websocket_manager.connect(workflow_id, websocket)
-    
     try:
+        await websocket_manager.connect(workflow_id, websocket)
+        print(f"WebSocket connected for workflow {workflow_id}")  # Add connection logging
+        
         # Send initial workflow state
         if workflow_id in active_workflows:
             workflow_data = active_workflows[workflow_id]
@@ -133,24 +135,31 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 "type": "initial_state",
                 "status": workflow_data["status"]
             })
+            print(f"Sent initial state for workflow {workflow_id}: {workflow_data['status']}")  # Add state logging
         
         # Handle incoming messages
         while True:
-            data = await websocket.receive_json()
-            if data.get("type") == "user_input" and workflow_id in active_workflows:
-                workflow = active_workflows[workflow_id]["instance"]
-                # Handle user input if workflow is interactive
-                if workflow.interactive:
-                    # TODO: Implement user input handling
-                    pass
-            elif data.get("type") == "start_execution":
-                # Start workflow execution when frontend is ready
-                asyncio.create_task(run_workflow(workflow_id))
+            try:
+                data = await websocket.receive_json()
+                print(f"Received message from workflow {workflow_id}: {data}")  # Add message logging
+                
+                if data.get("type") == "user_input" and workflow_id in active_workflows:
+                    workflow = active_workflows[workflow_id]["instance"]
+                    # Handle user input if workflow is interactive
+                    if workflow.interactive:
+                        # TODO: Implement user input handling
+                        pass
+                elif data.get("type") == "start_execution":
+                    print(f"Starting execution for workflow {workflow_id}")  # Add execution logging
+                    asyncio.create_task(run_workflow(workflow_id))
+            except Exception as e:
+                print(f"Error handling message: {e}")  # Add error logging
+                
     except WebSocketDisconnect:
+        print(f"WebSocket disconnected for workflow {workflow_id}")  # Add disconnect logging
         websocket_manager.disconnect(workflow_id, websocket)
     except Exception as e:
-        print(f"WebSocket error: {e}")
-        websocket_manager.disconnect(workflow_id, websocket)
+        print(f"WebSocket error for workflow {workflow_id}: {e}")  # Add error logging
 
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)

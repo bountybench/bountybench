@@ -10,6 +10,8 @@ export const useWorkflowWebSocket = (workflowId) => {
   
   const ws = useRef(null);
   const messageIdCounter = useRef(0);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 5;
 
   console.log('useWorkflowWebSocket state:', { 
     workflowId, 
@@ -17,11 +19,18 @@ export const useWorkflowWebSocket = (workflowId) => {
     workflowStatus,
     currentPhase,
     currentIteration,
-    messageCount: messages.length
+    messageCount: messages.length,
+    reconnectAttempts: reconnectAttempts.current
   });
 
   const connect = useCallback(() => {
     if (!workflowId) return;
+
+    if (reconnectAttempts.current >= maxReconnectAttempts) {
+      console.error('Max reconnection attempts reached');
+      setError('Failed to connect after multiple attempts');
+      return;
+    }
 
     const wsUrl = `ws://localhost:8000/ws/${workflowId}`;
     console.log('Connecting to WebSocket:', wsUrl);
@@ -37,6 +46,7 @@ export const useWorkflowWebSocket = (workflowId) => {
       console.log('WebSocket connected');
       setIsConnected(true);
       setError(null);
+      reconnectAttempts.current = 0;
       
       // Start workflow execution
       try {
@@ -44,20 +54,26 @@ export const useWorkflowWebSocket = (workflowId) => {
           method: 'POST'
         });
         if (!response.ok) {
-          throw new Error('Failed to start workflow execution');
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to start workflow execution');
         }
         console.log('Workflow execution started');
       } catch (err) {
         console.error('Failed to start workflow:', err);
-        setError('Failed to start workflow execution');
+        setError('Failed to start workflow execution: ' + err.message);
       }
     };
 
-    ws.current.onclose = () => {
-      console.log('WebSocket disconnected');
+    ws.current.onclose = (event) => {
+      console.log('WebSocket disconnected:', event);
       setIsConnected(false);
-      // Attempt to reconnect after 1 second
-      setTimeout(connect, 1000);
+      
+      if (!event.wasClean) {
+        reconnectAttempts.current++;
+        console.log(`Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+        // Attempt to reconnect with exponential backoff
+        setTimeout(connect, Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000));
+      }
     };
 
     ws.current.onerror = (event) => {
@@ -73,10 +89,12 @@ export const useWorkflowWebSocket = (workflowId) => {
         switch (data.type) {
           case 'status_update':
           case 'initial_state':
+            console.log('Setting workflow status:', data.status);
             setWorkflowStatus(data.status);
             break;
 
           case 'phase_update':
+            console.log('Setting phase:', data.phase);
             setCurrentPhase(data.phase);
             if (data.phase.status === 'completed') {
               setMessages([]); // Clear messages when phase completes
@@ -84,6 +102,7 @@ export const useWorkflowWebSocket = (workflowId) => {
             break;
 
           case 'iteration_update':
+            console.log('Setting iteration:', data.iteration);
             setCurrentIteration(data.iteration);
             if (data.iteration.input) {
               const message = {
@@ -108,6 +127,7 @@ export const useWorkflowWebSocket = (workflowId) => {
             break;
 
           case 'action_update':
+            console.log('Received action:', data.action);
             const actionMessage = {
               id: `msg_${messageIdCounter.current++}`,
               content: data.action.action_type,
@@ -128,20 +148,22 @@ export const useWorkflowWebSocket = (workflowId) => {
         }
       } catch (err) {
         console.error('Error processing WebSocket message:', err);
-        setError('Failed to process workflow update');
+        setError('Failed to process workflow update: ' + err.message);
       }
     };
   }, [workflowId]);
 
   useEffect(() => {
-    connect();
-    return () => {
-      if (ws.current) {
-        console.log('Closing WebSocket connection');
-        ws.current.close();
-      }
-    };
-  }, [connect]);
+    if (workflowId) {
+      connect();
+      return () => {
+        if (ws.current) {
+          console.log('Closing WebSocket connection');
+          ws.current.close();
+        }
+      };
+    }
+  }, [connect, workflowId]);
 
   const sendMessage = useCallback((message) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
