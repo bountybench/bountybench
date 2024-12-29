@@ -1,27 +1,204 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Card, CardContent, IconButton, TextField, Button, CircularProgress } from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
+import { Box, Typography, Card, CardContent, IconButton, TextField, Button, CircularProgress, Collapse } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ReactMarkdown from 'react-markdown';
 import './AgentInteractions.css';
 
-const MessageBubble = ({ message, isAgent, onClick }) => {
-  console.log('Rendering message:', message); // Debug log
-  return (
-    <Box className={`message-container ${isAgent ? 'agent' : 'user'}`} onClick={onClick}>
-      <Card className={`message-bubble ${isAgent ? 'agent-bubble' : 'user-bubble'}`}>
-        <CardContent>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            {isAgent ? message.agent : 'User'}
-          </Typography>
-          <ReactMarkdown>{message.content}</ReactMarkdown>
-          {message.actions && message.actions.length > 0 && (
-            <Box className="action-details">
-              <Typography variant="caption" color="text.secondary">
-                Actions: {message.actions.length}
+const ActionCard = ({ action }) => {
+  const [expanded, setExpanded] = useState(true);
+  console.log('Rendering action:', action);
+
+  if (!action) return null;
+
+  const formatData = (data) => {
+    if (!data) return '';
+    if (typeof data === 'string') return data;
+    
+    // Handle objects with stdout/stderr
+    if (data.stdout || data.stderr) {
+      return `${data.stdout || ''}\n${data.stderr || ''}`.trim();
+    }
+    
+    try {
+      // If it's a JSON string, parse and format it
+      if (typeof data === 'string') {
+        const parsed = JSON.parse(data);
+        return JSON.stringify(parsed, null, 2);
+      }
+      // If it's already an object, just stringify it
+      return JSON.stringify(data, null, 2);
+    } catch (e) {
+      // If it's not JSON, return as is
+      return String(data);
+    }
+  };
+
+  const renderContent = (content, label) => {
+    if (!content) return null;
+    const formattedContent = formatData(content);
+    if (!formattedContent) return null;
+    
+    // For LLM actions, try to extract the actual response
+    if (action.action_type === 'llm' && label === 'Output' && content) {
+      try {
+        const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+        if (parsed.response) {
+          return (
+            <Box mt={1}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                {label}:
               </Typography>
+              <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
+                <ReactMarkdown>{parsed.response}</ReactMarkdown>
+              </Card>
+            </Box>
+          );
+        }
+      } catch (e) {
+        // If parsing fails, fall back to default rendering
+      }
+    }
+    
+    return (
+      <Box mt={1}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+          {label}:
+        </Typography>
+        <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
+          <Typography 
+            variant="body2" 
+            component="pre" 
+            sx={{ 
+              whiteSpace: 'pre-wrap', 
+              overflowX: 'auto',
+              m: 0,
+              fontFamily: 'monospace',
+              fontSize: '0.85rem'
+            }}
+          >
+            {formattedContent}
+          </Typography>
+        </Card>
+      </Box>
+    );
+  };
+
+  return (
+    <Card className="action-card" variant="outlined">
+      <CardContent>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Box>
+            <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold' }}>
+              {action.action_type.toUpperCase()}
+            </Typography>
+            {action.timestamp && (
+              <Typography variant="caption" color="text.secondary">
+                {new Date(action.timestamp).toLocaleTimeString()}
+              </Typography>
+            )}
+          </Box>
+          <IconButton
+            onClick={() => setExpanded(!expanded)}
+            sx={{ 
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s'
+            }}
+          >
+            <ExpandMoreIcon />
+          </IconButton>
+        </Box>
+        
+        <Collapse in={expanded}>
+          {renderContent(action.input_data, 'Input')}
+          {renderContent(action.output_data, 'Output')}
+          {action.metadata && Object.keys(action.metadata).length > 0 && (
+            <Box mt={1}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                Metadata:
+              </Typography>
+              <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
+                <Typography 
+                  variant="body2" 
+                  component="pre" 
+                  sx={{ 
+                    whiteSpace: 'pre-wrap', 
+                    overflowX: 'auto',
+                    m: 0,
+                    fontFamily: 'monospace',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  {formatData(action.metadata)}
+                </Typography>
+              </Card>
             </Box>
           )}
+        </Collapse>
+      </CardContent>
+    </Card>
+  );
+};
+
+const MessageBubble = ({ message }) => {
+  const [expanded, setExpanded] = useState(false);
+  console.log('Rendering message:', message);
+  
+  if (!message) return null;
+
+  const hasContent = message.input?.content || message.output?.content;
+  const hasActions = message.actions && message.actions.length > 0;
+  const messageClass = message.isSystem ? 'system' : message.isUser ? 'user' : 'agent';
+  
+  return (
+    <Box className={`message-container ${messageClass}`}>
+      <Card 
+        className={`message-bubble ${messageClass}-bubble`}
+        onClick={() => setExpanded(!expanded)}
+        sx={{ cursor: 'pointer' }}
+      >
+        <CardContent>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              {message.agent_name || 'System'}
+            </Typography>
+            {(hasContent || hasActions) && (
+              <IconButton
+                size="small"
+                sx={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              >
+                <ExpandMoreIcon />
+              </IconButton>
+            )}
+          </Box>
+          
+          <Collapse in={expanded || message.isSystem}>
+            {message.input?.content && (
+              <Box mt={1}>
+                <Typography variant="caption" color="text.secondary">Input:</Typography>
+                <Box sx={{ mt: 1 }}>
+                  <ReactMarkdown>{message.input.content}</ReactMarkdown>
+                </Box>
+              </Box>
+            )}
+            {message.output?.content && (
+              <Box mt={1}>
+                <Typography variant="caption" color="text.secondary">Output:</Typography>
+                <Box sx={{ mt: 1 }}>
+                  <ReactMarkdown>{message.output.content}</ReactMarkdown>
+                </Box>
+              </Box>
+            )}
+            {hasActions && (
+              <Box mt={2}>
+                <Typography variant="subtitle2" gutterBottom>Actions:</Typography>
+                {message.actions.map((action, index) => (
+                  <Box key={index} mt={1}>
+                    <ActionCard action={action} />
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Collapse>
         </CardContent>
       </Card>
     </Box>
@@ -36,10 +213,16 @@ export const AgentInteractions = ({
   messages = [],
   onSendMessage 
 }) => {
-  console.log('AgentInteractions props:', { workflow, interactiveMode, currentPhase, currentIteration, messages }); // Debug log
+  console.log('AgentInteractions props:', { 
+    workflow, 
+    interactiveMode, 
+    currentPhase, 
+    currentIteration, 
+    messageCount: messages?.length,
+    messages: messages
+  });
   
   const [userInput, setUserInput] = useState('');
-  const [selectedMessage, setSelectedMessage] = useState(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -60,11 +243,6 @@ export const AgentInteractions = ({
     }
   };
 
-  const handleMessageClick = (message) => {
-    console.log('Message clicked:', message); // Debug log
-    setSelectedMessage(selectedMessage?.id === message.id ? null : message);
-  };
-
   if (!messages) {
     return (
       <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
@@ -82,14 +260,6 @@ export const AgentInteractions = ({
             Phase: {currentPhase.phase_name} - Iteration: {currentIteration?.iteration_number}
           </Typography>
         )}
-        <Box>
-          <IconButton size="small">
-            <PlayArrowIcon />
-          </IconButton>
-          <IconButton size="small">
-            <PauseIcon />
-          </IconButton>
-        </Box>
       </Box>
 
       <Box className="messages-container">
@@ -102,34 +272,11 @@ export const AgentInteractions = ({
             <MessageBubble
               key={message.id || index}
               message={message}
-              isAgent={!message.isUser}
-              onClick={() => handleMessageClick(message)}
             />
           ))
         )}
         <div ref={messagesEndRef} />
       </Box>
-
-      {selectedMessage && selectedMessage.actions && (
-        <Box className="message-details">
-          <Typography variant="h6">Action Details</Typography>
-          {selectedMessage.actions.map((action, index) => (
-            <Card key={index} className="action-card">
-              <CardContent>
-                <Typography variant="subtitle2">{action.type}</Typography>
-                <ReactMarkdown>{action.description}</ReactMarkdown>
-                {action.metadata && (
-                  <Box mt={1}>
-                    <Typography variant="caption" color="text.secondary">
-                      Metadata: {JSON.stringify(action.metadata)}
-                    </Typography>
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
-      )}
 
       {interactiveMode && (
         <Box className="input-container">

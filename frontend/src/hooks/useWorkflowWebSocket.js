@@ -12,6 +12,7 @@ export const useWorkflowWebSocket = (workflowId) => {
   const messageIdCounter = useRef(0);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+  const currentIterationRef = useRef(null);
 
   console.log('useWorkflowWebSocket state:', { 
     workflowId, 
@@ -48,7 +49,6 @@ export const useWorkflowWebSocket = (workflowId) => {
       setError(null);
       reconnectAttempts.current = 0;
       
-      // Start workflow execution
       try {
         const response = await fetch(`http://localhost:8000/workflow/execute/${workflowId}`, {
           method: 'POST'
@@ -71,7 +71,6 @@ export const useWorkflowWebSocket = (workflowId) => {
       if (!event.wasClean) {
         reconnectAttempts.current++;
         console.log(`Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
-        // Attempt to reconnect with exponential backoff
         setTimeout(connect, Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000));
       }
     };
@@ -96,51 +95,102 @@ export const useWorkflowWebSocket = (workflowId) => {
           case 'phase_update':
             console.log('Setting phase:', data.phase);
             setCurrentPhase(data.phase);
-            if (data.phase.status === 'completed') {
-              setMessages([]); // Clear messages when phase completes
+            // Create a message for phase updates
+            if (data.phase.status) {
+              const phaseMessage = {
+                id: `msg_${messageIdCounter.current++}`,
+                agent_name: 'System',
+                timestamp: new Date().toISOString(),
+                input: {
+                  content: `Phase ${data.phase.phase_name} ${data.phase.status}`
+                },
+                isSystem: true
+              };
+              setMessages(prev => [...prev, phaseMessage]);
             }
             break;
 
           case 'iteration_update':
             console.log('Setting iteration:', data.iteration);
             setCurrentIteration(data.iteration);
-            if (data.iteration.input) {
-              const message = {
-                id: `msg_${messageIdCounter.current++}`,
-                content: data.iteration.input.content,
-                agent: data.iteration.agent_name,
-                timestamp: new Date().toISOString(),
-                isUser: false
-              };
-              setMessages(prev => [...prev, message]);
-            }
-            if (data.iteration.output) {
-              const message = {
-                id: `msg_${messageIdCounter.current++}`,
-                content: data.iteration.output.content,
-                agent: data.iteration.agent_name,
-                timestamp: new Date().toISOString(),
-                isUser: false
-              };
-              setMessages(prev => [...prev, message]);
-            }
+            currentIterationRef.current = data.iteration;
+            
+            // Create a message for the iteration
+            const iterationMessage = {
+              id: `msg_${messageIdCounter.current++}`,
+              agent_name: data.iteration.agent_name,
+              timestamp: new Date().toISOString(),
+              input: data.iteration.input,
+              output: data.iteration.output,
+              actions: [],
+              status: data.iteration.status
+            };
+            setMessages(prev => [...prev, iterationMessage]);
             break;
 
           case 'action_update':
             console.log('Received action:', data.action);
-            const actionMessage = {
-              id: `msg_${messageIdCounter.current++}`,
-              content: data.action.action_type,
-              metadata: data.action.metadata,
-              timestamp: data.action.timestamp,
-              isUser: false,
-              actions: [{
-                type: data.action.action_type,
-                description: JSON.stringify(data.action.output_data),
-                metadata: data.action.metadata
-              }]
-            };
-            setMessages(prev => [...prev, actionMessage]);
+            // Add the action to the current iteration's message
+            setMessages(prev => {
+              const lastMessage = prev[prev.length - 1];
+              
+              // For LLM actions, update the output of the last message
+              if (data.action.action_type === 'llm' && data.action.output_data) {
+                if (lastMessage) {
+                  return [...prev.slice(0, -1), {
+                    ...lastMessage,
+                    output: {
+                      ...lastMessage.output,
+                      content: data.action.output_data
+                    },
+                    actions: [
+                      ...(lastMessage.actions || []),
+                      {
+                        action_type: data.action.action_type,
+                        input_data: data.action.input_data,
+                        output_data: data.action.output_data,
+                        metadata: data.action.metadata,
+                        timestamp: data.action.timestamp
+                      }
+                    ]
+                  }];
+                }
+              }
+              
+              // If there's no current message or the last message isn't from the current iteration,
+              // create a new message for this action
+              if (!lastMessage || !lastMessage.actions) {
+                return [...prev, {
+                  id: `msg_${messageIdCounter.current++}`,
+                  agent_name: currentIterationRef.current?.agent_name || 'System',
+                  timestamp: data.action.timestamp,
+                  actions: [{
+                    action_type: data.action.action_type,
+                    input_data: data.action.input_data,
+                    output_data: data.action.output_data,
+                    metadata: data.action.metadata,
+                    timestamp: data.action.timestamp
+                  }]
+                }];
+              }
+              
+              // Add the action to the existing message
+              const updatedMessage = {
+                ...lastMessage,
+                actions: [
+                  ...(lastMessage.actions || []),
+                  {
+                    action_type: data.action.action_type,
+                    input_data: data.action.input_data,
+                    output_data: data.action.output_data,
+                    metadata: data.action.metadata,
+                    timestamp: data.action.timestamp
+                  }
+                ]
+              };
+              
+              return [...prev.slice(0, -1), updatedMessage];
+            });
             break;
 
           default:
@@ -173,8 +223,9 @@ export const useWorkflowWebSocket = (workflowId) => {
       // Add user message to the list
       const userMessage = {
         id: `msg_${messageIdCounter.current++}`,
-        content: message.content,
+        agent_name: 'User',
         timestamp: new Date().toISOString(),
+        input: { content: message.content },
         isUser: true
       };
       setMessages(prev => [...prev, userMessage]);
