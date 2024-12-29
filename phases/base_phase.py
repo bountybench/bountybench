@@ -16,7 +16,7 @@ class PhaseConfig:
     phase_name: str
     max_iterations: int
     agents: List[Tuple[str, BaseAgent]] = field(default_factory=list)
-    interactive: bool = True
+    interactive: bool = False
     
 class BasePhase(ABC):
     """
@@ -89,7 +89,7 @@ class BasePhase(ABC):
                         logger.warning("Interactive mode is set, but workflow doesn't have next_iteration_event")
 
                         
-                    agent_name, agent_instance = self._get_agent()
+                agent_name, agent_instance = self._get_agent()
 
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_name, last_output) as iteration_ctx:
@@ -100,7 +100,8 @@ class BasePhase(ABC):
                         iteration_num=iteration_num
                     )
                     iteration_ctx.set_output(iteration_output)
-                    logger.info(f"Iteration output:\n{iteration_output.response}")
+                    logger.info(f"Iteration output:\n")
+                    logger.info(iteration_output.response)
                 if iteration_done:
                     success_flag = True
                     self._done = True

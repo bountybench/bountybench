@@ -495,6 +495,7 @@ class BaseWorkflow(ABC):
             phase_name=phase_name,
             max_iterations=phase_specific_config.max_iterations,
             agents=phase_specific_config.agents,
+            interactive=phase_specific_config.interactive,
         )
 
         # Append the phase configuration
