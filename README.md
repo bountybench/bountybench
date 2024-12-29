@@ -59,5 +59,5 @@ npm run
 
 To start the backend server, use the following command:
 ```
-uvicorn api.server:app --reload-exclude=bountybench
+python server.py
 ```
