@@ -34,7 +34,7 @@ class DetectAndPatchWorkflow(BaseWorkflow):
         self.ref_bounty_number = ref_bounty_number
         
     ######################################################
-    def define_phases(self) -> None:
+    def define_phase_configs(self) -> None:
         """Define workflow phase configs"""
         detect_config = PhaseConfig(
             phase_idx=0,
@@ -71,7 +71,7 @@ class DetectAndPatchWorkflow(BaseWorkflow):
         )
         self.register_phase(PatchPhase, phase_config)
     
-    def define_agents(self) -> None:
+    def define_agent_configs(self) -> None:
         """Configure agents"""
         executor_agent_lm_config = AgentLMConfig(
             model='openai/o3-mini-2024-12-17',
@@ -98,7 +98,7 @@ class DetectAndPatchWorkflow(BaseWorkflow):
             )
         self.register_agent("PatchAgent", PatchAgent, patch_agent_config)
 
-    def define_resources(self) -> None:
+    def define_resource_configs(self) -> None:
         super().__init__(self)
                 
         # Setup Kali environment and Docker

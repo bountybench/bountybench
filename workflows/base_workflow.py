@@ -114,9 +114,9 @@ class BaseWorkflow(ABC):
 
         # Setup workflow
         self.setup_init()
-        self.define_resources()
-        self.define_agents()
-        self.define_phases()
+        self.define_resource_configs()
+        self.define_agent_configs()
+        self.define_phase_configs()
         self._compute_schedule()
 
     @abstractmethod
@@ -125,12 +125,12 @@ class BaseWorkflow(ABC):
         pass
 
     @abstractmethod
-    def define_agents(self) -> None:
+    def define_agent_configs(self) -> None:
         """Define and register all agents required for the workflow."""
         pass
 
     @abstractmethod
-    def define_phases(self) -> None:
+    def define_phase_configs(self) -> None:
         """Define and register all phases required for the workflow."""
         pass
 
@@ -365,7 +365,7 @@ class BaseWorkflow(ABC):
         agent_instance = self.create_agent(agent_class, agent_config)
         logger.debug(f"Registered agent '{agent_config.id}' of type '{agent_class.__name__}'")
 
-    def define_resources(self) -> None:
+    def define_resource_configs(self) -> None:
         """
         Defines and registers all necessary resources for the workflow.
         """

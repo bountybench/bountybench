@@ -25,9 +25,9 @@ class PatchWorkflow(BaseWorkflow):
         super().__init__(task_repo_dir, bounty_number, workflow_id, interactive)
         self.patch_files_path: Optional[str] = None
 
-    def define_resources(self) -> None:
+    def define_resource_configs(self) -> None:
         try:
-            super().define_resources()
+            super().define_resource_configs()
             
             tmp_dir = os.path.join(str(self.task_repo_dir), "tmp")
             self.patch_files_path = os.path.join(tmp_dir, "patch_files")
@@ -52,7 +52,7 @@ class PatchWorkflow(BaseWorkflow):
             logger.error(f"Failed to define resources: {e}")
             raise
 
-    def define_agents(self) -> None:
+    def define_agent_configs(self) -> None:
         """Configure agents"""
         executor_lm_agent_config = AgentLMConfig(
             model='openai/o3-mini-2024-12-17',
@@ -78,7 +78,7 @@ class PatchWorkflow(BaseWorkflow):
         self.register_agent(PatchAgent, patch_agent_config)
         logger.info(f"Patch agent registered: {self.agents['patch_agent']}")
 
-    def define_phases(self) -> None:
+    def define_phase_configs(self) -> None:
         """Configure phases"""
         # Validate agents are registered before proceeding
         if "executor_agent" not in self.agents:

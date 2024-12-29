@@ -38,11 +38,11 @@ class MockWorkflow(BaseWorkflow):
     def get_initial_prompt(self) -> str:
         return "Mock initial prompt"
 
-    def define_agents(self) -> None:
+    def define_agent_configs(self) -> None:
         agent_config = AgentConfig(id="mock_agent")
         self.register_agent(MockAgent, agent_config)
 
-    def define_phases(self) -> None:
+    def define_phase_configs(self) -> None:
         phase_config = PhaseConfig(
             phase_idx=0,
             phase_name=MockPhase,
@@ -51,8 +51,8 @@ class MockWorkflow(BaseWorkflow):
         )
         self.register_phase(MockPhase, phase_config)
 
-    def define_resources(self) -> None:
-        super().define_resources()
+    def define_resource_configs(self) -> None:
+        super().define_resource_configs()
         mock_resource_config = BaseResourceConfig()
         self.register_resource("mock_resource", MockResource, mock_resource_config)
 
