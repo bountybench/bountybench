@@ -89,7 +89,7 @@ async def run_workflow(workflow_id: str):
         })
         
         # Run workflow
-        workflow.run()
+        await asyncio.to_thread(workflow.run)
         
         workflow_data["status"] = "completed"
         await WorkflowManager.broadcast_update(workflow_id, {
@@ -141,4 +141,4 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
             active_connections[workflow_id].remove(websocket)
 
 if __name__ == "__main__":
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
