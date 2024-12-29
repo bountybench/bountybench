@@ -22,6 +22,7 @@ from utils.workflow_logger import workflow_logger
 # Initialize the module-level logger
 logger = logging.getLogger(__name__)
 
+MAX_ITERATIONS = 10
 
 class WorkflowStatus(Enum):
     """Status of workflow execution"""
@@ -116,8 +117,8 @@ class BaseWorkflow(ABC):
         # Setup workflow
         self.setup_init()
         self.define_resource_configs()
-        self.define_agent_configs()
-        self.define_phase_configs()
+        self.create_agents()
+        self.create_phases()
 
         self.validate_registrations()
 
@@ -129,13 +130,8 @@ class BaseWorkflow(ABC):
         pass
 
     @abstractmethod
-    def define_agent_configs(self) -> None:
-        """Define and register all agents required for the workflow."""
-        pass
-
-    @abstractmethod
-    def define_phase_configs(self) -> None:
-        """Define and register all phases required for the workflow."""
+    def create_agents(self) -> None:
+        """Calls create_agent for all agents required for the workflow."""
         pass
 
     def validate_registrations(self):
@@ -196,12 +192,10 @@ class BaseWorkflow(ABC):
             
             # Step 1: Setup resources for the phase
             self.setup_phase_resources(phase_index)
-            
             # Step 2: Setup agents for the phase
             self.setup_phase_agents(phase_index)
             
-            # Step 3: Create the phase instance
-            phase_instance = self._create_phase(phase_index, initial_response)
+            phase_instance = self.phases[phase_index]
             
             logger.info(f"Phase {phase_index} setup complete: {phase_instance.__class__.__name__}")
             return phase_instance
@@ -291,26 +285,31 @@ class BaseWorkflow(ABC):
             logger.error(f"Failed to create agent '{agent_config}': {e}")
             raise
 
-    def _create_phase(self, phase_index: int, initial_response: Optional[BaseResponse] = None) -> BasePhase:
-        """
-        Creates an instance of a phase based on its configuration.
+    @abstractmethod
+    def create_phases(self) -> None:
+        pass
 
-        Args:
-            phase_index (int): The index of the phase to create.
-
-        Returns:
-            BasePhase: The instantiated phase.
-        """
+    def create_phase(self, phase_class: BasePhase, max_iterations: Optional[int] = None, agents: Optional[List[str]] = None):
+        phase_index = len(self.phases)
         try:
-            phase_config = self.config.phase_configs[phase_index]
-            phase_class = self.phase_class_map[phase_config.phase_name]
-            phase_instance = phase_class(phase_config=phase_config, initial_response=initial_response)
+            # Create the phase configuration
+            phase_config = PhaseConfig(
+                phase_idx=phase_index,
+                max_iterations=max_iterations if max_iterations else MAX_ITERATIONS,
+                agents=agents if agents else self.get_phase_agents(phase_class),
+                interactive=self.interactive
+            )
+
+            phase_instance = phase_class(phase_config=phase_config)
             self.phases.append(phase_instance)
             logger.debug(f"Created phase: {phase_class.__name__} for Workflow ID: {self.config.id}")
             return phase_instance
         except Exception as e:
             logger.error(f"Failed to create phase at index {phase_index}: {e}")
             raise
+
+    def get_phase_agents(self, phase_class: BasePhase):
+        pass
 
     def _validate_phase_configs(self) -> None:
         """
@@ -362,7 +361,6 @@ class BaseWorkflow(ABC):
         logger.info("Checking out main branch.")
         run_command(["git", "checkout", "main"], codebase_path)
 
-    @abstractmethod
     def setup_directories(self) -> None:
         """Setup necessary directories for the workflow."""
         pass
@@ -390,23 +388,6 @@ class BaseWorkflow(ABC):
         
         registered_resources = set(self.resource_manager.resources)
         logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
-
-    def register_agent(
-        self,
-        agent_class: Type[BaseAgent],
-        agent_config: AgentConfig
-    ) -> None:
-        """
-        Registers an agent with the workflow.
-
-        Args:
-            agent_id (str): The unique identifier for the agent.
-            agent_class (Type[BaseAgent]): The class of the agent.
-            agent_config (AgentConfig): The configuration for the agent.
-        """
-        # Instantiate and register the agent
-        agent_instance = self.create_agent(agent_class, agent_config)
-        logger.debug(f"Registered agent '{agent_config.id}' of type '{agent_class.__name__}'")
 
     def define_resource_configs(self) -> None:
         """
@@ -462,45 +443,6 @@ class BaseWorkflow(ABC):
         except Exception as e:
             logger.error(f"Failed to define resources: {e}")
             raise
-
-    def register_phase(
-        self,
-        phase_class: Type[BasePhase],
-        phase_specific_config: Any
-    ) -> None:
-        """
-        Registers a phase with its configuration and associated agents.
-
-        Args:
-            phase_class (Type[BasePhase]): The class of the phase to register.
-            phase_specific_config (Any): The specific configuration for the phase.
-        """
-        # Validate phase-specific config has required attributes
-        if not hasattr(phase_specific_config, "max_iterations"):
-            raise ValueError("Phase-specific config must have 'max_iterations' defined.")
-
-        # Add the phase class to the phase_class_map if not already present
-        phase_name = phase_class.__name__
-        if phase_name not in self.phase_class_map:
-            self.phase_class_map[phase_name] = phase_class
-
-        # Create the phase configuration
-        phase_config_instance = PhaseConfig(
-            phase_idx=len(self.config.phase_configs),
-            phase_name=phase_name,
-            max_iterations=phase_specific_config.max_iterations,
-            agents=phase_specific_config.agents,
-        )
-
-        # Append the phase configuration
-        self.config.phase_configs.append(phase_config_instance)
-
-        # Log the registration
-        agent_ids = [agent_id for agent_id, _ in phase_specific_config.agents]
-        logger.debug(
-            f"Registered phase '{phase_name}' at index {phase_config_instance.phase_idx} "
-            f"with agents: {agent_ids} and config: {phase_specific_config}"
-        )
 
     def run_phases(self):
         """

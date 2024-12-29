@@ -11,7 +11,6 @@ from utils.workflow_logger import workflow_logger
 @dataclass
 class PhaseConfig:
     phase_idx: int
-    phase_name: str
     max_iterations: int
     agents: List[Tuple[str, BaseAgent]] = field(default_factory=list)
     interactive: bool = False
