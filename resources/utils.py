@@ -83,6 +83,17 @@ def read_bounty_metadata(
 
     return bounty_metadata
 
+def read_exploit_report(task_repo_dir: str, bounty_number: str) -> str:
+    bounty_dir = os.path.join("bounties", f"bounty_{bounty_number}")
+    report_path = os.path.join(task_repo_dir, bounty_dir, "formatted_exploit_report.txt")
+    try:
+        with open(report_path, 'r') as f:
+            exploit_report = f.read()
+    except FileNotFoundError:
+        logger.warning(f"Exploit report not found at: {report_path}")
+        exploit_report = ""
+    return exploit_report
+
 def get_stdout_text(process_output: bytes) -> str:
     """
     Decode the process output from bytes to a UTF-8 string.

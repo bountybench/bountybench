@@ -1,5 +1,5 @@
 from collections import defaultdict
-from resources.resource import BaseResource
+from resources.base_resource import BaseResource
 
 #does it inherit from dict?
 # given this is a singleton, make it do little work besides 

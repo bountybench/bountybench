@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 @dataclass
-class AgentConfig:
+class AgentLMConfig:
     model: str
     max_output_tokens: int = 4000
     max_input_tokens: int = 2000
