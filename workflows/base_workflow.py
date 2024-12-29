@@ -306,7 +306,7 @@ class BaseWorkflow(ABC):
         try:
             phase_config = self.config.phase_configs[phase_index]
             phase_class = self.phase_class_map[phase_config.phase_name]
-            phase_instance = phase_class(phase_config=phase_config, initial_response=initial_response)
+            phase_instance = phase_class(phase_config=phase_config, initial_response=initial_response, workflow=self)
             self.phases.append(phase_instance)
             logger.debug(f"Created phase: {phase_class.__name__} for Workflow ID: {self.config.id}")
             return phase_instance
@@ -503,83 +503,72 @@ class BaseWorkflow(ABC):
             f"Registered phase '{phase_name}' at index {phase_config_instance.phase_idx} "
             f"with agents: {agent_ids} and config: {phase_specific_config}"
         )
-
-    def run_phases(self):
+        
+    async def run_phases(self):
         """
         Generator that executes workflow phases one at a time.
         Yields (phase_response, phase_success) after each phase execution.
         """
         try:
-            # self.setup_phases()
+            print("Let's try to run")
             self._validate_phase_configs()
             self.status = WorkflowStatus.INCOMPLETE
-            
+
             prev_response = None
             if hasattr(self.config, "initial_prompt") and self.config.initial_prompt:
                 prev_response = BaseResponse(self.config.initial_prompt)
 
-            if hasattr(self.config, "initial_prompt") and self.config.initial_prompt:
-                prev_response = BaseResponse(self.config.initial_prompt)
-
-            # Execute phases in sequence
             for phase_idx, phase_config in enumerate(self.config.phase_configs):
                 self._current_phase_idx = phase_idx
-                
-                # Create and run phase
+
+                # Create (and set up) the phase
                 phase = self.setup_phase(phase_idx, prev_response)
                 logger.info(f"Phase {phase.phase_config.phase_name} set up")
-                phase_response, phase_success = phase.run_phase()
-                
-                # Update workflow state
+
+                # Because run_phase is now async, we must await it.
+                phase_response, phase_success = await phase.run_phase()
+
+                # If the phase indicated success=False, or we hit max iterations, break.
                 prev_response = phase_response
                 if not phase_success:
                     self.status = WorkflowStatus.COMPLETED_FAILURE
                     yield phase_response, phase_success
-                    yield phase_response, phase_success
-                    break
-                    
+                    break  # or return, depending on your logic
+
+                # Possibly check overall iteration count, etc.
                 self._workflow_iteration_count += 1
-                if self._workflow_iteration_count >= self.config.max_iterations:
-                    self._workflow_iteration_count += 1
                 if self._workflow_iteration_count >= self.config.max_iterations:
                     self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
                     yield phase_response, phase_success
-                    yield phase_response, phase_success
                     break
-                
+
                 # Yield current phase results
                 yield phase_response, phase_success
+
+                # Deallocate resources
                 self.takedown_phase_resources(phase_idx)
-                    
-            # If we completed all phases successfully
-            if phase_success and phase_idx == len(self.config.phase_configs) - 1:
+            else:
+                # If we didn't break out, we completed all phases
+                # The 'for/else' means we only enter 'else' if the loop never hits a break.
                 self.status = WorkflowStatus.COMPLETED_SUCCESS
-                
+
             # Finalize workflow
             self.workflow_logger.finalize(self.status.value)
-            
+
         except Exception as e:
             self.status = WorkflowStatus.INCOMPLETE
             self.workflow_logger.finalize(self.status.value)
             raise e
 
-    def run(self) -> None:
+    async def run(self) -> None:
         """
         Execute the entire workflow by running all phases in sequence.
         This is a convenience method that runs the workflow to completion.
         """
-        # Run through all phases
-        for _ in self.run_phases():
-            continue
-
-    def run(self) -> None:
-        """
-        Execute the entire workflow by running all phases in sequence.
-        This is a convenience method that runs the workflow to completion.
-        """
-        # Run through all phases
-        for _ in self.run_phases():
-            continue
+        # Run through all phases via the async generator
+        print("In async run")
+        async for _ in self.run_phases():
+            pass
 
     @property
     def current_phase(self) -> Optional[PhaseConfig]:
