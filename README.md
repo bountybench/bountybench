@@ -9,6 +9,7 @@
   - [Phases](#phases)
   - [Agents](#agents)
   - [Resources](#resources)
+  - [Validation Process](#validation-process)
 - [Development](#development)
   - [Agent Development](#agent-development)
   - [Phase Development](#phase-development)
