@@ -42,13 +42,14 @@ class ExecutorAgent(BaseAgent):
     # etc.
     REQUIRED_RESOURCES = [
        InitFilesResource,
-        (SetupResource, "task_server"),
-        (SetupResource, "repo_resource"),
         KaliEnvResource
     ]
-    OPTIONAL_RESOURCES = []
+    OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "task_server")]
     ACCESSIBLE_RESOURCES = [
-        KaliEnvResource
+        KaliEnvResource,
+        InitFilesResource,
+        (SetupResource, "repo_resource"),
+        (SetupResource, "task_server")
     ]
     def __init__(self, agent_config: ExecutorAgentConfig, resource_manager: ResourceManager):
         """

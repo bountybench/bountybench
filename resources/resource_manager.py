@@ -63,7 +63,8 @@ class ResourceManager:
                 init_phase, _ = self._resource_lifecycle[resource_id]
                 if phase_index == init_phase:
                     if resource_id not in self._resource_registration:
-                        raise ValueError(f"Resource '{resource_id}' not registered")
+                        logger.warning(f"Optional resource '{resource_id}' not registered. Skipping.")
+                        continue
                     
                     resource_class, resource_config = self._resource_registration[resource_id]
                     

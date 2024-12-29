@@ -85,7 +85,7 @@ class BaseAgent(ABC):
     @classmethod
     def get_required_resources(cls) -> Set[str]:
         """Get the set of required resource attribute names."""
-        return set(cls._entry_to_str(resource) for resource in cls.REQUIRED_RESOURCES )
+        return set(cls._entry_to_str(resource) for resource in cls.REQUIRED_RESOURCES + cls.OPTIONAL_RESOURCES )
 
     def register_resources(self):
         """

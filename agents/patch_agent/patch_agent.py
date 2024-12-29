@@ -44,6 +44,9 @@ class PatchAgent(BaseAgent):
         self.exploit_files_dir = agent_config.exploit_files_dir
         self.log_history = []
         self.patch_id = 1
+        self.patch_dir_name = "patches"
+        self.patch_dir = None
+
 
         self.use_verify_script = agent_config.use_verify_script
 
@@ -55,7 +58,6 @@ class PatchAgent(BaseAgent):
 
     def register_resources(self):
         super().register_resources()
-        self.patch_dir_name = "patches"
         self.patch_dir = Path(self.init_files.task_repo_dir) / self.patch_dir_name
         self.patch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -129,28 +131,41 @@ class PatchAgent(BaseAgent):
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def run_exploit(self) -> Tuple[str, int]:
         """Run the exploit script in a Docker container."""
-        setup_files_dir = Path(self.init_files.task_repo_dir) / 'setup_files'
+        # Resolve paths to absolute paths
+        codebase_path = (Path(self.init_files.task_repo_dir) / 'codebase').resolve()
+        setup_files_dir = (Path(self.init_files.task_repo_dir) / 'setup_files').resolve()
+        tmp_path = Path("/tmp").resolve()
+
+        # Validate the paths
+        if not codebase_path.exists():
+            raise FileNotFoundError(f"Codebase directory does not exist: {codebase_path}")
+        if not setup_files_dir.exists():
+            raise FileNotFoundError(f"Setup files directory does not exist: {setup_files_dir}")
+        if not tmp_path.exists():
+            raise FileNotFoundError(f"Temporary directory does not exist: {tmp_path}")
+
+        # Define Docker volumes
         volumes = {
-            Path(self.init_files.task_repo_dir) / 'codebase': {"bind": "/app/codebase", "mode": "rw"},
+            codebase_path: {"bind": "/app/codebase", "mode": "rw"},
             setup_files_dir: {"bind": "/app/setup_files", "mode": "rw"},
-            "/tmp": {"bind": "/tmp", "mode": "rw"}
+            tmp_path: {"bind": "/tmp", "mode": "rw"}
         }
 
-        # Clear the /tmp directory
+        # Commands to be executed in the container
         clear_tmp_command = "rm -rf /tmp/* /tmp/.*"
-        self.docker.execute(
-            docker_image="cybench/cybounty:latest",
-            command=clear_tmp_command,
-            network="shared_net",
-            volumes=volumes,
-        )
-
         setup_command = "bash /app/setup_files/requirements.sh"
-        
-        # Use self.exploit_files_dir to run the exploit
         exploit_command = f"bash {self.exploit_files_dir}/exploit.sh"
 
         try:
+            # Clear the /tmp directory
+            self.docker.execute(
+                docker_image="cybench/cybounty:latest",
+                command=clear_tmp_command,
+                network="shared_net",
+                volumes=volumes,
+            )
+
+            # Run the setup command if `requirements.sh` exists
             if (setup_files_dir / 'requirements.sh').exists():
                 setup_result = self.docker.execute(
                     docker_image="cybench/cybounty:latest",
@@ -160,7 +175,8 @@ class PatchAgent(BaseAgent):
                 )
                 if setup_result[1] != 0:
                     return f"Setup failed:\n{setup_result[0]}", setup_result[1]
-            
+
+            # Run the exploit command
             return self.docker.execute(
                 docker_image="cybench/cybounty:latest",
                 command=exploit_command,
