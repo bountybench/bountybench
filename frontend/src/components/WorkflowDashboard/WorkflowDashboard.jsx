@@ -5,19 +5,33 @@ import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
 export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
+  console.log('WorkflowDashboard props:', { selectedWorkflow, interactiveMode }); // Debug log
+  
   const {
     isConnected,
     workflowStatus,
     currentPhase,
     currentIteration,
+    messages,
     error,
     sendMessage
   } = useWorkflowWebSocket(selectedWorkflow?.id);
+
+  console.log('WebSocket state:', { 
+    isConnected, 
+    workflowStatus, 
+    currentPhase, 
+    currentIteration,
+    messageCount: messages?.length 
+  }); // Debug log
 
   if (!isConnected) {
     return (
       <Box className="dashboard-container" display="flex" justifyContent="center" alignItems="center">
         <CircularProgress />
+        <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+          Connecting to workflow...
+        </Typography>
       </Box>
     );
   }
@@ -34,7 +48,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     <Box className="dashboard-container">
       <Box className="dashboard-header">
         <Typography variant="h5">
-          Workflow Status: {workflowStatus}
+          Workflow Status: {workflowStatus || 'Unknown'}
         </Typography>
         {currentPhase && (
           <Typography variant="h6">
@@ -49,6 +63,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
           interactiveMode={interactiveMode}
           currentPhase={currentPhase}
           currentIteration={currentIteration}
+          messages={messages}
           onSendMessage={sendMessage}
         />
       </Box>

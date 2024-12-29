@@ -9,6 +9,7 @@ import uvicorn
 
 from workflows.exploit_and_patch_workflow_v2 import ExploitAndPatchWorkflow
 from utils.workflow_logger import workflow_logger
+from utils.websocket_manager import websocket_manager
 
 app = FastAPI()
 
@@ -21,19 +22,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Store active workflow instances and their WebSocket connections
+# Store active workflow instances
 active_workflows: Dict[str, dict] = {}
-active_connections: Dict[str, List[WebSocket]] = {}
-
-class WorkflowManager:
-    @staticmethod
-    async def broadcast_update(workflow_id: str, data: dict):
-        if workflow_id in active_connections:
-            for connection in active_connections[workflow_id]:
-                try:
-                    await connection.send_json(data)
-                except:
-                    pass
 
 @app.get("/workflow/list")
 async def list_workflows():
@@ -64,41 +54,67 @@ async def start_workflow(workflow_data: dict):
         # Store workflow instance
         active_workflows[workflow_id] = {
             "instance": workflow,
-            "status": "initializing",
-            "current_phase": None,
-            "current_iteration": None
+            "status": "initialized"
         }
         
-        # Start workflow in background
-        asyncio.create_task(run_workflow(workflow_id))
+        # Initialize workflow logger
+        workflow_logger.initialize(
+            workflow_name=workflow_data['workflow_name'],
+            task_repo_dir=workflow_data['task_repo_dir'],
+            bounty_number=workflow_data['bounty_number']
+        )
         
-        return {"workflow_id": workflow_id, "status": "started"}
+        # Return workflow ID immediately
+        return {
+            "workflow_id": workflow_id,
+            "status": "initialized"
+        }
+        
     except Exception as e:
-        return {"error": str(e)}, 400
+        return {
+            "error": str(e)
+        }
+
+@app.post("/workflow/execute/{workflow_id}")
+async def execute_workflow(workflow_id: str):
+    """Execute a workflow after WebSocket connection is established"""
+    if workflow_id not in active_workflows:
+        return {"error": "Workflow not found"}
+    
+    try:
+        # Start workflow execution in background
+        asyncio.create_task(run_workflow(workflow_id))
+        return {"status": "executing"}
+    except Exception as e:
+        return {"error": str(e)}
 
 async def run_workflow(workflow_id: str):
     """Run workflow in background and broadcast updates"""
+    if workflow_id not in active_workflows:
+        return
+    
     workflow_data = active_workflows[workflow_id]
     workflow = workflow_data["instance"]
     
     try:
         workflow_data["status"] = "running"
-        await WorkflowManager.broadcast_update(workflow_id, {
+        await websocket_manager.broadcast(workflow_id, {
             "type": "status_update",
             "status": "running"
         })
         
-        # Run workflow
-        await asyncio.to_thread(workflow.run)
+        # Run the workflow
+        await workflow.run()
         
         workflow_data["status"] = "completed"
-        await WorkflowManager.broadcast_update(workflow_id, {
+        await websocket_manager.broadcast(workflow_id, {
             "type": "status_update",
             "status": "completed"
         })
+        
     except Exception as e:
         workflow_data["status"] = "error"
-        await WorkflowManager.broadcast_update(workflow_id, {
+        await websocket_manager.broadcast(workflow_id, {
             "type": "status_update",
             "status": "error",
             "error": str(e)
@@ -107,11 +123,7 @@ async def run_workflow(workflow_id: str):
 @app.websocket("/ws/{workflow_id}")
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     """WebSocket endpoint for real-time workflow updates"""
-    await websocket.accept()
-    
-    if workflow_id not in active_connections:
-        active_connections[workflow_id] = []
-    active_connections[workflow_id].append(websocket)
+    await websocket_manager.connect(workflow_id, websocket)
     
     try:
         # Send initial workflow state
@@ -119,9 +131,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
             workflow_data = active_workflows[workflow_id]
             await websocket.send_json({
                 "type": "initial_state",
-                "status": workflow_data["status"],
-                "current_phase": workflow_data["current_phase"],
-                "current_iteration": workflow_data["current_iteration"]
+                "status": workflow_data["status"]
             })
         
         # Handle incoming messages
@@ -133,12 +143,14 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 if workflow.interactive:
                     # TODO: Implement user input handling
                     pass
+            elif data.get("type") == "start_execution":
+                # Start workflow execution when frontend is ready
+                asyncio.create_task(run_workflow(workflow_id))
     except WebSocketDisconnect:
-        active_connections[workflow_id].remove(websocket)
+        websocket_manager.disconnect(workflow_id, websocket)
     except Exception as e:
         print(f"WebSocket error: {e}")
-        if websocket in active_connections.get(workflow_id, []):
-            active_connections[workflow_id].remove(websocket)
+        websocket_manager.disconnect(workflow_id, websocket)
 
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
