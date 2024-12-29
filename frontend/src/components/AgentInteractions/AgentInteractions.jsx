@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import './AgentInteractions.css';
 
 const ActionCard = ({ action }) => {
+  // 1) Default to expanded so partial updates are visible
   const [expanded, setExpanded] = useState(true);
   console.log('Rendering action:', action);
 
@@ -19,16 +20,14 @@ const ActionCard = ({ action }) => {
       return `${data.stdout || ''}\n${data.stderr || ''}`.trim();
     }
     
+    // Try parsing as JSON
     try {
-      // If it's a JSON string, parse and format it
       if (typeof data === 'string') {
         const parsed = JSON.parse(data);
         return JSON.stringify(parsed, null, 2);
       }
-      // If it's already an object, just stringify it
       return JSON.stringify(data, null, 2);
     } catch (e) {
-      // If it's not JSON, return as is
       return String(data);
     }
   };
@@ -38,7 +37,7 @@ const ActionCard = ({ action }) => {
     const formattedContent = formatData(content);
     if (!formattedContent) return null;
     
-    // For LLM actions, try to extract the actual response
+    // If LLM action with a "response" field, format as markdown
     if (action.action_type === 'llm' && label === 'Output' && content) {
       try {
         const parsed = typeof content === 'string' ? JSON.parse(content) : content;
@@ -55,10 +54,11 @@ const ActionCard = ({ action }) => {
           );
         }
       } catch (e) {
-        // If parsing fails, fall back to default rendering
+        // fall back to default rendering
       }
     }
     
+    // Default rendering
     return (
       <Box mt={1}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
@@ -97,6 +97,7 @@ const ActionCard = ({ action }) => {
               </Typography>
             )}
           </Box>
+          {/* 2) Keep the expand icon if you want to toggle; set expanded=true by default */}
           <IconButton
             onClick={() => setExpanded(!expanded)}
             sx={{ 
@@ -140,7 +141,8 @@ const ActionCard = ({ action }) => {
 };
 
 const MessageBubble = ({ message }) => {
-  const [expanded, setExpanded] = useState(false);
+  // 3) Default to expanded
+  const [expanded, setExpanded] = useState(true);
   console.log('Rendering message:', message);
   
   if (!message) return null;
@@ -153,6 +155,7 @@ const MessageBubble = ({ message }) => {
     <Box className={`message-container ${messageClass}`}>
       <Card 
         className={`message-bubble ${messageClass}-bubble`}
+        // If you do NOT want toggling on click, remove onClick or the entire cursor pointer
         onClick={() => setExpanded(!expanded)}
         sx={{ cursor: 'pointer' }}
       >
@@ -192,7 +195,8 @@ const MessageBubble = ({ message }) => {
               <Box mt={2}>
                 <Typography variant="subtitle2" gutterBottom>Actions:</Typography>
                 {message.actions.map((action, index) => (
-                  <Box key={index} mt={1}>
+                  // 4) Unique key for each action
+                  <Box key={`${message.id}_action_${index}`} mt={1}>
                     <ActionCard action={action} />
                   </Box>
                 ))}
@@ -269,6 +273,7 @@ export const AgentInteractions = ({
           </Typography>
         ) : (
           messages.map((message, index) => (
+            // 5) Unique key per message
             <MessageBubble
               key={message.id || index}
               message={message}

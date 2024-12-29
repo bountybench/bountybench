@@ -140,8 +140,10 @@ async def run_workflow(workflow_id: str):
         })
         
         # Run the workflow
+        print(f"Starting workflow.run() for {workflow_id}...")
         await workflow.run()
-        
+        print(f"Workflow.run() completed for {workflow_id}...")
+
         if not should_exit:
             workflow_data["status"] = "completed"
             await websocket_manager.broadcast(workflow_id, {
