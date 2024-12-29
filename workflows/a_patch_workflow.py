@@ -69,25 +69,39 @@ class PatchWorkflow(BaseWorkflow):
             target_host=self.repo_metadata["target_host"]
         )
         self.register_agent(ExecutorAgent, executor_agent_config)
-        
+        logger.info(f"Executor agent registered: {self.agents['executor_agent']}")
+
         patch_agent_config = PatchAgentConfig(
             id="patch_agent",
             bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}")
         )
         self.register_agent(PatchAgent, patch_agent_config)
+        logger.info(f"Patch agent registered: {self.agents['patch_agent']}")
 
     def define_phases(self) -> None:
         """Configure phases"""
+        # Validate agents are registered before proceeding
+        if "executor_agent" not in self.agents:
+            raise ValueError("Missing required agent: 'executor_agent'.")
+        if "patch_agent" not in self.agents:
+            raise ValueError("Missing required agent: 'patch_agent'.")
+
+        # Configure the phase
         phase_config = PhaseConfig(
             phase_idx=0,
             phase_name=PatchPhase,
             max_iterations=25,
             agents=[
                 ("executor_agent", self.agents["executor_agent"]),
-                ("patch_agent", self.agents["patch_agent"])
-            ]
+                ("patch_agent", self.agents["patch_agent"]),
+            ],
         )
-        self.register_phase(PatchPhase, phase_config)
+
+        # Register the phase
+        self.register_phase(PatchPhase, phase_config, [
+            ("executor_agent", self.agents["executor_agent"]),
+            ("patch_agent", self.agents["patch_agent"]),
+        ])
 
     def get_initial_prompt(self) -> str:
         exploit_report = read_exploit_report(self.task_repo_dir, self.bounty_number)

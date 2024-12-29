@@ -181,17 +181,12 @@ class BaseWorkflow(ABC):
             # Retrieve the PhaseConfig for the given index
             phase_config = self.config.phase_configs[phase_index]
             logger.debug(f"Setting up agents for phase {phase_index}: {phase_config.phase_name}")
-            
-            # Iterate over all agents defined for this phase
+
+            # Register resources for each agent
             for agent_id, agent_instance in phase_config.agents:
-                # Register the agent
-                for _, agent in phase_config.agents:
-                    agent.register_resources()
-                # self.register_agent(type(agent_instance), agent_instance.agent_config)
-                
-                # Log the setup
-                logger.info(f"Agent '{agent_id}' of type '{type(agent_instance).__name__}' set up for phase {phase_index}")
-        
+                agent_instance.register_resources()
+                logger.info(f"Registered resources for agent '{agent_id}' in phase {phase_index}")
+
         except IndexError:
             logger.error(f"No PhaseConfig found for phase index: {phase_index}")
             raise
@@ -370,10 +365,65 @@ class BaseWorkflow(ABC):
         agent_instance = self.create_agent(agent_class, agent_config)
         logger.debug(f"Registered agent '{agent_config.id}' of type '{agent_class.__name__}'")
 
+    def define_resources(self) -> None:
+            """
+            Defines and registers all necessary resources for the workflow.
+            """
+            try:
+                # Define resource directories and configurations by retrieving from metadata or providing defaults
+                files_dir = self.bounty_metadata.get('files_dir', 'codebase')
+                tmp_dir = self.bounty_metadata.get('tmp_dir', 'tmp')
+                exploit_files_dir = self.bounty_metadata.get('exploit_files_dir', f'bounties/bounty_{self.bounty_number}/exploit_files')
+                vulnerable_commit = self.bounty_metadata.get('vulnerable_commit', 'main')
+
+                # Initialize InitFilesResource
+                init_files_config = InitFilesResourceConfig(
+                    task_repo_dir=self.task_repo_dir,
+                    files_dir_name=files_dir,
+                    tmp_dir_name=tmp_dir,
+                    exploit_files_dir_name=exploit_files_dir,
+                    vulnerable_commit=vulnerable_commit
+                )
+                self.register_resource("init_files", InitFilesResource, init_files_config)
+                logger.info("Registered 'init_files' resource.")
+
+                # Setup repository environment if needed
+                setup_repo_env_script = os.path.join(str(self.task_repo_dir), "setup_repo_env.sh")
+                if os.path.exists(setup_repo_env_script):
+                    repo_env_config = SetupResourceConfig(
+                        task_level_setup=False,
+                        task_repo_dir=self.task_repo_dir,
+                        files_dir=files_dir
+                    )
+                    self.register_resource("setup_resource", SetupResource, repo_env_config)
+                    logger.info("Registered 'setup_resource' for repository environment setup.")
+                else:
+                    logger.debug("No repository environment setup script found.")
+
+                # Setup target host if specified
+                target_host = self.repo_metadata.get("target_host")
+                if target_host:
+                    task_server_config = SetupResourceConfig(
+                        task_level_setup=True,
+                        task_repo_dir=self.task_repo_dir,
+                        files_dir=files_dir,
+                        bounty_number=self.bounty_number,
+                        server_address=target_host
+                    )
+                    self.register_resource("task_server", SetupResource, task_server_config)
+                    logger.info(f"Registered 'task_server' for target host: {target_host}")
+                else:
+                    logger.debug("No target host specified in repository metadata.")
+
+            except Exception as e:
+                logger.error(f"Failed to define resources: {e}")
+                raise e
+
     def register_phase(
         self,
         phase_class: Type[BasePhase],
         phase_specific_config: Any,
+        agents: List[Tuple[str, BaseAgent]],
     ) -> None:
         """
         Registers a phase with its configuration and associated agents.
@@ -381,71 +431,38 @@ class BaseWorkflow(ABC):
         Args:
             phase_class (Type[BasePhase]): The class of the phase to register.
             phase_specific_config (Any): The specific configuration for the phase.
+            agents (List[Tuple[str, BaseAgent]]): A list of tuples containing agent IDs and their instances.
         """
+        # Validate that agents are provided
+        if not agents:
+            raise ValueError(f"No agents provided for phase '{phase_class.__name__}'.")
+
+        # Validate phase-specific config has required attributes
+        if not hasattr(phase_specific_config, "max_iterations"):
+            raise ValueError("Phase-specific config must have 'max_iterations' defined.")
+
+        # Add the phase class to the phase_class_map if not already present
+        phase_name = phase_class.__name__
+        if phase_name not in self.phase_class_map:
+            self.phase_class_map[phase_name] = phase_class
+
+        # Create the phase configuration
         phase_config_instance = PhaseConfig(
             phase_idx=len(self.config.phase_configs),
-            phase_name=phase_class.__name__,  # Use the class name as a string
+            phase_name=phase_name,
             max_iterations=phase_specific_config.max_iterations,
-            agents=phase_specific_config.agents
+            agents=agents,
         )
+
+        # Append the phase configuration
         self.config.phase_configs.append(phase_config_instance)
-        self.phase_class_map[phase_class.__name__] = phase_class  # Store the mapping
-        logger.debug(f"Registered phase '{phase_class.__name__}' with config: {phase_specific_config}")
 
-    @abstractmethod
-    def define_resources(self) -> None:
-        """
-        Defines and registers all necessary resources for the workflow.
-        """
-        try:
-            # Define resource directories and configurations by retrieving from metadata or providing defaults
-            files_dir = self.bounty_metadata.get('files_dir', 'codebase')
-            tmp_dir = self.bounty_metadata.get('tmp_dir', 'tmp')
-            exploit_files_dir = self.bounty_metadata.get('exploit_files_dir', f'bounties/bounty_{self.bounty_number}/exploit_files')
-            vulnerable_commit = self.bounty_metadata.get('vulnerable_commit', 'main')
-
-            # Initialize InitFilesResource
-            init_files_config = InitFilesResourceConfig(
-                task_repo_dir=self.task_repo_dir,
-                files_dir_name=files_dir,
-                tmp_dir_name=tmp_dir,
-                exploit_files_dir_name=exploit_files_dir,
-                vulnerable_commit=vulnerable_commit
-            )
-            self.register_resource("init_files", InitFilesResource, init_files_config)
-            logger.info("Registered 'init_files' resource.")
-
-            # Setup repository environment if needed
-            setup_repo_env_script = os.path.join(str(self.task_repo_dir), "setup_repo_env.sh")
-            if os.path.exists(setup_repo_env_script):
-                repo_env_config = SetupResourceConfig(
-                    task_level_setup=False,
-                    task_repo_dir=self.task_repo_dir,
-                    files_dir=files_dir
-                )
-                self.register_resource("setup_resource", SetupResource, repo_env_config)
-                logger.info("Registered 'setup_resource' for repository environment setup.")
-            else:
-                logger.debug("No repository environment setup script found.")
-
-            # Setup target host if specified
-            target_host = self.repo_metadata.get("target_host")
-            if target_host:
-                task_server_config = SetupResourceConfig(
-                    task_level_setup=True,
-                    task_repo_dir=self.task_repo_dir,
-                    files_dir=files_dir,
-                    bounty_number=self.bounty_number,
-                    server_address=target_host
-                )
-                self.register_resource("task_server", SetupResource, task_server_config)
-                logger.info(f"Registered 'task_server' for target host: {target_host}")
-            else:
-                logger.debug("No target host specified in repository metadata.")
-
-        except Exception as e:
-            logger.error(f"Failed to define resources: {e}")
-            raise
+        # Log the registration
+        agent_ids = [agent_id for agent_id, _ in agents]
+        logger.debug(
+            f"Registered phase '{phase_name}' at index {phase_config_instance.phase_idx} "
+            f"with agents: {agent_ids} and config: {phase_specific_config}"
+        )
 
     def run_phases(self):
         """
