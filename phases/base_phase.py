@@ -191,10 +191,5 @@ class BasePhase(ABC):
     ) -> Tuple[Response, bool]:
         pass
 
-    def _get_agent(self, iteration_num: int) -> Tuple[str, Any]:
-        # simple round-robin
-        idx = (iteration_num - 1) % len(self.phase_config.agents)
-        return self.phase_config.agents[idx]
-
     def _set_phase_summary(self, summary: str):
         self.phase_summary = summary

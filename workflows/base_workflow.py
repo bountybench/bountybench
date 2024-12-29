@@ -196,9 +196,11 @@ class BaseWorkflow(ABC):
             
             # Step 1: Setup resources for the phase
             self.setup_phase_resources(phase_index)
+            logger.info(f"Phase {phase_index} resource setup complete")
             
             # Step 2: Setup agents for the phase
             self.setup_phase_agents(phase_index)
+            logger.info(f"Phase {phase_index} agent setup complete")
             
             # Step 3: Create the phase instance
             phase_instance = self._create_phase(phase_index, initial_response)

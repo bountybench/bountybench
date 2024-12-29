@@ -10,6 +10,7 @@ import signal
 import sys
 
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
+from workflows.chat_workflow import ChatWorkflow
 from utils.workflow_logger import workflow_logger
 from utils.websocket_manager import websocket_manager
 
@@ -68,6 +69,11 @@ async def list_workflows():
                 "id": "exploit_and_patch",
                 "name": "Exploit and Patch Workflow",
                 "description": "Workflow for exploiting and patching vulnerabilities"
+            },
+            {
+                "id": "chat",
+                "name": "Chat Workflow",
+                "description": "Workflow for chatting"
             }
         ]
     }
@@ -79,7 +85,7 @@ async def start_workflow(workflow_data: dict):
         workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         # Initialize workflow instance
-        workflow = ExploitAndPatchWorkflow(
+        workflow = ChatWorkflow(
             task_repo_dir=Path(workflow_data['task_repo_dir']),
             bounty_number=workflow_data['bounty_number'],
             interactive=workflow_data.get('interactive', False)
