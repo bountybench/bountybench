@@ -65,8 +65,6 @@ class ExecutorAgent(BaseAgent):
 
         # If a target_host is provided, run health_check on self.kali_env
         self.target_host = agent_config.target_host
-        if agent_config.target_host:
-            self.kali_env.health_check(agent_config.target_host)
 
 
     def register_resources(self):
