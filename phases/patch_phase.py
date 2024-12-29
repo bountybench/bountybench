@@ -36,7 +36,7 @@ class PatchPhase(BasePhase):
         response = agent_instance.run(input_list)
 
         # Determine which agent name was used in this iteration
-        agent_name, _ = self._get_agent(iteration_num)
+        agent_name, _ = self._get_agent()
 
         if agent_name == "ExecutorAgent":
             if isinstance(response, AnswerResponseInterface):

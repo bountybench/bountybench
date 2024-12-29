@@ -82,7 +82,7 @@ class KaliEnvResource(BaseResource):
         workflow_logger.add_resource(f"KaliEnvResource: {self.resource_id}", self)
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
-
+        
     def _start(
         self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]
     ) -> Container:
@@ -108,6 +108,10 @@ class KaliEnvResource(BaseResource):
                 container.start()
             else:
                 logger.info(f"Container '{name}' is already running.")
+            
+            # Upgrade pip
+            self._upgrade_pip(container)
+            
             return container
         except docker.errors.NotFound:
             logger.info(f"Container '{name}' does not exist. Creating a new one.")
@@ -126,6 +130,10 @@ class KaliEnvResource(BaseResource):
                         name=name,
                     )
                     logger.info("Docker container started successfully.")
+                    
+                    # Upgrade pip
+                    self._upgrade_pip(container)
+                    
                     return container
                 except Exception as e:
                     logger.error(
@@ -135,10 +143,26 @@ class KaliEnvResource(BaseResource):
                         logger.info(f"Retrying in {RETRY_DELAY} seconds...")
                         time.sleep(RETRY_DELAY)
                     else:
-                        logger.error(
-                        )
+                        logger.error("Failed to start Docker container after maximum retries.")
                         sys.exit(1)
 
+    def _upgrade_pip(self, container: Container) -> None:
+        """
+        Upgrade pip in the given container.
+
+        Args:
+            container (Container): The Docker container in which to upgrade pip.
+        """
+        try:
+            logger.info("Upgrading pip in the container...")
+            result = container.exec_run("pip install --upgrade pip")
+            if result.exit_code == 0:
+                logger.info("Successfully upgraded pip.")
+            else:
+                logger.warning(f"Failed to upgrade pip. Exit code: {result.exit_code}")
+                logger.warning(f"Output: {result.output.decode('utf-8')}")
+        except Exception as e:
+            logger.error(f"Error while upgrading pip: {e}")
 
     def stop(self) -> None:
         """

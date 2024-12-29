@@ -516,6 +516,9 @@ class BaseWorkflow(ABC):
             if hasattr(self.config, "initial_prompt") and self.config.initial_prompt:
                 prev_response = BaseResponse(self.config.initial_prompt)
 
+            if hasattr(self.config, "initial_prompt") and self.config.initial_prompt:
+                prev_response = BaseResponse(self.config.initial_prompt)
+
             # Execute phases in sequence
             for phase_idx, phase_config in enumerate(self.config.phase_configs):
                 self._current_phase_idx = phase_idx
@@ -530,11 +533,15 @@ class BaseWorkflow(ABC):
                 if not phase_success:
                     self.status = WorkflowStatus.COMPLETED_FAILURE
                     yield phase_response, phase_success
+                    yield phase_response, phase_success
                     break
                     
                 self._workflow_iteration_count += 1
                 if self._workflow_iteration_count >= self.config.max_iterations:
+                self._workflow_iteration_count += 1
+                if self._workflow_iteration_count >= self.config.max_iterations:
                     self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
+                    yield phase_response, phase_success
                     yield phase_response, phase_success
                     break
                 
@@ -553,6 +560,15 @@ class BaseWorkflow(ABC):
             self.status = WorkflowStatus.INCOMPLETE
             self.workflow_logger.finalize(self.status.value)
             raise e
+
+    def run(self) -> None:
+        """
+        Execute the entire workflow by running all phases in sequence.
+        This is a convenience method that runs the workflow to completion.
+        """
+        # Run through all phases
+        for _ in self.run_phases():
+            continue
 
     def run(self) -> None:
         """
