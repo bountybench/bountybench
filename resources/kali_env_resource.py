@@ -302,7 +302,6 @@ class KaliEnvResource(BaseResource):
         """
         return {
             'resource_id': self.resource_id,
-            'bounty_dir': self.bounty_dir,
             'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
         }
 

@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 from typing import List, Optional
 
-from agents.base_agent import BaseAgent
+from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from agents.executor_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
 from agents.utils import truncate_input_to_max_tokens
@@ -8,6 +9,7 @@ from models.model_response import ModelResponse
 from models.query import query
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
+from resources.resource_manager import ResourceManager
 from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
@@ -24,6 +26,13 @@ MAX_RETRIES = 3
 RETRY_DELAY = 30
 TEMPERATURE = 0.5
 
+@dataclass
+class ExecutorAgentConfig(AgentConfig):
+    id: str
+    lm_config: AgentLMConfig
+    target_host: str
+    initial_prompt: Optional[str]=None
+
 
 class ExecutorAgent(BaseAgent):
     memory: List[str] = []
@@ -33,31 +42,38 @@ class ExecutorAgent(BaseAgent):
     # etc.
     REQUIRED_RESOURCES = [
        InitFilesResource,
-        (SetupResource, "setup_resource"),
         KaliEnvResource
     ]
-    OPTIONAL_RESOURCES = []
+    OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "task_server")]
     ACCESSIBLE_RESOURCES = [
-        KaliEnvResource
+        KaliEnvResource,
+        InitFilesResource,
+        (SetupResource, "repo_resource"),
+        (SetupResource, "task_server")
     ]
-
-    def __init__(self, config: AgentLMConfig, initial_prompt: str, *args, **kwargs):
+    def __init__(self, agent_config: ExecutorAgentConfig, resource_manager: ResourceManager):
         """
         Args:
-            config: AgentLMConfig with model, max tokens, etc.
-            initial_prompt: The initial conversation text or system prompt.
-            resource_manager: (passed via kwargs) - the ResourceManager object from BaseAgent
-            ...
+            agent_config: ExecutorAgentConfig containing model, initial prompt, and target host.
+            resource_manager: ResourceManager instance responsible for managing resources.
         """
-        super().__init__(*args, **kwargs)
+        # Pass the agent_config and resource_manager to BaseAgent
+        super().__init__(agent_config, resource_manager)
 
-        self.config = config
-        self.initial_prompt = initial_prompt
+        # Initialize specific attributes
+        if hasattr(agent_config, "initial_prompt"):
+            self.initial_prompt = agent_config.initial_prompt
         self.prompt = self.initial_prompt
 
         # If a target_host is provided, run health_check on self.kali_env
-        if kwargs.get("target_host", ""):
-            self.kali_env.health_check(kwargs.get("target_host", ""))
+        self.target_host = agent_config.target_host
+
+
+    def register_resources(self):
+        super().register_resources()
+        if self.target_host: 
+            self.kali_env.health_check(self.target_host)
+
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
@@ -75,7 +91,7 @@ class ExecutorAgent(BaseAgent):
         return executor_response
 
     def _update_memory(self, response: Response) -> None:
-        if len(self.memory) >= self.config.max_iterations_stored_in_memory:
+        if len(self.memory) >= self.agent_config.lm_config.max_iterations_stored_in_memory:
             self.memory = self.memory[1:] + [response.response]
         else:
             self.memory.append(response.response)
@@ -85,13 +101,17 @@ class ExecutorAgent(BaseAgent):
         Formulates the prompt, including the truncated memory.
         """
         if response:
-            self._update_memory(response)
+            if self.initial_prompt:
+                self._update_memory(response)
+            else:
+                self.initial_prompt = response.response
+        
 
         truncated_input = truncate_input_to_max_tokens(
-            max_input_tokens=self.config.max_input_tokens,
+            max_input_tokens=self.agent_config.lm_config.max_input_tokens,
             model_input="\n".join(self.memory),
-            model=self.config.model,
-            use_helm=self.config.use_helm,
+            model=self.agent_config.lm_config.model,
+            use_helm=self.agent_config.lm_config.use_helm,
         )
         prompt = self.initial_prompt + truncated_input
         self.prompt = prompt
@@ -129,12 +149,12 @@ class ExecutorAgent(BaseAgent):
         iterations = 0
         while iterations < MAX_RETRIES:
             model_response: ModelResponse = query(
-                model=self.config.model,
+                model=self.agent_config.lm_config.model,
                 message=model_input,
                 temperature=TEMPERATURE,
-                max_tokens=self.config.max_output_tokens,
+                max_tokens=self.agent_config.lm_config.max_output_tokens,
                 stop_sequences=[STOP_TOKEN],
-                helm=self.config.use_helm
+                helm=self.agent_config.lm_config.use_helm
             )
 
             model_response = model_response.remove_hallucinations()
@@ -170,7 +190,7 @@ class ExecutorAgent(BaseAgent):
         Serializes the ExecutorAgent state to a dictionary.
         """
         return {
-            "config": self.config.__dict__,
+            "config": self.agent_config.lm_config.__dict__,
             "memory": self.memory,
             "initial_prompt": self.initial_prompt,
             "prompt": self.prompt,

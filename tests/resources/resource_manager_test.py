@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from typing import Dict, Any
+from typing import Dict, Any, List, Union, Tuple
 
 from agents.base_agent import BaseAgent
 from phases.base_phase import BasePhase, PhaseConfig
@@ -21,10 +21,16 @@ class MockResource(BaseResource):
         self.initialized = False
 
 class MockAgent1(BaseAgent):
-    REQUIRED_RESOURCES = {"resource1", "resource2"}
+    REQUIRED_RESOURCES: List[Union[type, Tuple[type, str]]] = [
+        (MockResource, "resource1"),
+        (MockResource, "resource2")
+    ]
 
 class MockAgent2(BaseAgent):
-    REQUIRED_RESOURCES = {"resource2", "resource3"}
+    REQUIRED_RESOURCES: List[Union[type, Tuple[type, str]]] = [
+        (MockResource, "resource2"),
+        (MockResource, "resource3")
+    ]
 
 class MockPhase1(BasePhase):
     REQUIRED_AGENTS = [MockAgent1]
@@ -36,7 +42,11 @@ class MockPhase1(BasePhase):
 class MockPhase2(BasePhase):
     REQUIRED_AGENTS = [MockAgent1, MockAgent2]
 
-PHASES = [MockPhase1, MockPhase2]
+    @classmethod
+    def get_required_resources(cls):
+        return {"resource1", "resource2", "resource3"}
+
+REQUIRED_PHASES = [MockPhase1, MockPhase2]
 
 @patch("utils.logger.get_main_logger")
 class TestResourceManager(unittest.TestCase):
@@ -49,7 +59,7 @@ class TestResourceManager(unittest.TestCase):
             self.resource_manager.register_resource(f"resource{i}", MockResource, MockResourceConfig())
 
         # Compute schedule
-        self.resource_manager.compute_schedule(PHASES)
+        self.resource_manager.compute_schedule(REQUIRED_PHASES)
 
         # Check resource lifecycle
         self.assertEqual(self.resource_manager._resource_lifecycle["resource1"], (0, 1))

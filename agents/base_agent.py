@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import re
 from typing import List, Optional, Set, Tuple, Union
 
@@ -10,154 +11,165 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
+class ResourceNotInitializedError(Exception):
+    """Raised when a resource is accessed before initialization."""
+    pass
+
+@dataclass
+class AgentConfig:
+    id: str
 
 class BaseAgent(ABC):
     """
-    A base agent that automatically binds resources from a ResourceManager.
-    Resource references can be declared in three lists:
-      1) REQUIRED_RESOURCES  -> must exist, or KeyError is raised
-      2) OPTIONAL_RESOURCES  -> if missing, attribute is omitted (no exception)
-      3) ACCESSIBLE_RESOURCES -> must be subset of (required+optional).
-    
-    Each list entry can be:
-      - A resource class (e.g. DockerResource)
-      - A tuple (ResourceClass, "custom_attr_name")
-    
-    If only a class is given, `_generate_attr_name` is used to create a Python
-    attribute name automatically (e.g. DockerResource -> "docker_resource").
-    For optional resources, if not found, the attribute is *omitted* (not None).
+    Abstract base class for agents with managed resources.
+
+    Resources are declared in three lists:
+    - REQUIRED_RESOURCES: Must exist, or KeyError is raised
+    - OPTIONAL_RESOURCES: Used if available, no exception if missing
+    - ACCESSIBLE_RESOURCES: Subset of required and optional that will be bound as attributes
+
+    Resource entries can be:
+    - A resource class (e.g., DockerResource)
+    - A tuple (ResourceClass, "custom_attr_name")
     """
 
-    # By default, these lists can be either a class or (class, "string").
     REQUIRED_RESOURCES: List[Union[type, Tuple[type, str]]] = []
     OPTIONAL_RESOURCES: List[Union[type, Tuple[type, str]]] = []
     ACCESSIBLE_RESOURCES: List[Union[type, Tuple[type, str]]] = []
 
-    def __init__(self, resource_manager=None, *args, **kwargs):
+    def __init__(self, agent_config: AgentConfig, resource_manager=None):
         """
-        We do NOT fetch resources here. We'll do that in `register_resources()` 
-        once we know they've been allocated by the ResourceManager.
+        Initialize the agent without fetching resources.
+        Resources are initialized later via register_resources().
+        """
+        object.__setattr__(self, '_initializing', True)
+        object.__setattr__(self, '_resources_initialized', False)
         
-        If `failure_detection=True` is passed, we wrap `run()` to detect repetitive responses.
-        """
         self.resource_manager = resource_manager
         self.response_history = ResponseHistory()
-        self.target_host_address = kwargs.get("target_host", "")
+        self.agent_config = agent_config
+        self.target_host_address = getattr(agent_config, "target_host", "")
+        
+        # Initialize all possible resource attributes to None
+        for resource in self.REQUIRED_RESOURCES + self.OPTIONAL_RESOURCES:
+            attr_name = self._entry_to_str(resource)
+            object.__setattr__(self, attr_name, None)
 
+        # Wrap the run method to ensure resources are initialized
+        self._original_run = self.run
+        self.run = self._wrapped_run
+        
+        object.__setattr__(self, '_initializing', False)
+        logger.info(f"Initialized agent {agent_config.id}")
         # Optional: wrap the run(...) method for failure detection
-        if hasattr(self, "run") and kwargs.get("failure_detection", False):
-            original_run = self.run
+        # if hasattr(self, "run") and kwargs.get("failure_detection", False):
+        #     original_run = self.run
 
-            def wrapped_run(responses: List[Response]) -> Response:
-                new_response = original_run(responses)
-                if self.response_history.is_repetitive(new_response):
-                    new_response = FailureResponse("Repetitive response detected")
-                else:
-                    self.response_history.log(new_response)
-                return new_response
+        #     def wrapped_run(responses: List[Response]) -> Response:
+        #         new_response = original_run(responses)
+        #         if self.response_history.is_repetitive(new_response):
+        #             new_response = FailureResponse("Repetitive response detected")
+        #         else:
+        #             self.response_history.log(new_response)
+        #         return new_response
 
-            self.run = wrapped_run
-
+        #     self.run = wrapped_run
+    
+        
+    def _wrapped_run(self, responses: List[Response]) -> Response:
+        """Ensure resources are initialized before running the agent."""
+        if not self._resources_initialized:
+            raise ResourceNotInitializedError("Resources not initialized. Call register_resources() first.")
+        return self._original_run(responses)
 
     @classmethod
     def get_required_resources(cls) -> Set[str]:
-        return cls.REQUIRED_RESOURCES
-    
+        """Get the set of required resource attribute names."""
+        return set(cls._entry_to_str(resource) for resource in cls.REQUIRED_RESOURCES + cls.OPTIONAL_RESOURCES )
+
     def register_resources(self):
         """
-        Binds required and optional resources from the ResourceManager.
+        Bind resources from the ResourceManager to the agent.
         
-        - For required resources: raises KeyError if missing.
-        - For optional resources: if missing, we omit the attribute entirely
-          (rather than setting it to None).
-        - Ensures ACCESSIBLE_RESOURCES is a subset of (REQUIRED_RESOURCES + OPTIONAL_RESOURCES).
+        Raises:
+            RuntimeError: If ResourceManager is not set.
+            ValueError: If ACCESSIBLE_RESOURCES is not a subset of (REQUIRED + OPTIONAL).
+            KeyError: If a required resource is missing.
         """
         if not self.resource_manager:
-            raise RuntimeError(
-                f"Agent '{self.__class__.__name__}' has no resource_manager set; "
-                "cannot fetch resources."
-            )
+            raise RuntimeError(f"Agent '{self.__class__.__name__}' has no ResourceManager set.")
 
-        required = getattr(self, "REQUIRED_RESOURCES", [])
-        optional = getattr(self, "OPTIONAL_RESOURCES", [])
-        accessible = getattr(self, "ACCESSIBLE_RESOURCES", [])
+        declared_resources = set(self.REQUIRED_RESOURCES) | set(self.OPTIONAL_RESOURCES)
+        declared_attr_names = {self._entry_to_str(e) for e in declared_resources}
+        accessible_attr_names = {self._entry_to_str(e) for e in self.ACCESSIBLE_RESOURCES}
 
-        # 1) Bind required resources (KeyError if missing)
-        for entry in required:
-            self._bind_resource(entry, optional=False)
-
-        # 2) Bind optional resources (skip if KeyError)
-        for entry in optional:
-            try:
-                self._bind_resource(entry, optional=True)
-            except KeyError:
-                # Omit attribute if not found
-                if isinstance(entry, tuple):
-                    _, attr_name = entry
-                    logger.warning(f"Optional resource '{attr_name}' not allocated. Omitting attribute.")
-                else:
-                    attr_name = self._generate_attr_name(entry)
-                    logger.warning(f"Optional resource '{attr_name}' not allocated. Omitting attribute.")
-                # Don't set anything
-
-        # 3) Check that ACCESSIBLE_RESOURCES is a subset of (REQUIRED + OPTIONAL).
-        declared_entries = set(required) | set(optional)
-        declared_attr_names = {self._entry_to_str(e) for e in declared_entries}
-        accessible_attr_names = {self._entry_to_str(e) for e in accessible}
         missing = accessible_attr_names - declared_attr_names
         if missing:
-            raise ValueError(
-                f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset "
-                f"of REQUIRED + OPTIONAL. Missing: {missing}"
-            )
+            raise ValueError(f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset of REQUIRED + OPTIONAL. Missing: {missing}")
 
-    def _bind_resource(
-        self, entry: Union[type, Tuple[type, str]], optional: bool
-    ):
-        """
-        Automatically derive the attribute name if `entry` is a resource class.
-        If `entry` is (ResourceClass, "custom"), use "custom".
-        Then fetch from the ResourceManager (KeyError if not found).
-        """
-        if isinstance(entry, tuple):
-            resource_cls, attr_name = entry
-        else:
-            resource_cls = entry
-            attr_name = self._generate_attr_name(resource_cls)
+        for entry in self.ACCESSIBLE_RESOURCES:
+            attr_name = self._entry_to_str(entry)
+            try:
+                resource_obj = self.resource_manager.get_resource(attr_name)
+                object.__setattr__(self, attr_name, resource_obj)
+            except KeyError:
+                if entry in self.REQUIRED_RESOURCES:
+                    raise
+                logger.warning(f"Optional resource '{attr_name}' not allocated. Attribute remains None.")
 
-        resource_obj = self.resource_manager.get_resource(attr_name)
-        setattr(self, attr_name, resource_obj)
+        object.__setattr__(self, '_resources_initialized', True)
 
     @staticmethod
     def _generate_attr_name(resource_cls: type) -> str:
-        """
-        Convert a Resource class into a snake_case attribute name.
-        For instance, DockerResource -> "docker_resource",
-        KaliEnvResource -> "kali_env", etc.
-        """
-        # 1) Remove trailing "Resource" if present
+        """Generate a snake_case attribute name from a resource class name."""
         name = resource_cls.__name__
         if name.endswith("Resource"):
-            name = name[: -len("Resource")]  # remove the trailing "Resource"
-
-        # 2) snake-case it
+            name = name[:-len("Resource")]
         words = re.findall(r'[A-Z][a-z]*|\d+', name)
         return '_'.join(word.lower() for word in words)
 
-    def _entry_to_str(self, entry: Union[type, Tuple[type, str]]) -> str:
-        """
-        Return the attribute name used for subset-checking in ACCESSIBLE_RESOURCES.
-        If we have (ResourceClass, "my_attr"), that's "my_attr".
-        If we only have ResourceClass, we derive it automatically with _generate_attr_name.
-        """
-        if isinstance(entry, tuple):
-            return entry[1]
-        return self._generate_attr_name(entry)
+    @classmethod
+    def _entry_to_str(cls, entry: Union[type, Tuple[type, str]]) -> str:
+        """Get the attribute name for a resource entry."""
+        return entry[1] if isinstance(entry, tuple) else cls._generate_attr_name(entry)
+
+    def __getattribute__(self, name):
+        """Custom attribute access to enforce resource initialization."""
+        if name in ['_resources_initialized', '_initializing', 'get_required_resources', 'REQUIRED_RESOURCES']:
+            return object.__getattribute__(self, name)
+        
+        required_resources = object.__getattribute__(self, 'get_required_resources')()
+        resources_initialized = object.__getattribute__(self, '_resources_initialized')
+        
+        if name in required_resources and not resources_initialized:
+            raise ResourceNotInitializedError(f"Resource '{name}' not initialized. Call register_resources() first.")
+        
+        return object.__getattribute__(self, name)
+
+    def __setattr__(self, name, value):
+        """Custom attribute setting to enforce resource initialization."""
+        if name in ['_resources_initialized', '_initializing']:
+            object.__setattr__(self, name, value)
+            return
+        
+        initializing = object.__getattribute__(self, '_initializing')
+        resources_initialized = object.__getattribute__(self, '_resources_initialized')
+        required_resources = object.__getattribute__(self, 'get_required_resources')()
+        
+        if not initializing and name in required_resources and not resources_initialized:
+            raise ResourceNotInitializedError(f"Cannot set resource '{name}'. Call register_resources() first.")
+        
+        object.__setattr__(self, name, value)
 
     @abstractmethod
     def run(self, responses: List[Response]) -> Response:
         """
-        Subclasses must implement how they handle input responses
-        and produce a new response.
+        Execute the agent's main logic and produce a response.
+        
+        Args:
+            responses: List of previous responses, if any.
+        
+        Returns:
+            The agent's response after processing.
         """
         pass

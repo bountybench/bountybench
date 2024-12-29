@@ -88,7 +88,7 @@ class InitFilesResource(BaseResource):
                 f"Checking out {self.vulnerable_commit}")
             subprocess.run(
                 ["git", "checkout", self.vulnerable_commit],
-                cwd=self.files_dir,
+                cwd=os.path.abspath(self.files_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=True,
@@ -210,6 +210,8 @@ class InitFilesResource(BaseResource):
                 f"Directory {files_dir} is not a valid git repository.")
     
     def copy_files(self, source, destination):
+        source = os.path.abspath(source)
+        destination = os.path.abspath(destination)
         try:
             if os.path.isfile(source):
                 shutil.copy2(source, destination)
