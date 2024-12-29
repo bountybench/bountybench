@@ -46,7 +46,7 @@ class MockPhase2(BasePhase):
     def get_required_resources(cls):
         return {"resource1", "resource2", "resource3"}
 
-PHASES = [MockPhase1, MockPhase2]
+REQUIRED_PHASES = [MockPhase1, MockPhase2]
 
 @patch("utils.logger.get_main_logger")
 class TestResourceManager(unittest.TestCase):
@@ -59,7 +59,7 @@ class TestResourceManager(unittest.TestCase):
             self.resource_manager.register_resource(f"resource{i}", MockResource, MockResourceConfig())
 
         # Compute schedule
-        self.resource_manager.compute_schedule(PHASES)
+        self.resource_manager.compute_schedule(REQUIRED_PHASES)
 
         # Check resource lifecycle
         self.assertEqual(self.resource_manager._resource_lifecycle["resource1"], (0, 1))

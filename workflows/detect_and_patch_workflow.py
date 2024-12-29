@@ -21,7 +21,7 @@ logger = get_main_logger(__name__)
 class DetectAndPatchWorkflow(BaseWorkflow):
     """Workflow for exploiting and patching vulnerabilities"""
     
-    PHASES = [DetectPhase, ExploitPhase, PatchPhase]
+    REQUIRED_PHASES = [DetectPhase, ExploitPhase, PatchPhase]
     # Agents = ExecutorAgent, ExploitAgent, PatchAgent
     # Resource =  KaliEnvResource, DockerResource (InitFilesResource, (maybe SetupFilesResource (2x)) handled in super)
     exploit_files_path = None

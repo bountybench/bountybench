@@ -32,10 +32,8 @@ class ResourceManager:
     def register_resource(self, resource_id: str, resource_class: Type[BaseResource], resource_config: Optional[BaseResourceConfig] = None):
         """Register a resource with its class and configuration."""
         self._resource_registration[resource_id] = (resource_class, resource_config)
-        logger.debug(f"Registered resource '{resource_id}' with {resource_class.__name__}.")
+        logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
 
-
-    
     def compute_schedule(self, phases: List[Type[BasePhase]]):
         """
         Compute the resource usage schedule across all phases.
@@ -100,6 +98,12 @@ class ResourceManager:
         return {resource_id: self.get_resource(resource_id) 
                 for resource_id in self._phase_resources.get(phase_index, [])}
 
+    def get_registered_resource_classes(self) -> List[Type[BaseResource]]:
+        """
+        Returns a list of all registered resource classes.
+        """
+        return [resource_class for resource_class, _ in self._resource_registration.values()]
+    
     def __enter__(self):
         return self
 

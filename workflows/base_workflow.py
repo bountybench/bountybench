@@ -56,6 +56,7 @@ class BaseWorkflow(ABC):
     - Coordinates phase transitions and data flow between phases
     - Tracks overall workflow state and completion status
     """
+    REQUIRED_PHASES: List[Type[BasePhase]] = []
 
     def __init__(
         self,
@@ -117,6 +118,9 @@ class BaseWorkflow(ABC):
         self.define_resource_configs()
         self.define_agent_configs()
         self.define_phase_configs()
+
+        self.validate_registrations()
+
         self._compute_schedule()
 
     @abstractmethod
@@ -134,6 +138,43 @@ class BaseWorkflow(ABC):
         """Define and register all phases required for the workflow."""
         pass
 
+    def validate_registrations(self):
+        """
+        Validate that all required phases, agents, and resources are properly registered.
+        """
+        self._validate_required_phases()
+        self._validate_required_agents()
+        self._validate_required_resources()
+
+    def _validate_required_phases(self):
+        """Validate that all required phases are registered."""
+        registered_phase_classes = set(self.phase_class_map.values())
+        missing_phases = set(self.REQUIRED_PHASES) - registered_phase_classes
+        if missing_phases:
+            raise ValueError(f"Missing required phases: {', '.join([p.__name__ for p in missing_phases])}")
+
+    def _validate_required_agents(self):
+        """Validate that all required agents for each phase are registered."""
+        for phase_class in self.REQUIRED_PHASES:
+            required_agents = getattr(phase_class, 'REQUIRED_AGENTS', [])
+            registered_agents = set(type(agent) for _, agent in self.agents.items())
+            missing_agents = set(required_agents) - registered_agents
+            if missing_agents:
+                raise ValueError(f"Missing required agents for {phase_class.__name__}: {', '.join([a.__name__ for a in missing_agents])}")
+
+    def _validate_required_resources(self):
+        """Validate that all required resources for each agent are registered."""
+        all_required_resources = set()
+        for agent in self.agents.values():
+            all_required_resources.update(resource.__name__ for resource in agent.REQUIRED_RESOURCES)
+        
+        registered_resource_classes = self.resource_manager.get_registered_resource_classes()
+        registered_resources = set(resource_class.__name__ for resource_class in registered_resource_classes)
+        
+        missing_resources = all_required_resources - registered_resources
+        if missing_resources:
+            raise ValueError(f"Missing required resources: {', '.join(missing_resources)}")
+        
     def _compute_schedule(self) -> None:
         """
         Compute the resource usage schedule across all phases.
@@ -346,7 +387,9 @@ class BaseWorkflow(ABC):
             resource_config (BaseResourceConfig): The configuration for the resource.
         """
         self.resource_manager.register_resource(resource_id, resource_class, resource_config)
-        logger.debug(f"Registered resource '{resource_id}' with class '{resource_class.__name__}'")
+        
+        registered_resources = set(self.resource_manager.resources)
+        logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
 
     def register_agent(
         self,

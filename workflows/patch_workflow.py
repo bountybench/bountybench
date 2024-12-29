@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class PatchWorkflow(BaseWorkflow):
     """Workflow for patching vulnerabilities"""
-    PHASES = [PatchPhase]
+    REQUIRED_PHASES = [PatchPhase]
 
     def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
         workflow_id = "patch_workflow"
