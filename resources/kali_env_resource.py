@@ -14,6 +14,11 @@ from resources.resource_dict import resource_dict
 from resources.utils import get_stdout_text, parse_shell_script
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
+from dataclasses import dataclass
+from typing import Dict, Optional
+import os
+from resources.base_resource import BaseResourceConfig
+
 
 # Configure logging
 logger = get_main_logger(__name__)
@@ -40,27 +45,40 @@ MAX_RETRIES = 3
 RETRY_DELAY = 10
 
 
+@dataclass
+class KaliEnvResourceConfig(BaseResourceConfig):
+    """Configuration for KaliEnvResource"""
+    task_repo_dir: Optional[str] = None
+    bounty_number: Optional[str] = None
+    volumes: Optional[Dict[str, Dict[str, str]]] = None
+
+    def validate(self) -> None:
+        """Validate KaliEnv configuration"""
+        if self.task_repo_dir and not os.path.exists(self.task_repo_dir):
+            raise ValueError(f"Invalid task_repo_dir: {self.task_repo_dir}")
+        if self.volumes:
+            for host_path in self.volumes.keys():
+                if not os.path.exists(host_path):
+                    raise ValueError(f"Invalid volume host path: {host_path}")
+                
 class KaliEnvResource(BaseResource):
     """Kali Linux Environment Resource"""
 
-    def __init__(self, name: str, task_repo_dir: str = None, bounty_number: str=None, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
-        """
-        Initialize the Kali Linux Environment with optional volume bindings.
-
-        Args:
-            name (str): The name of the container.
-            task_repo_dir (str, optional): The directory path of the task repository containing scripts or requirements.
-            volumes (Optional[Dict[str, Dict[str, str]]]): Docker volume bindings in the format {host_path: {'bind': container_path, 'mode': rw}}.
-        """
-        self.client: docker.DockerClient = docker.from_env()
-        self.resource_id = name
-        self.container: Container = self._start(self.resource_id, volumes)
-        self.bounty_dir = os.path.join(
-                str(task_repo_dir) + "/bounties/bounty_" + bounty_number
-        )
-        if task_repo_dir:
+    def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
+        super().__init__(resource_id, config)
+        
+        self.client = docker.from_env()
+        self.container = self._start(self.resource_id, self._resource_config.volumes)
+        
+        # Initialize bounty directory if task_repo_dir and bounty_number provided
+        if self._resource_config.task_repo_dir and self._resource_config.bounty_number:
+            self.bounty_dir = os.path.join(
+                str(self._resource_config.task_repo_dir),
+                "bounties",
+                f"bounty_{self._resource_config.bounty_number}"
+            )
             self.run_requirements(self.bounty_dir)
-
+        
         workflow_logger.add_resource(f"KaliEnvResource: {self.resource_id}", self)
         resource_dict[self.resource_id] = self
         atexit.register(self.stop)
@@ -308,7 +326,6 @@ class KaliEnvResource(BaseResource):
         """
         return {
             'resource_id': self.resource_id,
-            'bounty_dir': self.bounty_dir,
             'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
         }
 

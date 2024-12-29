@@ -12,47 +12,70 @@ from resources.utils import run_command
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 
+from dataclasses import dataclass
+from typing import Dict, Optional
+import os
+from resources.base_resource import BaseResourceConfig
+
+
 logger = get_main_logger(__name__)
 
 
-class SetupResource(BaseResource):
-    """
-    SetupResource is responsible for initializing and managing a set of containers
-    either at the "task" (bounty) level or at the "repo" level.
-    It runs the appropriate setup script, extracts container names, waits for their health,
-    and provides methods to restart or stop them.
-    """
+@dataclass
+class SetupResourceConfig(BaseResourceConfig):
+    """Configuration for SetupResource"""
+    task_level_setup: bool
+    task_repo_dir: str
+    files_dir: str
+    bounty_number: Optional[str] = None
+    server_address: Optional[str] = None
 
-    def __init__(self, task_level_setup: bool, task_repo_dir: str, files_dir: str, bounty_number: Optional[str]=None, server_address: Optional[str]=None) -> None:
-        """
-        :param task_level_setup: If True, runs 'setup_bounty_env.sh'; otherwise runs 'setup_repo_env.sh'.
-        :param task_repo_dir: The path to the repository directory.
-        :param bounty_number: The bounty identifier string.
-        :param files_dir: The directory containing setup files.
-        :param server_address: The server address in 'hostname:port' format.
-        """
-
+    def validate(self) -> None:
+        """Validate Setup configuration"""
+        if not os.path.exists(self.task_repo_dir):
+            raise ValueError(f"Invalid task_repo_dir: {self.task_repo_dir}")
+        if self.server_address and ":" not in self.server_address:
+            raise ValueError(f"Invalid server_address format: {self.server_address}")
         
-        self.resource_id = server_address
-        self.task_level_setup = task_level_setup
 
+class SetupResource(BaseResource):
+    """SetupResource for initializing and managing containers."""
+
+    def __init__(self, resource_id: str, config: SetupResourceConfig):
+        # Call the superclass constructor first
+        super().__init__(resource_id, config)
+
+        self.task_repo_dir = str(self._resource_config.task_repo_dir)
+        self.files_dir = self._resource_config.files_dir
+
+
+        # Access the configuration
+        self.task_level_setup = self._resource_config.task_level_setup
         self.role = "task_server" if self.task_level_setup else "repo_resource"
 
-
-        self.task_repo_dir = str(task_repo_dir)
-        self.files_dir = files_dir
-        self.bounty_dir = os.path.join(self.task_repo_dir, "bounties", f"bounty_{bounty_number}")
-
-        if server_address:
-            self.host_name, self.port_number = self.parse_server_address(server_address)
-            self.resource_id = f"{self.role }_{server_address}"
+        # Handle server address if provided (task_server only)
+        if self.task_level_setup:
+            if not self._resource_config.server_address:
+                raise ValueError("Server address is required for task_server setup.")
+            self.host_name, self.port_number = self.parse_server_address(
+                self._resource_config.server_address
+            )
+            if not self._resource_config.bounty_number:
+                raise ValueError("Bounty number is required for task_server setup.")
+            self.bounty_dir = os.path.join(
+                self.task_repo_dir,
+                "bounties",
+                f"bounty_{self._resource_config.bounty_number}",
+            )
         else:
             self.host_name, self.port_number = None, None
-            self.resource_id = f"{self.role }_local"
+            self.bounty_dir = None
 
 
+        # Initialize container management
         self.container_names: List[str] = []
         self.health_check_timeout = 120
+
         workflow_logger.add_resource(f"SetupResource: {self.role}", self)
         self._start()
         resource_dict[self.resource_id] = self
@@ -72,7 +95,14 @@ class SetupResource(BaseResource):
     def _start(self) -> None:
         """Start the environment by running the appropriate setup script."""
         setup_script = "setup_bounty_env.sh" if self.task_level_setup else "setup_repo_env.sh"
-        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
+        work_dir = (
+            os.path.join(self.bounty_dir, "setup_files")
+            if self.task_level_setup
+            else self.task_repo_dir
+        )
+
+        if not os.path.exists(work_dir):
+            raise FileNotFoundError(f"Work directory does not exist: {work_dir}")
 
         logger.info(f"Executing {setup_script} in {work_dir}")
         try:
@@ -80,7 +110,7 @@ class SetupResource(BaseResource):
             logger.info(f"Environment setup complete for {self.resource_id}")
             self.container_names = self.extract_container_names(result.stdout, result.stderr)
 
-            if self.container_names: 
+            if self.container_names:
                 self.wait_until_all_containers_healthy()
 
         except FileNotFoundError:

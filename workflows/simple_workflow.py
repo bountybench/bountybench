@@ -2,7 +2,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from agents.dataclasses.agent_spec import AgentConfig
+from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
@@ -61,7 +61,7 @@ def main() -> None:
                        repo_metadata["target_host"])
     KaliEnvResource("KaliEnv", task_repo_dir=task_repo_dir, volumes={task_repo_dir / tmp_dir: {"bind": "/app", "mode": "rw"}})
 
-    agent_config: AgentConfig = AgentConfig(
+    agent_config: AgentLMConfig = AgentLMConfig(
         model='openai/gpt-4o-2024-05-13',
         max_output_tokens=2000,
         max_input_tokens=6000,
