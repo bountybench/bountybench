@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import asyncio
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
@@ -122,6 +123,8 @@ class BaseWorkflow(ABC):
         self.validate_registrations()
 
         self._compute_schedule()
+        
+        self.next_iteration_event = asyncio.Event()
 
     @abstractmethod
     def get_initial_prompt(self) -> str:

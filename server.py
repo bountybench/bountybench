@@ -218,5 +218,17 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
         websocket_manager.disconnect(workflow_id, websocket)
         print(f"Cleaned up connection for workflow {workflow_id}")
 
+@app.post("/workflow/next/{workflow_id}")
+async def next_iteration(workflow_id: str):
+    if workflow_id not in active_workflows:
+        return {"error": "Workflow not found"}
+    
+    workflow = active_workflows[workflow_id]["instance"]
+    if hasattr(workflow, 'next_iteration_event'):
+        workflow.next_iteration_event.set()
+        return {"status": "next iteration triggered"}
+    else:
+        return {"error": "Workflow is not in interactive mode"}
+
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)

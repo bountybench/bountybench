@@ -56,6 +56,7 @@ class ChatWorkflow(BaseWorkflow):
             agents=[
                 ("chat_agent", self.agents["chat_agent"])
             ],
+            interactive=True
         )
         self.register_phase(ChatPhase, chat_config)     
 
