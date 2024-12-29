@@ -32,7 +32,7 @@ class TestAgent3(BaseAgent):
     REQUIRED_RESOURCES = [TestResource3]
     def run(self, response):
         pass
-
+    
 class TestPhase1(BasePhase):
     REQUIRED_AGENTS = [TestAgent1, TestAgent2]
 
@@ -51,13 +51,13 @@ class TestWorkflow(BaseWorkflow):
         self.register_resource("TestResource1", TestResource1, Mock())
         self.register_resource("TestResource2", TestResource2, Mock())
         self.register_resource("TestResource3", TestResource3, Mock())
-
+            
     def define_agent_configs(self):
         # Mock agent configurations
         self.register_agent(TestAgent1, AgentConfig(id="agent1"))
         self.register_agent(TestAgent2, AgentConfig(id="agent2"))
         self.register_agent(TestAgent3, AgentConfig(id="agent3"))
-
+    
     def define_phase_configs(self):
         # Mock phase configurations
         self.register_phase(TestPhase1, PhaseConfig(phase_idx=0, phase_name="TestPhase1", max_iterations=5, agents=[]))
@@ -89,6 +89,11 @@ class TestBaseWorkflowValidation(unittest.TestCase):
 
         # Create the workflow without calling validate_registrations
         self.workflow = TestWorkflow(Path('/test/path'), '123')
+        
+        # Manually call the configuration methods
+        self.workflow.define_resource_configs()
+        self.workflow.define_agent_configs()
+        self.workflow.define_phase_configs()
         
         # Manually set up the phase_class_map
         self.workflow.phase_class_map = {
@@ -136,7 +141,9 @@ class TestBaseWorkflowValidation(unittest.TestCase):
 
         with self.assertRaises(ValueError) as context:
             self.workflow._validate_required_resources()
-        self.assertIn("Missing required resources: TestResource2, TestResource3", str(context.exception))
+        self.assertIn("Missing required resources:", str(context.exception))
+        self.assertIn("TestResource2", str(context.exception))
+        self.assertIn("TestResource3", str(context.exception))
 
 if __name__ == '__main__':
     unittest.main()

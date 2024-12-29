@@ -538,7 +538,7 @@ class BaseWorkflow(ABC):
                     
                 self._workflow_iteration_count += 1
                 if self._workflow_iteration_count >= self.config.max_iterations:
-                self._workflow_iteration_count += 1
+                    self._workflow_iteration_count += 1
                 if self._workflow_iteration_count >= self.config.max_iterations:
                     self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
                     yield phase_response, phase_success

@@ -36,14 +36,21 @@ class BaseAgent(ABC):
     REQUIRED_RESOURCES: List[Union[type, Tuple[type, str]]] = []
     OPTIONAL_RESOURCES: List[Union[type, Tuple[type, str]]] = []
     ACCESSIBLE_RESOURCES: List[Union[type, Tuple[type, str]]] = []
-
+    
     def __init__(self, agent_config: AgentConfig, resource_manager=None):
         """
         Initialize the agent without fetching resources.
         Resources are initialized later via register_resources().
         """
+        # Set these attributes first
         object.__setattr__(self, '_initializing', True)
         object.__setattr__(self, '_resources_initialized', False)
+        object.__setattr__(self, '_required_resources', set())
+        object.__setattr__(self, '_optional_resources', set())
+
+        # Now compute the resources
+        object.__setattr__(self, '_required_resources', self._compute_required_resources())
+        object.__setattr__(self, '_optional_resources', self._compute_optional_resources())
         
         self.resource_manager = resource_manager
         self.response_history = ResponseHistory()
@@ -74,8 +81,13 @@ class BaseAgent(ABC):
         #         return new_response
 
         #     self.run = wrapped_run
-    
-        
+
+    def _compute_required_resources(self):
+        return set(self._entry_to_str(resource) for resource in self.REQUIRED_RESOURCES)
+
+    def _compute_optional_resources(self):
+        return set(self._entry_to_str(resource) for resource in self.OPTIONAL_RESOURCES)
+
     def _wrapped_run(self, responses: List[Response]) -> Response:
         """Ensure resources are initialized before running the agent."""
         if not self._resources_initialized:
@@ -85,7 +97,7 @@ class BaseAgent(ABC):
     @classmethod
     def get_required_resources(cls) -> Set[str]:
         """Get the set of required resource attribute names."""
-        return set(cls._entry_to_str(resource) for resource in cls.REQUIRED_RESOURCES + cls.OPTIONAL_RESOURCES )
+        return set(cls._entry_to_str(resource) for resource in cls.REQUIRED_RESOURCES + cls.OPTIONAL_RESOURCES)
 
     def register_resources(self):
         """
@@ -99,11 +111,10 @@ class BaseAgent(ABC):
         if not self.resource_manager:
             raise RuntimeError(f"Agent '{self.__class__.__name__}' has no ResourceManager set.")
 
-        declared_resources = set(self.REQUIRED_RESOURCES) | set(self.OPTIONAL_RESOURCES)
-        declared_attr_names = {self._entry_to_str(e) for e in declared_resources}
+        declared_resources = self._required_resources | self._optional_resources
         accessible_attr_names = {self._entry_to_str(e) for e in self.ACCESSIBLE_RESOURCES}
 
-        missing = accessible_attr_names - declared_attr_names
+        missing = accessible_attr_names - declared_resources
         if missing:
             raise ValueError(f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset of REQUIRED + OPTIONAL. Missing: {missing}")
 
@@ -113,11 +124,11 @@ class BaseAgent(ABC):
                 resource_obj = self.resource_manager.get_resource(attr_name)
                 object.__setattr__(self, attr_name, resource_obj)
             except KeyError:
-                if entry in self.REQUIRED_RESOURCES:
+                if attr_name in self._required_resources:
                     raise
                 logger.warning(f"Optional resource '{attr_name}' not allocated. Attribute remains None.")
 
-        object.__setattr__(self, '_resources_initialized', True)
+        self._resources_initialized = True
 
     @staticmethod
     def _generate_attr_name(resource_cls: type) -> str:
@@ -135,14 +146,18 @@ class BaseAgent(ABC):
 
     def __getattribute__(self, name):
         """Custom attribute access to enforce resource initialization."""
-        if name in ['_resources_initialized', '_initializing', 'get_required_resources', 'REQUIRED_RESOURCES']:
+        if name in ['_resources_initialized', '_initializing', '_required_resources', '_optional_resources']:
             return object.__getattribute__(self, name)
         
-        required_resources = object.__getattribute__(self, 'get_required_resources')()
         resources_initialized = object.__getattribute__(self, '_resources_initialized')
-        
-        if name in required_resources and not resources_initialized:
-            raise ResourceNotInitializedError(f"Resource '{name}' not initialized. Call register_resources() first.")
+        if not resources_initialized:
+            required_resources = object.__getattribute__(self, '_required_resources')
+            optional_resources = object.__getattribute__(self, '_optional_resources')
+            
+            if name in required_resources:
+                if name in optional_resources:
+                    return None
+                raise ResourceNotInitializedError(f"Resource '{name}' not initialized. Call register_resources() first.")
         
         return object.__getattribute__(self, name)
 
@@ -154,10 +169,13 @@ class BaseAgent(ABC):
         
         initializing = object.__getattribute__(self, '_initializing')
         resources_initialized = object.__getattribute__(self, '_resources_initialized')
-        required_resources = object.__getattribute__(self, 'get_required_resources')()
         
-        if not initializing and name in required_resources and not resources_initialized:
-            raise ResourceNotInitializedError(f"Cannot set resource '{name}'. Call register_resources() first.")
+        if not initializing and not resources_initialized:
+            required_resources = object.__getattribute__(self, '_required_resources')
+            optional_resources = object.__getattribute__(self, '_optional_resources')
+            
+            if name in required_resources and name not in optional_resources:
+                raise ResourceNotInitializedError(f"Cannot set resource '{name}'. Call register_resources() first.")
         
         object.__setattr__(self, name, value)
 

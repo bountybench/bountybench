@@ -23,7 +23,7 @@ class MockAgent(BaseAgent):
         # Access a required resource to test initialization
         self.mock_resource
         return BaseResponse("Mock response")
-
+    
 class TestBaseAgent(unittest.TestCase):
 
     def setUp(self):
