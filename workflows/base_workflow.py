@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
+from agents.agent_manager import AgentManager
 
 from enum import Enum
 import logging
@@ -57,7 +58,7 @@ class BaseWorkflow(ABC):
     - Coordinates phase transitions and data flow between phases
     - Tracks overall workflow state and completion status
     """
-    REQUIRED_PHASES: List[Type[BasePhase]] = []
+    PHASES: List[Type[BasePhase]] = []
 
     def __init__(
         self,
@@ -104,10 +105,10 @@ class BaseWorkflow(ABC):
             self.workflow_logger.add_metadata(key, value)
 
         # Initialize ResourceManager
-        self.resource_manager = ResourceManager()
+        self.agent_manager = AgentManager()
+
 
         # Initialize tracking structures
-        self.agents: Dict[str, BaseAgent] = {}  # Maps agent_id to agent_instance
         self.phases: List[BasePhase] = []       # List to store phase instances
         self.phase_class_map = {}
 
@@ -117,12 +118,11 @@ class BaseWorkflow(ABC):
         # Setup workflow
         self.setup_init()
         self.define_resource_configs()
-        self.create_agents()
-        self.create_phases()
-
+        self.define_phases()  # To be implemented by subclasses
+        self.create_phase_configs()
         self.validate_registrations()
-
         self._compute_schedule()
+
 
     @abstractmethod
     def get_initial_prompt(self) -> str:
@@ -130,9 +130,31 @@ class BaseWorkflow(ABC):
         pass
 
     @abstractmethod
-    def create_agents(self) -> None:
-        """Calls create_agent for all agents required for the workflow."""
+    def define_phases(self):
+        """Define and register phases. To be implemented by subclasses."""
         pass
+
+    def create_phase_configs(self):
+        """
+        Create PhaseConfig instances for each phase.
+        """
+        self.config.phase_configs = []
+        for idx, phase in enumerate(self.phases):
+            phase_config = PhaseConfig(
+                phase_idx=idx,
+                max_iterations=phase.max_iterations,
+                agent_configs=phase.get_agent_configs(),  # Each phase provides its agent configurations
+                interactive=self.interactive,
+                phase_name=phase.__class__.__name__
+            )
+            self.config.phase_configs.append(phase_config)
+    
+    def register_phase(self, phase: BasePhase):
+        """Register a phase with the workflow."""
+        self.phases.append(phase)
+        logger.debug(f"Registered phase: {phase.__class__.__name__}")
+
+
 
     def validate_registrations(self):
         """
@@ -145,103 +167,72 @@ class BaseWorkflow(ABC):
     def _validate_required_phases(self):
         """Validate that all required phases are registered."""
         registered_phase_classes = set(self.phase_class_map.values())
-        missing_phases = set(self.REQUIRED_PHASES) - registered_phase_classes
+        missing_phases = set(self.PHASES) - registered_phase_classes
         if missing_phases:
             raise ValueError(f"Missing required phases: {', '.join([p.__name__ for p in missing_phases])}")
 
     def _validate_required_agents(self):
         """Validate that all required agents for each phase are registered."""
-        for phase_class in self.REQUIRED_PHASES:
-            required_agents = getattr(phase_class, 'REQUIRED_AGENTS', [])
-            registered_agents = set(type(agent) for _, agent in self.agents.items())
-            missing_agents = set(required_agents) - registered_agents
+        for phase in self.phases:
+            required_agents = set(phase.AGENT_CLASSES)
+            present_agents = set(type(agent) for _, agent in phase.agents)
+            missing_agents = required_agents - present_agents
             if missing_agents:
-                raise ValueError(f"Missing required agents for {phase_class.__name__}: {', '.join([a.__name__ for a in missing_agents])}")
+                missing_names = ', '.join(agent.__name__ for agent in missing_agents)
+                raise ValueError(f"Missing required agents for phase '{phase.__class__.__name__}': {missing_names}")
 
     def _validate_required_resources(self):
         """Validate that all required resources for each agent are registered."""
         all_required_resources = set()
-        for agent in self.agents.values():
-            all_required_resources.update(resource.__name__ for resource in agent.REQUIRED_RESOURCES)
+        for agent in self.agent_manager._agents.values():
+            all_required_resources.update(agent.get_required_resources())
         
-        registered_resource_classes = self.resource_manager.get_registered_resource_classes()
+        registered_resource_classes = self.agent_manager.resource_manager.get_registered_resource_classes()
         registered_resources = set(resource_class.__name__ for resource_class in registered_resource_classes)
         
-        missing_resources = all_required_resources - registered_resources
+        missing_resources = set(res.__name__ for res in all_required_resources) - registered_resources
         if missing_resources:
             raise ValueError(f"Missing required resources: {', '.join(missing_resources)}")
         
     def _compute_schedule(self) -> None:
         """
         Compute the resource usage schedule across all phases.
-        Populates the phase_resources and resource_lifecycle dictionaries in ResourceManager.
         """
-        phase_classes = [self.phase_class_map[phase_config.phase_name] for phase_config in self.config.phase_configs]
-        self.resource_manager.compute_schedule(phase_classes)
+        phase_classes = [type(phase) for phase in self.phases]
+        self.agent_manager.resource_manager.compute_schedule(phase_classes)
         logger.debug("Computed resource schedule for all phases.")
 
-    def setup_phase(self, phase_index: int, initial_response: Optional[BaseResponse] = None) -> None:
+    def setup_phase(self, phase_index: int, initial_response: Optional[BaseResponse] = None) -> BasePhase:
         """
-        Setup a specific phase by allocating resources, setting up agents, and creating the phase instance.
+        Setup a specific phase by allocating resources and initializing agents.
 
         Args:
             phase_index (int): The index of the phase to set up.
+            initial_response (Optional[BaseResponse]): The initial response for the phase.
+
+        Returns:
+            BasePhase: The phase instance.
         """
         try:
-            logger.info(f"Setting up phase {phase_index} with initial response {initial_response}")
-            
-            # Step 1: Setup resources for the phase
-            self.setup_phase_resources(phase_index)
-            # Step 2: Setup agents for the phase
-            self.setup_phase_agents(phase_index)
-            
-            phase_instance = self.phases[phase_index]
-            
+            phase = self.phases[phase_index]
+            phase_instance = phase
+
+            logger.info(f"Setting up phase {phase_index}: {phase_instance.__class__.__name__}")
+
+            # Initialize resources for the phase
+            self.agent_manager.resource_manager.initialize_phase_resources(phase_index)
+
+            # Register resources within the phase
+            phase_instance.register_resources()
+
             logger.info(f"Phase {phase_index} setup complete: {phase_instance.__class__.__name__}")
             return phase_instance
-        
+
         except Exception as e:
             self.status = WorkflowStatus.INCOMPLETE
             logger.error(f"Failed to set up phase {phase_index}: {e}")
             raise
 
-    def setup_phase_agents(self, phase_index: int) -> None:
-        """
-        Setup and configure agents for a given phase.
-
-        Args:
-            phase_index (int): The index of the phase for which to set up agents.
-        """
-        try:
-            # Retrieve the PhaseConfig for the given index
-            phase_config = self.config.phase_configs[phase_index]
-            logger.debug(f"Setting up agents for phase {phase_index}: {phase_config.phase_name}")
-
-            # Register resources for each agent
-            for agent_id, agent_instance in phase_config.agents:
-                agent_instance.register_resources()
-                logger.info(f"Registered resources for agent '{agent_id}' in phase {phase_index}")
-
-        except IndexError:
-            logger.error(f"No PhaseConfig found for phase index: {phase_index}")
-            raise
-        except Exception as e:
-            logger.error(f"Error setting up agents for phase {phase_index}: {e}")
-            raise
-
-    def setup_phase_resources(self, phase_index: int) -> None:
-        """
-        Setup all required resources for a phase by allocating them through the ResourceManager.
-
-        Args:
-            phase_index (int): The index of the phase for which to allocate resources.
-        """
-        try:
-            self.resource_manager.initialize_phase_resources(phase_index)
-            logger.info(f"Resources allocated for phase {phase_index}")
-        except Exception as e:
-            logger.error(f"Error allocating resources for phase {phase_index}: {e}")
-            raise
 
     def takedown_phase_resources(self, phase_index: int) -> None:
         """
@@ -257,59 +248,6 @@ class BaseWorkflow(ABC):
             logger.error(f"Error deallocating resources after phase {phase_index}: {e}")
             raise
 
-    def create_agent(self, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> BaseAgent:
-        """
-        Creates and registers an agent.
-
-        Args:
-            agent_class (Type[BaseAgent]): The class of the agent to instantiate.
-            agent_config (AgentConfig): The configuration for the agent.
-
-        Returns:
-            BaseAgent: The instantiated agent.
-        """
-        try:
-            # Instantiate the agent
-            agent_instance = agent_class(agent_config=agent_config, resource_manager=self.resource_manager)
-            
-            # Register the agent in the agents dictionary
-            self.agents[agent_config.id] = agent_instance
-            logger.info(self.agents[agent_config.id])
-            setattr(self, agent_config.id, agent_instance)
-            
-            # Log the creation
-            logger.debug(f"Created agent: {agent_config.id} of type {agent_class.__name__}")
-            
-            return agent_instance
-        except Exception as e:
-            logger.error(f"Failed to create agent '{agent_config}': {e}")
-            raise
-
-    @abstractmethod
-    def create_phases(self) -> None:
-        pass
-
-    def create_phase(self, phase_class: BasePhase, max_iterations: Optional[int] = None, agents: Optional[List[str]] = None):
-        phase_index = len(self.phases)
-        try:
-            # Create the phase configuration
-            phase_config = PhaseConfig(
-                phase_idx=phase_index,
-                max_iterations=max_iterations if max_iterations else MAX_ITERATIONS,
-                agents=agents if agents else self.get_phase_agents(phase_class),
-                interactive=self.interactive
-            )
-
-            phase_instance = phase_class(phase_config=phase_config)
-            self.phases.append(phase_instance)
-            logger.debug(f"Created phase: {phase_class.__name__} for Workflow ID: {self.config.id}")
-            return phase_instance
-        except Exception as e:
-            logger.error(f"Failed to create phase at index {phase_index}: {e}")
-            raise
-
-    def get_phase_agents(self, phase_class: BasePhase):
-        pass
 
     def _validate_phase_configs(self) -> None:
         """
@@ -446,58 +384,47 @@ class BaseWorkflow(ABC):
 
     def run_phases(self):
         """
-        Generator that executes workflow phases one at a time.
-        Yields (phase_response, phase_success) after each phase execution.
+        Execute all phases in sequence.
+        Yields:
+            Tuple[BaseResponse, bool]: The response from each phase and a success flag.
         """
         try:
-            # self.setup_phases()
-            self._validate_phase_configs()
             self.status = WorkflowStatus.INCOMPLETE
-            
-            prev_response = None
-            if hasattr(self.config, "initial_prompt") and self.config.initial_prompt:
-                prev_response = BaseResponse(self.config.initial_prompt)
+            prev_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
 
-            if hasattr(self.config, "initial_prompt") and self.config.initial_prompt:
-                prev_response = BaseResponse(self.config.initial_prompt)
-
-            # Execute phases in sequence
-            for phase_idx, phase_config in enumerate(self.config.phase_configs):
+            for phase_idx, phase in enumerate(self.phases):
                 self._current_phase_idx = phase_idx
-                
-                # Create and run phase
-                phase = self.setup_phase(phase_idx, prev_response)
-                logger.info(f"Phase {phase.phase_config.phase_name} set up")
-                phase_response, phase_success = phase.run_phase()
-                
+
+                # Setup and run the phase
+                phase_instance = self.setup_phase(phase_idx, prev_response)
+                phase_response, phase_success = phase_instance.run_phase()
+
                 # Update workflow state
                 prev_response = phase_response
                 if not phase_success:
                     self.status = WorkflowStatus.COMPLETED_FAILURE
                     yield phase_response, phase_success
-                    yield phase_response, phase_success
                     break
-                    
+
                 self._workflow_iteration_count += 1
-                if self._workflow_iteration_count >= self.config.max_iterations:
-                    self._workflow_iteration_count += 1
                 if self._workflow_iteration_count >= self.config.max_iterations:
                     self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
                     yield phase_response, phase_success
-                    yield phase_response, phase_success
                     break
-                
+
                 # Yield current phase results
                 yield phase_response, phase_success
+
+                # Takedown resources after phase completion
                 self.takedown_phase_resources(phase_idx)
-                    
-            # If we completed all phases successfully
-            if phase_success and phase_idx == len(self.config.phase_configs) - 1:
+
+            else:
+                # If all phases completed successfully
                 self.status = WorkflowStatus.COMPLETED_SUCCESS
-                
+
             # Finalize workflow
             self.workflow_logger.finalize(self.status.value)
-            
+
         except Exception as e:
             self.status = WorkflowStatus.INCOMPLETE
             self.workflow_logger.finalize(self.status.value)
@@ -511,16 +438,7 @@ class BaseWorkflow(ABC):
         # Run through all phases
         for _ in self.run_phases():
             continue
-
-    def run(self) -> None:
-        """
-        Execute the entire workflow by running all phases in sequence.
-        This is a convenience method that runs the workflow to completion.
-        """
-        # Run through all phases
-        for _ in self.run_phases():
-            continue
-
+    
     @property
     def current_phase(self) -> Optional[PhaseConfig]:
         """Get current phase configuration"""

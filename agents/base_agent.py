@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import re
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Optional, Set, Tuple, Type, Union
 
 from resources.base_resource import BaseResource
 from responses.failure_response import FailureResponse
@@ -95,40 +95,32 @@ class BaseAgent(ABC):
         return self._original_run(responses)
 
     @classmethod
-    def get_required_resources(cls) -> Set[str]:
-        """Get the set of required resource attribute names."""
-        return set(cls._entry_to_str(resource) for resource in cls.REQUIRED_RESOURCES + cls.OPTIONAL_RESOURCES)
-
+    def get_required_resources(cls) -> Set[Type[BaseResource]]:
+        """Get the set of required resource classes."""
+        return set(
+            resource if isinstance(resource, type) else resource[0]
+            for resource in cls.REQUIRED_RESOURCES + cls.OPTIONAL_RESOURCES
+        )
+    
     def register_resources(self):
         """
         Bind resources from the ResourceManager to the agent.
-        
-        Raises:
-            RuntimeError: If ResourceManager is not set.
-            ValueError: If ACCESSIBLE_RESOURCES is not a subset of (REQUIRED + OPTIONAL).
-            KeyError: If a required resource is missing.
         """
         if not self.resource_manager:
-            raise RuntimeError(f"Agent '{self.__class__.__name__}' has no ResourceManager set.")
+            raise RuntimeError(f"Agent '{self.agent_config.id}' has no ResourceManager set.")
 
-        declared_resources = self._required_resources | self._optional_resources
-        accessible_attr_names = {self._entry_to_str(e) for e in self.ACCESSIBLE_RESOURCES}
-
-        missing = accessible_attr_names - declared_resources
-        if missing:
-            raise ValueError(f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset of REQUIRED + OPTIONAL. Missing: {missing}")
-
-        for entry in self.ACCESSIBLE_RESOURCES:
-            attr_name = self._entry_to_str(entry)
+        declared_resources = self.REQUIRED_RESOURCES + self.OPTIONAL_RESOURCES
+        for resource_entry in declared_resources:
+            resource_class = resource_entry[0] if isinstance(resource_entry, tuple) else resource_entry
+            attr_name = self._entry_to_str(resource_entry)
             try:
-                resource_obj = self.resource_manager.get_resource(attr_name)
-                object.__setattr__(self, attr_name, resource_obj)
+                resource = self.resource_manager.get_resource(resource_class)
+                setattr(self, attr_name, resource)
+                logger.info(f"Agent '{self.agent_config.id}' bound to resource '{resource_class.__name__}'.")
             except KeyError:
-                if attr_name in self._required_resources:
-                    raise
-                logger.warning(f"Optional resource '{attr_name}' not allocated. Attribute remains None.")
-
-        self._resources_initialized = True
+                if resource_class in [req[0] for req in self.REQUIRED_RESOURCES]:
+                    raise ResourceNotInitializedError(f"Required resource '{resource_class.__name__}' not initialized for agent '{self.agent_config.id}'.")
+                logger.warning(f"Optional resource '{resource_class.__name__}' not available for agent '{self.agent_config.id}'.")
 
     @staticmethod
     def _generate_attr_name(resource_cls: type) -> str:

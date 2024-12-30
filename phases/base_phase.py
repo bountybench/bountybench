@@ -1,18 +1,26 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Set, Tuple, Type, Union
 
-from agents.base_agent import BaseAgent
+from agents.base_agent import AgentConfig, BaseAgent
 from responses.base_response import BaseResponse
 from responses.edit_response import EditResponse
 from responses.response import Response
+from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
+
+logger = get_main_logger(__name__)
+
+
+if TYPE_CHECKING:
+    from agents.agent_manager import AgentManager  # Only import for type checking
 
 @dataclass
 class PhaseConfig:
     phase_idx: int
     max_iterations: int
-    agents: List[Tuple[str, BaseAgent]] = field(default_factory=list)
+    phase_name: str = "base_phase"
+    agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)  # List of (agent_id, AgentConfig)
     interactive: bool = False
     
 class BasePhase(ABC):
@@ -21,50 +29,63 @@ class BasePhase(ABC):
     before run_phase.
     """
 
-    REQUIRED_AGENTS: List[Union[str, Tuple[BaseAgent, str]]] = []
+    AGENT_CLASSES: List[Type[BaseAgent]] = []
 
-    def __init__(self, phase_config: PhaseConfig, initial_response: Optional[Response] = None, resource_manager=None):
+    def __init__(self, phase_config: PhaseConfig, agent_manager: 'AgentManager', initial_response: Optional[Response] = None):
         self.phase_config = phase_config
+        self.agent_manager = agent_manager
+        self.agents: List[Tuple[str, BaseAgent]] = [] 
         self.initial_response = initial_response
-        self.resource_manager = resource_manager
         self._done = False
+
+
+
+        self.resource_manager = agent_manager.resource_manager 
+
         self.phase_summary: Optional[str] = None
         self.iteration_count = 0  # Will increment up to max_iterations
         self.current_agent_index = 0
 
-        # TODO: Log agent for each phase?
 
         # Check that the agents in config match what we require (if any)
-        self._register_agents()
+        self._initialize_agents()
 
     @classmethod
     def get_required_resources(cls) -> Set[str]:
         resources = set()
-        for agent_cls in cls.REQUIRED_AGENTS:
+        for agent_cls in cls.AGENT_CLASSES:
             resources.update(agent_cls.get_required_resources())
         return resources
-    
-    def _register_agents(self):
-        required = getattr(self, "REQUIRED_AGENTS", [])
-        agent_classes = [type(a) for _, a in self.phase_config.agents]
-        for rcls in required:
-            if not any(issubclass(acls, rcls) for acls in agent_classes):
-                raise ValueError(f"Phase requires agent {rcls.__name__}, but none provided.")
 
-    def allocate_resources(self):
+    def _initialize_agents(self):
+        """Initialize and register required agents using AgentManager."""
+        required_agent_classes = set(self.AGENT_CLASSES)
+        for agent_id, agent_config in self.phase_config.agent_configs:
+            # Find the agent class
+            agent_class = type(agent_config)  # Assuming AgentConfig subclasses are unique per agent
+            if agent_class not in required_agent_classes:
+                continue  # Skip agents not required by this phase
+
+            # Retrieve or create the agent instance via AgentManager
+            agent_instance = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config)
+            self.agents.append((agent_id, agent_instance))
+            logger.debug(f"Phase '{self.phase_config.phase_name}' initialized agent '{agent_id}' of type '{agent_class.__name__}'.")
+
+        # Verify that all required agents are present
+        present_agent_classes = set(type(agent) for _, agent in self.agents)
+        missing_agents = set(self.AGENT_CLASSES) - present_agent_classes
+        if missing_agents:
+            missing_names = ', '.join(agent.__name__ for agent in missing_agents)
+            raise ValueError(f"Phase '{self.phase_config.phase_name}' requires agents: {missing_names}, but they are missing.")
+
+    def register_resources(self):
         """
-        1) Tells the ResourceManager to allocate resources for this phase.
-        2) Instructs each agent to bind them strictly, raising KeyError if missing.
+        Register required resources with the ResourceManager.
+        This method should be called after resources are initialized for the phase.
         """
-        if not self.resource_manager:
-            raise RuntimeError("No resource_manager set in phase.")
-
-        phase_name = self.phase_config.phase_name
-        self.resource_manager.allocate_resources_for_phase(phase_name)
-
-        # Now each agent can do 'bind_resources_strict'
-        for _, agent in self.phase_config.agents:
+        for _, agent in self.agents:
             agent.register_resources()
+
 
     def run_phase(self) -> Tuple[Optional[Response], bool]:
         last_output = self.initial_response
@@ -78,7 +99,7 @@ class BasePhase(ABC):
                 if self._done:
                     break
 
-                agent_name, agent_instance = self._get_agent()
+                agent_id, agent_instance = self._get_current_agent()
 
                 if self.phase_config.interactive and skip_interactive <= 0:
                     skip_interactive, last_output = self._interactive_prompt(iteration_num, last_output)
@@ -94,21 +115,19 @@ class BasePhase(ABC):
                     print("No last output")
 
                 # 2) Start iteration context in the logger
-                with phase_ctx.iteration(iteration_num, agent_name, last_output) as iteration_ctx:
-                    iteration_output, iteration_done = self.run_one_iteration(
-                        agent_instance=agent_instance,
-                        previous_output=last_output,
-                        iteration_num=iteration_num
-                    )
-                    iteration_ctx.set_output(iteration_output)
+                with phase_ctx.iteration(iteration_num, agent_id, last_output) as iteration_ctx:
+                    response = agent_instance.run([last_output] if last_output else [])
+                    logger.info(f"Agent '{agent_id}' completed iteration {iteration_num} with response: {response}")
 
-                if iteration_done:
+                    iteration_ctx.set_output(response)
+
+                if self._is_phase_complete(response):
                     success_flag = True
                     self._done = True
-                    last_output = iteration_output
+                    last_output = response
                     break
 
-                last_output = iteration_output
+                last_output = response
 
                 # Increment the iteration count
                 self.iteration_count += 1
@@ -173,10 +192,11 @@ class BasePhase(ABC):
         print(f"Updated response:\n{edit_response.response}\n")
         return edit_response
     
-    def _get_agent(self) -> Tuple[str, BaseAgent]:
-        agent_index = (self.current_agent_index) % len(self.phase_config.agents)
-        agent_name, agent_instance = self.phase_config.agents[agent_index]
-        return agent_name, agent_instance
+    def _get_current_agent(self) -> Tuple[str, BaseAgent]:
+        """Retrieve the next agent in a round-robin fashion."""
+        agent = self.agents[self.current_agent_index % len(self.agents)]
+        self.current_agent_index += 1
+        return agent
 
     def _set_phase_summary(self, summary: str):
         """Allows a subclass to record a short message describing the phase outcome.
@@ -184,16 +204,34 @@ class BasePhase(ABC):
         Or sets as completed_max_phase_iterations if no summary set"""
         self.phase_summary = summary
 
+    def _is_phase_complete(self, response: Response) -> bool:
+        """
+        Determine if the phase is complete based on the agent's response.
+
+        Args:
+            response (Response): The response from the agent.
+
+        Returns:
+            bool: True if the phase is complete, False otherwise.
+        """
+        pass
+
+    @abstractmethod
+    def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
+        """
+        Provide agent configurations for the phase.
+
+        Returns:
+            List[Tuple[str, AgentConfig]]: List of (agent_id, AgentConfig) tuples.
+        """
+        pass
+
+    def _set_phase_summary(self, summary: str):
+        self.phase_summary = summary
+    
+
     @abstractmethod
     def run_one_iteration(
         self, agent_instance: Any, previous_output: Optional[Response], iteration_num: int
     ) -> Tuple[Response, bool]:
         pass
-
-    def _get_agent(self, iteration_num: int) -> Tuple[str, Any]:
-        # simple round-robin
-        idx = (iteration_num - 1) % len(self.phase_config.agents)
-        return self.phase_config.agents[idx]
-
-    def _set_phase_summary(self, summary: str):
-        self.phase_summary = summary
