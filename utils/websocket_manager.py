@@ -53,19 +53,22 @@ class WebSocketManager:
             logger.warning(f"No active connections for workflow {workflow_id}")
             return
 
-        logger.info(f"Broadcasting to workflow {workflow_id}: {message}")
+        logger.info(f"Broadcasting message type '{message.get('type')}' to workflow {workflow_id}")
+        logger.debug(f"Full message content: {message}")
         failed_connections = []
 
         for connection in self.active_connections[workflow_id]:
             try:
                 await connection.send_json(message)
-                logger.debug(f"Successfully sent message to a connection in workflow {workflow_id}")
+                logger.info(f"Successfully sent message type '{message.get('type')}' to a connection in workflow {workflow_id}")
             except Exception as e:
-                logger.error(f"Failed to send message to connection in workflow {workflow_id}: {e}")
+                logger.error(f"Failed to send message type '{message.get('type')}' to connection in workflow {workflow_id}: {e}")
+                logger.error(f"Failed message content: {message}")
                 failed_connections.append(connection)
 
         # Clean up failed connections
         for connection in failed_connections:
+            logger.warning(f"Removing failed connection from workflow {workflow_id}")
             self.disconnect(workflow_id, connection)
 
     async def close_all_connections(self):

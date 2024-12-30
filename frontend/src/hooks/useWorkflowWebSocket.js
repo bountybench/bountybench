@@ -28,7 +28,10 @@ export const useWorkflowWebSocket = (workflowId) => {
   // 1) Connect / Reconnect logic
   // ----------------------------------
   const connect = useCallback(() => {
-    if (!workflowId) return;
+    if (!workflowId) {
+      console.warn('No workflow ID provided, skipping connection');
+      return;
+    }
 
     if (reconnectAttempts.current >= maxReconnectAttempts) {
       console.error('Max reconnection attempts reached');
@@ -38,6 +41,7 @@ export const useWorkflowWebSocket = (workflowId) => {
 
     const wsUrl = `ws://localhost:8000/ws/${workflowId}`;
     console.log('Connecting to WebSocket:', wsUrl);
+    console.log('Current workflow ID:', workflowId);
     
     if (ws.current?.readyState === WebSocket.OPEN) {
       console.log('WebSocket already connected');
@@ -47,12 +51,13 @@ export const useWorkflowWebSocket = (workflowId) => {
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = async () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket connected for workflow:', workflowId);
       setIsConnected(true);
       setError(null);
       reconnectAttempts.current = 0;
       
       try {
+        console.log('Starting workflow execution for:', workflowId);
         const response = await fetch(`http://localhost:8000/workflow/execute/${workflowId}`, {
           method: 'POST'
         });
@@ -60,7 +65,7 @@ export const useWorkflowWebSocket = (workflowId) => {
           const data = await response.json();
           throw new Error(data.error || 'Failed to start workflow execution');
         }
-        console.log('Workflow execution started');
+        console.log('Workflow execution started successfully');
       } catch (err) {
         console.error('Failed to start workflow:', err);
         setError('Failed to start workflow execution: ' + err.message);
@@ -68,7 +73,7 @@ export const useWorkflowWebSocket = (workflowId) => {
     };
 
     ws.current.onclose = (event) => {
-      console.log('WebSocket disconnected:', event);
+      console.log('WebSocket disconnected for workflow:', workflowId, 'Event:', event);
       setIsConnected(false);
       
       if (!event.wasClean) {
@@ -79,7 +84,7 @@ export const useWorkflowWebSocket = (workflowId) => {
     };
 
     ws.current.onerror = (event) => {
-      console.error('WebSocket error:', event);
+      console.error('WebSocket error for workflow:', workflowId, 'Event:', event);
       setError('Failed to connect to workflow');
     };
 
@@ -89,17 +94,19 @@ export const useWorkflowWebSocket = (workflowId) => {
     ws.current.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('Received WebSocket message:', data);
+        console.log('Raw WebSocket message:', event.data);
+        console.log('Parsed WebSocket message type:', data.type);
+        console.log('Full message data:', data);
 
         switch (data.type) {
           case 'status_update':
           case 'initial_state':
-            console.log('Setting workflow status:', data.status);
+            console.log('Handling status update:', data.status);
             setWorkflowStatus(data.status);
             break;
 
           case 'phase_update':
-            console.log('Setting phase:', data.phase);
+            console.log('Handling phase update:', data.phase);
             setCurrentPhase(data.phase);
             // Create a system message for phase updates
             if (data.phase.status) {
@@ -117,17 +124,13 @@ export const useWorkflowWebSocket = (workflowId) => {
             break;
 
           case 'iteration_update': {
-            console.log('Setting iteration:', data.iteration);
+            console.log('Handling iteration update:', data.iteration);
             setCurrentIteration(data.iteration);
             currentIterationRef.current = data.iteration;
 
-            // ----------------------------------
-            // CHANGE: Store iteration_number in the message
-            // so we can append actions later
-            // ----------------------------------
             const iterationMessage = {
               id: `msg_${messageIdCounter.current++}`,
-              iteration_number: data.iteration.iteration_number, // new field
+              iteration_number: data.iteration.iteration_number,
               agent_name: data.iteration.agent_name,
               timestamp: new Date().toISOString(),
               input: data.iteration.input,
@@ -140,50 +143,31 @@ export const useWorkflowWebSocket = (workflowId) => {
           }
 
           case 'action_update': {
-            console.log('Received action:', data.action);
-            // ----------------------------------
-            // 3) Append action to the correct iteration message
-            // ----------------------------------
+            console.log('Handling action update:', data.action);
             setMessages(prev => {
               const updated = [...prev];
-
-              // We'll base iteration_number on currentIterationRef (or it could come from data.action.metadata)
               const iterationNumber = currentIterationRef.current?.iteration_number;
+              console.log('Current iteration number:', iterationNumber);
 
-              // Find the existing message that matches this iteration
               const index = updated.findIndex(
                 msg => msg.iteration_number === iterationNumber
               );
 
               if (index === -1) {
-                // If no iteration message yet, create a new one
-                updated.push({
-                  id: `msg_${messageIdCounter.current++}`,
-                  iteration_number: iterationNumber,
-                  agent_name: currentIterationRef.current?.agent_name || 'System',
-                  timestamp: new Date().toISOString(),
-                  input: null,
-                  output: null,
-                  actions: [data.action],
-                  status: currentIterationRef.current?.status,
-                });
-              } else {
-                // Update the existing iteration message
-                const target = { ...updated[index] };
-
-                // Append the new action
-                target.actions = [...(target.actions || []), data.action];
-
-                // If the action is LLM output, update the iteration's "output" field
-                if (data.action.action_type === 'llm' && data.action.output_data) {
-                  target.output = {
-                    content: data.action.output_data
-                  };
-                }
-
-                updated[index] = target;
+                console.warn('No matching iteration found for action:', data.action);
+                return prev;
               }
 
+              const target = { ...updated[index] };
+              target.actions = [...(target.actions || []), data.action];
+
+              if (data.action.action_type === 'llm' && data.action.output_data) {
+                target.output = {
+                  content: data.action.output_data
+                };
+              }
+
+              updated[index] = target;
               return updated;
             });
             break;

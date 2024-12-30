@@ -59,21 +59,41 @@ class WorkflowLogger:
         """Broadcast update to WebSocket clients"""
         if self.workflow_id:
             try:
+                print(f"Attempting to broadcast message type: {data.get('type')}")
+                print(f"Full message data: {data}")
                 await websocket_manager.broadcast(self.workflow_id, data)
+                print(f"Successfully broadcasted message type: {data.get('type')}")
             except Exception as e:
                 print(f"Error broadcasting update: {e}")
+                print(f"Failed message data: {data}")
 
     def broadcast_update(self, data: dict):
         """Synchronous wrapper for _broadcast_update"""
-        loop = asyncio.get_running_loop()
-        if not loop.is_running():
-            return asyncio.run(self._broadcast_update(data))
-        else:
-            return asyncio.create_task(self._broadcast_update(data))
+        try:
+            loop = asyncio.get_running_loop()
+            if not loop.is_running():
+                return asyncio.run(self._broadcast_update(data))
+            else:
+                # Create and store the task to prevent it from being dropped
+                task = asyncio.create_task(self._broadcast_update(data))
+                # Add a callback to handle any errors
+                task.add_done_callback(lambda t: self._handle_broadcast_error(t))
+                return task
+        except Exception as e:
+            print(f"Error in broadcast_update: {e}")
+
+    def _handle_broadcast_error(self, task):
+        """Handle any errors from the broadcast task"""
+        try:
+            # Get the result to raise any exceptions
+            task.result()
+        except Exception as e:
+            print(f"Error in broadcast task: {e}")
 
     def initialize(
         self,
         workflow_name: str,
+        workflow_id: Optional[str] = None,
         logs_dir: str = "logs",
         task_repo_dir: Optional[str] = None,
         bounty_number: Optional[str] = None,
@@ -94,7 +114,10 @@ class WorkflowLogger:
             phases=[],
         )
         
-        # Generate log filename and workflow ID
+        # Use provided workflow ID or generate one
+        self.workflow_id = workflow_id if workflow_id else f"{workflow_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Generate log filename
         components = [workflow_name]
         if task_repo_dir:
             components.append(Path(task_repo_dir).name)
@@ -102,7 +125,6 @@ class WorkflowLogger:
             components.append(str(bounty_number))
             
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.workflow_id = f"{workflow_name}_{timestamp}"
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{timestamp}.json"
         
         print(f"Initialized workflow logger with ID: {self.workflow_id}")
@@ -173,8 +195,10 @@ class WorkflowLogger:
         """Log an action within the current interaction"""
         self._ensure_initialized()
         if not self.current_iteration:
-            raise RuntimeError("Must start_iteration before logging actions.")
-        
+            print("Warning: Attempting to log action without active iteration")
+            return
+            
+        print(f'Logging action: {action_name}')
         action = Action(
             action_type=action_name,
             input_data=input_data,
@@ -185,7 +209,7 @@ class WorkflowLogger:
         self.current_iteration.actions.append(action)
         
         # Broadcast action update
-        self.broadcast_update({
+        update_data = {
             "type": "action_update",
             "action": {
                 "action_type": action_name,
@@ -194,7 +218,9 @@ class WorkflowLogger:
                 "metadata": metadata,
                 "timestamp": action.timestamp
             }
-        })
+        }
+        print(f"Preparing to broadcast action update: {update_data}")
+        self.broadcast_update(update_data)
 
     def end_iteration(self, output_response: Response, status: str = "completed") -> None:
         """End the current iteration and add it to the current phase"""
