@@ -1,0 +1,552 @@
+Certainly! I understand that you want to simplify the workflow definition so that at the workflow level, you only specify the phases you want to execute, and everything else is handled under the hood.
+
+Here's the plan:
+
+- **Workflow Level**: You define the phases you want to execute, and that's it.
+- **Phase Level**: Each phase knows which agents it needs and initializes them.
+- **Agent Level**: Each agent knows which resources it needs and registers them.
+- **Resource Management**: Handled automatically without explicit definitions at the workflow level.
+
+We'll achieve this by:
+
+- Using default configurations where possible.
+- Passing minimal necessary information through context or configuration objects.
+- Ensuring that agents and resources can initialize themselves with default or context-provided configurations.
+
+Let's rewrite the code to align with this paradigm.
+
+---
+
+### **1. Update the `ExploitAndPatchWorkflow` Class**
+
+We'll simplify the workflow class to only define the phases:
+
+```python
+from workflows.base_workflow import BaseWorkflow
+from phases.exploit_phase import ExploitPhase
+from phases.patch_phase import PatchPhase
+from pathlib import Path
+
+class ExploitAndPatchWorkflow(BaseWorkflow):
+    """Workflow for exploiting and patching vulnerabilities"""
+
+    def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
+        super().__init__(task_repo_dir, bounty_number, interactive)
+        # Define phases
+        exploit_phase = ExploitPhase()
+        patch_phase = PatchPhase()
+        # Set phases for the workflow
+        self.phases = [exploit_phase, patch_phase]
+```
+
+That's it at the workflow level—just defining the phases.
+
+---
+
+### **2. Modify the `BaseWorkflow` Class**
+
+We'll adjust the `BaseWorkflow` to initialize and store shared configurations that can be accessed by phases and agents.
+
+```python
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+class BaseWorkflow(ABC):
+    """
+    Base class for workflows.
+    """
+
+    def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
+        self.task_repo_dir = task_repo_dir
+        self.bounty_number = bounty_number
+        self.interactive = interactive
+        # Initialize a shared configuration or context
+        self.config = self.create_config()
+        # Initialize an empty list of phases
+        self.phases = []
+
+    def create_config(self):
+        """
+        Create and return a configuration object or context.
+        This can be a simple dictionary or a dedicated Config class.
+        """
+        config = {
+            'task_repo_dir': self.task_repo_dir,
+            'bounty_number': self.bounty_number,
+            'interactive': self.interactive,
+            # You can add more shared configurations here
+        }
+        return config
+
+    def run(self):
+        """
+        Execute the workflow by running each phase in sequence.
+        """
+        for phase in self.phases:
+            phase.run_phase(self.config)
+```
+
+---
+
+### **3. Adjust the `BasePhase` Class**
+
+We'll modify the `BasePhase` class to accept a `config` parameter when running, which contains shared configurations.
+
+```python
+from abc import ABC, abstractmethod
+
+class BasePhase(ABC):
+    """Base class for phases."""
+
+    def __init__(self):
+        self.agents = []
+
+    @abstractmethod
+    def setup(self, config):
+        """
+        Set up the phase by initializing agents and other necessary components.
+        """
+        pass
+
+    def run_phase(self, config):
+        """
+        Run the phase. This method calls setup and then executes the phase logic.
+        """
+        # Setup the phase
+        self.setup(config)
+        # Run the phase logic
+        self.execute()
+
+    @abstractmethod
+    def execute(self):
+        """
+        Execute the phase logic.
+        """
+        pass
+```
+
+---
+
+### **4. Implement the `ExploitPhase` Class**
+
+We modify `ExploitPhase` to initialize its agents within the `setup` method, using the provided `config`.
+
+```python
+from phases.base_phase import BasePhase
+from agents.executor_agent.executor_agent import ExecutorAgent
+from agents.exploit_agent.exploit_agent import ExploitAgent
+
+class ExploitPhase(BasePhase):
+    """Phase for exploiting vulnerabilities."""
+
+    def setup(self, config):
+        # Initialize agents
+        self.executor_agent = ExecutorAgent(config)
+        self.exploit_agent = ExploitAgent(config)
+        self.agents = [self.executor_agent, self.exploit_agent]
+
+    def execute(self):
+        # Implement the logic for running the exploit phase
+        # For example, have agents perform their tasks
+        for agent in self.agents:
+            agent.run()
+```
+
+Similarly, implement the `PatchPhase`.
+
+---
+
+### **5. Update Agent Classes**
+
+Adjust agents to access configurations and resources as needed.
+
+#### **ExecutorAgent**
+
+```python
+from agents.base_agent import BaseAgent
+from resources.resource_manager import ResourceManager
+
+class ExecutorAgent(BaseAgent):
+    """Agent responsible for executing commands."""
+
+    REQUIRED_RESOURCES = ['kali_env', 'docker']
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.resource_manager = ResourceManager.get_instance()
+        # Register required resources
+        self.register_resources()
+
+    def register_resources(self):
+        for resource_name in self.REQUIRED_RESOURCES:
+            resource = self.resource_manager.get_resource(resource_name)
+            setattr(self, resource_name, resource)
+
+    def run(self):
+        # Implement agent logic
+        pass
+```
+
+#### **ExploitAgent**
+
+Similarly for `ExploitAgent`:
+
+```python
+from agents.base_agent import BaseAgent
+
+class ExploitAgent(BaseAgent):
+    """Agent responsible for generating exploits."""
+
+    REQUIRED_RESOURCES = ['kali_env']
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.resource_manager = ResourceManager.get_instance()
+        self.register_resources()
+
+    def register_resources(self):
+        for resource_name in self.REQUIRED_RESOURCES:
+            resource = self.resource_manager.get_resource(resource_name)
+            setattr(self, resource_name, resource)
+
+    def run(self):
+        # Implement exploit generation logic
+        pass
+```
+
+---
+
+### **6. Handle Resource Management Under the Hood**
+
+We'll adjust the `ResourceManager` to initialize resources when first accessed.
+
+```python
+class ResourceManager:
+    _instance = None
+
+    def __init__(self):
+        self.resources = {}
+
+    @staticmethod
+    def get_instance():
+        if ResourceManager._instance is None:
+            ResourceManager._instance = ResourceManager()
+        return ResourceManager._instance
+
+    def get_resource(self, resource_name):
+        if resource_name not in self.resources:
+            # Initialize resource with default configurations
+            self.resources[resource_name] = self._initialize_resource(resource_name)
+        return self.resources[resource_name]
+
+    def _initialize_resource(self, resource_name):
+        # Initialize the resource based on its name
+        if resource_name == 'kali_env':
+            return KaliEnvResource()
+        elif resource_name == 'docker':
+            return DockerResource()
+        else:
+            # Handle unknown resources or raise an exception
+            raise ValueError(f"Unknown resource: {resource_name}")
+```
+
+---
+
+### **7. Adjust Resource Classes**
+
+Modify resource classes to use default configurations or access needed information from the context or config.
+
+#### **KaliEnvResource**
+
+```python
+class KaliEnvResource:
+    """Resource representing a Kali environment."""
+
+    def __init__(self):
+        # Use default configurations or access from a global config
+        self.configure()
+
+    def configure(self):
+        # Configuration logic for the Kali environment
+        pass
+```
+
+#### **DockerResource**
+
+```python
+class DockerResource:
+    """Resource representing Docker capabilities."""
+
+    def __init__(self):
+        # Initialize Docker resource
+        pass
+```
+
+---
+
+### **8. Remove Explicit Resource Definitions from the Workflow**
+
+Since resources are managed under the hood, there's no need to define them explicitly in the workflow.
+
+---
+
+### **9. Update the `main` Function**
+
+Ensure the workflow can be run with minimal setup.
+
+```python
+def main():
+    """Main entry point."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run the exploit and patch workflow")
+    parser.add_argument("--task_repo_dir", type=str, required=True, help="The directory of the task repo")
+    parser.add_argument("--bounty_number", type=str, required=True, help="The bounty number")
+    parser.add_argument("--interactive", action="store_true", help="Run in interactive mode")
+    args = parser.parse_args()
+
+    # Run workflow
+    workflow = ExploitAndPatchWorkflow(
+        task_repo_dir=Path(args.task_repo_dir),
+        bounty_number=args.bounty_number,
+        interactive=args.interactive
+    )
+    workflow.run()
+
+if __name__ == "__main__":
+    main()
+```
+
+---
+
+### **10. Handle Shared Configurations and Paths**
+
+Since resources like `KaliEnvResource` might need paths like `task_repo_dir`, we can make the `ResourceManager` or the `Resource` classes access shared configurations.
+
+Here's how we can adjust `ResourceManager`:
+
+```python
+class ResourceManager:
+    _instance = None
+
+    def __init__(self):
+        self.resources = {}
+        self.config = None  # Will be set when first needed
+
+    @staticmethod
+    def get_instance():
+        if ResourceManager._instance is None:
+            ResourceManager._instance = ResourceManager()
+        return ResourceManager._instance
+
+    def set_config(self, config):
+        self.config = config
+
+    def get_resource(self, resource_name):
+        if self.config is None:
+            raise ValueError("ResourceManager config not set.")
+
+        if resource_name not in self.resources:
+            self.resources[resource_name] = self._initialize_resource(resource_name)
+        return self.resources[resource_name]
+
+    def _initialize_resource(self, resource_name):
+        if resource_name == 'kali_env':
+            return KaliEnvResource(self.config)
+        elif resource_name == 'docker':
+            return DockerResource(self.config)
+        else:
+            raise ValueError(f"Unknown resource: {resource_name}")
+```
+
+Adjust `KaliEnvResource` to accept `config`:
+
+```python
+class KaliEnvResource:
+    def __init__(self, config):
+        self.config = config
+        self.configure()
+
+    def configure(self):
+        task_repo_dir = self.config['task_repo_dir']
+        bounty_number = self.config['bounty_number']
+        # Configuration logic using task_repo_dir and bounty_number
+```
+
+Similarly, the `ResourceManager` in the `BaseWorkflow` needs to have the config set:
+
+```python
+class BaseWorkflow(ABC):
+    def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
+        self.config = {
+            'task_repo_dir': task_repo_dir,
+            'bounty_number': bounty_number,
+            'interactive': interactive,
+        }
+        self.resource_manager = ResourceManager.get_instance()
+        self.resource_manager.set_config(self.config)
+        self.phases = []
+```
+
+---
+
+### **11. Summary**
+
+- **Workflow Level**: Only phases are specified.
+- **Phases**: Initialize their agents in the `setup` method using the provided `config`.
+- **Agents**: Know their required resources and register them with the `ResourceManager`, which now has access to shared `config`.
+- **ResourceManager**: Manages resources under the hood, initializing them when first requested, using configurations from `config`.
+- **Resources**: Use configurations from `config` to initialize themselves.
+
+---
+
+### **12. Potential Adjustments and Caveats**
+
+- **Default Configurations**: Agents and resources use default configurations. If customization is needed, you might need to pass additional parameters.
+- **Global State**: The use of a singleton `ResourceManager` introduces global state, which can be acceptable in this context but should be managed carefully.
+- **Error Handling**: Agents should handle cases where required resources are not available, potentially raising exceptions.
+- **Logging**: Ensure that appropriate logging is in place to trace the execution flow.
+
+---
+
+### **13. Code Example**
+
+Putting it all together, here's a simplified version:
+
+#### **exploit_and_patch_workflow.py**
+
+```python
+from workflows.base_workflow import BaseWorkflow
+from phases.exploit_phase import ExploitPhase
+from phases.patch_phase import PatchPhase
+from pathlib import Path
+
+class ExploitAndPatchWorkflow(BaseWorkflow):
+    """Workflow for exploiting and patching vulnerabilities"""
+
+    def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
+        super().__init__(task_repo_dir, bounty_number, interactive)
+        # Define phases
+        exploit_phase = ExploitPhase()
+        patch_phase = PatchPhase()
+        # Set phases for the workflow
+        self.phases = [exploit_phase, patch_phase]
+```
+
+#### **base_workflow.py**
+
+```python
+from abc import ABC
+from resource_manager import ResourceManager
+
+class BaseWorkflow(ABC):
+    """
+    Base class for workflows.
+    """
+
+    def __init__(self, task_repo_dir, bounty_number, interactive=False):
+        self.config = {
+            'task_repo_dir': task_repo_dir,
+            'bounty_number': bounty_number,
+            'interactive': interactive,
+        }
+        self.resource_manager = ResourceManager.get_instance()
+        self.resource_manager.set_config(self.config)
+        self.phases = []
+
+    def run(self):
+        for phase in self.phases:
+            phase.run_phase(self.config)
+```
+
+#### **base_phase.py**
+
+```python
+from abc import ABC, abstractmethod
+
+class BasePhase(ABC):
+    """Base class for phases."""
+
+    def __init__(self):
+        self.agents = []
+
+    @abstractmethod
+    def setup(self, config):
+        pass
+
+    def run_phase(self, config):
+        self.setup(config)
+        self.execute()
+
+    @abstractmethod
+    def execute(self):
+        pass
+```
+
+#### **exploit_phase.py**
+
+```python
+from phases.base_phase import BasePhase
+from agents.executor_agent import ExecutorAgent
+from agents.exploit_agent import ExploitAgent
+
+class ExploitPhase(BasePhase):
+    """Phase for exploiting vulnerabilities."""
+
+    def setup(self, config):
+        self.executor_agent = ExecutorAgent(config)
+        self.exploit_agent = ExploitAgent(config)
+        self.agents = [self.executor_agent, self.exploit_agent]
+
+    def execute(self):
+        for agent in self.agents:
+            agent.run()
+```
+
+#### **executor_agent.py**
+
+```python
+from agents.base_agent import BaseAgent
+from resource_manager import ResourceManager
+
+class ExecutorAgent(BaseAgent):
+    """Agent responsible for executing commands."""
+
+    REQUIRED_RESOURCES = ['kali_env', 'docker']
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.resource_manager = ResourceManager.get_instance()
+        self.register_resources()
+
+    def register_resources(self):
+        for resource_name in self.REQUIRED_RESOURCES:
+            resource = self.resource_manager.get_resource(resource_name)
+            setattr(self, resource_name, resource)
+
+    def run(self):
+        # Implement execution logic
+        pass
+```
+
+---
+
+### **14. Conclusion**
+
+By restructuring the code in this way, we've:
+
+- Simplified the workflow definition to only specify the phases.
+- Encapsulated agent and resource initialization within phases and agents.
+- Managed resources under the hood via a `ResourceManager` that uses shared configurations.
+- Allowed agents to use default configurations or access necessary configurations from a shared `config`.
+
+This should make it easier for new developers to define workflows without worrying about the intricacies of resource and agent configurations.
+
+**Note**: This approach assumes that agents and resources can be initialized with default configurations or minimal context provided via the shared `config`. If more complex configurations are needed, you might need to introduce additional mechanisms for passing configurations, but the overall structure remains the same.
+
+---
+
+If you have any questions or need further adjustments, please let me know!

@@ -1,0 +1,20 @@
+The key piece of what is really confusing is that the resources, phases, agents are all defined separately and are in different locations which is very hard to understand and piece together.
+
+I think conceptually, at the workflow level, all I should worry about is what phases I want to couple, e.g. I want to exploit and then patch. Then bam. Everything is done.
+For the exploit phase, it should worry about the agents it needs to run, and bam, everything is done.
+Then for the agent, it should figure out what resources it needs and what it needs to make this happen.
+
+For resource management, that is all handled underneath the hood and not a worry / concern.
+
+I want this workflow to just look like:
+
+Ok, 
+
+ExploitPatchWorkflow:
+    exploit_phase = ExploitPhase()
+    patch_phase = PatchPhase()
+    phases = [exploit_phase, patch_phase]
+
+
+Rewrite all the logic to adjust to this paradigm and think through how to make this happen.
+
