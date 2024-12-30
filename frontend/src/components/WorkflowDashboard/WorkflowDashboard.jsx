@@ -1,5 +1,6 @@
-import React from 'react';
-import { Box, Typography, CircularProgress, Alert } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Typography, CircularProgress, Alert, Button } from '@mui/material';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { AgentInteractions } from '../AgentInteractions/AgentInteractions';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
@@ -7,6 +8,8 @@ import './WorkflowDashboard.css';
 export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
   console.log('WorkflowDashboard props:', { selectedWorkflow, interactiveMode }); // Debug log
   
+  const [isNextDisabled, setIsNextDisabled] = useState(false);
+
   const {
     isConnected,
     workflowStatus,
@@ -24,6 +27,30 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     currentIteration,
     messageCount: messages?.length 
   }); // Debug log
+
+  
+  const triggerNextIteration = async () => {
+    if (selectedWorkflow?.id) {
+      setIsNextDisabled(true);
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/next/${selectedWorkflow.id}`, {
+          method: 'POST',
+        });
+        const data = await response.json();
+        if (data.error) {
+          console.error('Error triggering next iteration:', data.error);
+        } else {
+          console.log('Next iteration triggered successfully');
+        }
+      } catch (error) {
+        console.error('Error triggering next iteration:', error);
+      } finally {
+        setIsNextDisabled(false);
+      }
+    } else {
+      console.error('Workflow ID is not available');
+    }
+  };
 
   if (!isConnected) {
     return (
@@ -54,6 +81,17 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
           <Typography variant="h6">
             Current Phase: {currentPhase.phase_name} (Phase {currentPhase.phase_idx + 1})
           </Typography>
+        )}
+        {interactiveMode && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={triggerNextIteration}
+            startIcon={<ArrowForwardIcon />}
+            disabled={isNextDisabled}
+          >
+            Next Iteration
+          </Button>
         )}
       </Box>
       
