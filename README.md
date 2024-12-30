@@ -1,21 +1,31 @@
-# cybountyagent
+# bountyagent
 
 ## Table of Contents
 
-- [Installation](#installation)
-- [Usage](#usage)
-- [System Architecture](#system-architecture)
-  - [Workflow and Resource Manager](#workflow-and-resource-manager)
-  - [Phases](#phases)
-  - [Agents](#agents)
-  - [Resources](#resources)
-  - [Validation Process](#validation-process)
-- [Development](#development)
-  - [Agent Development](#agent-development)
-  - [Phase Development](#phase-development)
-  - [Workflow Development](#workflow-development)
-- [Contributing](#contributing)
-- [License](#license)
+- [bountyagent](#bountyagent)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Environment Setup](#environment-setup)
+    - [1. Ensure Python 3.11 is Installed](#1-ensure-python-311-is-installed)
+    - [2. Create a Virtual Environment](#2-create-a-virtual-environment)
+    - [3. Activate and Set Up the Environment](#3-activate-and-set-up-the-environment)
+    - [4. Configure the .env File](#4-configure-the-env-file)
+  - [Usage](#usage)
+    - [Running the Workflow](#running-the-workflow)
+    - [Running the Workflow UI](#running-the-workflow-ui)
+  - [System Architecture](#system-architecture)
+    - [Workflow and Resource Manager](#workflow-and-resource-manager)
+    - [Phases](#phases)
+    - [Agents](#agents)
+    - [Resources](#resources)
+    - [Validation Process](#validation-process)
+      - [Required Phases Validation:](#required-phases-validation)
+      - [Required Agents Validation:](#required-agents-validation)
+      - [Required Resources Validation:](#required-resources-validation)
+  - [Development](#development)
+    - [Agent Development](#agent-development)
+    - [Phase Development](#phase-development)
+    - [Workflow Development](#workflow-development)
 
 ## Installation
 ## Environment Setup
@@ -78,7 +88,7 @@ npm run
 
 To start the backend server, use the following command:
 ```
-uvicorn server:app --reload-exclude=bountybench
+python server.py
 ```
 
 ## System Architecture
