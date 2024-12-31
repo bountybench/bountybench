@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional, Set, Tuple, Union
 
 from agents.base_agent import BaseAgent
+from responses.base_response import BaseResponse
 from responses.response import Response
 from utils.workflow_logger import workflow_logger
 
@@ -69,9 +70,17 @@ class BasePhase(ABC):
         for _, agent in self.phase_config.agents:
             agent.register_resources()
 
+    async def handle_user_input(self, user_input: str) -> str:
+        user_input_response = BaseResponse(user_input)
+        
+        # Update the last output
+        self.last_output = user_input_response
+        
+        return user_input_response.response
+
     async def run_phase(self) -> Tuple[Optional[Response], bool]:
         print(f"Running phase with interactive {self.phase_config.interactive}")
-        last_output = self.initial_response
+        self.last_output = self.initial_response
         success_flag = False
         
         # 1) Start phase context
@@ -88,15 +97,14 @@ class BasePhase(ABC):
                     else:
                         logger.warning("Interactive mode is set, but workflow doesn't have next_iteration_event")
 
-                        
                 agent_name, agent_instance = self._get_agent()
 
                 # 2) Start iteration context in the logger
-                with phase_ctx.iteration(iteration_num, agent_name, last_output) as iteration_ctx:
+                with phase_ctx.iteration(iteration_num, agent_name, self.last_output) as iteration_ctx:
                     print("Let's run one iteration")
                     iteration_output, iteration_done = await self.run_one_iteration(
                         agent_instance=agent_instance,
-                        previous_output=last_output,
+                        previous_output=self.last_output,
                         iteration_num=iteration_num
                     )
                     iteration_ctx.set_output(iteration_output)
@@ -105,10 +113,10 @@ class BasePhase(ABC):
                 if iteration_done:
                     success_flag = True
                     self._done = True
-                    last_output = iteration_output
+                    self.last_output = iteration_output
                     break
 
-                last_output = iteration_output
+                self.last_output = iteration_output
 
                 # Increment the iteration count
                 self.iteration_count += 1
@@ -116,7 +124,7 @@ class BasePhase(ABC):
 
         if not self.phase_summary:
             self._set_phase_summary("completed_max_phase_iterations")
-        return last_output, success_flag
+        return self.last_output, success_flag
     
     def _get_agent(self) -> Tuple[str, BaseAgent]:
         agent_index = (self.current_agent_index) % len(self.phase_config.agents)

@@ -429,6 +429,13 @@ export const AgentInteractions = ({
             placeholder="Type your message..."
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
+            sx={{ 
+              '& .MuiInputBase-input': {
+                color: 'black',
+              },
+              border: '1px solid #ccc',  // Add this line
+              borderRadius: '6px',       // Optional: rounds the corners
+            }}
             onKeyPress={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

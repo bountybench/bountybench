@@ -199,8 +199,11 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 if data.get("type") == "user_input" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
-                        # TODO: Implement user input handling
-                        pass
+                        result = await workflow.handle_user_input(data["content"])
+                        await websocket_manager.broadcast(workflow_id, {
+                            "type": "user_input_response",
+                            "content": result
+                        })
                 elif data.get("type") == "start_execution":
                     print(f"Starting execution for workflow {workflow_id}")
                     asyncio.create_task(run_workflow(workflow_id))
@@ -211,7 +214,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 print(f"Error handling message: {e}")
                 if "disconnect" in str(e).lower():
                     break
-                
+                    
     except WebSocketDisconnect:
         print(f"WebSocket disconnected for workflow {workflow_id}")
     except Exception as e:

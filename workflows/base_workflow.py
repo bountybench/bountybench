@@ -591,3 +591,12 @@ class BaseWorkflow(ABC):
                         return result.response
                     
         raise ValueError(f"No agent found that can modify action {action_id}")
+    
+    async def handle_user_input(self, user_input: str) -> str:
+        current_phase = self.phases[self._current_phase_idx]
+        result = await current_phase.handle_user_input(user_input)
+        
+        # Trigger the next iteration
+        self.next_iteration_event.set()
+        
+        return result

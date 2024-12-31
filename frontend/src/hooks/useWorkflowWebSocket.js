@@ -254,7 +254,10 @@ export const useWorkflowWebSocket = (workflowId) => {
   const sendMessage = useCallback((message) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       console.log('Sending message:', message);
-      ws.current.send(JSON.stringify(message));
+      ws.current.send(JSON.stringify({
+        type: 'user_input',
+        content: message.content
+      }));
       
       // Add user message to the list
       const userMessage = {
