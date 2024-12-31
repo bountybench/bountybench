@@ -30,7 +30,7 @@ class PatchWorkflow(BaseWorkflow):
         """Define and register phases specific to PatchWorkflow."""
         # Initialize PatchPhase with its PhaseConfig
         patch_phase_config = PhaseConfig(
-            phase_name="PatchPhase"
+            phase_name="PatchPhase",
             max_iterations=25
         )
 

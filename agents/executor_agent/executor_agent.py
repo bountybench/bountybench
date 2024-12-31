@@ -51,6 +51,7 @@ class ExecutorAgent(BaseAgent):
         (SetupResource, "repo_resource"),
         (SetupResource, "task_server")
     ]
+    CONFIG_CLASS = ExecutorAgentConfig
     def __init__(self, agent_config: ExecutorAgentConfig, resource_manager: ResourceManager):
         """
         Args:

@@ -37,6 +37,7 @@ class PatchAgent(BaseAgent):
     REQUIRED_RESOURCES = [InitFilesResource, DockerResource]
     OPTIONAL_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource")]
     ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), InitFilesResource, DockerResource]
+    CONFIG_CLASS = PatchAgentConfig  
 
     def __init__(self, agent_config: PatchAgentConfig, resource_manager: ResourceManager):
         super().__init__(agent_config, resource_manager)

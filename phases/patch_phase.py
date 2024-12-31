@@ -21,44 +21,6 @@ class PatchPhase(BasePhase):
     
     AGENT_CLASSES = [PatchAgent, ExecutorAgent]
 
-    '''
-    def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
-        """Provide agent configurations specific to the PatchPhase."""
-    
-
-        # Define ExecutorAgent configuration
-        executor_lm_agent_config = AgentLMConfig(
-                model='openai/o3-mini-2024-12-17',
-                max_output_tokens=25000,
-                max_input_tokens=25000,
-                max_iterations=25,
-                max_iterations_stored_in_memory=3,
-                use_helm=False
-            )
-        
-        executor_agent_config = ExecutorAgentConfig(
-            id="executor_agent",
-            lm_config=executor_lm_agent_config,
-            target_host=self.workflow.repo_metadata["target_host"]
-        )
-
-
-        self.agent_manager.register_agent(ExecutorAgent, executor_agent_config)
-        logger.info(f"Executor agent registered: {self.agents['executor_agent']}")
-
-        patch_agent_config = PatchAgentConfig(
-            id="patch_agent",
-            bounty_dir=os.path.join("bounties", f"bounty_{self.workflow.bounty_number}")
-        )
-        self.agent_manager.register_agent(PatchAgent, patch_agent_config)
-        logger.info(f"Patch agent registered: {self.agents['patch_agent']}")
-
-
-        return [
-            ("executor_agent", executor_agent_config)
-            ("patch_agent", patch_agent_config),
-        ]
-    '''
 
     def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
         executor_lm_config = AgentLMConfig(
