@@ -80,6 +80,14 @@ class BasePhase(ABC):
         """
         for _, agent in self.agents:
             agent.register_resources()
+    
+
+    @classmethod
+    def get_required_resources(cls) -> Set[str]:
+        resources = set()
+        for agent_cls in cls.AGENT_CLASSES:
+            resources.update(agent_cls.get_required_resources())
+        return resources
 
     def initialize_resources(self):
         """
