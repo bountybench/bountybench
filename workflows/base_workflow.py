@@ -51,12 +51,7 @@ class WorkflowConfig:
 class BaseWorkflow(ABC):
     """
     Base class for defining workflows that coordinate phases and their agents.
-    
-    A workflow:
-    - Acts as top-level controller for phases
-    - Manages workflow-level logging
-    - Coordinates phase transitions and data flow between phases
-    - Tracks overall workflow state and completion status
+    Delegates resource management to individual phases.
     """
     PHASES: List[Type[BasePhase]] = []
 
@@ -69,7 +64,7 @@ class BaseWorkflow(ABC):
     ):
         """Initialize workflow with configuration"""
         self.task_repo_dir = task_repo_dir
-        self.bounty_number = str(bounty_number)  # Ensure it's an integer
+        self.bounty_number = str(bounty_number)  # Ensure it's a string
         self.repo_metadata = read_repo_metadata(str(task_repo_dir))
         self.bounty_metadata = read_bounty_metadata(str(task_repo_dir), str(self.bounty_number))
         
@@ -107,7 +102,6 @@ class BaseWorkflow(ABC):
         # Initialize ResourceManager
         self.agent_manager = AgentManager()
 
-
         # Initialize tracking structures
         self.phases: List[BasePhase] = []       # List to store phase instances
         self.phase_class_map = {}
@@ -117,12 +111,10 @@ class BaseWorkflow(ABC):
 
         # Setup workflow
         self.setup_init()
-        self.define_resource_configs()
         self.define_phases()  # To be implemented by subclasses
         self.create_phase_configs()
         self.validate_registrations()
         self._compute_schedule()
-
 
     @abstractmethod
     def get_initial_prompt(self) -> str:
@@ -144,17 +136,15 @@ class BaseWorkflow(ABC):
                 phase_idx=idx,
                 max_iterations=phase.max_iterations,
                 agent_configs=phase.get_agent_configs(),  # Each phase provides its agent configurations
-                interactive=self.interactive,
+                interactive=self.config.phase_configs[idx].interactive if idx < len(self.config.phase_configs) else False,
                 phase_name=phase.__class__.__name__
             )
             self.config.phase_configs.append(phase_config)
-    
+
     def register_phase(self, phase: BasePhase):
         """Register a phase with the workflow."""
         self.phases.append(phase)
         logger.debug(f"Registered phase: {phase.__class__.__name__}")
-
-
 
     def validate_registrations(self):
         """
@@ -193,7 +183,7 @@ class BaseWorkflow(ABC):
         missing_resources = set(res.__name__ for res in all_required_resources) - registered_resources
         if missing_resources:
             raise ValueError(f"Missing required resources: {', '.join(missing_resources)}")
-        
+
     def _compute_schedule(self) -> None:
         """
         Compute the resource usage schedule across all phases.
@@ -202,68 +192,98 @@ class BaseWorkflow(ABC):
         self.agent_manager.resource_manager.compute_schedule(phase_classes)
         logger.debug("Computed resource schedule for all phases.")
 
-    def setup_phase(self, phase_index: int, initial_response: Optional[BaseResponse] = None) -> BasePhase:
+    def setup_phase(self, phase_idx: int, initial_response: Optional[BaseResponse] = None) -> BasePhase:
         """
-        Setup a specific phase by allocating resources and initializing agents.
+        Setup and run a specific phase.
 
         Args:
-            phase_index (int): The index of the phase to set up.
+            phase_idx (int): The index of the phase to set up.
             initial_response (Optional[BaseResponse]): The initial response for the phase.
 
         Returns:
             BasePhase: The phase instance.
         """
         try:
-            phase = self.phases[phase_index]
+            phase = self.phases[phase_idx]
             phase_instance = phase
 
-            logger.info(f"Setting up phase {phase_index}: {phase_instance.__class__.__name__}")
+            logger.info(f"Setting up phase {phase_idx}: {phase_instance.__class__.__name__}")
 
-            # Initialize resources for the phase
-            self.agent_manager.resource_manager.initialize_phase_resources(phase_index)
+            # Initialize and run the phase
+            phase_instance.initialize_resources()
+            phase_response, phase_success = phase_instance.run_phase()
 
-            # Register resources within the phase
-            phase_instance.register_resources()
+            logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
 
-            logger.info(f"Phase {phase_index} setup complete: {phase_instance.__class__.__name__}")
             return phase_instance
 
         except Exception as e:
             self.status = WorkflowStatus.INCOMPLETE
-            logger.error(f"Failed to set up phase {phase_index}: {e}")
+            logger.error(f"Failed to set up phase {phase_idx}: {e}")
             raise
 
-
-    def takedown_phase_resources(self, phase_index: int) -> None:
+    def run_phases(self):
         """
-        Setup all required resources for a phase by allocating them through the ResourceManager.
-
-        Args:
-            phase_index (int): The index of the phase for which to allocate resources.
+        Execute all phases in sequence.
+        Yields:
+            Tuple[BaseResponse, bool]: The response from each phase and a success flag.
         """
         try:
-            self.resource_manager.deallocate_phase_resources(phase_index)
-            logger.info(f"Relevant resources deallocated after phase {phase_index}")
+            self.status = WorkflowStatus.INCOMPLETE
+            prev_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
+
+            for phase_idx, phase in enumerate(self.phases):
+                self._current_phase_idx = phase_idx
+
+                # Setup and run the phase
+                phase_instance = self.setup_phase(phase_idx, prev_response)
+                phase_response, phase_success = phase_instance.run_phase()
+
+                # Update workflow state
+                prev_response = phase_response
+                if not phase_success:
+                    self.status = WorkflowStatus.COMPLETED_FAILURE
+                    yield phase_response, phase_success
+                    break
+
+                self._workflow_iteration_count += 1
+                if self._workflow_iteration_count >= self.config.max_iterations:
+                    self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
+                    yield phase_response, phase_success
+                    break
+
+                # Yield current phase results
+                yield phase_response, phase_success
+
+                # Resources are already handled within the phase
+
+            else:
+                # If all phases completed successfully
+                self.status = WorkflowStatus.COMPLETED_SUCCESS
+
+            # Finalize workflow
+            self.workflow_logger.finalize(self.status.value)
+
         except Exception as e:
-            logger.error(f"Error deallocating resources after phase {phase_index}: {e}")
-            raise
+            self.status = WorkflowStatus.INCOMPLETE
+            self.workflow_logger.finalize(self.status.value)
+            raise e
 
+    def run(self) -> None:
+        """
+        Execute the entire workflow by running all phases in sequence.
+        This is a convenience method that runs the workflow to completion.
+        """
+        # Run through all phases
+        for _ in self.run_phases():
+            continue
 
-    def _validate_phase_configs(self) -> None:
-        """
-        Validate phase configurations before execution.
-        Ensures that phase indices are sequential starting from 0.
-        """
-        if not self.config.phase_configs:
-            raise ValueError("No phase configurations provided")
-            
-        # Validate phase indices are sequential starting from 0
-        phase_indices = [phase_config.phase_idx for phase_config in self.config.phase_configs]
-        expected_indices = list(range(len(phase_indices)))
-        if sorted(phase_indices) != expected_indices:
-            raise ValueError("Phase indices must be sequential starting from 0")
-        
-        logger.debug("Phase configurations validated successfully.")
+    @property
+    def current_phase(self) -> Optional[PhaseConfig]:
+        """Get current phase configuration"""
+        if 0 <= self._current_phase_idx < len(self.config.phase_configs):
+            return self.config.phase_configs[self._current_phase_idx]
+        return None
 
     def setup_init(self) -> None:
         """Setup initial state of the workflow."""
@@ -303,11 +323,6 @@ class BaseWorkflow(ABC):
         """Setup necessary directories for the workflow."""
         pass
 
-    # @abstractmethod
-    # def log_metadata(self) -> None:
-    #     """Log workflow metadata."""
-    #     pass
-
     def register_resource(
         self,
         resource_id: str,
@@ -322,126 +337,5 @@ class BaseWorkflow(ABC):
             resource_class (Type[BaseResource]): The class of the resource.
             resource_config (BaseResourceConfig): The configuration for the resource.
         """
-        self.resource_manager.register_resource(resource_id, resource_class, resource_config)
-        
-        registered_resources = set(self.resource_manager.resources)
+        self.agent_manager.resource_manager.register_resource(resource_id, resource_class, resource_config)
         logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
-
-    def define_resource_configs(self) -> None:
-        """
-        Defines and registers all necessary resources for the workflow.
-        """
-        try:
-            # Define resource directories and configurations by retrieving from metadata or providing defaults
-            files_dir = self.bounty_metadata.get('files_dir', 'codebase')
-            tmp_dir = self.bounty_metadata.get('tmp_dir', 'tmp')
-            exploit_files_dir = self.bounty_metadata.get('exploit_files_dir', f'bounties/bounty_{self.bounty_number}/exploit_files')
-            vulnerable_commit = self.bounty_metadata.get('vulnerable_commit', 'main')
-
-            # Initialize InitFilesResource
-            init_files_config = InitFilesResourceConfig(
-                task_repo_dir=self.task_repo_dir,
-                files_dir_name=files_dir,
-                tmp_dir_name=tmp_dir,
-                exploit_files_dir_name=exploit_files_dir,
-                vulnerable_commit=vulnerable_commit
-            )
-            self.register_resource("init_files", InitFilesResource, init_files_config)
-            logger.info("Registered 'init_files' resource.")
-
-            # Setup repository environment if needed
-            setup_repo_env_script = os.path.join(str(self.task_repo_dir), "setup_repo_env.sh")
-            if os.path.exists(setup_repo_env_script):
-                repo_env_config = SetupResourceConfig(
-                    task_level_setup=False,
-                    task_repo_dir=self.task_repo_dir,
-                    files_dir=files_dir
-                )
-                self.register_resource("repo_resource", SetupResource, repo_env_config)
-                logger.info("Registered 'repo_resource' for repository environment.")
-
-            else:
-                logger.debug("No repository environment setup script found.")
-
-            # Setup target host if specified
-            target_host = self.repo_metadata.get("target_host")
-            if target_host:
-                task_server_config = SetupResourceConfig(
-                    task_level_setup=True,
-                    task_repo_dir=self.task_repo_dir,
-                    files_dir=files_dir,
-                    bounty_number=self.bounty_number,
-                    server_address=target_host
-                )
-                self.register_resource("task_server", SetupResource, task_server_config)
-                logger.info(f"Registered 'task_server' for target host: {target_host}")
-            else:
-                logger.debug("No target host specified in repository metadata.")
-
-        except Exception as e:
-            logger.error(f"Failed to define resources: {e}")
-            raise
-
-    def run_phases(self):
-        """
-        Execute all phases in sequence.
-        Yields:
-            Tuple[BaseResponse, bool]: The response from each phase and a success flag.
-        """
-        try:
-            self.status = WorkflowStatus.INCOMPLETE
-            prev_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
-
-            for phase_idx, phase in enumerate(self.phases):
-                self._current_phase_idx = phase_idx
-
-                # Setup and run the phase
-                phase_instance = self.setup_phase(phase_idx, prev_response)
-                phase_response, phase_success = phase_instance.run_phase()
-
-                # Update workflow state
-                prev_response = phase_response
-                if not phase_success:
-                    self.status = WorkflowStatus.COMPLETED_FAILURE
-                    yield phase_response, phase_success
-                    break
-
-                self._workflow_iteration_count += 1
-                if self._workflow_iteration_count >= self.config.max_iterations:
-                    self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
-                    yield phase_response, phase_success
-                    break
-
-                # Yield current phase results
-                yield phase_response, phase_success
-
-                # Takedown resources after phase completion
-                self.takedown_phase_resources(phase_idx)
-
-            else:
-                # If all phases completed successfully
-                self.status = WorkflowStatus.COMPLETED_SUCCESS
-
-            # Finalize workflow
-            self.workflow_logger.finalize(self.status.value)
-
-        except Exception as e:
-            self.status = WorkflowStatus.INCOMPLETE
-            self.workflow_logger.finalize(self.status.value)
-            raise e
-
-    def run(self) -> None:
-        """
-        Execute the entire workflow by running all phases in sequence.
-        This is a convenience method that runs the workflow to completion.
-        """
-        # Run through all phases
-        for _ in self.run_phases():
-            continue
-    
-    @property
-    def current_phase(self) -> Optional[PhaseConfig]:
-        """Get current phase configuration"""
-        if 0 <= self._current_phase_idx < len(self.config.phase_configs):
-            return self.config.phase_configs[self._current_phase_idx]
-        return None
