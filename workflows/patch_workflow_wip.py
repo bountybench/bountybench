@@ -30,57 +30,22 @@ class PatchWorkflow(BaseWorkflow):
         """Define and register phases specific to PatchWorkflow."""
         # Initialize PatchPhase with its PhaseConfig
         patch_phase_config = PhaseConfig(
-            phase_idx=0,
-            phase_name="PatchPhase",
-            max_iterations=25,
-            agent_configs=self.get_patch_agent_configs(),
-            interactive=False
+            # phase_name="PatchPhase", # can optionally set, otherwise uses defaults
+            max_iterations=25, # Later will be cmdline arg
+            # agent_configs=self.get_patch_agent_configs(), # can optionally set, otherwise uses defaults
+            interactive=False # cmdline arg
         )
 
         patch_phase = PatchPhase(
             phase_config=patch_phase_config,
             agent_manager=self.agent_manager,
+            workflow=self,
             initial_response=None  # Or pass an appropriate initial response if needed
         )
 
         # Register the PatchPhase
         self.register_phase(patch_phase)
         logger.info(f"PatchPhase registered with config: {patch_phase_config}")
-
-    def get_patch_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
-        """
-        Provide agent configurations specific to the PatchPhase.
-
-        Returns:
-            List[Tuple[str, AgentConfig]]: List of (agent_id, AgentConfig) tuples.
-        """
-        # Define ExecutorAgent configuration
-        executor_lm_agent_config = AgentLMConfig(
-            model='openai/o3-mini-2024-12-17',
-            max_output_tokens=25000,
-            max_input_tokens=25000,
-            max_iterations=25,
-            max_iterations_stored_in_memory=3,
-            use_helm=False
-        )
-        
-        executor_agent_config = ExecutorAgentConfig(
-            id="executor_agent",
-            lm_config=executor_lm_agent_config,
-            target_host=self.repo_metadata.get("target_host", "localhost")  # Safeguard with default
-        )
-
-        # Define PatchAgent configuration
-        patch_agent_config = PatchAgentConfig(
-            id="patch_agent",
-            bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}")
-        )
-
-        # Return list of agent configurations
-        return [
-            ("executor_agent", executor_agent_config),
-            ("patch_agent", patch_agent_config),
-        ]
 
     def get_initial_prompt(self) -> str:
         """

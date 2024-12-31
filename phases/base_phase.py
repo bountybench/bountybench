@@ -14,10 +14,11 @@ logger = get_main_logger(__name__)
 
 if TYPE_CHECKING:
     from agents.agent_manager import AgentManager  # Only import for type checking
+    from workflows.base_workflow import BaseWorkflow
 
 @dataclass
 class PhaseConfig:
-    phase_idx: int
+    # phase_idx: int
     max_iterations: int
     phase_name: str = "base_phase"
     agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)  # List of (agent_id, AgentConfig)
@@ -36,8 +37,15 @@ class BasePhase(ABC):
         self,
         phase_config: PhaseConfig,
         agent_manager: 'AgentManager',
+        workflow: 'BaseWorkflow',
         initial_response: Optional[BaseResponse] = None
     ):
+        self.workflow = workflow
+        if not hasattr(phase_config, "name"):
+            phase_config.phase_name = self.name
+        if not hasattr(phase_config, "agents"):
+            phase_config.agent_configs = self.get_agent_configs()
+
         self.phase_config = phase_config
         self.agent_manager = agent_manager
         self.agents: List[Tuple[str, BaseAgent]] = []
@@ -271,3 +279,7 @@ class BasePhase(ABC):
             Tuple[BaseResponse, bool]: The response from the agent and a flag indicating if the phase is complete.
         """
         pass
+
+    @property
+    def name(self):
+        return "BasePhase"

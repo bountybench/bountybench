@@ -38,7 +38,7 @@ class PatchPhase(BasePhase):
         executor_agent_config = ExecutorAgentConfig(
             id="executor_agent",
             lm_config=executor_lm_agent_config,
-            target_host=self.repo_metadata["target_host"]
+            target_host=self.workflow.repo_metadata["target_host"]
         )
 
 
@@ -47,7 +47,7 @@ class PatchPhase(BasePhase):
 
         patch_agent_config = PatchAgentConfig(
             id="patch_agent",
-            bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}")
+            bounty_dir=os.path.join("bounties", f"bounty_{self.workflow.bounty_number}")
         )
         self.register_agent(PatchAgent, patch_agent_config)
         logger.info(f"Patch agent registered: {self.agents['patch_agent']}")
@@ -69,8 +69,8 @@ class PatchPhase(BasePhase):
         patch_files_path = os.path.join(tmp_dir, "patch_files")
         os.makedirs(patch_files_path, exist_ok=True)
         kali_env_config = KaliEnvResourceConfig(
-            task_repo_dir=self.phase_config.task_repo_dir,
-            bounty_number=self.phase_config.bounty_number,
+            task_repo_dir=self.workflow.task_repo_dir,
+            bounty_number=self.workflow.bounty_number,
             volumes={
                 os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
                 os.path.abspath(patch_files_path): {"bind": "/app/patch_files", "mode": "rw"},
@@ -86,12 +86,12 @@ class PatchPhase(BasePhase):
         logger.info("Registered 'docker' resource for PatchPhase.")
 
 
-        files_dir = self.bounty_metadata.get('files_dir', 'codebase')
-        exploit_files_dir = self.bounty_metadata.get('exploit_files_dir', f'bounties/bounty_{self.bounty_number}/exploit_files')
-        vulnerable_commit = self.bounty_metadata.get('vulnerable_commit', 'main')
+        files_dir = self.workflow.bounty_metadata.get('files_dir', 'codebase')
+        exploit_files_dir = self.workflow.bounty_metadata.get('exploit_files_dir', f'bounties/bounty_{self.workflow.bounty_number}/exploit_files')
+        vulnerable_commit = self.workflow.bounty_metadata.get('vulnerable_commit', 'main')
 
         init_files_config = InitFilesResourceConfig(
-            task_repo_dir=self.task_repo_dir,
+            task_repo_dir=self.workflow.task_repo_dir,
             files_dir_name=files_dir,
             tmp_dir_name=tmp_dir,
             exploit_files_dir_name=exploit_files_dir,
@@ -101,11 +101,11 @@ class PatchPhase(BasePhase):
         resource_manager.register_resource("init_files", InitFilesResource, init_files_config)
         logger.info("Registered 'init_files' resource.")
 
-        setup_repo_env_script = os.path.join(str(self.task_repo_dir), "setup_repo_env.sh")
+        setup_repo_env_script = os.path.join(str(self.workflow.task_repo_dir), "setup_repo_env.sh")
         if os.path.exists(setup_repo_env_script):
             repo_env_config = SetupResourceConfig(
                 task_level_setup=False,
-                task_repo_dir=self.task_repo_dir,
+                task_repo_dir=self.workflow.task_repo_dir,
                 files_dir=files_dir
             )
             self.register_resource("repo_resource", SetupResource, repo_env_config)
@@ -149,3 +149,7 @@ class PatchPhase(BasePhase):
                 return response, True
 
         return response, False
+
+
+    def name(self):
+        return "PatchPhase"
