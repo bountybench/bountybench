@@ -98,7 +98,7 @@ class PatchPhase(BasePhase):
                 task_repo_dir=self.workflow.task_repo_dir,
                 files_dir=files_dir
             )
-            self.register_resource("repo_resource", SetupResource, repo_env_config)
+            resource_manager.register_resource("repo_resource", SetupResource, repo_env_config)
             logger.info("Registered 'repo_resource' for repository environment.")
 
         else:
