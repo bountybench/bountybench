@@ -30,10 +30,8 @@ class PatchWorkflow(BaseWorkflow):
         """Define and register phases specific to PatchWorkflow."""
         # Initialize PatchPhase with its PhaseConfig
         patch_phase_config = PhaseConfig(
-            # phase_name="PatchPhase", # can optionally set, otherwise uses defaults
-            max_iterations=25, # Later will be cmdline arg
-            # agent_configs=self.get_patch_agent_configs(), # can optionally set, otherwise uses defaults
-            interactive=False # cmdline arg
+            phase_name="PatchPhase"
+            max_iterations=25
         )
 
         patch_phase = PatchPhase(
@@ -65,6 +63,8 @@ class PatchWorkflow(BaseWorkflow):
     def setup_directories(self) -> None:
         """No necessary directories for this workflow."""
         pass
+
+
 
 def main() -> None:
     """Main entry point"""
