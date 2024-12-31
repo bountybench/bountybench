@@ -284,3 +284,9 @@ class BaseWorkflow(ABC):
         """
         self.agent_manager.resource_manager.register_resource(resource_id, resource_class, resource_config)
         logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
+    
+    def register_phase(self, phase: BasePhase):
+        phase_idx = len(self.phases)
+        phase.phase_config.phase_idx = phase_idx  # Set phase index
+        self.phases.append(phase)
+        logger.debug(f"Registered phase {phase_idx}: {phase.__class__.__name__}")
