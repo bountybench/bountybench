@@ -74,6 +74,12 @@ class ExecutorAgent(BaseAgent):
         if self.target_host: 
             self.kali_env.health_check(self.target_host)
 
+    def modify_memory_and_run(self, input: str) -> None:
+        self.initial_prompt = input
+        self.memory = [] #overwrites all previous memory
+
+        return self.run([])
+
 
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:

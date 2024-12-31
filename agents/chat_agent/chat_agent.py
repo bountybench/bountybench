@@ -47,6 +47,12 @@ class ChatAgent(BaseAgent):
         self.initial_prompt = "You are a helpful chatbot."
         self.prompt = self.initial_prompt
 
+    def modify_memory_and_run(self, input: str) -> None:
+        self.initial_prompt = input
+        self.memory = [] #overwrites all previous memory
+
+        return self.run([])
+    
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
             raise Exception(f"Accepts at most a single response, got {len(responses)}.")

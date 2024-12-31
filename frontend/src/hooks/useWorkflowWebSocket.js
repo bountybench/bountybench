@@ -173,6 +173,56 @@ export const useWorkflowWebSocket = (workflowId) => {
             break;
           }
 
+          case 'input_edit_update': {
+            console.log('Handling input edit update:', data);
+            setMessages(prev => {
+              const updated = [...prev];
+              const iterationNumber = currentIterationRef.current?.iteration_number;
+              console.log('Current iteration number:', iterationNumber);
+          
+              const messageIndex = updated.findIndex(
+                msg => msg.iteration_number === iterationNumber
+              );
+          
+              if (messageIndex === -1) {
+                console.warn('No matching iteration found for input edit update');
+                return prev;
+              }
+          
+              const target = { ...updated[messageIndex] };
+              target.actions = target.actions || [];
+          
+              // Find the existing action or create a new one
+              const actionIndex = target.actions.findIndex(action => action.timestamp === data.action_id);
+              if (actionIndex !== -1) {
+                // Update existing action
+                target.actions[actionIndex] = {
+                  ...target.actions[actionIndex],
+                  input_data: data.new_input,
+                  output_data: data.new_output
+                };
+              } else {
+                // Add new action
+                target.actions.push({
+                  id: data.action_id || `action_${target.actions.length}`,
+                  input_data: data.new_input,
+                  output_data: data.new_output
+                });
+              }
+          
+              // Update the output of the message if it's an LLM action
+              if (data.new_output) {
+                target.output = {
+                  content: data.new_output
+                };
+              }
+          
+              updated[messageIndex] = target;
+              return updated;
+            });
+            break;
+          }
+
           default:
             console.warn('Unknown message type:', data.type);
         }

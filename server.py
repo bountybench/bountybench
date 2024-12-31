@@ -1,10 +1,11 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from typing import Dict, List, Optional
 import json
 from pathlib import Path
 from datetime import datetime
+from pydantic import BaseModel
 import uvicorn
 import signal
 import sys
@@ -230,6 +231,35 @@ async def next_iteration(workflow_id: str):
         return {"status": "next iteration triggered"}
     else:
         return {"error": "Workflow is not in interactive mode"}
+    
+class ActionInputData(BaseModel):
+    action_id: str
+    new_input_data: str
 
+@app.post("/workflow/edit_action_input/{workflow_id}")
+async def edit_action_input(workflow_id: str, data: ActionInputData):
+    print(f"Received edit request for workflow: {workflow_id}")
+    print(f"Request data: {data}")
+
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+
+    try:
+        result = workflow.edit_action_input_in_agent("", data.new_input_data)
+        print(f"Received result : {result}")
+        # Broadcast the update to all connected clients
+        await websocket_manager.broadcast(workflow_id, {
+            "type": "input_edit_update",
+            "action_id": data.action_id,
+            "new_input": data.new_input_data,
+            "new_output": result
+        })
+        
+        return {"status": "updated", "result": result}
+    except Exception as e:
+        return {"error": str(e)}
+    
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)

@@ -52,6 +52,38 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     }
   };
 
+  const handleUpdateActionInput = async (actionId, newInputData) => {
+    const url = `http://localhost:8000/workflow/edit_action_input/${selectedWorkflow.id}`;
+    const requestBody = { action_id: actionId, new_input_data: newInputData };
+    
+    console.log('Sending request to:', url);
+    console.log('Request body:', JSON.stringify(requestBody));
+  
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+  
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response body:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+  
+      const data = await response.json();
+      console.log('Action updated successfully', data);
+    } catch (error) {
+      console.error('Error updating action:', error);
+    }
+  };
+  
   if (!isConnected) {
     return (
       <Box className="dashboard-container" display="flex" justifyContent="center" alignItems="center">
@@ -103,6 +135,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
           currentIteration={currentIteration}
           messages={messages}
           onSendMessage={sendMessage}
+          onUpdateActionInput={handleUpdateActionInput}
         />
       </Box>
     </Box>

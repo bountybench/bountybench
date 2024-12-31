@@ -1,20 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, CircularProgress, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import EditIcon from '@mui/icons-material/Edit'; 
+import SaveIcon from '@mui/icons-material/Save';
 import ReactMarkdown from 'react-markdown';
 import './AgentInteractions.css';
 
-const ActionCard = ({ action }) => {
+const ActionCard = ({ action, onUpdateActionInput }) => {
   // 1) Default to expanded so partial updates are visible
   const [expanded, setExpanded] = useState(true);
   console.log('Rendering action:', action);
+  const [editing, setEditing] = useState(false);            // ADDED
+  const [editedInput, setEditedInput] = useState('');       // ADDED
 
   if (!action) return null;
 
   const formatData = (data) => {
     if (!data) return '';
     if (typeof data === 'string') return data;
-    
+
     // Handle objects with stdout/stderr
     if (data.stdout || data.stderr) {
       return `${data.stdout || ''}\n${data.stderr || ''}`.trim();
@@ -32,12 +37,73 @@ const ActionCard = ({ action }) => {
     }
   };
 
+  // We grab the original input to show if editing.
+  const originalInputContent = formatData(action.input_data);
+
   const renderContent = (content, label) => {
     if (!content) return null;
     const formattedContent = formatData(content);
     if (!formattedContent) return null;
-    
-    // If LLM action with a "response" field, format as markdown
+
+    if (action.action_type === 'llm' && label === 'Input') {
+      return (
+        <Box mt={1}>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mb: 0.5 }}
+            >
+              {label}:
+            </Typography>
+          </Box>
+          {editing ? (
+            <TextField
+              multiline
+              fullWidth
+              minRows={3}
+              maxRows={10}
+              value={editedInput}
+              onChange={(e) => setEditedInput(e.target.value)}
+              sx={{
+                mt: 1,
+                '& .MuiInputBase-input': {
+                  color: 'black',
+                },
+              }}
+            />
+          ) : (
+            <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1, mt: 1 }}>
+              <Typography
+                variant="body2"
+                component="pre"
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  overflowX: 'auto',
+                  m: 0,
+                  fontFamily: 'monospace',
+                  fontSize: '0.85rem',
+                }}
+              >
+                {formattedContent}
+              </Typography>
+            </Card>
+          )}
+          {editing && (
+            <Box display="flex" justifyContent="flex-end" mt={1}>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                onClick={handleSaveClick}
+              >
+                Save
+              </Button>
+            </Box>
+          )}
+        </Box>
+      );
+    }
     if (action.action_type === 'llm' && label === 'Output' && content) {
       try {
         const parsed = typeof content === 'string' ? JSON.parse(content) : content;
@@ -65,11 +131,11 @@ const ActionCard = ({ action }) => {
           {label}:
         </Typography>
         <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-          <Typography 
-            variant="body2" 
-            component="pre" 
-            sx={{ 
-              whiteSpace: 'pre-wrap', 
+          <Typography
+            variant="body2"
+            component="pre"
+            sx={{
+              whiteSpace: 'pre-wrap',
               overflowX: 'auto',
               m: 0,
               fontFamily: 'monospace',
@@ -83,13 +149,33 @@ const ActionCard = ({ action }) => {
     );
   };
 
+
+  const handleEditClick = () => {
+    setEditing(true);
+    setEditedInput(formatData(action.input_data)); // Populate with original input
+  };
+
+  const handleSaveClick = async () => {
+    if (!action.timestamp) {
+      console.error('Action ID is undefined');
+      return;
+    }
+    await onUpdateActionInput(action.timestamp, editedInput);
+    setEditing(false);
+  };
+
+  const handleExpandClick = (e) => {
+    e.stopPropagation(); // Prevent event from bubbling up
+    setExpanded(!expanded);
+  };
+
   return (
     <Card className="action-card" variant="outlined">
       <CardContent>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box>
             <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold' }}>
-              {action.action_type.toUpperCase()}
+              {action.action_type ? action.action_type.toUpperCase() : 'ACTION'}
             </Typography>
             {action.timestamp && (
               <Typography variant="caption" color="text.secondary">
@@ -97,20 +183,62 @@ const ActionCard = ({ action }) => {
               </Typography>
             )}
           </Box>
-          {/* 2) Keep the expand icon if you want to toggle; set expanded=true by default */}
           <IconButton
-            onClick={() => setExpanded(!expanded)}
-            sx={{ 
-              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.2s'
-            }}
+            onClick={handleExpandClick}
+            aria-expanded={expanded}
+            aria-label="show more"
+            sx={{ color: 'black' }} 
           >
-            <ExpandMoreIcon />
+            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
         </Box>
-        
+
         <Collapse in={expanded}>
-          {renderContent(action.input_data, 'Input')}
+          {editing ? (
+            <Box mt={1}>
+              <Typography variant="caption" color="text.secondary">
+                Editing Input:
+              </Typography>
+              <TextField
+                multiline
+                minRows={3}
+                maxRows={10}
+                value={editedInput}
+                onChange={(e) => setEditedInput(e.target.value)}
+                sx={{
+                  '& .MuiInputBase-input': {
+                    color: 'black',
+                  },
+                }}
+                fullWidth
+              />
+              <Box mt={1} display="flex" justifyContent="flex-end">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSaveClick}
+                  size="small"
+                >
+                  <SaveIcon/>
+                </Button>
+              </Box>
+            </Box>
+          ) : (
+            <>
+              {renderContent(action.input_data, 'Input')}
+              <Box mt={1} display="flex" justifyContent="flex-end">
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleEditClick}
+                  size="small"
+                >
+                  <EditIcon />
+                </Button>
+              </Box>
+            </>
+          )}
+
           {renderContent(action.output_data, 'Output')}
           {action.metadata && Object.keys(action.metadata).length > 0 && (
             <Box mt={1}>
@@ -118,11 +246,11 @@ const ActionCard = ({ action }) => {
                 Metadata:
               </Typography>
               <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                <Typography 
-                  variant="body2" 
-                  component="pre" 
-                  sx={{ 
-                    whiteSpace: 'pre-wrap', 
+                <Typography
+                  variant="body2"
+                  component="pre"
+                  sx={{
+                    whiteSpace: 'pre-wrap',
                     overflowX: 'auto',
                     m: 0,
                     fontFamily: 'monospace',
@@ -140,7 +268,10 @@ const ActionCard = ({ action }) => {
   );
 };
 
-const MessageBubble = ({ message }) => {
+export default ActionCard;
+
+
+const MessageBubble = ({ message, onUpdateActionInput }) => {
   // 3) Default to expanded
   const [expanded, setExpanded] = useState(true);
   console.log('Rendering message:', message);
@@ -156,7 +287,7 @@ const MessageBubble = ({ message }) => {
       <Card 
         className={`message-bubble ${messageClass}-bubble`}
         // If you do NOT want toggling on click, remove onClick or the entire cursor pointer
-        onClick={() => setExpanded(!expanded)}
+        // onClick={() => setExpanded(!expanded)}
         sx={{ cursor: 'pointer' }}
       >
         <CardContent>
@@ -164,14 +295,14 @@ const MessageBubble = ({ message }) => {
             <Typography variant="body2" color="text.secondary" gutterBottom>
               {message.agent_name || 'System'}
             </Typography>
-            {(hasContent || hasActions) && (
+            {/* {(hasContent || hasActions) && (
               <IconButton
                 size="small"
                 sx={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
               >
                 <ExpandMoreIcon />
               </IconButton>
-            )}
+            )} */}
           </Box>
           
           <Collapse in={expanded || message.isSystem}>
@@ -197,7 +328,10 @@ const MessageBubble = ({ message }) => {
                 {message.actions.map((action, index) => (
                   // 4) Unique key for each action
                   <Box key={`${message.id}_action_${index}`} mt={1}>
-                    <ActionCard action={action} />
+                    <ActionCard 
+                      action={action}
+                      onUpdateActionInput={onUpdateActionInput}
+                    />
                   </Box>
                 ))}
               </Box>
@@ -215,7 +349,8 @@ export const AgentInteractions = ({
   currentPhase,
   currentIteration,
   messages = [],
-  onSendMessage 
+  onSendMessage,
+  onUpdateActionInput,
 }) => {
   console.log('AgentInteractions props:', { 
     workflow, 
@@ -277,6 +412,7 @@ export const AgentInteractions = ({
             <MessageBubble
               key={message.id || index}
               message={message}
+              onUpdateActionInput={onUpdateActionInput} 
             />
           ))
         )}

@@ -580,3 +580,14 @@ class BaseWorkflow(ABC):
         if 0 <= self._current_phase_idx < len(self.config.phase_configs):
             return self.config.phase_configs[self._current_phase_idx]
         return None
+    
+    def edit_action_input_in_agent(self, action_id: str, new_input: str):
+        for phase in self.phases:
+            for agent_name, agent_instance in phase.phase_config.agents:
+                # currently grabs any agent with modify option, need to add logic to obtain proper instance from action card todo
+                if hasattr(agent_instance, 'modify_memory_and_run'):
+                    result = agent_instance.modify_memory_and_run(new_input)
+                    if result:
+                        return result.response
+                    
+        raise ValueError(f"No agent found that can modify action {action_id}")
