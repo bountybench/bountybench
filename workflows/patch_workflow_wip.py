@@ -26,7 +26,7 @@ class PatchWorkflow(BaseWorkflow):
         super().__init__(task_repo_dir, bounty_number, workflow_id, interactive)
         self.patch_files_path: Optional[str] = None
 
-    def define_phases(self):
+    def create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
         # Initialize PatchPhase with its PhaseConfig
         patch_phase_config = PhaseConfig(

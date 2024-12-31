@@ -1,5 +1,6 @@
-from typing import Dict, Type, Optional
+from typing import Dict, List, Type, Optional
 from agents.base_agent import BaseAgent, AgentConfig
+from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from utils.logger import get_main_logger
 
@@ -14,6 +15,9 @@ class AgentManager:
         self._agents: Dict[str, BaseAgent] = {}  # agent_id -> agent_instance
         self._agent_classes: Dict[str, Type[BaseAgent]] = {}  # agent_id -> agent_class
         self.resource_manager = ResourceManager()
+
+    def compute_resource_schedule(self, phases: List[Type[BasePhase]]):
+        self.resource_manager.compute_schedule(phases)
 
     def get_or_create_agent(self, agent_id: str, agent_class: Type[BaseAgent], config: AgentConfig) -> BaseAgent:
         """

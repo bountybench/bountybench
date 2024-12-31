@@ -111,10 +111,8 @@ class BaseWorkflow(ABC):
 
         # Setup workflow
         self.setup_init()
-        self.define_phases()  # To be implemented by subclasses
-        self.create_phase_configs()
-        self.validate_registrations()
-        self._compute_schedule()
+        self.create_phases() # To be implemented by subclasses
+        self._compute_resource_schedule()
 
     @abstractmethod
     def get_initial_prompt(self) -> str:
@@ -122,75 +120,22 @@ class BaseWorkflow(ABC):
         pass
 
     @abstractmethod
-    def define_phases(self):
-        """Define and register phases. To be implemented by subclasses."""
+    def create_phases(self):
+        """Create and register phases. To be implemented by subclasses."""
         pass
-
-    def create_phase_configs(self):
-        """
-        Create PhaseConfig instances for each phase.
-        """
-        self.config.phase_configs = []
-        for idx, phase in enumerate(self.phases):
-            phase_config = PhaseConfig(
-                phase_idx=idx,
-                max_iterations=phase.max_iterations,
-                agent_configs=phase.get_agent_configs(),  # Each phase provides its agent configurations
-                interactive=self.config.phase_configs[idx].interactive if idx < len(self.config.phase_configs) else False,
-                phase_name=phase.__class__.__name__
-            )
-            self.config.phase_configs.append(phase_config)
 
     def register_phase(self, phase: BasePhase):
         """Register a phase with the workflow."""
         self.phases.append(phase)
         logger.debug(f"Registered phase: {phase.__class__.__name__}")
 
-    def validate_registrations(self):
+    def _compute_resource_schedule(self) -> None:
         """
-        Validate that all required phases, agents, and resources are properly registered.
-        """
-        self._validate_required_phases()
-        self._validate_required_agents()
-        self._validate_required_resources()
-
-    def _validate_required_phases(self):
-        """Validate that all required phases are registered."""
-        registered_phase_classes = set(self.phase_class_map.values())
-        missing_phases = set(self.PHASES) - registered_phase_classes
-        if missing_phases:
-            raise ValueError(f"Missing required phases: {', '.join([p.__name__ for p in missing_phases])}")
-
-    def _validate_required_agents(self):
-        """Validate that all required agents for each phase are registered."""
-        for phase in self.phases:
-            required_agents = set(phase.AGENT_CLASSES)
-            present_agents = set(type(agent) for _, agent in phase.agents)
-            missing_agents = required_agents - present_agents
-            if missing_agents:
-                missing_names = ', '.join(agent.__name__ for agent in missing_agents)
-                raise ValueError(f"Missing required agents for phase '{phase.__class__.__name__}': {missing_names}")
-
-    def _validate_required_resources(self):
-        """Validate that all required resources for each agent are registered."""
-        all_required_resources = set()
-        for agent in self.agent_manager._agents.values():
-            all_required_resources.update(agent.get_required_resources())
-        
-        registered_resource_classes = self.agent_manager.resource_manager.get_registered_resource_classes()
-        registered_resources = set(resource_class.__name__ for resource_class in registered_resource_classes)
-        
-        missing_resources = set(res.__name__ for res in all_required_resources) - registered_resources
-        if missing_resources:
-            raise ValueError(f"Missing required resources: {', '.join(missing_resources)}")
-
-    def _compute_schedule(self) -> None:
-        """
-        Compute the resource usage schedule across all phases.
+        Compute the agent (which will compute resource) schedule across all phases.
         """
         phase_classes = [type(phase) for phase in self.phases]
-        self.agent_manager.resource_manager.compute_schedule(phase_classes)
-        logger.debug("Computed resource schedule for all phases.")
+        self.agent_manager.compute_resource_schedule(phase_classes)
+        logger.debug("Computed resource schedule for all phases based on agents.")
 
     def setup_phase(self, phase_idx: int, initial_response: Optional[BaseResponse] = None) -> BasePhase:
         """
