@@ -30,7 +30,6 @@ class TestAgentManager(unittest.TestCase):
             model="anthropic/claude-3-5-sonnet-20240620",
             max_output_tokens=100,
             max_input_tokens=100,
-            max_iterations=25,
             max_iterations_stored_in_memory=3,
             use_helm=True
         )
@@ -59,7 +58,6 @@ class TestAgentManager(unittest.TestCase):
             model="anthropic/claude-3-5-sonnet-20240620",
             max_output_tokens=100,
             max_input_tokens=100,
-            max_iterations=25,
             max_iterations_stored_in_memory=3,
             use_helm=True
         )
@@ -68,7 +66,6 @@ class TestAgentManager(unittest.TestCase):
             model="anthropic/claude-3-5-sonnet-20240620",
             max_output_tokens=50,
             max_input_tokens=50,
-            max_iterations=25,
             max_iterations_stored_in_memory=3,
             use_helm=True
         )
@@ -114,7 +111,6 @@ class TestAgentManager(unittest.TestCase):
             model="anthropic/claude-3-5-sonnet-20240620",
             max_output_tokens=100,
             max_input_tokens=100,
-            max_iterations=25,
             max_iterations_stored_in_memory=3,
             use_helm=True
         )
@@ -143,7 +139,6 @@ class TestAgentManager(unittest.TestCase):
             model="anthropic/claude-3-5-sonnet-20240620",
             max_output_tokens=100,
             max_input_tokens=100,
-            max_iterations=25,
             max_iterations_stored_in_memory=3,
             use_helm=True
         )

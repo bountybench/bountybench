@@ -25,9 +25,8 @@ class PatchPhase(BasePhase):
     def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
         executor_lm_config = AgentLMConfig(
             model='openai/o3-mini-2024-12-17',
-            max_output_tokens=25000,
-            max_input_tokens=25000,
-            max_iterations=25,
+            max_output_tokens=5000,
+            max_input_tokens=5000,
             max_iterations_stored_in_memory=3,
             use_helm=False
         )
