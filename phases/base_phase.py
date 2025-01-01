@@ -18,11 +18,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class PhaseConfig:
-    # phase_idx: int
     max_iterations: int
     phase_name: str = "base_phase"
     agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)  # List of (agent_id, AgentConfig)
     interactive: bool = False
+    phase_idx: Optional[int] = None
+
 
 
 class BasePhase(ABC):
@@ -51,6 +52,12 @@ class BasePhase(ABC):
         print("THIS IS MY PHASE AGENT CONFIGS", phase_config.agent_configs)
         self._initialize_agents()
 
+    def get_phase_resources(self):
+        phase_resources = {}
+        for agent_class in self.AGENT_CLASSES:
+            phase_resources.update(agent_class.REQUIRED_RESOURCES)
+        return phase_resources
+
     def _initialize_agents(self):
         """Initialize and register required agents using AgentManager."""
         for agent_id, agent_config in self.phase_config.agent_configs:
@@ -72,15 +79,27 @@ class BasePhase(ABC):
         if missing:
             missing_names = ', '.join(agent.__name__ for agent in missing)
             raise ValueError(f"Phase '{self.phase_config.phase_name}' requires agents: {missing_names}")
+        
+    def _initialize_resources(self):
+        resource_configs = self.define_resources()
+        for resource_id, resource_config in resource_configs.items():
+            resource_class = type(resource_config).__name__.replace("Config", "")
+            self.resource_manager.register_resource(resource_id, globals()[resource_class], resource_config)
+        
+        for _, agent in self.agents:
+            agent.register_resources(self.resource_manager)
 
     def register_resources(self):
         """
         Register required resources with the ResourceManager.
         Should be called after resources are initialized for the phase.
         """
-        for _, agent in self.agents:
+        print(f"Debugging: Registering resources for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
+        for agent_id, agent in self.agents:
+            print(f"Debugging: Registering resources for agent {agent_id}")
             agent.register_resources()
-    
+        print(f"Debugging: Finished registering resources for phase {self.phase_config.phase_idx}")
+
 
     @classmethod
     def get_required_resources(cls) -> Set[str]:
@@ -89,18 +108,18 @@ class BasePhase(ABC):
             resources.update(agent_cls.get_required_resources())
         return resources
 
-    def initialize_resources(self):
-        """
-        Initialize resources required by the phase.
-        """
-        try:
-            self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx)
-            logger.info(f"Phase {self.phase_config.phase_idx} ({self.phase_config.phase_name}) resources initialized.")
-            self.register_resources()
-        except Exception as e:
-            self._done = True
-            logger.error(f"Failed to initialize resources for phase {self.phase_config.phase_idx}: {e}")
-            raise
+
+
+    def _initialize_resources(self):
+        resource_configs = self.define_resources()
+        for resource_id, resource_config in resource_configs.items():
+            resource_class = type(resource_config).__name__.replace("Config", "")
+            self.resource_manager.register_resource(resource_id, globals()[resource_class], resource_config)
+        
+        for _, agent in self.agents:
+            agent.register_resources(self.resource_manager)
+
+
 
     def deallocate_resources(self):
         """
@@ -120,6 +139,8 @@ class BasePhase(ABC):
         Returns:
             Tuple[Optional[BaseResponse], bool]: The last response and a success flag.
         """
+        print(f"Debugging: Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
+
         last_output = self.initial_response
         success_flag = False
 
@@ -253,13 +274,13 @@ class BasePhase(ABC):
 
 
     @abstractmethod
-    def register_resources(self): 
-        pass
-
-    @abstractmethod
     def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
         pass
 
+    
+    @abstractmethod
+    def define_resources(self): 
+        pass
 
     @abstractmethod
     def run_one_iteration(

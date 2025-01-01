@@ -9,7 +9,7 @@ from responses.response import Response
 from responses.edit_response import EditResponse
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.docker_resource import DockerResource, DockerResourceConfig
-from typing import Any, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 from resources.setup_resource import SetupResource, SetupResourceConfig
 import os
 import logging
@@ -49,61 +49,48 @@ class PatchPhase(BasePhase):
         ]
     
 
-    def register_resources(self):
-        """Register resources required by the PatchPhase."""
-        # Access the ResourceManager via the agent manager
-        resource_manager = self.agent_manager.resource_manager
+    def define_resources(self) -> Dict[str, Any]:
+        """Define resource configurations required by the PatchPhase."""
+        print(f"Debugging: Entering define_resources for PatchPhase")
 
-        # Define KaliEnvResource configuration
-        tmp_dir = os.path.join(str(resource_manager.resources.get("init_files", {}).get("tmp_dir", "tmp")))
+        tmp_dir = os.path.join("tmp")  # Assuming a default tmp directory
         patch_files_path = os.path.join(tmp_dir, "patch_files")
         os.makedirs(patch_files_path, exist_ok=True)
-        kali_env_config = KaliEnvResourceConfig(
-            task_repo_dir=self.workflow.task_repo_dir,
-            bounty_number=self.workflow.bounty_number,
-            volumes={
-                os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
-                os.path.abspath(patch_files_path): {"bind": "/app/patch_files", "mode": "rw"},
-                "/tmp": {"bind": "/tmp", "mode": "rw"}
-            }
-        )
-        resource_manager.register_resource("kali_env", KaliEnvResource, kali_env_config)
-        logger.info("Registered 'kali_env' resource for PatchPhase.")
-
-        # Define DockerResource configuration
-        docker_config = DockerResourceConfig()
-        resource_manager.register_resource("docker", DockerResource, docker_config)
-        logger.info("Registered 'docker' resource for PatchPhase.")
-
 
         files_dir = self.workflow.bounty_metadata.get('files_dir', 'codebase')
         exploit_files_dir = self.workflow.bounty_metadata.get('exploit_files_dir', f'bounties/bounty_{self.workflow.bounty_number}/exploit_files')
         vulnerable_commit = self.workflow.bounty_metadata.get('vulnerable_commit', 'main')
 
-        init_files_config = InitFilesResourceConfig(
-            task_repo_dir=self.workflow.task_repo_dir,
-            files_dir_name=files_dir,
-            tmp_dir_name=tmp_dir,
-            exploit_files_dir_name=exploit_files_dir,
-            vulnerable_commit=vulnerable_commit
-        )
-
-        resource_manager.register_resource("init_files", InitFilesResource, init_files_config)
-        logger.info("Registered 'init_files' resource.")
+        resource_configs = {
+            "kali_env": KaliEnvResourceConfig(
+                task_repo_dir=self.workflow.task_repo_dir,
+                bounty_number=self.workflow.bounty_number,
+                volumes={
+                    os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
+                    os.path.abspath(patch_files_path): {"bind": "/app/patch_files", "mode": "rw"},
+                    "/tmp": {"bind": "/tmp", "mode": "rw"}
+                }
+            ),
+            "docker": DockerResourceConfig(),
+            "init_files": InitFilesResourceConfig(
+                task_repo_dir=self.workflow.task_repo_dir,
+                files_dir_name=files_dir,
+                tmp_dir_name=tmp_dir,
+                exploit_files_dir_name=exploit_files_dir,
+                vulnerable_commit=vulnerable_commit
+            )
+        }
 
         setup_repo_env_script = os.path.join(str(self.workflow.task_repo_dir), "setup_repo_env.sh")
         if os.path.exists(setup_repo_env_script):
-            repo_env_config = SetupResourceConfig(
+            resource_configs["repo_resource"] = SetupResourceConfig(
                 task_level_setup=False,
                 task_repo_dir=self.workflow.task_repo_dir,
                 files_dir=files_dir
             )
-            resource_manager.register_resource("repo_resource", SetupResource, repo_env_config)
-            logger.info("Registered 'repo_resource' for repository environment.")
 
-        else:
-            logger.debug("No repository environment setup script found.")
-
+        print(f"Debugging: Exiting define_resources for PatchPhase")
+        return resource_configs
 
     def run_one_iteration(
         self,

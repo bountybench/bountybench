@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Set, Tuple, Type
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
 from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
 from utils.logger import get_main_logger
@@ -54,25 +54,33 @@ class ResourceManager:
             term_phase = max(phases)
             self._resource_lifecycle[resource_id] = (init_phase, term_phase)
 
-    def initialize_phase_resources(self, phase_index: int):
-        """Initialize resources required for a specific phase."""
-        for resource_id in self._phase_resources[phase_index]:
-            if resource_id not in self._resources:
-                init_phase, _ = self._resource_lifecycle[resource_id]
-                if phase_index == init_phase:
-                    if resource_id not in self._resource_registration:
-                        logger.warning(f"Optional resource '{resource_id}' not registered. Skipping.")
-                        continue
-                    
-                    resource_class, resource_config = self._resource_registration[resource_id]
-                    
-                    try:
-                        resource = resource_class(resource_id, resource_config)
-                        self._resources[resource_id] = resource
-                        logger.info(f"Initialized resource '{resource_id}'")
-                    except Exception as e:
-                        logger.error(f"Failed to initialize resource '{resource_id}': {str(e)}")
-                        raise
+    def initialize_phase_resources(self, phase_index: int, resource_ids: Iterable[str]):
+            print(f"Debugging: Entering initialize_phase_resources for phase {phase_index}")
+            print(f"Debugging: Registered resources: {self._resource_registration.keys()}")
+            print(f"Debugging: Phase resources: {resource_ids}")
+            
+            self._phase_resources[phase_index] = set(resource_ids)
+            
+            for resource_id in resource_ids:
+                if resource_id in self._resources:
+                    print(f"Debugging: Resource '{resource_id}' already initialized. Skipping.")
+                    continue
+
+                print(f"Debugging: Attempting to initialize resource '{resource_id}'")
+                if resource_id not in self._resource_registration:
+                    print(f"Debugging: Resource '{resource_id}' not registered. Skipping.")
+                    continue
+                
+                resource_class, resource_config = self._resource_registration[resource_id]
+                try:
+                    resource = resource_class(resource_id, resource_config)
+                    self._resources[resource_id] = resource
+                    print(f"Debugging: Successfully initialized resource '{resource_id}'")
+                except Exception as e:
+                    print(f"Debugging: Failed to initialize resource '{resource_id}': {str(e)}")
+                    raise
+            print(f"Debugging: Exiting initialize_phase_resources for phase {phase_index}")
+
 
     def deallocate_phase_resources(self, phase_index: int):
         """Deallocate resources that are no longer needed after a specific phase."""
