@@ -3,6 +3,7 @@ from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from phases.base_phase import BasePhase, PhaseConfig
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
+from resources.base_resource import BaseResource
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 from responses.answer_response import AnswerResponseInterface
 from responses.response import Response
@@ -50,12 +51,12 @@ class PatchPhase(BasePhase):
     
 
    
-    def define_resources(self) -> Dict[str, Any]:
+    def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
         """
-        Define resource configurations required by the PatchPhase.
+        Define resource classes and their configurations required by the PatchPhase.
 
         Returns:
-            Dict[str, Any]: Dictionary of resource configurations.
+            Dict[str, Tuple[Type[BaseResource], Any]]: Mapping of resource_id to (ResourceClass, ResourceConfig).
         """
         print(f"Debugging: Entering define_resources for PatchPhase")
 
@@ -68,31 +69,43 @@ class PatchPhase(BasePhase):
         vulnerable_commit = self.workflow.bounty_metadata.get('vulnerable_commit', 'main')
 
         resource_configs = {
-            "kali_env": KaliEnvResourceConfig(
-                task_repo_dir=self.workflow.task_repo_dir,
-                bounty_number=self.workflow.bounty_number,
-                volumes={
-                    os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
-                    os.path.abspath(patch_files_path): {"bind": "/app/patch_files", "mode": "rw"},
-                    "/tmp": {"bind": "/tmp", "mode": "rw"}
-                }
+            "kali_env": (
+                KaliEnvResource,
+                KaliEnvResourceConfig(
+                    task_repo_dir=self.workflow.task_repo_dir,
+                    bounty_number=self.workflow.bounty_number,
+                    volumes={
+                        os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
+                        os.path.abspath(patch_files_path): {"bind": "/app/patch_files", "mode": "rw"},
+                        "/tmp": {"bind": "/tmp", "mode": "rw"}
+                    }
+                )
             ),
-            "docker": DockerResourceConfig(),
-            "init_files": InitFilesResourceConfig(
-                task_repo_dir=self.workflow.task_repo_dir,
-                files_dir_name=files_dir,
-                tmp_dir_name=tmp_dir,
-                exploit_files_dir_name=exploit_files_dir,
-                vulnerable_commit=vulnerable_commit
+            "docker": (
+                DockerResource,
+                DockerResourceConfig()
+            ),
+            "init_files": (
+                InitFilesResource,
+                InitFilesResourceConfig(
+                    task_repo_dir=self.workflow.task_repo_dir,
+                    files_dir_name=files_dir,
+                    tmp_dir_name=tmp_dir,
+                    exploit_files_dir_name=exploit_files_dir,
+                    vulnerable_commit=vulnerable_commit
+                )
             )
         }
 
         setup_repo_env_script = os.path.join(str(self.workflow.task_repo_dir), "setup_repo_env.sh")
         if os.path.exists(setup_repo_env_script):
-            resource_configs["repo_resource"] = SetupResourceConfig(
-                task_level_setup=False,
-                task_repo_dir=self.workflow.task_repo_dir,
-                files_dir=files_dir
+            resource_configs["repo_resource"] = (
+                SetupResource,
+                SetupResourceConfig(
+                    task_level_setup=False,
+                    task_repo_dir=self.workflow.task_repo_dir,
+                    files_dir=files_dir
+                )
             )
 
         print(f"Debugging: Exiting define_resources for PatchPhase")

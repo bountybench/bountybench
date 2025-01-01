@@ -67,7 +67,7 @@ class BaseAgent(ABC):
         self._original_run = self.run
         self.run = self._wrapped_run
         
-        object.__setattr__(self, '_initializing', False)
+        #object.__setattr__(self, '_initializing', False)
         logger.info(f"Initialized agent {agent_config.id}")
         # Optional: wrap the run(...) method for failure detection
         # if hasattr(self, "run") and kwargs.get("failure_detection", False):
@@ -106,69 +106,28 @@ class BaseAgent(ABC):
         )
 
     def register_resources(self, resource_manager):
-        for resource in self.ACCESSIBLE_RESOURCES:
-            if isinstance(resource, tuple):
-                resource_class, attr_name = resource
-            else:
-                resource_class = resource
-                attr_name = resource_class.__name__.lower().replace('resource', '')
-
-            try:
-                resource_obj = resource_manager.get_resource(attr_name)
-                setattr(self, attr_name, resource_obj)
-            except KeyError:
-                if resource in self.REQUIRED_RESOURCES:
-                    raise ValueError(f"Required resource '{attr_name}' not initialized for {self.__class__.__name__}")
+            """Register resources using the provided resource manager."""
+            print(f"Debugging: Entering register_resources for {self.__class__.__name__}")
+            
+            for resource in self.ACCESSIBLE_RESOURCES:
+                if isinstance(resource, tuple):
+                    resource_class, attr_name = resource
                 else:
-                    setattr(self, attr_name, None)
+                    resource_class = resource
+                    attr_name = resource_class.__name__.lower().replace('resource', '')
 
-        self._resources_initialized = True
+                try:
+                    resource_obj = resource_manager.get_resource(attr_name)
+                    setattr(self, attr_name, resource_obj)
+                except KeyError:
+                    if resource in self.REQUIRED_RESOURCES:
+                        raise ValueError(f"Required resource '{attr_name}' not initialized for {self.__class__.__name__}")
+                    else:
+                        setattr(self, attr_name, None)
 
-    '''
-    def register_resources(self):
-        """
-        Bind resources from the ResourceManager to the agent.
-        
-        Raises:
-            RuntimeError: If ResourceManager is not set.
-            ValueError: If ACCESSIBLE_RESOURCES is not a subset of (REQUIRED + OPTIONAL).
-            KeyError: If a required resource is missing.
-        """
-        print(f"Debugging: Entering register_resources for {self.__class__.__name__}")
-        
-        if not self.resource_manager:
-            print(f"Debugging: No ResourceManager set for {self.__class__.__name__}")
-            raise RuntimeError(f"Agent '{self.__class__.__name__}' has no ResourceManager set.")
-
-        declared_resources = self._required_resources | self._optional_resources
-        accessible_attr_names = {self._entry_to_str(e) for e in self.ACCESSIBLE_RESOURCES}
-
-        print(f"Debugging: Declared resources: {declared_resources}")
-        print(f"Debugging: Accessible attribute names: {accessible_attr_names}")
-
-        missing = accessible_attr_names - declared_resources
-        if missing:
-            print(f"Debugging: Missing resources: {missing}")
-            raise ValueError(f"{self.__class__.__name__}: ACCESSIBLE_RESOURCES must be a subset of REQUIRED + OPTIONAL. Missing: {missing}")
-
-        print(f"Debugging: Starting to bind resources for {self.__class__.__name__}")
-        for entry in self.ACCESSIBLE_RESOURCES:
-            attr_name = self._entry_to_str(entry)
-            print(f"Debugging: Attempting to bind resource '{attr_name}'")
-            try:
-                resource_obj = self.resource_manager.get_resource(attr_name)
-                object.__setattr__(self, attr_name, resource_obj)
-                print(f"Debugging: Successfully bound resource '{attr_name}'")
-            except KeyError:
-                if attr_name in self._required_resources:
-                    print(f"Debugging: Failed to bind required resource '{attr_name}'")
-                    raise
-                print(f"Debugging: Optional resource '{attr_name}' not allocated. Attribute remains None.")
-                logger.warning(f"Optional resource '{attr_name}' not allocated. Attribute remains None.")
-
-        self._resources_initialized = True
-        print(f"Debugging: Resources initialized for {self.__class__.__name__}")
-    '''
+            self._resources_initialized = True
+            print(f"Debugging: Exiting register_resources for {self.__class__.__name__}")
+   
         
     @staticmethod
     def _generate_attr_name(resource_cls: type) -> str:

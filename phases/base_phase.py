@@ -8,6 +8,7 @@ from responses.edit_response import EditResponse
 from responses.response import Response
 from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
+from resources.base_resource import BaseResource
 
 logger = get_main_logger(__name__)
 
@@ -88,7 +89,7 @@ class BasePhase(ABC):
         print(f"Debugging: Registering resources for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
         for agent_id, agent in self.agents:
             print(f"Debugging: Registering resources for agent {agent_id}")
-            agent.register_resources()
+            agent.register_resources(self.resource_manager)
         print(f"Debugging: Finished registering resources for phase {self.phase_config.phase_idx}")
 
 
@@ -99,15 +100,64 @@ class BasePhase(ABC):
             resources.update(agent_cls.get_required_resources())
         return resources
 
+    """
+    def _initialize_resources(self):
+            resource_configs = self.define_resources()
+            for resource_id, resource_info in resource_configs.items():
+                # Expecting resource_info to be a tuple: (ResourceClass, ResourceConfig)
+                if not isinstance(resource_info, tuple) or len(resource_info) != 2:
+                    raise ValueError(f"Resource info for '{resource_id}' must be a tuple of (ResourceClass, ResourceConfig)")
+                
+                resource_class, resource_config = resource_info
+                if not issubclass(resource_class, BaseResource):
+                    raise TypeError(f"Resource class '{resource_class.__name__}' must inherit from BaseResource")
+                
+                self.resource_manager.register_resource(resource_id, resource_class, resource_config)
+            
+            for _, agent in self.agents:
+                agent.register_resources(self.resource_manager)
+    """
 
     def _initialize_resources(self):
-        resource_configs = self.define_resources()
-        for resource_id, resource_config in resource_configs.items():
-            resource_class = type(resource_config).__name__.replace("Config", "")
-            self.resource_manager.register_resource(resource_id, globals()[resource_class], resource_config)
+        """
+        Initialize and register resources for the phase and its agents.
+        Resources must be fully initialized before agents can access them.
+        """
+        print(f"Debugging: Entering _initialize_resources for {self.name}")
         
-        for _, agent in self.agents:
+        # 1. First define all resources
+        resource_configs = self.define_resources()
+        if not resource_configs:
+            print("Warning: No resources defined in define_resources")
+            return
+            
+        # 2. Register each resource
+        for resource_id, (resource_class, resource_config) in resource_configs.items():
+            print(f"Debugging: Registering resource {resource_id} of type {resource_class.__name__}")
+            try:
+                self.resource_manager.register_resource(resource_id, resource_class, resource_config)
+            except Exception as e:
+                print(f"Error registering resource {resource_id}: {str(e)}")
+                raise
+                
+        # 3. Initialize all resources for this phase
+        print("Debugging: Initializing all phase resources")
+        try:
+            self.resource_manager.initialize_phase_resources(
+                phase_index=self.phase_config.phase_idx,
+                resource_ids=resource_configs.keys()
+            )
+        except Exception as e:
+            print(f"Error initializing phase resources: {str(e)}")
+            raise
+                
+        # 4. Only after all resources are initialized, register them with agents
+        print("Debugging: All resources initialized, registering with agents")
+        for agent_id, agent in self.agents:
+            print(f"Registering resources for agent {agent_id}")
             agent.register_resources(self.resource_manager)
+            
+        print(f"Debugging: Completed _initialize_resources for {self.name}")
 
 
     def deallocate_resources(self):
@@ -136,7 +186,7 @@ class BasePhase(ABC):
         skip_interactive = 0
 
         # Initialize resources before starting iterations
-        self.initialize_resources()
+        self._initialize_resources()
 
         # 1) Start phase context
         with workflow_logger.phase(self) as phase_ctx:

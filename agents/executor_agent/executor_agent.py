@@ -41,13 +41,13 @@ class ExecutorAgent(BaseAgent):
     # BaseAgent will do: self.init_files = resource_manager.get_resource("init_files")
     # etc.
     REQUIRED_RESOURCES = [
-       InitFilesResource,
-        KaliEnvResource
+       (InitFilesResource, "init_files"),
+        (KaliEnvResource, "kali_env")
     ]
     OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "task_server")]
     ACCESSIBLE_RESOURCES = [
-        KaliEnvResource,
-        InitFilesResource,
+        (KaliEnvResource, "kali_env"),
+       (InitFilesResource, "init_files"),
         (SetupResource, "repo_resource"),
         (SetupResource, "task_server")
     ]
@@ -69,11 +69,12 @@ class ExecutorAgent(BaseAgent):
         # If a target_host is provided, run health_check on self.kali_env
         self.target_host = agent_config.target_host
 
-
+    """
     def register_resources(self):
         super().register_resources()
         if self.target_host: 
             self.kali_env.health_check(self.target_host)
+    """
 
 
     def run(self, responses: List[Response]) -> Response:
