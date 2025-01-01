@@ -181,7 +181,6 @@ class BasePhase(ABC):
                     response, done = self.run_one_iteration(
                         agent_instance=agent_instance,
                         previous_output=last_output,
-                        iteration_num=iteration_num
                     )
                     iteration_ctx.set_output(response)
 
@@ -237,7 +236,7 @@ class BasePhase(ABC):
 
     @abstractmethod
     def run_one_iteration(
-        self, agent_instance: Any, previous_output: Optional[BaseResponse], iteration_num: int
+        self, agent_instance: Any, previous_output: Optional[BaseResponse]
     ) -> Tuple[BaseResponse, bool]:
         """
         Run a single iteration of the phase.
@@ -245,7 +244,6 @@ class BasePhase(ABC):
         Args:
             agent_instance (BaseAgent): The agent to run.
             previous_output (Optional[BaseResponse]): The output from the previous iteration.
-            iteration_num (int): The current iteration number.
 
         Returns:
             Tuple[BaseResponse, bool]: The response from the agent and a flag indicating if the phase is complete.

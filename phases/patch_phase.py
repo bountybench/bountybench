@@ -116,7 +116,6 @@ class PatchPhase(BasePhase):
         self,
         agent_instance: Any,
         previous_output: Optional[Response],
-        iteration_num: int
     ) -> Tuple[Response, bool]:
         """
         1) Call the agent with previous_output as input.
