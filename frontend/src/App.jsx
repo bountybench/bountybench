@@ -12,8 +12,18 @@ function App() {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [interactiveMode, setInteractiveMode] = useState(false);
 
-  const handleWorkflowStart = (workflowId) => {
+  const handleWorkflowStart = (workflowId, isInteractive) => {
     setSelectedWorkflow({ id: workflowId });
+    setInteractiveMode(isInteractive);
+  };
+
+  const handleInteractiveModeToggle = () => {
+    setInteractiveMode(!interactiveMode);
+    // If a workflow is already running, might need to send an update to the backend here
+    if (selectedWorkflow) {
+      // TODO: Implement backend update for interactive mode change
+      console.log("Update backend with new interactive mode:", !interactiveMode);
+    }
   };
 
   return (
@@ -21,7 +31,7 @@ function App() {
       <CssBaseline />
       <Box className="app-container">
         <Header 
-          onInteractiveModeToggle={() => setInteractiveMode(!interactiveMode)}
+          onInteractiveModeToggle={handleInteractiveModeToggle}
           interactiveMode={interactiveMode}
         />
         {selectedWorkflow ? (
@@ -30,7 +40,11 @@ function App() {
             interactiveMode={interactiveMode}
           />
         ) : (
-          <WorkflowLauncher onWorkflowStart={handleWorkflowStart} />
+          <WorkflowLauncher 
+            onWorkflowStart={handleWorkflowStart}
+            interactiveMode={interactiveMode}
+            setInteractiveMode={setInteractiveMode}
+          />
         )}
       </Box>
     </ThemeProvider>

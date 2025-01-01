@@ -13,7 +13,7 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import './WorkflowLauncher.css';
 
-export const WorkflowLauncher = ({ onWorkflowStart }) => {
+export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,7 +55,7 @@ export const WorkflowLauncher = ({ onWorkflowStart }) => {
           workflow_name: formData.workflow_name,
           task_repo_dir: formData.task_repo_dir,
           bounty_number: formData.bounty_number,
-          interactive: formData.interactive
+          interactive: interactiveMode
         }),
       });
 
@@ -68,7 +68,7 @@ export const WorkflowLauncher = ({ onWorkflowStart }) => {
       if (data.error) {
         setError(data.error);
       } else {
-        onWorkflowStart(data.workflow_id);
+        onWorkflowStart(data.workflow_id, interactiveMode);
       }
     } catch (err) {
       setError(err.message || 'Failed to start workflow. Make sure the backend server is running.');
@@ -149,8 +149,8 @@ export const WorkflowLauncher = ({ onWorkflowStart }) => {
         <FormControlLabel
           control={
             <Switch
-              checked={formData.interactive}
-              onChange={handleInputChange}
+              checked={interactiveMode}
+              onChange={(e) => setInteractiveMode(e.target.checked)}
               name="interactive"
               color="primary"
             />
