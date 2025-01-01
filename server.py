@@ -10,7 +10,9 @@ import uvicorn
 import signal
 import sys
 
+# from workflows.detect_and_patch_workflow import DetectAndPatchWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
+from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
 from utils.workflow_logger import workflow_logger
 from utils.websocket_manager import websocket_manager
@@ -62,7 +64,9 @@ async def shutdown_event():
                 pass
 
 id_to_workflow = {
+    # "Detect and Patch Workflow": DetectAndPatchWorkflow,
     "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
+    "Patch Workflow": PatchWorkflow,
     "Chat Workflow": ChatWorkflow
 }
 
@@ -71,10 +75,20 @@ async def list_workflows():
     """List available workflow types"""
     return {
         "workflows": [
+            # {
+            #     "id": "detect_and_patch",
+            #     "name": "Detect and Patch Workflow",
+            #     "description": "Workflow for detecting, exploiting, and patching vulnerabilities"
+            # },
             {
                 "id": "exploit_and_patch",
                 "name": "Exploit and Patch Workflow",
                 "description": "Workflow for exploiting and patching vulnerabilities"
+            },
+            {
+                "id": "patch",
+                "name": "Patch Workflow",
+                "description": "Workflow for patching vulnerabilities"
             },
             {
                 "id": "chat",
