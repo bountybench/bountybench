@@ -15,7 +15,7 @@ class DetectPhase(BasePhase):
     """
     REQUIRED_AGENTS = [ExecutorAgent]
 
-    def run_one_iteration(
+    async def run_one_iteration(
         self,
         agent_instance: Any,
         previous_output: Optional[Response],
