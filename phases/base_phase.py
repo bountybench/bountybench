@@ -4,11 +4,8 @@ from typing import TYPE_CHECKING, Any, List, Optional, Set, Tuple, Type, Union
 
 from agents.base_agent import AgentConfig, BaseAgent
 from responses.base_response import BaseResponse
-from responses.edit_response import EditResponse
-from responses.response import Response
 from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
-from resources.base_resource import BaseResource
 
 logger = get_main_logger(__name__)
 
@@ -90,7 +87,6 @@ class BasePhase(ABC):
             print(f"Debugging: Registering resources for agent {agent_id}")
             agent.register_resources(self.resource_manager)
         print(f"Debugging: Finished registering resources for phase {self.phase_config.phase_idx}")
-
 
     @classmethod
     def get_required_resources(cls) -> Set[str]:

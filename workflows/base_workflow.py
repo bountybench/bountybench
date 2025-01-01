@@ -11,7 +11,6 @@ import logging
 # Import your specific modules and classes here
 from phases.base_phase import BasePhase, PhaseConfig
 from responses.base_response import BaseResponse
-from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.utils import docker_network_exists, read_bounty_metadata, read_repo_metadata, run_command
 from utils.workflow_logger import workflow_logger
 
