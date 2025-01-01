@@ -1,17 +1,10 @@
 import logging
-import os
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional
 
-from agents.base_agent import AgentConfig
-from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
-from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
 from phases.base_phase import PhaseConfig
 from phases.patch_phase import PatchPhase
-from resources.docker_resource import DockerResource, DockerResourceConfig
-from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.utils import read_exploit_report
 from workflows.base_workflow import BaseWorkflow
 
@@ -19,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 class PatchWorkflow(BaseWorkflow):
     """Workflow for patching vulnerabilities"""
-    PHASES = [PatchPhase]  # Define required phases
 
     def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
         workflow_id = "patch_workflow"

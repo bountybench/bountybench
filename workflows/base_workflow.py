@@ -2,21 +2,16 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Type
 from agents.agent_manager import AgentManager
 
 from enum import Enum
 import logging
 
 # Import your specific modules and classes here
-from agents.base_agent import BaseAgent, AgentConfig
 from phases.base_phase import BasePhase, PhaseConfig
 from responses.base_response import BaseResponse
 from resources.base_resource import BaseResource, BaseResourceConfig
-from resources.init_files_resource import InitFilesResourceConfig
-from resources.init_files_resource import InitFilesResource
-from resources.resource_manager import ResourceManager
-from resources.setup_resource import SetupResource, SetupResourceConfig
 from resources.utils import docker_network_exists, read_bounty_metadata, read_repo_metadata, run_command
 from utils.workflow_logger import workflow_logger
 
@@ -53,7 +48,6 @@ class BaseWorkflow(ABC):
     Base class for defining workflows that coordinate phases and their agents.
     Delegates resource management to individual phases.
     """
-    PHASES: List[Type[BasePhase]] = []
 
     def __init__(
         self,
@@ -65,6 +59,7 @@ class BaseWorkflow(ABC):
         """Initialize workflow with configuration"""
         self.task_repo_dir = task_repo_dir
         self.bounty_number = str(bounty_number)  # Ensure it's a string
+        self.interactive = interactive
         self.repo_metadata = read_repo_metadata(str(task_repo_dir))
         self.bounty_metadata = read_bounty_metadata(str(task_repo_dir), str(self.bounty_number))
         
