@@ -50,7 +50,6 @@ class BasePhase(ABC):
 
         phase_config.phase_name = self.name
         phase_config.agent_configs = self.get_agent_configs()
-        print("THIS IS MY PHASE AGENT CONFIGS", phase_config.agent_configs)
         self._initialize_agents()
 
     def get_phase_resources(self):
@@ -99,24 +98,6 @@ class BasePhase(ABC):
         for agent_cls in cls.AGENT_CLASSES:
             resources.update(agent_cls.get_required_resources())
         return resources
-
-    """
-    def _initialize_resources(self):
-            resource_configs = self.define_resources()
-            for resource_id, resource_info in resource_configs.items():
-                # Expecting resource_info to be a tuple: (ResourceClass, ResourceConfig)
-                if not isinstance(resource_info, tuple) or len(resource_info) != 2:
-                    raise ValueError(f"Resource info for '{resource_id}' must be a tuple of (ResourceClass, ResourceConfig)")
-                
-                resource_class, resource_config = resource_info
-                if not issubclass(resource_class, BaseResource):
-                    raise TypeError(f"Resource class '{resource_class.__name__}' must inherit from BaseResource")
-                
-                self.resource_manager.register_resource(resource_id, resource_class, resource_config)
-            
-            for _, agent in self.agents:
-                agent.register_resources(self.resource_manager)
-    """
 
     def _initialize_resources(self):
         """

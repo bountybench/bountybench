@@ -36,7 +36,9 @@ class PatchPhase(BasePhase):
         executor_config = ExecutorAgentConfig(
             id="executor_agent",
             lm_config=executor_lm_config,
-            target_host=self.workflow.repo_metadata["target_host"]
+            target_host=self.workflow.repo_metadata["target_host"],
+            initial_prompt=self.workflow.get_initial_prompt()
+
         )
 
         patch_config = PatchAgentConfig(
@@ -131,7 +133,7 @@ class PatchPhase(BasePhase):
         response = agent_instance.run(input_list)
 
         # Determine which agent name was used in this iteration
-        agent_name, _ = self._get_agent()
+        agent_name, _ = self._get_current_agent()
 
         if agent_name == "ExecutorAgent":
             if isinstance(response, AnswerResponseInterface):

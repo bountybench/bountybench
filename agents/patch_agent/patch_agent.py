@@ -51,18 +51,19 @@ class PatchAgent(BaseAgent):
 
         self.use_verify_script = agent_config.use_verify_script
 
+
         # self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
         # self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
         # self.docker = self._get_resource(DockerResource)
 
         atexit.register(self.cleanup)
 
-    """"
-    def register_resources(self, resource_manager):
+    
+    def register_resources(self, resource_manager: ResourceManager):
         super().register_resources(resource_manager)
         self.patch_dir = Path(self.init_files.task_repo_dir) / self.patch_dir_name
         self.patch_dir.mkdir(parents=True, exist_ok=True)
-    """
+    
 
     def run(self, responses: List[Response]) -> Response:
         """Execute the main workflow of the PatchAgent."""
