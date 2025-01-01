@@ -61,6 +61,11 @@ async def shutdown_event():
             except:
                 pass
 
+id_to_workflow = {
+    "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
+    "Chat Workflow": ChatWorkflow
+}
+
 @app.get("/workflow/list")
 async def list_workflows():
     """List available workflow types"""
@@ -86,7 +91,7 @@ async def start_workflow(workflow_data: dict):
         workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         # Initialize workflow instance
-        workflow = ChatWorkflow(
+        workflow = id_to_workflow[workflow_data['workflow_name']](
             task_repo_dir=Path(workflow_data['task_repo_dir']),
             bounty_number=workflow_data['bounty_number'],
             interactive=workflow_data.get('interactive', False)
