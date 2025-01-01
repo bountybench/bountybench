@@ -2,21 +2,15 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Type
 from agents.agent_manager import AgentManager
 
 from enum import Enum
 import logging
 
 # Import your specific modules and classes here
-from agents.base_agent import BaseAgent, AgentConfig
 from phases.base_phase import BasePhase, PhaseConfig
 from responses.base_response import BaseResponse
-from resources.base_resource import BaseResource, BaseResourceConfig
-from resources.init_files_resource import InitFilesResourceConfig
-from resources.init_files_resource import InitFilesResource
-from resources.resource_manager import ResourceManager
-from resources.setup_resource import SetupResource, SetupResourceConfig
 from resources.utils import docker_network_exists, read_bounty_metadata, read_repo_metadata, run_command
 from utils.workflow_logger import workflow_logger
 
@@ -53,7 +47,6 @@ class BaseWorkflow(ABC):
     Base class for defining workflows that coordinate phases and their agents.
     Delegates resource management to individual phases.
     """
-    PHASES: List[Type[BasePhase]] = []
 
     def __init__(
         self,
@@ -65,6 +58,7 @@ class BaseWorkflow(ABC):
         """Initialize workflow with configuration"""
         self.task_repo_dir = task_repo_dir
         self.bounty_number = str(bounty_number)  # Ensure it's a string
+        self.interactive = interactive
         self.repo_metadata = read_repo_metadata(str(task_repo_dir))
         self.bounty_metadata = read_bounty_metadata(str(task_repo_dir), str(self.bounty_number))
         
@@ -124,11 +118,6 @@ class BaseWorkflow(ABC):
         """Create and register phases. To be implemented by subclasses."""
         pass
 
-    def register_phase(self, phase: BasePhase):
-        """Register a phase with the workflow."""
-        self.phases.append(phase)
-        logger.debug(f"Registered phase: {phase.__class__.__name__}")
-
     def _compute_resource_schedule(self) -> None:
         """
         Compute the agent (which will compute resource) schedule across all phases.
@@ -149,16 +138,12 @@ class BaseWorkflow(ABC):
             BasePhase: The phase instance.
         """
         try:
-            phase = self.phases[phase_idx]
-            phase_instance = phase
+            phase_instance = self.phases[phase_idx]
 
             logger.info(f"Setting up phase {phase_idx}: {phase_instance.__class__.__name__}")
 
-            # Initialize and run the phase
-            phase_instance._initialize_resources()
-            phase_response, phase_success = phase_instance.run_phase()
-
-            logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
+            # Setup the phase
+            phase_instance.setup()
 
             return phase_instance
 
@@ -183,6 +168,8 @@ class BaseWorkflow(ABC):
                 # Setup and run the phase
                 phase_instance = self.setup_phase(phase_idx, prev_response)
                 phase_response, phase_success = phase_instance.run_phase()
+                
+                logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
 
                 # Update workflow state
                 prev_response = phase_response
@@ -268,23 +255,6 @@ class BaseWorkflow(ABC):
         """Setup necessary directories for the workflow."""
         pass
 
-    def register_resource(
-        self,
-        resource_id: str,
-        resource_class: Type[BaseResource],
-        resource_config: BaseResourceConfig
-    ) -> None:
-        """
-        Registers a resource with the ResourceManager.
-
-        Args:
-            resource_id (str): The unique identifier for the resource.
-            resource_class (Type[BaseResource]): The class of the resource.
-            resource_config (BaseResourceConfig): The configuration for the resource.
-        """
-        self.agent_manager.resource_manager.register_resource(resource_id, resource_class, resource_config)
-        logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
-    
     def register_phase(self, phase: BasePhase):
         phase_idx = len(self.phases)
         phase.phase_config.phase_idx = phase_idx  # Set phase index

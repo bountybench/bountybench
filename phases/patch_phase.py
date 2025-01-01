@@ -1,13 +1,12 @@
 from agents.base_agent import AgentConfig
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from phases.base_phase import BasePhase, PhaseConfig
+from phases.base_phase import BasePhase
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
 from resources.base_resource import BaseResource
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 from responses.answer_response import AnswerResponseInterface
 from responses.response import Response
-from responses.edit_response import EditResponse
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -26,9 +25,8 @@ class PatchPhase(BasePhase):
     def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
         executor_lm_config = AgentLMConfig(
             model='openai/o3-mini-2024-12-17',
-            max_output_tokens=25000,
-            max_input_tokens=25000,
-            max_iterations=25,
+            max_output_tokens=5000,
+            max_input_tokens=5000,
             max_iterations_stored_in_memory=3,
             use_helm=False
         )
@@ -129,7 +127,6 @@ class PatchPhase(BasePhase):
         self,
         agent_instance: Any,
         previous_output: Optional[Response],
-        iteration_num: int
     ) -> Tuple[Response, bool]:
         """
         1) Call the agent with previous_output as input.
