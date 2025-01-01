@@ -23,7 +23,7 @@ class PatchWorkflow(BaseWorkflow):
         # Initialize PatchPhase with its PhaseConfig
         patch_phase_config = PhaseConfig(
             phase_name="PatchPhase",
-            max_iterations=25
+            max_iterations=5
         )
 
         patch_phase = PatchPhase(

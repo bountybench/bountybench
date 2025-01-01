@@ -99,12 +99,12 @@ class BasePhase(ABC):
             resources.update(agent_cls.get_required_resources())
         return resources
 
-    def _initialize_resources(self):
+    def setup(self):
         """
         Initialize and register resources for the phase and its agents.
         Resources must be fully initialized before agents can access them.
         """
-        print(f"Debugging: Entering _initialize_resources for {self.name}")
+        print(f"Debugging: Entering setup for {self.name}")
         
         # 1. First define all resources
         resource_configs = self.define_resources()
@@ -138,7 +138,7 @@ class BasePhase(ABC):
             print(f"Registering resources for agent {agent_id}")
             agent.register_resources(self.resource_manager)
             
-        print(f"Debugging: Completed _initialize_resources for {self.name}")
+        print(f"Debugging: Completed setup for {self.name}")
 
 
     def deallocate_resources(self):
@@ -164,10 +164,8 @@ class BasePhase(ABC):
         last_output = self.initial_response
         success_flag = False
 
-        skip_interactive = 0
-
         # Initialize resources before starting iterations
-        self._initialize_resources()
+        self.setup()
 
         # 1) Start phase context
         with workflow_logger.phase(self) as phase_ctx:
@@ -176,13 +174,6 @@ class BasePhase(ABC):
                     break
 
                 agent_id, agent_instance = self._get_current_agent()
-
-                if self.phase_config.interactive and skip_interactive <= 0:
-                    skip_interactive, last_output = self._interactive_prompt(iteration_num, last_output)
-                    if self._done:
-                        break
-                else:
-                    skip_interactive -= 1
 
                 if last_output:
                     print(f"Last output was {last_output.response}")
@@ -217,60 +208,6 @@ class BasePhase(ABC):
         self.deallocate_resources()
 
         return last_output, success_flag
-
-    def _interactive_prompt(self, iteration_num: int, current_response: Optional[BaseResponse]) -> Tuple[int, Optional[BaseResponse]]:
-        while True:
-            user_input = input(
-                f"Iteration {iteration_num}.\n"
-                f"To step through run: Press Enter to continue, 'q' to quit, or 'c#' to continue # iterations.\n"
-                f"To edit run: Press 'a' to edit or add to current Response, 'E' to edit initial_prompt (will reset agents but not iteration count).\n"
-                f"Input: "
-            )
-
-            if user_input.lower() == 'q':
-                self._done = True
-                return 0, current_response
-            elif user_input.startswith('c'):
-                try:
-                    num_iterations = int(user_input[1:])
-                    if num_iterations > 0:
-                        return num_iterations - 1, current_response
-                    else:
-                        print("Please enter a positive number after 'c'.")
-                except ValueError:
-                    print("Invalid input. Please enter a number after 'c'.")
-            elif user_input == '':
-                return 0, current_response
-            elif user_input.lower() == 'a':
-                current_response = self._edit_response(current_response)
-            elif user_input == 'E':
-                if hasattr(self, 'initial_response') and self.initial_response:
-                    new_initial_response = self._edit_response(EditResponse(self.initial_response.response))
-                    self.initial_response = new_initial_response
-
-                    self.current_agent_index = 0
-                    return 0, new_initial_response
-                else:
-                    print("Cannot edit initial prompt: workflow reference or initial prompt not available.")
-            else:
-                print("Invalid input. Press Enter to continue, 'q' to quit, 'c#' to continue # iterations, 'a' to edit current Response, or 'E' to edit initial prompt.")
-
-    def _edit_response(self, response: Optional[BaseResponse]) -> BaseResponse:
-        if response is None:
-            edit_response = EditResponse("")
-        else:
-            edit_response = EditResponse(response.response)
-
-        print(f"Current response:\n{edit_response.response}\n")
-        edit_input = input("Enter text to add or edit (prefix with 'edit:' to replace entire response):\n")
-
-        if edit_input.startswith("edit:"):
-            edit_response.edit(edit_input[5:].strip())
-        else:
-            edit_response.add("\n" + edit_input)
-
-        print(f"Updated response:\n{edit_response.response}\n")
-        return edit_response
 
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:
         """Retrieve the next agent in a round-robin fashion."""

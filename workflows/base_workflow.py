@@ -143,9 +143,9 @@ class BaseWorkflow(ABC):
 
             logger.info(f"Setting up phase {phase_idx}: {phase_instance.__class__.__name__}")
 
-            # Initialize and run the phase
-            phase_instance._initialize_resources()
-            
+            # Setup the phase
+            phase_instance.setup()
+
             return phase_instance
 
         except Exception as e:
