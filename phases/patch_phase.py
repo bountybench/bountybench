@@ -49,8 +49,14 @@ class PatchPhase(BasePhase):
         ]
     
 
+   
     def define_resources(self) -> Dict[str, Any]:
-        """Define resource configurations required by the PatchPhase."""
+        """
+        Define resource configurations required by the PatchPhase.
+
+        Returns:
+            Dict[str, Any]: Dictionary of resource configurations.
+        """
         print(f"Debugging: Entering define_resources for PatchPhase")
 
         tmp_dir = os.path.join("tmp")  # Assuming a default tmp directory
@@ -91,6 +97,7 @@ class PatchPhase(BasePhase):
 
         print(f"Debugging: Exiting define_resources for PatchPhase")
         return resource_configs
+
 
     def run_one_iteration(
         self,

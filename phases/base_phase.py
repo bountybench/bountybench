@@ -79,15 +79,6 @@ class BasePhase(ABC):
         if missing:
             missing_names = ', '.join(agent.__name__ for agent in missing)
             raise ValueError(f"Phase '{self.phase_config.phase_name}' requires agents: {missing_names}")
-        
-    def _initialize_resources(self):
-        resource_configs = self.define_resources()
-        for resource_id, resource_config in resource_configs.items():
-            resource_class = type(resource_config).__name__.replace("Config", "")
-            self.resource_manager.register_resource(resource_id, globals()[resource_class], resource_config)
-        
-        for _, agent in self.agents:
-            agent.register_resources(self.resource_manager)
 
     def register_resources(self):
         """
@@ -109,7 +100,6 @@ class BasePhase(ABC):
         return resources
 
 
-
     def _initialize_resources(self):
         resource_configs = self.define_resources()
         for resource_id, resource_config in resource_configs.items():
@@ -118,7 +108,6 @@ class BasePhase(ABC):
         
         for _, agent in self.agents:
             agent.register_resources(self.resource_manager)
-
 
 
     def deallocate_resources(self):

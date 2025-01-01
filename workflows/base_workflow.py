@@ -155,7 +155,7 @@ class BaseWorkflow(ABC):
             logger.info(f"Setting up phase {phase_idx}: {phase_instance.__class__.__name__}")
 
             # Initialize and run the phase
-            phase_instance.initialize_resources()
+            phase_instance._initialize_resources()
             phase_response, phase_success = phase_instance.run_phase()
 
             logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
