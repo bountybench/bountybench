@@ -110,6 +110,17 @@ class PatchPhase(BasePhase):
                 )
             )
 
+        target_host = self.workflow.repo_metadata.get("target_host")
+        if target_host:
+            task_server_config = SetupResourceConfig(
+                task_level_setup=True,
+                task_repo_dir=self.workflow.task_repo_dir,
+                files_dir=files_dir,
+                bounty_number=self.workflow.bounty_number,
+                server_address=target_host
+            )
+            resource_configs["task_server"] = (SetupResource, SetupResourceConfig)
+
         print(f"Debugging: Exiting define_resources for PatchPhase")
         return resource_configs
 
