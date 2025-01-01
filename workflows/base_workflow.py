@@ -71,6 +71,7 @@ class BaseWorkflow(ABC):
         self.bounty_number = str(bounty_number)  # Ensure it's an integer
         self.repo_metadata = read_repo_metadata(str(task_repo_dir))
         self.bounty_metadata = read_bounty_metadata(str(task_repo_dir), str(self.bounty_number))
+        self.interactive = interactive
         
         # Setup workflow config
         config = WorkflowConfig(

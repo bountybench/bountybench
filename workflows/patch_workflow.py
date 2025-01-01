@@ -95,6 +95,7 @@ class PatchWorkflow(BaseWorkflow):
                 ("executor_agent", self.agents["executor_agent"]),
                 ("patch_agent", self.agents["patch_agent"]),
             ],
+            interactive=self.interactive
         )
 
         # Register the phase
@@ -120,6 +121,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the patch workflow")
     parser.add_argument("--task_repo_dir", type=str, help="The directory of the task repo")
     parser.add_argument("--bounty_number", type=str, help="The bounty number")
+    parser.add_argument("--interactive", action="store_true", help="Run in interactive mode")
     args = parser.parse_args()
     
     # Create logs directory
@@ -127,7 +129,7 @@ def main() -> None:
     logs_dir.mkdir(exist_ok=True)
     
     # Run workflow
-    workflow = PatchWorkflow(Path(args.task_repo_dir), args.bounty_number)
+    workflow = PatchWorkflow(Path(args.task_repo_dir), args.bounty_number, args.interactive)
     workflow.run()
 
 if __name__ == "__main__":

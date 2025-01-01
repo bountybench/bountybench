@@ -20,7 +20,6 @@ class ChatWorkflow(BaseWorkflow):
 
     def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
         workflow_id = "chat_workflow"
-        self.interactive = interactive
         super().__init__(task_repo_dir, bounty_number, workflow_id, interactive)     
 
     def define_resource_configs(self) -> None:

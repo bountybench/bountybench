@@ -124,22 +124,30 @@ export const useWorkflowWebSocket = (workflowId) => {
             break;
 
           case 'iteration_update': {
-            console.log('Handling iteration update:', data.iteration);
-            setCurrentIteration(data.iteration);
-            currentIterationRef.current = data.iteration;
-
-            const iterationMessage = {
-              id: `msg_${messageIdCounter.current++}`,
-              iteration_number: data.iteration.iteration_number,
-              agent_name: data.iteration.agent_name,
-              timestamp: new Date().toISOString(),
-              input: data.iteration.input,
-              output: data.iteration.output,
-              actions: [],
-              status: data.iteration.status
-            };
-            setMessages(prev => [...prev, iterationMessage]);
-            break;
+              console.log('Handling iteration update:', data.iteration);
+              setCurrentIteration(data.iteration);
+              currentIterationRef.current = data.iteration;
+            
+              const iterationMessage = {
+                id: `msg_${messageIdCounter.current++}`,
+                iteration_number: data.iteration.iteration_number,
+                agent_name: data.iteration.agent_name,
+                timestamp: new Date().toISOString(),
+                input: data.iteration.input,
+                output: data.iteration.output,
+                actions: [],
+                status: data.iteration.status
+              };
+            
+              setMessages(prev => {
+                // Check if a message with the same iteration number already exists
+                if (prev.some(msg => msg.iteration_number === iterationMessage.iteration_number)) {
+                  console.log('Duplicate iteration message, not adding');
+                  return prev;
+                }
+                return [...prev, iterationMessage];
+              });
+              break;
           }
 
           case 'action_update': {
@@ -148,25 +156,37 @@ export const useWorkflowWebSocket = (workflowId) => {
               const updated = [...prev];
               const iterationNumber = currentIterationRef.current?.iteration_number;
               console.log('Current iteration number:', iterationNumber);
-
+          
               const index = updated.findIndex(
                 msg => msg.iteration_number === iterationNumber
               );
-
+          
               if (index === -1) {
                 console.warn('No matching iteration found for action:', data.action);
                 return prev;
               }
-
+          
               const target = { ...updated[index] };
+              
+              // Check if this action already exists
+              const actionExists = target.actions.some(action => 
+                action.timestamp === data.action.timestamp && 
+                action.action_type === data.action.action_type
+              );
+          
+              if (actionExists) {
+                console.log('Duplicate action, not adding');
+                return prev;
+              }
+          
               target.actions = [...(target.actions || []), data.action];
-
+          
               if (data.action.action_type === 'llm' && data.action.output_data) {
                 target.output = {
                   content: data.action.output_data
                 };
               }
-
+          
               updated[index] = target;
               return updated;
             });
@@ -192,12 +212,18 @@ export const useWorkflowWebSocket = (workflowId) => {
               const target = { ...updated[messageIndex] };
               target.actions = target.actions || [];
           
-              // Find the existing action or create a new one
+              // Find the existing action
               const actionIndex = target.actions.findIndex(action => action.timestamp === data.action_id);
+              
               if (actionIndex !== -1) {
                 // Update existing action
+                const existingAction = target.actions[actionIndex];
+                if (existingAction.input_data === data.new_input && existingAction.output_data === data.new_output) {
+                  console.log('No changes in input or output, not updating');
+                  return prev;
+                }
                 target.actions[actionIndex] = {
-                  ...target.actions[actionIndex],
+                  ...existingAction,
                   input_data: data.new_input,
                   output_data: data.new_output
                 };
