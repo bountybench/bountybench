@@ -119,11 +119,6 @@ class BaseWorkflow(ABC):
         """Create and register phases. To be implemented by subclasses."""
         pass
 
-    def register_phase(self, phase: BasePhase):
-        """Register a phase with the workflow."""
-        self.phases.append(phase)
-        logger.debug(f"Registered phase: {phase.__class__.__name__}")
-
     def _compute_resource_schedule(self) -> None:
         """
         Compute the agent (which will compute resource) schedule across all phases.
@@ -144,17 +139,13 @@ class BaseWorkflow(ABC):
             BasePhase: The phase instance.
         """
         try:
-            phase = self.phases[phase_idx]
-            phase_instance = phase
+            phase_instance = self.phases[phase_idx]
 
             logger.info(f"Setting up phase {phase_idx}: {phase_instance.__class__.__name__}")
 
             # Initialize and run the phase
             phase_instance._initialize_resources()
-            phase_response, phase_success = phase_instance.run_phase()
-
-            logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
-
+            
             return phase_instance
 
         except Exception as e:
@@ -178,6 +169,8 @@ class BaseWorkflow(ABC):
                 # Setup and run the phase
                 phase_instance = self.setup_phase(phase_idx, prev_response)
                 phase_response, phase_success = phase_instance.run_phase()
+                
+                logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
 
                 # Update workflow state
                 prev_response = phase_response
@@ -263,23 +256,6 @@ class BaseWorkflow(ABC):
         """Setup necessary directories for the workflow."""
         pass
 
-    def register_resource(
-        self,
-        resource_id: str,
-        resource_class: Type[BaseResource],
-        resource_config: BaseResourceConfig
-    ) -> None:
-        """
-        Registers a resource with the ResourceManager.
-
-        Args:
-            resource_id (str): The unique identifier for the resource.
-            resource_class (Type[BaseResource]): The class of the resource.
-            resource_config (BaseResourceConfig): The configuration for the resource.
-        """
-        self.agent_manager.resource_manager.register_resource(resource_id, resource_class, resource_config)
-        logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
-    
     def register_phase(self, phase: BasePhase):
         phase_idx = len(self.phases)
         phase.phase_config.phase_idx = phase_idx  # Set phase index
