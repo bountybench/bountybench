@@ -49,6 +49,6 @@ class WorkflowLog:
     metadata: WorkflowMetadata
     phases: List[WorkflowPhase] = field(default_factory=list)
     resources_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    agent_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    agents_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     final_status: List[str] = field(default_factory=list)
     error_log: List[Dict[str, Any]] = field(default_factory=list)

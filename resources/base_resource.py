@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from abc import ABC
 import json
 

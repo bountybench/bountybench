@@ -73,9 +73,7 @@ class InitFilesResource(BaseResource):
         self.vulnerable_commit = self._resource_config.vulnerable_commit
         
         # Initialize resource
-        workflow_logger.add_resource(f"InitFilesResource: {self.resource_id}", self)
         self._start()
-        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def _start(self) -> None:

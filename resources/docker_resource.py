@@ -39,8 +39,6 @@ class DockerResource(BaseResource):
         super().__init__(resource_id, config)
         
         self.client = docker.from_env()
-        workflow_logger.add_resource(f"DockerResource: {self.resource_id}", self)
-        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def execute(

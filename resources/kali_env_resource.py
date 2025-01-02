@@ -10,7 +10,6 @@ import docker
 from docker.models.containers import Container
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
 from resources.utils import get_stdout_text, parse_shell_script
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
@@ -79,8 +78,6 @@ class KaliEnvResource(BaseResource):
             )
             self.run_requirements(self.bounty_dir)
         
-        workflow_logger.add_resource(f"KaliEnvResource: {self.resource_id}", self)
-        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
         
     def _start(

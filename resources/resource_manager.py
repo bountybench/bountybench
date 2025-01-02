@@ -2,6 +2,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
 from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
 from utils.logger import get_main_logger
+from utils.workflow_logger import workflow_logger
 
 logger = get_main_logger(__name__)
 
@@ -73,7 +74,12 @@ class ResourceManager:
                 
                 resource_class, resource_config = self._resource_registration[resource_id]
                 try:
-                    resource = resource_class(resource_id, resource_config)
+                    resource = resource_class(resource_id, resource_config) 
+                    if hasattr(resource, "role"):
+                        workflow_logger.add_resource(f"{Type[resource]}: {resource.role}", resource)
+                    else :
+                        workflow_logger.add_resource(f"{Type[resource]}: {resource.resource_id}", resource)
+
                     self._resources[resource_id] = resource
                     print(f"Debugging: Successfully initialized resource '{resource_id}'")
                 except Exception as e:

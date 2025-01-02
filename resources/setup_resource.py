@@ -76,9 +76,7 @@ class SetupResource(BaseResource):
         self.container_names: List[str] = []
         self.health_check_timeout = 120
 
-        workflow_logger.add_resource(f"SetupResource: {self.role}", self)
         self._start()
-        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def parse_server_address(self, server_address: str) -> (str, str):

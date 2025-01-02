@@ -242,8 +242,8 @@ class WorkflowLogger:
         """
         self._ensure_initialized()
 
-        if agent_name not in self.workflow_log.agent_used and hasattr(agent, 'to_dict'):
-            self.workflow_log.agent_used[agent_name] = agent.to_dict()
+        if agent_name not in self.workflow_log.agents_used and hasattr(agent, 'to_dict'):
+            self.workflow_log.agents_used[agent_name] = agent.to_dict()
 
     def add_resource(self, resource_name: str, resource) -> None:
         """
@@ -279,7 +279,7 @@ class WorkflowLogger:
                 "bounty_number": self.workflow_log.metadata.bounty_number,
                 "additional_metadata": self.workflow_log.metadata.additional_metadata
             },
-            "agent_used": self.workflow_log.agent_used,
+            "agents_used": self.workflow_log.agents_used,
             "resources_used": self.workflow_log.resources_used,
             "final_status": self.workflow_log.final_status,
             "phases": [

@@ -86,6 +86,8 @@ class BasePhase(ABC):
         for agent_id, agent in self.agents:
             print(f"Debugging: Registering resources for agent {agent_id}")
             agent.register_resources(self.resource_manager)
+            
+            workflow_logger.add_agent(agent.agent_config.id, agent)
         print(f"Debugging: Finished registering resources for phase {self.phase_config.phase_idx}")
 
     @classmethod
@@ -132,7 +134,8 @@ class BasePhase(ABC):
         print("Debugging: All resources initialized, registering with agents")
         for agent_id, agent in self.agents:
             print(f"Registering resources for agent {agent_id}")
-            agent.register_resources(self.resource_manager)
+            agent.register_resources(self.resource_manager)        
+            workflow_logger.add_agent(agent.agent_config.id, agent)
             
         print(f"Debugging: Completed setup for {self.name}")
 
