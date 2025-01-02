@@ -76,9 +76,9 @@ class ResourceManager:
                 try:
                     resource = resource_class(resource_id, resource_config) 
                     if hasattr(resource, "role"):
-                        workflow_logger.add_resource(f"{Type[resource]}: {resource.role}", resource)
+                        workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.role}", resource)
                     else :
-                        workflow_logger.add_resource(f"{Type[resource]}: {resource.resource_id}", resource)
+                        workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.resource_id}", resource)
 
                     self._resources[resource_id] = resource
                     print(f"Debugging: Successfully initialized resource '{resource_id}'")
