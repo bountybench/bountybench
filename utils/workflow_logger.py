@@ -24,23 +24,6 @@ from .workflow_logger_types import (
     WorkflowMetadata,
 )
 
-def ensure_event_loop():
-    """Ensure there's an event loop available in the current thread"""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop
-
-def run_async(func):
-    """Decorator to run async functions from sync code"""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        loop = ensure_event_loop()
-        return loop.run_until_complete(func(*args, **kwargs))
-    return wrapper
-
 class WorkflowLogger:
     _initialized = False
 
@@ -56,7 +39,7 @@ class WorkflowLogger:
         self.current_iteration: Optional[PhaseIteration] = None
 
     async def _broadcast_update(self, data: dict):
-        """Broadcast update to WebSocket clients"""
+        """Broadcast update to WebSocket clients (internal)."""
         if self.workflow_id:
             try:
                 print(f"Attempting to broadcast message type: {data.get('type')}")
@@ -67,30 +50,21 @@ class WorkflowLogger:
                 print(f"Error broadcasting update: {e}")
                 print(f"Failed message data: {data}")
 
-    def broadcast_update(self, data: dict):
-        """Synchronous wrapper for _broadcast_update"""
+    async def broadcast_update(self, data: dict):
+        """Async wrapper for broadcasting an update."""
         try:
-            loop = asyncio.get_running_loop()
-            if not loop.is_running():
-                return asyncio.run(self._broadcast_update(data))
-            else:
-                # Create and store the task to prevent it from being dropped
-                task = asyncio.create_task(self._broadcast_update(data))
-                # Add a callback to handle any errors
-                task.add_done_callback(lambda t: self._handle_broadcast_error(t))
-                return task
+            await self._broadcast_update(data)
         except Exception as e:
             print(f"Error in broadcast_update: {e}")
 
     def _handle_broadcast_error(self, task):
-        """Handle any errors from the broadcast task"""
+        """Handle any errors from the broadcast task."""
         try:
-            # Get the result to raise any exceptions
             task.result()
         except Exception as e:
             print(f"Error in broadcast task: {e}")
 
-    def initialize(
+    async def initialize(
         self,
         workflow_name: str,
         workflow_id: Optional[str] = None,
@@ -98,7 +72,7 @@ class WorkflowLogger:
         task_repo_dir: Optional[str] = None,
         bounty_number: Optional[str] = None,
     ) -> None:
-        """Initialize the workflow logger with the given parameters"""
+        """Initialize the workflow logger with the given parameters."""
         self.workflow_name = workflow_name
         self.logs_dir = Path(logs_dir)
         self.logs_dir.mkdir(exist_ok=True)
@@ -129,8 +103,8 @@ class WorkflowLogger:
         
         print(f"Initialized workflow logger with ID: {self.workflow_id}")
 
-    def start_phase(self, phase_idx: int, phase_name: str) -> None:
-        """Create a new workflow phase"""
+    async def start_phase(self, phase_idx: int, phase_name: str) -> None:
+        """Create a new workflow phase."""
         self._ensure_initialized()
         if self.current_phase is not None:
             raise RuntimeError("A phase is already in progress. End it before starting a new one.")
@@ -145,7 +119,7 @@ class WorkflowLogger:
         )
         
         # Broadcast phase update
-        self.broadcast_update({
+        await self.broadcast_update({
             "type": "phase_update",
             "phase": {
                 "phase_idx": phase_idx,
@@ -154,8 +128,8 @@ class WorkflowLogger:
             }
         })
 
-    def start_iteration(self, iteration_number: int, agent_name: str, input_response: Optional[Response]) -> None:
-        """Start a new iteration within the current phase"""
+    async def start_iteration(self, iteration_number: int, agent_name: str, input_response: Optional[Response]) -> None:
+        """Start a new iteration within the current phase."""
         self._ensure_initialized()
         if not self.current_phase:
             raise RuntimeError("Must start_phase before starting iterations.")
@@ -175,7 +149,7 @@ class WorkflowLogger:
         )
         
         # Broadcast iteration update
-        self.broadcast_update({
+        await self.broadcast_update({
             "type": "iteration_update",
             "iteration": {
                 "iteration_number": iteration_number,
@@ -185,19 +159,19 @@ class WorkflowLogger:
             }
         })
 
-    def log_action(
+    async def log_action(
         self,
         action_name: str,
         input_data: Any,
         output_data: Any,
         metadata: Optional[Dict[str, Any]] = None
     ) -> None:
-        """Log an action within the current interaction"""
+        """Log an action within the current iteration."""
         self._ensure_initialized()
         if not self.current_iteration:
             print("Warning: Attempting to log action without active iteration")
             return
-            
+
         print(f'Logging action: {action_name}')
         action = Action(
             action_type=action_name,
@@ -220,10 +194,10 @@ class WorkflowLogger:
             }
         }
         print(f"Preparing to broadcast action update: {update_data}")
-        self.broadcast_update(update_data)
+        await self.broadcast_update(update_data)
 
-    def end_iteration(self, output_response: Response, status: str = "completed") -> None:
-        """End the current iteration and add it to the current phase"""
+    async def end_iteration(self, output_response: Response, status: str = "completed") -> None:
+        """End the current iteration and add it to the current phase."""
         self._ensure_initialized()
         if not self.current_phase:
             raise RuntimeError("No phase in progress.")
@@ -238,7 +212,7 @@ class WorkflowLogger:
         self.current_phase.iterations.append(self.current_iteration)
         
         # Broadcast iteration completion
-        self.broadcast_update({
+        await self.broadcast_update({
             "type": "iteration_update",
             "iteration": {
                 "iteration_number": self.current_iteration.iteration_number,
@@ -249,10 +223,10 @@ class WorkflowLogger:
         })
         
         self.current_iteration = None
-        self.save()
+        await self.save()
 
-    def end_phase(self, status: str, phase_instance) -> None:
-        """Finalize the current phase, append it to the list of phases, and reset"""
+    async def end_phase(self, status: str, phase_instance) -> None:
+        """Finalize the current phase, append it to the list of phases, and reset."""
         self._ensure_initialized()
         if not self.current_phase:
             raise RuntimeError("No phase in progress to end.")
@@ -264,7 +238,7 @@ class WorkflowLogger:
         self.workflow_log.phases.append(self.current_phase)
         
         # Broadcast phase completion
-        self.broadcast_update({
+        await self.broadcast_update({
             "type": "phase_update",
             "phase": {
                 "phase_idx": self.current_phase.phase_idx,
@@ -274,10 +248,10 @@ class WorkflowLogger:
         })
         
         self.current_phase = None
-        self.save()
+        await self.save()
 
     def _ensure_initialized(self):
-        """Ensure the logger is initialized before use"""
+        """Ensure the logger is initialized before use."""
         if not self.workflow_log:
             raise RuntimeError("WorkflowLogger must be initialized before use. Call initialize() first.")
 
@@ -285,7 +259,7 @@ class WorkflowLogger:
     # PHASE MANAGEMENT
     ################################################################
 
-    def get_phase_metadata(self, phase_instance) -> None:
+    def get_phase_metadata(self, phase_instance) -> Dict[str, Any]:
         """
         Aggregate certain metadata from the current phase
         into the phase's metadata field (e.g., phase_summary).
@@ -298,13 +272,13 @@ class WorkflowLogger:
             'iterations_used': phase_instance.iteration_count
         }
 
-        self.current_phase.metadata = metadata
+        return metadata
 
     ################################################################
     # ITERATION MANAGEMENT
     ################################################################
 
-    def get_aggregate_metadata(self) -> None:
+    def get_aggregate_metadata(self) -> Dict[str, int]:
         """
         Aggregate certain metadata from the current iteration's actions
         into the iteration's metadata field (e.g., token usage, time).
@@ -322,13 +296,13 @@ class WorkflowLogger:
                 for key in ['input_tokens', 'output_tokens', 'time_taken_in_ms']:
                     if key in action.metadata:
                         aggregate_metadata[key] += action.metadata[key]
-        self.current_iteration.metadata = aggregate_metadata
+        return aggregate_metadata
 
     ################################################################
     # ERROR / METADATA / FINALIZE
     ################################################################
-    def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
-        """Log an error that occurred during the workflow"""
+    async def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
+        """Log an error that occurred during the workflow."""
         self._ensure_initialized()
         error_entry = {
             "timestamp": datetime.now().isoformat(),
@@ -336,20 +310,16 @@ class WorkflowLogger:
             **(error_data or {})
         }
         self.workflow_log.error_log.append(error_entry)
-        self.save()
+        await self.save()
     
     def add_metadata(self, key: str, value: Any) -> None:
-        """Add additional metadata to the workflow"""
+        """Add additional metadata to the workflow (non-async)."""
         self._ensure_initialized()
         self.workflow_log.metadata.additional_metadata[key] = value
     
     def add_agent(self, agent_name: str, agent) -> None:
         """
         Log an agent being used in the workflow and save its state.
-        
-        Args:
-            agent_name (str): Name of the agent
-            agent: Agent instance that has serialization methods
         """
         self._ensure_initialized()
 
@@ -359,28 +329,22 @@ class WorkflowLogger:
     def add_resource(self, resource_name: str, resource) -> None:
         """
         Log a resource being used in the workflow and save its state.
-        
-        Args:
-            resource_name (str): Name of the resource
-            resource: Resource instance that has serialization methods
         """
         self._ensure_initialized()
 
         if resource_name not in self.workflow_log.resources_used and hasattr(resource, 'to_dict'):
             self.workflow_log.resources_used[resource_name] = resource.to_dict()
 
-    
-    def finalize(self, final_status: str = "completed") -> None:
+    async def finalize(self, final_status: str = "completed") -> None:
         """Finalize the workflow log: mark the end time, record final status, and save."""
         self._ensure_initialized()
         self.workflow_log.metadata.end_time = datetime.now().isoformat()
         self.workflow_log.final_status.append(final_status)
-        self.save()
+        await self.save()
     
-    def save(self) -> None:
-        """Save the workflow log to a JSON file"""
+    async def save(self) -> None:
+        """Save the workflow log to a JSON file (async)."""
         self._ensure_initialized()
-        # Convert the workflow log to a dictionary for JSON serialization
         log_dict = {
             "metadata": {
                 "workflow_name": self.workflow_log.metadata.workflow_name,
@@ -429,17 +393,21 @@ class WorkflowLogger:
             ],
             "error_log": self.workflow_log.error_log
         }
-        
-        with open(self.log_file, 'w') as f:
-            json.dump(log_dict, f, indent=4)
+
+        # Perform file I/O in a thread to avoid blocking the event loop
+        def write_log():
+            with open(self.log_file, 'w') as f:
+                json.dump(log_dict, f, indent=4)
+
+        await asyncio.to_thread(write_log)
 
     ################################################################
-    # CONTEXT MANAGERS
+    # ASYNC CONTEXT MANAGERS
     ################################################################
 
     class PhaseContext:
         """
-        Context manager for a single phase. On enter: start_phase(...).
+        Async context manager for a single phase. On enter: start_phase(...).
         On exit: end_phase(...).
         """
         def __init__(self, logger: 'WorkflowLogger', phase_instance):
@@ -448,15 +416,14 @@ class WorkflowLogger:
             self.phase_idx = phase_instance.phase_config.phase_idx
             self.phase_name = phase_instance.phase_config.phase_name
 
-        def __enter__(self):
-            self.logger.start_phase(self.phase_idx, self.phase_name)
+        async def __aenter__(self):
+            await self.logger.start_phase(self.phase_idx, self.phase_name)
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
             status = "failed" if exc_type else "completed"
-            self.logger.end_phase(status, self.phase_instance)
-            # If we return False, we do NOT suppress exceptions.
-            return False
+            await self.logger.end_phase(status, self.phase_instance)
+            return False  # Do not suppress exceptions
 
         def iteration(self, iteration_number: int, agent_name: str, input_response: Optional[Response]):
             """
@@ -471,7 +438,7 @@ class WorkflowLogger:
 
     class IterationContext:
         """
-        Context manager for a single iteration within a phase.
+        Async context manager for a single iteration within a phase.
         On enter: start_iteration(...).
         On exit: end_iteration(...).
         """
@@ -488,43 +455,46 @@ class WorkflowLogger:
             self.input_response = input_response
             self.output_response: Optional[Response] = None
 
-        def __enter__(self):
-            self.logger.start_iteration(self.iteration_number, self.agent_name, self.input_response)
+        async def __aenter__(self):
+            await self.logger.start_iteration(self.iteration_number, self.agent_name, self.input_response)
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            # If an exception happens, produce an ErrorResponse:
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
             if exc_type:
                 self.output_response = ErrorResponse(
                     answer=str(exc_val),
                     error=True,
                     metadata={"exception_type": exc_type.__name__}
                 )
-            # If no output was set, create a default "no response" placeholder:
             elif not self.output_response:
                 self.output_response = ErrorResponse(
                     answer="Iteration completed without explicit response",
                     error=False
                 )
-            self.logger.end_iteration(self.output_response, "failed" if exc_type else "completed")
-            return False  # Don't suppress exceptions
+            await self.logger.end_iteration(
+                self.output_response,
+                "failed" if exc_type else "completed"
+            )
+            return False
 
         def set_output(self, output_response: Response):
-            """Set the output response for this iteration"""
+            """Set the output response for this iteration (synchronous setter)."""
             self.output_response = output_response
 
-        def log_action(
+        async def log_action(
             self, 
             action_name: str,
             input_data: Any,
             output_data: Any,
             metadata: Optional[Dict[str, Any]] = None
         ):
-            """Convenience helper: log an action to the current iteration"""
-            self.logger.log_action(action_name, input_data, output_data, metadata)
+            """Convenience helper: log an action to the current iteration."""
+            await self.logger.log_action(action_name, input_data, output_data, metadata)
 
     def phase(self, phase_instance) -> PhaseContext:
-        """Create a new phase context manager"""
+        """Create a new phase context manager (async)."""
         return self.PhaseContext(self, phase_instance)
 
+
+# Create a single global instance as before
 workflow_logger = WorkflowLogger()
