@@ -31,7 +31,7 @@ class DetectPhase(BasePhase):
         if previous_output is not None:
             input_list.append(previous_output)
 
-        response = agent_instance.run(input_list)
+        response = await agent_instance.run(input_list)
 
         # Check for answer submission (ExecutorAgent)
         if isinstance(response, AnswerResponseInterface):

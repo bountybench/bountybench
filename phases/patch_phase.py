@@ -33,7 +33,7 @@ class PatchPhase(BasePhase):
         if previous_output is not None:
             input_list.append(previous_output)
 
-        response = agent_instance.run(input_list)
+        response = await agent_instance.run(input_list)
 
         # Determine which agent name was used in this iteration
         agent_name, _ = self._get_agent()
