@@ -57,25 +57,51 @@ class BasePhase(ABC):
 
     def _initialize_agents(self):
         """Initialize and register required agents using AgentManager."""
+        print(f"Debugging: Initializing agents for {self.name}")
+        
+        # First get agent configs
+        self.phase_config.agent_configs = self.get_agent_configs()
+        print(f"Debugging: Got agent configs: {[config[0] for config in self.phase_config.agent_configs]}")
+        
         for agent_id, agent_config in self.phase_config.agent_configs:
             # Find matching agent class based on config type
             agent_class = next(
                 (ac for ac in self.AGENT_CLASSES if isinstance(agent_config, ac.CONFIG_CLASS)), 
                 None
             )
+            
             if not agent_class:
+                print(f"Warning: No matching agent class found for config type {type(agent_config)}")
                 continue
 
-            agent_instance = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config) 
-            self.agents.append((agent_id, agent_instance))
+            try:
+                print(f"Debugging: Creating agent {agent_id} of type {agent_class.__name__}")
+                agent_instance = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config)
+                self.agents.append((agent_id, agent_instance))
+                print(f"Debugging: Successfully created agent {agent_id}")
+            except Exception as e:
+                print(f"Error creating agent {agent_id}: {str(e)}")
+                raise
 
         # Verify all required agents present
         required_classes = set(self.AGENT_CLASSES)
         present_classes = {type(agent) for _, agent in self.agents}
         missing = required_classes - present_classes
+        
         if missing:
             missing_names = ', '.join(agent.__name__ for agent in missing)
-            raise ValueError(f"Phase '{self.phase_config.phase_name}' requires agents: {missing_names}")
+            raise ValueError(
+                f"Phase '{self.phase_config.phase_name}' requires agents: {missing_names}. "
+                f"Current agents: {[type(agent).__name__ for _, agent in self.agents]}"
+            )
+            
+        if not self.agents:
+            raise ValueError(
+                f"No agents were initialized for phase {self.phase_config.phase_name}. "
+                f"Expected agent classes: {[cls.__name__ for cls in self.AGENT_CLASSES]}"
+            )
+            
+        print(f"Debugging: Completed agent initialization for {self.name}")
 
     def register_resources(self):
         """

@@ -7,7 +7,6 @@ from queue import Queue
 from typing import List, Optional
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
 from resources.utils import run_command
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger

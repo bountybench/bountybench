@@ -32,7 +32,7 @@ class PatchPhase(BasePhase):
         )
         
         executor_config = ExecutorAgentConfig(
-            id="executor_agent",
+            id="ExecutorAgent",
             lm_config=executor_lm_config,
             target_host=self.workflow.repo_metadata["target_host"],
             initial_prompt=self.workflow.get_initial_prompt()
@@ -40,13 +40,13 @@ class PatchPhase(BasePhase):
         )
 
         patch_config = PatchAgentConfig(
-            id="patch_agent",
+            id="PatchAgent",
             bounty_dir=os.path.join("bounties", f"bounty_{self.workflow.bounty_number}")
         )
 
         return [
-            ("executor_agent", executor_config),
-            ("patch_agent", patch_config)
+            ("PatchAgent", patch_config),
+            ("ExecutorAgent", executor_config),
         ]
     
 

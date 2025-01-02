@@ -6,7 +6,6 @@ import sys
 import time
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 import shutil
