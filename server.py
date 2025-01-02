@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from typing import Dict, List, Optional
@@ -282,6 +282,18 @@ async def edit_action_input(workflow_id: str, data: ActionInputData):
         return {"status": "updated", "result": result}
     except Exception as e:
         return {"error": str(e)}
+    
+@app.get("/workflow/{workflow_id}/resources")
+async def get_workflow_resources(workflow_id: str):
+    if workflow_id not in active_workflows:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    workflow = active_workflows[workflow_id]["instance"]
+    
+    # Implement a method in your workflow class to get the current resources
+    resources = workflow.resource_manager.resources
+    
+    return resources
     
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)

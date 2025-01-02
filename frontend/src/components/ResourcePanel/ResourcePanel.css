@@ -1,8 +1,12 @@
 .resources-container {
   height: 100%;
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
 }
 
 .resources-list {
+  max-height: 200px;
   overflow: auto;
 }
 
@@ -10,6 +14,7 @@
   &:hover {
     background-color: rgba(144, 202, 249, 0.08) !important;
   }
+  margin-bottom: 8px;
 }
 
 .resource-icon {

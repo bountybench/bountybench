@@ -1,5 +1,5 @@
-import React from 'react';
-import { Box, Typography, List, ListItem, ListItemIcon, ListItemText, Collapse } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, List, ListItem, ListItemIcon, ListItemText, Collapse, CircularProgress } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ExpandLess from '@mui/icons-material/ExpandLess';
@@ -7,7 +7,32 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import './ResourcePanel.css';
 
 export const ResourcePanel = ({ workflow }) => {
-  const [openFolders, setOpenFolders] = React.useState({});
+  const [openFolders, setOpenFolders] = useState({});
+  const [resources, setResources] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchResources = async () => {
+      if (!workflow?.id) return;
+
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/${workflow.id}/resources`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch resources');
+        }
+        const data = await response.json();
+        setResources(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResources();
+  }, [workflow]);
+  
 
   const toggleFolder = (path) => {
     setOpenFolders(prev => ({
@@ -52,6 +77,14 @@ export const ResourcePanel = ({ workflow }) => {
     });
   };
 
+  if (loading) {
+    return <CircularProgress />;
+  }
+
+  if (error) {
+    return <Typography color="error">{error}</Typography>;
+  }
+
   return (
     <Box className="resources-container">
       <Typography variant="h6" gutterBottom>
@@ -74,3 +107,15 @@ export const ResourcePanel = ({ workflow }) => {
     </Box>
   );
 };
+
+//   return (
+//     <Box className="resources-container">
+//       <Typography variant="h6" gutterBottom>
+//         Resources
+//       </Typography>
+//       <List dense className="resources-list">
+//         {renderResourceTree(resources)}
+//       </List>
+//     </Box>
+//   );
+// };
