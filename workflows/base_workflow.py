@@ -142,6 +142,11 @@ class BaseWorkflow(ABC):
 
             logger.info(f"Setting up phase {phase_idx}: {phase_instance.__class__.__name__}")
 
+            if initial_response:
+                phase_instance.initial_response = initial_response
+                logger.info(f"Set initial response for phase {phase_idx}")
+            else:
+                logger.info(f"No initial response provided for phase {phase_idx}")
             # Setup the phase
             phase_instance.setup()
 
