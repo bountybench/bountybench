@@ -47,13 +47,13 @@ class ChatAgent(BaseAgent):
         self.initial_prompt = "You are a helpful chatbot."
         self.prompt = self.initial_prompt
 
-    def modify_memory_and_run(self, input: str) -> None:
+    async def modify_memory_and_run(self, input: str) -> None:
         self.initial_prompt = input
         self.memory = [] #overwrites all previous memory
 
-        return self.run([])
+        return await self.run([])
     
-    def run(self, responses: List[Response]) -> Response:
+    async def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
             raise Exception(f"Accepts at most a single response, got {len(responses)}.")
 
@@ -63,7 +63,7 @@ class ChatAgent(BaseAgent):
             response = responses[0]
             self.formulate_prompt(response)
 
-        chat_response = self.execute()
+        chat_response = await self.execute()
         self._update_memory(chat_response)
 
         return chat_response
@@ -95,8 +95,8 @@ class ChatAgent(BaseAgent):
         self.prompt = prompt
         return prompt
 
-    def execute(self) -> Response:
-        lm_executor_response = self.call_lm()
+    async def execute(self) -> Response:
+        lm_executor_response = await self.call_lm()
         return lm_executor_response
 
     def _parse_response(self, response: str) -> Response:
@@ -105,7 +105,7 @@ class ChatAgent(BaseAgent):
         """
         return BaseResponse(response)
     
-    def call_lm(self) -> Response:
+    async def call_lm(self) -> Response:
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
@@ -113,7 +113,7 @@ class ChatAgent(BaseAgent):
         model_input = self.prompt
         iterations = 0
         while iterations < MAX_RETRIES:
-            model_response: ModelResponse = query(
+            model_response: ModelResponse = await query(
                 model=self.agent_config.lm_config.model,
                 message=model_input,
                 temperature=TEMPERATURE,
