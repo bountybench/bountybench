@@ -182,7 +182,7 @@ class KaliEnvResource(BaseResource):
 
 
 
-    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
+    async def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
         logger.info(f"Running command in Docker container: {command}")
 
         try:
@@ -203,7 +203,7 @@ class KaliEnvResource(BaseResource):
             stderr_text = get_stdout_text(stderr)
             logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
             if logging:
-                workflow_logger.log_action(action_name="kali", input_data=command, output_data={"stdout": stdout_text, "stderr": stderr_text}, metadata={})
+                await workflow_logger.log_action(action_name="kali", input_data=command, output_data={"stdout": stdout_text, "stderr": stderr_text}, metadata={})
             return stdout_text, stderr_text
 
         except TimeoutError:
@@ -220,7 +220,7 @@ class KaliEnvResource(BaseResource):
             return "", f"Unexpected error: {str(e)}"
 
 
-    def run_requirements(self, task_repo_dir: str) -> None:
+    async def run_requirements(self, task_repo_dir: str) -> None:
         """
         Execute any required setup scripts from the provided repository directory.
 
@@ -234,14 +234,14 @@ class KaliEnvResource(BaseResource):
             # Parse and execute the requirements script commands
             requirement_commands = parse_shell_script(requirements_path)
             for command in requirement_commands:
-                stdout, stderr = self.run_command(command)
+                stdout, stderr = await self.run_command(command)
 
                 # Log output and error for each command
                 if stdout:
                     logger.info(f"Requirements.sh Output:\n{stdout}")
                 if stderr:
                     logger.error(f"Requirements.sh Error:\n{stderr}")
-            self.run_command("git clean -fdx")
+            await self.run_command("git clean -fdx")
 
     def parse_target_host(self, target_host: str) -> Tuple[str, int]:
         """
@@ -261,7 +261,7 @@ class KaliEnvResource(BaseResource):
                 f"Invalid target_host format: {target_host}. Expected format: hostname:port")
             sys.exit(1)
 
-    def health_check(self, target_hosts: str) -> None:
+    async def health_check(self, target_hosts: str) -> None:
         """
         Perform health checks on the specified target hosts with retries.
 
@@ -274,33 +274,35 @@ class KaliEnvResource(BaseResource):
         for target_host in hosts:
             hostname, port = self.parse_target_host(target_host)
 
-            def nc_check():
+            async def nc_check():
                 """
                 Use netcat to check if the specified hostname and port are open.
 
                 Returns:
                     bool: True if the port is open, False otherwise.
                 """
-                stdout, stderr = self.run_command(
+                stdout, stderr = await self.run_command(
                     f"nc -zv -w 5 {hostname} {port}", timeout=10)
                 logger.info(f"Netcat check output: {stdout}\n {stderr}")
                 return "open" in stderr
 
-            def http_check():
+            async def http_check():
                 """
                 Use curl to check if the specified hostname and port respond with an HTTP 200 status.
 
                 Returns:
                     bool: True if the HTTP response code is 200, False otherwise.
                 """
-                stdout, stderr = self.run_command(
+                stdout, stderr = await self.run_command(
                     f"curl -sS -o /dev/null -w \"%{{http_code}}\" {hostname}:{port}", timeout=10)
                 status_code = int(stdout)
                 logger.info(f"HTTP check output: {stdout}\n {stderr}")
                 return status_code == 200
 
             for attempt in range(MAX_RETRIES):
-                if http_check() or nc_check():
+                http_flag = await http_check()
+                nc_flag = await nc_check()
+                if http_flag or nc_flag:
                     logger.info(
                         f"Health check passed for {hostname}:{port} on attempt {attempt + 1}.")
                     break
