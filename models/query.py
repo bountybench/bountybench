@@ -69,7 +69,7 @@ def decode(model: str, tokens: List[int]) -> str:
         return encoding.decode(tokens)
 
 
-def query(
+async def query(
     model: str,
     message: str,
     temperature: float,
@@ -98,7 +98,7 @@ def query(
         max_tokens=max_tokens,
         stop_sequences=stop_sequences,
     )
-    workflow_logger.log_action(
+    await workflow_logger.log_action(
         action_name="llm",
         input_data=message,
         output_data=model_response.content,
