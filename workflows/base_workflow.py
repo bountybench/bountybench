@@ -33,7 +33,6 @@ class WorkflowConfig:
     max_iterations: int
     logs_dir: Path
     task_dir: Path
-    bounty_number: int
     initial_prompt: str
     metadata: Dict[str, Any] = field(default_factory=dict)
     phase_configs: List['PhaseConfig'] = field(default_factory=list)  
@@ -75,8 +74,7 @@ class BaseWorkflow(ABC):
         self.workflow_logger.initialize(
             workflow_name=config.id,
             logs_dir=str(config.logs_dir),
-            task_repo_dir=str(config.task_repo_dir),
-            bounty_number=str(config.bounty_number)
+            task_repo_dir=str(config.task_dir),
         )
 
         # Add workflow metadata
@@ -90,9 +88,6 @@ class BaseWorkflow(ABC):
         self.phases: List[BasePhase] = []       # List to store phase instances
         self.phase_class_map = {}
 
-        # Initialize additional attributes
-        self.vulnerable_files: List[str] = []
-
         # Setup workflow
         self.setup_init()
         self.create_phases() # To be implemented by subclasses
@@ -101,6 +96,10 @@ class BaseWorkflow(ABC):
     @abstractmethod
     def get_initial_prompt(self) -> str:
         """Provide the initial prompt for the workflow."""
+        pass
+
+    @abstractmethod
+    def get_metadata(self) -> Dict[str, Any]:
         pass
 
     @abstractmethod
@@ -212,38 +211,7 @@ class BaseWorkflow(ABC):
             return self.config.phase_configs[self._current_phase_idx]
         return None
 
-    def setup_init(self) -> None:
-        """Setup initial state of the workflow."""
-        self.setup_network()
-        self.setup_git_state()
-
-    def setup_network(self) -> None:
-        """Setup Docker network if it does not exist."""
-        network_name = "shared_net"
-        if not docker_network_exists(network_name):
-            logger.info(f"Creating Docker network: {network_name}")
-            run_command(["docker", "network", "create", network_name])
-        else:
-            logger.debug(f"Docker network '{network_name}' already exists.")
-
-    def setup_git_state(self) -> None:
-        """Setup Git state by checking out the vulnerable commit and identifying vulnerable files."""
-        vulnerable_commit = self.bounty_metadata.get('vulnerable_commit', 'main')
-        codebase_path = os.path.join(str(self.task_repo_dir), "codebase")
-        
-        logger.info(f"Checking out vulnerable commit: {vulnerable_commit}")
-        run_command(["git", "checkout", vulnerable_commit], codebase_path)
-        
-        for _, value in self.bounty_metadata.get('patch', {}).items():
-            relative_path = os.path.relpath(value, start="codebase")
-            full_path = os.path.join(str(self.task_repo_dir), value)
-            if os.path.exists(full_path):
-                self.vulnerable_files.append(relative_path)
-                logger.debug(f"Identified vulnerable file: {relative_path}")
-        
-        logger.info("Checking out main branch.")
-        run_command(["git", "checkout", "main"], codebase_path)
-
+   
     def register_phase(self, phase: BasePhase):
         phase_idx = len(self.phases)
         phase.phase_config.phase_idx = phase_idx  # Set phase index

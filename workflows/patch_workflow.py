@@ -6,11 +6,11 @@ from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
 from phases.base_phase import PhaseConfig
 from phases.patch_phase import PatchPhase
 from resources.utils import read_exploit_report
-from workflows.base_workflow import BaseWorkflow
+from workflows.bounty_workflow import BountyWorkflow
 
 logger = logging.getLogger(__name__)
 
-class PatchWorkflow(BaseWorkflow):
+class PatchWorkflow(BountyWorkflow):
     """Workflow for patching vulnerabilities"""
 
     def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
