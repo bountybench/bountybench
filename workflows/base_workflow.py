@@ -39,6 +39,9 @@ class BaseWorkflow(ABC):
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
         self.phases: List[BasePhase] = []
+        self._phase_graph = {}  # Stores phase relationships
+        self._root_phase = None
+        self.phases = []
 
         self._initialize()
         self._set_workflow_status(WorkflowStatus.INITIALIZED)
@@ -47,6 +50,28 @@ class BaseWorkflow(ABC):
         self._create_phases()
         self._compute_resource_schedule()
 
+    def _register_root_phase(self, phase: BasePhase):
+        """Register the starting phase of the workflow."""
+        self._root_phase = phase
+        self.register_phase(phase)
+
+    def register_phase(self, phase: BasePhase):
+        """Register a phase and its dependencies."""
+        if phase not in self._phase_graph:
+            self._phase_graph[phase] = []
+            self.phases.append(phase)
+            logger.debug(f"Registered phase: {phase.__class__.__name__}")
+
+    def __rshift__(self, other):
+        """Enable phase1 >> phase2 syntax for phase dependencies."""
+        if isinstance(other, BasePhase):
+            if self not in self._phase_graph:
+                self.register_phase(self)
+            if other not in self._phase_graph:
+                self.register_phase(other)
+            self._phase_graph[self].append(other)
+        return other
+    
     @abstractmethod
     def _create_phases(self):
         """Create and register phases. To be implemented by subclasses."""
