@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Optional
 
 from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
 from phases.patch_phase import PatchPhase
@@ -14,8 +13,7 @@ class PatchWorkflow(BountyWorkflow):
     
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
-        patch_phase = PatchPhase(workflow=self, max_iterations=1)
-        self.register_phase(patch_phase)
+        self._create_phase(PatchPhase, max_iterations=1)
 
     def _get_initial_prompt(self) -> str:
         """
