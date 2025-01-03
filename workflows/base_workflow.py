@@ -72,7 +72,7 @@ class BaseWorkflow(ABC):
             id=self.workflow_id,
             max_iterations=25,
             logs_dir=Path("logs"),
-            initial_prompt=self.get_initial_prompt(),
+            initial_prompt=self._get_initial_prompt(),
             metadata={
             }
         )
@@ -133,8 +133,6 @@ class BaseWorkflow(ABC):
                 # Yield current phase results
                 yield phase_response, phase_success
 
-                # Resources are already handled within the phase
-
             else:
                 # If all phases completed successfully
                 self.status = WorkflowStatus.COMPLETED_SUCCESS
@@ -160,17 +158,16 @@ class BaseWorkflow(ABC):
         """
         try:
             phase_instance = self.phases[phase_idx]
-
-            logger.info(f"Setting up phase {phase_idx}: {phase_instance.__class__.__name__}")
+            logger.info(f"Setting up phase {phase_idx}: {phase_instance.name}")
 
             if initial_response:
                 phase_instance.initial_response = initial_response
                 logger.info(f"Set initial response for phase {phase_idx}")
             else:
                 logger.info(f"No initial response provided for phase {phase_idx}")
+
             # Setup the phase
             phase_instance.setup()
-
             return phase_instance
 
         except Exception as e:
