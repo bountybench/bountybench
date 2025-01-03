@@ -17,36 +17,41 @@ if TYPE_CHECKING:
 
 @dataclass
 class PhaseConfig:
-    max_iterations: int
-    phase_name: str = "base_phase"
-    agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)  # List of (agent_id, AgentConfig)
+    phase_name: str
+    agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)
+    max_iterations: int = 10
     interactive: bool = False
     phase_idx: Optional[int] = None
 
-
+    @classmethod
+    def from_phase(cls, phase_instance: 'BasePhase', **kwargs):
+        config = cls(
+            phase_name=phase_instance.name,
+            agent_configs=phase_instance.get_agent_configs(),
+            **kwargs
+        )
+        return config
 
 class BasePhase(ABC):
     AGENT_CLASSES: List[Type[BaseAgent]] = []
 
     def __init__(
         self,
-        phase_config: PhaseConfig,
-        workflow: 'BaseWorkflow',
-        initial_response: Optional[BaseResponse] = None
+        workflow: 'BaseWorkflow', 
+        **kwargs
     ):
         self.workflow = workflow
-        self.phase_config = phase_config
+        self.phase_config = PhaseConfig.from_phase(self, **kwargs)
+
         self.agent_manager = self.workflow.agent_manager
         self.agents: List[Tuple[str, BaseAgent]] = []
-        self.initial_response = initial_response
+        self.initial_response = kwargs.get("initial_response", None)
         self._done = False
         self.resource_manager = self.agent_manager.resource_manager
         self.phase_summary: Optional[str] = None
         self.iteration_count = 0
         self.current_agent_index = 0
 
-        phase_config.phase_name = self.name
-        phase_config.agent_configs = self.get_agent_configs()
         self._initialize_agents()
 
     def get_phase_resources(self):
@@ -276,3 +281,7 @@ class BasePhase(ABC):
             BaseResponse: The response from the agent.
         """
         pass
+
+    @property
+    def name(self) -> str:
+        return self.__class__.__name__

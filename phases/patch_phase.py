@@ -35,7 +35,7 @@ class PatchPhase(BasePhase):
             id="ExecutorAgent",
             lm_config=executor_lm_config,
             target_host=self.workflow.repo_metadata["target_host"],
-            initial_prompt=self.workflow.get_initial_prompt()
+            initial_prompt=self.workflow._get_initial_prompt()
 
         )
 
@@ -45,8 +45,8 @@ class PatchPhase(BasePhase):
         )
 
         return [
-            ("PatchAgent", patch_config),
             ("ExecutorAgent", executor_config),
+            ("PatchAgent", patch_config),
         ]
     
 
@@ -72,7 +72,7 @@ class PatchPhase(BasePhase):
             "kali_env": (
                 KaliEnvResource,
                 KaliEnvResourceConfig(
-                    task_repo_dir=self.workflow.task_repo_dir,
+                    task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
                     volumes={
                         os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
@@ -88,7 +88,7 @@ class PatchPhase(BasePhase):
             "init_files": (
                 InitFilesResource,
                 InitFilesResourceConfig(
-                    task_repo_dir=self.workflow.task_repo_dir,
+                    task_dir=self.workflow.task_dir,
                     files_dir_name=files_dir,
                     tmp_dir_name=tmp_dir,
                     exploit_files_dir_name=exploit_files_dir,
@@ -97,13 +97,13 @@ class PatchPhase(BasePhase):
             )
         }
 
-        setup_repo_env_script = os.path.join(str(self.workflow.task_repo_dir), "setup_repo_env.sh")
+        setup_repo_env_script = os.path.join(str(self.workflow.task_dir), "setup_repo_env.sh")
         if os.path.exists(setup_repo_env_script):
             resource_configs["repo_resource"] = (
                 SetupResource,
                 SetupResourceConfig(
                     task_level_setup=False,
-                    task_repo_dir=self.workflow.task_repo_dir,
+                    task_dir=self.workflow.task_dir,
                     files_dir=files_dir
                 )
             )
@@ -112,7 +112,7 @@ class PatchPhase(BasePhase):
         if target_host:
             task_server_config = SetupResourceConfig(
                 task_level_setup=True,
-                task_repo_dir=self.workflow.task_repo_dir,
+                task_dir=self.workflow.task_dir,
                 files_dir=files_dir,
                 bounty_number=self.workflow.bounty_number,
                 server_address=target_host

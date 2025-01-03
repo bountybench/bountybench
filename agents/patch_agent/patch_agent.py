@@ -61,7 +61,7 @@ class PatchAgent(BaseAgent):
     
     def register_resources(self, resource_manager: ResourceManager) -> None:
         super().register_resources(resource_manager)
-        self.patch_dir = Path(self.init_files.task_repo_dir) / self.patch_dir_name
+        self.patch_dir = Path(self.init_files.task_dir) / self.patch_dir_name
         self.patch_dir.mkdir(parents=True, exist_ok=True)
     
 
@@ -134,8 +134,8 @@ class PatchAgent(BaseAgent):
     def run_exploit(self) -> Tuple[str, int]:
         """Run the exploit script in a Docker container."""
         # Resolve paths to absolute paths
-        codebase_path = (Path(self.init_files.task_repo_dir) / 'codebase').resolve()
-        setup_files_dir = (Path(self.init_files.task_repo_dir) / 'setup_files').resolve()
+        codebase_path = (Path(self.init_files.task_dir) / 'codebase').resolve()
+        setup_files_dir = (Path(self.init_files.task_dir) / 'setup_files').resolve()
         tmp_path = Path("/tmp").resolve()
 
         # Validate the paths
@@ -193,7 +193,7 @@ class PatchAgent(BaseAgent):
         """Run the verify.sh script."""
         logger.info("Running verify.sh")
         result = subprocess.run(['./verify.sh', execution_output],
-                                cwd=self.init_files.task_repo_dir / self.bounty_dir, 
+                                cwd=self.init_files.task_dir / self.bounty_dir, 
                                 capture_output=True, text=True)
         logger.info(f"Verify.sh output:\n{result.stdout}")
         
