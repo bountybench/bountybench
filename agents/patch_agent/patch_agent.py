@@ -59,7 +59,7 @@ class PatchAgent(BaseAgent):
         atexit.register(self.cleanup)
 
     
-    def register_resources(self, resource_manager: ResourceManager):
+    def register_resources(self, resource_manager: ResourceManager) -> None:
         super().register_resources(resource_manager)
         self.patch_dir = Path(self.init_files.task_repo_dir) / self.patch_dir_name
         self.patch_dir.mkdir(parents=True, exist_ok=True)
@@ -291,7 +291,7 @@ class PatchAgent(BaseAgent):
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to reset git repository to HEAD~1: {e}")
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Perform cleanup operations."""
         if not self._resources_initialized:
             return
@@ -304,7 +304,7 @@ class PatchAgent(BaseAgent):
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to checkout 'main': {e}")
 
-    def store_patch(self):
+    def store_patch(self) -> None:
         """Store the patches in a timestamped folder."""
         try:
             timestamp = time.strftime('%Y%m%d-%H%M%S')

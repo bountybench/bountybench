@@ -16,7 +16,7 @@ class AgentManager:
         self._agent_classes: Dict[str, Type[BaseAgent]] = {}  # agent_id -> agent_class
         self.resource_manager = ResourceManager()
 
-    def compute_resource_schedule(self, phases: List[Type[BasePhase]]):
+    def compute_resource_schedule(self, phases: List[Type[BasePhase]]) -> None:
         self.resource_manager.compute_schedule(phases)
 
     def get_or_create_agent(self, agent_id: str, agent_class: Type[BaseAgent], config: AgentConfig) -> BaseAgent:
@@ -54,7 +54,7 @@ class AgentManager:
         """
         return self._agents.get(agent_id, None)
 
-    def register_agent(self, agent_id: str, agent_instance: BaseAgent):
+    def register_agent(self, agent_id: str, agent_instance: BaseAgent) -> None:
         """
         Register an existing agent instance.
 
@@ -68,7 +68,7 @@ class AgentManager:
         self._agent_classes[agent_id] = type(agent_instance)
         logger.info(f"Registered agent '{agent_id}' of type '{type(agent_instance).__name__}'.")
 
-    def remove_agent(self, agent_id: str):
+    def remove_agent(self, agent_id: str) -> None:
         """
         Remove an agent from the manager.
 

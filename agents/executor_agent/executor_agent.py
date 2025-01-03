@@ -71,7 +71,7 @@ class ExecutorAgent(BaseAgent):
         
 
     
-    def register_resources(self, resource_manager: ResourceManager):
+    def register_resources(self, resource_manager: ResourceManager) -> None:
         super().register_resources(resource_manager)
         if self.target_host: 
             self.kali_env.health_check(self.target_host)

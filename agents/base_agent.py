@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import re
-from typing import List, Set, Tuple, Type, Union
+from typing import Any, List, Set, Tuple, Type, Union
 
 from resources.base_resource import BaseResource
 from responses.failure_response import FailureResponse
@@ -83,10 +83,10 @@ class BaseAgent(ABC):
 
         #     self.run = wrapped_run
 
-    def _compute_required_resources(self):
+    def _compute_required_resources(self) -> Set[str]:
         return set(self._entry_to_str(resource) for resource in self.REQUIRED_RESOURCES)
 
-    def _compute_optional_resources(self):
+    def _compute_optional_resources(self) -> Set[str]:
         return set(self._entry_to_str(resource) for resource in self.OPTIONAL_RESOURCES)
 
     def _wrapped_run(self, responses: List[Response]) -> Response:
@@ -105,7 +105,7 @@ class BaseAgent(ABC):
             for resource in cls.REQUIRED_RESOURCES + cls.OPTIONAL_RESOURCES
         )
 
-    def register_resources(self, resource_manager):
+    def register_resources(self, resource_manager) -> None:
             """Register resources using the provided resource manager."""
             logger.debug(f"Entering register_resources for {self.__class__.__name__}")
             
@@ -143,7 +143,7 @@ class BaseAgent(ABC):
         """Get the attribute name for a resource entry."""
         return entry[1] if isinstance(entry, tuple) else cls._generate_attr_name(entry)
 
-    def __getattribute__(self, name):
+    def __getattribute__(self, name) -> Any:
         """Custom attribute access to enforce resource initialization."""
         if name in ['_resources_initialized', '_initializing', '_required_resources', '_optional_resources']:
             return object.__getattribute__(self, name)
@@ -160,7 +160,7 @@ class BaseAgent(ABC):
         
         return object.__getattribute__(self, name)
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name, value) -> None:
         """Custom attribute setting to enforce resource initialization."""
         if name in ['_resources_initialized', '_initializing']:
             object.__setattr__(self, name, value)
