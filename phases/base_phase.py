@@ -188,10 +188,7 @@ class BasePhase(ABC):
 
         last_output = self.initial_response
         success_flag = False
-
-        # Initialize resources before starting iterations
-        self.setup()
-
+        
         # 1) Start phase context
         with workflow_logger.phase(self) as phase_ctx:
             for iteration_num in range(1, self.phase_config.max_iterations + 1):
