@@ -122,20 +122,21 @@ class BaseWorkflow(ABC):
         """
         Execute all phases in sequence.
         Yields:
-            Tuple[BaseResponse, bool]: The response from each phase and a success flag.
+            PhaseResponse: The response from each phase.
         """
         try:
             self._set_workflow_status(WorkflowStatus.INCOMPLETE)
-            prev_response = self._get_initial_response()
+            prev_phase_response = self._get_initial_phase_response()
 
             for phase_idx, phase in enumerate(self.phases):
-                phase_response, phase_success = self._run_single_phase(phase_idx, prev_response)
+                phase_response = self._run_single_phase(phase_idx, prev_phase_response)
                 
-                if not phase_success or self._max_iterations_reached():
+                if not phase_response.success or self._max_iterations_reached():
+                    yield phase_response
                     break
 
-                prev_response = phase_response
-                yield phase_response, phase_success
+                prev_phase_response = phase_response
+                yield phase_response
 
             self._finalize_workflow()
 
@@ -145,24 +146,25 @@ class BaseWorkflow(ABC):
     def _set_workflow_status(self, status: WorkflowStatus):
         self.status = status
 
-    def _get_initial_response(self) -> Optional[BaseResponse]:
-        return BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
+    def _get_initial_phase_response(self) -> PhaseResponse:
+        initial_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
+        return PhaseResponse(agent_responses=[initial_response] if initial_response else [])
 
-    def _run_single_phase(self, phase_idx: int, prev_response: Optional[BaseResponse]) -> Tuple[BaseResponse, bool]:
+    def _run_single_phase(self, phase_idx: int, prev_phase_response: PhaseResponse) -> PhaseResponse:
         self._current_phase_idx = phase_idx
-        phase_instance = self._setup_phase(phase_idx, prev_response)
-        phase_response, phase_success = phase_instance.run_phase()
+        phase_instance = self._setup_phase(phase_idx)
+        phase_response = phase_instance.run_phase(prev_phase_response)
         
-        logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
+        logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_response.success}")
 
         self._workflow_iteration_count += 1
 
-        if not phase_success:
+        if not phase_response.success:
             self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
         elif self._max_iterations_reached():
             self._set_workflow_status(WorkflowStatus.COMPLETED_MAX_ITERATIONS)
 
-        return phase_response, phase_success
+        return phase_response
 
     def _max_iterations_reached(self) -> bool:
         return self._workflow_iteration_count >= self.config.max_iterations
@@ -207,63 +209,6 @@ class BaseWorkflow(ABC):
             logger.error(f"Failed to set up phase {phase_idx}: {e}")
             raise
 
-    def _run_phases(self):
-        """
-        Execute all phases in sequence.
-        Yields:
-            PhaseResponse: The response from each phase.
-        """
-        try:
-            self.status = WorkflowStatus.INCOMPLETE
-            prev_phase_response = PhaseResponse(agent_responses=[BaseResponse(self.config.initial_prompt)] if self.config.initial_prompt else [])
-
-            for phase_idx, phase in enumerate(self.phases):
-                self._current_phase_idx = phase_idx
-
-                # Setup and run the phase
-                phase_instance = self.setup_phase(phase_idx)
-                phase_response = phase_instance.run_phase(prev_phase_response)
-                
-                logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_response.success}")
-
-                # Update workflow state
-                prev_phase_response = phase_response
-                if not phase_response.success:
-                    self.status = WorkflowStatus.COMPLETED_FAILURE
-                    yield phase_response
-                    break
-
-                self._workflow_iteration_count += 1
-                if self._workflow_iteration_count >= self.config.max_iterations:
-                    self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
-                    yield phase_response
-                    break
-
-                # Yield current phase results
-                yield phase_response
-
-                # Resources are already handled within the phase
-
-            else:
-                # If all phases completed successfully
-                self.status = WorkflowStatus.COMPLETED_SUCCESS
-
-            # Finalize workflow
-            self.workflow_logger.finalize(self.status.value)
-
-        except Exception as e:
-            self.status = WorkflowStatus.INCOMPLETE
-            self.workflow_logger.finalize(self.status.value)
-            raise e
-
-    def _run(self) -> None:
-        """
-        Execute the entire workflow by running all phases in sequence.
-        This is a convenience method that runs the workflow to completion.
-        """
-        # Run through all phases
-        for _ in self.run_phases():
-            continue
     def _compute_resource_schedule(self):
         """
         Compute the agent (which will compute resource) schedule across all phases.
