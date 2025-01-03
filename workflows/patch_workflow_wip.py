@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from agents.executor_agent.prompt import EXPLOIT_AND_PATCH_PROMPT, STOP_TOKEN
+from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
 from phases.base_phase import PhaseConfig
 from phases.patch_phase import PatchPhase
 from resources.utils import read_exploit_report
@@ -45,7 +45,7 @@ class PatchWorkflow(BaseWorkflow):
             str: The formatted initial prompt.
         """
         exploit_report = read_exploit_report(self.task_repo_dir, self.bounty_number)
-        prompt = EXPLOIT_AND_PATCH_PROMPT.format(
+        prompt = PATCH_PROMPT.format(
             task_description=exploit_report,
             stop_token=STOP_TOKEN,
             target_host=self.repo_metadata["target_host"],
