@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 from enum import Enum
 import logging
 
@@ -50,6 +50,24 @@ class BaseWorkflow(ABC):
         """Create and register phases. To be implemented by subclasses."""
         pass
 
+    def _create_phase(self, phase_class: Type[BasePhase], **kwargs: Any) -> None:
+        """
+        Create a phase instance and register it with the workflow.
+
+        Args:
+            phase_class (Type[BasePhase]): The class of the phase to create.
+            **kwargs: Additional keyword arguments to pass to the phase constructor.
+
+        Raises:
+            TypeError: If the provided class is not a subclass of BasePhase.
+        """
+        if not issubclass(phase_class, BasePhase):
+            raise TypeError(f"{phase_class.__name__} is not a subclass of BasePhase")
+
+        phase_instance = phase_class(workflow=self, **kwargs)
+        self.register_phase(phase_instance)
+        logger.info(f"Created and registered phase: {phase_class.__name__}")
+        
     @abstractmethod
     def _get_initial_prompt(self) -> str:
         """Provide the initial prompt for the workflow."""
