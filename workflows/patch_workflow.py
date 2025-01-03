@@ -22,7 +22,7 @@ class PatchWorkflow(BountyWorkflow):
                          interactive=interactive
         )
 
-    def create_phases(self):
+    def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
         # Initialize PatchPhase with its PhaseConfig
         patch_phase_config = PhaseConfig(
@@ -41,7 +41,7 @@ class PatchWorkflow(BountyWorkflow):
         self.register_phase(patch_phase)
         logger.info(f"PatchPhase registered with config: {patch_phase_config}")
 
-    def get_initial_prompt(self) -> str:
+    def _get_initial_prompt(self) -> str:
         """
         Provide the initial prompt for the workflow by reading the exploit report.
 
