@@ -1,17 +1,15 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from agents.agent_manager import AgentManager
-
+from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
 import logging
 
 from phases.base_phase import BasePhase, PhaseConfig
 from responses.base_response import BaseResponse
 from utils.workflow_logger import workflow_logger
+from agents.agent_manager import AgentManager
 
-# Initialize the module-level logger
 logger = logging.getLogger(__name__)
 
 class WorkflowStatus(Enum):
@@ -36,19 +34,14 @@ class BaseWorkflow(ABC):
     def __init__(self, **kwargs):
         self.workflow_id = self.name
         self.params = kwargs
-        self._initialize()
-        self._setup_logger()
-        
         self.status = WorkflowStatus.INITIALIZED
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
+        self.phases: List[BasePhase] = []
 
-        # Initialize ResourceManager
-        self.agent_manager = AgentManager()
-
-        # List to store phase instances
-        self.phases: List[BasePhase] = []       
-
+        self._initialize()
+        self._setup_logger()
+        self._setup_agent_manager()
         self._create_phases()
         self._compute_resource_schedule()
 
@@ -67,8 +60,12 @@ class BaseWorkflow(ABC):
         pass
 
     def _setup_logger(self):
-        # Setup workflow config
-        config = WorkflowConfig(
+        config = self._create_workflow_config()
+        self.config = config
+        self._initialize_workflow_logger(config)
+
+    def _create_workflow_config(self) -> WorkflowConfig:
+        return WorkflowConfig(
             id=self.workflow_id,
             max_iterations=25,
             logs_dir=Path("logs"),
@@ -77,31 +74,27 @@ class BaseWorkflow(ABC):
             metadata=self._get_metadata()
         )
 
-        self.config = config
-
+    def _initialize_workflow_logger(self, config: WorkflowConfig):
         self.workflow_logger = workflow_logger
         self.workflow_logger.initialize(
             workflow_name=config.id,
             logs_dir=str(config.logs_dir),
             task=config.task
         )
-
-        # Add workflow metadata
         for key, value in config.metadata.items():
             self.workflow_logger.add_metadata(key, value)
 
-    def _get_task(self):
+    def _setup_agent_manager(self):
+        self.agent_manager = AgentManager()
+
+    def _get_task(self) -> Dict[str, Any]:
         return {}
     
-    def _get_metadata(self):
+    def _get_metadata(self) -> Dict[str, Any]:
         return {}
     
     def run(self) -> None:
-        """
-        Execute the entire workflow by running all phases in sequence.
-        This is a convenience method that runs the workflow to completion.
-        """
-        # Run through all phases
+        """Execute the entire workflow by running all phases in sequence."""
         for _ in self._run_phases():
             continue
 
@@ -112,45 +105,57 @@ class BaseWorkflow(ABC):
             Tuple[BaseResponse, bool]: The response from each phase and a success flag.
         """
         try:
-            self.status = WorkflowStatus.INCOMPLETE
-            prev_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
+            self._set_workflow_status(WorkflowStatus.INCOMPLETE)
+            prev_response = self._get_initial_response()
 
             for phase_idx, phase in enumerate(self.phases):
-                self._current_phase_idx = phase_idx
-
-                # Setup and run the phase
-                phase_instance = self._setup_phase(phase_idx, prev_response)
-                phase_response, phase_success = phase_instance.run_phase()
+                phase_response, phase_success = self._run_single_phase(phase_idx, prev_response)
                 
-                logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
+                if not phase_success or self._max_iterations_reached():
+                    break
 
-                # Update workflow state
                 prev_response = phase_response
-                if not phase_success:
-                    self.status = WorkflowStatus.COMPLETED_FAILURE
-                    yield phase_response, phase_success
-                    break
-
-                self._workflow_iteration_count += 1
-                if self._workflow_iteration_count >= self.config.max_iterations:
-                    self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
-                    yield phase_response, phase_success
-                    break
-
-                # Yield current phase results
                 yield phase_response, phase_success
 
-            else:
-                # If all phases completed successfully
-                self.status = WorkflowStatus.COMPLETED_SUCCESS
-
-            # Finalize workflow
-            self.workflow_logger.finalize(self.status.value)
+            self._finalize_workflow()
 
         except Exception as e:
-            self.status = WorkflowStatus.INCOMPLETE
-            self.workflow_logger.finalize(self.status.value)
-            raise e
+            self._handle_workflow_exception(e)
+
+    def _set_workflow_status(self, status: WorkflowStatus):
+        self.status = status
+
+    def _get_initial_response(self) -> Optional[BaseResponse]:
+        return BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
+
+    def _run_single_phase(self, phase_idx: int, prev_response: Optional[BaseResponse]) -> Tuple[BaseResponse, bool]:
+        self._current_phase_idx = phase_idx
+        phase_instance = self._setup_phase(phase_idx, prev_response)
+        phase_response, phase_success = phase_instance.run_phase()
+        
+        logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
+
+        self._workflow_iteration_count += 1
+
+        if not phase_success:
+            self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
+        elif self._max_iterations_reached():
+            self._set_workflow_status(WorkflowStatus.COMPLETED_MAX_ITERATIONS)
+
+        return phase_response, phase_success
+
+    def _max_iterations_reached(self) -> bool:
+        return self._workflow_iteration_count >= self.config.max_iterations
+
+    def _finalize_workflow(self):
+        if self.status == WorkflowStatus.INCOMPLETE:
+            self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
+        self.workflow_logger.finalize(self.status.value)
+
+    def _handle_workflow_exception(self, exception: Exception):
+        self._set_workflow_status(WorkflowStatus.INCOMPLETE)
+        self.workflow_logger.finalize(self.status.value)
+        raise exception
 
     def _setup_phase(self, phase_idx: int, initial_response: Optional[BaseResponse] = None) -> BasePhase:
         """
@@ -173,12 +178,11 @@ class BaseWorkflow(ABC):
             else:
                 logger.info(f"No initial response provided for phase {phase_idx}")
 
-            # Setup the phase
             phase_instance.setup()
             return phase_instance
 
         except Exception as e:
-            self.status = WorkflowStatus.INCOMPLETE
+            self._set_workflow_status(WorkflowStatus.INCOMPLETE)
             logger.error(f"Failed to set up phase {phase_idx}: {e}")
             raise
 
@@ -190,16 +194,9 @@ class BaseWorkflow(ABC):
         self.agent_manager.compute_resource_schedule(phase_classes)
         logger.debug("Computed resource schedule for all phases based on agents.")
 
-    @property
-    def current_phase(self) -> Optional[PhaseConfig]:
-        """Get current phase configuration"""
-        if 0 <= self._current_phase_idx < len(self.phases):
-            return self.phases[self._current_phase_idx].phase_config
-        return None
-
     def register_phase(self, phase: BasePhase):
         phase_idx = len(self.phases)
-        phase.phase_config.phase_idx = phase_idx  # Set phase index
+        phase.phase_config.phase_idx = phase_idx
         self.phases.append(phase)
         logger.debug(f"Registered phase {phase_idx}: {phase.__class__.__name__}")
         logger.info(f"{phase.name} registered with config: {phase.phase_config}")
