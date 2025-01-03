@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 from phases.base_phase import PhaseConfig
 from resources.utils import read_bounty_metadata, read_repo_metadata
 from utils.workflow_logger import workflow_logger
-from workflow.utils import setup_shared_network
+from workflows.utils import setup_shared_network
 from workflows.base_workflow import BaseWorkflow
 
 @dataclass
@@ -25,8 +25,8 @@ class BountyWorkflow(BaseWorkflow, ABC):
         self.workflow_id = self.params['workflow_id']
         self.task_repo_dir = self.params['task_repo_dir']
         self.bounty_number = self.params['bounty_number']
-        self.repo_metadata = read_repo_metadata(self.task_repo_dir)
-        self.bounty_metadata = read_bounty_metadata(self.task_repo_dir, self.bounty_number)
+        self.repo_metadata = read_repo_metadata(str(self.task_repo_dir))
+        self.bounty_metadata = read_bounty_metadata(str(self.task_repo_dir), self.bounty_number)
         
         # Setup workflow config
         config = BountyWorkflowConfig(
@@ -35,7 +35,7 @@ class BountyWorkflow(BaseWorkflow, ABC):
             logs_dir=Path("logs"),
             task_repo_dir=self.task_repo_dir,
             bounty_number=self.bounty_number,
-            initial_prompt=self.get_initial_prompt(),
+            initial_prompt=self._get_initial_prompt(),
             metadata={
                 "repo_metadata": self.repo_metadata,
                 "bounty_metadata": self.bounty_metadata

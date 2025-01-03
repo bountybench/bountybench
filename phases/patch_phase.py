@@ -35,7 +35,7 @@ class PatchPhase(BasePhase):
             id="ExecutorAgent",
             lm_config=executor_lm_config,
             target_host=self.workflow.repo_metadata["target_host"],
-            initial_prompt=self.workflow.get_initial_prompt()
+            initial_prompt=self.workflow._get_initial_prompt()
 
         )
 

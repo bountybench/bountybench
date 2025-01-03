@@ -95,7 +95,7 @@ class BaseWorkflow(ABC):
         This is a convenience method that runs the workflow to completion.
         """
         # Run through all phases
-        for _ in self.run_phases():
+        for _ in self._run_phases():
             continue
 
     def _run_phases(self):

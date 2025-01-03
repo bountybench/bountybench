@@ -275,3 +275,7 @@ class BasePhase(ABC):
             Tuple[BaseResponse, bool]: The response from the agent and a flag indicating if the phase is complete.
         """
         pass
+
+    @property
+    def name(self) -> str:
+        return self.__class__.__name__
