@@ -24,18 +24,7 @@ class PatchWorkflow(BountyWorkflow):
 
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
-        # Initialize PatchPhase with its PhaseConfig
-        patch_phase_config = PhaseConfig(
-            phase_name="PatchPhase",
-            max_iterations=5
-        )
-
-        patch_phase = PatchPhase(
-            phase_config=patch_phase_config,
-            workflow=self,
-        )
-
-        # Register the PatchPhase
+        patch_phase = PatchPhase(workflow=self, max_iterations=1)
         self.register_phase(patch_phase)
 
     def _get_initial_prompt(self) -> str:

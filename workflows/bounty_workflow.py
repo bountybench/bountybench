@@ -5,7 +5,7 @@ from workflows.base_workflow import BaseWorkflow
 
 class BountyWorkflow(BaseWorkflow, ABC):
     def _initialize(self):
-        self.workflow_id = self.params['workflow_id']
+        super()._initialize()
         self.task_dir = self.params['task_dir']
         self.bounty_number = self.params['bounty_number']
         self.repo_metadata = read_repo_metadata(str(self.task_dir))
