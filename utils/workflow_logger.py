@@ -64,7 +64,7 @@ class WorkflowLogger:
         except Exception as e:
             print(f"Error in broadcast task: {e}")
 
-    async def initialize(
+    def initialize(
         self,
         workflow_name: str,
         workflow_id: Optional[str] = None,

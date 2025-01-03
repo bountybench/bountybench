@@ -558,11 +558,11 @@ class BaseWorkflow(ABC):
                 self.status = WorkflowStatus.COMPLETED_SUCCESS
 
             # Finalize workflow
-            self.workflow_logger.finalize(self.status.value)
+            await self.workflow_logger.finalize(self.status.value)
 
         except Exception as e:
             self.status = WorkflowStatus.INCOMPLETE
-            self.workflow_logger.finalize(self.status.value)
+            await self.workflow_logger.finalize(self.status.value)
             raise e
 
     async def run(self) -> None:
