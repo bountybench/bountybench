@@ -34,6 +34,7 @@ class BaseWorkflow(ABC):
     def __init__(self, **kwargs):
         self.workflow_id = self.name
         self.params = kwargs
+        self.interactive = kwargs.get('interactive', False)
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
         self.phases: List[BasePhase] = []
@@ -64,7 +65,7 @@ class BaseWorkflow(ABC):
         if not issubclass(phase_class, BasePhase):
             raise TypeError(f"{phase_class.__name__} is not a subclass of BasePhase")
 
-        phase_instance = phase_class(workflow=self, **kwargs)
+        phase_instance = phase_class(workflow=self, interactive=self.interactive, **kwargs)
         self.register_phase(phase_instance)
         logger.info(f"Created and registered phase: {phase_class.__name__}")
         
