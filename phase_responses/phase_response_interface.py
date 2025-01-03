@@ -5,7 +5,7 @@ class PhaseResponseInterface(ABC):
     def __subclasshook__(cls, subclass):
         return all(
             any(attr in B.__dict__ for B in subclass.__mro__)
-            for attr in ['agent_responses', 'status']
+            for attr in ['agent_responses', 'success']
         )
     
     @abstractmethod
