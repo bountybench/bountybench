@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
 import logging
 
-from phases.base_phase import BasePhase, PhaseConfig
+from phases.base_phase import BasePhase
 from responses.base_response import BaseResponse
 from utils.workflow_logger import workflow_logger
 from agents.agent_manager import AgentManager
@@ -34,12 +34,12 @@ class BaseWorkflow(ABC):
     def __init__(self, **kwargs):
         self.workflow_id = self.name
         self.params = kwargs
-        self.status = WorkflowStatus.INITIALIZED
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
         self.phases: List[BasePhase] = []
 
         self._initialize()
+        self._set_workflow_status(WorkflowStatus.INITIALIZED)
         self._setup_logger()
         self._setup_agent_manager()
         self._create_phases()
