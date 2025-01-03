@@ -3,7 +3,7 @@ from phase_responses.phase_response_interface import PhaseResponseInterface
 from responses.response import Response
 
 class PhaseResponse(PhaseResponseInterface):
-    def __init__(self, status: str, agent_responses: List[Response]):
+    def __init__(self, status: str, agent_responses: List[Response]) -> None:
         self._status = status
         self._agent_responses = agent_responses
     
