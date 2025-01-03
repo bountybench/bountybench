@@ -74,7 +74,6 @@ class BaseWorkflow(ABC):
             logs_dir=Path("logs"),
             task=self._get_task(),
             initial_prompt=self._get_initial_prompt(),
-         
             metadata=self._get_metadata()
         )
 
@@ -91,10 +90,10 @@ class BaseWorkflow(ABC):
         for key, value in config.metadata.items():
             self.workflow_logger.add_metadata(key, value)
 
-    def _get_metadata(self):
+    def _get_task(self):
         return {}
     
-    def _get_task(self):
+    def _get_metadata(self):
         return {}
     
     def run(self) -> None:
