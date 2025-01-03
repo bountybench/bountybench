@@ -18,7 +18,7 @@ class PatchWorkflow(BountyWorkflow):
         super().__init__(task_repo_dir, bounty_number, workflow_id, interactive)
         self.patch_files_path: Optional[str] = None
 
-    def create_phases(self):
+    def get_phase_configs(self):
         """Define and register phases specific to PatchWorkflow."""
         # Initialize PatchPhase with its PhaseConfig
         patch_phase_config = PhaseConfig(
@@ -26,15 +26,8 @@ class PatchWorkflow(BountyWorkflow):
             max_iterations=5
         )
 
-        patch_phase = PatchPhase(
-            phase_config=patch_phase_config,
-            workflow=self,
-        )
-
-        # Register the PatchPhase
-        self.register_phase(patch_phase)
-        logger.info(f"PatchPhase registered with config: {patch_phase_config}")
-
+        return [patch_phase_config]
+    
     def get_initial_prompt(self) -> str:
         """
         Provide the initial prompt for the workflow by reading the exploit report.

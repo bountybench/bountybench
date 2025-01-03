@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 from agents.agent_manager import AgentManager
 
 from enum import Enum
@@ -89,8 +89,7 @@ class BaseWorkflow(ABC):
         self.phase_class_map = {}
 
         # Setup workflow
-        self.setup_init()
-        self.create_phases() # To be implemented by subclasses
+        self._register_phases() # To be implemented by subclasses
         self._compute_resource_schedule()
 
     @abstractmethod
@@ -100,11 +99,6 @@ class BaseWorkflow(ABC):
 
     @abstractmethod
     def get_metadata(self) -> Dict[str, Any]:
-        pass
-
-    @abstractmethod
-    def create_phases(self):
-        """Create and register phases. To be implemented by subclasses."""
         pass
 
     def _compute_resource_schedule(self) -> None:
@@ -211,9 +205,28 @@ class BaseWorkflow(ABC):
             return self.config.phase_configs[self._current_phase_idx]
         return None
 
-   
-    def register_phase(self, phase: BasePhase):
-        phase_idx = len(self.phases)
-        phase.phase_config.phase_idx = phase_idx  # Set phase index
-        self.phases.append(phase)
-        logger.debug(f"Registered phase {phase_idx}: {phase.__class__.__name__}")
+    def _register_phases(self):
+        """Auto-discover and register phases based on phase_configs"""
+        phase_configs = self.get_phase_configs()
+        for idx, config in enumerate(phase_configs):
+            phase_class = self._get_phase_class(config.phase_name)
+            if phase_class:
+                config.phase_idx = idx
+                phase = phase_class(config, self)
+                self.phases.append(phase)
+                logger.debug(f"Registered phase {idx}: {phase.__class__.__name__}")
+
+    @abstractmethod
+    def get_phase_configs(self) -> List[PhaseConfig]:
+        """Return list of phase configurations in execution order"""
+        pass
+
+    def _get_phase_class(self, phase_name: str) -> Optional[Type[BasePhase]]:
+        """Get phase class by name from phases module"""
+        try:
+            import importlib
+            module = importlib.import_module('phases')
+            return getattr(module, phase_name)
+        except (ImportError, AttributeError):
+            logger.error(f"Could not find phase class: {phase_name}")
+            return None

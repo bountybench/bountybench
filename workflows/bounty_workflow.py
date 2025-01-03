@@ -47,6 +47,7 @@ class BountyWorkflow(ABC):
         self.bounty_metadata = read_bounty_metadata(str(task_dir), str(self.bounty_number))
         self.vulnerable_files: List[str] = []
         super().__init__(task_dir, workflow_id, interactive)
+        self.setup_init()
 
     def get_metadata(self) -> Dict[str, Any]:
         return {

@@ -48,6 +48,7 @@ class BasePhase(ABC):
         phase_config.agent_configs = self.get_agent_configs()
         self._initialize_agents()
 
+
     def get_phase_resources(self):
         phase_resources = {}
         for agent_class in self.AGENT_CLASSES:
