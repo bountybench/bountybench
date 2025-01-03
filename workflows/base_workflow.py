@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional
 from agents.agent_manager import AgentManager
 
 from enum import Enum
@@ -16,8 +16,6 @@ from utils.workflow_logger import workflow_logger
 
 # Initialize the module-level logger
 logger = logging.getLogger(__name__)
-
-MAX_ITERATIONS = 10
 
 class WorkflowStatus(Enum):
     """Status of workflow execution"""

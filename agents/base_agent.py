@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import re
-from typing import List, Optional, Set, Tuple, Type, Union
+from typing import List, Set, Tuple, Type, Union
 
 from resources.base_resource import BaseResource
 from responses.failure_response import FailureResponse
@@ -91,8 +91,8 @@ class BaseAgent(ABC):
 
     def _wrapped_run(self, responses: List[Response]) -> Response:
         """Ensure resources are initialized before running the agent."""
-        print(f"Debugging: _wrapped_run called for {self.__class__.__name__}")
-        print(f"Debugging: _resources_initialized = {self._resources_initialized}")
+        logger.debug(f"_wrapped_run called for {self.__class__.__name__}")
+        logger.debug(f"_resources_initialized = {self._resources_initialized}")
         if not self._resources_initialized:
             raise ResourceNotInitializedError("Resources not initialized. Call register_resources() first.")
         return self._original_run(responses)
@@ -107,7 +107,7 @@ class BaseAgent(ABC):
 
     def register_resources(self, resource_manager):
             """Register resources using the provided resource manager."""
-            print(f"Debugging: Entering register_resources for {self.__class__.__name__}")
+            logger.debug(f"Entering register_resources for {self.__class__.__name__}")
             
             for resource in self.ACCESSIBLE_RESOURCES:
                 if isinstance(resource, tuple):
@@ -126,7 +126,7 @@ class BaseAgent(ABC):
                         setattr(self, attr_name, None)
 
             self._resources_initialized = True
-            print(f"Debugging: Exiting register_resources for {self.__class__.__name__}")
+            logger.debug(f"Exiting register_resources for {self.__class__.__name__}")
    
         
     @staticmethod

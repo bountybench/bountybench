@@ -58,7 +58,7 @@ class PatchPhase(BasePhase):
         Returns:
             Dict[str, Tuple[Type[BaseResource], Any]]: Mapping of resource_id to (ResourceClass, ResourceConfig).
         """
-        print(f"Debugging: Entering define_resources for PatchPhase")
+        logger.debug(f"Entering define_resources for PatchPhase")
 
         tmp_dir = os.path.join("tmp")  # Assuming a default tmp directory
         patch_files_path = os.path.join(tmp_dir, "patch_files")
@@ -119,7 +119,7 @@ class PatchPhase(BasePhase):
             )
             resource_configs["task_server"] = (SetupResource, SetupResourceConfig)
 
-        print(f"Debugging: Exiting define_resources for PatchPhase")
+        logger.debug(f"Exiting define_resources for PatchPhase")
         return resource_configs
 
 

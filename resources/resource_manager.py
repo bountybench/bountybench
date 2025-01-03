@@ -55,45 +55,11 @@ class ResourceManager:
             term_phase = max(phases)
             self._resource_lifecycle[resource_id] = (init_phase, term_phase)
 
-    '''
-    def initialize_phase_resources(self, phase_index: int, resource_ids: Iterable[str]):
-            print(f"Debugging: Entering initialize_phase_resources for phase {phase_index}")
-            print(f"Debugging: Registered resources: {self._resource_registration.keys()}")
-            print(f"Debugging: Phase resources: {resource_ids}")
-            
-            self._phase_resources[phase_index] = set(resource_ids)
-            
-            for resource_id in resource_ids:
-                if resource_id in self._resources:
-                    print(f"Debugging: Resource '{resource_id}' already initialized. Skipping.")
-                    continue
-
-                print(f"Debugging: Attempting to initialize resource '{resource_id}'")
-                if resource_id not in self._resource_registration:
-                    print(f"Debugging: Resource '{resource_id}' not registered. Skipping.")
-                    continue
-                
-                resource_class, resource_config = self._resource_registration[resource_id]
-                try:
-                    resource = resource_class(resource_id, resource_config) 
-                    if hasattr(resource, "role"):
-                        workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.role}", resource)
-                    else :
-                        workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.resource_id}", resource)
-
-                    self._resources[resource_id] = resource
-                    print(f"Debugging: Successfully initialized resource '{resource_id}'")
-                except Exception as e:
-                    print(f"Debugging: Failed to initialize resource '{resource_id}': {str(e)}")
-                    raise
-            print(f"Debugging: Exiting initialize_phase_resources for phase {phase_index}")
-    '''
-
     def initialize_phase_resources(self, phase_index: int, resource_ids: Iterable[str]):
         """Initialize resources for a phase and update lifecycle information."""
-        print(f"Debugging: Entering initialize_phase_resources for phase {phase_index}")
-        print(f"Debugging: Registered resources: {self._resource_registration.keys()}")
-        print(f"Debugging: Phase resources: {resource_ids}")
+        logger.debug(f"Entering initialize_phase_resources for phase {phase_index}")
+        logger.debug(f"Registered resources: {self._resource_registration.keys()}")
+        logger.debug(f"Phase resources: {resource_ids}")
         
         # Convert resource_ids to set and store in phase_resources
         resource_id_set = set(resource_ids)
@@ -112,12 +78,12 @@ class ResourceManager:
         # Initialize resources that aren't already initialized
         for resource_id in resource_id_set:
             if resource_id in self._resources:
-                print(f"Debugging: Resource '{resource_id}' already initialized. Skipping.")
+                logger.debug(f"Resource '{resource_id}' already initialized. Skipping.")
                 continue
 
-            print(f"Debugging: Attempting to initialize resource '{resource_id}'")
+            logger.debug(f"Attempting to initialize resource '{resource_id}'")
             if resource_id not in self._resource_registration:
-                print(f"Debugging: Resource '{resource_id}' not registered. Skipping.")
+                logger.debug(f"Resource '{resource_id}' not registered. Skipping.")
                 continue
             
             # Create and initialize the resource
@@ -130,35 +96,19 @@ class ResourceManager:
                     workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.resource_id}", resource)
                 
                 self._resources[resource_id] = resource
-                print(f"Debugging: Successfully initialized resource '{resource_id}'")
+                logger.debug(f"Successfully initialized resource '{resource_id}'")
             except Exception as e:
-                print(f"Debugging: Failed to initialize resource '{resource_id}': {str(e)}")
+                logger.debug(f"Failed to initialize resource '{resource_id}': {str(e)}")
                 raise
                 
-        print(f"Debugging: Resource lifecycle state: {self._resource_lifecycle}")
-        print(f"Debugging: Exiting initialize_phase_resources for phase {phase_index}")
-
-    '''
-    def deallocate_phase_resources(self, phase_index: int):
-        """Deallocate resources that are no longer needed after a specific phase."""
-        for resource_id in self._phase_resources[phase_index]:
-            _, term_phase = self._resource_lifecycle[resource_id]
-            if phase_index == term_phase and resource_id in self._resources:
-                resource = self._resources[resource_id]
-                try:
-                    resource.stop()
-                    del self._resources[resource_id]
-                    logger.info(f"Deallocated resource '{resource_id}'")
-                except Exception as e:
-                    logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
-    '''
-
+        logger.debug(f"Resource lifecycle state: {self._resource_lifecycle}")
+        logger.debug(f"Exiting initialize_phase_resources for phase {phase_index}")
 
     def deallocate_phase_resources(self, phase_index: int):
         """Deallocate resources that are no longer needed after a phase."""
-        print(f"Debugging: Deallocating resources for phase {phase_index}")
-        print(f"Debugging: Current phase resources: {self._phase_resources.get(phase_index, set())}")
-        print(f"Debugging: Current lifecycle state: {self._resource_lifecycle}")
+        logger.debug(f"Deallocating resources for phase {phase_index}")
+        logger.debug(f"Current phase resources: {self._phase_resources.get(phase_index, set())}")
+        logger.debug(f"Current lifecycle state: {self._resource_lifecycle}")
         
         if phase_index not in self._phase_resources:
             print(f"Warning: No resources registered for phase {phase_index}")
@@ -174,7 +124,7 @@ class ResourceManager:
             if phase_index == term_phase and resource_id in self._resources:
                 resource = self._resources[resource_id]
                 try:
-                    print(f"Debugging: Stopping resource '{resource_id}'")
+                    logger.debug(f"Stopping resource '{resource_id}'")
                     resource.stop()
                     del self._resources[resource_id]
                     logger.info(f"Deallocated resource '{resource_id}'")
@@ -182,7 +132,7 @@ class ResourceManager:
                     logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
                     raise
                     
-        print(f"Debugging: Completed resource deallocation for phase {phase_index}")
+        logger.debug(f"Completed resource deallocation for phase {phase_index}")
 
     def get_resource(self, resource_id: str) -> BaseResource:
         """Retrieve an initialized resource by its ID."""

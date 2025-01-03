@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, List, Optional, Set, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Set, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
 from responses.base_response import BaseResponse
@@ -57,11 +57,11 @@ class BasePhase(ABC):
 
     def _initialize_agents(self):
         """Initialize and register required agents using AgentManager."""
-        print(f"Debugging: Initializing agents for {self.name}")
+        logger.debug(f"Initializing agents for {self.name}")
         
         # First get agent configs
         self.phase_config.agent_configs = self.get_agent_configs()
-        print(f"Debugging: Got agent configs: {[config[0] for config in self.phase_config.agent_configs]}")
+        logger.debug(f"Got agent configs: {[config[0] for config in self.phase_config.agent_configs]}")
         
         for agent_id, agent_config in self.phase_config.agent_configs:
             # Find matching agent class based on config type
@@ -71,14 +71,14 @@ class BasePhase(ABC):
             )
             
             if not agent_class:
-                print(f"Warning: No matching agent class found for config type {type(agent_config)}")
+                logger.warning("No matching agent class found for config type {type(agent_config)}")
                 continue
 
             try:
-                print(f"Debugging: Creating agent {agent_id} of type {agent_class.__name__}")
+                logger.debug(f"Creating agent {agent_id} of type {agent_class.__name__}")
                 agent_instance = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config)
                 self.agents.append((agent_id, agent_instance))
-                print(f"Debugging: Successfully created agent {agent_id}")
+                logger.debug(f"Successfully created agent {agent_id}")
             except Exception as e:
                 print(f"Error creating agent {agent_id}: {str(e)}")
                 raise
@@ -101,20 +101,20 @@ class BasePhase(ABC):
                 f"Expected agent classes: {[cls.__name__ for cls in self.AGENT_CLASSES]}"
             )
             
-        print(f"Debugging: Completed agent initialization for {self.name}")
+        logger.debug(f"Completed agent initialization for {self.name}")
 
     def register_resources(self):
         """
         Register required resources with the ResourceManager.
         Should be called after resources are initialized for the phase.
         """
-        print(f"Debugging: Registering resources for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
+        logger.debug(f"Registering resources for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
         for agent_id, agent in self.agents:
-            print(f"Debugging: Registering resources for agent {agent_id}")
+            logger.debug(f"Registering resources for agent {agent_id}")
             agent.register_resources(self.resource_manager)
             
             workflow_logger.add_agent(agent.agent_config.id, agent)
-        print(f"Debugging: Finished registering resources for phase {self.phase_config.phase_idx}")
+        logger.debug(f"Finished registering resources for phase {self.phase_config.phase_idx}")
 
     @classmethod
     def get_required_resources(cls) -> Set[str]:
@@ -128,7 +128,7 @@ class BasePhase(ABC):
         Initialize and register resources for the phase and its agents.
         Resources must be fully initialized before agents can access them.
         """
-        print(f"Debugging: Entering setup for {self.name}")
+        logger.debug(f"Entering setup for {self.name}")
         
         # 1. First define all resources
         resource_configs = self.define_resources()
@@ -138,7 +138,7 @@ class BasePhase(ABC):
             
         # 2. Register each resource
         for resource_id, (resource_class, resource_config) in resource_configs.items():
-            print(f"Debugging: Registering resource {resource_id} of type {resource_class.__name__}")
+            logger.debug(f"Registering resource {resource_id} of type {resource_class.__name__}")
             try:
                 self.resource_manager.register_resource(resource_id, resource_class, resource_config)
             except Exception as e:
@@ -146,7 +146,7 @@ class BasePhase(ABC):
                 raise
                 
         # 3. Initialize all resources for this phase
-        print("Debugging: Initializing all phase resources")
+        logger.debug("Initializing all phase resources")
         try:
             self.resource_manager.initialize_phase_resources(
                 phase_index=self.phase_config.phase_idx,
@@ -157,13 +157,13 @@ class BasePhase(ABC):
             raise
                 
         # 4. Only after all resources are initialized, register them with agents
-        print("Debugging: All resources initialized, registering with agents")
+        logger.debug("All resources initialized, registering with agents")
         for agent_id, agent in self.agents:
             print(f"Registering resources for agent {agent_id}")
             agent.register_resources(self.resource_manager)        
             workflow_logger.add_agent(agent.agent_config.id, agent)
             
-        print(f"Debugging: Completed setup for {self.name}")
+        logger.debug(f"Completed setup for {self.name}")
 
 
     def deallocate_resources(self):
@@ -184,7 +184,7 @@ class BasePhase(ABC):
         Returns:
             Tuple[Optional[BaseResponse], bool]: The last response and a success flag.
         """
-        print(f"Debugging: Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
+        logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
 
         last_output = self.initial_response
         success_flag = False
