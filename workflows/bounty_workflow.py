@@ -17,55 +17,51 @@ from utils.workflow_logger import workflow_logger
 # Initialize the module-level logger
 logger = logging.getLogger(__name__)
 
-class WorkflowStatus(Enum):
-    """Status of workflow execution"""
-    INITIALIZED = "initialized"
-    INCOMPLETE = "incomplete"
-    COMPLETED_SUCCESS = "completed_success"
-    COMPLETED_FAILURE = "completed_failure"
-    COMPLETED_MAX_ITERATIONS = "completed_max_iterations"
-
-
 @dataclass
-class WorkflowConfig:
+class BountyWorkflowConfig:
     """Configuration for a workflow"""
     id: str
     max_iterations: int
     logs_dir: Path
+    task_repo_dir: Path
+    bounty_number: int
     initial_prompt: str
     metadata: Dict[str, Any] = field(default_factory=dict)
     phase_configs: List['PhaseConfig'] = field(default_factory=list)  
 
 
 
-class BaseWorkflow(ABC):
-    """
-    Base class for defining workflows that coordinate phases and their agents.
-    Delegates resource management to individual phases.
-    """
+class BountyWorkflow(BaseWorkflow):
 
     def __init__(
         self,
+        task_repo_dir: Path,
+        bounty_number: str,
         workflow_id: Optional[str] = "base_workflow",
         interactive: Optional[bool] = False
     ):
+        super().__init__(workflow_id, interactive)
         """Initialize workflow with configuration"""
-        self.interactive = interactive
+        self.task_repo_dir = task_repo_dir
+        self.bounty_number = str(bounty_number)  # Ensure it's a string
+        self.repo_metadata = read_repo_metadata(str(task_repo_dir))
+        self.bounty_metadata = read_bounty_metadata(str(task_repo_dir), str(self.bounty_number))
         
         # Setup workflow config
-        config = WorkflowConfig(
+        config = BountyWorkflowConfig(
             id=workflow_id,
             max_iterations=25,
             logs_dir=Path("logs"),
+            task_repo_dir=task_repo_dir,
+            bounty_number=self.bounty_number,
             initial_prompt=self.get_initial_prompt(),
             metadata={
+                "repo_metadata": self.repo_metadata,
+                "bounty_metadata": self.bounty_metadata
             }
         )
 
         self.config = config
-        self.status = WorkflowStatus.INITIALIZED
-        self._current_phase_idx = 0
-        self._workflow_iteration_count = 0
 
         self.workflow_logger = workflow_logger
         self.workflow_logger.initialize(
@@ -78,13 +74,6 @@ class BaseWorkflow(ABC):
         # Add workflow metadata
         for key, value in config.metadata.items():
             self.workflow_logger.add_metadata(key, value)
-
-        # Initialize ResourceManager
-        self.agent_manager = AgentManager()
-
-        # Initialize tracking structures
-        self.phases: List[BasePhase] = []       # List to store phase instances
-        self.phase_class_map = {}
 
         # Initialize additional attributes
         self.vulnerable_files: List[str] = []
