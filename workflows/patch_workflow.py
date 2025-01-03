@@ -39,7 +39,6 @@ class PatchWorkflow(BountyWorkflow):
 
         # Register the PatchPhase
         self.register_phase(patch_phase)
-        logger.info(f"PatchPhase registered with config: {patch_phase_config}")
 
     def _get_initial_prompt(self) -> str:
         """

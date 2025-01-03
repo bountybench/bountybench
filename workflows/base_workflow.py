@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from agents.agent_manager import AgentManager
@@ -195,3 +194,4 @@ class BaseWorkflow(ABC):
         phase.phase_config.phase_idx = phase_idx  # Set phase index
         self.phases.append(phase)
         logger.debug(f"Registered phase {phase_idx}: {phase.__class__.__name__}")
+        logger.info(f"{phase.name} registered with config: {phase.phase_config}")
