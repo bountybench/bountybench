@@ -208,18 +208,16 @@ class BasePhase(ABC):
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_id, last_agent_response) as iteration_ctx:
                     response = self.run_one_iteration(
+                        phase_response=curr_phase_response,
                         agent_instance=agent_instance,
                         previous_output=last_agent_response,
                     )
                     iteration_ctx.set_output(response)
 
-                if done:
-                    success_flag = True
-                    self._done = True
-                    last_output = response
+                if curr_phase_response.complete:
                     break
 
-                last_output = response
+                last_agent_response = curr_phase_response.agent_responses[-1]
 
                 # Increment the iteration count
                 self.iteration_count += 1
