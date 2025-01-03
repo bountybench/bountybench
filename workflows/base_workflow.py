@@ -9,6 +9,7 @@ from enum import Enum
 import logging
 
 # Import your specific modules and classes here
+from phase_responses.phase_response import PhaseResponse
 from phases.base_phase import BasePhase, PhaseConfig
 from responses.base_response import BaseResponse
 from resources.utils import docker_network_exists, read_bounty_metadata, read_repo_metadata, run_command
@@ -124,13 +125,12 @@ class BaseWorkflow(ABC):
         self.agent_manager.compute_resource_schedule(phase_classes)
         logger.debug("Computed resource schedule for all phases based on agents.")
 
-    def setup_phase(self, phase_idx: int, initial_response: Optional[BaseResponse] = None) -> BasePhase:
+    def setup_phase(self, phase_idx: int) -> BasePhase:
         """
         Setup and run a specific phase.
 
         Args:
             phase_idx (int): The index of the phase to set up.
-            initial_response (Optional[BaseResponse]): The initial response for the phase.
 
         Returns:
             BasePhase: The phase instance.
@@ -140,11 +140,6 @@ class BaseWorkflow(ABC):
 
             logger.info(f"Setting up phase {phase_idx}: {phase_instance.__class__.__name__}")
 
-            if initial_response:
-                phase_instance.initial_response = initial_response
-                logger.info(f"Set initial response for phase {phase_idx}")
-            else:
-                logger.info(f"No initial response provided for phase {phase_idx}")
             # Setup the phase
             phase_instance.setup()
 
@@ -159,36 +154,36 @@ class BaseWorkflow(ABC):
         """
         Execute all phases in sequence.
         Yields:
-            Tuple[BaseResponse, bool]: The response from each phase and a success flag.
+            PhaseResponse: The response from each phase.
         """
         try:
             self.status = WorkflowStatus.INCOMPLETE
-            prev_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
+            prev_phase_response = PhaseResponse(agent_responses=[BaseResponse(self.config.initial_prompt)] if self.config.initial_prompt else [])
 
             for phase_idx, phase in enumerate(self.phases):
                 self._current_phase_idx = phase_idx
 
                 # Setup and run the phase
-                phase_instance = self.setup_phase(phase_idx, prev_response)
-                phase_response, phase_success = phase_instance.run_phase()
+                phase_instance = self.setup_phase(phase_idx)
+                phase_response = phase_instance.run_phase(prev_phase_response)
                 
-                logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
+                logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_response.success}")
 
                 # Update workflow state
-                prev_response = phase_response
-                if not phase_success:
+                prev_phase_response = phase_response
+                if not phase_response.success:
                     self.status = WorkflowStatus.COMPLETED_FAILURE
-                    yield phase_response, phase_success
+                    yield phase_response
                     break
 
                 self._workflow_iteration_count += 1
                 if self._workflow_iteration_count >= self.config.max_iterations:
                     self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
-                    yield phase_response, phase_success
+                    yield phase_response
                     break
 
                 # Yield current phase results
-                yield phase_response, phase_success
+                yield phase_response
 
                 # Resources are already handled within the phase
 
