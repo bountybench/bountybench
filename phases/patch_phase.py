@@ -117,7 +117,7 @@ class PatchPhase(BasePhase):
                 bounty_number=self.workflow.bounty_number,
                 server_address=target_host
             )
-            resource_configs["task_server"] = (SetupResource, SetupResourceConfig)
+            resource_configs["task_server"] = (SetupResource, task_server_config)
 
         logger.debug(f"Exiting define_resources for PatchPhase")
         return resource_configs
