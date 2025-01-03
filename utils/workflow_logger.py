@@ -291,18 +291,15 @@ class WorkflowLogger:
     def save(self) -> None:
         self._ensure_initialized()
         
-        # Convert the workflow log to a dictionary for JSON serialization
         metadata_dict = {
             "workflow_name": self.workflow_log.metadata.workflow_name,
             "start_time": self.workflow_log.metadata.start_time,
             "end_time": self.workflow_log.metadata.end_time,
         }
 
-        # Add task information if it exists
         if hasattr(self.workflow_log.metadata, 'task'):
             metadata_dict["task"] = self.workflow_log.metadata.task
 
-        # Add additional metadata
         metadata_dict["additional_metadata"] = self.workflow_log.metadata.additional_metadata
 
         log_dict = {
@@ -315,25 +312,33 @@ class WorkflowLogger:
                     "status": phase.status,
                     "iterations": [
                         {
-                            "number": iteration.iteration_number,
+                            "iteration_number": iteration.iteration_number,
+                            "agent_name": iteration.agent_name,
+                            "status": iteration.status,
+                            "input_response": self._format_response(iteration.input_response),
+                            "output_response": self._format_response(iteration.output_response),
                             "start_time": iteration.start_time,
                             "end_time": iteration.end_time,
-                            "input": iteration.input_response,
-                            "output": iteration.output_response,
-                            "status": iteration.status
+                            "actions": iteration.actions,
+                            "metadata": iteration.metadata
                         } for iteration in phase.iterations
                     ]
                 } for phase in self.workflow_log.phases
             ]
         }
 
-        # Ensure the log directory exists
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Write the log to a JSON file
         with open(self.log_file, 'w') as f:
             json.dump(log_dict, f, indent=4, default=self._json_serializable)
 
+    def _format_response(self, response):
+        if isinstance(response, dict) and '_response' in response:
+            return {"response": response['_response']}
+        elif isinstance(response, Response):
+            return {"response": response.response}
+        else:
+            return response
     ################################################################
     # CONTEXT MANAGERS
     ################################################################

@@ -45,8 +45,8 @@ class PatchPhase(BasePhase):
         )
 
         return [
-            ("PatchAgent", patch_config),
             ("ExecutorAgent", executor_config),
+            ("PatchAgent", patch_config),
         ]
     
 
