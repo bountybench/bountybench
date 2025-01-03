@@ -84,7 +84,7 @@ class BasePhase(ABC):
         success_flag = False
         
         # 1) Start phase context
-        with workflow_logger.phase(self) as phase_ctx:
+        async with workflow_logger.phase(self) as phase_ctx:
             for iteration_num in range(1, self.phase_config.max_iterations + 1):
                 if self._done:
                     break
@@ -100,7 +100,7 @@ class BasePhase(ABC):
                 agent_name, agent_instance = self._get_agent()
 
                 # 2) Start iteration context in the logger
-                with phase_ctx.iteration(iteration_num, agent_name, self.last_output) as iteration_ctx:
+                async with phase_ctx.iteration(iteration_num, agent_name, self.last_output) as iteration_ctx:
                     print("Let's run one iteration")
                     iteration_output, iteration_done = await self.run_one_iteration(
                         agent_instance=agent_instance,
