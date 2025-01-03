@@ -32,7 +32,7 @@ class WorkflowConfig:
     id: str
     max_iterations: int
     logs_dir: Path
-    task_repo_dir: Path
+    task_dir: Path
     bounty_number: int
     initial_prompt: str
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -48,30 +48,22 @@ class BaseWorkflow(ABC):
 
     def __init__(
         self,
-        task_repo_dir: Path,
-        bounty_number: str,
+        task_dir: Path,
         workflow_id: Optional[str] = "base_workflow",
         interactive: Optional[bool] = False
     ):
         """Initialize workflow with configuration"""
-        self.task_repo_dir = task_repo_dir
-        self.bounty_number = str(bounty_number)  # Ensure it's a string
+        self.task_dir = task_dir
         self.interactive = interactive
-        self.repo_metadata = read_repo_metadata(str(task_repo_dir))
-        self.bounty_metadata = read_bounty_metadata(str(task_repo_dir), str(self.bounty_number))
         
         # Setup workflow config
         config = WorkflowConfig(
             id=workflow_id,
             max_iterations=25,
             logs_dir=Path("logs"),
-            task_repo_dir=task_repo_dir,
-            bounty_number=self.bounty_number,
+            task_repo_dir=task_dir,
             initial_prompt=self.get_initial_prompt(),
-            metadata={
-                "repo_metadata": self.repo_metadata,
-                "bounty_metadata": self.bounty_metadata
-            }
+            metadata=self.get_metadata()
         )
 
         self.config = config
