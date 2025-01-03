@@ -1,6 +1,9 @@
 from abc import ABC
+from pathlib import Path
 
 from pyparsing import abstractmethod
+
+from utils.workflow_logger import workflow_logger
 
 
 class BaseWorkflow(ABC):
@@ -12,22 +15,52 @@ class BaseWorkflow(ABC):
 
     @abstractmethod
     def _create_phases(self):
+        """Defines which phases are created for a workflow"""
         pass
 
     @abstractmethod
     def _get_initial_prompt(self):
+        """Defines what prompt/framing of a task --- hmm is this a phase level thing instead? Yes + no, I'm sure phases have +append to workflow prompt?"""
         pass
 
     def _initialize(self):
+        """Handles any task level setup pre-resource/agent/phase creation. Also handles logger initialization"""
         pass
+    
+        self.workflow_id = self.params['workflow_id']
+        
+        # Setup workflow config
+        config = WorkflowConfig(
+            id=self.workflow_id,
+            max_iterations=25,
+            logs_dir=Path("logs"),
+            initial_prompt=self.get_initial_prompt(),
+            metadata={
+            }
+        )
+
+        self.config = config
+
+        self.workflow_logger = workflow_logger
+        self.workflow_logger.initialize(
+            workflow_name=config.id,
+            logs_dir=str(config.logs_dir),
+        )
+
+        # Add workflow metadata
+        for key, value in config.metadata.items():
+            self.workflow_logger.add_metadata(key, value)
 
     def run():
+        """Outward function to call"""
         pass
 
     def _run_phases():
+        """double check value of run and run_phases"""
         pass
 
     def _setup_phase():
+        """Should this be phase level? will just need a check on duplicate calls (in case round robin phase usage)"""
         pass
 
     def _compute_resource_schedule(self):
