@@ -304,6 +304,9 @@ class WorkflowLogger:
 
         log_dict = {
             "metadata": metadata_dict,
+            "agents_used": self.workflow_log.agents_used,
+            "resources_used": self.workflow_log.resources_used,
+            "final_status": self.workflow_log.final_status,
             "phases": [
                 {
                     "name": phase.phase_name,
