@@ -32,9 +32,7 @@ class PatchWorkflow(BountyWorkflow):
 
         patch_phase = PatchPhase(
             phase_config=patch_phase_config,
-            agent_manager=self.agent_manager,
             workflow=self,
-            initial_response=None  # Or pass an appropriate initial response if needed
         )
 
         # Register the PatchPhase
