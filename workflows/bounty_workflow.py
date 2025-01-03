@@ -3,7 +3,7 @@ from workflow.utils import setup_shared_network
 from workflows.base_workflow import BaseWorkflow
 
 class BountyWorkflow(BaseWorkflow):
-    def initialize(self):
+    def _initialize(self):
         self.task_repo_dir = self.params['task_repo_dir']
         self.bounty_number = self.params['bounty_number']
         self.repo_metadata = read_repo_metadata(self.task_repo_dir)

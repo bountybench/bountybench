@@ -6,28 +6,28 @@ from pyparsing import abstractmethod
 class BaseWorkflow(ABC):
     def __init__(self, **kwargs):
         self.params = kwargs
-        self.initialize()
-        self.create_phases()
+        self._initialize()
+        self._create_phases()
         self._compute_resource_schedule()
 
     @abstractmethod
-    def create_phases(self):
+    def _create_phases(self):
         pass
 
     @abstractmethod
-    def get_initial_prompt(self):
+    def _get_initial_prompt(self):
         pass
 
-    def initialize(self):
+    def _initialize(self):
         pass
 
     def run():
         pass
 
-    def run_phases():
+    def _run_phases():
         pass
 
-    def setup_phase():
+    def _setup_phase():
         pass
 
     def _compute_resource_schedule(self):
