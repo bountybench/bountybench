@@ -30,17 +30,16 @@ class BasePhase(ABC):
     def __init__(
         self,
         phase_config: PhaseConfig,
-        agent_manager: 'AgentManager',
         workflow: 'BaseWorkflow',
         initial_response: Optional[BaseResponse] = None
     ):
         self.workflow = workflow
         self.phase_config = phase_config
-        self.agent_manager = agent_manager
+        self.agent_manager = self.workflow.agent_manager
         self.agents: List[Tuple[str, BaseAgent]] = []
         self.initial_response = initial_response
         self._done = False
-        self.resource_manager = agent_manager.resource_manager
+        self.resource_manager = self.agent_manager.resource_manager
         self.phase_summary: Optional[str] = None
         self.iteration_count = 0
         self.current_agent_index = 0
