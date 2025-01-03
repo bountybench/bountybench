@@ -156,8 +156,3 @@ class PatchPhase(BasePhase):
                 return response, True
 
         return response, False
-
-
-    @property
-    def name(self):
-        return "PatchPhase" 
