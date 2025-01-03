@@ -32,7 +32,6 @@ class WorkflowConfig:
     logs_dir: Path
     initial_prompt: str
     metadata: Dict[str, Any] = field(default_factory=dict)
-    phase_configs: List['PhaseConfig'] = field(default_factory=list)  
 
 class BaseWorkflow(ABC):
     def __init__(self, **kwargs):
@@ -185,8 +184,8 @@ class BaseWorkflow(ABC):
     @property
     def current_phase(self) -> Optional[PhaseConfig]:
         """Get current phase configuration"""
-        if 0 <= self._current_phase_idx < len(self.config.phase_configs):
-            return self.config.phase_configs[self._current_phase_idx]
+        if 0 <= self._current_phase_idx < len(self.phases):
+            return self.phases[self._current_phase_idx].phase_config
         return None
 
     def register_phase(self, phase: BasePhase):

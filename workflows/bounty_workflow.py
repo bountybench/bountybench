@@ -18,7 +18,6 @@ class BountyWorkflowConfig:
     bounty_number: int
     initial_prompt: str
     metadata: Dict[str, Any] = field(default_factory=dict)
-    phase_configs: List[PhaseConfig] = field(default_factory=list)  
 
 class BountyWorkflow(BaseWorkflow, ABC):
     def _initialize(self):
@@ -55,6 +54,5 @@ class BountyWorkflow(BaseWorkflow, ABC):
         # Add workflow metadata
         for key, value in config.metadata.items():
             self.workflow_logger.add_metadata(key, value)
-
 
         setup_shared_network()
