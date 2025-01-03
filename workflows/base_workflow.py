@@ -223,9 +223,7 @@ class BaseWorkflow(ABC):
     def setup_init(self) -> None:
         """Setup initial state of the workflow."""
         self.setup_network()
-        self.setup_directories()
         self.setup_git_state()
-        # self.log_metadata()
 
     def setup_network(self) -> None:
         """Setup Docker network if it does not exist."""
@@ -253,10 +251,6 @@ class BaseWorkflow(ABC):
         
         logger.info("Checking out main branch.")
         run_command(["git", "checkout", "main"], codebase_path)
-
-    def setup_directories(self) -> None:
-        """Setup necessary directories for the workflow."""
-        pass
 
     def register_phase(self, phase: BasePhase):
         phase_idx = len(self.phases)
