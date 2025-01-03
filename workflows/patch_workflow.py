@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Optional
 
 from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
-from phases.base_phase import PhaseConfig
 from phases.patch_phase import PatchPhase
 from resources.utils import read_exploit_report
 from workflows.bounty_workflow import BountyWorkflow

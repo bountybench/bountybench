@@ -62,7 +62,7 @@ class BaseWorkflow(ABC):
         pass
 
     def _initialize(self):
-        """Handles any task level setup pre-resource/agent/phase creation. Also handles logger initialization"""
+        """Handles any task level setup pre-resource/agent/phase creation and sets params."""
         self.workflow_id = self.params['workflow_id']
 
     def _setup_logger(self):
