@@ -23,7 +23,6 @@ class WorkflowStatus(Enum):
     COMPLETED_FAILURE = "completed_failure"
     COMPLETED_MAX_ITERATIONS = "completed_max_iterations"
 
-
 @dataclass
 class WorkflowConfig:
     """Configuration for a workflow"""
@@ -31,12 +30,14 @@ class WorkflowConfig:
     max_iterations: int
     logs_dir: Path
     initial_prompt: str
+    task: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 class BaseWorkflow(ABC):
     def __init__(self, **kwargs):
         self.params = kwargs
         self._initialize()
+        self._setup_logger()
         
         self.status = WorkflowStatus.INITIALIZED
         self._current_phase_idx = 0
@@ -64,15 +65,17 @@ class BaseWorkflow(ABC):
     def _initialize(self):
         """Handles any task level setup pre-resource/agent/phase creation. Also handles logger initialization"""
         self.workflow_id = self.params['workflow_id']
-        
+
+    def _setup_logger(self):
         # Setup workflow config
         config = WorkflowConfig(
             id=self.workflow_id,
             max_iterations=25,
             logs_dir=Path("logs"),
+            task=self._get_task(),
             initial_prompt=self._get_initial_prompt(),
-            metadata={
-            }
+         
+            metadata=self._get_metadata()
         )
 
         self.config = config
@@ -81,12 +84,19 @@ class BaseWorkflow(ABC):
         self.workflow_logger.initialize(
             workflow_name=config.id,
             logs_dir=str(config.logs_dir),
+            task=config.task
         )
 
         # Add workflow metadata
         for key, value in config.metadata.items():
             self.workflow_logger.add_metadata(key, value)
 
+    def _get_metadata(self):
+        return {}
+    
+    def _get_task(self):
+        return {}
+    
     def run(self) -> None:
         """
         Execute the entire workflow by running all phases in sequence.

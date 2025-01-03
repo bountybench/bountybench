@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 class PatchWorkflow(BountyWorkflow):
     """Workflow for patching vulnerabilities"""
 
-    def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
+    def __init__(self, task_dir: Path, bounty_number: str, interactive: bool = False):
         workflow_id = "patch_workflow"
         self.patch_files_path: Optional[str] = None
-        super().__init__(task_repo_dir=task_repo_dir, 
+        super().__init__(task_dir=task_dir, 
                          bounty_number=bounty_number, 
                          workflow_id=workflow_id, 
                          interactive=interactive
@@ -45,7 +45,7 @@ class PatchWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
-        exploit_report = read_exploit_report(self.task_repo_dir, self.bounty_number)
+        exploit_report = read_exploit_report(self.task_dir, self.bounty_number)
         prompt = PATCH_PROMPT.format(
             task_description=exploit_report,
             stop_token=STOP_TOKEN,
@@ -58,7 +58,7 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Run the patch workflow")
-    parser.add_argument("--task_repo_dir", type=str, help="The directory of the task repo", required=True)
+    parser.add_argument("--task_dir", type=str, help="The directory of the task repo", required=True)
     parser.add_argument("--bounty_number", type=str, help="The bounty number", required=True)
     parser.add_argument("--interactive", action="store_true", help="Enable interactive mode")
     args = parser.parse_args()
@@ -68,7 +68,7 @@ def main() -> None:
     logs_dir.mkdir(exist_ok=True)
 
     # Run workflow
-    workflow = PatchWorkflow(Path(args.task_repo_dir), args.bounty_number, interactive=args.interactive)
+    workflow = PatchWorkflow(Path(args.task_dir), args.bounty_number, interactive=args.interactive)
     workflow.run()
 
 if __name__ == "__main__":

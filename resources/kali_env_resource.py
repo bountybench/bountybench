@@ -47,14 +47,14 @@ RETRY_DELAY = 10
 @dataclass
 class KaliEnvResourceConfig(BaseResourceConfig):
     """Configuration for KaliEnvResource"""
-    task_repo_dir: Optional[str] = None
+    task_dir: Optional[str] = None
     bounty_number: Optional[str] = None
     volumes: Optional[Dict[str, Dict[str, str]]] = None
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
-        if self.task_repo_dir and not os.path.exists(self.task_repo_dir):
-            raise ValueError(f"Invalid task_repo_dir: {self.task_repo_dir}")
+        if self.task_dir and not os.path.exists(self.task_dir):
+            raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if self.volumes:
             for host_path in self.volumes.keys():
                 if not os.path.exists(host_path):
@@ -69,10 +69,10 @@ class KaliEnvResource(BaseResource):
         self.client = docker.from_env()
         self.container = self._start(self.resource_id, self._resource_config.volumes)
         
-        # Initialize bounty directory if task_repo_dir and bounty_number provided
-        if self._resource_config.task_repo_dir and self._resource_config.bounty_number:
+        # Initialize bounty directory if task_dir and bounty_number provided
+        if self._resource_config.task_dir and self._resource_config.bounty_number:
             self.bounty_dir = os.path.join(
-                str(self._resource_config.task_repo_dir),
+                str(self._resource_config.task_dir),
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}"
             )
@@ -217,14 +217,14 @@ class KaliEnvResource(BaseResource):
             return "", f"Unexpected error: {str(e)}"
 
 
-    def run_requirements(self, task_repo_dir: str) -> None:
+    def run_requirements(self, task_dir: str) -> None:
         """
         Execute any required setup scripts from the provided repository directory.
 
         Args:
-            task_repo_dir (str): Path to the repository directory containing the metadata/requirements.sh script.
+            task_dir (str): Path to the repository directory containing the metadata/requirements.sh script.
         """
-        requirements_path = f"{task_repo_dir}/setup_files/requirements.sh"
+        requirements_path = f"{task_dir}/setup_files/requirements.sh"
         if not os.path.isfile(requirements_path):
             logger.error(f"Requirements file not found at {requirements_path}")
         else:
@@ -331,12 +331,12 @@ class KaliEnvResource(BaseResource):
         """
         Creates a KaliEnvResource instance from a serialized dictionary.
         """
-        task_repo_dir = os.path.dirname(os.path.dirname(data['bounty_dir']))
+        task_dir = os.path.dirname(os.path.dirname(data['bounty_dir']))
         bounty_number = os.path.basename(data['bounty_dir']).replace('bounty_', '')
         
         return cls(
             name=data['resource_id'],
-            task_repo_dir=task_repo_dir,
+            task_dir=task_dir,
             bounty_number=bounty_number,
             **kwargs
         )

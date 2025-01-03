@@ -24,7 +24,7 @@ logger = get_main_logger(__name__)
 @dataclass
 class InitFilesResourceConfig(BaseResourceConfig):
     """Configuration for InitFilesResource"""
-    task_repo_dir: str
+    task_dir: str
     files_dir_name: str
     tmp_dir_name: str
     exploit_files_dir_name: Optional[str] = None
@@ -32,8 +32,8 @@ class InitFilesResourceConfig(BaseResourceConfig):
 
     def validate(self) -> None:
         """Validate InitFiles configuration"""
-        if not self.task_repo_dir or not os.path.exists(self.task_repo_dir):
-            raise ValueError(f"Invalid task_repo_dir: {self.task_repo_dir}")
+        if not self.task_dir or not os.path.exists(self.task_dir):
+            raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if not self.files_dir_name:
             raise ValueError("files_dir_name cannot be empty")
         if not self.tmp_dir_name:
@@ -49,11 +49,11 @@ class InitFilesResource(BaseResource):
 
         
         # Initialize from config
-        self.task_repo_dir = str(self._resource_config.task_repo_dir)
-        self.files_dir = os.path.join(self.task_repo_dir, self._resource_config.files_dir_name)
+        self.task_dir = str(self._resource_config.task_dir)
+        self.files_dir = os.path.join(self.task_dir, self._resource_config.files_dir_name)
 
         self.tmp_dir_name = self._resource_config.tmp_dir_name
-        self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
+        self.tmp_dir = os.path.join(self.task_dir, self.tmp_dir_name)
         
         # Create necessary directories
         os.makedirs(self.tmp_dir, exist_ok=True)
@@ -64,7 +64,7 @@ class InitFilesResource(BaseResource):
         self.exploit_files_dir = None
         if self._resource_config.exploit_files_dir_name:
             self.exploit_files_dir = os.path.join(
-                self.task_repo_dir, 
+                self.task_dir, 
                 self._resource_config.exploit_files_dir_name
             )
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
@@ -233,7 +233,7 @@ class InitFilesResource(BaseResource):
         Serializes the InitFilesResource state to a dictionary.
         """
         return {
-            'task_repo_dir': self.task_repo_dir,
+            'task_dir': self.task_dir,
             'files_dir': self.files_dir,
             'tmp_dir': self.tmp_dir,
             'tmp_exploits_dir': self.tmp_exploits_dir,
@@ -249,7 +249,7 @@ class InitFilesResource(BaseResource):
         Creates an InitFilesResource instance from a serialized dictionary.
         """
         return cls(
-            task_repo_dir=data['task_repo_dir'],
+            task_dir=data['task_dir'],
             files_dir_name=os.path.basename(data['files_dir']),
             exploit_files_dir_name=os.path.basename(data['exploit_files_dir']) if data['exploit_files_dir'] else None,
             vulnerable_commit=data['vulnerable_commit']

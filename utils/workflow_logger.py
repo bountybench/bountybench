@@ -30,7 +30,6 @@ class WorkflowLogger:
             self.log_file: Optional[Path] = None
             WorkflowLogger._initialized = True
 
-        # Keep track of the current phase and iteration
         self.current_phase: Optional[WorkflowPhase] = None
         self.current_iteration: Optional[PhaseIteration] = None
 
@@ -38,34 +37,41 @@ class WorkflowLogger:
         self,
         workflow_name: str,
         logs_dir: str = "logs",
-        task_repo_dir: Optional[str] = None,
-        bounty_number: Optional[str] = None,
+        task: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Initialize the workflow logger with the given parameters"""
         self.workflow_name = workflow_name
         self.logs_dir = Path(logs_dir)
         self.logs_dir.mkdir(exist_ok=True)
         
-        # Initialize workflow log
+        task = task or {}
+
+        metadata_dict = {
+            "workflow_name": workflow_name,
+            "start_time": datetime.now().isoformat(),
+        }
+
+        if task:
+            metadata_dict["task"] = task
+
         self.workflow_log = WorkflowLog(
-            metadata=WorkflowMetadata(
-                workflow_name=workflow_name,
-                start_time=datetime.now().isoformat(),
-                task_repo_dir=task_repo_dir,
-                bounty_number=bounty_number
-            ),
+            metadata=WorkflowMetadata(**metadata_dict),
             phases=[],
         )
-        
-        # Generate log filename
+
         components = [workflow_name]
-        if task_repo_dir:
-            components.append(Path(task_repo_dir).name)
-        if bounty_number:
-            components.append(str(bounty_number))
-            
+        for key, value in sorted(task.items()):
+            if value:
+                components.append(str(value.name if isinstance(value, Path) else value))
+
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
+    def add_metadata(self, key: str, value: Any) -> None:
+        if self.workflow_log is None:
+            raise RuntimeError("WorkflowLogger not initialized")
+        if not hasattr(self.workflow_log.metadata, "additional_metadata"):
+            self.workflow_log.metadata.additional_metadata = {}
+        self.workflow_log.metadata.additional_metadata[key] = value
+        
     def _ensure_initialized(self):
         """Ensure the logger is initialized before use"""
         if not self.workflow_log:
@@ -227,10 +233,10 @@ class WorkflowLogger:
         self.workflow_log.error_log.append(error_entry)
         self.save()
     
-    def add_metadata(self, key: str, value: Any) -> None:
-        """Add additional metadata to the workflow"""
-        self._ensure_initialized()
-        self.workflow_log.metadata.additional_metadata[key] = value
+    # def add_metadata(self, key: str, value: Any) -> None:
+    #     """Add additional metadata to the workflow"""
+    #     self._ensure_initialized()
+    #     self.workflow_log.metadata.additional_metadata[key] = value
     
     def add_agent(self, agent_name: str, agent) -> None:
         """
@@ -266,61 +272,56 @@ class WorkflowLogger:
         self.workflow_log.final_status.append(final_status)
         self.save()
     
+    def _json_serializable(self, obj):
+        if isinstance(obj, Path):
+            return str(obj)
+        raise TypeError(f'Object of type {obj.__class__.__name__} is not JSON serializable')
+    
     def save(self) -> None:
-        """Save the workflow log to a JSON file"""
         self._ensure_initialized()
+        
         # Convert the workflow log to a dictionary for JSON serialization
+        metadata_dict = {
+            "workflow_name": self.workflow_log.metadata.workflow_name,
+            "start_time": self.workflow_log.metadata.start_time,
+            "end_time": self.workflow_log.metadata.end_time,
+        }
+
+        # Add task information if it exists
+        if hasattr(self.workflow_log.metadata, 'task'):
+            metadata_dict["task"] = self.workflow_log.metadata.task
+
+        # Add additional metadata
+        metadata_dict["additional_metadata"] = self.workflow_log.metadata.additional_metadata
+
         log_dict = {
-            "metadata": {
-                "workflow_name": self.workflow_log.metadata.workflow_name,
-                "start_time": self.workflow_log.metadata.start_time,
-                "end_time": self.workflow_log.metadata.end_time,
-                "task_repo_dir": self.workflow_log.metadata.task_repo_dir,
-                "bounty_number": self.workflow_log.metadata.bounty_number,
-                "additional_metadata": self.workflow_log.metadata.additional_metadata
-            },
-            "agents_used": self.workflow_log.agents_used,
-            "resources_used": self.workflow_log.resources_used,
-            "final_status": self.workflow_log.final_status,
+            "metadata": metadata_dict,
             "phases": [
                 {
-                    "phase_idx": ph.phase_idx,
-                    "phase_name": ph.phase_name,
-                    "start_time": ph.start_time,
-                    "end_time": ph.end_time,
-                    "status": ph.status,
-                    "metadata": ph.metadata,
+                    "name": phase.name,
+                    "start_time": phase.start_time,
+                    "end_time": phase.end_time,
+                    "status": phase.status,
                     "iterations": [
                         {
-                            "iteration_number": it.iteration_number,
-                            "agent_name": it.agent_name,
-                            "status": it.status,
-                            "input_response": it.input_response.to_dict() if it.input_response else None,
-                            "output_response": it.output_response.to_dict() if it.output_response else None,
-                            "start_time": it.start_time,
-                            "end_time": it.end_time,
-                            "actions": [
-                                {
-                                    "action_type": action.action_type,
-                                    "input_data": action.input_data,
-                                    "output_data": action.output_data,
-                                    "timestamp": action.timestamp,
-                                    "metadata": action.metadata
-                                }
-                                for action in it.actions
-                            ],
-                            "metadata": it.metadata
-                        }
-                        for it in ph.iterations
+                            "number": iteration.number,
+                            "start_time": iteration.start_time,
+                            "end_time": iteration.end_time,
+                            "input": iteration.input,
+                            "output": iteration.output,
+                            "status": iteration.status
+                        } for iteration in phase.iterations
                     ]
-                }
-                for ph in self.workflow_log.phases
-            ],
-            "error_log": self.workflow_log.error_log
+                } for phase in self.workflow_log.phases
+            ]
         }
-        
+
+        # Ensure the log directory exists
+        self.log_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write the log to a JSON file
         with open(self.log_file, 'w') as f:
-            json.dump(log_dict, f, indent=4)
+            json.dump(log_dict, f, indent=4, default=self._json_serializable)
 
     ################################################################
     # CONTEXT MANAGERS
