@@ -34,6 +34,7 @@ class WorkflowConfig:
 
 class BaseWorkflow(ABC):
     def __init__(self, **kwargs):
+        self.workflow_id = self.name
         self.params = kwargs
         self._initialize()
         self._setup_logger()
@@ -62,8 +63,8 @@ class BaseWorkflow(ABC):
         pass
 
     def _initialize(self):
-        """Handles any task level setup pre-resource/agent/phase creation and sets params."""
-        self.workflow_id = self.params['workflow_id']
+        """Handles any task level setup pre-resource/agent/phase creation and sets additional params."""
+        pass
 
     def _setup_logger(self):
         # Setup workflow config
@@ -202,3 +203,7 @@ class BaseWorkflow(ABC):
         self.phases.append(phase)
         logger.debug(f"Registered phase {phase_idx}: {phase.__class__.__name__}")
         logger.info(f"{phase.name} registered with config: {phase.phase_config}")
+
+    @property
+    def name(self):
+        return self.__class__.__name__

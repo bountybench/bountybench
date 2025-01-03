@@ -11,16 +11,7 @@ logger = logging.getLogger(__name__)
 
 class PatchWorkflow(BountyWorkflow):
     """Workflow for patching vulnerabilities"""
-
-    def __init__(self, task_dir: Path, bounty_number: str, interactive: bool = False):
-        workflow_id = "patch_workflow"
-        self.patch_files_path: Optional[str] = None
-        super().__init__(task_dir=task_dir, 
-                         bounty_number=bounty_number, 
-                         workflow_id=workflow_id, 
-                         interactive=interactive
-        )
-
+    
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
         patch_phase = PatchPhase(workflow=self, max_iterations=1)
@@ -56,7 +47,7 @@ def main() -> None:
     logs_dir.mkdir(exist_ok=True)
 
     # Run workflow
-    workflow = PatchWorkflow(Path(args.task_dir), args.bounty_number, interactive=args.interactive)
+    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive)
     workflow.run()
 
 if __name__ == "__main__":
