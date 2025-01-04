@@ -45,8 +45,8 @@ class BaseWorkflow(ABC):
         self._initialize()
         self._set_workflow_status(WorkflowStatus.INITIALIZED)
         self._setup_logger()
-        self._setup_agent_manager()
         self._setup_resource_manager()
+        self._setup_agent_manager()
         self._create_phases()
         self._compute_resource_schedule()
 
@@ -209,7 +209,8 @@ class BaseWorkflow(ABC):
         """
         Compute the agent (which will compute resource) schedule across all phases.
         """
-        self.resource_manager.compute_resource_schedule(self.phases)
+        phases = self._phase_graph.keys()
+        self.resource_manager.compute_schedule(phases)
         logger.debug("Computed resource schedule for all phases based on agents.")
 
     def register_phase(self, phase: BasePhase):

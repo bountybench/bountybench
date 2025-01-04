@@ -6,9 +6,11 @@ from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 class AgentManager:
-    def __init__(self):
+    def __init__(self, resource_manager):
         self._agents: Dict[str, BaseAgent] = {}
         self._agent_configs: Dict[str, Tuple[Type[BaseAgent], AgentConfig]] = {}
+        self.resource_manager = resource_manager
+
 
     def register_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig):
         """Register an agent with its class and configuration."""
