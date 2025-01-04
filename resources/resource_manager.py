@@ -1,14 +1,16 @@
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
 from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
+
 
 logger = get_main_logger(__name__)
 
 class ResourceManager:
     def __init__(self):
-        self._resources: Dict[str, BaseResource] = {}
+        self._resources = resource_dict
         self._resource_registration: Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]] = {}
         self._phase_resources: Dict[int, Set[str]] = {}
         self._resource_lifecycle: Dict[str, Tuple[int, int]] = {}
@@ -59,23 +61,18 @@ class ResourceManager:
         logger.debug(f"Registered resources: {self._resource_registration.keys()}")
         logger.debug(f"Phase resources: {resource_ids}")
         
-        # Convert resource_ids to set and store in phase_resources
         resource_id_set = set(resource_ids)
         self._phase_resources[phase_index] = resource_id_set
         
-        # Update lifecycle information for each resource
         for resource_id in resource_id_set:
             if resource_id not in self._resource_lifecycle:
-                # If not in lifecycle dict, this is the first phase using it
                 self._resource_lifecycle[resource_id] = (phase_index, phase_index)
             else:
-                # Update term_phase if this phase is later
                 init_phase, term_phase = self._resource_lifecycle[resource_id]
                 self._resource_lifecycle[resource_id] = (init_phase, max(phase_index, term_phase))
         
-        # Initialize resources that aren't already initialized
         for resource_id in resource_id_set:
-            if resource_id in self._resources:
+            if resource_id in self._resources.id_to_resource:
                 logger.debug(f"Resource '{resource_id}' already initialized. Skipping.")
                 continue
 
@@ -84,7 +81,6 @@ class ResourceManager:
                 logger.debug(f"Resource '{resource_id}' not registered. Skipping.")
                 continue
             
-            # Create and initialize the resource
             resource_class, resource_config = self._resource_registration[resource_id]
             try:
                 resource = resource_class(resource_id, resource_config)
@@ -113,18 +109,17 @@ class ResourceManager:
             return
             
         for resource_id in self._phase_resources[phase_index]:
-            # Skip if resource not in lifecycle dict (shouldn't happen with fixes)
             if resource_id not in self._resource_lifecycle:
                 print(f"Warning: No lifecycle information for resource '{resource_id}'")
                 continue
                 
             _, term_phase = self._resource_lifecycle[resource_id]
-            if phase_index == term_phase and resource_id in self._resources:
+            if phase_index == term_phase and resource_id in self._resources.id_to_resource:
                 resource = self._resources[resource_id]
                 try:
                     logger.debug(f"Stopping resource '{resource_id}'")
                     resource.stop()
-                    del self._resources[resource_id]
+                    self._resources.delete_items(resource_id)
                     logger.info(f"Deallocated resource '{resource_id}'")
                 except Exception as e:
                     logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
@@ -134,7 +129,7 @@ class ResourceManager:
 
     def get_resource(self, resource_id: str) -> BaseResource:
         """Retrieve an initialized resource by its ID."""
-        if resource_id not in self._resources:
+        if resource_id not in self._resources.id_to_resource:
             raise KeyError(f"Resource '{resource_id}' not initialized")
         return self._resources[resource_id]
     
@@ -153,6 +148,7 @@ class ResourceManager:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for resource in self._resources.values():
+        for resource in self._resources.id_to_resource.values():
             resource.stop()
-        self._resources.clear()
+        self._resources.id_to_resource.clear()
+        self._resources.resource_type_to_resources.clear()

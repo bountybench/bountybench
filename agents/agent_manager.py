@@ -1,41 +1,23 @@
-from typing import Dict, List, Tuple, Type
+from typing import Dict, List, Tuple, Type, Union
 from agents.base_agent import BaseAgent, AgentConfig
-from resources.resource_manager import ResourceManager
+from resources.resource_manager import resource_dict
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
 class AgentManager:
-    def __init__(self, resource_manager):
+    def __init__(self):
         self._agents: Dict[str, BaseAgent] = {}
         self._agent_configs: Dict[str, Tuple[Type[BaseAgent], AgentConfig]] = {}
-        self.resource_manager = resource_manager
-
+        self.resource_dict = resource_dict
 
     def register_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig):
         """Register an agent with its class and configuration."""
         self._agent_configs[agent_id] = (agent_class, agent_config)
 
-    '''
-    def get_or_create_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig, resource_manager: ResourceManager) -> BaseAgent:
-        """Get an existing agent or create a new one if it doesn't exist."""
-        if agent_id in self._agents:
-            existing_agent = self._agents[agent_id]
-            if self.is_agent_equivalent(agent_id, agent_class, agent_config):
-                return existing_agent
-            else:
-                raise ValueError(f"Agent '{agent_id}' already exists with different configuration")
-        
-        new_agent = agent_class(agent_config, resource_manager)
-        self._agents[agent_id] = new_agent
-        return new_agent
-    '''
-
-
     def initialize_phase_agents(self, agent_configs: List[Tuple[str, AgentConfig]], agent_classes: List[Type[BaseAgent]]) -> List[Tuple[str, BaseAgent]]:
         """
         Initialize all agents for a phase in one batch operation.
-        Similar to ResourceManager's initialize_phase_resources.
         """
         logger.debug(f"Registered agents: {self._agent_configs.keys()}")
         
@@ -67,7 +49,7 @@ class AgentManager:
                 agent_class, agent_config = self._agent_configs[agent_id]
                 
                 try:
-                    agent = agent_class(agent_config)
+                    agent = self.create_agent(agent_id, agent_class, agent_config)
                     self._agents[agent_id] = agent
                     logger.debug(f"Successfully created agent {agent_id}")
                 except Exception as e:
@@ -78,6 +60,28 @@ class AgentManager:
             
         return initialized_agents
     
+    def create_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> BaseAgent:
+        """Create a new agent and bind resources to it."""
+        agent = agent_class(agent_config)
+        self.bind_resources_to_agent(agent)
+        return agent
+
+    def bind_resources_to_agent(self, agent: BaseAgent):
+        """Bind required and optional resources to the agent."""
+        for resource_entry in agent.REQUIRED_RESOURCES + agent.OPTIONAL_RESOURCES:
+            resource_type, attr_name = self._parse_resource_entry(resource_entry)
+            resource = self.resource_dict.get_item_of_resource_type(resource_type)
+            if resource:
+                setattr(agent, attr_name, resource)
+            elif resource_entry in agent.REQUIRED_RESOURCES:
+                raise ValueError(f"Required resource {resource_type.__name__} not found for agent {agent.__class__.__name__}")
+
+    @staticmethod
+    def _parse_resource_entry(entry: Union[Type[BaseAgent], Tuple[Type[BaseAgent], str]]) -> Tuple[Type[BaseAgent], str]:
+        if isinstance(entry, tuple):
+            return entry
+        return entry, entry.__name__.lower()
+
     def is_agent_equivalent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> bool:
         """Check if an agent with the given ID is equivalent to the provided class and config."""
         if agent_id not in self._agent_configs:

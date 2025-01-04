@@ -39,8 +39,8 @@ class PatchAgent(BaseAgent):
     ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), (InitFilesResource, "init_files"),  (DockerResource, "docker")]
     CONFIG_CLASS = PatchAgentConfig  
 
-    def __init__(self, agent_config: PatchAgentConfig, resource_manager: ResourceManager):
-        super().__init__(agent_config, resource_manager)
+    def __init__(self, agent_config: PatchAgentConfig):#, resource_manager: ResourceManager):
+        super().__init__(agent_config)#, resource_manager)
         self.bounty_dir = Path(agent_config.bounty_dir)
         self.exploit_files_dir = agent_config.exploit_files_dir
         self.log_history = []
@@ -50,6 +50,8 @@ class PatchAgent(BaseAgent):
 
 
         self.use_verify_script = agent_config.use_verify_script
+        self.patch_dir = Path(self.init_files.task_dir) / self.patch_dir_name
+        self.patch_dir.mkdir(parents=True, exist_ok=True)
 
 
         # self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
@@ -59,10 +61,10 @@ class PatchAgent(BaseAgent):
         atexit.register(self.cleanup)
 
     
-    def register_resources(self, resource_manager: ResourceManager) -> None:
-        super().register_resources(resource_manager)
-        self.patch_dir = Path(self.init_files.task_dir) / self.patch_dir_name
-        self.patch_dir.mkdir(parents=True, exist_ok=True)
+    #def register_resources(self, resource_manager: ResourceManager) -> None:
+        #super().register_resources(resource_manager)
+        #self.patch_dir = Path(self.init_files.task_dir) / self.patch_dir_name
+        #self.patch_dir.mkdir(parents=True, exist_ok=True)
     
 
     def run(self, responses: List[Response]) -> Response:

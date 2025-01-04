@@ -131,6 +131,8 @@ class BasePhase(ABC):
         '''
 
         self.agent_manager.initialize_phase_agents(agent_configs, self.AGENT_CLASSES)
+        self.agents = list(self.agent_manager._agents.items())
+
         
         logger.debug(f"Completed setup for {self.name}")
 

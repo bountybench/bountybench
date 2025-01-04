@@ -52,14 +52,14 @@ class ExecutorAgent(BaseAgent):
         (SetupResource, "task_server")
     ]
     CONFIG_CLASS = ExecutorAgentConfig
-    def __init__(self, agent_config: ExecutorAgentConfig, resource_manager: ResourceManager):
+    def __init__(self, agent_config: ExecutorAgentConfig):#, resource_manager: ResourceManager):
         """
         Args:
             agent_config: ExecutorAgentConfig containing model, initial prompt, and target host.
             resource_manager: ResourceManager instance responsible for managing resources.
         """
         # Pass the agent_config and resource_manager to BaseAgent
-        super().__init__(agent_config, resource_manager)
+        super().__init__(agent_config)#, resource_manager)
 
         # Initialize specific attributes
         if hasattr(agent_config, "initial_prompt"):
@@ -68,13 +68,18 @@ class ExecutorAgent(BaseAgent):
 
         # If a target_host is provided, run health_check on self.kali_env
         self.target_host = agent_config.target_host
+
+        if self.target_host: 
+            self.kali_env.health_check(self.target_host)
         
 
     
-    def register_resources(self, resource_manager: ResourceManager) -> None:
-        super().register_resources(resource_manager)
-        if self.target_host: 
-            self.kali_env.health_check(self.target_host)
+    #def register_resources(self, resource_manager: ResourceManager) -> None:
+        #super().register_resources(resource_manager)
+        #if self.target_host: 
+            #self.kali_env.health_check(self.target_host)
+        
+
     
 
 
