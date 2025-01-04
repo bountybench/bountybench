@@ -16,7 +16,6 @@ class PhaseResponse(PhaseResponseInterface):
     def complete(self) -> bool:
         return self._complete
     
-
     @property
     def agent_responses(self) -> List[Response]:
         return self._agent_responses
