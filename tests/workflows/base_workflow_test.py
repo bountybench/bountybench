@@ -1,134 +1,76 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import Mock, patch
 from pathlib import Path
-from typing import List, Type
+from typing import List, Tuple
 
+from phases.base_phase import BasePhase
 from agents.base_agent import BaseAgent, AgentConfig
-from phases.base_phase import BasePhase, PhaseConfig
-from resources.base_resource import BaseResource, BaseResourceConfig
-from responses.base_response import BaseResponse
-from workflows.base_workflow import BaseWorkflow, WorkflowConfig, WorkflowStatus
+from phase_responses.phase_response import PhaseResponse
+from workflows.base_workflow import BaseWorkflow
 
 class MockAgent(BaseAgent):
-    def __init__(self, agent_config: AgentConfig, resource_manager):
-        super().__init__(agent_config, resource_manager)
+    CONFIG_CLASS = AgentConfig
 
-    def run(self, response):
+class TestPhase(BasePhase):
+    def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
+        return []
+        
+    def define_resources(self):
+        return {}
+        
+    def run_one_iteration(self, phase_response, agent_instance, previous_output):
+        return Mock()
+
+    def _initialize_agents(self):
+        """Override to avoid agent initialization for testing"""
         pass
+
+class TestWorkflow(BaseWorkflow):
+    def _create_phases(self):
+        phase1 = TestPhase(workflow=self)
+        phase2 = TestPhase(workflow=self)
+        phase3 = TestPhase(workflow=self)
+        
+        phase1 >> phase2 >> phase3
+        self._register_root_phase(phase1)
     
-class MockPhase(BasePhase):
-    @classmethod
-    def get_required_resources(cls) -> List[str]:
-        return ["mock_resource"]
+    def _get_initial_prompt(self):
+        return "test prompt"
 
-    def run_phase(self):
-        return BaseResponse("Mock response"), True
 
-    def run_one_iteration(self, agent_instance, previous_output, iteration_num):
-        pass
-    
-class MockResource(BaseResource):
-    def __init__(self, resource_id, resource_config):
-        super().__init__(resource_id, resource_config)
-
-    def stop(self):
-        pass
-
-class MockWorkflow(BaseWorkflow):
-    def get_initial_prompt(self) -> str:
-        return "Mock initial prompt"
-
-    def define_agent_configs(self) -> None:
-        agent_config = AgentConfig(id="mock_agent")
-        self.register_agent(MockAgent, agent_config)
-
-    def define_phase_configs(self) -> None:
-        phase_config = PhaseConfig(
-            phase_idx=0,
-            phase_name=MockPhase,
-            max_iterations=1,
-            agents=[("mock_agent", self.agents["mock_agent"])]
-        )
-        self.register_phase(MockPhase, phase_config)
-
-    def define_resource_configs(self) -> None:
-        super().define_resource_configs()
-        mock_resource_config = BaseResourceConfig()
-        self.register_resource("mock_resource", MockResource, mock_resource_config)
-
-    def setup_directories(self) -> None:
-        pass
-
-@patch("workflows.base_workflow.read_repo_metadata")
-@patch("workflows.base_workflow.read_bounty_metadata")
-@patch("workflows.base_workflow.docker_network_exists")
-@patch("workflows.base_workflow.run_command")
-@patch("resources.init_files_resource.InitFilesResourceConfig.validate")
-class TestBaseWorkflow(unittest.TestCase):
+class TestWorkflowGraph(unittest.TestCase):
     def setUp(self):
-        self.task_repo_dir = Path("/mock/path")
-        self.bounty_number = "1"
+        self.workflow = TestWorkflow(
+        )
 
-    def test_workflow_initialization(self, mock_validate, mock_run_command, mock_docker_network_exists, 
-                                     mock_read_bounty_metadata, mock_read_repo_metadata):
-        mock_read_repo_metadata.return_value = {}
-        mock_read_bounty_metadata.return_value = {}
-        mock_docker_network_exists.return_value = True
-        mock_validate.return_value = None  # Bypass validation
-
-        workflow = MockWorkflow(self.task_repo_dir, self.bounty_number)
+    def test_phase_graph_creation(self):
+        phases = list(self.workflow._phase_graph.keys())
+        self.assertEqual(len(phases), 3)
+        self.assertEqual(self.workflow._root_phase, phases[0])
         
-        self.assertEqual(workflow.status, WorkflowStatus.INITIALIZED)
-        self.assertIsInstance(workflow.config, WorkflowConfig)
-        self.assertEqual(len(workflow.config.phase_configs), 1)
-        self.assertIn("mock_agent", workflow.agents)
-        self.assertIn("init_files", workflow.resource_manager._resource_registration)
+        # Test connections
+        self.assertEqual(len(self.workflow._phase_graph[phases[0]]), 1) 
+        self.assertEqual(self.workflow._phase_graph[phases[0]][0], phases[1])
+        self.assertEqual(self.workflow._phase_graph[phases[1]][0], phases[2])
 
-    def test_run_phases(self, mock_validate, mock_run_command, mock_docker_network_exists, 
-                        mock_read_bounty_metadata, mock_read_repo_metadata):
-        mock_read_repo_metadata.return_value = {}
-        mock_read_bounty_metadata.return_value = {}
-        mock_docker_network_exists.return_value = True
-        mock_validate.return_value = None  # Bypass validation
 
-        workflow = MockWorkflow(self.task_repo_dir, self.bounty_number)
+    def test_missing_root_phase(self):
+        workflow = TestWorkflow(
+            task_dir=Path("/tmp"),
+            bounty_number="123"
+        )
+        workflow._root_phase = None
         
-        for phase_response, phase_success in workflow.run_phases():
-            self.assertIsInstance(phase_response, BaseResponse)
-            self.assertTrue(phase_success)
+        with self.assertRaises(ValueError):
+            list(workflow._run_phases())
 
-        self.assertEqual(workflow.status, WorkflowStatus.COMPLETED_SUCCESS)
+    def test_phase_failure(self):
+        with patch('phases.base_phase.BasePhase.run_phase') as mock_run:
+            mock_response = PhaseResponse(agent_responses=[])
+            mock_run.return_value = mock_response
+            
+            self.workflow.run()
+            self.assertEqual(self.workflow.status.value, "completed_failure")
 
-    @patch("workflows.base_workflow.BaseWorkflow.setup_phase_resources")
-    @patch("workflows.base_workflow.BaseWorkflow.setup_phase_agents")
-    def test_setup_phase(self, mock_setup_agents, mock_setup_resources, 
-                         mock_validate, mock_run_command, mock_docker_network_exists, 
-                         mock_read_bounty_metadata, mock_read_repo_metadata):
-        mock_read_repo_metadata.return_value = {}
-        mock_read_bounty_metadata.return_value = {}
-        mock_docker_network_exists.return_value = True
-        mock_validate.return_value = None  # Bypass validation
-
-        workflow = MockWorkflow(self.task_repo_dir, self.bounty_number)
-        phase = workflow.setup_phase(0)
-
-        mock_setup_resources.assert_called_once_with(0)
-        mock_setup_agents.assert_called_once_with(0)
-        self.assertIsInstance(phase, MockPhase)
-
-    def test_register_resource(self, mock_validate, mock_run_command, mock_docker_network_exists, 
-                               mock_read_bounty_metadata, mock_read_repo_metadata):
-        mock_read_repo_metadata.return_value = {}
-        mock_read_bounty_metadata.return_value = {}
-        mock_docker_network_exists.return_value = True
-        mock_validate.return_value = None  # Bypass validation
-
-        workflow = MockWorkflow(self.task_repo_dir, self.bounty_number)
-        
-        resource_config = BaseResourceConfig()
-        workflow.register_resource("test_resource", MockResource, resource_config)
-
-        self.assertIn("test_resource", workflow.resource_manager._resource_registration)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

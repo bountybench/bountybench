@@ -110,6 +110,15 @@ class BasePhase(ABC):
             phase_resources.update(agent_class.REQUIRED_RESOURCES)
         return phase_resources
 
+    def __rshift__(self, other):
+        if isinstance(other, BasePhase):
+            if self not in self.workflow._phase_graph:
+                self.workflow.register_phase(self)
+            if other not in self.workflow._phase_graph:
+                self.workflow.register_phase(other)
+            self.workflow._phase_graph[self].append(other)
+        return other
+
     def _initialize_agents(self):
         """Initialize and register required agents using AgentManager."""
         logger.debug(f"Initializing agents for {self.name}")
@@ -208,6 +217,7 @@ class BasePhase(ABC):
             logger.error(f"Failed to deallocate resources for phase {self.phase_config.phase_idx}: {e}")
             raise
 
+    
     def run_phase(self, prev_phase_response: PhaseResponse) -> PhaseResponse:
         """
         Execute the phase by running its iterations.
