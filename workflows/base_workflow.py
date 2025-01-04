@@ -7,6 +7,7 @@ import logging
 
 from phase_responses.phase_response import PhaseResponse
 from phases.base_phase import BasePhase
+from resources.resource_manager import ResourceManager
 from responses.base_response import BaseResponse
 from utils.workflow_logger import workflow_logger
 from agents.agent_manager import AgentManager
@@ -45,6 +46,7 @@ class BaseWorkflow(ABC):
         self._set_workflow_status(WorkflowStatus.INITIALIZED)
         self._setup_logger()
         self._setup_agent_manager()
+        self._setup_resource_manager()
         self._create_phases()
         self._compute_resource_schedule()
 
@@ -118,6 +120,9 @@ class BaseWorkflow(ABC):
 
     def _setup_agent_manager(self):
         self.agent_manager = AgentManager()
+
+    def _setup_resource_manager(self):
+        self.resource_manager = ResourceManager()
 
     def _get_task(self) -> Dict[str, Any]:
         return {}
@@ -201,9 +206,11 @@ class BaseWorkflow(ABC):
             raise
 
     def _compute_resource_schedule(self):
-        phase_classes = [type(phase) for phase in self._phase_graph.keys()]
-        self.agent_manager.compute_resource_schedule(phase_classes)
-        logger.debug("Computed resource schedule for all phases")
+        """
+        Compute the agent (which will compute resource) schedule across all phases.
+        """
+        self.resource_manager.compute_resource_schedule(self.phases)
+        logger.debug("Computed resource schedule for all phases based on agents.")
 
     def register_phase(self, phase: BasePhase):
         if phase not in self._phase_graph:

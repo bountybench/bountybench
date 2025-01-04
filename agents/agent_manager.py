@@ -1,83 +1,41 @@
-from typing import Dict, List, Type, Optional
+from typing import Dict, Tuple, Type
 from agents.base_agent import BaseAgent, AgentConfig
-from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
 class AgentManager:
-    """
-    Manages the lifecycle of agents, ensuring that shared agents are not re-instantiated.
-    """
-
     def __init__(self):
-        self._agents: Dict[str, BaseAgent] = {}  # agent_id -> agent_instance
-        self._agent_classes: Dict[str, Type[BaseAgent]] = {}  # agent_id -> agent_class
-        self.resource_manager = ResourceManager()
+        self._agents: Dict[str, BaseAgent] = {}
+        self._agent_configs: Dict[str, Tuple[Type[BaseAgent], AgentConfig]] = {}
 
-    def compute_resource_schedule(self, phases: List[Type[BasePhase]]) -> None:
-        self.resource_manager.compute_schedule(phases)
+    def register_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig):
+        """Register an agent with its class and configuration."""
+        self._agent_configs[agent_id] = (agent_class, agent_config)
 
-    def get_or_create_agent(self, agent_id: str, agent_class: Type[BaseAgent], config: AgentConfig) -> BaseAgent:
-        """
-        Retrieve an existing agent by ID or create a new one if it doesn't exist.
-
-        Args:
-            agent_id (str): Unique identifier for the agent.
-            agent_class (Type[BaseAgent]): The class of the agent to instantiate.
-            config (AgentConfig): Configuration for the agent.
-
-        Returns:
-            BaseAgent: The existing or newly created agent instance.
-        """
+    def get_or_create_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig, resource_manager: ResourceManager) -> BaseAgent:
+        """Get an existing agent or create a new one if it doesn't exist."""
         if agent_id in self._agents:
-            logger.debug(f"Agent '{agent_id}' already exists. Reusing the instance.")
-            return self._agents[agent_id]
+            existing_agent = self._agents[agent_id]
+            if self.is_agent_equivalent(agent_id, agent_class, agent_config):
+                return existing_agent
+            else:
+                raise ValueError(f"Agent '{agent_id}' already exists with different configuration")
         
-        # Create a new agent instance
-        agent_instance = agent_class(agent_config=config, resource_manager=self.resource_manager)
-        self._agents[agent_id] = agent_instance
-        self._agent_classes[agent_id] = agent_class
-        logger.info(f"Created and registered new agent '{agent_id}' of type '{agent_class.__name__}'.")
-        return agent_instance
+        new_agent = agent_class(agent_config, resource_manager)
+        self._agents[agent_id] = new_agent
+        return new_agent
 
-    def get_agent(self, agent_id: str) -> Optional[BaseAgent]:
-        """
-        Retrieve an agent by its ID.
+    def is_agent_equivalent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> bool:
+        """Check if an agent with the given ID is equivalent to the provided class and config."""
+        if agent_id not in self._agent_configs:
+            return False
+        registered_class, registered_config = self._agent_configs[agent_id]
+        return registered_class == agent_class and registered_config == agent_config
 
-        Args:
-            agent_id (str): Unique identifier for the agent.
-
-        Returns:
-            Optional[BaseAgent]: The agent instance if it exists, else None.
-        """
-        return self._agents.get(agent_id, None)
-
-    def register_agent(self, agent_id: str, agent_instance: BaseAgent) -> None:
-        """
-        Register an existing agent instance.
-
-        Args:
-            agent_id (str): Unique identifier for the agent.
-            agent_instance (BaseAgent): The agent instance to register.
-        """
-        if agent_id in self._agents:
-            logger.warning(f"Agent '{agent_id}' is already registered. Overwriting the existing instance.")
-        self._agents[agent_id] = agent_instance
-        self._agent_classes[agent_id] = type(agent_instance)
-        logger.info(f"Registered agent '{agent_id}' of type '{type(agent_instance).__name__}'.")
-
-    def remove_agent(self, agent_id: str) -> None:
-        """
-        Remove an agent from the manager.
-
-        Args:
-            agent_id (str): Unique identifier for the agent.
-        """
-        if agent_id in self._agents:
-            del self._agents[agent_id]
-            del self._agent_classes[agent_id]
-            logger.info(f"Removed agent '{agent_id}' from the manager.")
-        else:
-            logger.warning(f"Attempted to remove non-existent agent '{agent_id}'.")
+    def get_agent(self, agent_id: str) -> BaseAgent:
+        """Retrieve an initialized agent by its ID."""
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent '{agent_id}' not initialized")
+        return self._agents[agent_id]

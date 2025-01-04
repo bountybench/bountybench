@@ -7,45 +7,33 @@ from utils.workflow_logger import workflow_logger
 logger = get_main_logger(__name__)
 
 class ResourceManager:
-    """
-    ResourceManager is responsible for managing the lifecycle of resources across multiple phases of a workflow.
-    Handles:
-    1. Registration and Scheduling: Resources are registered and their usage across phases is scheduled.
-    2. Initialization and Deallocation: Resources are initialized when needed and deallocated when no longer required.
-    """
-
     def __init__(self):
-        # resource_id -> resource: Stores initialized resource objects.
         self._resources: Dict[str, BaseResource] = {}
-        
-        #The below data structures use resource_id because resource object may not be initialized yet
-        # Maps resource_id -> (ResourceClass, ResourceConfig)
         self._resource_registration: Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]] = {}
-        # phase_int -> set(resource_ids). Tracks which resources used by each phase.
         self._phase_resources: Dict[int, Set[str]] = {}
-        # resource_id -> (init_phase, term_phase)
-        self._resource_lifecycle: Dict[str, Tuple[int, int]] = {}  
+        self._resource_lifecycle: Dict[str, Tuple[int, int]] = {}
 
     @property
     def resources(self):
         return self._resources
-    
+
     def register_resource(self, resource_id: str, resource_class: Type[BaseResource], resource_config: Optional[BaseResourceConfig] = None):
-        """Register a resource with its class and configuration."""
         self._resource_registration[resource_id] = (resource_class, resource_config)
         logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
 
-    def compute_schedule(self, phases: List[Type[BasePhase]]):
+    def compute_schedule(self, phases: List['BasePhase']):
         """
         Compute the resource usage schedule across all phases.
         This method populates the phase_resources and resource_lifecycle dictionaries.
         """
         resource_phases = {}
 
-        for i, phase_cls in enumerate(phases):
-            phase_resources = phase_cls.get_required_resources()
-            self._phase_resources[i] = phase_resources
-            for resource_id in phase_resources:
+        for i, phase in enumerate(phases):
+            phase_resources = phase.define_resources()
+            self._phase_resources[i] = set(phase_resources.keys())
+            for resource_id, (resource_class, resource_config) in phase_resources.items():
+                if not self.is_resource_equivalent(resource_id, resource_class, resource_config):
+                    self.register_resource(resource_id, resource_class, resource_config)
                 if resource_id not in resource_phases:
                     resource_phases[resource_id] = set()
                 resource_phases[resource_id].add(i)
@@ -54,6 +42,16 @@ class ResourceManager:
             init_phase = min(phases)
             term_phase = max(phases)
             self._resource_lifecycle[resource_id] = (init_phase, term_phase)
+
+        logger.debug(f"Computed resource schedule: {self._resource_lifecycle}")
+
+    def is_resource_equivalent(self, resource_id: str, resource_class: Type[BaseResource], resource_config: Optional[BaseResourceConfig]) -> bool:
+        if resource_id not in self._resource_registration:
+            return False
+        registered_class, registered_config = self._resource_registration[resource_id]
+        return (registered_class == resource_class and 
+                (registered_config == resource_config or 
+                 (registered_config is None and resource_config is None)))
 
     def initialize_phase_resources(self, phase_index: int, resource_ids: Iterable[str]):
         """Initialize resources for a phase and update lifecycle information."""
@@ -72,8 +70,8 @@ class ResourceManager:
                 self._resource_lifecycle[resource_id] = (phase_index, phase_index)
             else:
                 # Update term_phase if this phase is later
-                init_phase, _ = self._resource_lifecycle[resource_id]
-                self._resource_lifecycle[resource_id] = (init_phase, max(phase_index, self._resource_lifecycle[resource_id][1]))
+                init_phase, term_phase = self._resource_lifecycle[resource_id]
+                self._resource_lifecycle[resource_id] = (init_phase, max(phase_index, term_phase))
         
         # Initialize resources that aren't already initialized
         for resource_id in resource_id_set:

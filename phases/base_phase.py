@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, List, Optional, Set, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
 from phase_responses.phase_response import PhaseResponse
+from resources.base_resource import BaseResource
 from responses.base_response import BaseResponse
 from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
@@ -12,7 +13,6 @@ logger = get_main_logger(__name__)
 
 
 if TYPE_CHECKING:
-    from agents.agent_manager import AgentManager  # Only import for type checking
     from workflows.base_workflow import BaseWorkflow
 
 @dataclass
@@ -27,32 +27,82 @@ class PhaseConfig:
     def from_phase(cls, phase_instance: 'BasePhase', **kwargs):
         config = cls(
             phase_name=phase_instance.name,
-            agent_configs=phase_instance.get_agent_configs(),
+            agent_configs=phase_instance.define_agents(),
             **kwargs
         )
         return config
+from abc import ABC, abstractmethod
+from typing import Dict, List, Optional, Tuple, Type
+from agents.base_agent import AgentConfig, BaseAgent
+from resources.base_resource import BaseResource, BaseResourceConfig
 
 class BasePhase(ABC):
     AGENT_CLASSES: List[Type[BaseAgent]] = []
 
-    def __init__(
-        self,
-        workflow: 'BaseWorkflow', 
-        **kwargs
-    ):
+    def __init__(self, workflow: 'BaseWorkflow', **kwargs):
         self.workflow = workflow
         self.phase_config = PhaseConfig.from_phase(self, **kwargs)
 
         self.agent_manager = self.workflow.agent_manager
+        self.resource_manager = self.workflow.resource_manager
         self.agents: List[Tuple[str, BaseAgent]] = []
         self.initial_response = kwargs.get("initial_response", None)
         self._done = False
-        self.resource_manager = self.agent_manager.resource_manager
         self.phase_summary: Optional[str] = None
         self.iteration_count = 0
         self.current_agent_index = 0
 
-        self._initialize_agents()
+    @abstractmethod
+    def define_resources(self) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
+        """
+        Define the resources required for this phase.
+        
+        Returns:
+            Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]: 
+            A dictionary mapping resource IDs to their class and config.
+        """
+        pass
+
+    @abstractmethod
+    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
+        """
+        Define the agents required for this phase.
+        
+        Returns:
+            List[Tuple[str, AgentConfig]]: A list of tuples containing agent IDs and their configs.
+        """
+        pass
+
+    def setup(self):
+        """
+        Initialize and register resources and agents for the phase.
+        """
+        logger.debug(f"Entering setup for {self.name}")
+        
+        # 1. Define and register resources
+        resource_configs = self.define_resources()
+        for resource_id, (resource_class, resource_config) in resource_configs.items():
+            if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
+                self.resource_manager.register_resource(resource_id, resource_class, resource_config)
+        
+        # 2. Initialize phase resources
+        self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
+        
+        # 3. Define and register agents
+        agent_configs = self.define_agents()
+        for agent_id, agent_config in agent_configs:
+            agent_class = next((ac for ac in self.AGENT_CLASSES if isinstance(agent_config, ac.CONFIG_CLASS)), None)
+            if agent_class is None:
+                raise ValueError(f"No matching agent class found for config type {type(agent_config)}")
+            
+            try:
+                agent = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config)
+                self.agents.append((agent_id, agent))
+            except Exception as e:
+                logger.error(f"Error creating agent {agent_id}: {str(e)}")
+                raise
+        
+        logger.debug(f"Completed setup for {self.name}")
 
     def get_phase_resources(self):
         phase_resources = {}
@@ -74,7 +124,7 @@ class BasePhase(ABC):
         logger.debug(f"Initializing agents for {self.name}")
         
         # First get agent configs
-        self.phase_config.agent_configs = self.get_agent_configs()
+        self.phase_config.agent_configs = self.define_agents()
         logger.debug(f"Got agent configs: {[config[0] for config in self.phase_config.agent_configs]}")
         
         for agent_id, agent_config in self.phase_config.agent_configs:
@@ -117,19 +167,6 @@ class BasePhase(ABC):
             
         logger.debug(f"Completed agent initialization for {self.name}")
 
-    def register_resources(self):
-        """
-        Register required resources with the ResourceManager.
-        Should be called after resources are initialized for the phase.
-        """
-        logger.debug(f"Registering resources for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
-        for agent_id, agent in self.agents:
-            logger.debug(f"Registering resources for agent {agent_id}")
-            agent.register_resources(self.resource_manager)
-            
-            workflow_logger.add_agent(agent.agent_config.id, agent)
-        logger.debug(f"Finished registering resources for phase {self.phase_config.phase_idx}")
-
     @classmethod
     def get_required_resources(cls) -> Set[str]:
         resources = set()
@@ -139,46 +176,35 @@ class BasePhase(ABC):
 
     def setup(self):
         """
-        Initialize and register resources for the phase and its agents.
-        Resources must be fully initialized before agents can access them.
+        Initialize and register resources and agents for the phase.
         """
         logger.debug(f"Entering setup for {self.name}")
         
-        # 1. First define all resources
+        # 1. Define and register resources
         resource_configs = self.define_resources()
-        if not resource_configs:
-            print("Warning: No resources defined in define_resources")
-            return
-            
-        # 2. Register each resource
         for resource_id, (resource_class, resource_config) in resource_configs.items():
-            logger.debug(f"Registering resource {resource_id} of type {resource_class.__name__}")
-            try:
+            if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
                 self.resource_manager.register_resource(resource_id, resource_class, resource_config)
-            except Exception as e:
-                print(f"Error registering resource {resource_id}: {str(e)}")
-                raise
-                
-        # 3. Initialize all resources for this phase
-        logger.debug("Initializing all phase resources")
-        try:
-            self.resource_manager.initialize_phase_resources(
-                phase_index=self.phase_config.phase_idx,
-                resource_ids=resource_configs.keys()
-            )
-        except Exception as e:
-            print(f"Error initializing phase resources: {str(e)}")
-            raise
-                
-        # 4. Only after all resources are initialized, register them with agents
-        logger.debug("All resources initialized, registering with agents")
-        for agent_id, agent in self.agents:
-            print(f"Registering resources for agent {agent_id}")
-            agent.register_resources(self.resource_manager)        
-            workflow_logger.add_agent(agent.agent_config.id, agent)
+        
+        # 2. Initialize phase resources
+        self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
+        
+        # 3. Define and register agents
+        agent_configs = self.define_agents()
+        for agent_id, agent_config in agent_configs:
+            agent_class = next((ac for ac in self.AGENT_CLASSES if isinstance(agent_config, ac.CONFIG_CLASS)), None)
+            if agent_class is None:
+                raise ValueError(f"No matching agent class found for config type {type(agent_config)}")
             
+            try:
+                #4. Initialize phase agent(s)
+                agent = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config, self.resource_manager)
+                self.agents.append((agent_id, agent))
+            except Exception as e:
+                logger.error(f"Error creating agent {agent_id}: {str(e)}")
+                raise
+        
         logger.debug(f"Completed setup for {self.name}")
-
 
     def deallocate_resources(self):
         """
@@ -257,7 +283,7 @@ class BasePhase(ABC):
         self.phase_summary = summary
 
     @abstractmethod
-    def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
+    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
         """
         Provide agent configurations for the phase.
 
@@ -265,10 +291,9 @@ class BasePhase(ABC):
             List[Tuple[str, AgentConfig]]: List of (agent_id, AgentConfig) tuples.
         """
         pass
-
     
     @abstractmethod
-    def define_resources(self): 
+    def define_resources(self)-> Dict[str, Tuple[Type['BaseResource'], Any]]: 
         pass
 
     @abstractmethod

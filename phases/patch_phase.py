@@ -22,7 +22,7 @@ class PatchPhase(BasePhase):
     AGENT_CLASSES = [PatchAgent, ExecutorAgent]
 
 
-    def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
+    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
         executor_lm_config = AgentLMConfig(
             model='openai/o3-mini-2024-12-17',
             max_output_tokens=5000,
