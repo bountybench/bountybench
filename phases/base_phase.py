@@ -22,6 +22,7 @@ class PhaseConfig:
     max_iterations: int = 10
     interactive: bool = False
     phase_idx: Optional[int] = None
+    initial_prompt: Optional[str] = None
 
     @classmethod
     def from_phase(cls, phase_instance: 'BasePhase', **kwargs):
@@ -46,7 +47,7 @@ class BasePhase(ABC):
         self.agent_manager = self.workflow.agent_manager
         self.resource_manager = self.workflow.resource_manager
         self.agents: List[Tuple[str, BaseAgent]] = []
-        self.initial_response = kwargs.get("initial_response", None)
+        self.initial_response = kwargs.get("initial_prompt", None)
         self._done = False
         self.phase_summary: Optional[str] = None
         self.iteration_count = 0
@@ -73,36 +74,6 @@ class BasePhase(ABC):
         """
         pass
 
-    def setup(self):
-        """
-        Initialize and register resources and agents for the phase.
-        """
-        logger.debug(f"Entering setup for {self.name}")
-        
-        # 1. Define and register resources
-        resource_configs = self.define_resources()
-        for resource_id, (resource_class, resource_config) in resource_configs.items():
-            if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
-                self.resource_manager.register_resource(resource_id, resource_class, resource_config)
-        
-        # 2. Initialize phase resources
-        self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
-        
-        # 3. Define and register agents
-        agent_configs = self.define_agents()
-        for agent_id, agent_config in agent_configs:
-            agent_class = next((ac for ac in self.AGENT_CLASSES if isinstance(agent_config, ac.CONFIG_CLASS)), None)
-            if agent_class is None:
-                raise ValueError(f"No matching agent class found for config type {type(agent_config)}")
-            
-            try:
-                agent = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config)
-                self.agents.append((agent_id, agent))
-            except Exception as e:
-                logger.error(f"Error creating agent {agent_id}: {str(e)}")
-                raise
-        
-        logger.debug(f"Completed setup for {self.name}")
 
     def get_phase_resources(self):
         phase_resources = {}
@@ -119,53 +90,6 @@ class BasePhase(ABC):
             self.workflow._phase_graph[self].append(other)
         return other
 
-    def _initialize_agents(self):
-        """Initialize and register required agents using AgentManager."""
-        logger.debug(f"Initializing agents for {self.name}")
-        
-        # First get agent configs
-        self.phase_config.agent_configs = self.define_agents()
-        logger.debug(f"Got agent configs: {[config[0] for config in self.phase_config.agent_configs]}")
-        
-        for agent_id, agent_config in self.phase_config.agent_configs:
-            # Find matching agent class based on config type
-            agent_class = next(
-                (ac for ac in self.AGENT_CLASSES if isinstance(agent_config, ac.CONFIG_CLASS)), 
-                None
-            )
-            
-            if not agent_class:
-                logger.warning("No matching agent class found for config type {type(agent_config)}")
-                continue
-
-            try:
-                logger.debug(f"Creating agent {agent_id} of type {agent_class.__name__}")
-                agent_instance = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config)
-                self.agents.append((agent_id, agent_instance))
-                logger.debug(f"Successfully created agent {agent_id}")
-            except Exception as e:
-                print(f"Error creating agent {agent_id}: {str(e)}")
-                raise
-
-        # Verify all required agents present
-        required_classes = set(self.AGENT_CLASSES)
-        present_classes = {type(agent) for _, agent in self.agents}
-        missing = required_classes - present_classes
-        
-        if missing:
-            missing_names = ', '.join(agent.__name__ for agent in missing)
-            raise ValueError(
-                f"Phase '{self.phase_config.phase_name}' requires agents: {missing_names}. "
-                f"Current agents: {[type(agent).__name__ for _, agent in self.agents]}"
-            )
-            
-        if not self.agents:
-            raise ValueError(
-                f"No agents were initialized for phase {self.phase_config.phase_name}. "
-                f"Expected agent classes: {[cls.__name__ for cls in self.AGENT_CLASSES]}"
-            )
-            
-        logger.debug(f"Completed agent initialization for {self.name}")
 
     @classmethod
     def get_required_resources(cls) -> Set[str]:
@@ -191,6 +115,7 @@ class BasePhase(ABC):
         
         # 3. Define and register agents
         agent_configs = self.define_agents()
+        '''
         for agent_id, agent_config in agent_configs:
             agent_class = next((ac for ac in self.AGENT_CLASSES if isinstance(agent_config, ac.CONFIG_CLASS)), None)
             if agent_class is None:
@@ -203,6 +128,9 @@ class BasePhase(ABC):
             except Exception as e:
                 logger.error(f"Error creating agent {agent_id}: {str(e)}")
                 raise
+        '''
+
+        self.agent_manager.initialize_phase_agents(agent_configs, self.AGENT_CLASSES)
         
         logger.debug(f"Completed setup for {self.name}")
 
