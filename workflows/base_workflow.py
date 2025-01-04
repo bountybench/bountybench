@@ -38,10 +38,8 @@ class BaseWorkflow(ABC):
         self.interactive = kwargs.get('interactive', False)
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
-        self.phases: List[BasePhase] = []
         self._phase_graph = {}  # Stores phase relationships
         self._root_phase = None
-        self.phases = []
 
         self._initialize()
         self._set_workflow_status(WorkflowStatus.INITIALIZED)
@@ -59,19 +57,8 @@ class BaseWorkflow(ABC):
         """Register a phase and its dependencies."""
         if phase not in self._phase_graph:
             self._phase_graph[phase] = []
-            self.phases.append(phase)
             logger.debug(f"Registered phase: {phase.__class__.__name__}")
-
-    def __rshift__(self, other):
-        """Enable phase1 >> phase2 syntax for phase dependencies."""
-        if isinstance(other, BasePhase):
-            if self not in self._phase_graph:
-                self.register_phase(self)
-            if other not in self._phase_graph:
-                self.register_phase(other)
-            self._phase_graph[self].append(other)
-        return other
-    
+        
     @abstractmethod
     def _create_phases(self):
         """Create and register phases. To be implemented by subclasses."""
@@ -144,24 +131,24 @@ class BaseWorkflow(ABC):
             continue
 
     def _run_phases(self):
-        """
-        Execute all phases in sequence.
-        Yields:
-            PhaseResponse: The response from each phase.
-        """
         try:
-            self._set_workflow_status(WorkflowStatus.INCOMPLETE)
-            prev_phase_response = self._get_initial_phase_response()
+            if not self._root_phase:
+                raise ValueError("No root phase registered")
 
-            for phase_idx, phase in enumerate(self.phases):
-                phase_response = self._run_single_phase(phase_idx, prev_phase_response)
+            self._set_workflow_status(WorkflowStatus.INCOMPLETE)
+            current_phase = self._root_phase
+            prev_response = self._get_initial_phase_response()
+
+            while current_phase:
+                phase_response = self._run_single_phase(current_phase, prev_response)
+                yield phase_response
                 
                 if not phase_response.success or self._max_iterations_reached():
-                    yield phase_response
                     break
-
-                prev_phase_response = phase_response
-                yield phase_response
+                    
+                next_phases = self._phase_graph.get(current_phase, [])
+                current_phase = next_phases[0] if next_phases else None
+                prev_response = phase_response
 
             self._finalize_workflow()
 
@@ -175,12 +162,11 @@ class BaseWorkflow(ABC):
         initial_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
         return PhaseResponse(agent_responses=[initial_response] if initial_response else [])
 
-    def _run_single_phase(self, phase_idx: int, prev_phase_response: PhaseResponse) -> PhaseResponse:
-        self._current_phase_idx = phase_idx
-        phase_instance = self._setup_phase(phase_idx)
+    def _run_single_phase(self, phase: BasePhase, prev_phase_response: PhaseResponse) -> PhaseResponse:
+        phase_instance = self._setup_phase(phase)
         phase_response = phase_instance.run_phase(prev_phase_response)
         
-        logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_response.success}")
+        logger.info(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_response.success}")
 
         self._workflow_iteration_count += 1
 
@@ -204,50 +190,27 @@ class BaseWorkflow(ABC):
         self.workflow_logger.finalize(self.status.value)
         raise exception
 
-    def _setup_phase(self, phase_idx: int) -> BasePhase:
-        """
-        Setup and run a specific phase.
-    
-        Args:
-            phase_idx (int): The index of the phase to set up.
-
-        Returns:
-            BasePhase: The phase instance.
-        """
+    def _setup_phase(self, phase: BasePhase) -> BasePhase:
         try:
-            phase_instance = self.phases[phase_idx]
-
-            logger.info(f"Setting up phase {phase_idx}: {phase_instance.__class__.__name__}")
-
-            # Setup the phase
-            phase_instance.setup()
-
-            return phase_instance
-
-        except Exception as e:
-            self.status = WorkflowStatus.INCOMPLETE
-            logger.error(f"Failed to set up phase {phase_idx}: {e}")
-            raise
-
+            logger.info(f"Setting up phase {phase.__class__.__name__}")
+            phase.setup()
+            return phase
         except Exception as e:
             self._set_workflow_status(WorkflowStatus.INCOMPLETE)
-            logger.error(f"Failed to set up phase {phase_idx}: {e}")
+            logger.error(f"Failed to set up phase: {e}")
             raise
 
     def _compute_resource_schedule(self):
-        """
-        Compute the agent (which will compute resource) schedule across all phases.
-        """
-        phase_classes = [type(phase) for phase in self.phases]
+        phase_classes = [type(phase) for phase in self._phase_graph.keys()]
         self.agent_manager.compute_resource_schedule(phase_classes)
-        logger.debug("Computed resource schedule for all phases based on agents.")
+        logger.debug("Computed resource schedule for all phases")
 
     def register_phase(self, phase: BasePhase):
-        phase_idx = len(self.phases)
-        phase.phase_config.phase_idx = phase_idx
-        self.phases.append(phase)
-        logger.debug(f"Registered phase {phase_idx}: {phase.__class__.__name__}")
-        logger.info(f"{phase.name} registered with config: {phase.phase_config}")
+        if phase not in self._phase_graph:
+            self._phase_graph[phase] = []
+            phase.phase_config.phase_idx = len(self._phase_graph) - 1
+            logger.debug(f"Registered phase { phase.phase_config.phase_idx}: {phase.__class__.__name__}")
+            logger.info(f"{phase.phase_config.phase_name} registered with config: {phase.phase_config}")
 
     @property
     def name(self):
