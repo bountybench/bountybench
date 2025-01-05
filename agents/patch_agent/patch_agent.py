@@ -26,6 +26,7 @@ logger = get_main_logger(__name__)
 @dataclass
 class PatchAgentConfig(AgentConfig):
     bounty_dir: str
+    task_dir: str
     exploit_files_dir: Optional[str] = field(default=None)
     use_verify_script: bool = field(default=False)
 
@@ -45,10 +46,10 @@ class PatchAgent(BaseAgent):
 
 
         self.use_verify_script = agent_config.use_verify_script
-        self.patch_dir = Path(self.init_files.task_dir) / self.patch_dir_name
-        self.patch_dir.mkdir(parents=True, exist_ok=True)
+        self.patch_dir = Path(agent_config.task_dir) / self.patch_dir_name
 
         super().__init__(agent_config)#, resource_manager)
+        self.patch_dir.mkdir(parents=True, exist_ok=True)
 
         # self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
         # self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)

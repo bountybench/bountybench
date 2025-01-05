@@ -41,7 +41,8 @@ class PatchPhase(BasePhase):
         )
 
         patch_config = PatchAgentConfig(
-            bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}")
+            bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),
+            task_dir=self.workflow.task_dir
         )
 
         return [
