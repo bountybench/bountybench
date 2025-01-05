@@ -40,7 +40,8 @@ from resources.base_resource import BaseResource, BaseResourceConfig
 class BasePhase(ABC):
     AGENT_CLASSES: List[Type[BaseAgent]] = []
 
-    def __init__(self, workflow: 'BaseWorkflow', **kwargs):
+    def __init__(self, init_phase_message: 'PhaseMessage', workflow: 'BaseWorkflow', **kwargs):
+        self.init_phase_message = init_phase_message
         self.workflow = workflow
         self.phase_config = PhaseConfig.from_phase(self, **kwargs)
 
