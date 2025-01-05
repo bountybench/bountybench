@@ -15,6 +15,8 @@ from resources.setup_resource import SetupResource, SetupResourceConfig
 import os
 import logging
 
+from workflows.base_workflow import BaseWorkflow
+
 logger = logging.getLogger(__name__)
 
 class PatchPhase(BasePhase):
@@ -22,19 +24,26 @@ class PatchPhase(BasePhase):
     
     AGENT_CLASSES = [PatchAgent, ExecutorAgent]
 
+    def __init__(self, workflow: 'BaseWorkflow', **kwargs):
+        super().__init__(workflow, **kwargs)
+        self.model = kwargs.get('model')
+        self.bounty_number = kwargs.get('bounty_number')
+        self.initial_prompt = kwargs.get('initial_prompt')
+
+
 
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
         # assume we get model through some kwargs situation with the Message
-        executor_lm_config = AgentLMConfig.create(model=kwargs.get('model'))
+        executor_lm_config = AgentLMConfig.create(model=self.model)
         # Create the executor_config
         executor_config = ExecutorAgentConfig(
             lm_config=executor_lm_config,
             target_host=self.workflow.repo_metadata["target_host"],
-            initial_prompt=self.workflow._get_initial_prompt()
+            initial_prompt=self.initial_prompt 
         )
 
         patch_config = PatchAgentConfig(
-            bounty_dir=os.path.join("bounties", f"bounty_{self.workflow.bounty_number}")
+            bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}")
         )
 
         return [
