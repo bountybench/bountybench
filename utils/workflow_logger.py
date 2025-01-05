@@ -15,8 +15,8 @@ from responses.error_response import ErrorResponse
 
 from .workflow_logger_types import (
     Action,
-    AgentInteraction,
-    WorkflowIteration,
+    PhaseIteration,
+    WorkflowPhase,
     WorkflowLog,
     WorkflowMetadata,
 )
@@ -25,78 +25,179 @@ class WorkflowLogger:
     _initialized = False
 
     def __init__(self):
-        # Only initialize once
         if not WorkflowLogger._initialized:
-            self.workflow_log = None
-            self.log_file = None
+            self.workflow_log: Optional[WorkflowLog] = None
+            self.log_file: Optional[Path] = None
             WorkflowLogger._initialized = True
+
+        self.current_phase: Optional[WorkflowPhase] = None
+        self.current_iteration: Optional[PhaseIteration] = None
 
     def initialize(
         self,
         workflow_name: str,
         logs_dir: str = "logs",
-        task_repo_dir: Optional[str] = None,
-        bounty_number: Optional[str] = None,
-        model_config: Optional[Dict[str, Any]] = None,
+        task: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Initialize the workflow logger with the given parameters"""
         self.workflow_name = workflow_name
         self.logs_dir = Path(logs_dir)
         self.logs_dir.mkdir(exist_ok=True)
         
-        # Initialize workflow log
+        task = task or {}
+
+        metadata_dict = {
+            "workflow_name": workflow_name,
+            "start_time": datetime.now().isoformat(),
+        }
+
+        if task:
+            metadata_dict["task"] = task
+
         self.workflow_log = WorkflowLog(
-            metadata=WorkflowMetadata(
-                workflow_name=workflow_name,
-                start_time=datetime.now().isoformat(),
-                task_repo_dir=task_repo_dir,
-                bounty_number=bounty_number
-            ),
-            iterations=[],
+            metadata=WorkflowMetadata(**metadata_dict),
+            phases=[],
         )
-        
-        # Generate log filename
+
         components = [workflow_name]
-        if task_repo_dir:
-            components.append(Path(task_repo_dir).name)
-        if bounty_number:
-            components.append(str(bounty_number))
-            
+        for key, value in sorted(task.items()):
+            if value:
+                components.append(str(value.name if isinstance(value, Path) else value))
+
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
+    def add_metadata(self, key: str, value: Any) -> None:
+        if self.workflow_log is None:
+            raise RuntimeError("WorkflowLogger not initialized")
+        if not hasattr(self.workflow_log.metadata, "additional_metadata"):
+            self.workflow_log.metadata.additional_metadata = {}
+        self.workflow_log.metadata.additional_metadata[key] = value
+        
     def _ensure_initialized(self):
         """Ensure the logger is initialized before use"""
         if not self.workflow_log:
             raise RuntimeError("WorkflowLogger must be initialized before use. Call initialize() first.")
 
-    def start_iteration(self, iteration_number: int) -> None:
-        """Start a new workflow iteration"""
+    ################################################################
+    # PHASE MANAGEMENT
+    ################################################################
+
+    def start_phase(self, phase_idx: int, phase_name: str) -> None:
+        """Create a new workflow phase"""
         self._ensure_initialized()
-        if hasattr(self, 'current_iteration'):
-            raise RuntimeError("Previous iteration not ended")
-        
-        self.current_iteration = WorkflowIteration(
-            iteration_number=iteration_number,
-            interactions=[],
-            status="in_progress"
+        if self.current_phase is not None:
+            raise RuntimeError("A phase is already in progress. End it before starting a new one.")
+
+        self.current_phase = WorkflowPhase(
+            phase_idx=phase_idx,
+            phase_name=phase_name,
+            start_time=datetime.now().isoformat(),
+            end_time=None,
+            status="in_progress",
+            iterations=[],
         )
-    
-    def start_interaction(self, agent_name: str, input_response: Response) -> None:
-        """Start a new interaction within the current iteration"""
+
+    def end_phase(self, status: str, phase_instance) -> None:
+        """
+        Finalize the current phase, append it to the list of phases, and reset.
+        """
         self._ensure_initialized()
-        if not hasattr(self, 'current_iteration'):
-            raise RuntimeError("Must call start_iteration before logging interactions")
-            
-        self.current_interaction = AgentInteraction(
+        if not self.current_phase:
+            raise RuntimeError("No phase in progress to end.")
+
+        self.current_phase.status = status
+        self.get_phase_metadata(phase_instance)
+        self.current_phase.end_time = datetime.now().isoformat()
+        self.workflow_log.phases.append(self.current_phase)
+        self.current_phase = None
+
+        # For durability, save after each phase
+        self.save()
+
+    def get_phase_metadata(self, phase_instance) -> None:
+        """
+        Aggregate certain metadata from the current phase
+        into the phase's metadata field (e.g., phase_summary).
+        """
+        if not self.current_phase:
+            raise RuntimeError("No phase in progress to gather metadata for.")
+
+        metadata = {
+            'phase_summary': phase_instance.phase_summary if phase_instance.phase_summary else "not_set",
+            'iterations_used': phase_instance.iteration_count
+        }
+
+        self.current_phase.metadata = metadata
+    ################################################################
+    # ITERATION MANAGEMENT
+    ################################################################
+
+    def start_iteration(self, iteration_number: int, agent_name: str, input_response: Optional[Response]) -> None:
+        """
+        Start a new iteration within the current phase.
+        """
+        self._ensure_initialized()
+        if not self.current_phase:
+            raise RuntimeError("Must start a phase before starting an iteration.")
+        if self.current_iteration is not None:
+            raise RuntimeError("A previous iteration was not ended properly.")
+
+        self.current_iteration = PhaseIteration(
+            iteration_number=iteration_number,
             agent_name=agent_name,
             input_response=input_response,
             output_response=None,
             start_time=datetime.now().isoformat(),
             end_time=None,
             actions=[],
-            metadata={}
+            metadata={},
+            status="in_progress",
         )
-    
+
+    def end_iteration(self, output_response: Response, status: str = "completed") -> None:
+        """
+        End the current iteration and add it to the current phase.
+        """
+        self._ensure_initialized()
+        if not self.current_phase:
+            raise RuntimeError("No phase in progress.")
+        if not self.current_iteration:
+            raise RuntimeError("No iteration in progress.")
+
+        self.current_iteration.output_response = output_response
+        self.current_iteration.end_time = datetime.now().isoformat()
+        self.current_iteration.status = status
+        self.get_aggregate_metadata()
+
+        self.current_phase.iterations.append(self.current_iteration)
+        self.current_iteration = None
+
+        # You could save after each iteration, but this might be too frequent:
+        # self.save()
+
+    def get_aggregate_metadata(self) -> None:
+        """
+        Aggregate certain metadata from the current iteration's actions
+        into the iteration's metadata field (e.g., token usage, time).
+        """
+        if not self.current_iteration:
+            raise RuntimeError("No iteration in progress to gather metadata for.")
+
+        aggregate_metadata = {
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'time_taken_in_ms': 0
+        }
+        for action in self.current_iteration.actions:
+            if action.metadata:
+                for key in ['input_tokens', 'output_tokens', 'time_taken_in_ms']:
+                    if key in action.metadata:
+                        aggregate_metadata[key] += action.metadata[key]
+        self.current_iteration.metadata = aggregate_metadata
+
+    ################################################################
+    # ACTION LOGGING
+    ################################################################
+
     def log_action(
         self,
         action_name: str,
@@ -106,10 +207,10 @@ class WorkflowLogger:
     ) -> None:
         """Log an action within the current interaction"""
         self._ensure_initialized()
-        if not hasattr(self, 'current_interaction'):
-            raise RuntimeError("Must call start_interaction before logging actions")
-            
-        self.current_interaction.actions.append(
+        if not self.current_iteration:
+            raise RuntimeError("Must start_iteration before logging actions.")
+        
+        self.current_iteration.actions.append(
             Action(
                 action_type=action_name,
                 input_data=input_data,
@@ -117,76 +218,10 @@ class WorkflowLogger:
                 metadata=metadata
             )
         )
-    
-    def end_iteration(self, status: str) -> None:
-        """End the current iteration and add it to the workflow log"""
-        self._ensure_initialized()
-        if not hasattr(self, 'current_iteration'):
-            raise RuntimeError("No iteration in progress")
-            
-        self.current_iteration.status = status
-            
-        self.workflow_log.iterations.append(self.current_iteration)
-        delattr(self, 'current_iteration')
-        
-        # Save after each iteration for durability
-        self.save()
-    
-    def end_interaction(self, output_response: Response) -> None:
-        """End the current interaction and add it to the current iteration"""
-        self._ensure_initialized()
-        if not hasattr(self, 'current_interaction'):
-            raise RuntimeError("No interaction in progress")
-            
-        self.current_interaction.output_response = output_response
-        self.current_interaction.end_time = datetime.now().isoformat()
-        self.get_aggregate_metadata()
 
-        self.current_iteration.interactions.append(self.current_interaction)
-        delattr(self, 'current_interaction')
-    
-    def get_aggregate_metadata(self) -> None:
-        """Get the aggregate metadata for the workflow"""
-        if not hasattr(self, 'current_interaction'):
-            raise RuntimeError("No interaction in progress")
-
-        aggregate_metadata = {
-            'input_tokens': 0,
-            'output_tokens': 0,
-            'time_taken_in_ms': 0
-        }
-        for action in self.current_interaction.actions:
-            for key, value in action.metadata.items():
-                if key in ['input_tokens', 'output_tokens', 'time_taken_in_ms']:
-                    aggregate_metadata[key] += value
-        self.current_interaction.metadata = aggregate_metadata
-
-    def add_agent(self, agent_name: str, agent) -> None:
-        """
-        Log an agent being used in the workflow and save its state.
-        
-        Args:
-            agent_name (str): Name of the agent
-            agent: Agent instance that has serialization methods
-        """
-        self._ensure_initialized()
-        
-        if agent_name not in self.workflow_log.agent_used and hasattr(agent, 'to_dict'):
-            self.workflow_log.agent_used[agent_name] = agent.to_dict()
-
-    def add_resource(self, resource_name: str, resource) -> None:
-        """
-        Log a resource being used in the workflow and save its state.
-        
-        Args:
-            resource_name (str): Name of the resource
-            resource: Resource instance that has serialization methods
-        """
-        self._ensure_initialized()
-        
-        if resource_name not in self.workflow_log.resources_used and hasattr(resource, 'to_dict'):
-            self.workflow_log.resources_used[resource_name] = resource.to_dict()
-    
+    ################################################################
+    # ERROR / METADATA / FINALIZE
+    ################################################################
     def log_error(self, error_msg: str, error_data: Optional[Dict[str, Any]] = None) -> None:
         """Log an error that occurred during the workflow"""
         self._ensure_initialized()
@@ -198,124 +233,207 @@ class WorkflowLogger:
         self.workflow_log.error_log.append(error_entry)
         self.save()
     
-    def add_metadata(self, key: str, value: Any) -> None:
-        """Add additional metadata to the workflow"""
+    # def add_metadata(self, key: str, value: Any) -> None:
+    #     """Add additional metadata to the workflow"""
+    #     self._ensure_initialized()
+    #     self.workflow_log.metadata.additional_metadata[key] = value
+    
+    def add_agent(self, agent_name: str, agent) -> None:
+        """
+        Log an agent being used in the workflow and save its state.
+        
+        Args:
+            agent_name (str): Name of the agent
+            agent: Agent instance that has serialization methods
+        """
         self._ensure_initialized()
-        self.workflow_log.metadata.additional_metadata[key] = value
+
+        if agent_name not in self.workflow_log.agents_used and hasattr(agent, 'to_dict'):
+            self.workflow_log.agents_used[agent_name] = agent.to_dict()
+
+    def add_resource(self, resource_name: str, resource) -> None:
+        """
+        Log a resource being used in the workflow and save its state.
+        
+        Args:
+            resource_name (str): Name of the resource
+            resource: Resource instance that has serialization methods
+        """
+        self._ensure_initialized()
+
+        if resource_name not in self.workflow_log.resources_used and hasattr(resource, 'to_dict'):
+            self.workflow_log.resources_used[resource_name] = resource.to_dict()
+
     
     def finalize(self, final_status: str = "completed") -> None:
-        """Finalize the workflow log"""
+        """Finalize the workflow log: mark the end time, record final status, and save."""
         self._ensure_initialized()
         self.workflow_log.metadata.end_time = datetime.now().isoformat()
         self.workflow_log.final_status.append(final_status)
         self.save()
     
+    def _json_serializable(self, obj: Any) -> Any:
+        if isinstance(obj, Path):
+            return str(obj)
+        elif hasattr(obj, '__dict__'):
+            # For objects with a __dict__ attribute (like BaseResponse),
+            # we'll convert them to a dictionary
+            return {key: self._json_serializable(value) for key, value in obj.__dict__.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [self._json_serializable(item) for item in obj]
+        elif isinstance(obj, dict):
+            return {key: self._json_serializable(value) for key, value in obj.items()}
+        elif hasattr(obj, '__str__'):
+            # For any other objects, we'll use their string representation
+            return str(obj)
+        raise TypeError(f'Object of type {obj.__class__.__name__} is not JSON serializable')
+
     def save(self) -> None:
-        """Save the workflow log to a JSON file"""
         self._ensure_initialized()
-        # Convert the workflow log to a dictionary
+        
+        metadata_dict = {
+            "workflow_name": self.workflow_log.metadata.workflow_name,
+            "start_time": self.workflow_log.metadata.start_time,
+            "end_time": self.workflow_log.metadata.end_time,
+        }
+
+        if hasattr(self.workflow_log.metadata, 'task'):
+            metadata_dict["task"] = self.workflow_log.metadata.task
+
+        metadata_dict["additional_metadata"] = self.workflow_log.metadata.additional_metadata
+
         log_dict = {
-            "metadata": {
-                "workflow_name": self.workflow_log.metadata.workflow_name,
-                "start_time": self.workflow_log.metadata.start_time,
-                "end_time": self.workflow_log.metadata.end_time,
-                "task_repo_dir": self.workflow_log.metadata.task_repo_dir,
-                "bounty_number": self.workflow_log.metadata.bounty_number,
-                "additional_metadata": self.workflow_log.metadata.additional_metadata
-            },
-            "agent_used": self.workflow_log.agent_used,
+            "metadata": metadata_dict,
+            "agents_used": self.workflow_log.agents_used,
             "resources_used": self.workflow_log.resources_used,
             "final_status": self.workflow_log.final_status,
-            "iterations": [
+            "phases": [
                 {
-                    "iteration_number": it.iteration_number,
-                    "status": it.status,
-                    "interactions": [
+                    "name": phase.phase_name,
+                    "start_time": phase.start_time,
+                    "end_time": phase.end_time,
+                    "status": phase.status,
+                    "iterations": [
                         {
-                            "agent_name": inter.agent_name,
-                            "input_response": inter.input_response.to_dict() if inter.input_response else None,
-                            "output_response": inter.output_response.to_dict() if inter.output_response else None,
-                            "start_time": inter.start_time,
-                            "end_time": inter.end_time,
-                            "actions": [
-                                {
-                                    "action_type": action.action_type,
-                                    "input_data": action.input_data,
-                                    "output_data": action.output_data,
-                                    "timestamp": action.timestamp,
-                                    "metadata": action.metadata
-                                }
-                                for action in inter.actions
-                            ],
-                            "metadata": inter.metadata
-                        }
-                        for inter in it.interactions
+                            "iteration_number": iteration.iteration_number,
+                            "agent_name": iteration.agent_name,
+                            "status": iteration.status,
+                            "input_response": self._format_response(iteration.input_response),
+                            "output_response": self._format_response(iteration.output_response),
+                            "start_time": iteration.start_time,
+                            "end_time": iteration.end_time,
+                            "actions": iteration.actions,
+                            "metadata": iteration.metadata
+                        } for iteration in phase.iterations
                     ]
-                }
-                for it in self.workflow_log.iterations
-            ],
-            "error_log": self.workflow_log.error_log
+                } for phase in self.workflow_log.phases
+            ]
         }
-        
-        with open(self.log_file, 'w') as f:
-            json.dump(log_dict, f, indent=4)
 
-    class IterationContext:
-        def __init__(self, logger: 'WorkflowLogger', iteration_number: int):
+        self.log_file.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(self.log_file, 'w') as f:
+            json.dump(log_dict, f, indent=4, default=self._json_serializable)
+
+    def _format_response(self, response):
+        if isinstance(response, dict) and '_response' in response:
+            return {"response": response['_response']}
+        elif isinstance(response, Response):
+            return {"response": response.response}
+        else:
+            return response
+    ################################################################
+    # CONTEXT MANAGERS
+    ################################################################
+
+    class PhaseContext:
+        """
+        Context manager for a single phase. On enter: start_phase(...).
+        On exit: end_phase(...).
+        """
+        def __init__(self, logger: 'WorkflowLogger', phase_instance):
             self.logger = logger
-            self.iteration_number = iteration_number
+            self.phase_instance = phase_instance
+            self.phase_idx = phase_instance.phase_config.phase_idx
+            self.phase_name = phase_instance.phase_config.phase_name
 
         def __enter__(self):
-            self.logger.start_iteration(self.iteration_number)
+            self.logger.start_phase(self.phase_idx, self.phase_name)
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             status = "failed" if exc_type else "completed"
-            self.logger.end_iteration(status)
-            return False  # Don't suppress exceptions
+            self.logger.end_phase(status, self.phase_instance)
+            # If we return False, we do NOT suppress exceptions.
+            return False
 
-        def interaction(self, agent_name: str, input_response: Response):
-            """Create a new interaction context within this iteration"""
-            return self.logger.InteractionContext(self.logger, agent_name, input_response)
+        def iteration(self, iteration_number: int, agent_name: str, input_response: Optional[Response]):
+            """
+            Returns an iteration context within this phase.
+            """
+            return self.logger.IterationContext(
+                self.logger,
+                iteration_number,
+                agent_name,
+                input_response
+            )
 
-    class InteractionContext:
-        def __init__(self, logger: 'WorkflowLogger', agent_name: str, input_response: Response):
+    class IterationContext:
+        """
+        Context manager for a single iteration within a phase.
+        On enter: start_iteration(...).
+        On exit: end_iteration(...).
+        """
+        def __init__(
+            self,
+            logger: 'WorkflowLogger',
+            iteration_number: int,
+            agent_name: str,
+            input_response: Optional[Response]
+        ):
             self.logger = logger
+            self.iteration_number = iteration_number
             self.agent_name = agent_name
             self.input_response = input_response
-            self.output_response = None
+            self.output_response: Optional[Response] = None
 
         def __enter__(self):
-            self.logger.start_interaction(self.agent_name, self.input_response)
+            self.logger.start_iteration(self.iteration_number, self.agent_name, self.input_response)
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
+            # If an exception happens, produce an ErrorResponse:
             if exc_type:
-                # In case of exception, create an error response
                 self.output_response = ErrorResponse(
                     answer=str(exc_val),
                     error=True,
                     metadata={"exception_type": exc_type.__name__}
                 )
+            # If no output was set, create a default "no response" placeholder:
             elif not self.output_response:
-                # If no output response was set, create a default one
                 self.output_response = ErrorResponse(
-                    answer="Interaction completed without explicit response",
+                    answer="Iteration completed without explicit response",
                     error=False
                 )
-            self.logger.end_interaction(self.output_response)
+            self.logger.end_iteration(self.output_response, "failed" if exc_type else "completed")
             return False  # Don't suppress exceptions
 
         def set_output(self, output_response: Response):
-            """Set the output response for this interaction"""
+            """Set the output response for this iteration"""
             self.output_response = output_response
 
-        def log_action(self, action_name: str, input_data: Any, output_data: Any, metadata: Optional[Dict[str, Any]] = None):
-            """Log an action within this interaction"""
+        def log_action(
+            self, 
+            action_name: str,
+            input_data: Any,
+            output_data: Any,
+            metadata: Optional[Dict[str, Any]] = None
+        ):
+            """Convenience helper: log an action to the current iteration"""
             self.logger.log_action(action_name, input_data, output_data, metadata)
 
-    def iteration(self, iteration_number: int) -> IterationContext:
-        """Create a new iteration context"""
-        return self.IterationContext(self, iteration_number)
+    def phase(self, phase_instance) -> PhaseContext:
+        """Create a new phase context manager"""
+        return self.PhaseContext(self, phase_instance)
 
 workflow_logger = WorkflowLogger()

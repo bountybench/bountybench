@@ -55,9 +55,9 @@ def docker_network_exists(network_name):
     return exists
 
 
-def read_repo_metadata(task_repo_dir: str) -> dict[str, Union[str, dict]]:
+def read_repo_metadata(task_dir: str) -> dict[str, Union[str, dict]]:
     repo_metadata_file_path = os.path.join(
-        task_repo_dir, "metadata.json")
+        task_dir, "metadata.json")
     if not os.path.exists(repo_metadata_file_path):
         logger.error("Repository metadata file not found")
         sys.exit(1)
@@ -69,10 +69,10 @@ def read_repo_metadata(task_repo_dir: str) -> dict[str, Union[str, dict]]:
 
 
 def read_bounty_metadata(
-    task_repo_dir: str, bounty_number: str
+    task_dir: str, bounty_number: str
 ) -> dict[str, Union[str, dict]]:
     bounty_metadata_file_path = os.path.join(
-        task_repo_dir + "/bounties/bounty_" + bounty_number, "bounty_metadata.json"
+        task_dir + "/bounties/bounty_" + bounty_number, "bounty_metadata.json"
     )
     if not os.path.exists(bounty_metadata_file_path):
         logger.error("Bounty metadata file not found")
@@ -82,6 +82,17 @@ def read_bounty_metadata(
         bounty_metadata = json.load(metadata_file)
 
     return bounty_metadata
+
+def read_exploit_report(task_dir: str, bounty_number: str) -> str:
+    bounty_dir = os.path.join("bounties", f"bounty_{bounty_number}")
+    report_path = os.path.join(task_dir, bounty_dir, "formatted_exploit_report.txt")
+    try:
+        with open(report_path, 'r') as f:
+            exploit_report = f.read()
+    except FileNotFoundError:
+        logger.warning(f"Exploit report not found at: {report_path}")
+        exploit_report = ""
+    return exploit_report
 
 def get_stdout_text(process_output: bytes) -> str:
     """
