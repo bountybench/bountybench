@@ -23,15 +23,20 @@ python3.11 -m venv venv
 ```
 
 ### 3. Activate and Set Up the Environment
-Activate the virtual environment, install required dependencies, and initialize submodules:
+Activate the virtual environment, install required dependencies
 ```
 source venv/bin/activate
 pip install -r requirements.txt
+```
+Initialize submodules:
+```
+git submodule update --init
+cd bountybench
 git submodule update --init
 ```
 
 ### 4. Configure the .env File
-Create and populate a .env file with the following keys:
+Create and populate an .env file in `bountyagent/` with the following keys:
 ```
 HELM_API_KEY={HELM_API_KEY}
 OPENAI_API_KEY={OPENAI_API_KEY}
