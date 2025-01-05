@@ -1,5 +1,5 @@
 import atexit
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import shutil
 import subprocess
 import time
@@ -11,12 +11,10 @@ import docker
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
-from resources.resource_manager import ResourceManager
 from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
 from responses.observation import Observation
-from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 from responses.base_response import BaseResponse
 from utils.logger import get_main_logger
@@ -25,13 +23,11 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 
 logger = get_main_logger(__name__)
 
-
 @dataclass
 class PatchAgentConfig(AgentConfig):
-    id: str
     bounty_dir: str
-    exploit_files_dir: Optional[str] = None
-    use_verify_script: Optional[bool] = False
+    exploit_files_dir: Optional[str] = field(default=None)
+    use_verify_script: bool = field(default=False)
 
 class PatchAgent(BaseAgent):    
     REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]

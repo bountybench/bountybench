@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 from agents.base_agent import AgentConfig, BaseAgent
@@ -26,11 +26,9 @@ TEMPERATURE = 0.5
 
 @dataclass
 class ExecutorAgentConfig(AgentConfig):
-    id: str
-    lm_config: AgentLMConfig
-    target_host: str
-    initial_prompt: Optional[str]=None
-
+    lm_config: AgentLMConfig = field(default_factory=AgentLMConfig)
+    target_host: str = field(default='')
+    initial_prompt: Optional[str] = field(default=None)
 
 class ExecutorAgent(BaseAgent):
     memory: List[str] = []
