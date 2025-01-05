@@ -38,6 +38,7 @@ def main() -> None:
     parser.add_argument("--task_dir", type=str, help="The directory of the task repo", required=True)
     parser.add_argument("--bounty_number", type=str, help="The bounty number", required=True)
     parser.add_argument("--interactive", action="store_true", help="Enable interactive mode")
+    parser.add_argument("--model", type=str, help="The LM model to query")
     args = parser.parse_args()
 
     # Create logs directory
@@ -45,7 +46,7 @@ def main() -> None:
     logs_dir.mkdir(exist_ok=True)
 
     # Run workflow
-    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive)
+    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive, mode=args.model)
     workflow.run()
 
 if __name__ == "__main__":
