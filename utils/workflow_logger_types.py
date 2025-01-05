@@ -14,35 +14,44 @@ class Action:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
-class AgentInteraction:
+class PhaseIteration:
+    iteration_number: int
     agent_name: str
-    input_response: Response
-    output_response: Response
+    input_response: Optional[Response]
+    output_response: Optional[Response]
     start_time: str
-    end_time: str
+    end_time: Optional[str]
     actions: List[Action] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    status: str = "in_progress"
 
 @dataclass
-class WorkflowIteration:
-    iteration_number: int
-    interactions: List[AgentInteraction]
-    status: str
+class WorkflowPhase:
+    phase_idx: int
+    phase_name: str
+    start_time: str
+    end_time: Optional[str]
+    status: str = "in_progress"
+    iterations: List[PhaseIteration] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class WorkflowMetadata:
     workflow_name: str
     start_time: str
     end_time: Optional[str] = None
-    task_repo_dir: Optional[str] = None
-    bounty_number: Optional[str] = None
-    model_config: Optional[Dict[str, Any]] = None
     additional_metadata: Dict[str, Any] = field(default_factory=dict)
+    task: Optional[Dict[str, Any]] = None
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 @dataclass
 class WorkflowLog:
     metadata: WorkflowMetadata
-    iterations: List[WorkflowIteration]
-    resources_used: List[str] = field(default_factory=list)
-    final_status: str = "in_progress"
+    phases: List[WorkflowPhase] = field(default_factory=list)
+    resources_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    agents_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    final_status: List[str] = field(default_factory=list)
     error_log: List[Dict[str, Any]] = field(default_factory=list)

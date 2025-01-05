@@ -1,35 +1,48 @@
 import atexit
 import uuid
 import docker
+import os
+from pathlib import Path
+import time
+import json
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
+from dataclasses import dataclass
+from typing import Optional
+from resources.base_resource import BaseResourceConfig
+
 
 logger = get_main_logger(__name__)
 
 # Constants
 ENTRYPOINT = "/bin/bash"
 
+
+@dataclass
+class DockerResourceConfig(BaseResourceConfig):
+    """Configuration for DockerResource"""
+
+    def validate(self) -> None:
+        """Validate Docker configuration"""
+        pass
+
+
 class DockerResource(BaseResource):
     """
     Docker Resource to manage Docker containers.
     """
 
-    def __init__(self, name: str):
-        """
-        Initialize Docker client from environment.
-        """
+    def __init__(self, resource_id: str, config: DockerResourceConfig):
+        super().__init__(resource_id, config)
+        
         self.client = docker.from_env()
-        self.resource_id = name
-        workflow_logger.add_resource(f"DockerResource: {self.resource_id}")
-        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def execute(
-    self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = False
-) -> tuple:
+        self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = False
+    ) -> tuple:
         """
         Run a Docker container with the specified configuration.
 
@@ -92,8 +105,72 @@ class DockerResource(BaseResource):
             except:
                 pass  # If container removal fails, just ignore it
 
+    def copy_from_container(self, container_name: str, source_path: str, dest_path: str) -> None:
+        """
+        Copy a file or directory from a container to the host system.
+
+        Args:
+            container_name (str): The name of the container to copy from.
+            source_path (str): The path of the file or directory in the container.
+            dest_path (str): The destination path on the host system.
+        """
+        try:
+            container = self.client.containers.get(container_name)
+            
+            # Get file/directory data from container
+            bits, stat = container.get_archive(source_path)
+            
+            # Ensure the destination directory exists
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            
+            # Write the file/directory data to the destination
+            with open(dest_path, 'wb') as f:
+                for chunk in bits:
+                    f.write(chunk)
+            
+            logger.info(f"Copied from container {container_name}: {source_path} -> {dest_path}")
+        except docker.errors.NotFound:
+            logger.error(f"Container not found: {container_name}")
+        except docker.errors.APIError as e:
+            logger.error(f"Docker API error while copying: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error copying from container: {e}")
+
     def stop(self) -> None:
         """
         Stop the Docker client by closing the connection.
         """
         self.client.close()
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the DockerResource state to a dictionary.
+        """
+        return {
+            'resource_id': self.resource_id,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'DockerResource':
+        """
+        Creates a DockerResource instance from a serialized dictionary.
+        """
+        return cls(name=data['resource_id'])
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the resource state to a JSON file.
+        """
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'DockerResource':
+        """
+        Loads a resource state from a JSON file.
+        """
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)

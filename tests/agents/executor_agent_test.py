@@ -6,7 +6,7 @@ from resources.resource_dict import resource_dict
 from resources.base_resource import BaseResource
 from responses.command_response import CommandResponse
 from responses.answer_response import AnswerResponse
-from agents.dataclasses.agent_spec import AgentConfig
+from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from resources.kali_env_resource import KaliEnvResource
 
 class InitFilesResource(BaseResource):
@@ -30,12 +30,11 @@ task_server = SetupResource("task-id")
 class TestExecutorAgent(unittest.TestCase):
     def setUp(self):
         # Create a mock config for the agent
-        self.config = AgentConfig(
+        self.config = AgentLMConfig(
             model="openai/o1-mini-2024-09-12",
             max_output_tokens=50,
             max_input_tokens=100,
-            max_iterations=3,
-            max_response_len=3,
+            max_iterations_stored_in_memory=3,
             use_helm=True
         )
 

@@ -7,55 +7,75 @@ from queue import Queue
 from typing import List, Optional
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
 from resources.utils import run_command
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 
+from dataclasses import dataclass
+from typing import Dict, Optional
+import os
+from resources.base_resource import BaseResourceConfig
+
+
 logger = get_main_logger(__name__)
 
 
-class SetupResource(BaseResource):
-    """
-    SetupResource is responsible for initializing and managing a set of containers
-    either at the "task" (bounty) level or at the "repo" level.
-    It runs the appropriate setup script, extracts container names, waits for their health,
-    and provides methods to restart or stop them.
-    """
+@dataclass
+class SetupResourceConfig(BaseResourceConfig):
+    """Configuration for SetupResource"""
+    task_level_setup: bool
+    task_dir: str
+    files_dir: str
+    bounty_number: Optional[str] = None
+    server_address: Optional[str] = None
 
-    def __init__(self, task_level_setup: bool, task_repo_dir: str, files_dir: str, bounty_number: Optional[str]=None, server_address: Optional[str]=None) -> None:
-        """
-        :param task_level_setup: If True, runs 'setup_bounty_env.sh'; otherwise runs 'setup_repo_env.sh'.
-        :param task_repo_dir: The path to the repository directory.
-        :param bounty_number: The bounty identifier string.
-        :param files_dir: The directory containing setup files.
-        :param server_address: The server address in 'hostname:port' format.
-        """
-
+    def validate(self) -> None:
+        """Validate Setup configuration"""
+        if not os.path.exists(self.task_dir):
+            raise ValueError(f"Invalid task_dir: {self.task_dir}")
+        if self.server_address and ":" not in self.server_address:
+            raise ValueError(f"Invalid server_address format: {self.server_address}")
         
-        self.resource_id = server_address
-        self.task_level_setup = task_level_setup
 
+class SetupResource(BaseResource):
+    """SetupResource for initializing and managing containers."""
+
+    def __init__(self, resource_id: str, config: SetupResourceConfig):
+        # Call the superclass constructor first
+        super().__init__(resource_id, config)
+
+        self.task_dir = str(self._resource_config.task_dir)
+        self.files_dir = self._resource_config.files_dir
+
+
+        # Access the configuration
+        self.task_level_setup = self._resource_config.task_level_setup
         self.role = "task_server" if self.task_level_setup else "repo_resource"
 
-
-        self.task_repo_dir = os.path.abspath(task_repo_dir)
-        self.files_dir = files_dir
-        self.bounty_dir = os.path.join(self.task_repo_dir, "bounties", f"bounty_{bounty_number}")
-
-        if server_address:
-            self.host_name, self.port_number = self.parse_server_address(server_address)
-            self.resource_id = f"{self.role }_{server_address}"
+        # Handle server address if provided (task_server only)
+        if self.task_level_setup:
+            if not self._resource_config.server_address:
+                raise ValueError("Server address is required for task_server setup.")
+            self.host_name, self.port_number = self.parse_server_address(
+                self._resource_config.server_address
+            )
+            if not self._resource_config.bounty_number:
+                raise ValueError("Bounty number is required for task_server setup.")
+            self.bounty_dir = os.path.join(
+                self.task_dir,
+                "bounties",
+                f"bounty_{self._resource_config.bounty_number}",
+            )
         else:
             self.host_name, self.port_number = None, None
-            self.resource_id = f"{self.role }_local"
+            self.bounty_dir = None
 
 
+        # Initialize container management
         self.container_names: List[str] = []
         self.health_check_timeout = 120
-        workflow_logger.add_resource(f"SetupResource: {self.resource_id}")
+
         self._start()
-        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def parse_server_address(self, server_address: str) -> (str, str):
@@ -72,7 +92,14 @@ class SetupResource(BaseResource):
     def _start(self) -> None:
         """Start the environment by running the appropriate setup script."""
         setup_script = "setup_bounty_env.sh" if self.task_level_setup else "setup_repo_env.sh"
-        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
+        work_dir = (
+            os.path.join(self.bounty_dir, "setup_files")
+            if self.task_level_setup
+            else self.task_dir
+        )
+
+        if not os.path.exists(work_dir):
+            raise FileNotFoundError(f"Work directory does not exist: {work_dir}")
 
         logger.info(f"Executing {setup_script} in {work_dir}")
         try:
@@ -80,7 +107,7 @@ class SetupResource(BaseResource):
             logger.info(f"Environment setup complete for {self.resource_id}")
             self.container_names = self.extract_container_names(result.stdout, result.stderr)
 
-            if self.container_names: 
+            if self.container_names:
                 self.wait_until_all_containers_healthy()
 
         except FileNotFoundError:
@@ -96,7 +123,7 @@ class SetupResource(BaseResource):
 
         setup_script = "start_docker.sh"
         env_type = "task server" if self.task_level_setup else "repo env"
-        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
+        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_dir
 
 
 
@@ -122,7 +149,7 @@ class SetupResource(BaseResource):
 
     def stop(self) -> None:
         """Stop the environment by running 'stop_docker.sh'."""
-        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
+        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_dir
         stop_script = os.path.join(work_dir, "stop_docker.sh")
 
 
@@ -206,3 +233,57 @@ class SetupResource(BaseResource):
         else:
             logger.warning("No container names found in the output.")
             return []
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the SetupResource state to a dictionary.
+        """
+        return {
+            'task_level_setup': self.task_level_setup,
+            'task_dir': self.task_dir,
+            'files_dir': self.files_dir,
+            'bounty_dir': self.bounty_dir,
+            'host_name': self.host_name,
+            'port_number': self.port_number,
+            'resource_id': self.resource_id,
+            'role': self.role,
+            'container_names': self.container_names,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'SetupResource':
+        """
+        Creates a SetupResource instance from a serialized dictionary.
+        """
+        bounty_number = os.path.basename(data['bounty_dir']).replace('bounty_', '')
+        server_address = f"{data['host_name']}:{data['port_number']}" if data['host_name'] and data['port_number'] else None
+        
+        instance = cls(
+            task_level_setup=data['task_level_setup'],
+            task_dir=data['task_dir'],
+            files_dir=data['files_dir'],
+            bounty_number=bounty_number,
+            server_address=server_address
+        )
+        instance.container_names = data['container_names']
+        return instance
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the resource state to a JSON file.
+        """
+        import json
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'SetupResource':
+        """
+        Loads a resource state from a JSON file.
+        """
+        import json
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)

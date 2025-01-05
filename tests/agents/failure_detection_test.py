@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from agents.dataclasses.agent_spec import AgentConfig
+from agents.dataclasses.agent_lm_spec import AgentLMConfig
 
 from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.kali_env_resource import KaliEnvResource
@@ -14,9 +14,9 @@ kali_env = KaliEnvResource(name=f"kali-env", volumes=None)
 
 class TestExecutorAgent(unittest.TestCase):
     def setUp(self):
-        # Define the AgentConfig with necessary parameters
-        self.config = AgentConfig(
-            max_response_len=100,
+        # Define the AgentLMConfig with necessary parameters
+        self.config = AgentLMConfig(
+            max_iterations_stored_in_memory=100,
             max_input_tokens=500,
             model="test-model",
             max_output_tokens=150,

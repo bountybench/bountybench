@@ -10,10 +10,14 @@ import docker
 from docker.models.containers import Container
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
 from resources.utils import get_stdout_text, parse_shell_script
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
+from dataclasses import dataclass
+from typing import Dict, Optional
+import os
+from resources.base_resource import BaseResourceConfig
+
 
 # Configure logging
 logger = get_main_logger(__name__)
@@ -31,6 +35,7 @@ def timeout_context(seconds):
         yield
     finally:
         signal.alarm(0)
+        
 # Constants with type annotations
 DOCKER_IMAGE: str = "cybench/cybounty:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
@@ -39,31 +44,42 @@ MAX_RETRIES = 3
 RETRY_DELAY = 10
 
 
+@dataclass
+class KaliEnvResourceConfig(BaseResourceConfig):
+    """Configuration for KaliEnvResource"""
+    task_dir: Optional[str] = None
+    bounty_number: Optional[str] = None
+    volumes: Optional[Dict[str, Dict[str, str]]] = None
+
+    def validate(self) -> None:
+        """Validate KaliEnv configuration"""
+        if self.task_dir and not os.path.exists(self.task_dir):
+            raise ValueError(f"Invalid task_dir: {self.task_dir}")
+        if self.volumes:
+            for host_path in self.volumes.keys():
+                if not os.path.exists(host_path):
+                    raise ValueError(f"Invalid volume host path: {host_path}")
+                
 class KaliEnvResource(BaseResource):
     """Kali Linux Environment Resource"""
 
-    def __init__(self, name: str, task_repo_dir: str = None, bounty_number: str=None, volumes: Optional[Dict[str, Dict[str, str]]] = None) -> None:
-        """
-        Initialize the Kali Linux Environment with optional volume bindings.
-
-        Args:
-            name (str): The name of the container.
-            task_repo_dir (str, optional): The directory path of the task repository containing scripts or requirements.
-            volumes (Optional[Dict[str, Dict[str, str]]]): Docker volume bindings in the format {host_path: {'bind': container_path, 'mode': rw}}.
-        """
-        self.client: docker.DockerClient = docker.from_env()
-        self.resource_id = name
-        self.container: Container = self._start(self.resource_id, volumes)
-        self.bounty_dir = os.path.join(
-                str(task_repo_dir) + "/bounties/bounty_" + bounty_number
-        )
-        if task_repo_dir:
+    def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
+        super().__init__(resource_id, config)
+        
+        self.client = docker.from_env()
+        self.container = self._start(self.resource_id, self._resource_config.volumes)
+        
+        # Initialize bounty directory if task_dir and bounty_number provided
+        if self._resource_config.task_dir and self._resource_config.bounty_number:
+            self.bounty_dir = os.path.join(
+                str(self._resource_config.task_dir),
+                "bounties",
+                f"bounty_{self._resource_config.bounty_number}"
+            )
             self.run_requirements(self.bounty_dir)
-
-        workflow_logger.add_resource(f"KaliEnvResource: {self.resource_id}")
-        resource_dict[self.resource_id] = self
+        
         atexit.register(self.stop)
-
+        
     def _start(
         self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]
     ) -> Container:
@@ -89,6 +105,10 @@ class KaliEnvResource(BaseResource):
                 container.start()
             else:
                 logger.info(f"Container '{name}' is already running.")
+            
+            # Upgrade pip
+            self._upgrade_pip(container)
+            
             return container
         except docker.errors.NotFound:
             logger.info(f"Container '{name}' does not exist. Creating a new one.")
@@ -107,6 +127,10 @@ class KaliEnvResource(BaseResource):
                         name=name,
                     )
                     logger.info("Docker container started successfully.")
+                    
+                    # Upgrade pip
+                    self._upgrade_pip(container)
+                    
                     return container
                 except Exception as e:
                     logger.error(
@@ -116,10 +140,26 @@ class KaliEnvResource(BaseResource):
                         logger.info(f"Retrying in {RETRY_DELAY} seconds...")
                         time.sleep(RETRY_DELAY)
                     else:
-                        logger.error(
-                        )
+                        logger.error("Failed to start Docker container after maximum retries.")
                         sys.exit(1)
 
+    def _upgrade_pip(self, container: Container) -> None:
+        """
+        Upgrade pip in the given container.
+
+        Args:
+            container (Container): The Docker container in which to upgrade pip.
+        """
+        try:
+            logger.info("Upgrading pip in the container...")
+            result = container.exec_run("pip install --upgrade pip")
+            if result.exit_code == 0:
+                logger.info("Successfully upgraded pip.")
+            else:
+                logger.warning(f"Failed to upgrade pip. Exit code: {result.exit_code}")
+                logger.warning(f"Output: {result.output.decode('utf-8')}")
+        except Exception as e:
+            logger.error(f"Error while upgrading pip: {e}")
 
     def stop(self) -> None:
         """
@@ -177,14 +217,14 @@ class KaliEnvResource(BaseResource):
             return "", f"Unexpected error: {str(e)}"
 
 
-    def run_requirements(self, task_repo_dir: str) -> None:
+    def run_requirements(self, task_dir: str) -> None:
         """
         Execute any required setup scripts from the provided repository directory.
 
         Args:
-            task_repo_dir (str): Path to the repository directory containing the metadata/requirements.sh script.
+            task_dir (str): Path to the repository directory containing the metadata/requirements.sh script.
         """
-        requirements_path = f"{task_repo_dir}/setup_files/requirements.sh"
+        requirements_path = f"{task_dir}/setup_files/requirements.sh"
         if not os.path.isfile(requirements_path):
             logger.error(f"Requirements file not found at {requirements_path}")
         else:
@@ -198,6 +238,7 @@ class KaliEnvResource(BaseResource):
                     logger.info(f"Requirements.sh Output:\n{stdout}")
                 if stderr:
                     logger.error(f"Requirements.sh Error:\n{stderr}")
+            self.run_command("git clean -fdx")
 
     def parse_target_host(self, target_host: str) -> Tuple[str, int]:
         """
@@ -275,3 +316,46 @@ class KaliEnvResource(BaseResource):
                 "Health checks failed for one or more target hosts.")
         else:
             logger.info("All target hosts passed the health check.")
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the KaliEnvResource state to a dictionary.
+        """
+        return {
+            'resource_id': self.resource_id,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'KaliEnvResource':
+        """
+        Creates a KaliEnvResource instance from a serialized dictionary.
+        """
+        task_dir = os.path.dirname(os.path.dirname(data['bounty_dir']))
+        bounty_number = os.path.basename(data['bounty_dir']).replace('bounty_', '')
+        
+        return cls(
+            name=data['resource_id'],
+            task_dir=task_dir,
+            bounty_number=bounty_number,
+            **kwargs
+        )
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the resource state to a JSON file.
+        """
+        import json
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'KaliEnvResource':
+        """
+        Loads a resource state from a JSON file.
+        """
+        import json
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)

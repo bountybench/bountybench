@@ -3,44 +3,76 @@ import logging
 import os
 import subprocess
 import sys
+import time
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 import shutil
+
+from dataclasses import dataclass
+from typing import Optional
+import os
+from resources.base_resource import BaseResourceConfig
 
 
 # Configure logging
 logger = get_main_logger(__name__)
 
 
+
+@dataclass
+class InitFilesResourceConfig(BaseResourceConfig):
+    """Configuration for InitFilesResource"""
+    task_dir: str
+    files_dir_name: str
+    tmp_dir_name: str
+    exploit_files_dir_name: Optional[str] = None
+    vulnerable_commit: Optional[str] = None
+
+    def validate(self) -> None:
+        """Validate InitFiles configuration"""
+        if not self.task_dir or not os.path.exists(self.task_dir):
+            raise ValueError(f"Invalid task_dir: {self.task_dir}")
+        if not self.files_dir_name:
+            raise ValueError("files_dir_name cannot be empty")
+        if not self.tmp_dir_name:
+            raise ValueError("tmp_dir_name cannot be empty")
+        if not self.tmp_dir_name:
+            raise ValueError("tmp_dir_name cannot be empty")
+
 class InitFilesResource(BaseResource):
     """Init Files Resource"""
 
-    def __init__(self, task_repo_dir: str, files_dir_name: str, tmp_dir_name: str, exploit_files_dir_name: str = None, vulnerable_commit: str = None) -> None:
-        # Where dir_name is a path relative to task_repo_dir, and dir is an absolut path
-        self.task_repo_dir = os.path.abspath(task_repo_dir)
-        self.files_dir = os.path.join(self.task_repo_dir, files_dir_name)
+    def __init__(self, resource_id: str, config: InitFilesResourceConfig):
+        super().__init__(resource_id, config)
 
-        self.tmp_dir_name = tmp_dir_name
-        self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
+        
+        # Initialize from config
+        self.task_dir = str(self._resource_config.task_dir)
+        self.files_dir = os.path.join(self.task_dir, self._resource_config.files_dir_name)
+
+        self.tmp_dir_name = self._resource_config.tmp_dir_name
+        self.tmp_dir = os.path.join(self.task_dir, self.tmp_dir_name)
+        
+        # Create necessary directories
         os.makedirs(self.tmp_dir, exist_ok=True)
         self.tmp_exploits_dir = os.path.join(self.tmp_dir, "exploit_files")
         os.makedirs(self.tmp_exploits_dir, exist_ok=True)
-        self.resource_id = self.tmp_dir_name 
         
+        # Handle exploit files if specified
         self.exploit_files_dir = None
-        if exploit_files_dir_name: 
-            # Exploit files dir should be relative to task_repo_dir (metadata/bounty_#/exploit_files)
-            self.exploit_files_dir = os.path.join(self.task_repo_dir, exploit_files_dir_name)
+        if self._resource_config.exploit_files_dir_name:
+            self.exploit_files_dir = os.path.join(
+                self.task_dir, 
+                self._resource_config.exploit_files_dir_name
+            )
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
-        self.vulnerable_commit = vulnerable_commit
-        workflow_logger.add_resource(f"InitFilesResource: {self.resource_id}")
+            
+        self.vulnerable_commit = self._resource_config.vulnerable_commit
+        
+        # Initialize resource
         self._start()
-
-        resource_dict[self.resource_id] = self
-
         atexit.register(self.stop)
 
     def _start(self) -> None:
@@ -53,7 +85,7 @@ class InitFilesResource(BaseResource):
                 f"Checking out {self.vulnerable_commit}")
             subprocess.run(
                 ["git", "checkout", self.vulnerable_commit],
-                cwd=self.files_dir,
+                cwd=os.path.abspath(self.files_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=True,
@@ -81,28 +113,42 @@ class InitFilesResource(BaseResource):
 
     def stop(self) -> None:
         """
-        Remove the temporary directory used for the task.
+        Remove the temporary directory used for the task and clean up git branches.
         """
-        if os.path.exists(self.tmp_dir):
-            try:
-                subprocess.run(["rm", "-rf", self.tmp_dir], check=True)
-                logger.info(f"Removed temporary directory: {self.tmp_dir}")
-
-            except subprocess.CalledProcessError as e:
-                logger.error(
-                    f"Failed to remove temporary directory: {e.stderr}")
+        try:
+            # Clean up temporary directory
+            if os.path.exists(self.tmp_dir):
+                try:
+                    shutil.rmtree(self.tmp_dir)
+                    logger.info(f"Removed temporary directory: {self.tmp_dir}")
+                except Exception as e:
+                    logger.error(f"Failed to remove temporary directory: {str(e)}")
             
+            # Clean up git branches
             try:
-                subprocess.run(["git", "branch", "-D", "dev"],
-                                   cwd=self.files_dir, check=True)
-                logger.info(
-                        f"Removed dev branch from {self.files_dir}")
-            except subprocess.CalledProcessError as e:
-                logger.error(
-                    f"Failed to remove dev branch from directory: {e.stderr}")
+                if os.path.exists(self.files_dir):
+                    # First try to check out main branch
+                    subprocess.run(
+                        ["git", "checkout", "main"],
+                        cwd=self.files_dir,
+                        capture_output=True,
+                        check=False
+                    )
+                    
+                    # Then try to delete the dev branch
+                    subprocess.run(
+                        ["git", "branch", "-D", "dev"],
+                        cwd=self.files_dir,
+                        capture_output=True,
+                        check=False
+                    )
+                    logger.info(f"Removed dev branch from {self.files_dir}")
+            except Exception as e:
+                logger.error(f"Failed to clean up git branches: {str(e)}")
+                
+        except Exception as e:
+            logger.error(f"Error during cleanup: {str(e)}")
 
-        else:
-            logger.error(f"Temporary directory does not exist: {self.tmp_dir}")
 
     def setup_repo(self, work_dir):
         if os.path.exists(work_dir):
@@ -160,16 +206,70 @@ class InitFilesResource(BaseResource):
             logger.error(
                 f"Directory {files_dir} is not a valid git repository.")
     
-
-    def copy_files(self, source, destination): 
+    def copy_files(self, source, destination):
+        source = os.path.abspath(source)
+        destination = os.path.abspath(destination)
         try:
             if os.path.isfile(source):
                 shutil.copy2(source, destination)
-                print(f"Copied file {source} to {destination}")
+                logger.info(f"Copied file {source} to {destination}")
             elif os.path.isdir(source):
-                shutil.copytree(source, destination, dirs_exist_ok=True)
-                print(f"Copied directory {source} to {destination}")
+                # Exclude the .git folder 
+                ignore = shutil.ignore_patterns('.git', '.git*')
+                shutil.copytree(
+                    source,
+                    destination,
+                    dirs_exist_ok=True,
+                    ignore=ignore
+                )
+                logger.info(f"Copied directory {source} to {destination}")
             else:
                 raise ValueError(f"Source {source} is neither a file nor a directory")
         except Exception as e:
-                print(f"An error occurred while copying files: {e}")
+            logger.error(f"An error occurred while copying files: {e}")
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the InitFilesResource state to a dictionary.
+        """
+        return {
+            'task_dir': self.task_dir,
+            'files_dir': self.files_dir,
+            'tmp_dir': self.tmp_dir,
+            'tmp_exploits_dir': self.tmp_exploits_dir,
+            'exploit_files_dir': self.exploit_files_dir,
+            'vulnerable_commit': self.vulnerable_commit,
+            'resource_id': self.resource_id,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'InitFilesResource':
+        """
+        Creates an InitFilesResource instance from a serialized dictionary.
+        """
+        return cls(
+            task_dir=data['task_dir'],
+            files_dir_name=os.path.basename(data['files_dir']),
+            exploit_files_dir_name=os.path.basename(data['exploit_files_dir']) if data['exploit_files_dir'] else None,
+            vulnerable_commit=data['vulnerable_commit']
+        )
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the resource state to a JSON file.
+        """
+        import json
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'InitFilesResource':
+        """
+        Loads a resource state from a JSON file.
+        """
+        import json
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)
