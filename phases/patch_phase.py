@@ -24,24 +24,16 @@ class PatchPhase(BasePhase):
 
 
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
-        executor_lm_config = AgentLMConfig(
-            model='openai/o3-mini-2024-12-17',
-            max_output_tokens=5000,
-            max_input_tokens=5000,
-            max_iterations_stored_in_memory=3,
-            use_helm=False
-        )
-        
+        # assume we get model through some kwargs situation with the Message
+        executor_lm_config = AgentLMConfig.create(model=kwargs.get('model'))
+        # Create the executor_config
         executor_config = ExecutorAgentConfig(
-            id="ExecutorAgent",
             lm_config=executor_lm_config,
             target_host=self.workflow.repo_metadata["target_host"],
             initial_prompt=self.workflow._get_initial_prompt()
-
         )
 
         patch_config = PatchAgentConfig(
-            id="PatchAgent",
             bounty_dir=os.path.join("bounties", f"bounty_{self.workflow.bounty_number}")
         )
 
@@ -49,8 +41,6 @@ class PatchPhase(BasePhase):
             ("ExecutorAgent", executor_config),
             ("PatchAgent", patch_config),
         ]
-    
-
    
     def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
         """
