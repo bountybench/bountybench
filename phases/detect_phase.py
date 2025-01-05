@@ -1,7 +1,7 @@
 from typing import Optional, Tuple, Any
 from phases.base_phase import BasePhase
-from responses.response import Response
-from responses.answer_response import AnswerResponseInterface
+from messages.message import Message
+from messages.answer_message import AnswerMessageInterface
 from agents.executor_agent.executor_agent import ExecutorAgent
 from utils.logger import get_main_logger
 
@@ -18,25 +18,25 @@ class DetectPhase(BasePhase):
     def run_one_iteration(
         self,
         agent_instance: Any,
-        previous_output: Optional[Response]
-    ) -> Tuple[Response, bool]:
+        previous_output: Optional[Message]
+    ) -> Tuple[Message, bool]:
         """
-        1) Call the agent with the previous_response as input (if any).
-        2) If ExecutorAgent produces an AnswerResponseInterface, treat as answer submission -> finalize & done.
+        1) Call the agent with the previous_message as input (if any).
+        2) If ExecutorAgent produces an AnswerMessageInterface, treat as answer submission -> finalize & done.
         4) Otherwise continue.
         """
-        # Prepare input response list for agent
+        # Prepare input message list for agent
         input_list = []
         if previous_output is not None:
             input_list.append(previous_output)
 
-        response = agent_instance.run(input_list)
+        message = agent_instance.run(input_list)
 
         # Check for answer submission (ExecutorAgent)
-        if isinstance(response, AnswerResponseInterface):
+        if isinstance(message, AnswerMessageInterface):
             logger.info("Detect successful!")
             self._set_phase_summary("detect_success")
-            return response, True
+            return message, True
             
         # Otherwise, continue looping
-        return response, False        
+        return message, False        

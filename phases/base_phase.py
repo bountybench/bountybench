@@ -3,9 +3,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
-from phase_responses.phase_response import PhaseResponse
+from phase_messages.phase_message import PhaseMessage
 from resources.base_resource import BaseResource
-from responses.base_response import BaseResponse
+from messages.message import Message
 from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
 
@@ -47,7 +47,7 @@ class BasePhase(ABC):
         self.agent_manager = self.workflow.agent_manager
         self.resource_manager = self.workflow.resource_manager
         self.agents: List[Tuple[str, BaseAgent]] = []
-        self.initial_response = kwargs.get("initial_prompt", None)
+        self.initial_message = kwargs.get("initial_prompt", None)
         self._done = False
         self.phase_summary: Optional[str] = None
         self.iteration_count = 0
@@ -148,47 +148,47 @@ class BasePhase(ABC):
             raise
 
     
-    def run_phase(self, prev_phase_response: PhaseResponse) -> PhaseResponse:
+    def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.
 
         Args:
-            phase_response (PhaseResponse): The response from the previous phase.
+            phase_message (PhaseMessage): The message from the previous phase.
 
         Returns:
-            PhaseResponse: The response of the current phase.
+            PhaseMessage: The message of the current phase.
         """
         logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
 
-        last_agent_response = prev_phase_response.agent_responses[-1]
-        curr_phase_response = PhaseResponse(agent_responses=[])
+        last_agent_message = prev_phase_message.agent_messages[-1]
+        curr_phase_message = PhaseMessage(agent_messages=[])
 
         # 1) Start phase context
         with workflow_logger.phase(self) as phase_ctx:
             for iteration_num in range(1, self.phase_config.max_iterations + 1):
-                if curr_phase_response.complete:
+                if curr_phase_message.complete:
                     break
 
                 agent_id, agent_instance = self._get_current_agent()
 
-                if last_agent_response:
-                    print(f"Last output was {last_agent_response.response}")
+                if last_agent_message:
+                    print(f"Last output was {last_agent_message.message}")
                 else:
                     print("No last output")
 
                 # 2) Start iteration context in the logger
-                with phase_ctx.iteration(iteration_num, agent_id, last_agent_response) as iteration_ctx:
-                    response = self.run_one_iteration(
-                        phase_response=curr_phase_response,
+                with phase_ctx.iteration(iteration_num, agent_id, last_agent_message) as iteration_ctx:
+                    message = self.run_one_iteration(
+                        phase_message=curr_phase_message,
                         agent_instance=agent_instance,
-                        previous_output=last_agent_response,
+                        previous_output=last_agent_message,
                     )
-                    iteration_ctx.set_output(response)
+                    iteration_ctx.set_output(message)
 
-                if curr_phase_response.complete:
+                if curr_phase_message.complete:
                     break
 
-                last_agent_response = curr_phase_response.agent_responses[-1]
+                last_agent_message = curr_phase_message.agent_messages[-1]
 
                 # Increment the iteration count
                 self.iteration_count += 1
@@ -200,7 +200,7 @@ class BasePhase(ABC):
         # Deallocate resources after completing iterations
         self.deallocate_resources()
 
-        return curr_phase_response
+        return curr_phase_message
 
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:
         """Retrieve the next agent in a round-robin fashion."""
@@ -228,17 +228,17 @@ class BasePhase(ABC):
 
     @abstractmethod
     def run_one_iteration(
-        self, phase_response: PhaseResponse, agent_instance: Any, previous_output: Optional[BaseResponse]
-    ) -> BaseResponse:
+        self, phase_message: PhaseMessage, agent_instance: Any, previous_output: Optional[Message]
+    ) -> Message:
         """
         Run a single iteration of the phase.
 
         Args:
             agent_instance (BaseAgent): The agent to run.
-            previous_output (Optional[BaseResponse]): The output from the previous iteration.
+            previous_output (Optional[Message]): The output from the previous iteration.
 
         Returns:
-            BaseResponse: The response from the agent.
+            Message: The message from the agent.
         """
         pass
 
