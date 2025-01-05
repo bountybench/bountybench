@@ -3,13 +3,12 @@ from typing import List, Optional
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from agents.executor_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
+from agents.executor_agent.prompt import STOP_TOKEN
 from agents.utils import truncate_input_to_max_tokens
 from models.model_response import ModelResponse
 from models.query import query
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
-from resources.resource_manager import ResourceManager
 from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
@@ -17,7 +16,6 @@ from responses.command_response_interface import CommandResponseInterface
 from responses.observation import Observation
 from responses.response import Response
 from utils.logger import get_main_logger
-from utils.workflow_logger import WorkflowLogger
 
 logger = get_main_logger(__name__)
 
@@ -72,17 +70,6 @@ class ExecutorAgent(BaseAgent):
         if self.target_host: 
             self.kali_env.health_check(self.target_host)
         
-
-    
-    #def register_resources(self, resource_manager: ResourceManager) -> None:
-        #super().register_resources(resource_manager)
-        #if self.target_host: 
-            #self.kali_env.health_check(self.target_host)
-        
-
-    
-
-
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
             raise Exception(f"Accepts at most a single response, got {len(responses)}.")
