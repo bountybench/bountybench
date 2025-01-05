@@ -1,51 +1,41 @@
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
 from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
+
 
 logger = get_main_logger(__name__)
 
 class ResourceManager:
-    """
-    ResourceManager is responsible for managing the lifecycle of resources across multiple phases of a workflow.
-    Handles:
-    1. Registration and Scheduling: Resources are registered and their usage across phases is scheduled.
-    2. Initialization and Deallocation: Resources are initialized when needed and deallocated when no longer required.
-    """
-
     def __init__(self):
-        # resource_id -> resource: Stores initialized resource objects.
-        self._resources: Dict[str, BaseResource] = {}
-        
-        #The below data structures use resource_id because resource object may not be initialized yet
-        # Maps resource_id -> (ResourceClass, ResourceConfig)
+        self._resources = resource_dict
         self._resource_registration: Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]] = {}
-        # phase_int -> set(resource_ids). Tracks which resources used by each phase.
         self._phase_resources: Dict[int, Set[str]] = {}
-        # resource_id -> (init_phase, term_phase)
-        self._resource_lifecycle: Dict[str, Tuple[int, int]] = {}  
+        self._resource_lifecycle: Dict[str, Tuple[int, int]] = {}
 
     @property
     def resources(self):
         return self._resources
-    
+
     def register_resource(self, resource_id: str, resource_class: Type[BaseResource], resource_config: Optional[BaseResourceConfig] = None):
-        """Register a resource with its class and configuration."""
         self._resource_registration[resource_id] = (resource_class, resource_config)
         logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
 
-    def compute_schedule(self, phases: List[Type[BasePhase]]):
+    def compute_schedule(self, phases: List['BasePhase']):
         """
         Compute the resource usage schedule across all phases.
         This method populates the phase_resources and resource_lifecycle dictionaries.
         """
         resource_phases = {}
 
-        for i, phase_cls in enumerate(phases):
-            phase_resources = phase_cls.get_required_resources()
-            self._phase_resources[i] = phase_resources
-            for resource_id in phase_resources:
+        for i, phase in enumerate(phases):
+            phase_resources = phase.define_resources()
+            self._phase_resources[i] = set(phase_resources.keys())
+            for resource_id, (resource_class, resource_config) in phase_resources.items():
+                if not self.is_resource_equivalent(resource_id, resource_class, resource_config):
+                    self.register_resource(resource_id, resource_class, resource_config)
                 if resource_id not in resource_phases:
                     resource_phases[resource_id] = set()
                 resource_phases[resource_id].add(i)
@@ -55,29 +45,34 @@ class ResourceManager:
             term_phase = max(phases)
             self._resource_lifecycle[resource_id] = (init_phase, term_phase)
 
+        logger.debug(f"Computed resource schedule: {self._resource_lifecycle}")
+
+    def is_resource_equivalent(self, resource_id: str, resource_class: Type[BaseResource], resource_config: Optional[BaseResourceConfig]) -> bool:
+        if resource_id not in self._resource_registration:
+            return False
+        registered_class, registered_config = self._resource_registration[resource_id]
+        return (registered_class == resource_class and 
+                (registered_config == resource_config or 
+                 (registered_config is None and resource_config is None)))
+
     def initialize_phase_resources(self, phase_index: int, resource_ids: Iterable[str]):
         """Initialize resources for a phase and update lifecycle information."""
         logger.debug(f"Entering initialize_phase_resources for phase {phase_index}")
         logger.debug(f"Registered resources: {self._resource_registration.keys()}")
         logger.debug(f"Phase resources: {resource_ids}")
         
-        # Convert resource_ids to set and store in phase_resources
         resource_id_set = set(resource_ids)
         self._phase_resources[phase_index] = resource_id_set
         
-        # Update lifecycle information for each resource
         for resource_id in resource_id_set:
             if resource_id not in self._resource_lifecycle:
-                # If not in lifecycle dict, this is the first phase using it
                 self._resource_lifecycle[resource_id] = (phase_index, phase_index)
             else:
-                # Update term_phase if this phase is later
-                init_phase, _ = self._resource_lifecycle[resource_id]
-                self._resource_lifecycle[resource_id] = (init_phase, max(phase_index, self._resource_lifecycle[resource_id][1]))
+                init_phase, term_phase = self._resource_lifecycle[resource_id]
+                self._resource_lifecycle[resource_id] = (init_phase, max(phase_index, term_phase))
         
-        # Initialize resources that aren't already initialized
         for resource_id in resource_id_set:
-            if resource_id in self._resources:
+            if resource_id in self._resources.id_to_resource:
                 logger.debug(f"Resource '{resource_id}' already initialized. Skipping.")
                 continue
 
@@ -86,7 +81,6 @@ class ResourceManager:
                 logger.debug(f"Resource '{resource_id}' not registered. Skipping.")
                 continue
             
-            # Create and initialize the resource
             resource_class, resource_config = self._resource_registration[resource_id]
             try:
                 resource = resource_class(resource_id, resource_config)
@@ -115,18 +109,17 @@ class ResourceManager:
             return
             
         for resource_id in self._phase_resources[phase_index]:
-            # Skip if resource not in lifecycle dict (shouldn't happen with fixes)
             if resource_id not in self._resource_lifecycle:
                 print(f"Warning: No lifecycle information for resource '{resource_id}'")
                 continue
                 
             _, term_phase = self._resource_lifecycle[resource_id]
-            if phase_index == term_phase and resource_id in self._resources:
+            if phase_index == term_phase and resource_id in self._resources.id_to_resource:
                 resource = self._resources[resource_id]
                 try:
                     logger.debug(f"Stopping resource '{resource_id}'")
                     resource.stop()
-                    del self._resources[resource_id]
+                    self._resources.delete_items(resource_id)
                     logger.info(f"Deallocated resource '{resource_id}'")
                 except Exception as e:
                     logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
@@ -136,7 +129,7 @@ class ResourceManager:
 
     def get_resource(self, resource_id: str) -> BaseResource:
         """Retrieve an initialized resource by its ID."""
-        if resource_id not in self._resources:
+        if resource_id not in self._resources.id_to_resource:
             raise KeyError(f"Resource '{resource_id}' not initialized")
         return self._resources[resource_id]
     
@@ -155,6 +148,7 @@ class ResourceManager:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for resource in self._resources.values():
+        for resource in self._resources.id_to_resource.values():
             resource.stop()
-        self._resources.clear()
+        self._resources.id_to_resource.clear()
+        self._resources.resource_type_to_resources.clear()

@@ -40,9 +40,12 @@ class WorkflowMetadata:
     workflow_name: str
     start_time: str
     end_time: Optional[str] = None
-    task_repo_dir: Optional[str] = None
-    bounty_number: Optional[str] = None
     additional_metadata: Dict[str, Any] = field(default_factory=dict)
+    task: Optional[Dict[str, Any]] = None
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 @dataclass
 class WorkflowLog:

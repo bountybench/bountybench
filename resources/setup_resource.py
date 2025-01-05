@@ -24,15 +24,15 @@ logger = get_main_logger(__name__)
 class SetupResourceConfig(BaseResourceConfig):
     """Configuration for SetupResource"""
     task_level_setup: bool
-    task_repo_dir: str
+    task_dir: str
     files_dir: str
     bounty_number: Optional[str] = None
     server_address: Optional[str] = None
 
     def validate(self) -> None:
         """Validate Setup configuration"""
-        if not os.path.exists(self.task_repo_dir):
-            raise ValueError(f"Invalid task_repo_dir: {self.task_repo_dir}")
+        if not os.path.exists(self.task_dir):
+            raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if self.server_address and ":" not in self.server_address:
             raise ValueError(f"Invalid server_address format: {self.server_address}")
         
@@ -44,7 +44,7 @@ class SetupResource(BaseResource):
         # Call the superclass constructor first
         super().__init__(resource_id, config)
 
-        self.task_repo_dir = str(self._resource_config.task_repo_dir)
+        self.task_dir = str(self._resource_config.task_dir)
         self.files_dir = self._resource_config.files_dir
 
 
@@ -62,7 +62,7 @@ class SetupResource(BaseResource):
             if not self._resource_config.bounty_number:
                 raise ValueError("Bounty number is required for task_server setup.")
             self.bounty_dir = os.path.join(
-                self.task_repo_dir,
+                self.task_dir,
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}",
             )
@@ -95,7 +95,7 @@ class SetupResource(BaseResource):
         work_dir = (
             os.path.join(self.bounty_dir, "setup_files")
             if self.task_level_setup
-            else self.task_repo_dir
+            else self.task_dir
         )
 
         if not os.path.exists(work_dir):
@@ -123,7 +123,7 @@ class SetupResource(BaseResource):
 
         setup_script = "start_docker.sh"
         env_type = "task server" if self.task_level_setup else "repo env"
-        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
+        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_dir
 
 
 
@@ -149,7 +149,7 @@ class SetupResource(BaseResource):
 
     def stop(self) -> None:
         """Stop the environment by running 'stop_docker.sh'."""
-        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
+        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_dir
         stop_script = os.path.join(work_dir, "stop_docker.sh")
 
 
@@ -240,7 +240,7 @@ class SetupResource(BaseResource):
         """
         return {
             'task_level_setup': self.task_level_setup,
-            'task_repo_dir': self.task_repo_dir,
+            'task_dir': self.task_dir,
             'files_dir': self.files_dir,
             'bounty_dir': self.bounty_dir,
             'host_name': self.host_name,
@@ -261,7 +261,7 @@ class SetupResource(BaseResource):
         
         instance = cls(
             task_level_setup=data['task_level_setup'],
-            task_repo_dir=data['task_repo_dir'],
+            task_dir=data['task_dir'],
             files_dir=data['files_dir'],
             bounty_number=bounty_number,
             server_address=server_address

@@ -1,5 +1,6 @@
 from agents.base_agent import AgentConfig
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
+from phase_responses.phase_response import PhaseResponse
 from phases.base_phase import BasePhase
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
@@ -14,6 +15,8 @@ from resources.setup_resource import SetupResource, SetupResourceConfig
 import os
 import logging
 
+from workflows.base_workflow import BaseWorkflow
+
 logger = logging.getLogger(__name__)
 
 class PatchPhase(BasePhase):
@@ -21,35 +24,31 @@ class PatchPhase(BasePhase):
     
     AGENT_CLASSES = [PatchAgent, ExecutorAgent]
 
+    def __init__(self, workflow: 'BaseWorkflow', **kwargs):
+        self.model = kwargs.get('model')
+        self.bounty_number = kwargs.get('bounty_number')
+        self.initial_prompt = kwargs.get('initial_prompt')
+        super().__init__(workflow, **kwargs)
 
-    def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
-        executor_lm_config = AgentLMConfig(
-            model='openai/o3-mini-2024-12-17',
-            max_output_tokens=5000,
-            max_input_tokens=5000,
-            max_iterations_stored_in_memory=3,
-            use_helm=False
-        )
-        
+    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
+        # assume we get model through some kwargs situation with the Message
+        executor_lm_config = AgentLMConfig.create(model=self.model)
+        # Create the executor_config
         executor_config = ExecutorAgentConfig(
-            id="ExecutorAgent",
             lm_config=executor_lm_config,
             target_host=self.workflow.repo_metadata["target_host"],
-            initial_prompt=self.workflow.get_initial_prompt()
-
+            initial_prompt=self.initial_prompt 
         )
 
         patch_config = PatchAgentConfig(
-            id="PatchAgent",
-            bounty_dir=os.path.join("bounties", f"bounty_{self.workflow.bounty_number}")
+            bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),
+            task_dir=self.workflow.task_dir
         )
 
         return [
-            ("PatchAgent", patch_config),
             ("ExecutorAgent", executor_config),
+            ("PatchAgent", patch_config),
         ]
-    
-
    
     def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
         """
@@ -72,7 +71,7 @@ class PatchPhase(BasePhase):
             "kali_env": (
                 KaliEnvResource,
                 KaliEnvResourceConfig(
-                    task_repo_dir=self.workflow.task_repo_dir,
+                    task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
                     volumes={
                         os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
@@ -88,7 +87,7 @@ class PatchPhase(BasePhase):
             "init_files": (
                 InitFilesResource,
                 InitFilesResourceConfig(
-                    task_repo_dir=self.workflow.task_repo_dir,
+                    task_dir=self.workflow.task_dir,
                     files_dir_name=files_dir,
                     tmp_dir_name=tmp_dir,
                     exploit_files_dir_name=exploit_files_dir,
@@ -97,13 +96,13 @@ class PatchPhase(BasePhase):
             )
         }
 
-        setup_repo_env_script = os.path.join(str(self.workflow.task_repo_dir), "setup_repo_env.sh")
+        setup_repo_env_script = os.path.join(str(self.workflow.task_dir), "setup_repo_env.sh")
         if os.path.exists(setup_repo_env_script):
             resource_configs["repo_resource"] = (
                 SetupResource,
                 SetupResourceConfig(
                     task_level_setup=False,
-                    task_repo_dir=self.workflow.task_repo_dir,
+                    task_dir=self.workflow.task_dir,
                     files_dir=files_dir
                 )
             )
@@ -112,7 +111,7 @@ class PatchPhase(BasePhase):
         if target_host:
             task_server_config = SetupResourceConfig(
                 task_level_setup=True,
-                task_repo_dir=self.workflow.task_repo_dir,
+                task_dir=self.workflow.task_dir,
                 files_dir=files_dir,
                 bounty_number=self.workflow.bounty_number,
                 server_address=target_host
@@ -125,9 +124,10 @@ class PatchPhase(BasePhase):
 
     def run_one_iteration(
         self,
+        phase_response: PhaseResponse,
         agent_instance: Any,
         previous_output: Optional[Response],
-    ) -> Tuple[Response, bool]:
+    ) -> Response:
         """
         1) Call the agent with previous_output as input.
         2) If ExecutorAgent produces an AnswerResponseInterface -> hallucination -> finalize & done.
@@ -139,6 +139,7 @@ class PatchPhase(BasePhase):
             input_list.append(previous_output)
 
         response = agent_instance.run(input_list)
+        phase_response.add_agent_response(response)
 
         # Determine which agent name was used in this iteration
         agent_name, _ = self._get_current_agent()
@@ -147,12 +148,15 @@ class PatchPhase(BasePhase):
             if isinstance(response, AnswerResponseInterface):
                 logger.info("Executor agent hallucinated an answer!")
                 self._set_phase_summary("completed_with_hallucination")
-                return response, True
+                phase_response.set_complete()
+                return response
 
         elif agent_name == "PatchAgent":
             if isinstance(response, AnswerResponseInterface):
                 logger.info("Patch Success!")
                 self._set_phase_summary("patch_success")
-                return response, True
+                phase_response.set_complete()
+                phase_response.set_success()
+                return response
 
-        return response, False
+        return response
