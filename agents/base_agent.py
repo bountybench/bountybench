@@ -4,9 +4,9 @@ import re
 from typing import List, Optional, Set, Tuple, Type, Union
 
 from resources.base_resource import BaseResource
-from responses.failure_response import FailureResponse
-from responses.response import Response
-from responses.response_history import ResponseHistory
+from messages.failure_message import FailureMessage
+from messages.message import Message
+from messages.message_history import MessageHistory
 from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
 
@@ -40,7 +40,7 @@ class BaseAgent(ABC):
 
     def __init__(self, agent_config: AgentConfig):
         self.agent_config = agent_config
-        self.response_history = ResponseHistory()
+        self.message_history = MessageHistory()
         self.target_host_address = getattr(agent_config, "target_host", "")
 
         logger.info(f"Initialized agent {agent_config.id}")
@@ -64,14 +64,14 @@ class BaseAgent(ABC):
         return set(cls._parse_resource_entry(resource)[1] for resource in cls.OPTIONAL_RESOURCES)
 
     @abstractmethod
-    def run(self, responses: List[Response]) -> Response:
+    def run(self, messages: List[Message]) -> Message:
         """
-        Execute the agent's main logic and produce a response.
+        Execute the agent's main logic and produce a message.
         
         Args:
-            responses: List of previous responses, if any.
+            messages: List of previous messages, if any.
         
         Returns:
-            The agent's response after processing.
+            The agent's message after processing.
         """
         pass

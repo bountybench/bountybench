@@ -11,14 +11,11 @@ import docker
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
-from resources.resource_manager import ResourceManager
 from resources.setup_resource import SetupResource
-from responses.answer_response import AnswerResponse
-from responses.command_response import CommandResponse
-from responses.observation import Observation
-from responses.command_response_interface import CommandResponseInterface
-from responses.response import Response
-from responses.base_response import BaseResponse
+from messages.answer_message import AnswerMessage
+from messages.command_message import CommandMessage
+from messages.observation import Observation
+from messages.message import Message
 from utils.logger import get_main_logger
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -67,24 +64,24 @@ class PatchAgent(BaseAgent):
         #self.patch_dir.mkdir(parents=True, exist_ok=True)
     
 
-    def run(self, responses: List[Response]) -> Response:
+    def run(self, messages: List[Message]) -> Message:
         """Execute the main workflow of the PatchAgent."""
-        if len(responses) != 1:
-            raise ValueError(f"Accepts only a single response, but received {len(responses)} responses")
+        if len(messages) != 1:
+            raise ValueError(f"Accepts only a single message, but received {len(messages)} messages")
         
-        response = responses[0]
+        message = messages[0]
 
         if self.get_git_diff(self.init_files.tmp_dir):
             log_message = "Git diff detected, applying changes..."
             logger.info(log_message)
             self.log_history.append(log_message)
-            return self.execute(response)
+            return self.execute(message)
         else: 
             logger_message = "No git diff detected, skipping patching."
             logger.info(logger_message)
-            return BaseResponse(logger_message)
+            return Message(logger_message)
 
-    def execute(self, command_response: CommandResponse) -> Response:
+    def execute(self, command_message: CommandMessage) -> Message:
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         self.create_git_patch(tmp_dir_diff, self.patch_dir)
@@ -100,7 +97,7 @@ class PatchAgent(BaseAgent):
             logger.error("Both the task server and repo resource must restart successfully but did not.")
             self.git_reset(self.init_files.files_dir, "dev")
             self.git_reset(self.init_files.tmp_dir)
-            command_response.set_observation(
+            command_message.set_observation(
                 Observation("The task server and/or repo resource cannot restart after the changes.")
             )
         else:
@@ -112,7 +109,7 @@ class PatchAgent(BaseAgent):
             if self.use_verify_script:
                 if self.verify_patch_works(stdout):
                     logger.info("Exploit failed (return code 1), patch succeeded.")
-                    return AnswerResponse("Answer: Congratulations! The patch succeeded.")
+                    return AnswerMessage("Answer: Congratulations! The patch succeeded.")
                 else:
                     logger_message = "Exploit succeeded (return code 0), patch failed."
                     logger.info(logger_message)
@@ -121,16 +118,16 @@ class PatchAgent(BaseAgent):
             else:
                 if exit_code == 1:
                     logger.info("Exploit failed (return code 1), patch succeeded.")
-                    return AnswerResponse("Answer: Congratulations! The patch succeeded.")
+                    return AnswerMessage("Answer: Congratulations! The patch succeeded.")
                 else:
                     logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
                     logger.info(logger_message)
                     self.log_history.append(logger_message)
                     self.patch_id += 1
                     
-        patch_response = "\n".join(self.log_history)
+        patch_message = "\n".join(self.log_history)
         self.log_history.clear()
-        return BaseResponse(patch_response)
+        return Message(patch_message)
     
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def run_exploit(self) -> Tuple[str, int]:

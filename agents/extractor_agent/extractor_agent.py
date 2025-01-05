@@ -5,8 +5,8 @@ from agents.extractor_agent.extractor_prompt import EXTRACTOR_PROMPT
 from agents.extractor_agent.website_keywords import WEBSITE_KEYWORDS
 from models.model_response import ModelResponse
 from models.query import query
-from responses.extraction_response import ExtractionResponse
-from responses.response import Response
+from messages.extraction_message import ExtractionMessage
+from messages.message import Message
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -23,42 +23,42 @@ class ExtractorAgent(BaseAgent):
         self.keywords = WEBSITE_KEYWORDS
         self.prompt = EXTRACTOR_PROMPT
 
-    def run(self, responses: List[Response]) -> Response:
-        if len(responses) != 1:
+    def run(self, messages: List[Message]) -> Message:
+        if len(messages) != 1:
             raise Exception(
-                'Need exactly 1 response to start the agent and got {len(responses)} responses')
-        response = responses[0]
-        # TODO: Replace with the actual response object
-        if issubclass(response.__class__, ScraperResponseInterface):
-            return self._extract(response)
+                'Need exactly 1 message to start the agent and got {len(messages)} messages')
+        message = messages[0]
+        # TODO: Replace with the actual message object
+        if issubclass(message.__class__, ScraperMessageInterface):
+            return self._extract(message)
         else:
             raise Exception(
-                f'Response not of an interpretable type. The response type is {response.__class__} but we expect a class of ScraperResponseInterface')
+                f'Message not of an interpretable type. The message type is {message.__class__} but we expect a class of ScraperMessageInterface')
 
-    def _extract(self, scraper_response: ScraperResponse) -> ExtractionResponse:
+    def _extract(self, scraper_message: ScraperMessage) -> ExtractionMessage:
         """
         Extracts the relevant information from the website
         """
         iterations = 0
         while iterations < MAX_RETRIES:
             try:
-                extractor = self._generate_extractor(scraper_response)
-                extraction = extractor(scraper_response.response)
-                extraction['response'] = scraper_response.response
-                extraction['link'] = scraper_response.link
+                extractor = self._generate_extractor(scraper_message)
+                extraction = extractor(scraper_message.message)
+                extraction['message'] = scraper_message.message
+                extraction['link'] = scraper_message.link
                 return self._parse_extraction(extraction)
             except Exception as e:
                 logger.error(f"Failed to extract information: {str(e)}")
                 iterations += 1
 
-        return extractor(scraper_response)
+        return extractor(scraper_message)
 
-    def _generate_extractor(self, scraper_response: ScraperResponse) -> callable:
+    def _generate_extractor(self, scraper_message: ScraperMessage) -> callable:
         """
-        Generates the extractor function based on the scraper response
+        Generates the extractor function based on the scraper message
         """
-        model_input = self.prompt.format(scraper_response.response)
-        model_response: ModelResponse = query(
+        model_input = self.prompt.format(scraper_message.message)
+        model_message: ModelMessage = query(
             model=self.config.model,
             message=model_input,
             temperature=TEMPERATURE,
@@ -67,10 +67,10 @@ class ExtractorAgent(BaseAgent):
             helm=self.config.use_helm
         )
 
-        model_response = model_response.content
+        model_message = model_message.content
 
         try:
-            return self._create_function_from_string(model_response)
+            return self._create_function_from_string(model_message)
         except Exception as e:
            raise Exception(f"Failed to generate extractor function: {str(e)}")
 
@@ -97,15 +97,15 @@ class ExtractorAgent(BaseAgent):
         # Return the callable function
         return namespace[function_name]
     
-    def _parse_extraction(self, extraction: Dict[str, Any]) -> ExtractionResponse:
+    def _parse_extraction(self, extraction: Dict[str, Any]) -> ExtractionMessage:
         """
-        Parses the extraction dictionary into an ExtractionResponse object.
+        Parses the extraction dictionary into an ExtractionMessage object.
 
         Args:
             extraction (Dict[str, Any]): The extraction data.
 
         Returns:
-            ExtractionResponse: The parsed extraction response.
+            ExtractionMessage: The parsed extraction message.
 
         Raises:
             TypeError: If extraction is not a dictionary.
@@ -114,7 +114,7 @@ class ExtractorAgent(BaseAgent):
         if not isinstance(extraction, dict):
             raise TypeError("Extraction must be a dictionary.")
 
-        required_fields = ['response', 'description', 'proof', 'bug_commit', 'bug_tag', 'patch_commit', 'patch_tag', 'extra', 'link']
+        required_fields = ['message', 'description', 'proof', 'bug_commit', 'bug_tag', 'patch_commit', 'patch_tag', 'extra', 'link']
         missing_fields = [field for field in required_fields if field not in extraction]
         if missing_fields:
             raise ValueError(
@@ -122,7 +122,7 @@ class ExtractorAgent(BaseAgent):
             )
 
         
-        response = extraction['response']
+        message = extraction['message']
         description = extraction['description']
         proof = extraction['proof']
         bug_commit = extraction['bug_commit']
@@ -148,8 +148,8 @@ class ExtractorAgent(BaseAgent):
         if not isinstance(metadata, dict):
             raise TypeError("extra must be a dictionary.")
 
-        return ExtractionResponse(
-            response=response,
+        return ExtractionMessage(
+            message=message,
             description=description,
             proof=proof,
             bug_commit=bug_commit,
