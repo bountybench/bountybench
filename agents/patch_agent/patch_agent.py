@@ -292,9 +292,6 @@ class PatchAgent(BaseAgent):
 
     def cleanup(self) -> None:
         """Perform cleanup operations."""
-        if not self._resources_initialized:
-            return
-        
         self.store_patch()
         
         try:
