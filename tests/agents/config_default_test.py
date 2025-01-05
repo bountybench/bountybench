@@ -1,5 +1,4 @@
 import unittest
-from agents.base_agent import AgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgentConfig
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
 
