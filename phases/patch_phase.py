@@ -1,5 +1,6 @@
 from agents.base_agent import AgentConfig
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
+from phase_responses.phase_response import PhaseResponse
 from phases.base_phase import BasePhase
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
@@ -125,9 +126,10 @@ class PatchPhase(BasePhase):
 
     def run_one_iteration(
         self,
+        phase_response: PhaseResponse,
         agent_instance: Any,
         previous_output: Optional[Response],
-    ) -> Tuple[Response, bool]:
+    ) -> Response:
         """
         1) Call the agent with previous_output as input.
         2) If ExecutorAgent produces an AnswerResponseInterface -> hallucination -> finalize & done.
@@ -139,6 +141,7 @@ class PatchPhase(BasePhase):
             input_list.append(previous_output)
 
         response = agent_instance.run(input_list)
+        phase_response.add_agent_response(response)
 
         # Determine which agent name was used in this iteration
         agent_name, _ = self._get_current_agent()
@@ -147,12 +150,15 @@ class PatchPhase(BasePhase):
             if isinstance(response, AnswerResponseInterface):
                 logger.info("Executor agent hallucinated an answer!")
                 self._set_phase_summary("completed_with_hallucination")
-                return response, True
+                phase_response.set_complete()
+                return response
 
         elif agent_name == "PatchAgent":
             if isinstance(response, AnswerResponseInterface):
                 logger.info("Patch Success!")
                 self._set_phase_summary("patch_success")
-                return response, True
+                phase_response.set_complete()
+                phase_response.set_success()
+                return response
 
-        return response, False
+        return response
