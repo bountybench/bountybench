@@ -1,115 +1,198 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
-from agents.base_agent import BaseAgent
+from agents.base_agent import AgentConfig, BaseAgent
+from phase_responses.phase_response import PhaseResponse
+from resources.base_resource import BaseResource
 from responses.base_response import BaseResponse
-from responses.edit_response import EditResponse
-from responses.response import Response
+from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
+
+logger = get_main_logger(__name__)
+
+
+if TYPE_CHECKING:
+    from workflows.base_workflow import BaseWorkflow
 
 @dataclass
 class PhaseConfig:
-    phase_idx: int
     phase_name: str
-    max_iterations: int
-    agents: List[Tuple[str, BaseAgent]] = field(default_factory=list)
+    agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)
+    max_iterations: int = 10
     interactive: bool = False
+    phase_idx: Optional[int] = None
+    initial_prompt: Optional[str] = None
+
+    @classmethod
+    def from_phase(cls, phase_instance: 'BasePhase', **kwargs):
+        # Filter out kwargs that are not attributes of PhaseConfig
+        valid_kwargs = {k: v for k, v in kwargs.items() if k in cls.__annotations__}
+        
+        config = cls(
+            phase_name=phase_instance.name,
+            agent_configs=phase_instance.define_agents(),
+            **valid_kwargs
+        )
+        return config
     
+from abc import ABC, abstractmethod
+from typing import Dict, List, Optional, Tuple, Type
+from agents.base_agent import AgentConfig, BaseAgent
+from resources.base_resource import BaseResource, BaseResourceConfig
+
 class BasePhase(ABC):
-    """
-    Minimal example of a Phase that can allocate its agents' resources
-    before run_phase.
-    """
+    AGENT_CLASSES: List[Type[BaseAgent]] = []
 
-    REQUIRED_AGENTS: List[Union[str, Tuple[BaseAgent, str]]] = []
+    def __init__(self, workflow: 'BaseWorkflow', **kwargs):
+        self.workflow = workflow
+        self.phase_config = PhaseConfig.from_phase(self, **kwargs)
 
-    def __init__(self, phase_config: PhaseConfig, initial_response: Optional[Response] = None, resource_manager=None):
-        self.phase_config = phase_config
-        self.initial_response = initial_response
-        self.resource_manager = resource_manager
+        self.agent_manager = self.workflow.agent_manager
+        self.resource_manager = self.workflow.resource_manager
+        self.agents: List[Tuple[str, BaseAgent]] = []
+        self.initial_response = kwargs.get("initial_prompt", None)
         self._done = False
         self.phase_summary: Optional[str] = None
-        self.iteration_count = 0  # Will increment up to max_iterations
+        self.iteration_count = 0
         self.current_agent_index = 0
 
-        # TODO: Log agent for each phase?
+    @abstractmethod
+    def define_resources(self) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
+        """
+        Define the resources required for this phase.
+        
+        Returns:
+            Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]: 
+            A dictionary mapping resource IDs to their class and config.
+        """
+        pass
 
-        # Check that the agents in config match what we require (if any)
-        self._register_agents()
+    @abstractmethod
+    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
+        """
+        Define the agents required for this phase.
+        
+        Returns:
+            List[Tuple[str, AgentConfig]]: A list of tuples containing agent IDs and their configs.
+        """
+        pass
+
+
+    def get_phase_resources(self):
+        phase_resources = {}
+        for agent_class in self.AGENT_CLASSES:
+            phase_resources.update(agent_class.REQUIRED_RESOURCES)
+        return phase_resources
+
+    def __rshift__(self, other):
+        if isinstance(other, BasePhase):
+            if self not in self.workflow._phase_graph:
+                self.workflow.register_phase(self)
+            if other not in self.workflow._phase_graph:
+                self.workflow.register_phase(other)
+            self.workflow._phase_graph[self].append(other)
+        return other
+
 
     @classmethod
     def get_required_resources(cls) -> Set[str]:
         resources = set()
-        for agent_cls in cls.REQUIRED_AGENTS:
+        for agent_cls in cls.AGENT_CLASSES:
             resources.update(agent_cls.get_required_resources())
         return resources
-    
-    def _register_agents(self):
-        required = getattr(self, "REQUIRED_AGENTS", [])
-        agent_classes = [type(a) for _, a in self.phase_config.agents]
-        for rcls in required:
-            if not any(issubclass(acls, rcls) for acls in agent_classes):
-                raise ValueError(f"Phase requires agent {rcls.__name__}, but none provided.")
 
-    def allocate_resources(self):
+    def setup(self):
         """
-        1) Tells the ResourceManager to allocate resources for this phase.
-        2) Instructs each agent to bind them strictly, raising KeyError if missing.
+        Initialize and register resources and agents for the phase.
         """
-        if not self.resource_manager:
-            raise RuntimeError("No resource_manager set in phase.")
-
-        phase_name = self.phase_config.phase_name
-        self.resource_manager.allocate_resources_for_phase(phase_name)
-
-        # Now each agent can do 'bind_resources_strict'
-        for _, agent in self.phase_config.agents:
-            agent.register_resources()
-
-    def run_phase(self) -> Tuple[Optional[Response], bool]:
-        last_output = self.initial_response
-        success_flag = False
-
-        skip_interactive = 0
+        logger.debug(f"Entering setup for {self.name}")
         
+        # 1. Define and register resources
+        resource_configs = self.define_resources()
+        for resource_id, (resource_class, resource_config) in resource_configs.items():
+            if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
+                self.resource_manager.register_resource(resource_id, resource_class, resource_config)
+        
+        # 2. Initialize phase resources
+        self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
+        
+        # 3. Define and register agents
+        agent_configs = self.define_agents()
+        '''
+        for agent_id, agent_config in agent_configs:
+            agent_class = next((ac for ac in self.AGENT_CLASSES if isinstance(agent_config, ac.CONFIG_CLASS)), None)
+            if agent_class is None:
+                raise ValueError(f"No matching agent class found for config type {type(agent_config)}")
+            
+            try:
+                #4. Initialize phase agent(s)
+                agent = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config, self.resource_manager)
+                self.agents.append((agent_id, agent))
+            except Exception as e:
+                logger.error(f"Error creating agent {agent_id}: {str(e)}")
+                raise
+        '''
+
+        self.agent_manager.initialize_phase_agents(agent_configs, self.AGENT_CLASSES)
+        self.agents = list(self.agent_manager._agents.items())
+
+        
+        logger.debug(f"Completed setup for {self.name}")
+
+    def deallocate_resources(self):
+        """
+        Deallocate resources after the phase is completed.
+        """
+        try:
+            self.resource_manager.deallocate_phase_resources(self.phase_config.phase_idx)
+            logger.info(f"Phase {self.phase_config.phase_idx} ({self.phase_config.phase_name}) resources deallocated.")
+        except Exception as e:
+            logger.error(f"Failed to deallocate resources for phase {self.phase_config.phase_idx}: {e}")
+            raise
+
+    
+    def run_phase(self, prev_phase_response: PhaseResponse) -> PhaseResponse:
+        """
+        Execute the phase by running its iterations.
+
+        Args:
+            phase_response (PhaseResponse): The response from the previous phase.
+
+        Returns:
+            PhaseResponse: The response of the current phase.
+        """
+        logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
+
+        last_agent_response = prev_phase_response.agent_responses[-1]
+        curr_phase_response = PhaseResponse(agent_responses=[])
+
         # 1) Start phase context
         with workflow_logger.phase(self) as phase_ctx:
             for iteration_num in range(1, self.phase_config.max_iterations + 1):
-                if self._done:
+                if curr_phase_response.complete:
                     break
 
-                agent_name, agent_instance = self._get_agent()
+                agent_id, agent_instance = self._get_current_agent()
 
-                if self.phase_config.interactive and skip_interactive <= 0:
-                    skip_interactive, last_output = self._interactive_prompt(iteration_num, last_output)
-                    if self._done:
-                        break
-                else:
-                    skip_interactive -= 1
-
-
-                if last_output:
-                    print(f"Last output was {last_output.response}")
+                if last_agent_response:
+                    print(f"Last output was {last_agent_response.response}")
                 else:
                     print("No last output")
 
                 # 2) Start iteration context in the logger
-                with phase_ctx.iteration(iteration_num, agent_name, last_output) as iteration_ctx:
-                    iteration_output, iteration_done = self.run_one_iteration(
+                with phase_ctx.iteration(iteration_num, agent_id, last_agent_response) as iteration_ctx:
+                    response = self.run_one_iteration(
+                        phase_response=curr_phase_response,
                         agent_instance=agent_instance,
-                        previous_output=last_output,
-                        iteration_num=iteration_num
+                        previous_output=last_agent_response,
                     )
-                    iteration_ctx.set_output(iteration_output)
+                    iteration_ctx.set_output(response)
 
-                if iteration_done:
-                    success_flag = True
-                    self._done = True
-                    last_output = iteration_output
+                if curr_phase_response.complete:
                     break
 
-                last_output = iteration_output
+                last_agent_response = curr_phase_response.agent_responses[-1]
 
                 # Increment the iteration count
                 self.iteration_count += 1
@@ -117,84 +200,52 @@ class BasePhase(ABC):
 
         if not self.phase_summary:
             self._set_phase_summary("completed_max_phase_iterations")
-        return last_output, success_flag
 
-    def _interactive_prompt(self, iteration_num: int, current_response: Optional[Response]) -> Tuple[int, Optional[Response]]:
-        while True:
-            user_input = input(f"Iteration {iteration_num}.\n"
-                               f"To step through run: Press Enter to continue, 'q' to quit, or 'c#' to continue # iterations.\n"
-                               f"To edit run: Press 'a' to edit or add to current Response, 'E' to edit initial_prompt (will reset agents but not iteration count).\n"
-                               f"Input: ")
+        # Deallocate resources after completing iterations
+        self.deallocate_resources()
 
-            if user_input.lower() == 'q':
-                self._done = True
-                return 0, current_response
-            elif user_input.startswith('c'):
-                try:
-                    num_iterations = int(user_input[1:])
-                    if num_iterations > 0:
-                        return num_iterations - 1, current_response
-                    else:
-                        print("Please enter a positive number after 'c'.")
-                except ValueError:
-                    print("Invalid input. Please enter a number after 'c'.")
-            elif user_input == '':
-                return 0, current_response
-            elif user_input.lower() == 'a':
-                current_response = self._edit_response(current_response)
-            elif user_input == 'e':
-                # Implement 'e' option if needed
-                pass
-            elif user_input == 'E':
-                if hasattr(self, 'initial_response') and self.initial_response:
-                    new_initial_response = self._edit_response(EditResponse(self.initial_response.response))
-                    self.initial_response = new_initial_response
-                    
-                    self.current_agent_index = 0
-                    return 0, new_initial_response
-                else:
-                    print("Cannot edit initial prompt: workflow reference or initial prompt not available.")
-            else:
-                print("Invalid input. Press Enter to continue, 'q' to quit, 'c#' to continue # iterations, 'a' to edit current Response, or 'E' to edit initial prompt.")
+        return curr_phase_response
 
-    def _edit_response(self, response: Optional[Response]) -> EditResponse:
-        if response is None:
-            edit_response = EditResponse("")
-        else:
-            edit_response = EditResponse(response.response)
-
-        print(f"Current response:\n{edit_response.response}\n")
-        edit_input = input("Enter text to add or edit (prefix with 'edit:' to replace entire response):\n")
-        
-        if edit_input.startswith("edit:"):
-            edit_response.edit(edit_input[5:].strip())
-        else:
-            edit_response.add("\n" + edit_input)
-        
-        print(f"Updated response:\n{edit_response.response}\n")
-        return edit_response
-    
-    def _get_agent(self) -> Tuple[str, BaseAgent]:
-        agent_index = (self.current_agent_index) % len(self.phase_config.agents)
-        agent_name, agent_instance = self.phase_config.agents[agent_index]
-        return agent_name, agent_instance
+    def _get_current_agent(self) -> Tuple[str, BaseAgent]:
+        """Retrieve the next agent in a round-robin fashion."""
+        agent = self.agents[self.current_agent_index % len(self.agents)]
+        self.current_agent_index += 1
+        return agent
 
     def _set_phase_summary(self, summary: str):
-        """Allows a subclass to record a short message describing the phase outcome.
-        Example: self.set_phase_summary("exploit_success")
-        Or sets as completed_max_phase_iterations if no summary set"""
+        """Allows a subclass to record a short message describing the phase outcome."""
         self.phase_summary = summary
 
     @abstractmethod
-    def run_one_iteration(
-        self, agent_instance: Any, previous_output: Optional[Response], iteration_num: int
-    ) -> Tuple[Response, bool]:
+    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
+        """
+        Provide agent configurations for the phase.
+
+        Returns:
+            List[Tuple[str, AgentConfig]]: List of (agent_id, AgentConfig) tuples.
+        """
+        pass
+    
+    @abstractmethod
+    def define_resources(self)-> Dict[str, Tuple[Type['BaseResource'], Any]]: 
         pass
 
-    def _get_agent(self, iteration_num: int) -> Tuple[str, Any]:
-        # simple round-robin
-        idx = (iteration_num - 1) % len(self.phase_config.agents)
-        return self.phase_config.agents[idx]
+    @abstractmethod
+    def run_one_iteration(
+        self, phase_response: PhaseResponse, agent_instance: Any, previous_output: Optional[BaseResponse]
+    ) -> BaseResponse:
+        """
+        Run a single iteration of the phase.
 
-    def _set_phase_summary(self, summary: str):
-        self.phase_summary = summary
+        Args:
+            agent_instance (BaseAgent): The agent to run.
+            previous_output (Optional[BaseResponse]): The output from the previous iteration.
+
+        Returns:
+            BaseResponse: The response from the agent.
+        """
+        pass
+
+    @property
+    def name(self) -> str:
+        return self.__class__.__name__

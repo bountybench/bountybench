@@ -7,7 +7,6 @@ import time
 import json
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 from dataclasses import dataclass
@@ -39,8 +38,6 @@ class DockerResource(BaseResource):
         super().__init__(resource_id, config)
         
         self.client = docker.from_env()
-        workflow_logger.add_resource(f"DockerResource: {self.resource_id}", self)
-        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def execute(

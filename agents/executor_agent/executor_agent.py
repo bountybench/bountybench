@@ -1,15 +1,14 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from agents.executor_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
+from agents.executor_agent.prompt import STOP_TOKEN
 from agents.utils import truncate_input_to_max_tokens
 from models.model_response import ModelResponse
 from models.query import query
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
-from resources.resource_manager import ResourceManager
 from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
@@ -17,7 +16,6 @@ from responses.command_response_interface import CommandResponseInterface
 from responses.observation import Observation
 from responses.response import Response
 from utils.logger import get_main_logger
-from utils.workflow_logger import WorkflowLogger
 
 logger = get_main_logger(__name__)
 
@@ -28,11 +26,9 @@ TEMPERATURE = 0.5
 
 @dataclass
 class ExecutorAgentConfig(AgentConfig):
-    id: str
-    lm_config: AgentLMConfig
-    target_host: str
-    initial_prompt: Optional[str]=None
-
+    lm_config: AgentLMConfig = field(default_factory=AgentLMConfig)
+    target_host: str = field(default='')
+    initial_prompt: Optional[str] = field(default=None)
 
 class ExecutorAgent(BaseAgent):
     memory: List[str] = []
@@ -41,24 +37,25 @@ class ExecutorAgent(BaseAgent):
     # BaseAgent will do: self.init_files = resource_manager.get_resource("init_files")
     # etc.
     REQUIRED_RESOURCES = [
-       InitFilesResource,
-        KaliEnvResource
+       (InitFilesResource, "init_files"),
+        (KaliEnvResource, "kali_env")
     ]
     OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "task_server")]
     ACCESSIBLE_RESOURCES = [
-        KaliEnvResource,
-        InitFilesResource,
+        (KaliEnvResource, "kali_env"),
+       (InitFilesResource, "init_files"),
         (SetupResource, "repo_resource"),
         (SetupResource, "task_server")
     ]
-    def __init__(self, agent_config: ExecutorAgentConfig, resource_manager: ResourceManager):
+    CONFIG_CLASS = ExecutorAgentConfig
+    def __init__(self, agent_config: ExecutorAgentConfig):#, resource_manager: ResourceManager):
         """
         Args:
             agent_config: ExecutorAgentConfig containing model, initial prompt, and target host.
             resource_manager: ResourceManager instance responsible for managing resources.
         """
         # Pass the agent_config and resource_manager to BaseAgent
-        super().__init__(agent_config, resource_manager)
+        super().__init__(agent_config)#, resource_manager)
 
         # Initialize specific attributes
         if hasattr(agent_config, "initial_prompt"):
@@ -68,13 +65,9 @@ class ExecutorAgent(BaseAgent):
         # If a target_host is provided, run health_check on self.kali_env
         self.target_host = agent_config.target_host
 
-
-    def register_resources(self):
-        super().register_resources()
-        if self.target_host: 
-            self.kali_env.health_check(self.target_host)
-
-
+        # if self.target_host: 
+        #     self.kali_env.health_check(self.target_host)
+        
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
             raise Exception(f"Accepts at most a single response, got {len(responses)}.")
@@ -192,8 +185,8 @@ class ExecutorAgent(BaseAgent):
         return {
             "config": self.agent_config.lm_config.__dict__,
             "memory": self.memory,
-            "initial_prompt": self.initial_prompt,
-            "prompt": self.prompt,
+            "initial_prompt": getattr(self, "initial_prompt", None),
+            "prompt": getattr(self, "prompt", None),
             "timestamp": getattr(self, "timestamp", None),
         }
 

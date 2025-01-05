@@ -1,5 +1,5 @@
 import atexit
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import shutil
 import subprocess
 import time
@@ -11,12 +11,10 @@ import docker
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
-from resources.resource_manager import ResourceManager
 from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
 from responses.command_response import CommandResponse
 from responses.observation import Observation
-from responses.command_response_interface import CommandResponseInterface
 from responses.response import Response
 from responses.base_response import BaseResponse
 from utils.logger import get_main_logger
@@ -25,21 +23,20 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 
 logger = get_main_logger(__name__)
 
-
 @dataclass
 class PatchAgentConfig(AgentConfig):
-    id: str
     bounty_dir: str
-    exploit_files_dir: Optional[str] = None
-    use_verify_script: Optional[bool] = False
+    task_dir: str
+    exploit_files_dir: Optional[str] = field(default=None)
+    use_verify_script: bool = field(default=False)
 
 class PatchAgent(BaseAgent):    
-    REQUIRED_RESOURCES = [InitFilesResource, DockerResource]
+    REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
     OPTIONAL_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource")]
-    ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), InitFilesResource, DockerResource]
+    ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), (InitFilesResource, "init_files"),  (DockerResource, "docker")]
+    CONFIG_CLASS = PatchAgentConfig  
 
-    def __init__(self, agent_config: PatchAgentConfig, resource_manager: ResourceManager):
-        super().__init__(agent_config, resource_manager)
+    def __init__(self, agent_config: PatchAgentConfig):#, resource_manager: ResourceManager):
         self.bounty_dir = Path(agent_config.bounty_dir)
         self.exploit_files_dir = agent_config.exploit_files_dir
         self.log_history = []
@@ -49,6 +46,10 @@ class PatchAgent(BaseAgent):
 
 
         self.use_verify_script = agent_config.use_verify_script
+        self.patch_dir = Path(agent_config.task_dir) / self.patch_dir_name
+
+        super().__init__(agent_config)#, resource_manager)
+        self.patch_dir.mkdir(parents=True, exist_ok=True)
 
         # self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
         # self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
@@ -56,10 +57,12 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
 
-    def register_resources(self):
-        super().register_resources()
-        self.patch_dir = Path(self.init_files.task_repo_dir) / self.patch_dir_name
-        self.patch_dir.mkdir(parents=True, exist_ok=True)
+    
+    #def register_resources(self, resource_manager: ResourceManager) -> None:
+        #super().register_resources(resource_manager)
+        #self.patch_dir = Path(self.init_files.task_dir) / self.patch_dir_name
+        #self.patch_dir.mkdir(parents=True, exist_ok=True)
+    
 
     def run(self, responses: List[Response]) -> Response:
         """Execute the main workflow of the PatchAgent."""
@@ -130,8 +133,8 @@ class PatchAgent(BaseAgent):
     def run_exploit(self) -> Tuple[str, int]:
         """Run the exploit script in a Docker container."""
         # Resolve paths to absolute paths
-        codebase_path = (Path(self.init_files.task_repo_dir) / 'codebase').resolve()
-        setup_files_dir = (Path(self.init_files.task_repo_dir) / 'setup_files').resolve()
+        codebase_path = (Path(self.init_files.task_dir) / 'codebase').resolve()
+        setup_files_dir = (Path(self.init_files.task_dir) / 'setup_files').resolve()
         tmp_path = Path("/tmp").resolve()
 
         # Validate the paths
@@ -189,7 +192,7 @@ class PatchAgent(BaseAgent):
         """Run the verify.sh script."""
         logger.info("Running verify.sh")
         result = subprocess.run(['./verify.sh', execution_output],
-                                cwd=self.init_files.task_repo_dir / self.bounty_dir, 
+                                cwd=self.init_files.task_dir / self.bounty_dir, 
                                 capture_output=True, text=True)
         logger.info(f"Verify.sh output:\n{result.stdout}")
         
@@ -287,11 +290,8 @@ class PatchAgent(BaseAgent):
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to reset git repository to HEAD~1: {e}")
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Perform cleanup operations."""
-        if not self._resources_initialized:
-            return
-        
         self.store_patch()
         
         try:
@@ -300,7 +300,7 @@ class PatchAgent(BaseAgent):
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to checkout 'main': {e}")
 
-    def store_patch(self):
+    def store_patch(self) -> None:
         """Store the patches in a timestamped folder."""
         try:
             timestamp = time.strftime('%Y%m%d-%H%M%S')
