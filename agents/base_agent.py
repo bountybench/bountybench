@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import re
 from typing import List, Optional, Set, Tuple, Type, Union
 
@@ -18,7 +18,11 @@ class ResourceNotInitializedError(Exception):
 
 @dataclass
 class AgentConfig:
-    id: str
+    id: Optional[str] = field(default=None, init=False)
+
+    def __post_init__(self):
+        if self.id is None:
+            self.id = self.__class__.__name__
 
 class BaseAgent(ABC):
     """

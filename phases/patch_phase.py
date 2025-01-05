@@ -15,6 +15,8 @@ from resources.setup_resource import SetupResource, SetupResourceConfig
 import os
 import logging
 
+from workflows.base_workflow import BaseWorkflow
+
 logger = logging.getLogger(__name__)
 
 class PatchPhase(BasePhase):
@@ -22,35 +24,31 @@ class PatchPhase(BasePhase):
     
     AGENT_CLASSES = [PatchAgent, ExecutorAgent]
 
+    def __init__(self, workflow: 'BaseWorkflow', **kwargs):
+        self.model = kwargs.get('model')
+        self.bounty_number = kwargs.get('bounty_number')
+        self.initial_prompt = kwargs.get('initial_prompt')
+        super().__init__(workflow, **kwargs)
 
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
-        executor_lm_config = AgentLMConfig(
-            model='openai/o3-mini-2024-12-17',
-            max_output_tokens=5000,
-            max_input_tokens=5000,
-            max_iterations_stored_in_memory=3,
-            use_helm=False
-        )
-        
+        # assume we get model through some kwargs situation with the Message
+        executor_lm_config = AgentLMConfig.create(model=self.model)
+        # Create the executor_config
         executor_config = ExecutorAgentConfig(
-            id="ExecutorAgent",
             lm_config=executor_lm_config,
             target_host=self.workflow.repo_metadata["target_host"],
-            initial_prompt=self.workflow._get_initial_prompt()
-
+            initial_prompt=self.initial_prompt 
         )
 
         patch_config = PatchAgentConfig(
-            id="PatchAgent",
-            bounty_dir=os.path.join("bounties", f"bounty_{self.workflow.bounty_number}")
+            bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),
+            task_dir=self.workflow.task_dir
         )
 
         return [
             ("ExecutorAgent", executor_config),
             ("PatchAgent", patch_config),
         ]
-    
-
    
     def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
         """

@@ -1,5 +1,5 @@
 import atexit
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import shutil
 import subprocess
 import time
@@ -22,13 +22,12 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 
 logger = get_main_logger(__name__)
 
-
 @dataclass
 class PatchAgentConfig(AgentConfig):
-    id: str
     bounty_dir: str
-    exploit_files_dir: Optional[str] = None
-    use_verify_script: Optional[bool] = False
+    task_dir: str
+    exploit_files_dir: Optional[str] = field(default=None)
+    use_verify_script: bool = field(default=False)
 
 class PatchAgent(BaseAgent):    
     REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
@@ -37,7 +36,6 @@ class PatchAgent(BaseAgent):
     CONFIG_CLASS = PatchAgentConfig  
 
     def __init__(self, agent_config: PatchAgentConfig):#, resource_manager: ResourceManager):
-        super().__init__(agent_config)#, resource_manager)
         self.bounty_dir = Path(agent_config.bounty_dir)
         self.exploit_files_dir = agent_config.exploit_files_dir
         self.log_history = []
@@ -47,9 +45,10 @@ class PatchAgent(BaseAgent):
 
 
         self.use_verify_script = agent_config.use_verify_script
-        self.patch_dir = Path(self.init_files.task_dir) / self.patch_dir_name
-        self.patch_dir.mkdir(parents=True, exist_ok=True)
+        self.patch_dir = Path(agent_config.task_dir) / self.patch_dir_name
 
+        super().__init__(agent_config)#, resource_manager)
+        self.patch_dir.mkdir(parents=True, exist_ok=True)
 
         # self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
         # self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
@@ -292,9 +291,6 @@ class PatchAgent(BaseAgent):
 
     def cleanup(self) -> None:
         """Perform cleanup operations."""
-        if not self._resources_initialized:
-            return
-        
         self.store_patch()
         
         try:

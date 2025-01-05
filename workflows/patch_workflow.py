@@ -13,7 +13,17 @@ class PatchWorkflow(BountyWorkflow):
     
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
-        self._create_phase(PatchPhase, max_iterations=1)
+        init_prompt = self._get_initial_prompt()
+
+        phase_kwargs = {
+            'model': self.params.get('model'),
+            'bounty_number': self.bounty_number,
+            'initial_prompt': init_prompt,
+            'max_iterations': 3
+        }
+        patch_phase = PatchPhase(workflow=self, **phase_kwargs)
+
+        self._register_root_phase(patch_phase)
 
     def _get_initial_prompt(self) -> str:
         """
@@ -38,6 +48,7 @@ def main() -> None:
     parser.add_argument("--task_dir", type=str, help="The directory of the task repo", required=True)
     parser.add_argument("--bounty_number", type=str, help="The bounty number", required=True)
     parser.add_argument("--interactive", action="store_true", help="Enable interactive mode")
+    parser.add_argument("--model", type=str, help="The LM model to query")
     args = parser.parse_args()
 
     # Create logs directory
@@ -45,7 +56,7 @@ def main() -> None:
     logs_dir.mkdir(exist_ok=True)
 
     # Run workflow
-    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive)
+    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive, mode=args.model)
     workflow.run()
 
 if __name__ == "__main__":

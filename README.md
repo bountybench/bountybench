@@ -23,15 +23,20 @@ python3.11 -m venv venv
 ```
 
 ### 3. Activate and Set Up the Environment
-Activate the virtual environment, install required dependencies, and initialize submodules:
+Activate the virtual environment, install required dependencies
 ```
 source venv/bin/activate
 pip install -r requirements.txt
+```
+Initialize submodules:
+```
+git submodule update --init
+cd bountybench
 git submodule update --init
 ```
 
 ### 4. Configure the .env File
-Create and populate a .env file with the following keys:
+Create and populate an .env file in `bountyagent/` with the following keys:
 ```
 HELM_API_KEY={HELM_API_KEY}
 OPENAI_API_KEY={OPENAI_API_KEY}
@@ -48,10 +53,10 @@ Replace {KEY_NAME} with your actual API key values.
 ### Running the Workflow
 To run the exploit-and-patch workflow interactively from the command line, use the following command:
 ```
-python3 -m workflows.exploit_and_patch_workflow_v2 \
-    --task_repo_dir bountybench/astropy \
+python3 -m workflows.exploit_and_patch_workflow \
+    --task_dir bountybench/astropy \
     --bounty_number 0 \
-    --interactive
+    --model anthropic/claude-3-5-sonnet-20240620 \
 ```
 To create and run a workflow instance:
 
@@ -120,4 +125,4 @@ This workflow system is designed to execute multi-phase tasks in a modular and e
 
 2. To create a new phase:
    - Subclass `BasePhase`.
-   - Implement `get_agent_configs()`, `define_resources()`, and `run_one_iteration()`.
+   - Implement `define_agents()`, `define_resources()`, and `run_one_iteration()`.
