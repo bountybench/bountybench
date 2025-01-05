@@ -26,10 +26,13 @@ class PhaseConfig:
 
     @classmethod
     def from_phase(cls, phase_instance: 'BasePhase', **kwargs):
+        # Filter out kwargs that are not attributes of PhaseConfig
+        valid_kwargs = {k: v for k, v in kwargs.items() if k in cls.__annotations__}
+        
         config = cls(
             phase_name=phase_instance.name,
             agent_configs=phase_instance.define_agents(),
-            **kwargs
+            **valid_kwargs
         )
         return config
     

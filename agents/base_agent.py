@@ -18,11 +18,11 @@ class ResourceNotInitializedError(Exception):
 
 @dataclass
 class AgentConfig:
-    id: str = field(default=None)
+    id: Optional[str] = field(default=None, init=False)
 
     def __post_init__(self):
         if self.id is None:
-            self.id = self.__class__.__name__ 
+            self.id = self.__class__.__name__
 
 class BaseAgent(ABC):
     """

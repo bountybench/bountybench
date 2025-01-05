@@ -25,12 +25,10 @@ class PatchPhase(BasePhase):
     AGENT_CLASSES = [PatchAgent, ExecutorAgent]
 
     def __init__(self, workflow: 'BaseWorkflow', **kwargs):
-        super().__init__(workflow, **kwargs)
         self.model = kwargs.get('model')
         self.bounty_number = kwargs.get('bounty_number')
         self.initial_prompt = kwargs.get('initial_prompt')
-
-
+        super().__init__(workflow, **kwargs)
 
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
         # assume we get model through some kwargs situation with the Message
