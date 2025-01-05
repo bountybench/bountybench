@@ -1,6 +1,10 @@
 from dataclasses import dataclass, field
+from dataclasses import dataclass, field
 from typing import List, Optional
 
+from agents.base_agent import AgentConfig, BaseAgent
+from agents.dataclasses.agent_lm_spec import AgentLMConfig
+from agents.executor_agent.prompt import STOP_TOKEN
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from agents.executor_agent.prompt import STOP_TOKEN
@@ -29,8 +33,42 @@ class ExecutorAgentConfig(AgentConfig):
     lm_config: AgentLMConfig = field(default_factory=AgentLMConfig)
     target_host: str = field(default='')
     initial_prompt: Optional[str] = field(default=None)
+@dataclass
+class ExecutorAgentConfig(AgentConfig):
+    lm_config: AgentLMConfig = field(default_factory=AgentLMConfig)
+    target_host: str = field(default='')
+    initial_prompt: Optional[str] = field(default=None)
 
 class ExecutorAgent(BaseAgent):
+    memory: List[str] = []
+
+    # Switch from listing just resource classes to (ResourceClass, "attr_name").
+    # BaseAgent will do: self.init_files = resource_manager.get_resource("init_files")
+    # etc.
+    REQUIRED_RESOURCES = [
+       (InitFilesResource, "init_files"),
+        (KaliEnvResource, "kali_env")
+    ]
+    OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "task_server")]
+    ACCESSIBLE_RESOURCES = [
+        (KaliEnvResource, "kali_env"),
+       (InitFilesResource, "init_files"),
+        (SetupResource, "repo_resource"),
+        (SetupResource, "task_server")
+    ]
+    CONFIG_CLASS = ExecutorAgentConfig
+    def __init__(self, agent_config: ExecutorAgentConfig):#, resource_manager: ResourceManager):
+        """
+        Args:
+            agent_config: ExecutorAgentConfig containing model, initial prompt, and target host.
+            resource_manager: ResourceManager instance responsible for managing resources.
+        """
+        # Pass the agent_config and resource_manager to BaseAgent
+        super().__init__(agent_config)#, resource_manager)
+
+        # Initialize specific attributes
+        if hasattr(agent_config, "initial_prompt"):
+            self.initial_prompt = agent_config.initial_prompt
     memory: List[str] = []
 
     # Switch from listing just resource classes to (ResourceClass, "attr_name").
@@ -92,6 +130,7 @@ class ExecutorAgent(BaseAgent):
     def formulate_prompt(self, message: Optional[Message] = None) -> str:
         """
         Formulates the prompt, including the truncated memory.
+        Formulates the prompt, including the truncated memory.
         """
         if message:
             if self.initial_prompt:
@@ -102,7 +141,10 @@ class ExecutorAgent(BaseAgent):
 
         truncated_input = truncate_input_to_max_tokens(
             max_input_tokens=self.agent_config.lm_config.max_input_tokens,
+            max_input_tokens=self.agent_config.lm_config.max_input_tokens,
             model_input="\n".join(self.memory),
+            model=self.agent_config.lm_config.model,
+            use_helm=self.agent_config.lm_config.use_helm,
             model=self.agent_config.lm_config.model,
             use_helm=self.agent_config.lm_config.use_helm,
         )
@@ -143,10 +185,13 @@ class ExecutorAgent(BaseAgent):
         while iterations < MAX_RETRIES:
             model_response: ModelResponse = query(
                 model=self.agent_config.lm_config.model,
+                model=self.agent_config.lm_config.model,
                 message=model_input,
                 temperature=TEMPERATURE,
                 max_tokens=self.agent_config.lm_config.max_output_tokens,
+                max_tokens=self.agent_config.lm_config.max_output_tokens,
                 stop_sequences=[STOP_TOKEN],
+                helm=self.agent_config.lm_config.use_helm
                 helm=self.agent_config.lm_config.use_helm
             )
 
@@ -157,12 +202,15 @@ class ExecutorAgent(BaseAgent):
                 return self._parse_message(lm_message)
             except Exception as e:
                 logger.warning(f"Retrying {iterations}/{MAX_RETRIES} after parse error: {e}")
+                logger.warning(f"Retrying {iterations}/{MAX_RETRIES} after parse error: {e}")
                 iterations += 1
 
         raise Exception("call_lm error: Max retries reached without valid message.")
 
     def execute_in_env(self, executor_message: CommandMessage) -> Observation:
         """
+        Executes the command in the environment using self.kali_env,
+        captures the output, and returns an Observation.
         Executes the command in the environment using self.kali_env,
         captures the output, and returns an Observation.
         """
@@ -174,10 +222,66 @@ class ExecutorAgent(BaseAgent):
             observation_text = stdout.strip() + stderr.strip()
             logger.info(f"Command in environment: {command}\nstdout: {stdout.strip()}\nstderr: {stderr.strip()}")
             return Observation(observation_text)
+            observation_text = stdout.strip() + stderr.strip()
+            logger.info(f"Command in environment: {command}\nstdout: {stdout.strip()}\nstderr: {stderr.strip()}")
+            return Observation(observation_text)
         except Exception as e:
+            logger.exception(f"Failed to execute command: {command}.\nException: {str(e)}")
             logger.exception(f"Failed to execute command: {command}.\nException: {str(e)}")
             return Observation(str(e))
 
+    def to_dict(self) -> dict:
+        """
+        Serializes the ExecutorAgent state to a dictionary.
+        """
+        return {
+            "config": self.agent_config.lm_config.__dict__,
+            "memory": self.memory,
+            "initial_prompt": getattr(self, "initial_prompt", None),
+            "prompt": getattr(self, "prompt", None),
+            "timestamp": getattr(self, "timestamp", None),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> "ExecutorAgent":
+        """
+        Creates an ExecutorAgent instance from a serialized dictionary.
+        """
+        config = AgentLMConfig(**data["config"])
+        agent = cls(
+            config=config,
+            initial_prompt=data["initial_prompt"],
+            **kwargs
+        )
+        agent.memory = data["memory"]
+        agent.prompt = data["prompt"]
+        if data.get("timestamp"):
+            agent.timestamp = data["timestamp"]
+        return agent
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the agent state to a JSON file, adding a timestamp.
+        """
+        import json
+        from datetime import datetime
+
+        state = self.to_dict()
+        state["timestamp"] = datetime.now().isoformat()
+
+        with open(filepath, "w") as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> "ExecutorAgent":
+        """
+        Loads an agent state from a JSON file and reconstructs it.
+        """
+        import json
+
+        with open(filepath, "r") as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)
     def to_dict(self) -> dict:
         """
         Serializes the ExecutorAgent state to a dictionary.

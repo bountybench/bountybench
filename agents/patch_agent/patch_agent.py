@@ -1,5 +1,6 @@
 import atexit
 from dataclasses import dataclass, field
+from dataclasses import dataclass, field
 import shutil
 import subprocess
 import time
@@ -7,7 +8,12 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 import docker
+from pathlib import Path
+from typing import List, Tuple, Optional
 
+import docker
+
+from agents.base_agent import AgentConfig, BaseAgent
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
@@ -28,8 +34,22 @@ class PatchAgentConfig(AgentConfig):
     task_dir: str
     exploit_files_dir: Optional[str] = field(default=None)
     use_verify_script: bool = field(default=False)
+@dataclass
+class PatchAgentConfig(AgentConfig):
+    bounty_dir: str
+    task_dir: str
+    exploit_files_dir: Optional[str] = field(default=None)
+    use_verify_script: bool = field(default=False)
 
 class PatchAgent(BaseAgent):    
+    REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
+    OPTIONAL_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource")]
+    ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), (InitFilesResource, "init_files"),  (DockerResource, "docker")]
+    CONFIG_CLASS = PatchAgentConfig  
+
+    def __init__(self, agent_config: PatchAgentConfig):#, resource_manager: ResourceManager):
+        self.bounty_dir = Path(agent_config.bounty_dir)
+        self.exploit_files_dir = agent_config.exploit_files_dir
     REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
     OPTIONAL_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource")]
     ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), (InitFilesResource, "init_files"),  (DockerResource, "docker")]
@@ -43,12 +63,24 @@ class PatchAgent(BaseAgent):
         self.patch_dir_name = "patches"
         self.patch_dir = None
 
+        self.patch_dir_name = "patches"
+        self.patch_dir = None
+
 
         self.use_verify_script = agent_config.use_verify_script
         self.patch_dir = Path(agent_config.task_dir) / self.patch_dir_name
 
         super().__init__(agent_config)#, resource_manager)
         self.patch_dir.mkdir(parents=True, exist_ok=True)
+        self.use_verify_script = agent_config.use_verify_script
+        self.patch_dir = Path(agent_config.task_dir) / self.patch_dir_name
+
+        super().__init__(agent_config)#, resource_manager)
+        self.patch_dir.mkdir(parents=True, exist_ok=True)
+
+        # self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
+        # self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
+        # self.docker = self._get_resource(DockerResource)
 
         # self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
         # self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
@@ -86,6 +118,7 @@ class PatchAgent(BaseAgent):
         self.create_git_patch(tmp_dir_diff, self.patch_dir)
         self.create_git_commit(self.init_files.tmp_dir)
         patch_path = self.patch_dir / f"patch_{self.patch_id}.patch"
+        patch_path = self.patch_dir / f"patch_{self.patch_id}.patch"
         self.apply_git_patch(patch_path, self.init_files.files_dir, "dev")
         self.create_git_commit(self.init_files.files_dir, "dev")
 
@@ -100,6 +133,9 @@ class PatchAgent(BaseAgent):
                 Observation("The task server and/or repo resource cannot restart after the changes.")
             )
         else:
+            log_message = "Running exploit..."
+            logger.info(log_message)
+            self.log_history.append(log_message)
             log_message = "Running exploit..."
             logger.info(log_message)
             self.log_history.append(log_message)
@@ -129,7 +165,23 @@ class PatchAgent(BaseAgent):
         return Message(patch_message)
     
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def run_exploit(self) -> Tuple[str, int]:
+        """Run the exploit script in a Docker container."""
+        # Resolve paths to absolute paths
+        codebase_path = (Path(self.init_files.task_dir) / 'codebase').resolve()
+        setup_files_dir = (Path(self.init_files.task_dir) / 'setup_files').resolve()
+        tmp_path = Path("/tmp").resolve()
+
+        # Validate the paths
+        if not codebase_path.exists():
+            raise FileNotFoundError(f"Codebase directory does not exist: {codebase_path}")
+        if not setup_files_dir.exists():
+            raise FileNotFoundError(f"Setup files directory does not exist: {setup_files_dir}")
+        if not tmp_path.exists():
+            raise FileNotFoundError(f"Temporary directory does not exist: {tmp_path}")
+
+        # Define Docker volumes
         """Run the exploit script in a Docker container."""
         # Resolve paths to absolute paths
         codebase_path = (Path(self.init_files.task_dir) / 'codebase').resolve()
@@ -149,8 +201,15 @@ class PatchAgent(BaseAgent):
             codebase_path: {"bind": "/app/codebase", "mode": "rw"},
             setup_files_dir: {"bind": "/app/setup_files", "mode": "rw"},
             tmp_path: {"bind": "/tmp", "mode": "rw"}
+            codebase_path: {"bind": "/app/codebase", "mode": "rw"},
+            setup_files_dir: {"bind": "/app/setup_files", "mode": "rw"},
+            tmp_path: {"bind": "/tmp", "mode": "rw"}
         }
 
+        # Commands to be executed in the container
+        clear_tmp_command = "rm -rf /tmp/* /tmp/.*"
+        setup_command = "bash /app/setup_files/requirements.sh"
+        exploit_command = f"bash {self.exploit_files_dir}/exploit.sh"
         # Commands to be executed in the container
         clear_tmp_command = "rm -rf /tmp/* /tmp/.*"
         setup_command = "bash /app/setup_files/requirements.sh"
@@ -159,7 +218,10 @@ class PatchAgent(BaseAgent):
         try:
             # Clear the /tmp directory
             self.docker.execute(
+            # Clear the /tmp directory
+            self.docker.execute(
                 docker_image="cybench/cybounty:latest",
+                command=clear_tmp_command,
                 command=clear_tmp_command,
                 network="shared_net",
                 volumes=volumes,
@@ -176,7 +238,19 @@ class PatchAgent(BaseAgent):
                 if setup_result[1] != 0:
                     return f"Setup failed:\n{setup_result[0]}", setup_result[1]
 
+            # Run the setup command if `requirements.sh` exists
+            if (setup_files_dir / 'requirements.sh').exists():
+                setup_result = self.docker.execute(
+                    docker_image="cybench/cybounty:latest",
+                    command=setup_command,
+                    network="shared_net",
+                    volumes=volumes,
+                )
+                if setup_result[1] != 0:
+                    return f"Setup failed:\n{setup_result[0]}", setup_result[1]
+
             # Run the exploit command
+            return self.docker.execute(
             return self.docker.execute(
                 docker_image="cybench/cybounty:latest",
                 command=exploit_command,
@@ -190,20 +264,33 @@ class PatchAgent(BaseAgent):
     def verify_patch_works(self, execution_output: str) -> bool:
         """Run the verify.sh script."""
         logger.info("Running verify.sh")
+        """Run the verify.sh script."""
+        logger.info("Running verify.sh")
         result = subprocess.run(['./verify.sh', execution_output],
+                                cwd=self.init_files.task_dir / self.bounty_dir, 
+                                capture_output=True, text=True)
+        logger.info(f"Verify.sh output:\n{result.stdout}")
+        
                                 cwd=self.init_files.task_dir / self.bounty_dir, 
                                 capture_output=True, text=True)
         logger.info(f"Verify.sh output:\n{result.stdout}")
         
         if result.returncode == 1:
             logger.info("Patch succeeded.")
+            logger.info("Patch succeeded.")
             return True
+        elif result.returncode == 0:
+            logger.info("Patch failed.")
         elif result.returncode == 0:
             logger.info("Patch failed.")
             return False
         else:
             logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
+            logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
             return False
+                
+    def get_git_diff(self, directory_path: Path) -> str:
+        """Get the git diff of the changes in the task repository, including untracked files."""
                 
     def get_git_diff(self, directory_path: Path) -> str:
         """Get the git diff of the changes in the task repository, including untracked files."""
@@ -218,10 +305,24 @@ class PatchAgent(BaseAgent):
             diff = subprocess.check_output(['git', 'diff', '--cached'], cwd=directory_path).decode('utf-8')
             
             logger.info(f"Git diff : {diff}")
+            # First, check for untracked files
+            untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=directory_path).decode('utf-8')
+            
+            # Then, add all files to the index (including new ones)
+            subprocess.run(['git', 'add', '-A'], cwd=directory_path, check=True)
+            
+            # Now get the diff
+            diff = subprocess.check_output(['git', 'diff', '--cached'], cwd=directory_path).decode('utf-8')
+            
+            logger.info(f"Git diff : {diff}")
             return diff
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to get git diff: {e}")
+            logger.error(f"Failed to get git diff: {e}")
             return ""
+
+    def create_git_patch(self, diff: str, directory_path: Path) -> None:
+        """Create a patch file from the diff."""
 
     def create_git_patch(self, diff: str, directory_path: Path) -> None:
         """Create a patch file from the diff."""
@@ -229,22 +330,35 @@ class PatchAgent(BaseAgent):
             patch_file_path = directory_path / f"patch_{self.patch_id}.patch"
             patch_file_path.write_text(diff)
             logger.info(f"Patch_{self.patch_id} file created successfully.")
+            patch_file_path = directory_path / f"patch_{self.patch_id}.patch"
+            patch_file_path.write_text(diff)
+            logger.info(f"Patch_{self.patch_id} file created successfully.")
         except Exception as e:
             logger.error(f"Failed to create git patch_{self.patch_id} file: {e}")
+            logger.error(f"Failed to create git patch_{self.patch_id} file: {e}")
 
+    def create_git_commit(self, directory_path: Path, branch_name: Optional[str] = None) -> None:
+        """Create a git commit."""
     def create_git_commit(self, directory_path: Path, branch_name: Optional[str] = None) -> None:
         """Create a git commit."""
         try:
             if branch_name:
                 subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
                 logger.info(f"Checked out to branch '{branch_name}'.")
+                subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
+                logger.info(f"Checked out to branch '{branch_name}'.")
 
             subprocess.check_call(['git', 'add', '.'], cwd=directory_path)
             subprocess.check_call(['git', 'commit', '-m', f'Commit {self.patch_id}'], cwd=directory_path)
             logger.info(f"Commit {self.patch_id} committed successfully on branch '{branch_name or 'current'}'.")
+            subprocess.check_call(['git', 'commit', '-m', f'Commit {self.patch_id}'], cwd=directory_path)
+            logger.info(f"Commit {self.patch_id} committed successfully on branch '{branch_name or 'current'}'.")
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to create git commit: {e}")
+            logger.error(f"Failed to create git commit: {e}")
 
+    def apply_git_patch(self, patch_file: Path, directory_path: Path, branch_name: Optional[str] = None) -> Tuple[bool, str]:
+        """Apply the patch file to the target directory."""
     def apply_git_patch(self, patch_file: Path, directory_path: Path, branch_name: Optional[str] = None) -> Tuple[bool, str]:
         """Apply the patch file to the target directory."""
         try:
@@ -253,40 +367,61 @@ class PatchAgent(BaseAgent):
                 logger.info(f"Checked out to branch '{branch_name}'.")
             subprocess.check_call(['git', 'apply', str(patch_file)], cwd=directory_path)
             logger.info(f"Patch '{patch_file}' applied successfully on branch '{branch_name or 'current'}'.")
+                subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
+                logger.info(f"Checked out to branch '{branch_name}'.")
+            subprocess.check_call(['git', 'apply', str(patch_file)], cwd=directory_path)
+            logger.info(f"Patch '{patch_file}' applied successfully on branch '{branch_name or 'current'}'.")
             return True, f"Patch '{patch_file}' applied successfully."
         except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to apply patch '{patch_file}': {e}")
             logger.error(f"Failed to apply patch '{patch_file}': {e}")
             return False, f"Failed to apply patch '{patch_file}': {e}"
 
     def restart_task_server_resource(self) -> bool:
         """Restart the task server resource."""
+        """Restart the task server resource."""
         try:
             self.task_server.restart()
+            logger.info("Task server resource restarted successfully.")
             logger.info("Task server resource restarted successfully.")
             return True
         except Exception as e:
             logger.error(f"Failed to restart task server resource: {e}")
+            logger.error(f"Failed to restart task server resource: {e}")
             return False
 
+
     def restart_repo_resource(self) -> bool:
+        """Restart the repo resource."""
         """Restart the repo resource."""
         try:
             self.repo_resource.restart()
             logger.info("Repo resource restarted successfully.")
+            logger.info("Repo resource restarted successfully.")
             return True
         except Exception as e:
+            logger.error(f"Failed to restart repo resource: {e}")
             logger.error(f"Failed to restart repo resource: {e}")
             return False
 
     def git_reset(self, directory_path: Path, branch_name: Optional[str] = None) -> None:
         """Reset the git repository to the previous commit (HEAD~1)."""
+    def git_reset(self, directory_path: Path, branch_name: Optional[str] = None) -> None:
+        """Reset the git repository to the previous commit (HEAD~1)."""
         try:
             if branch_name:
+                subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
                 subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
                 logger.info(f"Checked out to branch '{branch_name}'.")
             subprocess.check_call(['git', 'reset', '--hard', 'HEAD~1'], cwd=directory_path)
             logger.info(f"Git reset to HEAD~1 performed successfully in {directory_path}.")
+            subprocess.check_call(['git', 'reset', '--hard', 'HEAD~1'], cwd=directory_path)
+            logger.info(f"Git reset to HEAD~1 performed successfully in {directory_path}.")
         except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to reset git repository to HEAD~1: {e}")
+
+    def cleanup(self) -> None:
+        """Perform cleanup operations."""
             logger.error(f"Failed to reset git repository to HEAD~1: {e}")
 
     def cleanup(self) -> None:
@@ -296,9 +431,14 @@ class PatchAgent(BaseAgent):
         try:
             subprocess.check_call(['git', 'checkout', 'main'], cwd=self.init_files.files_dir)
             logger.info("Checked out to branch 'main'.")
+            subprocess.check_call(['git', 'checkout', 'main'], cwd=self.init_files.files_dir)
+            logger.info("Checked out to branch 'main'.")
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to checkout 'main': {e}")
+            logger.error(f"Failed to checkout 'main': {e}")
 
+    def store_patch(self) -> None:
+        """Store the patches in a timestamped folder."""
     def store_patch(self) -> None:
         """Store the patches in a timestamped folder."""
         try:
@@ -309,13 +449,70 @@ class PatchAgent(BaseAgent):
                 if any(self.patch_dir.iterdir()):
                     shutil.move(str(self.patch_dir), new_patch_dir)
                     logger.info(f"Patches successfully moved to {new_patch_dir}.")
+            if self.patch_dir.exists() and self.patch_dir.is_dir():
+                if any(self.patch_dir.iterdir()):
+                    shutil.move(str(self.patch_dir), new_patch_dir)
+                    logger.info(f"Patches successfully moved to {new_patch_dir}.")
                 else:
+                    logger.info("Patches directory is empty. No need to move.")
                     logger.info("Patches directory is empty. No need to move.")
                     shutil.rmtree(self.patch_dir)
             else:
                 logger.warning("No patches directory found to move.")
+                logger.warning("No patches directory found to move.")
             
         except Exception as e:
+            logger.error(f"Failed to move patches directory: {e}")
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the PatchAgent state to a dictionary.
+        """
+        return {
+            'bounty_dir': str(self.bounty_dir),
+            'patch_dir': str(self.patch_dir),
+            'exploit_files_dir': self.exploit_files_dir,
+            'log_history': self.log_history,
+            'patch_id': self.patch_id,
+            'use_verify_script': self.use_verify_script,
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> 'PatchAgent':
+        """
+        Creates a PatchAgent instance from a serialized dictionary.
+        """
+        kwargs.update({
+            'bounty_dir': data['bounty_dir'],
+            'exploit_files_dir': data['exploit_files_dir'],
+            'use_verify_script': data['use_verify_script']
+        })
+        
+        agent = cls(**kwargs)
+        agent.patch_dir = Path(data['patch_dir'])
+        agent.log_history = data['log_history']
+        agent.patch_id = data['patch_id']
+        return agent
+
+    def save_to_file(self, filepath: str) -> None:
+        """
+        Saves the agent state to a JSON file.
+        """
+        import json
+        state = self.to_dict()
+        with open(filepath, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def load_from_file(cls, filepath: str, **kwargs) -> 'PatchAgent':
+        """
+        Loads an agent state from a JSON file.
+        """
+        import json
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return cls.from_dict(data, **kwargs)
             logger.error(f"Failed to move patches directory: {e}")
 
     def to_dict(self) -> dict:

@@ -31,9 +31,11 @@ class TestExecutorAgent(unittest.TestCase):
     def setUp(self):
         # Create a mock config for the agent
         self.config = AgentLMConfig(
+        self.config = AgentLMConfig(
             model="openai/o1-mini-2024-09-12",
             max_output_tokens=50,
             max_input_tokens=100,
+            max_iterations_stored_in_memory=3,
             max_iterations_stored_in_memory=3,
             use_helm=True
         )
