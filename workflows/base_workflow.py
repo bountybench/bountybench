@@ -142,10 +142,10 @@ class BaseWorkflow(ABC):
 
             self._set_workflow_status(WorkflowStatus.INCOMPLETE)
             current_phase = self._root_phase
-            prev_response = self._get_initial_phase_response()
+            prev_phase_response = self._get_initial_phase_response()
 
             while current_phase:
-                phase_response = self._run_single_phase(current_phase, prev_response)
+                phase_response = self._run_single_phase(current_phase, prev_phase_response)
                 yield phase_response
                 
                 if not phase_response.success or self._max_iterations_reached():
@@ -153,7 +153,7 @@ class BaseWorkflow(ABC):
                     
                 next_phases = self._phase_graph.get(current_phase, [])
                 current_phase = next_phases[0] if next_phases else None
-                prev_response = phase_response
+                prev_phase_response = phase_response
 
             self._finalize_workflow()
 
