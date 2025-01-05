@@ -32,6 +32,7 @@ class PhaseConfig:
             **kwargs
         )
         return config
+    
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple, Type
 from agents.base_agent import AgentConfig, BaseAgent
