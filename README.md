@@ -66,6 +66,37 @@ workflow.run()
 ```
 These will execute the entire exploit-and-patch workflow, running through all defined phases and handling resource allocation/deallocation automatically
 
+### Troubleshooting
+
+#### Docker Mount Issue
+
+**Error Message:**
+Internal Server Error ("Mounts denied: The path *** is not shared from the host and is not known to Docker. You can configure shared paths from Docker -> Preferences... -> Resources -> File Sharing.")
+
+**Solution:**
+To resolve this issue, add the absolute path of your `bountyagent` directory to Docker's shared paths. Follow these steps:
+
+1. **Determine the Absolute Path:**
+   - Open your terminal.
+   - Navigate to the root directory of your project.
+   - Retrieve the absolute path using the `pwd` command.
+   - **Example Output:**
+     ```
+     /Users/yourusername/projects/bountyagent
+     ```
+
+2. **Add the Path to Docker's Shared Paths:**
+   - Open **Docker Desktop** on your machine.
+   - Click on the **Settings** (gear) icon.
+   - Navigate to **Resources** > **File Sharing**.
+   - Paste the absolute path you obtained earlier (e.g., `/Users/yourusername/projects/bountyagent`).
+   - Click the **`+`** button to add the new shared path.
+   - Click **Apply & Restart** to save the changes.
+
+3. **Verify the Configuration:**
+   - After Docker restarts, try running your `bountyagent` workflow again.
+   - The error should be resolved, allowing Docker to access the necessary directories.
+
 ## System Architecture
 
 ### Workflow System 
