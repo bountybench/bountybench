@@ -36,6 +36,7 @@ class WorkflowConfig:
 
 class BaseWorkflow(ABC):
     def __init__(self, **kwargs):
+        logger.info(f"Initializing workflow {self.name}")
         self.workflow_id = self.name
         self.params = kwargs
         self.interactive = kwargs.get('interactive', False)
@@ -51,11 +52,13 @@ class BaseWorkflow(ABC):
         self._setup_agent_manager()
         self._create_phases()
         self._compute_resource_schedule()
+        logger.info(f"Finished initializing workflow {self.name}")
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
         self._root_phase = phase
         self.register_phase(phase)
+        logger.info(f"Registered root phase {phase.name}")
 
     def register_phase(self, phase: BasePhase):
         """Register a phase and its dependencies."""
@@ -99,6 +102,7 @@ class BaseWorkflow(ABC):
         config = self._create_workflow_config()
         self.config = config
         self._initialize_workflow_logger(config)
+        logger.info(f"Initialized workflow logger")
 
     def _create_workflow_config(self) -> WorkflowConfig:
         return WorkflowConfig(
@@ -122,9 +126,11 @@ class BaseWorkflow(ABC):
 
     def _setup_agent_manager(self):
         self.agent_manager = AgentManager()
+        logger.info("Setup agent manager")
 
     def _setup_resource_manager(self):
         self.resource_manager = ResourceManager()
+        logger.info("Setup resource manager")
 
     def _get_task(self) -> Dict[str, Any]:
         return {}
@@ -134,6 +140,7 @@ class BaseWorkflow(ABC):
     
     def run(self) -> None:
         """Execute the entire workflow by running all phases in sequence."""
+        logger.info(f"Running workflow {self.name}")
         for _ in self._run_phases():
             continue
 
@@ -147,6 +154,7 @@ class BaseWorkflow(ABC):
             prev_phase_response = self._get_initial_phase_response()
 
             while current_phase:
+                logger.info(f"Running {current_phase.name}")
                 phase_response = self._run_single_phase(current_phase, prev_phase_response)
                 yield phase_response
                 
@@ -220,7 +228,7 @@ class BaseWorkflow(ABC):
             self._phase_graph[phase] = []
             phase.phase_config.phase_idx = len(self._phase_graph) - 1
             logger.debug(f"Registered phase { phase.phase_config.phase_idx}: {phase.__class__.__name__}")
-            logger.info(f"{phase.phase_config.phase_name} registered with config: {phase.phase_config}")
+            logger.info(f"{phase.phase_config.phase_name} registered")
 
     @property
     def name(self):
