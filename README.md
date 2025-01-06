@@ -23,12 +23,12 @@ python3.11 -m venv venv
 ```
 
 ### 3. Activate and Set Up the Environment
-Activate the virtual environment, install required dependencies
+Activate the virtual environment, install required dependencies (may take several minutes to tens of minutes to complete, please leave time for this installation):
 ```
 source venv/bin/activate
 pip install -r requirements.txt
 ```
-Initialize submodules:
+Initialize submodules (may take a few minutes to complete):
 ```
 git submodule update --init
 cd bountybench
@@ -60,13 +60,17 @@ python -m workflows.exploit_and_patch_workflow \
     --bounty_number 0 \
     --model anthropic/claude-3-5-sonnet-20240620
 ```
-To create and run a workflow instance:
+Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.
 
+To create and run a workflow instance:
 ```python
 workflow = ExploitAndPatchWorkflow(task_dir=Path("bountybench/astropy"), bounty_number="0")
 workflow.run()
 ```
 These will execute the entire exploit-and-patch workflow, running through all defined phases and handling resource allocation/deallocation automatically
+
+### Sample Run
+![Screen recording of a run](media/sample_run.mp4)
 
 ### Troubleshooting
 #### Docker Setup
