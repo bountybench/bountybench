@@ -154,7 +154,6 @@ class PatchAgent(BaseAgent):
 
         # Commands to be executed in the container
         clear_tmp_command = "rm -rf /tmp/* /tmp/.*"
-        setup_command = "bash /app/setup_files/requirements.sh"
         exploit_command = f"bash {self.exploit_files_dir}/exploit.sh"
 
         try:
@@ -165,18 +164,7 @@ class PatchAgent(BaseAgent):
                 network="shared_net",
                 volumes=volumes,
             )
-
-            # Run the setup command if `requirements.sh` exists
-            if (setup_files_dir / 'requirements.sh').exists():
-                setup_result = self.docker.execute(
-                    docker_image="cybench/cybounty:latest",
-                    command=setup_command,
-                    network="shared_net",
-                    volumes=volumes,
-                )
-                if setup_result[1] != 0:
-                    return f"Setup failed:\n{setup_result[0]}", setup_result[1]
-
+            
             # Run the exploit command
             return self.docker.execute(
                 docker_image="cybench/cybounty:latest",

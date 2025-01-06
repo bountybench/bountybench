@@ -76,7 +76,6 @@ class KaliEnvResource(BaseResource):
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}"
             )
-            self.run_requirements(self.bounty_dir)
         
         atexit.register(self.stop)
     
@@ -205,30 +204,6 @@ class KaliEnvResource(BaseResource):
         except Exception as e:
             logger.error(f"Unexpected error while executing command: {e}")
             return "", f"Unexpected error: {str(e)}"
-
-
-    def run_requirements(self, task_dir: str) -> None:
-        """
-        Execute any required setup scripts from the provided repository directory.
-
-        Args:
-            task_dir (str): Path to the repository directory containing the metadata/requirements.sh script.
-        """
-        requirements_path = f"{task_dir}/setup_files/requirements.sh"
-        if not os.path.isfile(requirements_path):
-            logger.warning(f"Requirements file not found at {requirements_path}")
-        else:
-            # Parse and execute the requirements script commands
-            requirement_commands = parse_shell_script(requirements_path)
-            for command in requirement_commands:
-                stdout, stderr = self.run_command(command)
-
-                # Log output and error for each command
-                if stdout:
-                    logger.info(f"Requirements.sh Output:\n{stdout}")
-                if stderr:
-                    logger.error(f"Requirements.sh Error:\n{stderr}")
-            # self.run_command("git clean -fdx")
 
     def parse_target_host(self, target_host: str) -> Tuple[str, int]:
         """
