@@ -70,7 +70,7 @@ workflow.run()
 These will execute the entire exploit-and-patch workflow, running through all defined phases and handling resource allocation/deallocation automatically
 
 ### Sample Run
-![Screen recording of a run](media/sample_run.mp4)
+![Screen recording of a run](media/sample_run.gif)
 
 ### Troubleshooting
 #### Docker Setup
