@@ -46,7 +46,7 @@ ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
 GOOGLE_API_KEY={GOOGLE_API_KEY}
 TOGETHER_API_KEY={TOGETHER_API_KEY}
 ```
-Replace {KEY_NAME} with your actual API key values.
+Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...).
 
 ## Usage
 
