@@ -209,7 +209,6 @@ class BasePhase(ABC):
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:
         """Retrieve the next agent in a round-robin fashion."""
         agent = self.agents[self.current_agent_index % len(self.agents)]
-        self.current_agent_index += 1
         return agent
 
     def _set_phase_summary(self, summary: str):
