@@ -12,7 +12,9 @@ from responses.base_response import BaseResponse
 from utils.workflow_logger import workflow_logger
 from agents.agent_manager import AgentManager
 
-logger = logging.getLogger(__name__)
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
 
 class WorkflowStatus(Enum):
     """Status of workflow execution"""
