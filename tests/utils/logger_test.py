@@ -3,8 +3,11 @@ from utils.logger import get_main_logger
 def test_logger():
     logger = get_main_logger(__name__)
 
-    logger.debug("This is a DEBUG message")
-    logger.info("This is an INFO message")
+    logger.info("These are INFO messages")
+    logger.info("These are INFO messages")
+    logger.info("These are INFO messages")
+    logger.info("These are INFO messages")
+    logger.info("These are INFO messages")
     logger.status("This is a STATUS message")
     logger.warning("This is a WARNING message")
     logger.error("This is an ERROR message")

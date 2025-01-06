@@ -7,8 +7,8 @@ import time
 import json
 
 from resources.base_resource import BaseResource
-from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
+from utils.progress_logger import start_progress, stop_progress
 from dataclasses import dataclass
 from typing import Optional
 from resources.base_resource import BaseResourceConfig
@@ -59,8 +59,7 @@ class DockerResource(BaseResource):
         """
         
         unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
-        
-        logger.info(f"Running command in Docker: {command}, Work Dir: {work_dir}")
+        start_progress(f"Running command in Docker: {command}")
         try:
             # If command is a string, convert it to a list
             if isinstance(command, str):
@@ -100,6 +99,7 @@ class DockerResource(BaseResource):
             logger.error(f"Error running Docker container: {e}")
             return str(e), -1
         finally:
+            stop_progress()
             try:
                 container.remove(force=True)
             except:
