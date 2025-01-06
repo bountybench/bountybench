@@ -8,6 +8,7 @@ logger = get_main_logger(__name__)
 class AgentManager:
     def __init__(self):
         self._agents: Dict[str, BaseAgent] = {}
+        self._phase_agents: Dict[str, BaseAgent] = {}
         self._agent_configs: Dict[str, Tuple[Type[BaseAgent], AgentConfig]] = {}
         self.resource_dict = resource_dict
 
@@ -22,6 +23,7 @@ class AgentManager:
         logger.debug(f"Registered agents: {self._agent_configs.keys()}")
         
         initialized_agents = []
+        self._phase_agents = {}
         
         # First register all agent configs
         for agent_id, agent_config in agent_configs:
@@ -38,6 +40,7 @@ class AgentManager:
         for agent_id, _ in agent_configs:
             if agent_id in self._agents:
                 agent = self._agents[agent_id]
+                self._phase_agents[agent_id] = agent
                 logger.debug(f"Agent {agent_id} already initialized, checking equivalence")
                 
                 # Check if existing agent matches configuration
@@ -51,6 +54,7 @@ class AgentManager:
                 try:
                     agent = self.create_agent(agent_id, agent_class, agent_config)
                     self._agents[agent_id] = agent
+                    self._phase_agents[agent_id] = agent
                     logger.debug(f"Successfully created agent {agent_id}")
                 except Exception as e:
                     logger.error(f"Failed to create agent {agent_id}: {str(e)}")
