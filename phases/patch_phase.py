@@ -17,7 +17,9 @@ import logging
 
 from workflows.base_workflow import BaseWorkflow
 
-logger = logging.getLogger(__name__)
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
 
 class PatchPhase(BasePhase):
     """Phase responsible for patching vulnerabilities."""

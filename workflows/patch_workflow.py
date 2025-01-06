@@ -6,7 +6,9 @@ from phases.patch_phase import PatchPhase
 from resources.utils import read_exploit_report
 from workflows.bounty_workflow import BountyWorkflow
 
-logger = logging.getLogger(__name__)
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
 
 class PatchWorkflow(BountyWorkflow):
     """Workflow for patching vulnerabilities"""
@@ -19,7 +21,7 @@ class PatchWorkflow(BountyWorkflow):
             'model': self.params.get('model'),
             'bounty_number': self.bounty_number,
             'initial_prompt': init_prompt,
-            'max_iterations': 3
+            'max_iterations': 10
         }
         patch_phase = PatchPhase(workflow=self, **phase_kwargs)
 

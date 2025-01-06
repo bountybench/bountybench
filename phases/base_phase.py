@@ -135,7 +135,7 @@ class BasePhase(ABC):
         '''
 
         self.agent_manager.initialize_phase_agents(agent_configs, self.AGENT_CLASSES)
-        self.agents = list(self.agent_manager._agents.items())
+        self.agents = list(self.agent_manager._phase_agents.items())
 
         
         logger.debug(f"Completed setup for {self.name}")
@@ -209,7 +209,6 @@ class BasePhase(ABC):
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:
         """Retrieve the next agent in a round-robin fashion."""
         agent = self.agents[self.current_agent_index % len(self.agents)]
-        self.current_agent_index += 1
         return agent
 
     def _set_phase_summary(self, summary: str):
