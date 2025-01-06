@@ -108,7 +108,7 @@ class PatchAgent(BaseAgent):
 
             if self.use_verify_script:
                 if self.verify_patch_works(stdout):
-                    logger.status("Exploit failed (return code 1), patch succeeded.")
+                    logger.status("Exploit failed (return code 1), patch succeeded.", True)
                     return AnswerResponse("Answer: Congratulations! The patch succeeded.")
                 else:
                     logger_message = "Exploit succeeded (return code 0), patch failed."
