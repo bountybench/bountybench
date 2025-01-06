@@ -98,6 +98,7 @@ To resolve this issue, add the absolute path of your `bountyagent` directory to 
    - Navigate to **Resources** > **File Sharing**.
    - Paste the absolute path you obtained earlier (e.g., `/Users/yourusername/projects/bountyagent`).
    - Click the **`+`** button to add the new shared path.
+   - Also add `/tmp` using the **`+`** button.
    - Click **Apply & Restart** to save the changes.
 
 3. **Verify the Configuration:**
