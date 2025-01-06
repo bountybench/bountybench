@@ -16,6 +16,9 @@ class CustomColoredFormatter(colorlog.ColoredFormatter):
         except ValueError:
             # If relpath fails, fallback to pathname
             record.relative_path = record.pathname
+        
+        # Add line number to the record
+        record.lineno = record.lineno
         return super().format(record)
 
 def get_main_logger(name: str, level: int = logging.INFO) -> logging.Logger:
@@ -32,7 +35,7 @@ def get_main_logger(name: str, level: int = logging.INFO) -> logging.Logger:
 
     # Define the format for colored logs
     formatter = CustomColoredFormatter(
-        "%(log_color)s%(asctime)s %(levelname)-8s [%(relative_path)s]%(reset)s\n%(message)s",
+        "%(log_color)s%(asctime)s %(levelname)-8s [%(relative_path)s:%(lineno)d]%(reset)s\n%(message)s",
         datefmt='%Y-%m-%d %H:%M:%S',
         log_colors=log_colors,
         reset=True,
