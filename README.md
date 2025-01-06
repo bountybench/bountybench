@@ -48,6 +48,8 @@ TOGETHER_API_KEY={TOGETHER_API_KEY}
 ```
 Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...).
 
+### 5. Startup Docker Desktop App
+
 ## Usage
 
 ### Running the Workflow
