@@ -173,7 +173,7 @@ class BaseWorkflow(ABC):
         phase_instance = self._setup_phase(phase)
         phase_response = phase_instance.run_phase(prev_phase_response)
         
-        logger.info(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_response.success}")
+        logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_response.success}")
 
         self._workflow_iteration_count += 1
 

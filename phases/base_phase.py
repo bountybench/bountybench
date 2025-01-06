@@ -175,11 +175,6 @@ class BasePhase(ABC):
 
                 agent_id, agent_instance = self._get_current_agent()
 
-                if last_agent_response:
-                    print(f"Last output was {last_agent_response.response}")
-                else:
-                    print("No last output")
-
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_id, last_agent_response) as iteration_ctx:
                     response = self.run_one_iteration(

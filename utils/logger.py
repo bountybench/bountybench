@@ -3,6 +3,18 @@ import os
 
 import colorlog
 
+# Define new log level
+STATUS = 25  # between INFO and WARNING
+logging.addLevelName(STATUS, "STATUS")
+
+class CustomLogger(logging.Logger):
+    def status(self, msg, *args, **kwargs):
+        if self.isEnabledFor(STATUS):
+            self._log(STATUS, msg, args, **kwargs)
+
+# Set the custom logger class as the default
+logging.setLoggerClass(CustomLogger)
+
 class CustomColoredFormatter(colorlog.ColoredFormatter):
     def __init__(self, fmt, datefmt=None, log_colors=None, reset=True, style='%'):
         super().__init__(fmt, datefmt=datefmt, log_colors=log_colors, reset=reset, style=style)
@@ -26,8 +38,9 @@ def get_main_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     logger.setLevel(level)
     # Define color scheme
     log_colors = {
-        'DEBUG': 'cyan',
-        'INFO': 'green',
+        'DEBUG': 'white',
+        'INFO': 'bold_black',
+        'STATUS': 'bold_green',
         'WARNING': 'yellow',
         'ERROR': 'red',
         'CRITICAL': 'bold_red',

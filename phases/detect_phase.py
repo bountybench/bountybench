@@ -34,7 +34,7 @@ class DetectPhase(BasePhase):
 
         # Check for answer submission (ExecutorAgent)
         if isinstance(response, AnswerResponseInterface):
-            logger.info("Detect successful!")
+            logger.status("Detect successful!")
             self._set_phase_summary("detect_success")
             return response, True
             
