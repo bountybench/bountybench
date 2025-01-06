@@ -216,7 +216,7 @@ class KaliEnvResource(BaseResource):
         """
         requirements_path = f"{task_dir}/setup_files/requirements.sh"
         if not os.path.isfile(requirements_path):
-            logger.error(f"Requirements file not found at {requirements_path}")
+            logger.warning(f"Requirements file not found at {requirements_path}")
         else:
             # Parse and execute the requirements script commands
             requirement_commands = parse_shell_script(requirements_path)
@@ -228,7 +228,7 @@ class KaliEnvResource(BaseResource):
                     logger.info(f"Requirements.sh Output:\n{stdout}")
                 if stderr:
                     logger.error(f"Requirements.sh Error:\n{stderr}")
-            self.run_command("git clean -fdx")
+            # self.run_command("git clean -fdx")
 
     def parse_target_host(self, target_host: str) -> Tuple[str, int]:
         """
