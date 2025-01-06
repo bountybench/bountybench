@@ -79,69 +79,59 @@ class KaliEnvResource(BaseResource):
             self.run_requirements(self.bounty_dir)
         
         atexit.register(self.stop)
-        
-    def _start(
-        self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]
-    ) -> Container:
+    
+    def _start(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]) -> Container:
         """
         Start a Kali Linux container to be used throughout the lifecycle.
-
-        Args:
-            name (str): The name of the container.
-            volumes (Optional[Dict[str, Dict[str, str]]]): Docker volume bindings in the format {host_path: {'bind': container_path, 'mode': rw}}.
-
-        Returns:
-            Container: The started Docker container.
-
-        Raises:
-            SystemExit: If the container fails to start after MAX_RETRIES attempts.
         """
-
-        try:
-            # Check if a container with the given name already exists
-            container = self.client.containers.get(name)
-            if container.status != "running":
-                logger.info(f"Container '{name}' exists but is not running. Restarting it.")
-                container.start()
-            else:
-                logger.info(f"Container '{name}' is already running.")
-            
-            # Upgrade pip
-            self._upgrade_pip(container)
-            
-            return container
-        except docker.errors.NotFound:
-            logger.info(f"Container '{name}' does not exist. Creating a new one.")
-            for attempt in range(MAX_RETRIES):
+        for attempt in range(MAX_RETRIES):
+            try:
+                # Attempt to get existing container
                 try:
-                    logger.info(
-                        f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})..."
-                    )
-                    container = self.client.containers.run(
-                        image=DOCKER_IMAGE,
-                        cgroupns="host",
-                        network="shared_net",
-                        volumes=volumes,
-                        entrypoint=ENTRYPOINT,
-                        detach=True,
-                        name=name,
-                    )
-                    logger.info("Docker container started successfully.")
-                    
-                    # Upgrade pip
-                    self._upgrade_pip(container)
-                    
-                    return container
-                except Exception as e:
-                    logger.error(
-                        f"Failed to start Docker container (Attempt {attempt + 1}/{MAX_RETRIES}): {e}"
-                    )
-                    if attempt < MAX_RETRIES - 1:
-                        logger.info(f"Retrying in {RETRY_DELAY} seconds...")
-                        time.sleep(RETRY_DELAY)
+                    container = self.client.containers.get(name)
+                    logger.info(f"Container '{name}' already exists.")
+                    if container.status != "running":
+                        logger.info(f"Container '{name}' is not running. Removing it.")
+                        container.remove(force=True)
                     else:
-                        logger.error("Failed to start Docker container after maximum retries.")
-                        sys.exit(1)
+                        logger.info(f"Container '{name}' is running. Stopping and removing it.")
+                        container.stop()
+                        container.remove()
+                except docker.errors.NotFound:
+                    logger.info(f"No existing container named '{name}'.")
+
+                logger.info(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
+                container = self.client.containers.run(
+                    image=DOCKER_IMAGE,
+                    cgroupns="host",
+                    network="shared_net",
+                    volumes=volumes,
+                    entrypoint=ENTRYPOINT,
+                    detach=True,
+                    name=name,
+                )
+                logger.info("Docker container started successfully.")
+
+                # Upgrade pip
+                self._upgrade_pip(container)
+
+                return container
+            except docker.errors.APIError as e:
+                logger.error(f"Docker API error while starting container: {e}")
+                if attempt < MAX_RETRIES - 1:
+                    logger.info(f"Retrying in {RETRY_DELAY} seconds...")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    logger.error("Failed to start Docker container after maximum retries.")
+                    sys.exit(1)
+            except Exception as e:
+                logger.error(f"Unexpected error while starting container: {e}")
+                if attempt < MAX_RETRIES - 1:
+                    logger.info(f"Retrying in {RETRY_DELAY} seconds...")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    logger.error("Failed to start Docker container after maximum retries.")
+                    sys.exit(1)
 
     def _upgrade_pip(self, container: Container) -> None:
         """
