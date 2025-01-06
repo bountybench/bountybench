@@ -59,7 +59,7 @@ class PatchPhase(BasePhase):
         """
         logger.debug(f"Entering define_resources for PatchPhase")
 
-        tmp_dir = os.path.join("tmp")  # Assuming a default tmp directory
+        tmp_dir = os.path.join(self.workflow.task_dir, "tmp")  # Assuming a default tmp directory
         patch_files_path = os.path.join(tmp_dir, "patch_files")
         os.makedirs(patch_files_path, exist_ok=True)
 
