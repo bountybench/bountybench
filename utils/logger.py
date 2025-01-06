@@ -40,7 +40,7 @@ def get_main_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     log_colors = {
         'DEBUG': 'white',
         'INFO': 'cyan',
-        'STATUS': 'bold_cyan',
+        'STATUS': 'bold_green',
         'WARNING': 'yellow',
         'ERROR': 'red',
         'CRITICAL': 'bold_red',

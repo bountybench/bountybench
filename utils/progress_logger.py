@@ -3,7 +3,7 @@ import time
 import sys
 from utils.logger import get_main_logger
 
-BOLD_BLACK = "\033[1;30m"
+CYAN = "\033[36m"
 RESET = "\033[0m"
 
 class ProgressLogger:
@@ -21,7 +21,7 @@ class ProgressLogger:
         i = 0
         while self.is_running:
             with self.lock:
-                message = f"\r{BOLD_BLACK}{self.description} {indicators[i]} (in progress){RESET}"
+                message = f"\r{CYAN}{self.description} {indicators[i]} (in progress){RESET}"
                 sys.stdout.write(message)
                 sys.stdout.flush()
             time.sleep(self.update_interval)
@@ -37,7 +37,7 @@ class ProgressLogger:
         if self.thread:
             self.thread.join()
         with self.lock:
-            sys.stdout.write(f"\r{BOLD_BLACK}{self.description} (completed){RESET}{'  '*10}\n")
+            sys.stdout.write(f"\r{CYAN}{self.description} (completed){RESET}{'  '*10}\n")
             sys.stdout.flush()
 
     def log(self, message):
@@ -48,7 +48,7 @@ class ProgressLogger:
                 sys.stdout.flush()
                 self.logger.info(message)
                 sys.stdout.write('\n')  # Add another newline after the log message
-                sys.stdout.write(f"\r{BOLD_BLACK}{self.description} (in progress){RESET}")  # Rewrite the progress message
+                sys.stdout.write(f"\r{CYAN}{self.description} (in progress){RESET}")  # Rewrite the progress message
                 sys.stdout.flush()
                 self.last_message = message
 
