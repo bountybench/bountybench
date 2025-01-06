@@ -46,14 +46,14 @@ ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
 GOOGLE_API_KEY={GOOGLE_API_KEY}
 TOGETHER_API_KEY={TOGETHER_API_KEY}
 ```
-Replace {KEY_NAME} with your actual API key values.
+Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...).
 
 ## Usage
 
 ### Running the Workflow
 To run the exploit-and-patch workflow interactively from the command line, use the following command:
 ```
-python3 -m workflows.exploit_and_patch_workflow \
+python -m workflows.exploit_and_patch_workflow \
     --task_dir bountybench/astropy \
     --bounty_number 0 \
     --model anthropic/claude-3-5-sonnet-20240620
