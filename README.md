@@ -69,7 +69,12 @@ workflow.run()
 These will execute the entire exploit-and-patch workflow, running through all defined phases and handling resource allocation/deallocation automatically
 
 ### Troubleshooting
-
+#### Docker Setup
+(TODO, add in docker setup instructions and put this test afterwards)
+##### Ensure your Docker Desktop has proper sharing permissions
+You want to ensure that Docker Desktop has mounting permissions for your current working directory. Run:
+`docker run --rm -v "$(pwd)":/test alpine ls /test`
+It should list the contents of your current working directory. If you encounter a mounting issue, please follow these Docker Mount Issue next steps:
 #### Docker Mount Issue
 
 **Error Message:**
