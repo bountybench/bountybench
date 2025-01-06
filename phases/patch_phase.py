@@ -148,7 +148,7 @@ class PatchPhase(BasePhase):
 
         if agent_name == "ExecutorAgent":
             if isinstance(response, AnswerResponseInterface):
-                logger.info("Executor agent hallucinated an answer!")
+                logger.status("Executor agent hallucinated an answer!")
                 self._set_phase_summary("completed_with_hallucination")
                 phase_response.set_complete()
                 return response

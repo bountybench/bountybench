@@ -138,7 +138,7 @@ class BasePhase(ABC):
         self.agents = list(self.agent_manager._phase_agents.items())
 
         
-        logger.debug(f"Completed setup for {self.name}")
+        logger.info(f"Completed setup for {self.name}")
 
     def deallocate_resources(self):
         """
@@ -175,11 +175,6 @@ class BasePhase(ABC):
 
                 agent_id, agent_instance = self._get_current_agent()
 
-                if last_agent_response:
-                    print(f"Last output was {last_agent_response.response}")
-                else:
-                    print("No last output")
-
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_id, last_agent_response) as iteration_ctx:
                     response = self.run_one_iteration(
@@ -188,7 +183,7 @@ class BasePhase(ABC):
                         previous_output=last_agent_response,
                     )
                     iteration_ctx.set_output(response)
-
+                logger.info(f"Ran iteration {iteration_num} of {self.name}")
                 if curr_phase_response.complete:
                     break
 

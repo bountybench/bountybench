@@ -16,6 +16,7 @@ from responses.command_response_interface import CommandResponseInterface
 from responses.observation import Observation
 from responses.response import Response
 from utils.logger import get_main_logger
+from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 
@@ -113,10 +114,10 @@ class ExecutorAgent(BaseAgent):
     def execute(self) -> Response:
         lm_executor_response = self.call_lm()
         # If the model decides to output a command, we run it in the environment
+        logger.info(f"LM Response:\n{lm_executor_response.response}")
         if issubclass(lm_executor_response.__class__, CommandResponseInterface):
             observation = self.execute_in_env(lm_executor_response)
             lm_executor_response.set_observation(observation)
-        logger.info(f"LM Response:\n{lm_executor_response.response}")
         return lm_executor_response
 
     def _parse_response(self, response: str) -> Response:
@@ -140,26 +141,38 @@ class ExecutorAgent(BaseAgent):
         """
         model_input = self.prompt
         iterations = 0
-        while iterations < MAX_RETRIES:
-            model_response: ModelResponse = query(
-                model=self.agent_config.lm_config.model,
-                message=model_input,
-                temperature=TEMPERATURE,
-                max_tokens=self.agent_config.lm_config.max_output_tokens,
-                stop_sequences=[STOP_TOKEN],
-                helm=self.agent_config.lm_config.use_helm
-            )
+        
+        start_progress(f"Getting response from LM")
+        try:
+            iterations = 0  # Make sure this is defined
+            while iterations < MAX_RETRIES:
+                model_response: ModelResponse = query(
+                    model=self.agent_config.lm_config.model,
+                    message=model_input,
+                    temperature=TEMPERATURE,
+                    max_tokens=self.agent_config.lm_config.max_output_tokens,
+                    stop_sequences=[STOP_TOKEN],
+                    helm=self.agent_config.lm_config.use_helm
+                )
 
-            model_response = model_response.remove_hallucinations()
-            lm_response = model_response + f"\n{STOP_TOKEN}"
+                model_response = model_response.remove_hallucinations()
+                lm_response = model_response + f"\n{STOP_TOKEN}"
 
-            try:
-                return self._parse_response(lm_response)
-            except Exception as e:
-                logger.warning(f"Retrying {iterations}/{MAX_RETRIES} after parse error: {e}")
-                iterations += 1
+                try:
+                    return self._parse_response(lm_response)
+                except Exception as e:
+                    logger.warning(f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}")
+                    iterations += 1
 
-        raise Exception("call_lm error: Max retries reached without valid response.")
+            # If we've exhausted all retries
+            raise Exception("call_lm error: Max retries reached without valid response.")
+
+        except Exception as e:
+            logger.error(f"Error in call_lm: {str(e)}")
+            raise  # Re-raise the exception after logging it
+
+        finally:
+            stop_progress()
 
     def execute_in_env(self, executor_response: CommandResponse) -> Observation:
         """

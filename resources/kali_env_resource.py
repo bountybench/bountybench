@@ -1,18 +1,17 @@
 import atexit
 import os
 import sys
-import threading
 import time
-from queue import Queue
 from typing import Dict, Optional, Tuple
 
 import docker
 from docker.models.containers import Container
 
 from resources.base_resource import BaseResource
-from resources.utils import get_stdout_text, parse_shell_script
+from resources.utils import get_stdout_text
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
+from utils.progress_logger import start_progress, stop_progress
 from dataclasses import dataclass
 from typing import Dict, Optional
 import os
@@ -76,7 +75,6 @@ class KaliEnvResource(BaseResource):
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}"
             )
-            self.run_requirements(self.bounty_dir)
         
         atexit.register(self.stop)
     
@@ -140,8 +138,8 @@ class KaliEnvResource(BaseResource):
         Args:
             container (Container): The Docker container in which to upgrade pip.
         """
+        start_progress("Upgrading pip in container")
         try:
-            logger.info("Upgrading pip in the container...")
             result = container.exec_run("pip install --upgrade pip")
             if result.exit_code == 0:
                 logger.info("Successfully upgraded pip.")
@@ -150,6 +148,8 @@ class KaliEnvResource(BaseResource):
                 logger.warning(f"Output: {result.output.decode('utf-8')}")
         except Exception as e:
             logger.error(f"Error while upgrading pip: {e}")
+        finally:
+            stop_progress()
 
     def stop(self) -> None:
         """
@@ -167,11 +167,8 @@ class KaliEnvResource(BaseResource):
             except Exception as e:
                 logger.error(f"Error cleaning up Docker container: {e}")
 
-
-
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
-        logger.info(f"Running command in Docker container: {command}")
-
+        start_progress(f"Running command in Docker container: {command}")
         try:
             with timeout_context(timeout):
                 exec_id = self.client.api.exec_create(
@@ -205,30 +202,9 @@ class KaliEnvResource(BaseResource):
         except Exception as e:
             logger.error(f"Unexpected error while executing command: {e}")
             return "", f"Unexpected error: {str(e)}"
-
-
-    def run_requirements(self, task_dir: str) -> None:
-        """
-        Execute any required setup scripts from the provided repository directory.
-
-        Args:
-            task_dir (str): Path to the repository directory containing the metadata/requirements.sh script.
-        """
-        requirements_path = f"{task_dir}/setup_files/requirements.sh"
-        if not os.path.isfile(requirements_path):
-            logger.warning(f"Requirements file not found at {requirements_path}")
-        else:
-            # Parse and execute the requirements script commands
-            requirement_commands = parse_shell_script(requirements_path)
-            for command in requirement_commands:
-                stdout, stderr = self.run_command(command)
-
-                # Log output and error for each command
-                if stdout:
-                    logger.info(f"Requirements.sh Output:\n{stdout}")
-                if stderr:
-                    logger.error(f"Requirements.sh Error:\n{stderr}")
-            # self.run_command("git clean -fdx")
+        
+        finally:
+            stop_progress()
 
     def parse_target_host(self, target_host: str) -> Tuple[str, int]:
         """
