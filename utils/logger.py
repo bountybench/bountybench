@@ -39,8 +39,8 @@ def get_main_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     # Define color scheme
     log_colors = {
         'DEBUG': 'white',
-        'INFO': 'bold_black',
-        'STATUS': 'cyan',
+        'INFO': 'cyan',
+        'STATUS': 'bold_cyan',
         'WARNING': 'yellow',
         'ERROR': 'red',
         'CRITICAL': 'bold_red',
