@@ -113,6 +113,9 @@ class KaliEnvResource(BaseResource):
                 # Upgrade pip
                 self._upgrade_pip(container)
 
+                container_info = self.client.api.inspect_container(container.id)
+                mounts = container_info['Mounts']
+                logger.debug(f"Container mounts: {mounts}")
                 return container
             except docker.errors.APIError as e:
                 logger.error(f"Docker API error while starting container: {e}")
@@ -168,7 +171,7 @@ class KaliEnvResource(BaseResource):
                 logger.error(f"Error cleaning up Docker container: {e}")
 
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
-        start_progress(f"Running command in Docker container: {command}")
+        start_progress(f"Running command in Docker container (workdir: {workdir}): {command}")
         try:
             with timeout_context(timeout):
                 exec_id = self.client.api.exec_create(

@@ -116,25 +116,12 @@ class BasePhase(ABC):
         
         # 2. Initialize phase resources
         self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
-        
+        logger.info(f"Resources for phase {self.name} initiallized")
         # 3. Define and register agents
         agent_configs = self.define_agents()
-        '''
-        for agent_id, agent_config in agent_configs:
-            agent_class = next((ac for ac in self.AGENT_CLASSES if isinstance(agent_config, ac.CONFIG_CLASS)), None)
-            if agent_class is None:
-                raise ValueError(f"No matching agent class found for config type {type(agent_config)}")
-            
-            try:
-                #4. Initialize phase agent(s)
-                agent = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config, self.resource_manager)
-                self.agents.append((agent_id, agent))
-            except Exception as e:
-                logger.error(f"Error creating agent {agent_id}: {str(e)}")
-                raise
-        '''
 
         self.agent_manager.initialize_phase_agents(agent_configs, self.AGENT_CLASSES)
+        logger.info(f"Agents for phase {self.name} initiallized")
         self.agents = list(self.agent_manager._phase_agents.items())
 
         
@@ -183,7 +170,7 @@ class BasePhase(ABC):
                         previous_output=last_agent_response,
                     )
                     iteration_ctx.set_output(response)
-                logger.info(f"Ran iteration {iteration_num} of {self.name}")
+                logger.info(f"Finished iteration {iteration_num} of {self.name}")
                 if curr_phase_response.complete:
                     break
 

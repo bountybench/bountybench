@@ -1,6 +1,7 @@
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
 from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.init_files_resource import InitFilesResource
 from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
@@ -54,16 +55,15 @@ class ResourceManager:
         return (registered_class == resource_class and 
                 (registered_config == resource_config or 
                  (registered_config is None and resource_config is None)))
-
+    
     def initialize_phase_resources(self, phase_index: int, resource_ids: Iterable[str]):
         """Initialize resources for a phase and update lifecycle information."""
         logger.debug(f"Entering initialize_phase_resources for phase {phase_index}")
-        logger.debug(f"Registered resources: {self._resource_registration.keys()}")
-        logger.debug(f"Phase resources: {resource_ids}")
         
         resource_id_set = set(resource_ids)
         self._phase_resources[phase_index] = resource_id_set
         
+        # Update lifecycle information
         for resource_id in resource_id_set:
             if resource_id not in self._resource_lifecycle:
                 self._resource_lifecycle[resource_id] = (phase_index, phase_index)
@@ -71,33 +71,50 @@ class ResourceManager:
                 init_phase, term_phase = self._resource_lifecycle[resource_id]
                 self._resource_lifecycle[resource_id] = (init_phase, max(phase_index, term_phase))
         
-        for resource_id in resource_id_set:
-            if resource_id in self._resources.id_to_resource:
-                logger.debug(f"Resource '{resource_id}' already initialized. Skipping.")
-                continue
+        # Separate InitFilesResource from other resources
+        init_files_resource_id = next(
+            (rid for rid in resource_id_set 
+            if self._resource_registration.get(rid) and issubclass(self._resource_registration[rid][0], InitFilesResource)), 
+            None
+        )
+        other_resource_ids = resource_id_set - {init_files_resource_id} if init_files_resource_id else resource_id_set
 
-            logger.debug(f"Attempting to initialize resource '{resource_id}'")
-            if resource_id not in self._resource_registration:
-                logger.debug(f"Resource '{resource_id}' not registered. Skipping.")
-                continue
-            
-            resource_class, resource_config = self._resource_registration[resource_id]
-            try:
-                resource = resource_class(resource_id, resource_config)
-                if hasattr(resource, "role"):
-                    workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.role}", resource)
-                else:
-                    workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.resource_id}", resource)
-                
-                self._resources[resource_id] = resource
-                logger.debug(f"Successfully initialized resource '{resource_id}'")
-            except Exception as e:
-                logger.debug(f"Failed to initialize resource '{resource_id}': {str(e)}")
-                raise
-                
+        # Initialize InitFilesResource first if it exists
+        if init_files_resource_id:
+            self._initialize_single_resource(init_files_resource_id, phase_index)
+
+        # Initialize other resources
+        for resource_id in other_resource_ids:
+            self._initialize_single_resource(resource_id, phase_index)
+
         logger.debug(f"Resource lifecycle state: {self._resource_lifecycle}")
         logger.debug(f"Exiting initialize_phase_resources for phase {phase_index}")
 
+    def _initialize_single_resource(self, resource_id: str, phase_index: int):
+        """Initialize a single resource."""
+        if resource_id in self._resources.id_to_resource:
+            logger.debug(f"Resource '{resource_id}' already initialized. Skipping.")
+            return
+
+        logger.debug(f"Attempting to initialize resource '{resource_id}'")
+        if resource_id not in self._resource_registration:
+            logger.debug(f"Resource '{resource_id}' not registered. Skipping.")
+            return
+        
+        resource_class, resource_config = self._resource_registration[resource_id]
+        try:
+            resource = resource_class(resource_id, resource_config)
+            if hasattr(resource, "role"):
+                workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.role}", resource)
+            else:
+                workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.resource_id}", resource)
+            
+            self._resources[resource_id] = resource
+            logger.debug(f"Successfully initialized resource '{resource_id}'")
+        except Exception as e:
+            logger.debug(f"Failed to initialize resource '{resource_id}': {str(e)}")
+            raise
+        
     def deallocate_phase_resources(self, phase_index: int):
         """Deallocate resources that are no longer needed after a phase."""
         logger.debug(f"Deallocating resources for phase {phase_index}")

@@ -1,5 +1,4 @@
 import atexit
-import logging
 import os
 import re
 import time
@@ -8,11 +7,11 @@ from typing import List, Optional
 
 from resources.base_resource import BaseResource
 from resources.utils import run_command
-from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
+from utils.progress_logger import start_progress, stop_progress
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Optional
 import os
 from resources.base_resource import BaseResourceConfig
 
@@ -163,6 +162,7 @@ class SetupResource(BaseResource):
             except Exception as e:
                 logger.info(f"Unable to stop environment at {self.resource_id}: {e}")
 
+
     def wait_until_all_containers_healthy(self, timeout: int = 300, check_interval: int = 2) -> bool:
         """
         Wait until all Docker containers are healthy.
@@ -179,38 +179,32 @@ class SetupResource(BaseResource):
             container_queue.put(container)
 
         start_time = time.time()
-        wait_count = {}
-        first_check_logged = {}
 
-        while not container_queue.empty():
-            container = container_queue.queue[0]
+        start_progress("Checking container health")
 
-            if container not in first_check_logged:
-                logger.info(f"Checking health of container {container}")
-                first_check_logged[container] = True
+        try:
+            while not container_queue.empty():
+                container = container_queue.queue[0]
 
-            inspect_result = run_command(command=["docker", "inspect", "--format={{json .State.Health.Status}}", container])
-            health_status = inspect_result.stdout.strip().strip("'\"")
+                inspect_result = run_command(command=["docker", "inspect", "--format={{json .State.Health.Status}}", container])
+                health_status = inspect_result.stdout.strip().strip("'\"")
 
-            if health_status == "healthy":
-                logger.info(f"Container '{container}' is healthy.")
-                container_queue.get()
-                wait_count.pop(container, None)
-                first_check_logged.pop(container, None)
-            elif health_status == "starting":
-                wait_count[container] = wait_count.get(container, 0) + 1
-                dots = "." * wait_count[container]
-                logger.info(f"Container '{container}' health status: {health_status}. Waiting{dots}")
-            else:
-                raise RuntimeError(f"Container '{container}' has unexpected health status: {health_status}.")
+                if health_status == "healthy":
+                    logger.info(f"Container '{container}' is healthy.")
+                    container_queue.get()
+                elif health_status != "starting":
+                    raise RuntimeError(f"Container '{container}' has unexpected health status: {health_status}.")
 
-            if time.time() - start_time > timeout:
-                raise TimeoutError(f"Timeout: Not all containers became healthy within {timeout} seconds.")
+                if time.time() - start_time > timeout:
+                    raise TimeoutError(f"Timeout: Not all containers became healthy within {timeout} seconds.")
 
-            time.sleep(check_interval)
+                time.sleep(check_interval)
 
-        logger.info("All containers are healthy.")
-        return True
+            logger.info("All containers are healthy.")
+            return True
+
+        finally:
+            stop_progress()
 
     def extract_container_names(self, stdout: Optional[str] = None, stderr: Optional[str] = None) -> List[str]:
         """

@@ -51,7 +51,7 @@ def get_main_logger(name: str, level: int = logging.INFO) -> logging.Logger:
 
     # Define the format for colored logs
     formatter = CustomColoredFormatter(
-        "%(log_color)s%(asctime)s %(levelname)-8s [%(relative_path)s:%(lineno)d]%(reset)s\n%(message)s",
+        "\r%(log_color)s%(asctime)s %(levelname)-8s [%(relative_path)s:%(lineno)d]%(reset)s\n%(message)s",
         datefmt='%Y-%m-%d %H:%M:%S',
         log_colors=log_colors,
         reset=True,

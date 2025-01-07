@@ -61,7 +61,7 @@ class PatchPhase(BasePhase):
         """
         logger.debug(f"Entering define_resources for PatchPhase")
 
-        tmp_dir = os.path.join(self.workflow.task_dir, "tmp")  # Assuming a default tmp directory
+        tmp_dir = os.path.abspath(os.path.join(self.workflow.task_dir, "tmp"))
         patch_files_path = os.path.join(tmp_dir, "patch_files")
         os.makedirs(patch_files_path, exist_ok=True)
 
@@ -70,14 +70,24 @@ class PatchPhase(BasePhase):
         vulnerable_commit = self.workflow.bounty_metadata.get('vulnerable_commit', 'main')
 
         resource_configs = {
+            "init_files": (
+                InitFilesResource,
+                InitFilesResourceConfig(
+                    task_dir=self.workflow.task_dir,
+                    files_dir_name=files_dir,
+                    tmp_dir_name="tmp",  
+                    exploit_files_dir_name=exploit_files_dir,
+                    vulnerable_commit=vulnerable_commit
+                )
+            ),
             "kali_env": (
                 KaliEnvResource,
                 KaliEnvResourceConfig(
                     task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
                     volumes={
-                        os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
-                        os.path.abspath(patch_files_path): {"bind": "/app/patch_files", "mode": "rw"},
+                        tmp_dir: {"bind": "/app", "mode": "rw"},  
+                        os.path.join(tmp_dir, "patch_files"): {"bind": "/app/patch_files", "mode": "rw"},
                         "/tmp": {"bind": "/tmp", "mode": "rw"}
                     }
                 )
@@ -85,16 +95,6 @@ class PatchPhase(BasePhase):
             "docker": (
                 DockerResource,
                 DockerResourceConfig()
-            ),
-            "init_files": (
-                InitFilesResource,
-                InitFilesResourceConfig(
-                    task_dir=self.workflow.task_dir,
-                    files_dir_name=files_dir,
-                    tmp_dir_name=tmp_dir,
-                    exploit_files_dir_name=exploit_files_dir,
-                    vulnerable_commit=vulnerable_commit
-                )
             )
         }
 
@@ -118,7 +118,7 @@ class PatchPhase(BasePhase):
                 bounty_number=self.workflow.bounty_number,
                 server_address=target_host
             )
-            resource_configs["task_server"] = (SetupResource, SetupResourceConfig)
+            resource_configs["task_server"] = (SetupResource, task_server_config)
 
         logger.debug(f"Exiting define_resources for PatchPhase")
         return resource_configs
