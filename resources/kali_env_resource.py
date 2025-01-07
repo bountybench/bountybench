@@ -75,7 +75,7 @@ class KaliEnvResource(BaseResource):
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}"
             )
-        
+
         atexit.register(self.stop)
     
     def _start(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]) -> Container:
@@ -92,9 +92,12 @@ class KaliEnvResource(BaseResource):
                         logger.info(f"Container '{name}' is not running. Removing it.")
                         container.remove(force=True)
                     else:
-                        logger.info(f"Container '{name}' is running. Stopping and removing it.")
-                        container.stop()
-                        container.remove()
+                        start_progress(f"Container '{name}' is running. Stopping and removing it.")
+                        try:
+                            container.stop()
+                            container.remove()
+                        finally:
+                            stop_progress()
                 except docker.errors.NotFound:
                     logger.info(f"No existing container named '{name}'.")
 
