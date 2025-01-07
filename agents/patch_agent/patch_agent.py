@@ -194,19 +194,28 @@ class PatchAgent(BaseAgent):
             logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
             return False
                 
-    def get_git_diff(self, directory_path: Path) -> str:
-        """Get the git diff of the changes in the task repository, including untracked files."""
+    def get_git_diff(self, directory_path: str | Path) -> str:
         try:
-            # First, check for untracked files
-            untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=directory_path).decode('utf-8')
+            directory_path = Path(directory_path) if isinstance(directory_path, str) else directory_path
+
+            logger.info(f"Checking for git diff in directory: {directory_path}")
             
-            # Then, add all files to the index (including new ones)
+            # Check if the directory is a git repository
+            if not (directory_path / '.git').is_dir():
+                logger.error(f"{directory_path} is not a git repository, something went wrong.")
+                return ""
+
+            # Check for untracked files
+            untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=directory_path).decode('utf-8')
+            logger.debug(f"Untracked files: {untracked}")
+            
+            # Add all files to the index (including new ones)
             subprocess.run(['git', 'add', '-A'], cwd=directory_path, check=True)
             
-            # Now get the diff
+            # Get the diff
             diff = subprocess.check_output(['git', 'diff', '--cached'], cwd=directory_path).decode('utf-8')
             
-            logger.info(f"Git diff : {diff}")
+            logger.debug(f"Git diff: {diff}")
             return diff
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to get git diff: {e}")
