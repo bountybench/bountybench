@@ -23,6 +23,9 @@ class PatchWorkflow(BountyWorkflow):
             'initial_prompt': init_prompt,
             'max_iterations': 20
         }
+        if hasattr(self, "phase_iterations"):
+            phase_kwargs["max_iterations"] = self.phase_iterations
+
         patch_phase = PatchPhase(workflow=self, **phase_kwargs)
 
         self._register_root_phase(patch_phase)
@@ -59,7 +62,7 @@ def main() -> None:
     logs_dir.mkdir(exist_ok=True)
 
     # Run workflow
-    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive, mode=args.model, phase_iterations=args.phase_iterations)
+    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive, model=args.model, phase_iterations=args.phase_iterations)
     workflow.run()
 
 if __name__ == "__main__":
