@@ -111,7 +111,7 @@ class KaliEnvResource(BaseResource):
                     detach=True,
                     name=name,
                 )
-                logger.info("Docker container started successfully.")
+                logger.info("KaliEnvResource Docker container started successfully.")
 
                 # Upgrade pip
                 self._upgrade_pip(container)
