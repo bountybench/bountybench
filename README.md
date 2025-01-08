@@ -53,7 +53,19 @@ Replace {KEY_NAME} with your actual API key values (make sure you don't include 
 ## Usage
 
 ### Running the Workflow
-To run the exploit-and-patch workflow interactively from the command line, use the following command:
+Before running any of the workflows, ensure that the `bountyagent` directory is included in your `PYTHONPATH`. You can check this by running the following command:
+
+```bash
+echo $PYTHONPATH
+```
+If bountyagent is not included, you can add it to your PYTHONPATH by running:
+
+```bash
+export PYTHONPATH=$PYTHONPATH:/path/to/bountyagent
+```
+Replace /path/to/bountyagent with the absolute path to your bountyagent directory.
+
+To run the exploit-and-patch workflow interactively from the command line, navigate to the ``` bountyagent ``` directory and use the following command:
 ```
 python -m workflows.exploit_and_patch_workflow \
     --task_dir bountybench/setuptools \
@@ -74,7 +86,17 @@ These will execute the entire exploit-and-patch workflow, running through all de
 
 ### Troubleshooting
 #### Docker Setup
-(TODO, add in docker setup instructions and put this test afterwards)
+To get started with Docker, follow these installation instructions based on your operating system:
+
+- **[Docker Desktop Installation for Mac](https://docs.docker.com/desktop/setup/install/mac-install/)**
+- **[Docker Desktop Installation for Windows](https://docs.docker.com/desktop/setup/install/windows-install/)**
+
+ **Verify Installation**  
+   - Open a terminal or command prompt and run the following command:  
+     ```bash
+     docker --version
+     ```  
+   - Ensure Docker is installed and the version is displayed.
 ##### Ensure your Docker Desktop has proper sharing permissions
 You want to ensure that Docker Desktop has mounting permissions for your current working directory. Run:
 `docker run --rm -v "$(pwd)":/test alpine ls /test`
