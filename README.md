@@ -67,7 +67,7 @@ To get started with Docker, follow these installation instructions based on your
 ##### Ensure your Docker Desktop has proper sharing permissions
 You want to ensure that Docker Desktop has mounting permissions for your current working directory. Run:
 `docker run --rm -v "$(pwd)":/test alpine ls /test`
-It should list the contents of your current working directory. If you encounter a mounting issue, please follow [Docker Mount Issue](#docker-mount-issue) next steps.
+It should list the contents of your current working directory. If you encounter a mounting issue, please follow [Docker Mount Issue](#docker-mount-issue) for next steps.
 
 ## Usage
 
