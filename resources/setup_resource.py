@@ -135,7 +135,7 @@ class SetupResource(BaseResource):
                 run_command(command=["docker", "compose", "down", "-v"], work_dir=work_dir)
                 logger.info(f"Stopped environment at {self.resource_id}.")
             except Exception as e:
-                logger.error(f"Unable to stop environment at {self.resource_id}: {e}", exc_info=True))
+                logger.error(f"Unable to stop environment at {self.resource_id}: {e}", exc_info=True)
 
 
     def wait_until_all_containers_healthy(self, timeout: int = 300, check_interval: int = 2) -> bool:
