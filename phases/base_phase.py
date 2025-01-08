@@ -116,12 +116,12 @@ class BasePhase(ABC):
         
         # 2. Initialize phase resources
         self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
-        logger.info(f"Resources for phase {self.name} initiallized")
+        logger.info(f"Resources for phase {self.name} initialized")
         # 3. Define and register agents
         agent_configs = self.define_agents()
 
         self.agent_manager.initialize_phase_agents(agent_configs, self.AGENT_CLASSES)
-        logger.info(f"Agents for phase {self.name} initiallized")
+        logger.info(f"Agents for phase {self.name} initialized")
         self.agents = list(self.agent_manager._phase_agents.items())
 
         

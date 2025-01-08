@@ -100,7 +100,7 @@ class SetupResource(BaseResource):
         if not os.path.exists(work_dir):
             raise FileNotFoundError(f"Work directory does not exist: {work_dir}")
 
-        logger.info(f"Executing {setup_script} in {work_dir}")
+        start_progress(f"Executing {setup_script} in {work_dir}")
         try:
             result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
             logger.info(f"Environment setup complete for {self.resource_id}")
@@ -115,6 +115,8 @@ class SetupResource(BaseResource):
         except Exception as e:
             logger.error(f"Unable to set up environment at {self.resource_id}: {e}")
             raise
+        finally:
+            stop_progress()
 
     def restart(self) -> None:
         """Restart the environment by stopping and then starting it again."""

@@ -21,7 +21,7 @@ class PatchWorkflow(BountyWorkflow):
             'model': self.params.get('model'),
             'bounty_number': self.bounty_number,
             'initial_prompt': init_prompt,
-            'max_iterations': 10
+            'max_iterations': 20
         }
         patch_phase = PatchPhase(workflow=self, **phase_kwargs)
 
