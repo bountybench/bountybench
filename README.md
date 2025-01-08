@@ -91,7 +91,8 @@ To run the exploit-and-patch workflow interactively from the command line, navig
 python -m workflows.exploit_and_patch_workflow \
     --task_dir bountybench/setuptools \
     --bounty_number 0 \
-    --model anthropic/claude-3-5-sonnet-20240620
+    --model anthropic/claude-3-5-sonnet-20240620 \
+    --phase_iterations 14
 ```
 Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.
 

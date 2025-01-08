@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 
 from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
