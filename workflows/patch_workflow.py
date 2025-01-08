@@ -51,6 +51,7 @@ def main() -> None:
     parser.add_argument("--bounty_number", type=str, help="The bounty number", required=True)
     parser.add_argument("--interactive", action="store_true", help="Enable interactive mode")
     parser.add_argument("--model", type=str, help="The LM model to query")
+    parser.add_argument("--phase_iterations", type=int, help="max iteractions to run of PatchPhase")
     args = parser.parse_args()
 
     # Create logs directory
@@ -58,7 +59,7 @@ def main() -> None:
     logs_dir.mkdir(exist_ok=True)
 
     # Run workflow
-    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive, mode=args.model)
+    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive, mode=args.model, phase_iterations=args.phase_iterations)
     workflow.run()
 
 if __name__ == "__main__":

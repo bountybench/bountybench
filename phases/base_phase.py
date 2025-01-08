@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class PhaseConfig:
     phase_name: str
     agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)
-    max_iterations: int = 10
+    max_iterations: int = field(default=10)
     interactive: bool = False
     phase_idx: Optional[int] = None
     initial_prompt: Optional[str] = None
