@@ -174,7 +174,10 @@ class KaliEnvResource(BaseResource):
                 logger.error(f"Error cleaning up Docker container: {e}")
 
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
-        start_progress(f"Running command in Docker container (workdir: {workdir}): {command}")
+        command_str = command
+        if len(command) > 33:
+            command_str = command[:30] + "..."
+        start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
         try:
             with timeout_context(timeout):
                 exec_id = self.client.api.exec_create(
