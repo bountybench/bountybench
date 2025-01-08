@@ -48,11 +48,18 @@ TOGETHER_API_KEY={TOGETHER_API_KEY}
 ```
 Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...).
 
-### 5. Startup Docker Desktop App
+### 5. Setup Docker Desktop
+
+
+##### Ensure your Docker Desktop has proper sharing permissions
+You want to ensure that Docker Desktop has mounting permissions for your current working directory. Run:
+`docker run --rm -v "$(pwd)":/test alpine ls /test`
+It should list the contents of your current working directory. If you encounter a mounting issue, please follow the [Docker Mount Issue](#docker-mount-issue) next steps.
 
 ## Usage
 
 ### Running the Workflow
+Make sure your Docker Desktop app is running.
 To run the exploit-and-patch workflow interactively from the command line, use the following command:
 ```
 python -m workflows.exploit_and_patch_workflow \
@@ -73,12 +80,7 @@ These will execute the entire exploit-and-patch workflow, running through all de
 ![Screen recording of a run](media/sample_run.gif)
 
 ### Troubleshooting
-#### Docker Setup
-(TODO, add in docker setup instructions and put this test afterwards)
-##### Ensure your Docker Desktop has proper sharing permissions
-You want to ensure that Docker Desktop has mounting permissions for your current working directory. Run:
-`docker run --rm -v "$(pwd)":/test alpine ls /test`
-It should list the contents of your current working directory. If you encounter a mounting issue, please follow these Docker Mount Issue next steps:
+
 #### Docker Mount Issue
 
 **Error Message:**
