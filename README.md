@@ -48,7 +48,21 @@ TOGETHER_API_KEY={TOGETHER_API_KEY}
 ```
 Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...).
 
-### 5. Startup Docker Desktop App
+### 5. Setup Docker Desktop App. 
+Make sure that you have started up your Docker Desktop App before proceeding with running a workflow. 
+
+#### Docker Setup
+To get started with Docker, follow these installation instructions based on your operating system:
+
+- **[Docker Desktop Installation for Mac](https://docs.docker.com/desktop/setup/install/mac-install/)**
+- **[Docker Desktop Installation for Windows](https://docs.docker.com/desktop/setup/install/windows-install/)**
+
+ **Verify Installation**  
+   - Open a terminal or command prompt and run the following command:  
+     ```bash
+     docker --version
+     ```  
+   - Ensure Docker is installed and the version is displayed.
 
 ## Usage
 
@@ -85,18 +99,6 @@ These will execute the entire exploit-and-patch workflow, running through all de
 ![Screen recording of a run](media/sample_run.gif)
 
 ### Troubleshooting
-#### Docker Setup
-To get started with Docker, follow these installation instructions based on your operating system:
-
-- **[Docker Desktop Installation for Mac](https://docs.docker.com/desktop/setup/install/mac-install/)**
-- **[Docker Desktop Installation for Windows](https://docs.docker.com/desktop/setup/install/windows-install/)**
-
- **Verify Installation**  
-   - Open a terminal or command prompt and run the following command:  
-     ```bash
-     docker --version
-     ```  
-   - Ensure Docker is installed and the version is displayed.
 ##### Ensure your Docker Desktop has proper sharing permissions
 You want to ensure that Docker Desktop has mounting permissions for your current working directory. Run:
 `docker run --rm -v "$(pwd)":/test alpine ls /test`
