@@ -40,6 +40,7 @@ class PatchAgent(BaseAgent):
 
     def __init__(self, agent_config: PatchAgentConfig):#, resource_manager: ResourceManager):
         self.bounty_dir = Path(agent_config.bounty_dir)
+        self.exploit_files_dir = agent_config.exploit_files_dir
         self.log_history = []
         self.patch_id = 1
         self.patch_dir_name = "patches"
@@ -50,7 +51,6 @@ class PatchAgent(BaseAgent):
         self.patch_dir = Path(agent_config.task_dir) / self.patch_dir_name
 
         super().__init__(agent_config)#, resource_manager)
-        self.exploit_files_dir = os.path.join(self.init_files.task_dir, agent_config.exploit_files_dir)
         self.patch_dir.mkdir(parents=True, exist_ok=True)
 
         atexit.register(self.cleanup)
