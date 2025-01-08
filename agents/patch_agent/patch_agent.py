@@ -29,7 +29,7 @@ logger = get_main_logger(__name__)
 class PatchAgentConfig(AgentConfig):
     bounty_dir: str
     task_dir: str
-    exploit_files_dir: str
+    exploit_files_dir: str = field(default="/tmp/exploit_files")
     use_verify_script: bool = field(default=False)
 
 class PatchAgent(BaseAgent):    
@@ -66,13 +66,13 @@ class PatchAgent(BaseAgent):
             log_message = "Git diff detected, applying changes..."
             logger.info(log_message)
             self.log_history.append(log_message)
-            return self.execute(response)
+            return self.execute()
         else: 
             logger_message = "No git diff detected, skipping patching."
             logger.info(logger_message)
             return BaseResponse(logger_message)
 
-    def execute(self, command_response: CommandResponse) -> Response:
+    def execute(self) -> Response:
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
         if tmp_dir_diff:

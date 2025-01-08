@@ -35,7 +35,6 @@ class PatchPhase(BasePhase):
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
         # assume we get model through some kwargs situation with the Message
         executor_lm_config = AgentLMConfig.create(model=self.model)
-        exploit_files_dir = os.path.join(self.workflow.task_dir, f'bounties/bounty_{self.workflow.bounty_number}/exploit_files')
         
         # Create the executor_config
         executor_config = ExecutorAgentConfig(
@@ -47,7 +46,6 @@ class PatchPhase(BasePhase):
         patch_config = PatchAgentConfig(
             bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),
             task_dir=self.workflow.task_dir,
-            exploit_files_dir=exploit_files_dir
         )
 
         return [
