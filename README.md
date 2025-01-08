@@ -64,6 +64,11 @@ To get started with Docker, follow these installation instructions based on your
      ```  
    - Ensure Docker is installed and the version is displayed.
 
+##### Ensure your Docker Desktop has proper sharing permissions
+You want to ensure that Docker Desktop has mounting permissions for your current working directory. Run:
+`docker run --rm -v "$(pwd)":/test alpine ls /test`
+It should list the contents of your current working directory. If you encounter a mounting issue, please follow [Docker Mount Issue](#docker-mount-issue) next steps.
+
 ## Usage
 
 ### Running the Workflow
@@ -99,10 +104,6 @@ These will execute the entire exploit-and-patch workflow, running through all de
 ![Screen recording of a run](media/sample_run.gif)
 
 ### Troubleshooting
-##### Ensure your Docker Desktop has proper sharing permissions
-You want to ensure that Docker Desktop has mounting permissions for your current working directory. Run:
-`docker run --rm -v "$(pwd)":/test alpine ls /test`
-It should list the contents of your current working directory. If you encounter a mounting issue, please follow these Docker Mount Issue next steps:
 #### Docker Mount Issue
 
 **Error Message:**
