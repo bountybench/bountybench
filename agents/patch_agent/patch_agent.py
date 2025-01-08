@@ -20,7 +20,7 @@ from responses.observation import Observation
 from responses.response import Response
 from responses.base_response import BaseResponse
 from utils.logger import get_main_logger
-from tenacity import retry, stop_after_attempt, wait_fixed
+from utils.progress_logger import start_progress, stop_progress
 
 
 logger = get_main_logger(__name__)
@@ -101,7 +101,6 @@ class PatchAgent(BaseAgent):
 
 
         # Run exploit
-        logger.info("Running exploit...")
         stdout, exit_code = self.run_exploit()
 
         if self.use_verify_script:
@@ -151,7 +150,6 @@ class PatchAgent(BaseAgent):
         # Commands to be executed in the container
         clear_tmp_command = "rm -rf /tmp/* /tmp/.*"
         exploit_command = "bash /app/exploit_files/exploit.sh"
-
         try:
             # Clear the /tmp directory
             self.docker.execute(
@@ -161,13 +159,18 @@ class PatchAgent(BaseAgent):
                 volumes=volumes,
             )
 
+            start_progress("Running exploit")
             # Run the exploit command
-            return self.docker.execute(
-                docker_image="cybench/cybounty:latest",
-                command=exploit_command,
-                network="shared_net",
-                volumes=volumes,
-            )
+            try:
+                exploit_output = self.docker.execute(
+                    docker_image="cybench/cybounty:latest",
+                    command=exploit_command,
+                    network="shared_net",
+                    volumes=volumes,
+                )
+                return exploit_output
+            finally:
+                stop_progress()
         except docker.errors.ContainerError as e:
             return str(e)
 

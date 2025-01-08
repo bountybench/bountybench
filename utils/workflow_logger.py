@@ -334,7 +334,7 @@ class WorkflowLogger:
 
         with open(self.log_file, 'w') as f:
             json.dump(log_dict, f, indent=4, default=self._json_serializable)
-            logger.status(f"Saved log to: {self.log_file}", True)
+            logger.status(f"Saved log to: {self.log_file}")
 
     def _format_response(self, response):
         if isinstance(response, dict) and '_response' in response:
