@@ -40,6 +40,8 @@ class BaseWorkflow(ABC):
         self.workflow_id = self.name
         self.params = kwargs
         self.interactive = kwargs.get('interactive', False)
+        if kwargs.get("phase_iterations"):
+            self.phase_iterations = kwargs.get("phase_iterations")
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
         self._phase_graph = {}  # Stores phase relationships

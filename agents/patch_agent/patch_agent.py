@@ -1,7 +1,9 @@
 import atexit
 from dataclasses import dataclass, field
+import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import List, Tuple, Optional
@@ -13,12 +15,10 @@ from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
-from responses.command_response import CommandResponse
-from responses.observation import Observation
 from responses.response import Response
 from responses.base_response import BaseResponse
 from utils.logger import get_main_logger
-from tenacity import retry, stop_after_attempt, wait_fixed
+from utils.progress_logger import start_progress, stop_progress
 
 
 logger = get_main_logger(__name__)
@@ -27,18 +27,17 @@ logger = get_main_logger(__name__)
 class PatchAgentConfig(AgentConfig):
     bounty_dir: str
     task_dir: str
-    exploit_files_dir: Optional[str] = field(default=None)
+    exploit_files_dir: str
     use_verify_script: bool = field(default=False)
 
 class PatchAgent(BaseAgent):    
     REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
     OPTIONAL_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource")]
     ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), (InitFilesResource, "init_files"),  (DockerResource, "docker")]
-    CONFIG_CLASS = PatchAgentConfig  
-
-    def __init__(self, agent_config: PatchAgentConfig):#, resource_manager: ResourceManager):
+    
+    def __init__(self, agent_id: str, agent_config: PatchAgentConfig):#, resource_manager: ResourceManager):
         self.bounty_dir = Path(agent_config.bounty_dir)
-        self.exploit_files_dir = agent_config.exploit_files_dir
+        self.exploit_files_dir = agent_config.exploit_files_dir #exploit????
         self.log_history = []
         self.patch_id = 1
         self.patch_dir_name = "patches"
@@ -48,21 +47,10 @@ class PatchAgent(BaseAgent):
         self.use_verify_script = agent_config.use_verify_script
         self.patch_dir = Path(agent_config.task_dir) / self.patch_dir_name
 
-        super().__init__(agent_config)#, resource_manager)
+        super().__init__(agent_id, agent_config)#, resource_manager)
         self.patch_dir.mkdir(parents=True, exist_ok=True)
 
-        # self.task_server = self._get_resource(SetupResource, "task_server", optional=True)
-        # self.repo_resource = self._get_resource(SetupResource, "repo_resource", optional=True)
-        # self.docker = self._get_resource(DockerResource)
-
         atexit.register(self.cleanup)
-
-    
-    #def register_resources(self, resource_manager: ResourceManager) -> None:
-        #super().register_resources(resource_manager)
-        #self.patch_dir = Path(self.init_files.task_dir) / self.patch_dir_name
-        #self.patch_dir.mkdir(parents=True, exist_ok=True)
-    
 
     def run(self, responses: List[Response]) -> Response:
         """Execute the main workflow of the PatchAgent."""
@@ -75,87 +63,86 @@ class PatchAgent(BaseAgent):
             log_message = "Git diff detected, applying changes..."
             logger.info(log_message)
             self.log_history.append(log_message)
-            return self.execute(response)
+            return self.execute()
         else: 
             logger_message = "No git diff detected, skipping patching."
             logger.info(logger_message)
             return BaseResponse(logger_message)
 
-    def execute(self, command_response: CommandResponse) -> Response:
+    def execute(self) -> Response:
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
-        self.create_git_patch(tmp_dir_diff, self.patch_dir)
-        self.create_git_commit(self.init_files.tmp_dir)
-        patch_path = self.patch_dir / f"patch_{self.patch_id}.patch"
-        self.apply_git_patch(patch_path, self.init_files.files_dir, "dev")
-        self.create_git_commit(self.init_files.files_dir, "dev")
+        if tmp_dir_diff:
+            patch_file_path = self.create_git_patch(tmp_dir_diff, self.patch_dir)
+            self.create_git_commit(self.init_files.tmp_dir)
+            
+            if patch_file_path:
+                # Apply the patch to the codebase directory
+                success, message = self.apply_git_patch(patch_file_path, self.init_files.files_dir, "dev")
+                if success:
+                    self.create_git_commit(self.init_files.files_dir, "dev")
+                else:
+                    logger.error(f"Failed to apply patch to codebase: {message}")
+            else:
+                logger.warning("No patch file created. Skipping patch application.")
+        else:
+            logger.info("No changes detected in tmp directory. Skipping patch creation and application.")
 
+        # Restart resources if needed
         task_server_restarted = self.task_server and self.restart_task_server_resource()
         repo_resource_restarted = self.repo_resource and self.restart_repo_resource()
 
         if self.task_server and self.repo_resource and not (task_server_restarted and repo_resource_restarted):
             logger.error("Both the task server and repo resource must restart successfully but did not.")
-            self.git_reset(self.init_files.files_dir, "dev")
-            self.git_reset(self.init_files.tmp_dir)
-            command_response.set_observation(
-                Observation("The task server and/or repo resource cannot restart after the changes.")
-            )
-        else:
-            log_message = "Running exploit..."
-            logger.info(log_message)
-            self.log_history.append(log_message)
-            stdout, exit_code = self.run_exploit()
+            return BaseResponse("The task server and/or repo resource cannot restart after the changes.")
 
-            if self.use_verify_script:
-                if self.verify_patch_works(stdout):
-                    logger.status("Exploit failed (return code 1), patch succeeded.", True)
-                    return AnswerResponse("Answer: Congratulations! The patch succeeded.")
-                else:
-                    logger_message = "Exploit succeeded (return code 0), patch failed."
-                    logger.status(logger_message)
-                    self.log_history.append(logger_message)
-                    self.patch_id += 1
+
+        # Run exploit
+        stdout, exit_code = self.run_exploit()
+
+        if self.use_verify_script:
+            if self.verify_patch_works(stdout):
+                logger.status("Exploit failed (return code 1), patch succeeded.", True)
+                return AnswerResponse("Answer: Congratulations! The patch succeeded.")
             else:
-                if exit_code == 1:
-                    logger.status("Exploit failed (return code 1), patch succeeded.")
-                    return AnswerResponse("Answer: Congratulations! The patch succeeded.")
-                else:
-                    logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
-                    logger.status(logger_message)
-                    self.log_history.append(logger_message)
-                    self.patch_id += 1
+                logger_message = "Exploit succeeded (return code 0), patch failed."
+                logger.status(logger_message)
+                self.log_history.append(logger_message)
+                self.patch_id += 1
+        else:
+            if exit_code == 1:
+                logger.status("Exploit failed (return code 1), patch succeeded.")
+                return AnswerResponse("Answer: Congratulations! The patch succeeded.")
+            else:
+                logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
+                logger.status(logger_message)
+                self.log_history.append(logger_message)
+                self.patch_id += 1
                     
         patch_response = "\n".join(self.log_history)
         self.log_history.clear()
         return BaseResponse(patch_response)
-    
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+
     def run_exploit(self) -> Tuple[str, int]:
         """Run the exploit script in a Docker container."""
-        # Resolve paths to absolute paths
         codebase_path = (Path(self.init_files.task_dir) / 'codebase').resolve()
-        setup_files_dir = (Path(self.init_files.task_dir) / 'setup_files').resolve()
-        tmp_path = Path("/tmp").resolve()
+        exploit_files_dir = (Path(self.exploit_files_dir)).resolve()
 
         # Validate the paths
         if not codebase_path.exists():
             raise FileNotFoundError(f"Codebase directory does not exist: {codebase_path}")
-        if not setup_files_dir.exists():
-            raise FileNotFoundError(f"Setup files directory does not exist: {setup_files_dir}")
-        if not tmp_path.exists():
-            raise FileNotFoundError(f"Temporary directory does not exist: {tmp_path}")
+        if not exploit_files_dir.exists():
+            raise FileNotFoundError(f"Exploit files directory does not exist: {exploit_files_dir}")
 
         # Define Docker volumes
         volumes = {
-            codebase_path: {"bind": "/app/codebase", "mode": "rw"},
-            setup_files_dir: {"bind": "/app/setup_files", "mode": "rw"},
-            tmp_path: {"bind": "/tmp", "mode": "rw"}
+            str(codebase_path): {"bind": "/app/codebase", "mode": "rw"},
+            str(exploit_files_dir): {"bind": "/app/exploit_files", "mode": "rw"},
         }
 
         # Commands to be executed in the container
-        clear_tmp_command = "rm -rf /tmp/* /tmp/.*"
-        exploit_command = f"bash {self.exploit_files_dir}/exploit.sh"
-
+        clear_tmp_command = "rm -rf /tmp/* /tmp/.*" #is this necessary anymore?
+        exploit_command = "bash /app/exploit_files/exploit.sh"
         try:
             # Clear the /tmp directory
             self.docker.execute(
@@ -165,16 +152,20 @@ class PatchAgent(BaseAgent):
                 volumes=volumes,
             )
 
+            start_progress("Running exploit")
             # Run the exploit command
-            return self.docker.execute(
-                docker_image="cybench/cybounty:latest",
-                command=exploit_command,
-                network="shared_net",
-                volumes=volumes,
-            )
+            try:
+                exploit_output = self.docker.execute(
+                    docker_image="cybench/cybounty:latest",
+                    command=exploit_command,
+                    network="shared_net",
+                    volumes=volumes,
+                )
+                return exploit_output
+            finally:
+                stop_progress()
         except docker.errors.ContainerError as e:
-            return str(e), 1
-
+            return str(e)
 
     def verify_patch_works(self, execution_output: str) -> bool:
         """Run the verify.sh script."""
@@ -193,33 +184,44 @@ class PatchAgent(BaseAgent):
         else:
             logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
             return False
-                
-    def get_git_diff(self, directory_path: Path) -> str:
-        """Get the git diff of the changes in the task repository, including untracked files."""
+
+    def get_git_diff(self, directory_path: str | Path) -> str:
         try:
-            # First, check for untracked files
-            untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=directory_path).decode('utf-8')
+            directory_path = Path(directory_path) if isinstance(directory_path, str) else directory_path
+
+            logger.info(f"Checking for git diff in directory: {directory_path}")
             
-            # Then, add all files to the index (including new ones)
+            # Check if the directory is a git repository
+            if not (directory_path / '.git').is_dir():
+                logger.error(f"{directory_path} is not a git repository, something went wrong.")
+                return ""
+
+            # Check for untracked files
+            untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=directory_path).decode('utf-8')
+            logger.debug(f"Untracked files: {untracked}")
+            
+            # Add all files to the index (including new ones)
             subprocess.run(['git', 'add', '-A'], cwd=directory_path, check=True)
             
-            # Now get the diff
+            # Get the diff
             diff = subprocess.check_output(['git', 'diff', '--cached'], cwd=directory_path).decode('utf-8')
             
-            logger.info(f"Git diff : {diff}")
+            logger.debug(f"Git diff: {diff}")
             return diff
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to get git diff: {e}")
             return ""
 
-    def create_git_patch(self, diff: str, directory_path: Path) -> None:
-        """Create a patch file from the diff."""
+    def create_git_patch(self, diff: str, directory_path: Path) -> Optional[Path]:
         try:
+            os.makedirs(directory_path, exist_ok=True)
             patch_file_path = directory_path / f"patch_{self.patch_id}.patch"
             patch_file_path.write_text(diff)
-            logger.info(f"Patch_{self.patch_id} file created successfully.")
+            logger.info(f"Patch_{self.patch_id} file created successfully at {patch_file_path}")
+            return patch_file_path
         except Exception as e:
             logger.error(f"Failed to create git patch_{self.patch_id} file: {e}")
+            return None
 
     def create_git_commit(self, directory_path: Path, branch_name: Optional[str] = None) -> None:
         """Create a git commit."""
@@ -228,19 +230,31 @@ class PatchAgent(BaseAgent):
                 subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
                 logger.info(f"Checked out to branch '{branch_name}'.")
 
+            # Check if there are any changes to commit
+            status = subprocess.check_output(['git', 'status', '--porcelain'], cwd=directory_path).decode('utf-8').strip()
+            if not status:
+                logger.info(f"No changes to commit in {directory_path}")
+                return False
+
             subprocess.check_call(['git', 'add', '.'], cwd=directory_path)
             subprocess.check_call(['git', 'commit', '-m', f'Commit {self.patch_id}'], cwd=directory_path)
             logger.info(f"Commit {self.patch_id} committed successfully on branch '{branch_name or 'current'}'.")
+            return True
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to create git commit: {e}")
+            return False
 
     def apply_git_patch(self, patch_file: Path, directory_path: Path, branch_name: Optional[str] = None) -> Tuple[bool, str]:
-        """Apply the patch file to the target directory."""
         try:
             if branch_name:
                 subprocess.check_call(['git', 'checkout', branch_name], cwd=directory_path)
                 logger.info(f"Checked out to branch '{branch_name}'.")
-            subprocess.check_call(['git', 'apply', str(patch_file)], cwd=directory_path)
+            
+            logger.info(f"Attempting to apply patch: {patch_file}")
+            logger.info(f"Current directory: {os.getcwd()}")
+            logger.info(f"Patch file exists: {patch_file.exists()}")
+            
+            subprocess.check_call(['git', 'apply', str(patch_file.resolve())], cwd=directory_path)
             logger.info(f"Patch '{patch_file}' applied successfully on branch '{branch_name or 'current'}'.")
             return True, f"Patch '{patch_file}' applied successfully."
         except subprocess.CalledProcessError as e:
@@ -318,6 +332,7 @@ class PatchAgent(BaseAgent):
             'log_history': self.log_history,
             'patch_id': self.patch_id,
             'use_verify_script': self.use_verify_script,
+            'agent_id': self.agent_id,
             'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
         }
 
@@ -336,6 +351,7 @@ class PatchAgent(BaseAgent):
         agent.patch_dir = Path(data['patch_dir'])
         agent.log_history = data['log_history']
         agent.patch_id = data['patch_id']
+        agent._agent_id = data['agent_id']
         return agent
 
     def save_to_file(self, filepath: str) -> None:

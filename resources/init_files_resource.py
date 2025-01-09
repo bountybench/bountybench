@@ -54,6 +54,10 @@ class InitFilesResource(BaseResource):
 
         self.tmp_dir_name = self._resource_config.tmp_dir_name
         self.tmp_dir = os.path.join(self.task_dir, self.tmp_dir_name)
+
+        if os.path.exists(self.tmp_dir):
+            shutil.rmtree(self.tmp_dir)
+
         
         # Create necessary directories
         os.makedirs(self.tmp_dir, exist_ok=True)
@@ -166,46 +170,55 @@ class InitFilesResource(BaseResource):
                     ["git", "commit", "-q", "-m", "initial commit"], cwd=work_dir, check=True)
                 logger.info(f"Committed initial files in {work_dir}")
             except subprocess.CalledProcessError as e:
-                logger.error(
+                logger.critical(
                     f"Failed to set up repo: {e.stderr}")
+                sys.exit(1)
         else:
-            logger.error(f"Directory does not exist: {work_dir}")
-
+            logger.critical(f"Directory does not exist: {work_dir}")
+            sys.exit(1)
+            
     def setup_dev_branch(self, files_dir):
-        # Ensure Git repository is set up
-        result = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
-                                cwd=files_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
+        try:
+            # Ensure Git repository is set up
+            result = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
+                                    cwd=files_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
 
-        if result.stdout.strip() == 'true':
-            # Create and switch to 'dev' branch
-            try:
+            if result.stdout.strip() == 'true':
+                # Force checkout to the vulnerable commit
+                logger.info(f"Forcing checkout to commit: {self.vulnerable_commit}")
+                subprocess.run(["git", "checkout", "-f", self.vulnerable_commit],
+                            cwd=files_dir, check=True)
+
+                # Check if 'dev' branch exists
                 branch_exists = subprocess.run(
                     ["git", "branch"], cwd=files_dir, capture_output=True, text=True
                 )
 
                 if "dev" in branch_exists.stdout:
-                    logger.info(
-                        "Branch 'dev' already exists. Switching to 'master' branch...")
-                    subprocess.run(["git", "checkout", "main"],
-                                   cwd=files_dir, check=True)
-
-                    logger.info("Deleting 'dev' branch...")
+                    logger.info("Branch 'dev' exists. Deleting it...")
                     subprocess.run(["git", "branch", "-D", "dev"],
-                                   cwd=files_dir, check=True)
-                    
-                    subprocess.run(["git", "checkout", self.vulnerable_commit],
-                                   cwd=files_dir, check=True)
+                                cwd=files_dir, check=True)
 
+                # Create and switch to a new 'dev' branch
+                logger.info("Creating new 'dev' branch...")
                 subprocess.run(["git", "checkout", "-b", "dev"],
-                               cwd=files_dir, check=True)
-                logger.info(
-                    f"Created and switched to 'dev' branch in {files_dir}")
-            except subprocess.CalledProcessError as e:
-                logger.error(f"Failed to set up 'dev' branch: {e.stderr}")
-        else:
-            logger.error(
-                f"Directory {files_dir} is not a valid git repository.")
-    
+                            cwd=files_dir, check=True)
+                logger.info(f"Created and switched to 'dev' branch in {files_dir}")
+
+                # Verify the current commit
+                current_commit = subprocess.run(["git", "rev-parse", "HEAD"],
+                                                cwd=files_dir, capture_output=True, text=True, check=True)
+                if current_commit.stdout.strip() == self.vulnerable_commit:
+                    logger.info(f"Successfully checked out to commit {self.vulnerable_commit}")
+                else:
+                    logger.warning(f"Current commit ({current_commit.stdout.strip()}) does not match the intended vulnerable commit ({self.vulnerable_commit})")
+
+            else:
+                logger.error(f"Directory {files_dir} is not a valid git repository.")
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to set up 'dev' branch: {e.stderr}")
+            
     def copy_files(self, source, destination):
         source = os.path.abspath(source)
         destination = os.path.abspath(destination)

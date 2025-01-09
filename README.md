@@ -71,7 +71,6 @@ It should list the contents of your current working directory. If you encounter 
 
 ## Usage
 
-### Running the Workflow
 Before running any of the workflows, ensure that the `bountyagent` directory is included in your `PYTHONPATH`. You can check this by running the following command:
 
 ```bash
@@ -84,12 +83,16 @@ export PYTHONPATH=$PYTHONPATH:/path/to/bountyagent
 ```
 Replace /path/to/bountyagent with the absolute path to your bountyagent directory.
 
+### Running the Workflow
+Make sure your Docker Desktop app is running.
+
 To run the exploit-and-patch workflow interactively from the command line, navigate to the ``` bountyagent ``` directory and use the following command:
 ```
 python -m workflows.exploit_and_patch_workflow \
     --task_dir bountybench/setuptools \
     --bounty_number 0 \
-    --model anthropic/claude-3-5-sonnet-20240620
+    --model anthropic/claude-3-5-sonnet-20240620 \
+    --phase_iterations 14
 ```
 Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.
 
@@ -104,6 +107,7 @@ These will execute the entire exploit-and-patch workflow, running through all de
 ![Screen recording of a run](media/sample_run.gif)
 
 ### Troubleshooting
+
 #### Docker Mount Issue
 
 **Error Message:**

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class PhaseConfig:
     phase_name: str
     agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)
-    max_iterations: int = 10
+    max_iterations: int = field(default=10)
     interactive: bool = False
     phase_idx: Optional[int] = None
     initial_prompt: Optional[str] = None
@@ -69,12 +69,13 @@ class BasePhase(ABC):
         pass
 
     @abstractmethod
-    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
+    def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         """
         Define the agents required for this phase.
         
         Returns:
-            List[Tuple[str, AgentConfig]]: A list of tuples containing agent IDs and their configs.
+            Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]: 
+            A dictionary mapping agent IDs to their class and config.
         """
         pass
 
@@ -116,25 +117,12 @@ class BasePhase(ABC):
         
         # 2. Initialize phase resources
         self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
-        
+        logger.info(f"Resources for phase {self.name} initialized")
         # 3. Define and register agents
         agent_configs = self.define_agents()
-        '''
-        for agent_id, agent_config in agent_configs:
-            agent_class = next((ac for ac in self.AGENT_CLASSES if isinstance(agent_config, ac.CONFIG_CLASS)), None)
-            if agent_class is None:
-                raise ValueError(f"No matching agent class found for config type {type(agent_config)}")
-            
-            try:
-                #4. Initialize phase agent(s)
-                agent = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config, self.resource_manager)
-                self.agents.append((agent_id, agent))
-            except Exception as e:
-                logger.error(f"Error creating agent {agent_id}: {str(e)}")
-                raise
-        '''
 
-        self.agent_manager.initialize_phase_agents(agent_configs, self.AGENT_CLASSES)
+        self.agent_manager.initialize_phase_agents(agent_configs)
+        logger.info(f"Agents for phase {self.name} initialized")
         self.agents = list(self.agent_manager._phase_agents.items())
 
         
@@ -183,7 +171,7 @@ class BasePhase(ABC):
                         previous_output=last_agent_response,
                     )
                     iteration_ctx.set_output(response)
-                logger.info(f"Ran iteration {iteration_num} of {self.name}")
+                logger.info(f"Finished iteration {iteration_num} of {self.name}")
                 if curr_phase_response.complete:
                     break
 

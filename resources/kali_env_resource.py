@@ -75,7 +75,7 @@ class KaliEnvResource(BaseResource):
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}"
             )
-        
+
         atexit.register(self.stop)
     
     def _start(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]) -> Container:
@@ -92,9 +92,12 @@ class KaliEnvResource(BaseResource):
                         logger.info(f"Container '{name}' is not running. Removing it.")
                         container.remove(force=True)
                     else:
-                        logger.info(f"Container '{name}' is running. Stopping and removing it.")
-                        container.stop()
-                        container.remove()
+                        start_progress(f"Container '{name}' is running. Stopping and removing it.")
+                        try:
+                            container.stop()
+                            container.remove()
+                        finally:
+                            stop_progress()
                 except docker.errors.NotFound:
                     logger.info(f"No existing container named '{name}'.")
 
@@ -108,11 +111,14 @@ class KaliEnvResource(BaseResource):
                     detach=True,
                     name=name,
                 )
-                logger.info("Docker container started successfully.")
+                logger.info("KaliEnvResource Docker container started successfully.")
 
                 # Upgrade pip
                 self._upgrade_pip(container)
 
+                container_info = self.client.api.inspect_container(container.id)
+                mounts = container_info['Mounts']
+                logger.debug(f"Container mounts: {mounts}")
                 return container
             except docker.errors.APIError as e:
                 logger.error(f"Docker API error while starting container: {e}")
@@ -168,7 +174,10 @@ class KaliEnvResource(BaseResource):
                 logger.error(f"Error cleaning up Docker container: {e}")
 
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
-        start_progress(f"Running command in Docker container: {command}")
+        command_str = command
+        if len(command) > 33:
+            command_str = command[:30] + "..."
+        start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
         try:
             with timeout_context(timeout):
                 exec_id = self.client.api.exec_create(

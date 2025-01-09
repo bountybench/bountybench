@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 from agents.base_agent import BaseAgent, AgentConfig
 from resources.resource_manager import resource_dict
 from utils.logger import get_main_logger
@@ -16,7 +16,7 @@ class AgentManager:
         """Register an agent with its class and configuration."""
         self._agent_configs[agent_id] = (agent_class, agent_config)
 
-    def initialize_phase_agents(self, agent_configs: List[Tuple[str, AgentConfig]], agent_classes: List[Type[BaseAgent]]) -> List[Tuple[str, BaseAgent]]:
+    def initialize_phase_agents(self, agent_configs: Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]) -> List[Tuple[str, BaseAgent]]:
         """
         Initialize all agents for a phase in one batch operation.
         """
@@ -26,18 +26,11 @@ class AgentManager:
         self._phase_agents = {}
         
         # First register all agent configs
-        for agent_id, agent_config in agent_configs:
-            agent_class = next(
-                (ac for ac in agent_classes if isinstance(agent_config, ac.CONFIG_CLASS)),
-                None
-            )
-            if agent_class is None:
-                raise ValueError(f"No matching agent class for config type {type(agent_config)}")
-                
+        for agent_id, (agent_class, agent_config) in agent_configs.items():
             self.register_agent(agent_id, agent_class, agent_config)
             
         # Then initialize all agents
-        for agent_id, _ in agent_configs:
+        for agent_id in agent_configs.keys():
             if agent_id in self._agents:
                 agent = self._agents[agent_id]
                 self._phase_agents[agent_id] = agent
@@ -66,7 +59,7 @@ class AgentManager:
     
     def create_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> BaseAgent:
         """Create a new agent and bind resources to it."""
-        agent = agent_class(agent_config)
+        agent = agent_class(agent_id, agent_config)
         self.bind_resources_to_agent(agent)
         return agent
 

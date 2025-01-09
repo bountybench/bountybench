@@ -1,4 +1,4 @@
-from agents.base_agent import AgentConfig
+from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from phase_responses.phase_response import PhaseResponse
 from phases.base_phase import BasePhase
@@ -13,7 +13,6 @@ from resources.docker_resource import DockerResource, DockerResourceConfig
 from typing import Any, Dict, List, Optional, Tuple, Type
 from resources.setup_resource import SetupResource, SetupResourceConfig
 import os
-import logging
 
 from workflows.base_workflow import BaseWorkflow
 
@@ -30,9 +29,10 @@ class PatchPhase(BasePhase):
         self.model = kwargs.get('model')
         self.bounty_number = kwargs.get('bounty_number')
         self.initial_prompt = kwargs.get('initial_prompt')
+        self.use_agent_exploit = kwargs.get('use_agent_exploit')
         super().__init__(workflow, **kwargs)
-
-    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
+   
+    def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         # assume we get model through some kwargs situation with the Message
         executor_lm_config = AgentLMConfig.create(model=self.model)
         # Create the executor_config
@@ -42,16 +42,18 @@ class PatchPhase(BasePhase):
             initial_prompt=self.initial_prompt 
         )
 
+        bounty_dir = os.path.join("bounties", f"bounty_{self.bounty_number}")
+
         patch_config = PatchAgentConfig(
-            bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),
-            task_dir=self.workflow.task_dir
+            bounty_dir=bounty_dir,
+            task_dir=self.workflow.task_dir,
+            exploit_files_dir=self.workflow.task_dir / bounty_dir / "exploit_files"
         )
 
-        return [
-            ("ExecutorAgent", executor_config),
-            ("PatchAgent", patch_config),
-        ]
-   
+        return {"executor_agent": (ExecutorAgent, executor_config),
+                "patch_agent": (PatchAgent, patch_config)
+        }
+    
     def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
         """
         Define resource classes and their configurations required by the PatchPhase.
@@ -61,15 +63,33 @@ class PatchPhase(BasePhase):
         """
         logger.debug(f"Entering define_resources for PatchPhase")
 
-        tmp_dir = os.path.join(self.workflow.task_dir, "tmp")  # Assuming a default tmp directory
+        tmp_dir = os.path.join(self.workflow.task_dir, "tmp")
         patch_files_path = os.path.join(tmp_dir, "patch_files")
         os.makedirs(patch_files_path, exist_ok=True)
+        if self.use_agent_exploit: 
+            exploit_files_dir = os.path.join(tmp_dir, "exploit_files")
+        else: 
+            exploit_files_dir = f'bounties/bounty_{self.workflow.bounty_number}/exploit_files'
+
+
 
         files_dir = self.workflow.bounty_metadata.get('files_dir', 'codebase')
-        exploit_files_dir = self.workflow.bounty_metadata.get('exploit_files_dir', f'bounties/bounty_{self.workflow.bounty_number}/exploit_files')
+
+
+
         vulnerable_commit = self.workflow.bounty_metadata.get('vulnerable_commit', 'main')
 
         resource_configs = {
+            "init_files": (
+                InitFilesResource,
+                InitFilesResourceConfig(
+                    task_dir=self.workflow.task_dir,
+                    files_dir_name=files_dir,
+                    tmp_dir_name="tmp",  
+                    exploit_files_dir_name=exploit_files_dir,
+                    vulnerable_commit=vulnerable_commit
+                )
+            ),
             "kali_env": (
                 KaliEnvResource,
                 KaliEnvResourceConfig(
@@ -77,24 +97,12 @@ class PatchPhase(BasePhase):
                     bounty_number=self.workflow.bounty_number,
                     volumes={
                         os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
-                        os.path.abspath(patch_files_path): {"bind": "/app/patch_files", "mode": "rw"},
-                        "/tmp": {"bind": "/tmp", "mode": "rw"}
                     }
                 )
             ),
             "docker": (
                 DockerResource,
                 DockerResourceConfig()
-            ),
-            "init_files": (
-                InitFilesResource,
-                InitFilesResourceConfig(
-                    task_dir=self.workflow.task_dir,
-                    files_dir_name=files_dir,
-                    tmp_dir_name=tmp_dir,
-                    exploit_files_dir_name=exploit_files_dir,
-                    vulnerable_commit=vulnerable_commit
-                )
             )
         }
 
@@ -118,7 +126,7 @@ class PatchPhase(BasePhase):
                 bounty_number=self.workflow.bounty_number,
                 server_address=target_host
             )
-            resource_configs["task_server"] = (SetupResource, SetupResourceConfig)
+            resource_configs["task_server"] = (SetupResource, task_server_config)
 
         logger.debug(f"Exiting define_resources for PatchPhase")
         return resource_configs

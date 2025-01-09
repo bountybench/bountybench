@@ -48,7 +48,7 @@ class ProgressLogger:
                 sys.stdout.flush()
                 self.logger.info(message)
                 sys.stdout.write('\n')  # Add another newline after the log message
-                sys.stdout.write(f"\r{CYAN}{self.description} (in progress){RESET}")  # Rewrite the progress message
+                sys.stdout.write(f"{CYAN}{self.description} (in progress){RESET}")  # Rewrite the progress message
                 sys.stdout.flush()
                 self.last_message = message
 
