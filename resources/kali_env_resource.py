@@ -56,8 +56,10 @@ class KaliEnvResourceConfig(BaseResourceConfig):
             raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if self.volumes:
             for host_path in self.volumes.keys():
-                if not os.path.exists(host_path):
-                    raise ValueError(f"Invalid volume host path: {host_path}")
+                parent_dir = os.path.dirname(host_path)
+                if not os.path.exists(parent_dir):
+                    raise ValueError(f"Invalid volume host path parent directory: {parent_dir}")
+
                 
 class KaliEnvResource(BaseResource):
     """Kali Linux Environment Resource"""
