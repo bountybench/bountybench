@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import time
 import json
+import sys
 
 from resources.base_resource import BaseResource
 from utils.logger import get_main_logger
@@ -130,7 +131,8 @@ class DockerResource(BaseResource):
             
             logger.info(f"Copied from container {container_name}: {source_path} -> {dest_path}")
         except docker.errors.NotFound:
-            logger.error(f"Container not found: {container_name}")
+            logger.critical(f"Container not found: {container_name}")
+            sys.exit(1)
         except docker.errors.APIError as e:
             logger.error(f"Docker API error while copying: {str(e)}")
         except Exception as e:
