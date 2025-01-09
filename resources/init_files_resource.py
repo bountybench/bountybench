@@ -50,7 +50,7 @@ class InitFilesResource(BaseResource):
 
         # Initialize from config
         self.task_dir = str(self._resource_config.task_dir)
-        self.files_dir_name = self._resource_cosnfig.files_dir_name
+        self.files_dir_name = self._resource_config.files_dir_name
         self.files_dir = os.path.join(self.task_dir, self._resource_config.files_dir_name)
 
         self.tmp_dir_name = self._resource_config.tmp_dir_name
