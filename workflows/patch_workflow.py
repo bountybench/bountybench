@@ -2,7 +2,7 @@ from pathlib import Path
 
 from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
 from phases.patch_phase import PatchPhase
-from resources.utils import read_exploit_report
+from resources.utils import read_writeup
 from workflows.bounty_workflow import BountyWorkflow
 
 from utils.logger import get_main_logger
@@ -37,7 +37,7 @@ class PatchWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
-        exploit_report = read_exploit_report(self.task_dir, self.bounty_number)
+        exploit_report = read_writeup(self.task_dir, self.bounty_number)
         prompt = PATCH_PROMPT.format(
             task_description=exploit_report,
             stop_token=STOP_TOKEN,
