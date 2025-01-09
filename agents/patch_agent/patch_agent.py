@@ -15,8 +15,6 @@ from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
-from responses.command_response import CommandResponse
-from responses.observation import Observation
 from responses.response import Response
 from responses.base_response import BaseResponse
 from utils.logger import get_main_logger
@@ -29,18 +27,17 @@ logger = get_main_logger(__name__)
 class PatchAgentConfig(AgentConfig):
     bounty_dir: str
     task_dir: str
-    exploit_files_dir: str = field(default="/tmp/exploit_files")
+    exploit_files_dir: str
     use_verify_script: bool = field(default=False)
 
 class PatchAgent(BaseAgent):    
     REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
     OPTIONAL_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource")]
     ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), (InitFilesResource, "init_files"),  (DockerResource, "docker")]
-    CONFIG_CLASS = PatchAgentConfig  
-
-    def __init__(self, agent_config: PatchAgentConfig):#, resource_manager: ResourceManager):
+    
+    def __init__(self, agent_id: str, agent_config: PatchAgentConfig):#, resource_manager: ResourceManager):
         self.bounty_dir = Path(agent_config.bounty_dir)
-        self.exploit_files_dir = agent_config.exploit_files_dir
+        self.exploit_files_dir = agent_config.exploit_files_dir #exploit????
         self.log_history = []
         self.patch_id = 1
         self.patch_dir_name = "patches"
@@ -50,7 +47,7 @@ class PatchAgent(BaseAgent):
         self.use_verify_script = agent_config.use_verify_script
         self.patch_dir = Path(agent_config.task_dir) / self.patch_dir_name
 
-        super().__init__(agent_config)#, resource_manager)
+        super().__init__(agent_id, agent_config)#, resource_manager)
         self.patch_dir.mkdir(parents=True, exist_ok=True)
 
         atexit.register(self.cleanup)
@@ -130,25 +127,21 @@ class PatchAgent(BaseAgent):
         """Run the exploit script in a Docker container."""
         codebase_path = (Path(self.init_files.task_dir) / 'codebase').resolve()
         exploit_files_dir = (Path(self.exploit_files_dir)).resolve()
-        tmp_path = Path("/tmp").resolve()
 
         # Validate the paths
         if not codebase_path.exists():
             raise FileNotFoundError(f"Codebase directory does not exist: {codebase_path}")
         if not exploit_files_dir.exists():
             raise FileNotFoundError(f"Exploit files directory does not exist: {exploit_files_dir}")
-        if not tmp_path.exists():
-            raise FileNotFoundError(f"Temporary directory does not exist: {tmp_path}")
 
         # Define Docker volumes
         volumes = {
             str(codebase_path): {"bind": "/app/codebase", "mode": "rw"},
             str(exploit_files_dir): {"bind": "/app/exploit_files", "mode": "rw"},
-            str(tmp_path): {"bind": "/tmp", "mode": "rw"}
         }
 
         # Commands to be executed in the container
-        clear_tmp_command = "rm -rf /tmp/* /tmp/.*"
+        clear_tmp_command = "rm -rf /tmp/* /tmp/.*" #is this necessary anymore?
         exploit_command = "bash /app/exploit_files/exploit.sh"
         try:
             # Clear the /tmp directory
@@ -191,7 +184,7 @@ class PatchAgent(BaseAgent):
         else:
             logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
             return False
-                
+
     def get_git_diff(self, directory_path: str | Path) -> str:
         try:
             directory_path = Path(directory_path) if isinstance(directory_path, str) else directory_path
@@ -339,6 +332,7 @@ class PatchAgent(BaseAgent):
             'log_history': self.log_history,
             'patch_id': self.patch_id,
             'use_verify_script': self.use_verify_script,
+            'agent_id': self.agent_id,
             'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
         }
 
@@ -357,6 +351,7 @@ class PatchAgent(BaseAgent):
         agent.patch_dir = Path(data['patch_dir'])
         agent.log_history = data['log_history']
         agent.patch_id = data['patch_id']
+        agent._agent_id = data['agent_id']
         return agent
 
     def save_to_file(self, filepath: str) -> None:

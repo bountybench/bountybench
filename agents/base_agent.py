@@ -16,13 +16,9 @@ class ResourceNotInitializedError(Exception):
     """Raised when a resource is accessed before initialization."""
     pass
 
-@dataclass
-class AgentConfig:
-    id: Optional[str] = field(default=None, init=False)
-
-    def __post_init__(self):
-        if self.id is None:
-            self.id = self.__class__.__name__
+class AgentConfig(ABC):
+    """Abstract base class for all agent configurations."""
+    pass
 
 class BaseAgent(ABC):
     """
@@ -42,14 +38,15 @@ class BaseAgent(ABC):
     OPTIONAL_RESOURCES: List[Union[type, Tuple[type, str]]] = []
     ACCESSIBLE_RESOURCES: List[Union[type, Tuple[type, str]]] = []
 
-    def __init__(self, agent_config: AgentConfig):
+    def __init__(self, agent_id: str, agent_config: AgentConfig):
+        self._agent_id = agent_id
         self.agent_config = agent_config
         self.response_history = ResponseHistory()
         self.target_host_address = getattr(agent_config, "target_host", "")
 
-        logger.info(f"Initialized agent {agent_config.id}")
+        logger.info(f"Initialized agent {self.agent_id}")
         
-        workflow_logger.add_agent(self.agent_config.id, self)
+        workflow_logger.add_agent(self.agent_id, self)
 
     @staticmethod
     def _parse_resource_entry(entry: Union[Type[BaseResource], Tuple[Type[BaseResource], str]]) -> Tuple[Type[BaseResource], str]:
@@ -79,3 +76,7 @@ class BaseAgent(ABC):
             The agent's response after processing.
         """
         pass
+
+    @property
+    def agent_id(self) -> str:
+        return self._agent_id

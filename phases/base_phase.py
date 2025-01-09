@@ -69,12 +69,13 @@ class BasePhase(ABC):
         pass
 
     @abstractmethod
-    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
+    def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         """
         Define the agents required for this phase.
         
         Returns:
-            List[Tuple[str, AgentConfig]]: A list of tuples containing agent IDs and their configs.
+            Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]: 
+            A dictionary mapping agent IDs to their class and config.
         """
         pass
 
@@ -120,7 +121,7 @@ class BasePhase(ABC):
         # 3. Define and register agents
         agent_configs = self.define_agents()
 
-        self.agent_manager.initialize_phase_agents(agent_configs, self.AGENT_CLASSES)
+        self.agent_manager.initialize_phase_agents(agent_configs)
         logger.info(f"Agents for phase {self.name} initialized")
         self.agents = list(self.agent_manager._phase_agents.items())
 
