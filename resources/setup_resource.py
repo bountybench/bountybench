@@ -24,7 +24,6 @@ class SetupResourceConfig(BaseResourceConfig):
     """Configuration for SetupResource"""
     task_level_setup: bool
     task_dir: str
-    files_dir: str
     bounty_number: Optional[str] = None
     server_address: Optional[str] = None
 
@@ -43,8 +42,8 @@ class SetupResource(BaseResource):
         # Call the superclass constructor first
         super().__init__(resource_id, config)
 
+
         self.task_dir = str(self._resource_config.task_dir)
-        self.files_dir = self._resource_config.files_dir
 
 
         # Access the configuration
@@ -238,7 +237,6 @@ class SetupResource(BaseResource):
         return {
             'task_level_setup': self.task_level_setup,
             'task_dir': self.task_dir,
-            'files_dir': self.files_dir,
             'bounty_dir': self.bounty_dir,
             'host_name': self.host_name,
             'port_number': self.port_number,
@@ -259,7 +257,6 @@ class SetupResource(BaseResource):
         instance = cls(
             task_level_setup=data['task_level_setup'],
             task_dir=data['task_dir'],
-            files_dir=data['files_dir'],
             bounty_number=bounty_number,
             server_address=server_address
         )

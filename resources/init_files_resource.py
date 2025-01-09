@@ -27,6 +27,7 @@ class InitFilesResourceConfig(BaseResourceConfig):
     task_dir: str
     files_dir_name: str
     tmp_dir_name: str
+    bounty_number: str
     exploit_files_dir_name: Optional[str] = None
     vulnerable_commit: Optional[str] = None
 
@@ -47,31 +48,32 @@ class InitFilesResource(BaseResource):
     def __init__(self, resource_id: str, config: InitFilesResourceConfig):
         super().__init__(resource_id, config)
 
-        
         # Initialize from config
         self.task_dir = str(self._resource_config.task_dir)
+        self.files_dir_name = self._resource_cosnfig.files_dir_name
         self.files_dir = os.path.join(self.task_dir, self._resource_config.files_dir_name)
 
         self.tmp_dir_name = self._resource_config.tmp_dir_name
-        self.tmp_dir = os.path.join(self.task_dir, self.tmp_dir_name)
+        self.tmp_dir = os.path.join(self.task_dir,  self.tmp_dir_name)
 
-        if os.path.exists(self.tmp_dir):
+        if os.path.exists(self.tmp_dir): #clean
             shutil.rmtree(self.tmp_dir)
 
-        
         # Create necessary directories
-        os.makedirs(self.tmp_dir, exist_ok=True)
-        self.tmp_exploits_dir = os.path.join(self.tmp_dir, "exploit_files")
-        os.makedirs(self.tmp_exploits_dir, exist_ok=True)
+        os.makedirs(self.tmp_dir)
+        self.tmp_exploits_dir = os.path.join(self.tmp_dir, "bounties", 
+                                    f"bounty_{self._resource_config.bounty_number}", "exploit_files")
+        os.makedirs(self.tmp_exploits_dir)
         
         # Handle exploit files if specified
-        self.exploit_files_dir = None
+        self.exploit_files_dir = self.tmp_exploits_dir
         if self._resource_config.exploit_files_dir_name:
             self.exploit_files_dir = os.path.join(
-                self.task_dir, 
+                self.task_dir, "bounties", 
+                f"bounty_{self._resource_config.bounty_number}",
                 self._resource_config.exploit_files_dir_name
             )
-            self.copy_files(self.exploit_files_dir, self.tmp_dir)
+            self.copy_files(self.exploit_files_dir, self.tmp_exploits_dir)
             
         self.vulnerable_commit = self._resource_config.vulnerable_commit
         
@@ -84,7 +86,6 @@ class InitFilesResource(BaseResource):
         Run the initialization script for the task.
         """
         try:
-            # Execute the init_script.sh script located in the task repo directory
             logger.info(
                 f"Checking out {self.vulnerable_commit}")
             subprocess.run(
@@ -95,13 +96,14 @@ class InitFilesResource(BaseResource):
                 check=True,
                 text=True)
             
-            self.copy_files(self.files_dir, self.tmp_dir)
-            git_dir = os.path.join(self.tmp_dir, ".git")
+            tmp_destination_path = os.path.join(self.tmp_dir, self.files_dir_name)
+            self.copy_files(self.files_dir, tmp_destination_path)
+            git_dir = os.path.join(tmp_destination_path, ".git")
 
             if os.path.exists(git_dir):
                 if os.path.isfile(git_dir):
                     os.remove(git_dir)
-                    logger.info(f"Removed .git file from {self.tmp_dir}")
+                    logger.info(f"Removed .git file from {tmp_destination_path}")
                 else:
                     logger.warning(f"{git_dir} exists but is neither a directory nor a file. Skipping removal.")
                 
@@ -113,7 +115,7 @@ class InitFilesResource(BaseResource):
         # Set up git repos
 
         self.setup_dev_branch(self.files_dir)
-        self.setup_repo(self.tmp_dir)
+        self.setup_repo(tmp_destination_path)
 
     def stop(self) -> None:
         """
