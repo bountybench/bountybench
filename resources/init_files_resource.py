@@ -54,6 +54,10 @@ class InitFilesResource(BaseResource):
 
         self.tmp_dir_name = self._resource_config.tmp_dir_name
         self.tmp_dir = os.path.join(self.task_dir, self.tmp_dir_name)
+
+        if os.path.exists(self.tmp_dir):
+            shutil.rmtree(self.tmp_dir)
+
         
         # Create necessary directories
         os.makedirs(self.tmp_dir, exist_ok=True)
