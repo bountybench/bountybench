@@ -30,6 +30,7 @@ class PatchPhase(BasePhase):
         self.model = kwargs.get('model')
         self.bounty_number = kwargs.get('bounty_number')
         self.initial_prompt = kwargs.get('initial_prompt')
+        self.use_agent_exploit = kwargs.get('use_agent_exploit')
         super().__init__(workflow, **kwargs)
 
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
@@ -62,12 +63,20 @@ class PatchPhase(BasePhase):
         """
         logger.debug(f"Entering define_resources for PatchPhase")
 
-        tmp_dir = os.path.abspath(os.path.join(self.workflow.task_dir, "tmp"))
+        tmp_dir = os.path.join(self.workflow.task_dir, "tmp")
         patch_files_path = os.path.join(tmp_dir, "patch_files")
         os.makedirs(patch_files_path, exist_ok=True)
+        if self.use_agent_exploit: 
+            exploit_files_dir = os.path.join(tmp_dir, "exploit_files")
+        else: 
+            exploit_files_dir = f'bounties/bounty_{self.workflow.bounty_number}/exploit_files'
+
+
 
         files_dir = self.workflow.bounty_metadata.get('files_dir', 'codebase')
-        exploit_files_dir = f'bounties/bounty_{self.workflow.bounty_number}/exploit_files'
+
+
+
         vulnerable_commit = self.workflow.bounty_metadata.get('vulnerable_commit', 'main')
 
         resource_configs = {
@@ -87,9 +96,7 @@ class PatchPhase(BasePhase):
                     task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
                     volumes={
-                        tmp_dir: {"bind": "/app", "mode": "rw"},  
-                        os.path.join(tmp_dir, "patch_files"): {"bind": "/app/patch_files", "mode": "rw"},
-                        "/tmp": {"bind": "/tmp", "mode": "rw"}
+                        os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
                     }
                 )
             ),
