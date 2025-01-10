@@ -114,7 +114,7 @@ class ResourceManager:
         except Exception as e:
             logger.debug(f"Failed to initialize resource '{resource_id}': {str(e)}")
             raise
-        
+
     def deallocate_phase_resources(self, phase_index: int):
         """Deallocate resources that are no longer needed after a phase."""
         logger.debug(f"Deallocating resources for phase {phase_index}")
@@ -122,26 +122,48 @@ class ResourceManager:
         logger.debug(f"Current lifecycle state: {self._resource_lifecycle}")
         
         if phase_index not in self._phase_resources:
-            print(f"Warning: No resources registered for phase {phase_index}")
+            logger.warning(f"No resources registered for phase {phase_index}")
             return
             
+        resources_to_deallocate = []
+        init_files_resource = None
+
         for resource_id in self._phase_resources[phase_index]:
             if resource_id not in self._resource_lifecycle:
-                print(f"Warning: No lifecycle information for resource '{resource_id}'")
+                logger.warning(f"No lifecycle information for resource '{resource_id}'")
                 continue
                 
             _, term_phase = self._resource_lifecycle[resource_id]
             if phase_index == term_phase and resource_id in self._resources.id_to_resource:
                 resource = self._resources[resource_id]
-                try:
-                    logger.debug(f"Stopping resource '{resource_id}'")
-                    resource.stop()
-                    self._resources.delete_items(resource_id)
-                    logger.info(f"Deallocated resource '{resource_id}'")
-                except Exception as e:
-                    logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
-                    raise
-                    
+                if isinstance(resource, InitFilesResource):
+                    init_files_resource = (resource_id, resource)
+                else:
+                    resources_to_deallocate.append((resource_id, resource))
+
+        # Deallocate non-InitFilesResource resources
+        for resource_id, resource in resources_to_deallocate:
+            try:
+                logger.debug(f"Stopping resource '{resource_id}'")
+                resource.stop()
+                self._resources.delete_items(resource_id)
+                logger.info(f"Deallocated resource '{resource_id}'")
+            except Exception as e:
+                logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
+                raise
+
+        # Deallocate InitFilesResource last, if it exists
+        if init_files_resource:
+            resource_id, resource = init_files_resource
+            try:
+                logger.debug(f"Stopping InitFilesResource '{resource_id}'")
+                resource.stop()
+                self._resources.delete_items(resource_id)
+                logger.info(f"Deallocated InitFilesResource '{resource_id}'")
+            except Exception as e:
+                logger.error(f"Failed to deallocate InitFilesResource '{resource_id}': {str(e)}")
+                raise
+
         logger.debug(f"Completed resource deallocation for phase {phase_index}")
 
     def get_resource(self, resource_id: str) -> BaseResource:
