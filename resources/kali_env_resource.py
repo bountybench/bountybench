@@ -56,8 +56,10 @@ class KaliEnvResourceConfig(BaseResourceConfig):
             raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if self.volumes:
             for host_path in self.volumes.keys():
-                if not os.path.exists(host_path):
-                    raise ValueError(f"Invalid volume host path: {host_path}")
+                parent_dir = os.path.dirname(host_path)
+                if not os.path.exists(parent_dir):
+                    raise ValueError(f"Invalid volume host path parent directory: {parent_dir}")
+
                 
 class KaliEnvResource(BaseResource):
     """Kali Linux Environment Resource"""
@@ -157,6 +159,10 @@ class KaliEnvResource(BaseResource):
         finally:
             stop_progress()
 
+    def cleanup_tmp(self):
+        cleanup_command = "rm -rf * .*"
+        return self.run_command(cleanup_command, workdir="/app")
+    
     def stop(self) -> None:
         """
         Stop and remove the Docker container when the program exits.
@@ -164,8 +170,10 @@ class KaliEnvResource(BaseResource):
         This function is automatically registered to run when the program terminates.
         """
         if self.container:
-            logger.info("Cleaning up: stopping and removing Docker container.")
             try:
+                logger.info("Cleaning up: removing tmp files.")
+                self.cleanup_tmp()
+                logger.info("Cleaning up: stopping and removing Docker container.")
                 self.container.stop()
                 self.container.remove()
                 self.container = None

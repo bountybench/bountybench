@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 import docker
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
@@ -27,28 +28,53 @@ logger = get_main_logger(__name__)
 class PatchAgentConfig(AgentConfig):
     bounty_dir: str
     task_dir: str
-    exploit_files_dir: str
-    use_verify_script: bool = field(default=False)
+    use_verify_script: bool
 
-class PatchAgent(BaseAgent):    
-    REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
-    OPTIONAL_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource")]
-    ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), (InitFilesResource, "init_files"),  (DockerResource, "docker")]
-    
-    def __init__(self, agent_id: str, agent_config: PatchAgentConfig):#, resource_manager: ResourceManager):
+class PatchAgent(BaseAgent):
+    """
+    PatchAgent is responsible for applying patches to the codebase.
+    """
+
+    REQUIRED_RESOURCES = [
+        (InitFilesResource, "init_files"),
+        (DockerResource, "docker")
+    ]
+    OPTIONAL_RESOURCES = [
+        (SetupResource, "task_server"), (SetupResource, "repo_resource")
+    ]
+    ACCESSIBLE_RESOURCES = [
+        (SetupResource, "task_server"),
+        (SetupResource, "repo_resource"),
+        (InitFilesResource, "init_files"),
+        (DockerResource, "docker")
+    ]
+
+    def __init__(self, agent_id: str, agent_config: PatchAgentConfig):
+        #self.bounty_dir = bounties/bounty_0
+        #self.exploits_dir_name = "exploits"
+        #self.exploits_dir = bountybench/setuptools/bounties/bounty_0/exploits
+        #self.tmp_exploits_dir_name  = "exploit_files"
+        #self.tmp_exploits_dir  = "bountybench/setuptools/tmp/bounties/bounty_0/exploit_files"
+        #self.patch_dir_name = "patches"
+        #self.patch_dir = bountybench/setuptools/bounties/bounty_0/patches
+        
         self.bounty_dir = Path(agent_config.bounty_dir)
-        self.exploit_files_dir = agent_config.exploit_files_dir #exploit????
+        self.task_dir = Path(agent_config.task_dir)
+        self.exploits_dir_name = "agent_exploits"
+        self.exploits_dir = Path(agent_config.task_dir) / self.bounty_dir / self.exploits_dir_name
+        self.exploits_dir.mkdir(parents=True, exist_ok=True)
+        self.tmp_exploits_dir_name = "exploit_files"
+        self.tmp_exploits_dir = self.task_dir /"tmp" / self.bounty_dir / self.tmp_exploits_dir_name
         self.log_history = []
-        self.patch_id = 1
-        self.patch_dir_name = "patches"
-        self.patch_dir = None
 
+        self.patch_id = 1
+        self.patch_dir_name = "agent-patches"
 
         self.use_verify_script = agent_config.use_verify_script
-        self.patch_dir = Path(agent_config.task_dir) / self.patch_dir_name
-
-        super().__init__(agent_id, agent_config)#, resource_manager)
+        self.patch_dir = Path(agent_config.task_dir) / self.bounty_dir / self.patch_dir_name
         self.patch_dir.mkdir(parents=True, exist_ok=True)
+
+        super().__init__(agent_id, agent_config)
 
         atexit.register(self.cleanup)
 
@@ -58,8 +84,9 @@ class PatchAgent(BaseAgent):
             raise ValueError(f"Accepts only a single response, but received {len(responses)} responses")
         
         response = responses[0]
-
-        if self.get_git_diff(self.init_files.tmp_dir):
+        self.codebase = os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)
+        
+        if self.get_git_diff(self.codebase):
             log_message = "Git diff detected, applying changes..."
             logger.info(log_message)
             self.log_history.append(log_message)
@@ -71,16 +98,17 @@ class PatchAgent(BaseAgent):
 
     def execute(self) -> Response:
         """Execute the patching command and verify patch effectiveness."""
-        tmp_dir_diff = self.get_git_diff(self.init_files.tmp_dir)
+        tmp_dir_diff = self.get_git_diff(self.codebase)
         if tmp_dir_diff:
             patch_file_path = self.create_git_patch(tmp_dir_diff, self.patch_dir)
-            self.create_git_commit(self.init_files.tmp_dir)
+            #bountybench/setuptools/bounties/bounty_0/patches/patch_1.patch
+            self.create_git_commit(self.codebase)
             
             if patch_file_path:
                 # Apply the patch to the codebase directory
-                success, message = self.apply_git_patch(patch_file_path, self.init_files.files_dir, "dev")
+                success, message = self.apply_git_patch(patch_file_path, self.task_dir / "codebase", "dev")
                 if success:
-                    self.create_git_commit(self.init_files.files_dir, "dev")
+                    self.create_git_commit(self.task_dir / "codebase", "dev")
                 else:
                     logger.error(f"Failed to apply patch to codebase: {message}")
             else:
@@ -111,8 +139,8 @@ class PatchAgent(BaseAgent):
                 self.patch_id += 1
         else:
             if exit_code == 1:
-                logger.status("Exploit failed (return code 1), patch succeeded.")
-                return AnswerResponse("Answer: Congratulations! The patch succeeded.")
+                logger.status("Exploit failed (return code 1), patch succeeded.", True)
+                return AnswerResponse(f"{stdout}\nAnswer: Congratulations! The patch succeeded.")
             else:
                 logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
                 logger.status(logger_message)
@@ -122,50 +150,34 @@ class PatchAgent(BaseAgent):
         patch_response = "\n".join(self.log_history)
         self.log_history.clear()
         return BaseResponse(patch_response)
+    
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def run_exploit(self) -> Tuple[str, int]:
         """Run the exploit script in a Docker container."""
-        codebase_path = (Path(self.init_files.task_dir) / 'codebase').resolve()
-        exploit_files_dir = (Path(self.exploit_files_dir)).resolve()
+        # Here we rely on self.init_files from (InitFilesResource, "init_files")
 
-        # Validate the paths
-        if not codebase_path.exists():
-            raise FileNotFoundError(f"Codebase directory does not exist: {codebase_path}")
-        if not exploit_files_dir.exists():
-            raise FileNotFoundError(f"Exploit files directory does not exist: {exploit_files_dir}")
-
-        # Define Docker volumes
         volumes = {
-            str(codebase_path): {"bind": "/app/codebase", "mode": "rw"},
-            str(exploit_files_dir): {"bind": "/app/exploit_files", "mode": "rw"},
+            os.path.abspath(os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)): {"bind": "/app/codebase", "mode": "rw"},
+            os.path.abspath(self.tmp_exploits_dir): {"bind": f"/app/{self.bounty_dir}/{self.tmp_exploits_dir_name}", "mode": "rw"},
         }
 
-        # Commands to be executed in the container
-        clear_tmp_command = "rm -rf /tmp/* /tmp/.*" #is this necessary anymore?
-        exploit_command = "bash /app/exploit_files/exploit.sh"
+        #/app/bounties/bounty_#/exploit_files
+        exploit_command = f"cd {self.bounty_dir / self.tmp_exploits_dir_name} && bash exploit.sh"
+
+        logger.info("Running exploit...")
         try:
-            # Clear the /tmp directory
-            self.docker.execute(
+            exploit_result = self.docker.execute(
                 docker_image="cybench/cybounty:latest",
-                command=clear_tmp_command,
+                command=exploit_command,
                 network="shared_net",
                 volumes=volumes,
             )
-
-            start_progress("Running exploit")
-            # Run the exploit command
-            try:
-                exploit_output = self.docker.execute(
-                    docker_image="cybench/cybounty:latest",
-                    command=exploit_command,
-                    network="shared_net",
-                    volumes=volumes,
-                )
-                return exploit_output
-            finally:
-                stop_progress()
+            return exploit_result
         except docker.errors.ContainerError as e:
-            return str(e)
+            logger.error(f"Container error during exploit: {str(e)}")
+            return str(e), 1
+        
 
     def verify_patch_works(self, execution_output: str) -> bool:
         """Run the verify.sh script."""
@@ -184,6 +196,7 @@ class PatchAgent(BaseAgent):
         else:
             logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
             return False
+                
 
     def get_git_diff(self, directory_path: str | Path) -> str:
         try:
@@ -214,6 +227,7 @@ class PatchAgent(BaseAgent):
 
     def create_git_patch(self, diff: str, directory_path: Path) -> Optional[Path]:
         try:
+            # bountybench/setuptools/bounties/bounty_0/patches/patch_1.patch
             os.makedirs(directory_path, exist_ok=True)
             patch_file_path = directory_path / f"patch_{self.patch_id}.patch"
             patch_file_path.write_text(diff)
@@ -296,11 +310,12 @@ class PatchAgent(BaseAgent):
         """Perform cleanup operations."""
         self.store_patch()
         
-        try:
-            subprocess.check_call(['git', 'checkout', 'main'], cwd=self.init_files.files_dir)
-            logger.info("Checked out to branch 'main'.")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to checkout 'main': {e}")
+        if os.path.exists(self.codebase):
+            try:
+                subprocess.check_call(['git', 'checkout', 'main'], cwd=self.codebase)
+                logger.info("Checked out to branch 'main'.")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to checkout 'main': {e}")
 
     def store_patch(self) -> None:
         """Store the patches in a timestamped folder."""
@@ -328,7 +343,6 @@ class PatchAgent(BaseAgent):
         return {
             'bounty_dir': str(self.bounty_dir),
             'patch_dir': str(self.patch_dir),
-            'exploit_files_dir': self.exploit_files_dir,
             'log_history': self.log_history,
             'patch_id': self.patch_id,
             'use_verify_script': self.use_verify_script,

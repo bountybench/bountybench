@@ -30,11 +30,14 @@ class PatchPhase(BasePhase):
         self.bounty_number = kwargs.get('bounty_number')
         self.initial_prompt = kwargs.get('initial_prompt')
         self.use_agent_exploit = kwargs.get('use_agent_exploit')
+        self.use_verify_script = kwargs.get('use_verify_script')
+
         super().__init__(workflow, **kwargs)
    
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         # assume we get model through some kwargs situation with the Message
         executor_lm_config = AgentLMConfig.create(model=self.model)
+        
         # Create the executor_config
         executor_config = ExecutorAgentConfig(
             lm_config=executor_lm_config,
@@ -45,9 +48,9 @@ class PatchPhase(BasePhase):
         bounty_dir = os.path.join("bounties", f"bounty_{self.bounty_number}")
 
         patch_config = PatchAgentConfig(
-            bounty_dir=bounty_dir,
+            bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),
             task_dir=self.workflow.task_dir,
-            exploit_files_dir=self.workflow.task_dir / bounty_dir / "exploit_files"
+            use_verify_script=self.use_verify_script
         )
 
         return {"executor_agent": (ExecutorAgent, executor_config),
@@ -63,30 +66,29 @@ class PatchPhase(BasePhase):
         """
         logger.debug(f"Entering define_resources for PatchPhase")
 
-        tmp_dir = os.path.join(self.workflow.task_dir, "tmp")
-        patch_files_path = os.path.join(tmp_dir, "patch_files")
-        os.makedirs(patch_files_path, exist_ok=True)
+        #tmp_dir = os.path.join(self.workflow.task_dir, "tmp")
+        #patch_files_path = os.path.join(tmp_dir, "patch_files")
+        #os.makedirs(patch_files_path, exist_ok=True)
+
         if self.use_agent_exploit: 
-            exploit_files_dir = os.path.join(tmp_dir, "exploit_files")
+            exploit_files_dir_name = None
         else: 
-            exploit_files_dir = f'bounties/bounty_{self.workflow.bounty_number}/exploit_files'
+            exploit_files_dir_name = "exploit_files"
 
-
-
-        files_dir = self.workflow.bounty_metadata.get('files_dir', 'codebase')
-
-
-
+        files_dir_name = self.workflow.bounty_metadata.get('files_dir', 'codebase')
         vulnerable_commit = self.workflow.bounty_metadata.get('vulnerable_commit', 'main')
+        tmp_dir_name = "tmp"
+        tmp_dir = os.path.join(self.workflow.task_dir, tmp_dir_name)
 
         resource_configs = {
             "init_files": (
                 InitFilesResource,
                 InitFilesResourceConfig(
                     task_dir=self.workflow.task_dir,
-                    files_dir_name=files_dir,
-                    tmp_dir_name="tmp",  
-                    exploit_files_dir_name=exploit_files_dir,
+                    files_dir_name=files_dir_name,
+                    tmp_dir_name=tmp_dir_name,
+                    bounty_number=self.bounty_number,
+                    exploit_files_dir_name=exploit_files_dir_name,
                     vulnerable_commit=vulnerable_commit
                 )
             ),
@@ -113,7 +115,6 @@ class PatchPhase(BasePhase):
                 SetupResourceConfig(
                     task_level_setup=False,
                     task_dir=self.workflow.task_dir,
-                    files_dir=files_dir
                 )
             )
 
@@ -122,13 +123,12 @@ class PatchPhase(BasePhase):
             task_server_config = SetupResourceConfig(
                 task_level_setup=True,
                 task_dir=self.workflow.task_dir,
-                files_dir=files_dir,
                 bounty_number=self.workflow.bounty_number,
                 server_address=target_host
             )
             resource_configs["task_server"] = (SetupResource, task_server_config)
 
-        logger.debug(f"Exiting define_resources for PatchPhase")
+        logger.debug(f"Exiting define_resources for ExploitPhase")
         return resource_configs
 
 
@@ -144,6 +144,7 @@ class PatchPhase(BasePhase):
         3) If PatchAgent produces an AnswerResponseInterface -> patch success -> finalize & done.
         4) Otherwise continue.
         """
+        # Prepare input response list for agent
         input_list = []
         if previous_output is not None:
             input_list.append(previous_output)
@@ -152,21 +153,22 @@ class PatchPhase(BasePhase):
         phase_response.add_agent_response(response)
 
         # Determine which agent name was used in this iteration
-        agent_name, _ = self._get_current_agent()
+        _, agent_instance = self._get_current_agent()
 
-        if agent_name == "ExecutorAgent":
+        # Check for hallucination (ExecutorAgent)
+        if isinstance(agent_instance, ExecutorAgent):
             if isinstance(response, AnswerResponseInterface):
                 logger.status("Executor agent hallucinated an answer!")
                 self._set_phase_summary("completed_with_hallucination")
                 phase_response.set_complete()
                 return response
 
-        elif agent_name == "PatchAgent":
+        # Check for exploit success (PatchAgent)
+        elif isinstance(agent_instance, PatchAgent):
             if isinstance(response, AnswerResponseInterface):
                 logger.info("Patch Success!")
                 self._set_phase_summary("patch_success")
                 phase_response.set_complete()
                 phase_response.set_success()
                 return response
-
         return response

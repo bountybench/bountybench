@@ -185,7 +185,6 @@ class ExecutorAgent(BaseAgent):
                 command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/", logging=True
             )
             observation_text = stdout.strip() + stderr.strip()
-            logger.info(f"Command in environment: {command}\nstdout: {stdout.strip()}\nstderr: {stderr.strip()}")
             return Observation(observation_text)
         except Exception as e:
             logger.exception(f"Failed to execute command: {command}.\nException: {str(e)}")

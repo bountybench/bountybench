@@ -24,7 +24,6 @@ class SetupResourceConfig(BaseResourceConfig):
     """Configuration for SetupResource"""
     task_level_setup: bool
     task_dir: str
-    files_dir: str
     bounty_number: Optional[str] = None
     server_address: Optional[str] = None
 
@@ -43,8 +42,8 @@ class SetupResource(BaseResource):
         # Call the superclass constructor first
         super().__init__(resource_id, config)
 
+
         self.task_dir = str(self._resource_config.task_dir)
-        self.files_dir = self._resource_config.files_dir
 
 
         # Access the configuration
@@ -104,6 +103,8 @@ class SetupResource(BaseResource):
             start_progress(f"Executing {setup_script} in {work_dir}")
             try:
                 result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
+            except Exception as e:
+                logger.error(f"Unable to successfuly execute {setup_script} at {self.resource_id}: {e}")
             finally:
                 stop_progress()
             logger.info(f"Environment setup complete for {self.resource_id}")
@@ -122,48 +123,22 @@ class SetupResource(BaseResource):
     def restart(self) -> None:
         """Restart the environment by stopping and then starting it again."""
         self.stop()
-
-        setup_script = "start_docker.sh"
-        env_type = "task server" if self.task_level_setup else "repo env"
-        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_dir
-
-
-
-        if os.path.exists(str(work_dir) + setup_script): 
-            logger.info(f"Restarting {env_type} {self.resource_id}")
-            logger.info(f"Executing {setup_script} in {work_dir}")
-            try:
-                result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
-                logger.info(f"{env_type.capitalize()} restarted at {self.resource_id}")
-                self.container_names = self.extract_container_names(result.stdout, result.stderr)
-
-                #if not self.container_names:
-                    #raise RuntimeError(f"Failed to retrieve container names for {self.host_name}")
-                if self.container_names: 
-                    self.wait_until_all_containers_healthy()
-
-            except FileNotFoundError:
-                logger.error(f"Setup script not found: {os.path.join(work_dir, setup_script)}")
-                raise
-            except Exception as e:
-                logger.error(f"Unable to restart {env_type} at {self.resource_id}: {e}")
-                raise
-
+        self._start()
+        
     def stop(self) -> None:
         """Stop the environment by running 'stop_docker.sh'."""
         work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_dir
-        stop_script = os.path.join(work_dir, "stop_docker.sh")
+        docker_compose_file = os.path.join(work_dir, "docker-compose.yml")
 
 
-        if os.path.exists(str(work_dir) + stop_script): 
-            logger.info(f"Executing stop_docker.sh in {work_dir}")
+        if os.path.exists(docker_compose_file): 
+            logger.info(f"Stopping docker in {work_dir}")
             try:
-                run_command(command=["./stop_docker.sh"], work_dir=work_dir)
+                run_command(command=["docker", "compose", "down", "-v"], work_dir=work_dir)
                 logger.info(f"Stopped environment at {self.resource_id}.")
-            except FileNotFoundError:
-                logger.warning(f"Stop script not found: {stop_script}.")
             except Exception as e:
-                logger.info(f"Unable to stop environment at {self.resource_id}: {e}")
+                logger.error(f"Unable to stop environment at {self.resource_id}: {e}", exc_info=True)
+
 
 
     def wait_until_all_containers_healthy(self, timeout: int = 300, check_interval: int = 2) -> bool:
@@ -238,7 +213,6 @@ class SetupResource(BaseResource):
         return {
             'task_level_setup': self.task_level_setup,
             'task_dir': self.task_dir,
-            'files_dir': self.files_dir,
             'bounty_dir': self.bounty_dir,
             'host_name': self.host_name,
             'port_number': self.port_number,
@@ -259,7 +233,6 @@ class SetupResource(BaseResource):
         instance = cls(
             task_level_setup=data['task_level_setup'],
             task_dir=data['task_dir'],
-            files_dir=data['files_dir'],
             bounty_number=bounty_number,
             server_address=server_address
         )
