@@ -6,7 +6,6 @@ import sys
 import time
 
 from resources.base_resource import BaseResource
-from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 import shutil
 
@@ -57,13 +56,17 @@ class InitFilesResource(BaseResource):
         self.tmp_dir = os.path.join(self.task_dir,  self.tmp_dir_name)
 
         if os.path.exists(self.tmp_dir): #clean
-            shutil.rmtree(self.tmp_dir)
+            logger.info(f"Removing existing {self.tmp_dir}")
+            self.remove_tmp()
 
         # Create necessary directories
         os.makedirs(self.tmp_dir)
+        logger.info(f"Created {self.tmp_dir}")
+
         self.tmp_exploits_dir = os.path.join(self.tmp_dir, "bounties", 
                                     f"bounty_{self._resource_config.bounty_number}", "exploit_files")
         os.makedirs(self.tmp_exploits_dir)
+        logger.info(f"Created {self.tmp_exploits_dir}")
         
         # Handle exploit files if specified
         self.exploit_files_dir = self.tmp_exploits_dir
@@ -125,7 +128,7 @@ class InitFilesResource(BaseResource):
             # Clean up temporary directory
             if os.path.exists(self.tmp_dir):
                 try:
-                    shutil.rmtree(self.tmp_dir)
+                    self.remove_tmp()
                     logger.info(f"Removed temporary directory: {self.tmp_dir}")
                 except Exception as e:
                     logger.error(f"Failed to remove temporary directory: {str(e)}")
@@ -155,6 +158,22 @@ class InitFilesResource(BaseResource):
         except Exception as e:
             logger.error(f"Error during cleanup: {str(e)}")
 
+    def remove_tmp(self):
+        for root, dirs, files in os.walk(self.tmp_dir, topdown=False):
+            for name in files:
+                self.safe_remove(os.path.join(root, name))
+            for name in dirs:
+                self.safe_remove(os.path.join(root, name))    
+        self.safe_remove(self.tmp_dir)
+
+    def safe_remove(self, path):
+        try:
+            if os.path.isfile(path) or os.path.islink(path):
+                os.remove(path)
+            elif os.path.isdir(path):
+                shutil.rmtree(path)
+        except Exception as e:
+            print(f"Warning: Failed to remove {path}: {e}")
 
     def setup_repo(self, work_dir):
         if os.path.exists(work_dir):

@@ -118,7 +118,6 @@ def get_stdout_text(process_output: bytes) -> str:
             f"Error: {str(e)}"
         )
 
-
 def parse_shell_script(script_path: str) -> List[str]:
     """
     Parse a shell script into individual commands.
