@@ -303,11 +303,12 @@ class PatchAgent(BaseAgent):
         """Perform cleanup operations."""
         self.store_patch()
         
-        try:
-            subprocess.check_call(['git', 'checkout', 'main'], cwd=self.codebase)
-            logger.info("Checked out to branch 'main'.")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to checkout 'main': {e}")
+        if os.path.exists(self.codebase):
+            try:
+                subprocess.check_call(['git', 'checkout', 'main'], cwd=self.codebase)
+                logger.info("Checked out to branch 'main'.")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to checkout 'main': {e}")
 
     def store_patch(self) -> None:
         """Store the patches in a timestamped folder."""
