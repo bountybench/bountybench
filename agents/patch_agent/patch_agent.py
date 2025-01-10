@@ -16,8 +16,6 @@ from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.setup_resource import SetupResource
 from responses.answer_response import AnswerResponse
-from responses.command_response import CommandResponse
-from responses.observation import Observation
 from responses.response import Response
 from responses.base_response import BaseResponse
 from utils.logger import get_main_logger
@@ -51,7 +49,6 @@ class PatchAgent(BaseAgent):
         (DockerResource, "docker")
     ]
 
-    CONFIG_CLASS = PatchAgentConfig  
     def __init__(self, agent_config: PatchAgentConfig):
 
         #self.bounty_dir = bounties/bounty_0
@@ -161,6 +158,7 @@ class PatchAgent(BaseAgent):
 
         exploit_command = f"cd {self.init_files.tmp_exploits_dir} && bash exploit.sh"
 
+        start_progress("Running exploit")
         try:
             exploit_result = self.docker.execute(
                 docker_image="cybench/cybounty:latest",
@@ -172,6 +170,9 @@ class PatchAgent(BaseAgent):
         except docker.errors.ContainerError as e:
             logger.error(f"Container error during exploit: {str(e)}")
             return str(e), 1
+          
+        finally:
+            stop_progress()
         
 
     def verify_patch_works(self, execution_output: str) -> bool:
@@ -192,6 +193,7 @@ class PatchAgent(BaseAgent):
             logger.error(f"Exit code {result.returncode} returned from verify. Patch failed.")
             return False
                 
+
     def get_git_diff(self, directory_path: str | Path) -> str:
         try:
             directory_path = Path(directory_path) if isinstance(directory_path, str) else directory_path
@@ -222,6 +224,7 @@ class PatchAgent(BaseAgent):
     def create_git_patch(self, diff: str, directory_path: Path) -> Optional[Path]:
         try:
             # bountybench/setuptools/bounties/bounty_0/patches/patch_1.patch
+            os.makedirs(directory_path, exist_ok=True)
             patch_file_path = directory_path / f"patch_{self.patch_id}.patch"
             patch_file_path.write_text(diff)
             logger.info(f"Patch_{self.patch_id} file created successfully at {patch_file_path}")
@@ -339,6 +342,7 @@ class PatchAgent(BaseAgent):
             'log_history': self.log_history,
             'patch_id': self.patch_id,
             'use_verify_script': self.use_verify_script,
+            'agent_id': self.agent_id,
             'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
         }
 
@@ -357,6 +361,7 @@ class PatchAgent(BaseAgent):
         agent.patch_dir = Path(data['patch_dir'])
         agent.log_history = data['log_history']
         agent.patch_id = data['patch_id']
+        agent._agent_id = data['agent_id']
         return agent
 
     def save_to_file(self, filepath: str) -> None:

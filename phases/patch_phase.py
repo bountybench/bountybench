@@ -1,4 +1,4 @@
-from agents.base_agent import AgentConfig
+from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from phase_responses.phase_response import PhaseResponse
 from phases.base_phase import BasePhase
@@ -13,7 +13,6 @@ from resources.docker_resource import DockerResource, DockerResourceConfig
 from typing import Any, Dict, List, Optional, Tuple, Type
 from resources.setup_resource import SetupResource, SetupResourceConfig
 import os
-import logging
 
 from workflows.base_workflow import BaseWorkflow
 
@@ -34,8 +33,8 @@ class PatchPhase(BasePhase):
         self.use_verify_script = kwargs.get('use_verify_script')
 
         super().__init__(workflow, **kwargs)
-
-    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
+   
+    def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         # assume we get model through some kwargs situation with the Message
         executor_lm_config = AgentLMConfig.create(model=self.model)
         
@@ -46,17 +45,18 @@ class PatchPhase(BasePhase):
             initial_prompt=self.initial_prompt 
         )
 
+        bounty_dir = os.path.join("bounties", f"bounty_{self.bounty_number}")
+
         patch_config = PatchAgentConfig(
             bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),
             task_dir=self.workflow.task_dir,
             use_verify_script=self.use_verify_script
         )
 
-        return [
-            ("ExecutorAgent", executor_config),
-            ("PatchAgent", patch_config),
-        ]
-   
+        return {"executor_agent": (ExecutorAgent, executor_config),
+                "patch_agent": (PatchAgent, patch_config)
+        }
+    
     def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
         """
         Define resource classes and their configurations required by the PatchPhase.

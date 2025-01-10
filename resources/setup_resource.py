@@ -138,6 +138,7 @@ class SetupResource(BaseResource):
                 logger.error(f"Unable to stop environment at {self.resource_id}: {e}", exc_info=True)
 
 
+
     def wait_until_all_containers_healthy(self, timeout: int = 300, check_interval: int = 2) -> bool:
         """
         Wait until all Docker containers are healthy.

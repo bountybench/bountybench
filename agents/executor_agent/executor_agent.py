@@ -48,15 +48,15 @@ class ExecutorAgent(BaseAgent):
         (SetupResource, "repo_resource"),
         (SetupResource, "task_server")
     ]
-    CONFIG_CLASS = ExecutorAgentConfig
-    def __init__(self, agent_config: ExecutorAgentConfig):#, resource_manager: ResourceManager):
+    
+    def __init__(self, agent_id, agent_config: ExecutorAgentConfig):#, resource_manager: ResourceManager):
         """
         Args:
             agent_config: ExecutorAgentConfig containing model, initial prompt, and target host.
             resource_manager: ResourceManager instance responsible for managing resources.
         """
         # Pass the agent_config and resource_manager to BaseAgent
-        super().__init__(agent_config)#, resource_manager)
+        super().__init__(agent_id, agent_config)#, resource_manager)
 
         # Initialize specific attributes
         if hasattr(agent_config, "initial_prompt"):
@@ -200,6 +200,7 @@ class ExecutorAgent(BaseAgent):
             "memory": self.memory,
             "initial_prompt": getattr(self, "initial_prompt", None),
             "prompt": getattr(self, "prompt", None),
+            'agent_id': self.agent_id,
             "timestamp": getattr(self, "timestamp", None),
         }
 
@@ -216,6 +217,7 @@ class ExecutorAgent(BaseAgent):
         )
         agent.memory = data["memory"]
         agent.prompt = data["prompt"]
+        agent._agent_id = data['agent_id']
         if data.get("timestamp"):
             agent.timestamp = data["timestamp"]
         return agent
