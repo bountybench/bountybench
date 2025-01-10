@@ -182,8 +182,6 @@ class KaliEnvResource(BaseResource):
                 logger.error(f"Error cleaning up Docker container: {e}")
 
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
-        # Prepend umask 000 to the command
-        command = f"umask 000 && {command}"
         command_str = command
         if len(command) > 33:
             command_str = command[:30] + "..."
