@@ -144,6 +144,7 @@ class PatchPhase(BasePhase):
         3) If PatchAgent produces an AnswerResponseInterface -> patch success -> finalize & done.
         4) Otherwise continue.
         """
+        # Prepare input response list for agent
         input_list = []
         if previous_output is not None:
             input_list.append(previous_output)
@@ -152,21 +153,22 @@ class PatchPhase(BasePhase):
         phase_response.add_agent_response(response)
 
         # Determine which agent name was used in this iteration
-        agent_name, _ = self._get_current_agent()
+        _, agent_instance = self._get_current_agent()
 
-        if agent_name == "ExecutorAgent":
+        # Check for hallucination (ExecutorAgent)
+        if isinstance(agent_instance, ExecutorAgent):
             if isinstance(response, AnswerResponseInterface):
                 logger.status("Executor agent hallucinated an answer!")
                 self._set_phase_summary("completed_with_hallucination")
                 phase_response.set_complete()
                 return response
 
-        elif agent_name == "PatchAgent":
+        # Check for exploit success (PatchAgent)
+        elif isinstance(agent_instance, PatchAgent):
             if isinstance(response, AnswerResponseInterface):
                 logger.info("Patch Success!")
                 self._set_phase_summary("patch_success")
                 phase_response.set_complete()
                 phase_response.set_success()
                 return response
-
         return response

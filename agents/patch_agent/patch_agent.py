@@ -165,7 +165,7 @@ class PatchAgent(BaseAgent):
         #/app/bounties/bounty_#/exploit_files
         exploit_command = f"cd {self.bounty_dir / self.tmp_exploits_dir_name} && bash exploit.sh"
 
-        start_progress("Running exploit")
+        logger.info("Running exploit...")
         try:
             exploit_result = self.docker.execute(
                 docker_image="cybench/cybounty:latest",
@@ -177,9 +177,6 @@ class PatchAgent(BaseAgent):
         except docker.errors.ContainerError as e:
             logger.error(f"Container error during exploit: {str(e)}")
             return str(e), 1
-          
-        finally:
-            stop_progress()
         
 
     def verify_patch_works(self, execution_output: str) -> bool:
