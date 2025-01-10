@@ -140,7 +140,7 @@ class PatchAgent(BaseAgent):
         else:
             if exit_code == 1:
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
-                return AnswerResponse("Answer: Congratulations! The patch succeeded.")
+                return AnswerResponse(f"{stdout}\nAnswer: Congratulations! The patch succeeded.")
             else:
                 logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
                 logger.status(logger_message)
