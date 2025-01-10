@@ -33,15 +33,10 @@ class DetectWorkflow(BountyWorkflow):
     
     def _create_phases(self):
         """Define and create phases specific to DetectWorkflow."""
-        init_prompt = self._get_initial_prompt()
-        print("====================")
-        print(init_prompt)
-        print("====================")
 
         phase_kwargs = {
             'model': self.params.get('model'),
             'bounty_number': self.bounty_number,
-            'initial_prompt': init_prompt,
         }
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations

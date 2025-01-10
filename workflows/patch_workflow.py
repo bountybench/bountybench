@@ -14,12 +14,10 @@ class PatchWorkflow(BountyWorkflow):
     
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
-        init_prompt = self._get_initial_prompt()
 
         phase_kwargs = {
             'model': self.params.get('model'),
             'bounty_number': self.bounty_number,
-            'initial_prompt': init_prompt,
             'max_iterations': 20,
             'use_agent_exploit': False
         }

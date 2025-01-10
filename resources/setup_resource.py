@@ -103,6 +103,8 @@ class SetupResource(BaseResource):
             start_progress(f"Executing {setup_script} in {work_dir}")
             try:
                 result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
+            except Exception as e:
+                logger.error(f"Unable to successfuly execute {setup_script} at {self.resource_id}: {e}")
             finally:
                 stop_progress()
             logger.info(f"Environment setup complete for {self.resource_id}")
