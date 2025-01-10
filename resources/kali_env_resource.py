@@ -159,6 +159,10 @@ class KaliEnvResource(BaseResource):
         finally:
             stop_progress()
 
+    def cleanup_tmp(self):
+        cleanup_command = "rm -rf * .*"
+        return self.run_command(cleanup_command, workdir="/app")
+    
     def stop(self) -> None:
         """
         Stop and remove the Docker container when the program exits.
@@ -166,8 +170,10 @@ class KaliEnvResource(BaseResource):
         This function is automatically registered to run when the program terminates.
         """
         if self.container:
-            logger.info("Cleaning up: stopping and removing Docker container.")
             try:
+                logger.info("Cleaning up: removing tmp files.")
+                self.cleanup_tmp()
+                logger.info("Cleaning up: stopping and removing Docker container.")
                 self.container.stop()
                 self.container.remove()
                 self.container = None
@@ -176,6 +182,8 @@ class KaliEnvResource(BaseResource):
                 logger.error(f"Error cleaning up Docker container: {e}")
 
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
+        # Prepend umask 000 to the command
+        command = f"umask 000 && {command}"
         command_str = command
         if len(command) > 33:
             command_str = command[:30] + "..."
