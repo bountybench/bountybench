@@ -198,20 +198,6 @@ class BasePhase(ABC):
         self.phase_summary = summary
 
     @abstractmethod
-    def define_agents(self) -> List[Tuple[str, AgentConfig]]:
-        """
-        Provide agent configurations for the phase.
-
-        Returns:
-            List[Tuple[str, AgentConfig]]: List of (agent_id, AgentConfig) tuples.
-        """
-        pass
-    
-    @abstractmethod
-    def define_resources(self)-> Dict[str, Tuple[Type['BaseResource'], Any]]: 
-        pass
-
-    @abstractmethod
     def run_one_iteration(
         self, phase_response: PhaseResponse, agent_instance: Any, previous_output: Optional[BaseResponse]
     ) -> BaseResponse:
