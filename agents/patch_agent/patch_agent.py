@@ -49,10 +49,12 @@ class PatchAgent(BaseAgent):
         (DockerResource, "docker")
     ]
 
-    def __init__(self, agent_config: PatchAgentConfig):
-
+    def __init__(self, agent_id: str, agent_config: PatchAgentConfig):
         #self.bounty_dir = bounties/bounty_0
-        #self.exploit_files_dir = "bountybench/setuptools/tmp/bounties/bounty_0/exploit_files"
+        #self.exploits_dir_name = "exploits"
+        #self.exploits_dir = bountybench/setuptools/bounties/bounty_0/exploits
+        #self.tmp_exploits_dir_name  = "exploit_files"
+        #self.tmp_exploits_dir  = "bountybench/setuptools/tmp/bounties/bounty_0/exploit_files"
         #self.patch_dir_name = "patches"
         #self.patch_dir = bountybench/setuptools/bounties/bounty_0/patches
         
@@ -68,13 +70,11 @@ class PatchAgent(BaseAgent):
         self.patch_id = 1
         self.patch_dir_name = "agent-patches"
 
-
         self.use_verify_script = agent_config.use_verify_script
         self.patch_dir = Path(agent_config.task_dir) / self.bounty_dir / self.patch_dir_name
         self.patch_dir.mkdir(parents=True, exist_ok=True)
 
-
-        super().__init__(agent_config)
+        super().__init__(agent_id, agent_config)
 
         atexit.register(self.cleanup)
 

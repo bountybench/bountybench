@@ -162,6 +162,7 @@ class BasePhase(ABC):
                     break
 
                 agent_id, agent_instance = self._get_current_agent()
+                logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
 
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_id, last_agent_response) as iteration_ctx:
@@ -171,7 +172,7 @@ class BasePhase(ABC):
                         previous_output=last_agent_response,
                     )
                     iteration_ctx.set_output(response)
-                logger.info(f"Finished iteration {iteration_num} of {self.name}")
+                logger.info(f"Finished iteration {iteration_num} of {self.name} with {agent_id}")
                 if curr_phase_response.complete:
                     break
 
