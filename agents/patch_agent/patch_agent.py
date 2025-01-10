@@ -106,9 +106,9 @@ class PatchAgent(BaseAgent):
             
             if patch_file_path:
                 # Apply the patch to the codebase directory
-                success, message = self.apply_git_patch(patch_file_path, self.codebase, "dev")
+                success, message = self.apply_git_patch(patch_file_path, self.task_dir / "codebase", "dev")
                 if success:
-                    self.create_git_commit(self.codebase, "dev")
+                    self.create_git_commit(self.task_dir / "codebase", "dev")
                 else:
                     logger.error(f"Failed to apply patch to codebase: {message}")
             else:
