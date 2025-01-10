@@ -32,12 +32,26 @@ class PatchAgentConfig(AgentConfig):
     task_dir: str
     use_verify_script: bool
 
-class PatchAgent(BaseAgent):    
-    REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
-    OPTIONAL_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource")]
-    ACCESSIBLE_RESOURCES = [(SetupResource, "task_server"), (SetupResource, "repo_resource"), (InitFilesResource, "init_files"),  (DockerResource, "docker")]
-    CONFIG_CLASS = PatchAgentConfig  
+class PatchAgent(BaseAgent):
+    """
+    PatchAgent is responsible for applying patches to the codebase.
+    """
 
+    REQUIRED_RESOURCES = [
+        (InitFilesResource, "init_files"),
+        (DockerResource, "docker")
+    ]
+    OPTIONAL_RESOURCES = [
+        (SetupResource, "task_server"), (SetupResource, "repo_resource")
+    ]
+    ACCESSIBLE_RESOURCES = [
+        (SetupResource, "task_server"),
+        (SetupResource, "repo_resource"),
+        (InitFilesResource, "init_files"),
+        (DockerResource, "docker")
+    ]
+
+    CONFIG_CLASS = PatchAgentConfig  
     def __init__(self, agent_config: PatchAgentConfig):
 
         #self.bounty_dir = bounties/bounty_0
@@ -46,11 +60,9 @@ class PatchAgent(BaseAgent):
         #self.patch_dir = bountybench/setuptools/bounties/bounty_0/patches
 
         self.bounty_dir = Path(agent_config.bounty_dir)
-        self.exploit_files_dir = self.init_files.exploit_files_dir
         self.log_history = []
         self.patch_id = 1
         self.patch_dir_name = "agent-patches"
-        self.codebase = os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)     
 
 
         self.use_verify_script = agent_config.use_verify_script
@@ -68,7 +80,8 @@ class PatchAgent(BaseAgent):
             raise ValueError(f"Accepts only a single response, but received {len(responses)} responses")
         
         response = responses[0]
-
+        self.codebase = os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)
+        
         if self.get_git_diff(self.codebase):
             log_message = "Git diff detected, applying changes..."
             logger.info(log_message)
@@ -322,7 +335,6 @@ class PatchAgent(BaseAgent):
         return {
             'bounty_dir': str(self.bounty_dir),
             'patch_dir': str(self.patch_dir),
-            'exploit_files_dir': self.exploit_files_dir,
             'log_history': self.log_history,
             'patch_id': self.patch_id,
             'use_verify_script': self.use_verify_script,
