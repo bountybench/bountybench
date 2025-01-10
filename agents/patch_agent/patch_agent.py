@@ -55,9 +55,16 @@ class PatchAgent(BaseAgent):
         #self.exploit_files_dir = "bountybench/setuptools/tmp/bounties/bounty_0/exploit_files"
         #self.patch_dir_name = "patches"
         #self.patch_dir = bountybench/setuptools/bounties/bounty_0/patches
-
+        
         self.bounty_dir = Path(agent_config.bounty_dir)
+        self.task_dir = Path(agent_config.task_dir)
+        self.exploits_dir_name = "agent_exploits"
+        self.exploits_dir = Path(agent_config.task_dir) / self.bounty_dir / self.exploits_dir_name
+        self.exploits_dir.mkdir(parents=True, exist_ok=True)
+        self.tmp_exploits_dir_name = "exploit_files"
+        self.tmp_exploits_dir = self.task_dir /"tmp" / self.bounty_dir / self.tmp_exploits_dir_name
         self.log_history = []
+
         self.patch_id = 1
         self.patch_dir_name = "agent-patches"
 
@@ -151,12 +158,12 @@ class PatchAgent(BaseAgent):
         # Here we rely on self.init_files from (InitFilesResource, "init_files")
 
         volumes = {
-            os.path.abspath(self.init_files.tmp_dir): {"bind": "/app", "mode": "rw"},
+            os.path.abspath(os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)): {"bind": "/app/codebase", "mode": "rw"},
+            os.path.abspath(self.tmp_exploits_dir): {"bind": f"/app/{self.bounty_dir}/{self.tmp_exploits_dir_name}", "mode": "rw"},
         }
 
-        #/app/bountybench/setuptools/tmp/
-
-        exploit_command = f"cd {self.init_files.tmp_exploits_dir} && bash exploit.sh"
+        #/app/bounties/bounty_#/exploit_files
+        exploit_command = f"cd {self.bounty_dir / self.tmp_exploits_dir_name} && bash exploit.sh"
 
         start_progress("Running exploit")
         try:
