@@ -50,13 +50,6 @@ class PatchAgent(BaseAgent):
     ]
 
     def __init__(self, agent_id: str, agent_config: PatchAgentConfig):
-        #self.bounty_dir = bounties/bounty_0
-        #self.exploits_dir_name = "exploits"
-        #self.exploits_dir = bountybench/setuptools/bounties/bounty_0/exploits
-        #self.tmp_exploits_dir_name  = "exploit_files"
-        #self.tmp_exploits_dir  = "bountybench/setuptools/tmp/bounties/bounty_0/exploit_files"
-        #self.patch_dir_name = "patches"
-        #self.patch_dir = bountybench/setuptools/bounties/bounty_0/patches
         
         self.bounty_dir = Path(agent_config.bounty_dir)
         self.task_dir = Path(agent_config.task_dir)
