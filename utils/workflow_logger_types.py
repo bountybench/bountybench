@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
-from responses.response import Response
+from messages.message import Message
 
 @dataclass
 class Action:
@@ -17,8 +17,8 @@ class Action:
 class PhaseIteration:
     iteration_number: int
     agent_name: str
-    input_response: Optional[Response]
-    output_response: Optional[Response]
+    input_message: Optional[Message]
+    output_message: Optional[Message]
     start_time: str
     end_time: Optional[str]
     actions: List[Action] = field(default_factory=list)

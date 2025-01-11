@@ -33,7 +33,7 @@ Represents a single iteration of the workflow:
 #### 4. AgentInteraction
 Records interaction between agents:
 - Agent name
-- Input/output responses
+- Input/output messages
 - Start/end times
 - List of actions
 - Metadata
@@ -83,11 +83,11 @@ def run_workflow():
     # Each iteration is managed by a context
     with workflow_logger.iteration(iteration_number=1) as iteration:
         # Each agent interaction is also managed by a context
-        with iteration.interaction("agent_name", input_response) as interaction:
+        with iteration.interaction("agent_name", input_message) as interaction:
             # Your workflow logic here
-            output_response = agent.run([input_response])
-            # Set the output response to end the current interaction
-            interaction.set_output(output_response)
+            output_message = agent.run([input_message])
+            # Set the output message to end the current interaction
+            interaction.set_output(output_message)
 
         # Multiple interactions can be nested within an iteration
         with iteration.interaction("another_agent", another_input) as interaction:
@@ -102,7 +102,7 @@ def run_workflow():
 - Initialize the logger at the start of your workflow
 - Use context managers (`with` statements) for iterations and interactions
 - Let the context managers handle the start/end of iterations and interactions
-- Always set the output response in successful interactions
+- Always set the output message in successful interactions
 
 ## TLDR
 
@@ -110,10 +110,10 @@ The Workflow Logger is a structured logging system that uses context managers to
 
 ```python
 with workflow_logger.iteration(iteration_number=1) as iteration:
-    with iteration.interaction("agent", input_response) as interaction:
+    with iteration.interaction("agent", input_message) as interaction:
         # Your workflow logic here
         interaction.log_action(...)
-        interaction.set_output(output_response)
+        interaction.set_output(output_message)
 workflow_logger.finalize(status)
 ```
 
