@@ -1,14 +1,10 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-import re
-from typing import List, Optional, Set, Tuple, Type, Union
+from typing import List, Set, Tuple, Type, Union
 
 from resources.base_resource import BaseResource
-from responses.failure_response import FailureResponse
 from responses.response import Response
 from responses.response_history import ResponseHistory
 from utils.logger import get_main_logger
-from utils.workflow_logger import workflow_logger
 
 logger = get_main_logger(__name__)
 
@@ -45,8 +41,6 @@ class BaseAgent(ABC):
         self.target_host_address = getattr(agent_config, "target_host", "")
 
         logger.info(f"Initialized agent {self.agent_id}")
-        
-        workflow_logger.add_agent(self.agent_id, self)
 
     @staticmethod
     def _parse_resource_entry(entry: Union[Type[BaseResource], Tuple[Type[BaseResource], str]]) -> Tuple[Type[BaseResource], str]:
