@@ -11,6 +11,11 @@
 ## Installation
 ## Environment Setup
 
+You can quickly set up the environment by running the following command:
+```
+source setup.sh
+```
+
 ### 1. Ensure Python 3.11 is Installed
 Verify that Python 3.11 is available on your system:
 ```
