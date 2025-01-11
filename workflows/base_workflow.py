@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import atexit
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -55,6 +56,8 @@ class BaseWorkflow(ABC):
         self._create_phases()
         self._compute_resource_schedule()
         logger.info(f"Finished initializing workflow {self.name}")
+        
+        atexit.register(self._finalize_workflow)
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
@@ -167,7 +170,7 @@ class BaseWorkflow(ABC):
                 current_phase = next_phases[0] if next_phases else None
                 prev_phase_response = phase_response
 
-            self._finalize_workflow()
+            self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
 
         except Exception as e:
             self._handle_workflow_exception(e)
@@ -198,9 +201,8 @@ class BaseWorkflow(ABC):
         return self._workflow_iteration_count >= self.config.max_iterations
 
     def _finalize_workflow(self):
-        if self.status == WorkflowStatus.INCOMPLETE:
-            self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
-        self.workflow_logger.finalize(self.status.value)
+        log_file_path = self.workflow_logger.finalize(self.status.value)
+        logger.status(f"Saved log to: {log_file_path}")
 
     def _handle_workflow_exception(self, exception: Exception):
         self._set_workflow_status(WorkflowStatus.INCOMPLETE)

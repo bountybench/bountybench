@@ -271,6 +271,7 @@ class WorkflowLogger:
         self.workflow_log.metadata.end_time = datetime.now().isoformat()
         self.workflow_log.final_status.append(final_status)
         self.save()
+        return self.log_file
     
     def _json_serializable(self, obj: Any) -> Any:
         if isinstance(obj, Path):
@@ -334,7 +335,6 @@ class WorkflowLogger:
 
         with open(self.log_file, 'w') as f:
             json.dump(log_dict, f, indent=4, default=self._json_serializable)
-            logger.status(f"Saved log to: {self.log_file}")
 
     def _format_response(self, response):
         if isinstance(response, dict) and '_response' in response:
