@@ -71,18 +71,6 @@ It should list the contents of your current working directory. If you encounter 
 
 ## Usage
 
-Before running any of the workflows, ensure that the `bountyagent` directory is included in your `PYTHONPATH`. You can check this by running the following command:
-
-```bash
-echo $PYTHONPATH
-```
-If bountyagent is not included, you can add it to your PYTHONPATH by running:
-
-```bash
-export PYTHONPATH=$PYTHONPATH:/path/to/bountyagent
-```
-Replace /path/to/bountyagent with the absolute path to your bountyagent directory.
-
 ### Running the Workflow
 Make sure your Docker Desktop app is running.
 
