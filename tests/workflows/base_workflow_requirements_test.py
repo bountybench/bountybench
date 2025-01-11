@@ -20,17 +20,17 @@ class TestResource3(BaseResource):
 
 class TestAgent1(BaseAgent):
     REQUIRED_RESOURCES = [TestResource1]
-    def run(self, response):
+    def run(self, message):
         pass
 
 class TestAgent2(BaseAgent):
     REQUIRED_RESOURCES = [TestResource2]
-    def run(self, response):
+    def run(self, message):
         pass
 
 class TestAgent3(BaseAgent):
     REQUIRED_RESOURCES = [TestResource3]
-    def run(self, response):
+    def run(self, message):
         pass
     
 class TestPhase1(BasePhase):
