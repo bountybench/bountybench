@@ -196,7 +196,6 @@ class ExecutorAgent(BaseAgent):
         """
         return {
             "config": self.agent_config.lm_config.__dict__,
-            "memory": self.memory,
             "initial_prompt": getattr(self, "initial_prompt", None),
             "prompt": getattr(self, "prompt", None),
             'agent_id': self.agent_id,
