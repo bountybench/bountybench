@@ -25,6 +25,12 @@ class WorkflowStatus(Enum):
     COMPLETED_FAILURE = "completed_failure"
     COMPLETED_MAX_ITERATIONS = "completed_max_iterations"
 
+class PhaseStatus(Enum):
+    """Status of phase execution"""
+    INCOMPLETE = "incomplete"
+    COMPLETED_SUCCESS = "completed_success"
+    COMPLETED_FAILURE = "completed_failure"
+
 @dataclass
 class WorkflowConfig:
     """Configuration for a workflow"""
@@ -157,12 +163,18 @@ class BaseWorkflow(ABC):
             self._set_workflow_status(WorkflowStatus.INCOMPLETE)
             current_phase = self._root_phase
             prev_phase_response = self._get_initial_phase_response()
-
+            
             while current_phase:
                 logger.info(f"Running {current_phase.name}")
+                self._set_phase_status(current_phase.name, PhaseStatus.INCOMPLETE)
                 phase_response = self._run_single_phase(current_phase, prev_phase_response)
                 yield phase_response
                 
+                if phase_response.success:
+                    self._set_phase_status(current_phase.name, PhaseStatus.COMPLETED_SUCCESS)
+                else:
+                    self._set_phase_status(current_phase.name, PhaseStatus.COMPLETED_FAILURE)
+
                 if not phase_response.success or self._max_iterations_reached():
                     break
                     
@@ -177,6 +189,9 @@ class BaseWorkflow(ABC):
 
     def _set_workflow_status(self, status: WorkflowStatus):
         self.status = status
+
+    def _set_phase_status(self, phase_name: str, status: PhaseStatus):
+        self.workflow_logger.add_phase_status(phase_name, status.value)
 
     def _get_initial_phase_response(self) -> PhaseResponse:
         initial_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None

@@ -48,6 +48,7 @@ class WorkflowLogger:
         metadata_dict = {
             "workflow_name": workflow_name,
             "start_time": datetime.now().isoformat(),
+            "phases_status":{}
         }
 
         if task:
@@ -265,11 +266,23 @@ class WorkflowLogger:
             self.workflow_log.resources_used[resource_name] = resource.to_dict()
 
     
-    def finalize(self, final_status: str = "completed") -> None:
+    def add_phase_status(self, phase_name: str, phase_status: str) -> None:
+        """
+        Log a resource being used in the workflow and save its state.
+        
+        Args:
+            phase_name (str): Name of the phase
+            phase_status (str): status of phase
+        """
+        self._ensure_initialized()
+        
+        self.workflow_log.metadata.phases_status[phase_name] = phase_status
+
+    def finalize(self, final_status: str) -> None:
         """Finalize the workflow log: mark the end time, record final status, and save."""
         self._ensure_initialized()
         self.workflow_log.metadata.end_time = datetime.now().isoformat()
-        self.workflow_log.final_status.append(final_status)
+        self.workflow_log.metadata.final_status = final_status
         self.save()
         return self.log_file
     
@@ -294,6 +307,8 @@ class WorkflowLogger:
         
         metadata_dict = {
             "workflow_name": self.workflow_log.metadata.workflow_name,
+            "final_status": self.workflow_log.metadata.final_status,
+            "phases_status": self.workflow_log.metadata.phases_status,
             "start_time": self.workflow_log.metadata.start_time,
             "end_time": self.workflow_log.metadata.end_time,
         }
@@ -305,8 +320,6 @@ class WorkflowLogger:
 
         log_dict = {
             "metadata": metadata_dict,
-            "agents_used": self.workflow_log.agents_used,
-            "resources_used": self.workflow_log.resources_used,
             "final_status": self.workflow_log.final_status,
             "phases": [
                 {
@@ -328,13 +341,16 @@ class WorkflowLogger:
                         } for iteration in phase.iterations
                     ]
                 } for phase in self.workflow_log.phases
-            ]
+            ],
+            "agents_used": self.workflow_log.agents_used,
+            "resources_used": self.workflow_log.resources_used,
         }
 
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
         with open(self.log_file, 'w') as f:
             json.dump(log_dict, f, indent=4, default=self._json_serializable)
+            logger.status(f"Saved log to: {self.log_file}")
 
     def _format_response(self, response):
         if isinstance(response, dict) and '_response' in response:

@@ -39,7 +39,9 @@ class WorkflowPhase:
 class WorkflowMetadata:
     workflow_name: str
     start_time: str
+    final_status: str = "incomplete"
     end_time: Optional[str] = None
+    phases_status: Optional[Dict[str, Any]] = field(default_factory=dict)
     additional_metadata: Dict[str, Any] = field(default_factory=dict)
     task: Optional[Dict[str, Any]] = None
 
@@ -53,5 +55,4 @@ class WorkflowLog:
     phases: List[WorkflowPhase] = field(default_factory=list)
     resources_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     agents_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    final_status: List[str] = field(default_factory=list)
     error_log: List[Dict[str, Any]] = field(default_factory=list)
