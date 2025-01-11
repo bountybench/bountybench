@@ -293,6 +293,7 @@ class WorkflowLogger:
         
         metadata_dict = {
             "workflow_name": self.workflow_log.metadata.workflow_name,
+            "workflow_final_status": self.workflow_log.final_status,
             "start_time": self.workflow_log.metadata.start_time,
             "end_time": self.workflow_log.metadata.end_time,
         }
