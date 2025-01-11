@@ -1,8 +1,21 @@
+/* WorkflowDashboard.css */
 .dashboard-container {
-  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   padding: 24px;
-  overflow: hidden;
+  position: relative;
 }
+/* .dashboard-container {
+  flex-grow: 1;
+  overflow: hidden;
+} */
+
+/* .dashboard-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+} */
 
 .dashboard-grid {
   height: calc(100vh - 100px);
@@ -15,6 +28,57 @@
   background-color: #132f4c !important;
 }
 
+/* .dashboard-content {
+  flex-grow: 1;
+  overflow: hidden;
+} */
+
+.dashboard-content {
+  flex-grow: 1;
+  overflow: hidden;
+  position: relative;
+}
+
 .right-panel {
   height: 100%;
+}
+
+.main-content {
+  height: 100%;
+  overflow-y: auto;
+  transition: width 0.3s ease;
+}
+
+.panel-toggle-button {
+  position: absolute !important;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 1000;
+}
+
+.side-panel-container {
+  height: 100%;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.side-panel-wrapper {
+  height: 100%;
+  position: relative;
+}
+
+.side-panel {
+  height: 100%;
+  overflow-y: auto;
+  padding-left: 40px; /* Make room for the toggle button */
+}
+
+.panel-toggle-button {
+  position: absolute !important;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  z-index: 1000;
+  width: 10px;
 }

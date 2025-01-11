@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
-import { Box, Typography, CircularProgress, Alert, Button } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, Button, Grid, IconButton } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { AgentInteractions } from '../AgentInteractions/AgentInteractions';
+import { PhasePanel } from '../PhasePanel/PhasePanel';
+import { AgentPanel } from '../AgentPanel/AgentPanel';
+import { ResourcePanel } from '../ResourcePanel/ResourcePanel';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
@@ -9,6 +14,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
   console.log('WorkflowDashboard props:', { selectedWorkflow, interactiveMode }); // Debug log
   
   const [isNextDisabled, setIsNextDisabled] = useState(false);
+  const [isPanelExpanded, setIsPanelExpanded] = useState(true);
 
   const {
     isConnected,
@@ -52,6 +58,33 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     }
   };
 
+  const triggerNextPhase = async () => {
+    if (selectedWorkflow?.id) {
+      setIsNextDisabled(true);
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/next_phase/${selectedWorkflow.id}`, {
+          method: 'POST',
+        });
+        const data = await response.json();
+        if (data.error) {
+          console.error('Error triggering next phase:', data.error);
+        } else {
+          console.log('Next phase triggered:', data);
+          if (data.status === 'completed') {
+            // Handle workflow completion
+            console.log('Workflow completed');
+          }
+        }
+      } catch (error) {
+        console.error('Error triggering next phase:', error);
+      } finally {
+        setIsNextDisabled(false);
+      }
+    } else {
+      console.error('Workflow ID is not available');
+    }
+  };
+  
   const handleUpdateActionInput = async (actionId, newInputData) => {
     const url = `http://localhost:8000/workflow/edit_action_input/${selectedWorkflow.id}`;
     const requestBody = { action_id: actionId, new_input_data: newInputData };
@@ -82,6 +115,10 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     } catch (error) {
       console.error('Error updating action:', error);
     }
+  };
+  
+  const togglePanel = () => {
+    setIsPanelExpanded(!isPanelExpanded);
   };
   
   if (!isConnected) {
@@ -125,19 +162,51 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
             Next Iteration
           </Button>
         )}
+        {interactiveMode && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={triggerNextPhase}
+            startIcon={<ArrowForwardIcon />}
+            disabled={isNextDisabled}
+          >
+            Continue to Next Phase
+          </Button>
+        )}
       </Box>
-      
-      <Box className="dashboard-content">
-        <AgentInteractions
-          workflow={selectedWorkflow}
-          interactiveMode={interactiveMode}
-          currentPhase={currentPhase}
-          currentIteration={currentIteration}
-          messages={messages}
-          onSendMessage={sendMessage}
-          onUpdateActionInput={handleUpdateActionInput}
-        />
-      </Box>
+        
+      <Grid container spacing={2} className="dashboard-content">
+        <Grid item xs={12} md={isPanelExpanded ? 8 : 11} className="main-content">
+          <AgentInteractions
+            workflow={selectedWorkflow}
+            interactiveMode={interactiveMode}
+            currentPhase={currentPhase}
+            currentIteration={currentIteration}
+            messages={messages}
+            onSendMessage={sendMessage}
+            onUpdateActionInput={handleUpdateActionInput}
+          />
+        </Grid>
+        <Grid item xs={12} md={isPanelExpanded ? 4 : 1} className="side-panel-container">
+          <Box className="side-panel-wrapper">
+            <IconButton
+              onClick={togglePanel}
+              className="panel-toggle-button"
+              size="small"
+              color="primary"
+            >
+              {isPanelExpanded ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+            </IconButton>
+            {isPanelExpanded && (
+              <Box className="side-panel">
+                <PhasePanel workflow={selectedWorkflow} /> 
+                <AgentPanel workflow={selectedWorkflow} />
+                <ResourcePanel workflow={selectedWorkflow} />
+              </Box>
+            )}
+          </Box>
+        </Grid>
+      </Grid>
     </Box>
   );
 };
