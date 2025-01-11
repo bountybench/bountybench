@@ -332,10 +332,10 @@ class WorkflowLogger:
                             "agent_name": iteration.agent_name,
                             "status": iteration.status,
                             "input_response": self._format_response(iteration.input_response),
+                            "actions": iteration.actions,
                             "output_response": self._format_response(iteration.output_response),
                             "start_time": iteration.start_time,
                             "end_time": iteration.end_time,
-                            "actions": iteration.actions,
                             "metadata": iteration.metadata
                         } for iteration in phase.iterations
                     ]
