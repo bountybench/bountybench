@@ -59,7 +59,7 @@ class WorkflowLogger:
         )
 
         components = [workflow_name]
-        for key, value in sorted(task.items()):
+        for _, value in task.items():
             if value:
                 components.append(str(value.name if isinstance(value, Path) else value))
 
