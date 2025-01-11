@@ -378,7 +378,7 @@ class WorkflowLogger:
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            status = "failed" if exc_type else "completed"
+            status = "incomplete" if exc_type else "completed"
             self.logger.end_phase(status, self.phase_instance)
             # If we return False, we do NOT suppress exceptions.
             return False
@@ -431,7 +431,7 @@ class WorkflowLogger:
                     answer="Iteration completed without explicit response",
                     error=False
                 )
-            self.logger.end_iteration(self.output_response, "failed" if exc_type else "completed")
+            self.logger.end_iteration(self.output_response, "incomplete" if exc_type else "completed")
             return False  # Don't suppress exceptions
 
         def set_output(self, output_response: Response):
