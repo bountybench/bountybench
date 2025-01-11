@@ -182,7 +182,10 @@ class BaseWorkflow(ABC):
                 current_phase = next_phases[0] if next_phases else None
                 prev_phase_response = phase_response
 
-            self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
+            if prev_phase_response.success:
+                self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
+            else:
+                self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
 
         except Exception as e:
             self._handle_workflow_exception(e)
