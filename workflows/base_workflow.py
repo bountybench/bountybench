@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import atexit
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -23,6 +24,12 @@ class WorkflowStatus(Enum):
     COMPLETED_SUCCESS = "completed_success"
     COMPLETED_FAILURE = "completed_failure"
     COMPLETED_MAX_ITERATIONS = "completed_max_iterations"
+
+class PhaseStatus(Enum):
+    """Status of phase execution"""
+    INCOMPLETE = "incomplete"
+    COMPLETED_SUCCESS = "completed_success"
+    COMPLETED_FAILURE = "completed_failure"
 
 @dataclass
 class WorkflowConfig:
@@ -55,6 +62,8 @@ class BaseWorkflow(ABC):
         self._create_phases()
         self._compute_resource_schedule()
         logger.info(f"Finished initializing workflow {self.name}")
+        
+        atexit.register(self._finalize_workflow)
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
@@ -154,12 +163,18 @@ class BaseWorkflow(ABC):
             self._set_workflow_status(WorkflowStatus.INCOMPLETE)
             current_phase = self._root_phase
             prev_phase_response = self._get_initial_phase_response()
-
+            
             while current_phase:
                 logger.info(f"Running {current_phase.name}")
+                self._set_phase_status(current_phase.name, PhaseStatus.INCOMPLETE)
                 phase_response = self._run_single_phase(current_phase, prev_phase_response)
                 yield phase_response
                 
+                if phase_response.success:
+                    self._set_phase_status(current_phase.name, PhaseStatus.COMPLETED_SUCCESS)
+                else:
+                    self._set_phase_status(current_phase.name, PhaseStatus.COMPLETED_FAILURE)
+
                 if not phase_response.success or self._max_iterations_reached():
                     break
                     
@@ -167,13 +182,19 @@ class BaseWorkflow(ABC):
                 current_phase = next_phases[0] if next_phases else None
                 prev_phase_response = phase_response
 
-            self._finalize_workflow()
+            if prev_phase_response.success:
+                self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
+            else:
+                self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
 
         except Exception as e:
             self._handle_workflow_exception(e)
 
     def _set_workflow_status(self, status: WorkflowStatus):
         self.status = status
+
+    def _set_phase_status(self, phase_name: str, status: PhaseStatus):
+        self.workflow_logger.add_phase_status(phase_name, status.value)
 
     def _get_initial_phase_response(self) -> PhaseResponse:
         initial_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
@@ -198,9 +219,8 @@ class BaseWorkflow(ABC):
         return self._workflow_iteration_count >= self.config.max_iterations
 
     def _finalize_workflow(self):
-        if self.status == WorkflowStatus.INCOMPLETE:
-            self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
-        self.workflow_logger.finalize(self.status.value)
+        log_file_path = self.workflow_logger.finalize(self.status.value)
+        logger.status(f"Saved log to: {log_file_path}")
 
     def _handle_workflow_exception(self, exception: Exception):
         self._set_workflow_status(WorkflowStatus.INCOMPLETE)
