@@ -226,13 +226,6 @@ class InitFilesResource(BaseResource):
                             cwd=files_dir, check=True)
                 logger.info(f"Created and switched to 'dev' branch in {files_dir}")
 
-                # Verify the current commit
-                current_commit = subprocess.run(["git", "rev-parse", "HEAD"],
-                                                cwd=files_dir, capture_output=True, text=True, check=True)
-                if current_commit.stdout.strip() == self.vulnerable_commit:
-                    logger.info(f"Successfully checked out to commit {self.vulnerable_commit}")
-                else:
-                    logger.warning(f"Current commit ({current_commit.stdout.strip()}) does not match the intended vulnerable commit ({self.vulnerable_commit})")
 
             else:
                 logger.error(f"Directory {files_dir} is not a valid git repository.")
