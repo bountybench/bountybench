@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class PhaseConfig:
     phase_name: str
     agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)
-    max_iterations: int = field(default=10)
+    max_iterations: int = field(default=3)
     interactive: bool = False
     phase_idx: Optional[int] = None
     initial_prompt: Optional[str] = None
@@ -140,7 +140,7 @@ class BasePhase(ABC):
             raise
 
     
-    def run_phase(self, prev_phase_response: PhaseResponse) -> PhaseResponse:
+    async def run_phase(self, prev_phase_response: PhaseResponse) -> PhaseResponse:
         """
         Execute the phase by running its iterations.
 
@@ -166,7 +166,7 @@ class BasePhase(ABC):
 
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_id, last_agent_response) as iteration_ctx:
-                    response = self.run_one_iteration(
+                    response = await self.run_one_iteration(
                         phase_response=curr_phase_response,
                         agent_instance=agent_instance,
                         previous_output=last_agent_response,
@@ -200,7 +200,7 @@ class BasePhase(ABC):
         self.phase_summary = summary
 
     @abstractmethod
-    def run_one_iteration(
+    async def run_one_iteration(
         self, phase_response: PhaseResponse, agent_instance: Any, previous_output: Optional[BaseResponse]
     ) -> BaseResponse:
         """

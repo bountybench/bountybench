@@ -132,7 +132,7 @@ class PatchPhase(BasePhase):
         return resource_configs
 
 
-    def run_one_iteration(
+    async def run_one_iteration(
         self,
         phase_response: PhaseResponse,
         agent_instance: Any,

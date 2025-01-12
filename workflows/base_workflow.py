@@ -148,13 +148,13 @@ class BaseWorkflow(ABC):
     def _get_metadata(self) -> Dict[str, Any]:
         return {}
     
-    def run(self) -> None:
+    async def run(self) -> None:
         """Execute the entire workflow by running all phases in sequence."""
         logger.info(f"Running workflow {self.name}")
-        for _ in self._run_phases():
+        async for _ in self._run_phases():
             continue
 
-    def _run_phases(self):
+    async def _run_phases(self):
         try:
             if not self._root_phase:
                 raise ValueError("No root phase registered")
@@ -166,7 +166,7 @@ class BaseWorkflow(ABC):
             while current_phase:
                 logger.info(f"Running {current_phase.name}")
                 self._set_phase_status(current_phase.name, PhaseStatus.INCOMPLETE)
-                phase_response = self._run_single_phase(current_phase, prev_phase_response)
+                phase_response = await self._run_single_phase(current_phase, prev_phase_response)
                 yield phase_response
                 
                 if phase_response.success:
@@ -199,7 +199,7 @@ class BaseWorkflow(ABC):
         initial_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
         return PhaseResponse(agent_responses=[initial_response] if initial_response else [])
 
-    def _run_single_phase(self, phase: BasePhase, prev_phase_response: PhaseResponse) -> PhaseResponse:
+    async def _run_single_phase(self, phase: BasePhase, prev_phase_response: PhaseResponse) -> PhaseResponse:
         phase_instance = self._setup_phase(phase)
         phase_response = phase_instance.run_phase(prev_phase_response)
         

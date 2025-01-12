@@ -143,6 +143,7 @@ async def execute_workflow(workflow_id: str):
     except Exception as e:
         return {"error": str(e)}
 
+'''
 async def run_workflow(workflow_id: str):
     """Run workflow in background and broadcast updates"""
     global should_exit
@@ -175,6 +176,48 @@ async def run_workflow(workflow_id: str):
     except Exception as e:
         if not should_exit:
             print(f"Workflow error: {e}")
+            workflow_data["status"] = "error"
+            await websocket_manager.broadcast(workflow_id, {
+                "type": "status_update",
+                "status": "error",
+                "error": str(e)
+            })
+'''
+
+async def run_workflow(workflow_id: str):
+    """Run workflow in background and broadcast updates"""
+    global should_exit
+
+    if workflow_id not in active_workflows or should_exit:
+        print(f"Workflow {workflow_id} not found or shutdown initiated")
+        return
+
+    workflow_data = active_workflows[workflow_id]
+    workflow = workflow_data["instance"]
+
+    try:
+        workflow_data["status"] = "running"
+        print(f"Workflow {workflow_id} is running")
+        await websocket_manager.broadcast(workflow_id, {
+            "type": "status_update",
+            "status": "running"
+        })
+
+        # Run the workflow
+        print(f"Starting workflow.run() for {workflow_id}")
+        await workflow.run()
+        print(f"Workflow.run() completed for {workflow_id}")
+
+        if not should_exit:
+            workflow_data["status"] = "completed"
+            await websocket_manager.broadcast(workflow_id, {
+                "type": "status_update",
+                "status": "completed"
+            })
+
+    except Exception as e:
+        print(f"Error during workflow execution for {workflow_id}: {e}")
+        if not should_exit:
             workflow_data["status"] = "error"
             await websocket_manager.broadcast(workflow_id, {
                 "type": "status_update",
