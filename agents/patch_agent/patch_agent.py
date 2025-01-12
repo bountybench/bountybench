@@ -38,10 +38,10 @@ class PatchAgent(BaseAgent):
         (DockerResource, "docker")
     ]
     OPTIONAL_RESOURCES = [
-        (SetupResource, "task_server"), (SetupResource, "repo_resource")
+        (SetupResource, "bounty_resource"), (SetupResource, "repo_resource")
     ]
     ACCESSIBLE_RESOURCES = [
-        (SetupResource, "task_server"),
+        (SetupResource, "bounty_resource"),
         (SetupResource, "repo_resource"),
         (InitFilesResource, "init_files"),
         (DockerResource, "docker")
@@ -110,13 +110,12 @@ class PatchAgent(BaseAgent):
             logger.info("No changes detected in tmp directory. Skipping patch creation and application.")
 
         # Restart resources if needed
-        task_server_restarted = self.task_server and self.restart_task_server_resource()
-        repo_resource_restarted = self.repo_resource and self.restart_repo_resource()
+        bounty_resource_restarted = hasattr(self, "bounty_resource") and self._restart_resource(self.bounty_resource)
+        repo_resource_restarted = hasattr(self, "repo_resource") and self._restart_resource(self.repo_resource)
 
-        if self.task_server and self.repo_resource and not (task_server_restarted and repo_resource_restarted):
+        if hasattr(self, "bounty_resource") and hasattr(self, "repo_resource") and not (bounty_resource_restarted and repo_resource_restarted):
             logger.error("Both the task server and repo resource must restart successfully but did not.")
             return Message("The task server and/or repo resource cannot restart after the changes.")
-
 
         # Run exploit
         stdout, exit_code = self.run_exploit()
@@ -144,6 +143,15 @@ class PatchAgent(BaseAgent):
         self.log_history.clear()
         return Message(patch_message)
     
+    def _restart_resource(self, resource):
+        """Restart a specific resource."""
+        try:
+            resource.restart()
+            logger.info(f"{resource.resource_id} resource restarted successfully.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to restart {resource.resource_id} resource: {e}")
+        return False
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def run_exploit(self) -> Tuple[str, int]:
@@ -267,26 +275,6 @@ class PatchAgent(BaseAgent):
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to apply patch '{patch_file}': {e}")
             return False, f"Failed to apply patch '{patch_file}': {e}"
-
-    def restart_task_server_resource(self) -> bool:
-        """Restart the task server resource."""
-        try:
-            self.task_server.restart()
-            logger.info("Task server resource restarted successfully.")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to restart task server resource: {e}")
-            return False
-
-    def restart_repo_resource(self) -> bool:
-        """Restart the repo resource."""
-        try:
-            self.repo_resource.restart()
-            logger.info("Repo resource restarted successfully.")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to restart repo resource: {e}")
-            return False
 
     def git_reset(self, directory_path: Path, branch_name: Optional[str] = None) -> None:
         """Reset the git repository to the previous commit (HEAD~1)."""

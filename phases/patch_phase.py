@@ -6,6 +6,7 @@ from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
 from resources.base_resource import BaseResource
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
+from resources.utils import contains_setup
 from messages.answer_message import AnswerMessageInterface
 from messages.message import Message
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
@@ -109,25 +110,26 @@ class PatchPhase(BasePhase):
         }
 
         setup_repo_env_script = os.path.join(str(self.workflow.task_dir), "setup_repo_env.sh")
-        if os.path.exists(setup_repo_env_script):
+        if contains_setup(setup_repo_env_script):
             resource_configs["repo_resource"] = (
                 SetupResource,
                 SetupResourceConfig(
-                    task_level_setup=False,
+                    bounty_level_setup=False,
                     task_dir=self.workflow.task_dir,
                 )
             )
 
-        target_host = self.workflow.repo_metadata.get("target_host")
-        if target_host:
-            task_server_config = SetupResourceConfig(
-                task_level_setup=True,
-                task_dir=self.workflow.task_dir,
-                bounty_number=self.workflow.bounty_number,
-                server_address=target_host
+        setup_bounty_env_script = os.path.join(str(self.workflow.task_dir), "setup_bounty_env.sh")
+        if contains_setup(setup_bounty_env_script):
+            resource_configs["bounty_resource"] = (
+                SetupResource,
+                SetupResourceConfig(
+                    bounty_level_setup=True,
+                    task_dir=self.workflow.task_dir,
+                    bounty_number=self.workflow.bounty_number,
+                )
             )
-            resource_configs["task_server"] = (SetupResource, task_server_config)
-
+            
         logger.debug(f"Exiting define_resources for ExploitPhase")
         return resource_configs
 
