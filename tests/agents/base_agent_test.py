@@ -3,8 +3,7 @@ from unittest.mock import MagicMock, patch
 from typing import List
 
 from resources.base_resource import BaseResource
-from responses.base_response import BaseResponse
-from responses.response import Response
+from messages.message import Message
 from agents.base_agent import BaseAgent, AgentConfig, ResourceNotInitializedError
 
 class MockResource(BaseResource):
@@ -19,10 +18,10 @@ class MockAgent(BaseAgent):
     OPTIONAL_RESOURCES = [(MockResource, "optional_resource")]
     ACCESSIBLE_RESOURCES = [(MockResource, "mock_resource"), (MockResource, "optional_resource")]
 
-    def run(self, responses: List[Response]) -> Response:
+    def run(self, messages: List[Message]) -> Message:
         # Access a required resource to test initialization
         self.mock_resource
-        return BaseResponse("Mock response")
+        return Message("Mock message")
     
 class TestBaseAgent(unittest.TestCase):
 
@@ -74,9 +73,9 @@ class TestBaseAgent(unittest.TestCase):
         self.mock_resource_manager.get_resource.side_effect = [mock_resource, mock_resource]
         self.agent.register_resources()
 
-        response = self.agent.run([])
-        self.assertIsInstance(response, BaseResponse)
-        self.assertEqual(response.response, "Mock response")
+        message = self.agent.run([])
+        self.assertIsInstance(message, Message)
+        self.assertEqual(message.message, "Mock message")
 
     def test_access_uninitialized_required_resource(self):
         with self.assertRaises(ResourceNotInitializedError):

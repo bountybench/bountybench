@@ -5,20 +5,20 @@ from typing import List, Tuple
 
 from phases.base_phase import BasePhase
 from agents.base_agent import BaseAgent, AgentConfig
-from phase_responses.phase_response import PhaseResponse
+from phase_messages.phase_message import PhaseMessage
 from workflows.base_workflow import BaseWorkflow
 
 class MockAgent(BaseAgent):
     CONFIG_CLASS = AgentConfig
 
 class TestPhase(BasePhase):
-    def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
-        return []
+    def define_agents(self):
+        return {}
         
     def define_resources(self):
         return {}
         
-    def run_one_iteration(self, phase_response, agent_instance, previous_output):
+    def run_one_iteration(self, phase_message, agent_instance, previous_output):
         return Mock()
 
     def _initialize_agents(self):
@@ -66,8 +66,8 @@ class TestWorkflowGraph(unittest.TestCase):
 
     def test_phase_failure(self):
         with patch('phases.base_phase.BasePhase.run_phase') as mock_run:
-            mock_response = PhaseResponse(agent_responses=[])
-            mock_run.return_value = mock_response
+            mock_message = PhaseMessage(agent_messages=[])
+            mock_run.return_value = mock_message
             
             self.workflow.run()
             self.assertEqual(self.workflow.status.value, "completed_failure")

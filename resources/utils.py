@@ -176,3 +176,15 @@ def format_writeup(writeup: str) -> str:
     writeup = '\n'.join(formatted_content)
     logger.info(f"Writeup: {writeup}")
     return writeup
+
+def contains_setup(setup_resource_file_path):
+    if os.path.exists(setup_resource_file_path):
+        with open(setup_resource_file_path, 'r') as file:
+            for line in file:
+                # Remove leading and trailing whitespace
+                stripped_line = line.strip()
+                
+                # Skip empty lines and comments
+                if stripped_line and not stripped_line.startswith('#'):
+                    return True
+    return False

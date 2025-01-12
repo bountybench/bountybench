@@ -22,17 +22,14 @@ logger = get_main_logger(__name__)
 @dataclass
 class SetupResourceConfig(BaseResourceConfig):
     """Configuration for SetupResource"""
-    task_level_setup: bool
+    bounty_level_setup: bool
     task_dir: str
     bounty_number: Optional[str] = None
-    server_address: Optional[str] = None
 
     def validate(self) -> None:
         """Validate Setup configuration"""
         if not os.path.exists(self.task_dir):
             raise ValueError(f"Invalid task_dir: {self.task_dir}")
-        if self.server_address and ":" not in self.server_address:
-            raise ValueError(f"Invalid server_address format: {self.server_address}")
         
 
 class SetupResource(BaseResource):
@@ -47,25 +44,18 @@ class SetupResource(BaseResource):
 
 
         # Access the configuration
-        self.task_level_setup = self._resource_config.task_level_setup
-        self.role = "task_server" if self.task_level_setup else "repo_resource"
+        self.bounty_level_setup = self._resource_config.bounty_level_setup
+        self.role = "bounty_resource" if self.bounty_level_setup else "repo_resource"
 
-        # Handle server address if provided (task_server only)
-        if self.task_level_setup:
-            if not self._resource_config.server_address:
-                raise ValueError("Server address is required for task_server setup.")
-            self.host_name, self.port_number = self.parse_server_address(
-                self._resource_config.server_address
-            )
+        if self.bounty_level_setup:
             if not self._resource_config.bounty_number:
-                raise ValueError("Bounty number is required for task_server setup.")
+                raise ValueError("Bounty number is required for bounty_resource setup.")
             self.bounty_dir = os.path.join(
                 self.task_dir,
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}",
             )
         else:
-            self.host_name, self.port_number = None, None
             self.bounty_dir = None
 
 
@@ -76,23 +66,12 @@ class SetupResource(BaseResource):
         self._start()
         atexit.register(self.stop)
 
-    def parse_server_address(self, server_address: str) -> (str, str):
-        """Parse the server address and return host and port."""
-        if not server_address: 
-            return None, None
-        try:
-            host_name, port_number = server_address.split(":")
-            return host_name, port_number
-        except ValueError:
-            logger.error(f"Invalid server_address format: {server_address}. Expected format: hostname:port")
-            raise ValueError("Invalid server_address format.")
-
     def _start(self) -> None:
         """Start the environment by running the appropriate setup script."""
-        setup_script = "setup_bounty_env.sh" if self.task_level_setup else "setup_repo_env.sh"
+        setup_script = "setup_bounty_env.sh" if self.bounty_level_setup else "setup_repo_env.sh"
         work_dir = (
             os.path.join(self.bounty_dir, "setup_files")
-            if self.task_level_setup
+            if self.bounty_level_setup
             else self.task_dir
         )
 
@@ -127,7 +106,7 @@ class SetupResource(BaseResource):
         
     def stop(self) -> None:
         """Stop the environment by running 'stop_docker.sh'."""
-        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_dir
+        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.bounty_level_setup else self.task_dir
         docker_compose_file = os.path.join(work_dir, "docker-compose.yml")
 
 
@@ -210,11 +189,9 @@ class SetupResource(BaseResource):
         Serializes the SetupResource state to a dictionary.
         """
         return {
-            'task_level_setup': self.task_level_setup,
+            'bounty_level_setup': self.bounty_level_setup,
             'task_dir': self.task_dir,
             'bounty_dir': self.bounty_dir,
-            'host_name': self.host_name,
-            'port_number': self.port_number,
             'resource_id': self.resource_id,
             'role': self.role,
             'container_names': self.container_names,
@@ -227,13 +204,11 @@ class SetupResource(BaseResource):
         Creates a SetupResource instance from a serialized dictionary.
         """
         bounty_number = os.path.basename(data['bounty_dir']).replace('bounty_', '')
-        server_address = f"{data['host_name']}:{data['port_number']}" if data['host_name'] and data['port_number'] else None
         
         instance = cls(
-            task_level_setup=data['task_level_setup'],
+            bounty_level_setup=data['bounty_level_setup'],
             task_dir=data['task_dir'],
             bounty_number=bounty_number,
-            server_address=server_address
         )
         instance.container_names = data['container_names']
         return instance

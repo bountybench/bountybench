@@ -2,19 +2,18 @@ import unittest
 import os
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
-from resources.task_server_resource import TaskServerResource
+from resources.setup_resource import SetupResource, SetupResourceConfig
 
 TEST_DIR = Path(__file__).parent / "test_taskserver"
 TEST_DIR2 = Path(__file__).parent / "test_taskserver2"
 
 class TestTaskServerResource(unittest.TestCase):
-    def test_start_and_stop_task_server(self):
+    def test_start_and_stop_setup(self):
         """
-        Test starting and stopping the task server using TaskServerResource.
+        Test starting and stopping the SetupResource.
         """
         # Instantiate TaskServerResource
-        server_address = "localhost:8080"
-        resource = TaskServerResource(str(TEST_DIR), server_address)
+        resource = SetupResource("test", SetupResourceConfig(False, str(TEST_DIR)))
 
         # Call stop method to ensure it works as expected
         resource.stop()
@@ -22,13 +21,12 @@ class TestTaskServerResource(unittest.TestCase):
         # Verify that the container is stopped
         self.verify_docker_container_stopped()
 
-    def test_start_and_stop_task_server_multi_container(self):
+    def test_start_and_stop_setup_multi_container(self):
         """
-        Test starting and stopping the task server with multiple containers using TaskServerResource.
+        Test starting and stopping the server with multiple containers using SetupResource.
         """
-        # Instantiate TaskServerResource
-        server_address = "localhost:8080"
-        resource = TaskServerResource(str(TEST_DIR2), server_address)
+        # Instantiate SetupResource
+        resource = SetupResource("test2", SetupResourceConfig(False, str(TEST_DIR)))
 
         # Call stop method to ensure it works as expected
         resource.stop()
@@ -40,8 +38,8 @@ class TestTaskServerResource(unittest.TestCase):
         """
         Verify if the Docker container is stopped.
         """
-        result = os.system('docker ps -f "name=test_task_server"')
-        assert result == 0, "The test_task_server container is still running!"
+        result = os.system('docker ps -f "name=test_setup"')
+        assert result == 0, "The test_setup container is still running!"
 
     def verify_docker_containers_stopped(self):
         """

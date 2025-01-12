@@ -69,7 +69,7 @@ class MockPhase1(BasePhase):
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
         return [("agent1", MockAgentConfig1("agent1"))]
 
-    def run_one_iteration(self, phase_response, agent_instance, previous_output):
+    def run_one_iteration(self, phase_message, agent_instance, previous_output):
         pass
 
 class MockPhase2(BasePhase):
@@ -84,7 +84,7 @@ class MockPhase2(BasePhase):
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
         return [("agent2", MockAgentConfig2("agent2"))]
 
-    def run_one_iteration(self, phase_response, agent_instance, previous_output):
+    def run_one_iteration(self, phase_message, agent_instance, previous_output):
         pass
 
 @patch('resources.resource_manager.workflow_logger', mock_workflow_logger)

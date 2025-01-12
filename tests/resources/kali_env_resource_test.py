@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from resources.kali_env_resource import KaliEnvResource
+from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 
 VOLUME = {Path(__file__).parent.resolve() / 'test_files': {"bind": "/app/", "mode": "rw"}}
 CONTAINER_NAME = "test_container"
@@ -13,7 +13,7 @@ class TestKaliEnvResource(unittest.TestCase):
         """
         This method initializes the KaliEnvResource instance and starts a single container.
         """
-        cls.kali_env_resource = KaliEnvResource(name=CONTAINER_NAME, volumes=VOLUME)
+        cls.kali_env_resource = KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME))
     
     @classmethod
     def tearDownClass(cls):
