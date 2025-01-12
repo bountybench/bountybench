@@ -1,9 +1,6 @@
 from collections import defaultdict
 from resources.base_resource import BaseResource
 
-#does it inherit from dict?
-# given this is a singleton, make it do little work besides 
-# in future rather than __get_tiem,mabye separate and just a single instruction because of multithreading
 class ResourceDict(dict):
     def __init__(self):
         self.id_to_resource = dict()
@@ -23,7 +20,6 @@ class ResourceDict(dict):
     
     def delete_items_of_resource_type(self, resource_type):
         if resource_type in self.resource_type_to_resources:
-            # Remove the resources from id_to_resource
             for resource in self.resource_type_to_resources[resource_type]:
                 resource_id = resource.resource_id
                 if resource_id in self.id_to_resource:
@@ -38,7 +34,6 @@ class ResourceDict(dict):
             del self.id_to_resource[id]
             if resource_type in self.resource_type_to_resources:
                 self.resource_type_to_resources[resource_type].remove(resource)
-                # If no more resources of this type, remove the key
                 if not self.resource_type_to_resources[resource_type]:
                     del self.resource_type_to_resources[resource_type]
 
@@ -46,8 +41,6 @@ class ResourceDict(dict):
         return self.id_to_resource[id]
 
     def __setitem__(self, id, value):
-        # key must be an id, not a resource class
-        # make sure to update both dicts each time
         self.id_to_resource[id] = value
         self.resource_type_to_resources[type(value).__name__].append(value)
 

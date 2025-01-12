@@ -1,5 +1,4 @@
 import atexit
-import logging
 import os
 import re
 import time
@@ -7,13 +6,12 @@ from queue import Queue
 from typing import List, Optional
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
 from resources.utils import run_command
-from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
+from utils.progress_logger import start_progress, stop_progress
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Optional
 import os
 from resources.base_resource import BaseResourceConfig
 
@@ -25,15 +23,14 @@ logger = get_main_logger(__name__)
 class SetupResourceConfig(BaseResourceConfig):
     """Configuration for SetupResource"""
     task_level_setup: bool
-    task_repo_dir: str
-    files_dir: str
+    task_dir: str
     bounty_number: Optional[str] = None
     server_address: Optional[str] = None
 
     def validate(self) -> None:
         """Validate Setup configuration"""
-        if not os.path.exists(self.task_repo_dir):
-            raise ValueError(f"Invalid task_repo_dir: {self.task_repo_dir}")
+        if not os.path.exists(self.task_dir):
+            raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if self.server_address and ":" not in self.server_address:
             raise ValueError(f"Invalid server_address format: {self.server_address}")
         
@@ -45,8 +42,8 @@ class SetupResource(BaseResource):
         # Call the superclass constructor first
         super().__init__(resource_id, config)
 
-        self.task_repo_dir = str(self._resource_config.task_repo_dir)
-        self.files_dir = self._resource_config.files_dir
+
+        self.task_dir = str(self._resource_config.task_dir)
 
 
         # Access the configuration
@@ -63,7 +60,7 @@ class SetupResource(BaseResource):
             if not self._resource_config.bounty_number:
                 raise ValueError("Bounty number is required for task_server setup.")
             self.bounty_dir = os.path.join(
-                self.task_repo_dir,
+                self.task_dir,
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}",
             )
@@ -76,9 +73,7 @@ class SetupResource(BaseResource):
         self.container_names: List[str] = []
         self.health_check_timeout = 120
 
-        workflow_logger.add_resource(f"SetupResource: {self.role}", self)
         self._start()
-        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def parse_server_address(self, server_address: str) -> (str, str):
@@ -98,15 +93,20 @@ class SetupResource(BaseResource):
         work_dir = (
             os.path.join(self.bounty_dir, "setup_files")
             if self.task_level_setup
-            else self.task_repo_dir
+            else self.task_dir
         )
 
         if not os.path.exists(work_dir):
             raise FileNotFoundError(f"Work directory does not exist: {work_dir}")
 
-        logger.info(f"Executing {setup_script} in {work_dir}")
         try:
-            result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
+            start_progress(f"Executing {setup_script} in {work_dir}")
+            try:
+                result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
+            except Exception as e:
+                logger.error(f"Unable to successfuly execute {setup_script} at {self.resource_id}: {e}")
+            finally:
+                stop_progress()
             logger.info(f"Environment setup complete for {self.resource_id}")
             self.container_names = self.extract_container_names(result.stdout, result.stderr)
 
@@ -123,48 +123,23 @@ class SetupResource(BaseResource):
     def restart(self) -> None:
         """Restart the environment by stopping and then starting it again."""
         self.stop()
-
-        setup_script = "start_docker.sh"
-        env_type = "task server" if self.task_level_setup else "repo env"
-        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
-
-
-
-        if os.path.exists(str(work_dir) + setup_script): 
-            logger.info(f"Restarting {env_type} {self.resource_id}")
-            logger.info(f"Executing {setup_script} in {work_dir}")
-            try:
-                result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
-                logger.info(f"{env_type.capitalize()} restarted at {self.resource_id}")
-                self.container_names = self.extract_container_names(result.stdout, result.stderr)
-
-                #if not self.container_names:
-                    #raise RuntimeError(f"Failed to retrieve container names for {self.host_name}")
-                if self.container_names: 
-                    self.wait_until_all_containers_healthy()
-
-            except FileNotFoundError:
-                logger.error(f"Setup script not found: {os.path.join(work_dir, setup_script)}")
-                raise
-            except Exception as e:
-                logger.error(f"Unable to restart {env_type} at {self.resource_id}: {e}")
-                raise
-
+        self._start()
+        
     def stop(self) -> None:
         """Stop the environment by running 'stop_docker.sh'."""
-        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_repo_dir
-        stop_script = os.path.join(work_dir, "stop_docker.sh")
+        work_dir = os.path.join(self.bounty_dir, "setup_files") if self.task_level_setup else self.task_dir
+        docker_compose_file = os.path.join(work_dir, "docker-compose.yml")
 
 
-        if os.path.exists(str(work_dir) + stop_script): 
-            logger.info(f"Executing stop_docker.sh in {work_dir}")
+        if os.path.exists(docker_compose_file): 
+            logger.info(f"Stopping docker in {work_dir}")
             try:
-                run_command(command=["./stop_docker.sh"], work_dir=work_dir)
+                run_command(command=["docker", "compose", "down", "-v"], work_dir=work_dir)
                 logger.info(f"Stopped environment at {self.resource_id}.")
-            except FileNotFoundError:
-                logger.warning(f"Stop script not found: {stop_script}.")
             except Exception as e:
-                logger.info(f"Unable to stop environment at {self.resource_id}: {e}")
+                logger.error(f"Unable to stop environment at {self.resource_id}: {e}", exc_info=True)
+
+
 
     def wait_until_all_containers_healthy(self, timeout: int = 300, check_interval: int = 2) -> bool:
         """
@@ -182,38 +157,32 @@ class SetupResource(BaseResource):
             container_queue.put(container)
 
         start_time = time.time()
-        wait_count = {}
-        first_check_logged = {}
 
-        while not container_queue.empty():
-            container = container_queue.queue[0]
+        start_progress("Checking container health")
 
-            if container not in first_check_logged:
-                logger.info(f"Checking health of container {container}")
-                first_check_logged[container] = True
+        try:
+            while not container_queue.empty():
+                container = container_queue.queue[0]
 
-            inspect_result = run_command(command=["docker", "inspect", "--format={{json .State.Health.Status}}", container])
-            health_status = inspect_result.stdout.strip().strip("'\"")
+                inspect_result = run_command(command=["docker", "inspect", "--format={{json .State.Health.Status}}", container])
+                health_status = inspect_result.stdout.strip().strip("'\"")
 
-            if health_status == "healthy":
-                logger.info(f"Container '{container}' is healthy.")
-                container_queue.get()
-                wait_count.pop(container, None)
-                first_check_logged.pop(container, None)
-            elif health_status == "starting":
-                wait_count[container] = wait_count.get(container, 0) + 1
-                dots = "." * wait_count[container]
-                logger.info(f"Container '{container}' health status: {health_status}. Waiting{dots}")
-            else:
-                raise RuntimeError(f"Container '{container}' has unexpected health status: {health_status}.")
+                if health_status == "healthy":
+                    logger.info(f"Container '{container}' is healthy.")
+                    container_queue.get()
+                elif health_status != "starting":
+                    raise RuntimeError(f"Container '{container}' has unexpected health status: {health_status}.")
 
-            if time.time() - start_time > timeout:
-                raise TimeoutError(f"Timeout: Not all containers became healthy within {timeout} seconds.")
+                if time.time() - start_time > timeout:
+                    raise TimeoutError(f"Timeout: Not all containers became healthy within {timeout} seconds.")
 
-            time.sleep(check_interval)
+                time.sleep(check_interval)
 
-        logger.info("All containers are healthy.")
-        return True
+            logger.info("All containers are healthy.")
+            return True
+
+        finally:
+            stop_progress()
 
     def extract_container_names(self, stdout: Optional[str] = None, stderr: Optional[str] = None) -> List[str]:
         """
@@ -234,7 +203,6 @@ class SetupResource(BaseResource):
             logger.info(f"Container names extracted: {container_names}")
             return container_names
         else:
-            logger.warning("No container names found in the output.")
             return []
 
     def to_dict(self) -> dict:
@@ -243,8 +211,7 @@ class SetupResource(BaseResource):
         """
         return {
             'task_level_setup': self.task_level_setup,
-            'task_repo_dir': self.task_repo_dir,
-            'files_dir': self.files_dir,
+            'task_dir': self.task_dir,
             'bounty_dir': self.bounty_dir,
             'host_name': self.host_name,
             'port_number': self.port_number,
@@ -264,8 +231,7 @@ class SetupResource(BaseResource):
         
         instance = cls(
             task_level_setup=data['task_level_setup'],
-            task_repo_dir=data['task_repo_dir'],
-            files_dir=data['files_dir'],
+            task_dir=data['task_dir'],
             bounty_number=bounty_number,
             server_address=server_address
         )

@@ -1,10 +1,10 @@
 import json
-import logging
 import os
 import subprocess
 import sys
-from pathlib import Path
 from typing import List, Union
+from bs4 import BeautifulSoup
+import html
 
 from utils.logger import get_main_logger
 
@@ -55,9 +55,9 @@ def docker_network_exists(network_name):
     return exists
 
 
-def read_repo_metadata(task_repo_dir: str) -> dict[str, Union[str, dict]]:
+def read_repo_metadata(task_dir: str) -> dict[str, Union[str, dict]]:
     repo_metadata_file_path = os.path.join(
-        task_repo_dir, "metadata.json")
+        task_dir, "metadata.json")
     if not os.path.exists(repo_metadata_file_path):
         logger.error("Repository metadata file not found")
         sys.exit(1)
@@ -69,10 +69,10 @@ def read_repo_metadata(task_repo_dir: str) -> dict[str, Union[str, dict]]:
 
 
 def read_bounty_metadata(
-    task_repo_dir: str, bounty_number: str
+    task_dir: str, bounty_number: str
 ) -> dict[str, Union[str, dict]]:
     bounty_metadata_file_path = os.path.join(
-        task_repo_dir + "/bounties/bounty_" + bounty_number, "bounty_metadata.json"
+        task_dir + "/bounties/bounty_" + bounty_number, "bounty_metadata.json"
     )
     if not os.path.exists(bounty_metadata_file_path):
         logger.error("Bounty metadata file not found")
@@ -83,16 +83,17 @@ def read_bounty_metadata(
 
     return bounty_metadata
 
-def read_exploit_report(task_repo_dir: str, bounty_number: str) -> str:
+def read_writeup(task_dir: str, bounty_number: str) -> str:
     bounty_dir = os.path.join("bounties", f"bounty_{bounty_number}")
-    report_path = os.path.join(task_repo_dir, bounty_dir, "formatted_exploit_report.txt")
+    report_path = os.path.join(task_dir, bounty_dir, "writeup", "writeup.html")
     try:
-        with open(report_path, 'r') as f:
-            exploit_report = f.read()
+        with open(report_path, 'r', encoding='utf-8') as f:
+            writeup = f.read()
+            writeup = format_writeup(writeup)
     except FileNotFoundError:
-        logger.warning(f"Exploit report not found at: {report_path}")
-        exploit_report = ""
-    return exploit_report
+        logger.warning(f"Writeup not found at: {report_path}")
+        writeup = ""
+    return writeup
 
 def get_stdout_text(process_output: bytes) -> str:
     """
@@ -116,7 +117,6 @@ def get_stdout_text(process_output: bytes) -> str:
             "Ignore any images (jpeg, png, etc.), videos (mp4, mpeg) etc. "
             f"Error: {str(e)}"
         )
-
 
 def parse_shell_script(script_path: str) -> List[str]:
     """
@@ -144,3 +144,35 @@ def parse_shell_script(script_path: str) -> List[str]:
 
     return commands
 
+
+def format_writeup(writeup: str) -> str:
+    soup = BeautifulSoup(writeup, 'html.parser')
+
+    formatted_content = []
+
+    # Title and status
+    title = soup.find('h1', id='title')
+    if title:
+        formatted_content.append(title.text.strip())
+        status_span = soup.find('span', class_='mr-1 text-xs font-medium')
+        if status_span:
+            formatted_content.append(status_span.text.strip())
+        report_date = soup.find('p', class_='ml-3 mt-1 self-center text-xs font-medium')
+        if report_date:
+            formatted_content.append(report_date.text.strip())
+        formatted_content.append('')
+
+    # Description and Proof of Concept
+    markdown_body = soup.find('div', class_='markdown-body')
+    if markdown_body:
+        for child in markdown_body.children:
+            if child.name == 'h1':
+                formatted_content.append(f"\n{child.text}")
+            elif child.name in ['p', 'pre']:
+                formatted_content.append(html.unescape(child.text.strip()))
+            elif child.name == 'ul':
+                for li in child.find_all('li'):
+                    formatted_content.append(f"- {li.text.strip()}")
+    writeup = '\n'.join(formatted_content)
+    logger.info(f"Writeup: {writeup}")
+    return writeup

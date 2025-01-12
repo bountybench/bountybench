@@ -1,19 +1,17 @@
 import atexit
 import os
 import sys
-import threading
 import time
-from queue import Queue
 from typing import Dict, Optional, Tuple
 
 import docker
 from docker.models.containers import Container
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
-from resources.utils import get_stdout_text, parse_shell_script
+from resources.utils import get_stdout_text
 from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
+from utils.progress_logger import start_progress, stop_progress
 from dataclasses import dataclass
 from typing import Dict, Optional
 import os
@@ -48,18 +46,20 @@ RETRY_DELAY = 10
 @dataclass
 class KaliEnvResourceConfig(BaseResourceConfig):
     """Configuration for KaliEnvResource"""
-    task_repo_dir: Optional[str] = None
+    task_dir: Optional[str] = None
     bounty_number: Optional[str] = None
     volumes: Optional[Dict[str, Dict[str, str]]] = None
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
-        if self.task_repo_dir and not os.path.exists(self.task_repo_dir):
-            raise ValueError(f"Invalid task_repo_dir: {self.task_repo_dir}")
+        if self.task_dir and not os.path.exists(self.task_dir):
+            raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if self.volumes:
             for host_path in self.volumes.keys():
-                if not os.path.exists(host_path):
-                    raise ValueError(f"Invalid volume host path: {host_path}")
+                parent_dir = os.path.dirname(host_path)
+                if not os.path.exists(parent_dir):
+                    raise ValueError(f"Invalid volume host path parent directory: {parent_dir}")
+
                 
 class KaliEnvResource(BaseResource):
     """Kali Linux Environment Resource"""
@@ -70,81 +70,74 @@ class KaliEnvResource(BaseResource):
         self.client = docker.from_env()
         self.container = self._start(self.resource_id, self._resource_config.volumes)
         
-        # Initialize bounty directory if task_repo_dir and bounty_number provided
-        if self._resource_config.task_repo_dir and self._resource_config.bounty_number:
+        # Initialize bounty directory if task_dir and bounty_number provided
+        if self._resource_config.task_dir and self._resource_config.bounty_number:
             self.bounty_dir = os.path.join(
-                str(self._resource_config.task_repo_dir),
+                str(self._resource_config.task_dir),
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}"
             )
-            self.run_requirements(self.bounty_dir)
-        
-        workflow_logger.add_resource(f"KaliEnvResource: {self.resource_id}", self)
-        resource_dict[self.resource_id] = self
+
         atexit.register(self.stop)
-        
-    def _start(
-        self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]
-    ) -> Container:
+    
+    def _start(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]) -> Container:
         """
         Start a Kali Linux container to be used throughout the lifecycle.
-
-        Args:
-            name (str): The name of the container.
-            volumes (Optional[Dict[str, Dict[str, str]]]): Docker volume bindings in the format {host_path: {'bind': container_path, 'mode': rw}}.
-
-        Returns:
-            Container: The started Docker container.
-
-        Raises:
-            SystemExit: If the container fails to start after MAX_RETRIES attempts.
         """
-
-        try:
-            # Check if a container with the given name already exists
-            container = self.client.containers.get(name)
-            if container.status != "running":
-                logger.info(f"Container '{name}' exists but is not running. Restarting it.")
-                container.start()
-            else:
-                logger.info(f"Container '{name}' is already running.")
-            
-            # Upgrade pip
-            self._upgrade_pip(container)
-            
-            return container
-        except docker.errors.NotFound:
-            logger.info(f"Container '{name}' does not exist. Creating a new one.")
-            for attempt in range(MAX_RETRIES):
+        for attempt in range(MAX_RETRIES):
+            try:
+                # Attempt to get existing container
                 try:
-                    logger.info(
-                        f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})..."
-                    )
-                    container = self.client.containers.run(
-                        image=DOCKER_IMAGE,
-                        cgroupns="host",
-                        network="shared_net",
-                        volumes=volumes,
-                        entrypoint=ENTRYPOINT,
-                        detach=True,
-                        name=name,
-                    )
-                    logger.info("Docker container started successfully.")
-                    
-                    # Upgrade pip
-                    self._upgrade_pip(container)
-                    
-                    return container
-                except Exception as e:
-                    logger.error(
-                        f"Failed to start Docker container (Attempt {attempt + 1}/{MAX_RETRIES}): {e}"
-                    )
-                    if attempt < MAX_RETRIES - 1:
-                        logger.info(f"Retrying in {RETRY_DELAY} seconds...")
-                        time.sleep(RETRY_DELAY)
+                    container = self.client.containers.get(name)
+                    logger.info(f"Container '{name}' already exists.")
+                    if container.status != "running":
+                        logger.info(f"Container '{name}' is not running. Removing it.")
+                        container.remove(force=True)
                     else:
-                        logger.error("Failed to start Docker container after maximum retries.")
-                        sys.exit(1)
+                        start_progress(f"Container '{name}' is running. Stopping and removing it.")
+                        try:
+                            container.stop()
+                            container.remove()
+                        finally:
+                            stop_progress()
+                except docker.errors.NotFound:
+                    logger.info(f"No existing container named '{name}'.")
+
+                logger.info(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
+                container = self.client.containers.run(
+                    image=DOCKER_IMAGE,
+                    cgroupns="host",
+                    network="shared_net",
+                    volumes=volumes,
+                    entrypoint=ENTRYPOINT,
+                    detach=True,
+                    name=name,
+                )
+                logger.info("KaliEnvResource Docker container started successfully.")
+
+                # Upgrade pip
+                self._upgrade_pip(container)
+
+                container_info = self.client.api.inspect_container(container.id)
+                mounts = container_info['Mounts']
+                logger.debug(f"Container mounts: {mounts}")
+                return container
+            except docker.errors.APIError as e:
+                logger.error(f"Docker API error while starting container: {e}")
+                if attempt < MAX_RETRIES - 1:
+                    logger.info(f"Retrying in {RETRY_DELAY} seconds...")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    logger.error("Failed to start Docker container after maximum retries.")
+                    sys.exit(1)
+            except Exception as e:
+                logger.error(f"Unexpected error while starting container: {e}")
+                if attempt < MAX_RETRIES - 1:
+                    logger.info(f"Retrying in {RETRY_DELAY} seconds...")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    logger.error("Failed to start Docker container after maximum retries.")
+                    sys.exit(1)
 
     def _upgrade_pip(self, container: Container) -> None:
         """
@@ -153,8 +146,8 @@ class KaliEnvResource(BaseResource):
         Args:
             container (Container): The Docker container in which to upgrade pip.
         """
+        start_progress("Upgrading pip in container")
         try:
-            logger.info("Upgrading pip in the container...")
             result = container.exec_run("pip install --upgrade pip")
             if result.exit_code == 0:
                 logger.info("Successfully upgraded pip.")
@@ -163,7 +156,13 @@ class KaliEnvResource(BaseResource):
                 logger.warning(f"Output: {result.output.decode('utf-8')}")
         except Exception as e:
             logger.error(f"Error while upgrading pip: {e}")
+        finally:
+            stop_progress()
 
+    def cleanup_tmp(self):
+        cleanup_command = "rm -rf * .*"
+        return self.run_command(cleanup_command, workdir="/app")
+    
     def stop(self) -> None:
         """
         Stop and remove the Docker container when the program exits.
@@ -171,8 +170,10 @@ class KaliEnvResource(BaseResource):
         This function is automatically registered to run when the program terminates.
         """
         if self.container:
-            logger.info("Cleaning up: stopping and removing Docker container.")
             try:
+                logger.info("Cleaning up: removing tmp files.")
+                self.cleanup_tmp()
+                logger.info("Cleaning up: stopping and removing Docker container.")
                 self.container.stop()
                 self.container.remove()
                 self.container = None
@@ -180,11 +181,11 @@ class KaliEnvResource(BaseResource):
             except Exception as e:
                 logger.error(f"Error cleaning up Docker container: {e}")
 
-
-
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
-        logger.info(f"Running command in Docker container: {command}")
-
+        command_str = command
+        if len(command) > 33:
+            command_str = command[:30] + "..."
+        start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
         try:
             with timeout_context(timeout):
                 exec_id = self.client.api.exec_create(
@@ -218,30 +219,9 @@ class KaliEnvResource(BaseResource):
         except Exception as e:
             logger.error(f"Unexpected error while executing command: {e}")
             return "", f"Unexpected error: {str(e)}"
-
-
-    def run_requirements(self, task_repo_dir: str) -> None:
-        """
-        Execute any required setup scripts from the provided repository directory.
-
-        Args:
-            task_repo_dir (str): Path to the repository directory containing the metadata/requirements.sh script.
-        """
-        requirements_path = f"{task_repo_dir}/setup_files/requirements.sh"
-        if not os.path.isfile(requirements_path):
-            logger.error(f"Requirements file not found at {requirements_path}")
-        else:
-            # Parse and execute the requirements script commands
-            requirement_commands = parse_shell_script(requirements_path)
-            for command in requirement_commands:
-                stdout, stderr = self.run_command(command)
-
-                # Log output and error for each command
-                if stdout:
-                    logger.info(f"Requirements.sh Output:\n{stdout}")
-                if stderr:
-                    logger.error(f"Requirements.sh Error:\n{stderr}")
-            self.run_command("git clean -fdx")
+        
+        finally:
+            stop_progress()
 
     def parse_target_host(self, target_host: str) -> Tuple[str, int]:
         """
@@ -334,12 +314,12 @@ class KaliEnvResource(BaseResource):
         """
         Creates a KaliEnvResource instance from a serialized dictionary.
         """
-        task_repo_dir = os.path.dirname(os.path.dirname(data['bounty_dir']))
+        task_dir = os.path.dirname(os.path.dirname(data['bounty_dir']))
         bounty_number = os.path.basename(data['bounty_dir']).replace('bounty_', '')
         
         return cls(
             name=data['resource_id'],
-            task_repo_dir=task_repo_dir,
+            task_dir=task_dir,
             bounty_number=bounty_number,
             **kwargs
         )

@@ -1,9 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from agents.executor_agent.prompt import INITIAL_PROMPT, STOP_TOKEN
+from agents.executor_agent.prompt import STOP_TOKEN
 from agents.utils import truncate_input_to_max_tokens
 from models.model_response import ModelResponse
 from models.query import query
@@ -17,7 +17,7 @@ from responses.command_response_interface import CommandResponseInterface
 from responses.observation import Observation
 from responses.response import Response
 from utils.logger import get_main_logger
-from utils.workflow_logger import WorkflowLogger
+from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 
@@ -28,37 +28,33 @@ TEMPERATURE = 0.5
 
 @dataclass
 class ExecutorAgentConfig(AgentConfig):
-    id: str
-    lm_config: AgentLMConfig
-    target_host: str
-    initial_prompt: Optional[str]=None
-
+    lm_config: AgentLMConfig = field(default_factory=AgentLMConfig)
+    target_host: str = field(default='')
+    initial_prompt: Optional[str] = field(default=None)
 
 class ExecutorAgent(BaseAgent):
     memory: List[str] = []
 
-    # Switch from listing just resource classes to (ResourceClass, "attr_name").
-    # BaseAgent will do: self.init_files = resource_manager.get_resource("init_files")
-    # etc.
     REQUIRED_RESOURCES = [
-       InitFilesResource,
-        KaliEnvResource
+       (InitFilesResource, "init_files"),
+        (KaliEnvResource, "kali_env")
     ]
     OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "task_server")]
     ACCESSIBLE_RESOURCES = [
-        KaliEnvResource,
-        InitFilesResource,
+        (KaliEnvResource, "kali_env"),
+       (InitFilesResource, "init_files"),
         (SetupResource, "repo_resource"),
         (SetupResource, "task_server")
     ]
-    def __init__(self, agent_config: ExecutorAgentConfig, resource_manager: ResourceManager):
+    
+    def __init__(self, agent_id, agent_config: ExecutorAgentConfig):#, resource_manager: ResourceManager):
         """
         Args:
             agent_config: ExecutorAgentConfig containing model, initial prompt, and target host.
             resource_manager: ResourceManager instance responsible for managing resources.
         """
         # Pass the agent_config and resource_manager to BaseAgent
-        super().__init__(agent_config, resource_manager)
+        super().__init__(agent_id, agent_config)
 
         # Initialize specific attributes
         if hasattr(agent_config, "initial_prompt"):
@@ -68,19 +64,9 @@ class ExecutorAgent(BaseAgent):
         # If a target_host is provided, run health_check on self.kali_env
         self.target_host = agent_config.target_host
 
-
-    def register_resources(self):
-        super().register_resources()
-        if self.target_host: 
-            self.kali_env.health_check(self.target_host)
-
-    def modify_memory_and_run(self, input: str) -> None:
-        self.initial_prompt = input
-        self.memory = [] #overwrites all previous memory
-
-        return self.run([])
-
-
+        #if self.target_host: 
+            #self.kali_env.health_check(self.target_host)
+        
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
             raise Exception(f"Accepts at most a single response, got {len(responses)}.")
@@ -126,10 +112,10 @@ class ExecutorAgent(BaseAgent):
     def execute(self) -> Response:
         lm_executor_response = self.call_lm()
         # If the model decides to output a command, we run it in the environment
+        logger.info(f"LM Response:\n{lm_executor_response.response}")
         if issubclass(lm_executor_response.__class__, CommandResponseInterface):
             observation = self.execute_in_env(lm_executor_response)
             lm_executor_response.set_observation(observation)
-        logger.info(f"LM Response:\n{lm_executor_response.response}")
         return lm_executor_response
 
     def _parse_response(self, response: str) -> Response:
@@ -153,26 +139,38 @@ class ExecutorAgent(BaseAgent):
         """
         model_input = self.prompt
         iterations = 0
-        while iterations < MAX_RETRIES:
-            model_response: ModelResponse = query(
-                model=self.agent_config.lm_config.model,
-                message=model_input,
-                temperature=TEMPERATURE,
-                max_tokens=self.agent_config.lm_config.max_output_tokens,
-                stop_sequences=[STOP_TOKEN],
-                helm=self.agent_config.lm_config.use_helm
-            )
+        
+        start_progress(f"Getting response from LM")
+        try:
+            iterations = 0  # Make sure this is defined
+            while iterations < MAX_RETRIES:
+                model_response: ModelResponse = query(
+                    model=self.agent_config.lm_config.model,
+                    message=model_input,
+                    temperature=TEMPERATURE,
+                    max_tokens=self.agent_config.lm_config.max_output_tokens,
+                    stop_sequences=[STOP_TOKEN],
+                    helm=self.agent_config.lm_config.use_helm
+                )
 
-            model_response = model_response.remove_hallucinations()
-            lm_response = model_response + f"\n{STOP_TOKEN}"
+                model_response = model_response.remove_hallucinations()
+                lm_response = model_response + f"\n{STOP_TOKEN}"
 
-            try:
-                return self._parse_response(lm_response)
-            except Exception as e:
-                logger.warning(f"Retrying {iterations}/{MAX_RETRIES} after parse error: {e}")
-                iterations += 1
+                try:
+                    return self._parse_response(lm_response)
+                except Exception as e:
+                    logger.warning(f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}")
+                    iterations += 1
 
-        raise Exception("call_lm error: Max retries reached without valid response.")
+            # If we've exhausted all retries
+            raise Exception("call_lm error: Max retries reached without valid response.")
+
+        except Exception as e:
+            logger.error(f"Error in call_lm: {str(e)}")
+            raise  # Re-raise the exception after logging it
+
+        finally:
+            stop_progress()
 
     def execute_in_env(self, executor_response: CommandResponse) -> Observation:
         """
@@ -185,7 +183,6 @@ class ExecutorAgent(BaseAgent):
                 command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/", logging=True
             )
             observation_text = stdout.strip() + stderr.strip()
-            logger.info(f"Command in environment: {command}\nstdout: {stdout.strip()}\nstderr: {stderr.strip()}")
             return Observation(observation_text)
         except Exception as e:
             logger.exception(f"Failed to execute command: {command}.\nException: {str(e)}")
@@ -198,8 +195,9 @@ class ExecutorAgent(BaseAgent):
         return {
             "config": self.agent_config.lm_config.__dict__,
             "memory": self.memory,
-            "initial_prompt": self.initial_prompt,
-            "prompt": self.prompt,
+            "initial_prompt": getattr(self, "initial_prompt", None),
+            "prompt": getattr(self, "prompt", None),
+            'agent_id': self.agent_id,
             "timestamp": getattr(self, "timestamp", None),
         }
 
@@ -216,6 +214,7 @@ class ExecutorAgent(BaseAgent):
         )
         agent.memory = data["memory"]
         agent.prompt = data["prompt"]
+        agent._agent_id = data['agent_id']
         if data.get("timestamp"):
             agent.timestamp = data["timestamp"]
         return agent

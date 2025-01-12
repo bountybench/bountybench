@@ -5,11 +5,11 @@ import os
 from pathlib import Path
 import time
 import json
+import sys
 
 from resources.base_resource import BaseResource
-from resources.resource_dict import resource_dict
-from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
+from utils.progress_logger import start_progress, stop_progress
 from dataclasses import dataclass
 from typing import Optional
 from resources.base_resource import BaseResourceConfig
@@ -39,8 +39,6 @@ class DockerResource(BaseResource):
         super().__init__(resource_id, config)
         
         self.client = docker.from_env()
-        workflow_logger.add_resource(f"DockerResource: {self.resource_id}", self)
-        resource_dict[self.resource_id] = self
         atexit.register(self.stop)
 
     def execute(
@@ -62,8 +60,7 @@ class DockerResource(BaseResource):
         """
         
         unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
-        
-        logger.info(f"Running command in Docker: {command}, Work Dir: {work_dir}")
+        start_progress(f"Running command in Docker: {command}")
         try:
             # If command is a string, convert it to a list
             if isinstance(command, str):
@@ -103,6 +100,7 @@ class DockerResource(BaseResource):
             logger.error(f"Error running Docker container: {e}")
             return str(e), -1
         finally:
+            stop_progress()
             try:
                 container.remove(force=True)
             except:
@@ -133,7 +131,8 @@ class DockerResource(BaseResource):
             
             logger.info(f"Copied from container {container_name}: {source_path} -> {dest_path}")
         except docker.errors.NotFound:
-            logger.error(f"Container not found: {container_name}")
+            logger.critical(f"Container not found: {container_name}")
+            sys.exit(1)
         except docker.errors.APIError as e:
             logger.error(f"Docker API error while copying: {str(e)}")
         except Exception as e:

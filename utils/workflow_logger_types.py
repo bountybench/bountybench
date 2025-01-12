@@ -39,16 +39,20 @@ class WorkflowPhase:
 class WorkflowMetadata:
     workflow_name: str
     start_time: str
+    final_status: str = "incomplete"
     end_time: Optional[str] = None
-    task_repo_dir: Optional[str] = None
-    bounty_number: Optional[str] = None
+    phases_status: Optional[Dict[str, Any]] = field(default_factory=dict)
     additional_metadata: Dict[str, Any] = field(default_factory=dict)
+    task: Optional[Dict[str, Any]] = None
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 @dataclass
 class WorkflowLog:
     metadata: WorkflowMetadata
     phases: List[WorkflowPhase] = field(default_factory=list)
     resources_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    agent_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    final_status: List[str] = field(default_factory=list)
+    agents_used: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     error_log: List[Dict[str, Any]] = field(default_factory=list)
