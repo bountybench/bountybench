@@ -34,9 +34,6 @@ class ExecutorAgentConfig(AgentConfig):
 class ExecutorAgent(BaseAgent):
     memory: List[str] = []
 
-    # Switch from listing just resource classes to (ResourceClass, "attr_name").
-    # BaseAgent will do: self.init_files = resource_manager.get_resource("init_files")
-    # etc.
     REQUIRED_RESOURCES = [
        (InitFilesResource, "init_files"),
         (KaliEnvResource, "kali_env")
@@ -56,7 +53,7 @@ class ExecutorAgent(BaseAgent):
             resource_manager: ResourceManager instance responsible for managing resources.
         """
         # Pass the agent_config and resource_manager to BaseAgent
-        super().__init__(agent_id, agent_config)#, resource_manager)
+        super().__init__(agent_id, agent_config)
 
         # Initialize specific attributes
         if hasattr(agent_config, "initial_prompt"):
@@ -66,8 +63,8 @@ class ExecutorAgent(BaseAgent):
         # If a target_host is provided, run health_check on self.kali_env
         self.target_host = agent_config.target_host
 
-        # if self.target_host: 
-        #     self.kali_env.health_check(self.target_host)
+        #if self.target_host: 
+            #self.kali_env.health_check(self.target_host)
         
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:

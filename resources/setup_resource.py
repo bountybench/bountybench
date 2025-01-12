@@ -203,7 +203,6 @@ class SetupResource(BaseResource):
             logger.info(f"Container names extracted: {container_names}")
             return container_names
         else:
-            logger.warning("No container names found in the output.")
             return []
 
     def to_dict(self) -> dict:

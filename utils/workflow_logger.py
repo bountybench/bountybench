@@ -316,8 +316,6 @@ class WorkflowLogger:
         if hasattr(self.workflow_log.metadata, 'task'):
             metadata_dict["task"] = self.workflow_log.metadata.task
 
-        metadata_dict["additional_metadata"] = self.workflow_log.metadata.additional_metadata
-
         log_dict = {
             "metadata": metadata_dict,
             "phases": [
@@ -343,6 +341,7 @@ class WorkflowLogger:
             ],
             "agents_used": self.workflow_log.agents_used,
             "resources_used": self.workflow_log.resources_used,
+            "additional_metadata": self.workflow_log.metadata.additional_metadata
         }
 
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -378,7 +377,7 @@ class WorkflowLogger:
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            status = "failed" if exc_type else "completed"
+            status = "incomplete" if exc_type else "completed"
             self.logger.end_phase(status, self.phase_instance)
             # If we return False, we do NOT suppress exceptions.
             return False
@@ -431,7 +430,7 @@ class WorkflowLogger:
                     answer="Iteration completed without explicit response",
                     error=False
                 )
-            self.logger.end_iteration(self.output_response, "failed" if exc_type else "completed")
+            self.logger.end_iteration(self.output_response, "incomplete" if exc_type else "completed")
             return False  # Don't suppress exceptions
 
         def set_output(self, output_response: Response):

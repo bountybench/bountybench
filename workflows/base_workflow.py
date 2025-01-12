@@ -19,11 +19,9 @@ logger = get_main_logger(__name__)
 
 class WorkflowStatus(Enum):
     """Status of workflow execution"""
-    INITIALIZED = "initialized"
     INCOMPLETE = "incomplete"
     COMPLETED_SUCCESS = "completed_success"
     COMPLETED_FAILURE = "completed_failure"
-    COMPLETED_MAX_ITERATIONS = "completed_max_iterations"
 
 class PhaseStatus(Enum):
     """Status of phase execution"""
@@ -42,6 +40,8 @@ class WorkflowConfig:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 class BaseWorkflow(ABC):
+    status = WorkflowStatus.INCOMPLETE
+    
     def __init__(self, **kwargs):
         logger.info(f"Initializing workflow {self.name}")
         self.workflow_id = self.name
@@ -55,7 +55,6 @@ class BaseWorkflow(ABC):
         self._root_phase = None
 
         self._initialize()
-        self._set_workflow_status(WorkflowStatus.INITIALIZED)
         self._setup_logger()
         self._setup_resource_manager()
         self._setup_agent_manager()
@@ -208,19 +207,13 @@ class BaseWorkflow(ABC):
 
         self._workflow_iteration_count += 1
 
-        if not phase_response.success:
-            self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
-        elif self._max_iterations_reached():
-            self._set_workflow_status(WorkflowStatus.COMPLETED_MAX_ITERATIONS)
-
         return phase_response
 
     def _max_iterations_reached(self) -> bool:
         return self._workflow_iteration_count >= self.config.max_iterations
 
     def _finalize_workflow(self):
-        log_file_path = self.workflow_logger.finalize(self.status.value)
-        logger.status(f"Saved log to: {log_file_path}")
+        self.workflow_logger.finalize(self.status.value)
 
     def _handle_workflow_exception(self, exception: Exception):
         self._set_workflow_status(WorkflowStatus.INCOMPLETE)
