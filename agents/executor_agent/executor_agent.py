@@ -28,7 +28,6 @@ TEMPERATURE = 0.5
 @dataclass
 class ExecutorAgentConfig(AgentConfig):
     lm_config: AgentLMConfig = field(default_factory=AgentLMConfig)
-    target_host: str = field(default='')
     initial_prompt: Optional[str] = field(default=None)
 
 class ExecutorAgent(BaseAgent):
@@ -63,11 +62,6 @@ class ExecutorAgent(BaseAgent):
             self.initial_prompt = agent_config.initial_prompt
         self.prompt = self.initial_prompt
 
-        # If a target_host is provided, run health_check on self.kali_env
-        self.target_host = agent_config.target_host
-
-        # if self.target_host: 
-        #     self.kali_env.health_check(self.target_host)
         
     def run(self, responses: List[Response]) -> Response:
         if len(responses) > 1:
