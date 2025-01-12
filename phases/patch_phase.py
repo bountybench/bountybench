@@ -1,13 +1,14 @@
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from phase_responses.phase_response import PhaseResponse
+from phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
 from resources.base_resource import BaseResource
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
-from responses.answer_response import AnswerResponseInterface
-from responses.response import Response
+from resources.utils import contains_setup
+from messages.answer_message import AnswerMessageInterface
+from messages.message import Message
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -109,66 +110,67 @@ class PatchPhase(BasePhase):
         }
 
         setup_repo_env_script = os.path.join(str(self.workflow.task_dir), "setup_repo_env.sh")
-        if os.path.exists(setup_repo_env_script):
+        if contains_setup(setup_repo_env_script):
             resource_configs["repo_resource"] = (
                 SetupResource,
                 SetupResourceConfig(
-                    task_level_setup=False,
+                    bounty_level_setup=False,
                     task_dir=self.workflow.task_dir,
                 )
             )
 
-        target_host = self.workflow.repo_metadata.get("target_host")
-        if target_host:
-            task_server_config = SetupResourceConfig(
-                task_level_setup=True,
-                task_dir=self.workflow.task_dir,
-                bounty_number=self.workflow.bounty_number,
-                server_address=target_host
+        setup_bounty_env_script = os.path.join(str(self.workflow.task_dir), "setup_bounty_env.sh")
+        if contains_setup(setup_bounty_env_script):
+            resource_configs["bounty_resource"] = (
+                SetupResource,
+                SetupResourceConfig(
+                    bounty_level_setup=True,
+                    task_dir=self.workflow.task_dir,
+                    bounty_number=self.workflow.bounty_number,
+                )
             )
-            resource_configs["task_server"] = (SetupResource, task_server_config)
-
+            
         logger.debug(f"Exiting define_resources for ExploitPhase")
         return resource_configs
 
 
     def run_one_iteration(
         self,
-        phase_response: PhaseResponse,
+        phase_message: PhaseMessage,
         agent_instance: Any,
-        previous_output: Optional[Response],
-    ) -> Response:
+        previous_output: Optional[Message],
+    ) -> Message:
         """
         1) Call the agent with previous_output as input.
-        2) If ExecutorAgent produces an AnswerResponseInterface -> hallucination -> finalize & done.
-        3) If PatchAgent produces an AnswerResponseInterface -> patch success -> finalize & done.
+        2) If ExecutorAgent produces an AnswerMessageInterface -> hallucination -> finalize & done.
+        3) If PatchAgent produces an AnswerMessageInterface -> patch success -> finalize & done.
         4) Otherwise continue.
         """
-        # Prepare input response list for agent
+        # Prepare input message list for agent
         input_list = []
         if previous_output is not None:
             input_list.append(previous_output)
 
-        response = agent_instance.run(input_list)
-        phase_response.add_agent_response(response)
+        message = agent_instance.run(input_list)
+        phase_message.add_agent_message(message)
 
         # Determine which agent name was used in this iteration
         _, agent_instance = self._get_current_agent()
 
         # Check for hallucination (ExecutorAgent)
         if isinstance(agent_instance, ExecutorAgent):
-            if isinstance(response, AnswerResponseInterface):
+            if isinstance(message, AnswerMessageInterface):
                 logger.status("Executor agent hallucinated an answer!")
                 self._set_phase_summary("completed_with_hallucination")
-                phase_response.set_complete()
-                return response
+                phase_message.set_complete()
+                return message
 
         # Check for exploit success (PatchAgent)
         elif isinstance(agent_instance, PatchAgent):
-            if isinstance(response, AnswerResponseInterface):
+            if isinstance(message, AnswerMessageInterface):
                 logger.info("Patch Success!")
                 self._set_phase_summary("patch_success")
-                phase_response.set_complete()
-                phase_response.set_success()
-                return response
-        return response
+                phase_message.set_complete()
+                phase_message.set_success()
+                return message
+        return message

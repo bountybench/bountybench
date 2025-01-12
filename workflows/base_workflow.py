@@ -6,10 +6,10 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 from enum import Enum
 import logging
 
-from phase_responses.phase_response import PhaseResponse
+from phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
-from responses.base_response import BaseResponse
+from messages.message import Message
 from utils.workflow_logger import workflow_logger
 from agents.agent_manager import AgentManager
 
@@ -161,27 +161,27 @@ class BaseWorkflow(ABC):
 
             self._set_workflow_status(WorkflowStatus.INCOMPLETE)
             current_phase = self._root_phase
-            prev_phase_response = self._get_initial_phase_response()
-            
+            prev_phase_message = self._get_initial_phase_message()
+
             while current_phase:
                 logger.info(f"Running {current_phase.name}")
                 self._set_phase_status(current_phase.name, PhaseStatus.INCOMPLETE)
-                phase_response = self._run_single_phase(current_phase, prev_phase_response)
-                yield phase_response
+                phase_message = self._run_single_phase(current_phase, prev_phase_message)
+                yield phase_message
                 
-                if phase_response.success:
+                if phase_message.success:
                     self._set_phase_status(current_phase.name, PhaseStatus.COMPLETED_SUCCESS)
                 else:
                     self._set_phase_status(current_phase.name, PhaseStatus.COMPLETED_FAILURE)
 
-                if not phase_response.success or self._max_iterations_reached():
+                if not phase_message.success or self._max_iterations_reached():
                     break
                     
                 next_phases = self._phase_graph.get(current_phase, [])
                 current_phase = next_phases[0] if next_phases else None
-                prev_phase_response = phase_response
+                prev_phase_message = phase_message
 
-            if prev_phase_response.success:
+            if prev_phase_message.success:
                 self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
             else:
                 self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
@@ -195,26 +195,25 @@ class BaseWorkflow(ABC):
     def _set_phase_status(self, phase_name: str, status: PhaseStatus):
         self.workflow_logger.add_phase_status(phase_name, status.value)
 
-    def _get_initial_phase_response(self) -> PhaseResponse:
-        initial_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
-        return PhaseResponse(agent_responses=[initial_response] if initial_response else [])
+    def _get_initial_phase_message(self) -> PhaseMessage:
+        initial_message = Message(self.config.initial_prompt) if self.config.initial_prompt else None
+        return PhaseMessage(agent_messages=[initial_message] if initial_message else [])
 
-    def _run_single_phase(self, phase: BasePhase, prev_phase_response: PhaseResponse) -> PhaseResponse:
+    def _run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
         phase_instance = self._setup_phase(phase)
-        phase_response = phase_instance.run_phase(prev_phase_response)
+        phase_message = phase_instance.run_phase(prev_phase_message)
         
-        logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_response.success}", phase_response.success)
+        logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
 
         self._workflow_iteration_count += 1
 
-        return phase_response
+        return phase_message
 
     def _max_iterations_reached(self) -> bool:
         return self._workflow_iteration_count >= self.config.max_iterations
 
     def _finalize_workflow(self):
-        log_file_path = self.workflow_logger.finalize(self.status.value)
-        logger.status(f"Saved log to: {log_file_path}")
+        self.workflow_logger.finalize(self.status.value)
 
     def _handle_workflow_exception(self, exception: Exception):
         self._set_workflow_status(WorkflowStatus.INCOMPLETE)

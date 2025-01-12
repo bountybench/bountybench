@@ -36,7 +36,7 @@ def timeout_context(seconds):
         signal.alarm(0)
         
 # Constants with type annotations
-DOCKER_IMAGE: str = "cybench/cybounty:latest"
+DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 
 MAX_RETRIES = 3
@@ -108,20 +108,20 @@ class KaliEnvResource(BaseResource):
                 except docker.errors.NotFound:
                     logger.info(f"No existing container named '{name}'.")
 
-                logger.info(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
-                container = self.client.containers.run(
-                    image=DOCKER_IMAGE,
-                    cgroupns="host",
-                    network="shared_net",
-                    volumes=volumes,
-                    entrypoint=ENTRYPOINT,
-                    detach=True,
-                    name=name,
-                )
-                logger.info("KaliEnvResource Docker container started successfully.")
-
-                # Upgrade pip
-                self._upgrade_pip(container)
+                start_progress(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
+                try:
+                    container = self.client.containers.run(
+                        image=DOCKER_IMAGE,
+                        cgroupns="host",
+                        network="shared_net",
+                        volumes=volumes,
+                        entrypoint=ENTRYPOINT,
+                        detach=True,
+                        name=name,
+                    )
+                    logger.info("KaliEnvResource Docker container started successfully.")
+                finally:
+                    stop_progress()
 
                 container_info = self.client.api.inspect_container(container.id)
                 mounts = container_info['Mounts']
@@ -143,26 +143,6 @@ class KaliEnvResource(BaseResource):
                 else:
                     logger.error("Failed to start Docker container after maximum retries.")
                     sys.exit(1)
-
-    def _upgrade_pip(self, container: Container) -> None:
-        """
-        Upgrade pip in the given container.
-
-        Args:
-            container (Container): The Docker container in which to upgrade pip.
-        """
-        start_progress("Upgrading pip in container")
-        try:
-            result = container.exec_run("pip install --upgrade pip")
-            if result.exit_code == 0:
-                logger.info("Successfully upgraded pip.")
-            else:
-                logger.warning(f"Failed to upgrade pip. Exit code: {result.exit_code}")
-                logger.warning(f"Output: {result.output.decode('utf-8')}")
-        except Exception as e:
-            logger.error(f"Error while upgrading pip: {e}")
-        finally:
-            stop_progress()
 
     def cleanup_tmp(self):
         cleanup_command = "rm -rf * .*"

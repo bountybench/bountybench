@@ -4,9 +4,8 @@ from typing import List, Optional, Tuple
 
 from phases.base_phase import BasePhase, PhaseConfig
 from agents.base_agent import BaseAgent
-from responses.response import Response
-from responses.base_response import BaseResponse
-from responses.answer_response import AnswerResponse, AnswerResponseInterface
+from messages.message import Message
+from messages.answer_message import AnswerMessage, AnswerMessageInterface
 from utils import workflow_logger
 from utils.logger import get_main_logger
 
@@ -20,42 +19,42 @@ class SampleAgent(BaseAgent):
         self.magic_iteration = magic_iteration
         self.run_count = 0
 
-    def run(self, responses: List[Response]) -> Response:
+    def run(self, messages: List[Message]) -> Message:
         self.run_count += 1
         if self.magic_iteration >= 0 and self.run_count == self.magic_iteration:
-            return AnswerResponse("answer: Magic done")
-        return BaseResponse("Regular response")
+            return AnswerMessage("answer: Magic done")
+        return Message("Regular message")
 
 
 class SamplePhase(BasePhase):
     def run_one_iteration(
         self,
         agent_instance: BaseAgent,
-        previous_output: Optional[Response],
+        previous_output: Optional[Message],
         iteration_num: int,
-    ) -> Tuple[Response, bool]:
+    ) -> Tuple[Message, bool]:
         input_list = []
         if previous_output:
             input_list.append(previous_output)
 
-        response = agent_instance.run(input_list)
+        message = agent_instance.run(input_list)
 
-        if isinstance(response, AnswerResponseInterface):
+        if isinstance(message, AnswerMessageInterface):
             logger.info("SamplePhase success condition met!")
             self._set_phase_summary("completed_success")
-            return response, True
+            return message, True
 
-        return response, False
+        return message, False
 
 
 class FakeAgentA(BaseAgent):
-    def run(self, responses: List[Response]) -> Response:
-        return BaseResponse("FakeAgentA")
+    def run(self, messages: List[Message]) -> Message:
+        return Message("FakeAgentA")
 
 
 class FakeAgentB(BaseAgent):
-    def run(self, responses: List[Response]) -> Response:
-        return BaseResponse("FakeAgentB")
+    def run(self, messages: List[Message]) -> Message:
+        return Message("FakeAgentB")
 
 
 class PhaseWithRequiredAgents(BasePhase):
@@ -64,9 +63,9 @@ class PhaseWithRequiredAgents(BasePhase):
     def run_one_iteration(
         self,
         agent_instance: BaseAgent,
-        previous_output: Optional[Response],
+        previous_output: Optional[Message],
         iteration_num: int,
-    ) -> Tuple[Response, bool]:
+    ) -> Tuple[Message, bool]:
         resp = agent_instance.run([])
         return resp, False
 
@@ -88,12 +87,12 @@ class TestBasePhase(unittest.TestCase):
         )
 
         phase = SamplePhase(phase_config=config)
-        final_response, success_flag = phase.run_phase()
+        final_message, success_flag = phase.run_phase()
 
         self.assertFalse(success_flag)
         self.assertEqual(agent1.run_count, 3)
         self.assertEqual(agent2.run_count, 2)
-        self.assertEqual(final_response.response, "Regular response")
+        self.assertEqual(final_message.message, "Regular message")
 
         mock_logger.phase.assert_called_with(phase)
 
@@ -113,17 +112,17 @@ class TestBasePhase(unittest.TestCase):
         )
 
         phase = SamplePhase(phase_config=config)
-        final_response, success_flag = phase.run_phase()
+        final_message, success_flag = phase.run_phase()
 
         self.assertEqual(agent1.run_count, 1)
         self.assertEqual(agent2.run_count, 1)
         self.assertTrue(success_flag)
-        self.assertIsInstance(final_response, AnswerResponseInterface)
+        self.assertIsInstance(final_message, AnswerMessageInterface)
 
         self.assertEqual(phase.phase_summary, "completed_success")
 
     @patch("phases.base_phase.workflow_logger")
-    def test_base_phase_with_initial_response(self, mock_logger):
+    def test_base_phase_with_initial_message(self, mock_logger):
         mock_logger.phase = MagicMock()
         mock_logger.phase.return_value.__enter__.return_value = mock_logger
         mock_logger.phase.return_value.__exit__.return_value = False
@@ -131,18 +130,18 @@ class TestBasePhase(unittest.TestCase):
         agent = SampleAgent("Agent1", magic_iteration=-1)
         config = PhaseConfig(
             phase_number=3,
-            phase_name="TestInitResponse",
+            phase_name="TestInitMessage",
             max_iterations=3,
             agents=[("Agent1", agent)],
         )
 
-        initial_resp = BaseResponse("Initial")
-        phase = SamplePhase(phase_config=config, initial_response=initial_resp)
-        final_response, success_flag = phase.run_phase()
+        initial_resp = Message("Initial")
+        phase = SamplePhase(phase_config=config, initial_message=initial_resp)
+        final_message, success_flag = phase.run_phase()
 
         self.assertEqual(agent.run_count, 3)
         self.assertFalse(success_flag)
-        self.assertEqual(final_response.response, "Regular response")
+        self.assertEqual(final_message.message, "Regular message")
 
     @patch("phases.base_phase.workflow_logger")
     def test_required_agents_success(self, mock_logger):
@@ -158,10 +157,10 @@ class TestBasePhase(unittest.TestCase):
             ],
         )
         phase = PhaseWithRequiredAgents(phase_config=config)
-        final_response, success_flag = phase.run_phase()
+        final_message, success_flag = phase.run_phase()
 
         self.assertFalse(success_flag)
-        self.assertEqual(final_response.response, "FakeAgentB")
+        self.assertEqual(final_message.message, "FakeAgentB")
 
     @patch("phases.base_phase.workflow_logger")
     def test_required_agents_missing(self, mock_logger):

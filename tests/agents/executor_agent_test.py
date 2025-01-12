@@ -1,11 +1,10 @@
 import unittest
 from unittest.mock import Mock, patch
 from agents.executor_agent.executor_agent import ExecutorAgent    
-from models.model_response import ModelResponse
 from resources.resource_dict import resource_dict
 from resources.base_resource import BaseResource
-from responses.command_response import CommandResponse
-from responses.answer_response import AnswerResponse
+from messages.command_message import CommandMessage
+from messages.answer_message import AnswerMessage
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from resources.kali_env_resource import KaliEnvResource
 
@@ -41,23 +40,23 @@ class TestExecutorAgent(unittest.TestCase):
         # Initialize the agent
         self.agent = ExecutorAgent(config=self.config)
 
-    def test_run_with_invalid_response_type(self):
+    def test_run_with_invalid_message_type(self):
         """
-        Test run() raises exception when response not valid type
+        Test run() raises exception when message not valid type
         """
-        response = Mock(spec=AnswerResponse)
+        message = Mock(spec=AnswerMessage)
         with self.assertRaises(Exception) as context:
-            self.agent.run(responses=[response])
-        self.assertIn('Response not of an interpretable type', str(context.exception))
+            self.agent.run(messages=[message])
+        self.assertIn('Message not of an interpretable type', str(context.exception))
 
-    def test_run_with_valid_response_type(self):
+    def test_run_with_valid_message_type(self):
         """
-        Test run() returns valid response
+        Test run() returns valid message
         """
-        command_response = CommandResponse("command: ls")
+        command_message = CommandMessage("command: ls")
         self.agent.execute = Mock()
 
-        result = self.agent.run(responses=[command_response])
+        result = self.agent.run(messages=[command_message])
 
         # Check if execute() was called
         self.agent.execute.assert_called_once()
@@ -67,7 +66,7 @@ class TestExecutorAgent(unittest.TestCase):
         Tests that execute() calls the LM and executes command.
         """
         # Simulate the call to call_lm
-        self.agent.call_lm = Mock(return_value=CommandResponse("command: pwd"))
+        self.agent.call_lm = Mock(return_value=CommandMessage("command: pwd"))
 
         result = self.agent.execute()
 
@@ -77,8 +76,8 @@ class TestExecutorAgent(unittest.TestCase):
         """
         Test that execute_in_env runs the command successfully and returns an Observation.
         """
-        response = CommandResponse("command: whoami")
-        observation = self.agent.execute_in_env(response)
+        message = CommandMessage("command: whoami")
+        observation = self.agent.execute_in_env(message)
 
         self.assertEqual(observation.raw_output, "root")
 
@@ -86,8 +85,8 @@ class TestExecutorAgent(unittest.TestCase):
         """
         Test that exeucte_in_env handles command failure correctly.
         """
-        response = CommandResponse("command: invalid_command")
-        observation = self.agent.execute_in_env(response)
+        message = CommandMessage("command: invalid_command")
+        observation = self.agent.execute_in_env(message)
 
         self.assertIn("command not found", observation.raw_output)
 

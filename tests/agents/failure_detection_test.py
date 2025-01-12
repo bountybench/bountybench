@@ -5,9 +5,9 @@ from agents.dataclasses.agent_lm_spec import AgentLMConfig
 
 from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.kali_env_resource import KaliEnvResource
-from responses.command_response import CommandResponse
-from responses.failure_response import FailureResponse
-from responses.response import Response
+from messages.command_message import CommandMessage
+from messages.failure_message import FailureMessage
+from messages.message import Message
 
 kali_env = KaliEnvResource(name=f"kali-env", volumes=None)
 
@@ -30,20 +30,20 @@ class TestExecutorAgent(unittest.TestCase):
             failure_detection=True,
         )
 
-        mock_command_response = CommandResponse(
-            response="Command: Test Response",
+        mock_command_message = CommandMessage(
+            message="Command: Test Message",
         )
 
-        mock_execute.return_value = mock_command_response
+        mock_execute.return_value = mock_command_message
 
-        response: Response = self.agent.run(responses=[])
-        response: Response = self.agent.run(responses=[])
-        response: Response = self.agent.run(responses=[])
-        response: Response = self.agent.run(responses=[])
+        message: Message = self.agent.run(messages=[])
+        message: Message = self.agent.run(messages=[])
+        message: Message = self.agent.run(messages=[])
+        message: Message = self.agent.run(messages=[])
 
-        self.assertIsInstance(response, FailureResponse)
+        self.assertIsInstance(message, FailureMessage)
         self.assertEqual(
-            response.response, "Failure Response")
+            message.message, "Failure Message")
     
     @patch.object(ExecutorAgent, 'execute')
     def test_run_with_failure_detection_less(self, mock_execute):
@@ -52,19 +52,19 @@ class TestExecutorAgent(unittest.TestCase):
             failure_detection=True,
         )
 
-        mock_command_response = CommandResponse(
-            response="Command: Test Response",
+        mock_command_message = CommandMessage(
+            message="Command: Test Message",
         )
 
-        mock_execute.return_value = mock_command_response
+        mock_execute.return_value = mock_command_message
 
-        response: Response = self.agent.run(responses=[])
-        response: Response = self.agent.run(responses=[])
-        response: Response = self.agent.run(responses=[])
+        message: Message = self.agent.run(messages=[])
+        message: Message = self.agent.run(messages=[])
+        message: Message = self.agent.run(messages=[])
 
-        self.assertIsInstance(response, CommandResponse)
-        self.assertEqual(response.command, "Test Response")
-        self.assertEqual(response.response, "Command: Test Response")
+        self.assertIsInstance(message, CommandMessage)
+        self.assertEqual(message.command, "Test Message")
+        self.assertEqual(message.message, "Command: Test Message")
     
     @patch.object(ExecutorAgent, 'execute')
     def test_run_with_failure_detection_change(self, mock_execute):
@@ -73,37 +73,37 @@ class TestExecutorAgent(unittest.TestCase):
             failure_detection=True,
         )
 
-        mock_command_response1 = CommandResponse(
-            response="Command: Test Response",
+        mock_command_message1 = CommandMessage(
+            message="Command: Test Message",
         )
 
-        mock_command_response2 = CommandResponse(
-            response="Command: Random Random Random",
+        mock_command_message2 = CommandMessage(
+            message="Command: Random Random Random",
         )
 
-        mock_execute.return_value = mock_command_response1
+        mock_execute.return_value = mock_command_message1
 
-        response: Response = self.agent.run(responses=[])
-        response: Response = self.agent.run(responses=[])
-        response: Response = self.agent.run(responses=[])
+        message: Message = self.agent.run(messages=[])
+        message: Message = self.agent.run(messages=[])
+        message: Message = self.agent.run(messages=[])
 
-        mock_execute.return_value = mock_command_response2
+        mock_execute.return_value = mock_command_message2
 
-        response: Response = self.agent.run(responses=[])
-        response: Response = self.agent.run(responses=[])
+        message: Message = self.agent.run(messages=[])
+        message: Message = self.agent.run(messages=[])
 
-        self.assertIsInstance(response, CommandResponse)
-        self.assertEqual(response.command, "Random Random Random")
-        self.assertEqual(response.response, "Command: Random Random Random")
-        self.assertEqual(len(self.agent.response_history.responses), 5)
+        self.assertIsInstance(message, CommandMessage)
+        self.assertEqual(message.command, "Random Random Random")
+        self.assertEqual(message.message, "Command: Random Random Random")
+        self.assertEqual(len(self.agent.message_history.messages), 5)
 
-        response: Response = self.agent.run(responses=[])
-        response: Response = self.agent.run(responses=[])
+        message: Message = self.agent.run(messages=[])
+        message: Message = self.agent.run(messages=[])
 
-        self.assertIsInstance(response, FailureResponse)
+        self.assertIsInstance(message, FailureMessage)
         self.assertEqual(
-            response.response, "Failure Response")
-        self.assertEqual(len(self.agent.response_history.responses), 6)
+            message.message, "Failure Message")
+        self.assertEqual(len(self.agent.message_history.messages), 6)
     
     @patch.object(ExecutorAgent, 'execute')
     def test_run_with_failure_detection_vary(self, mock_execute):
@@ -112,38 +112,38 @@ class TestExecutorAgent(unittest.TestCase):
             failure_detection=True,
         )
 
-        mock_command_response = CommandResponse(
-            response="Command: Test Response",
+        mock_command_message = CommandMessage(
+            message="Command: Test Message",
         )
 
-        mock_command_response1 = CommandResponse(
-            response="Command: Test Response1",
+        mock_command_message1 = CommandMessage(
+            message="Command: Test Message1",
         )
 
-        mock_command_response2 = CommandResponse(
-            response="Command: Test Response2",
+        mock_command_message2 = CommandMessage(
+            message="Command: Test Message2",
         )
 
-        mock_command_response3 = CommandResponse(
-            response="Command: Test Response3",
+        mock_command_message3 = CommandMessage(
+            message="Command: Test Message3",
         )
 
-        mock_execute.return_value = mock_command_response1
-        response: Response = self.agent.run(responses=[])
+        mock_execute.return_value = mock_command_message1
+        message: Message = self.agent.run(messages=[])
 
-        mock_execute.return_value = mock_command_response2
-        response: Response = self.agent.run(responses=[])
+        mock_execute.return_value = mock_command_message2
+        message: Message = self.agent.run(messages=[])
 
-        mock_execute.return_value = mock_command_response3
-        response: Response = self.agent.run(responses=[])
+        mock_execute.return_value = mock_command_message3
+        message: Message = self.agent.run(messages=[])
 
-        mock_execute.return_value = mock_command_response
-        response: Response = self.agent.run(responses=[])
+        mock_execute.return_value = mock_command_message
+        message: Message = self.agent.run(messages=[])
 
-        self.assertIsInstance(response, FailureResponse)
+        self.assertIsInstance(message, FailureMessage)
         self.assertEqual(
-            response.response, "Failure Response")
-        self.assertEqual(len(self.agent.response_history.responses), 3)
+            message.message, "Failure Message")
+        self.assertEqual(len(self.agent.message_history.messages), 3)
 
 if __name__ == '__main__':
     unittest.main()

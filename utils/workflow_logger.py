@@ -9,9 +9,8 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-from models.model_response import ModelResponse
-from responses.response import Response
-from responses.error_response import ErrorResponse
+from messages.message import Message
+from messages.error_message import ErrorMessage
 
 from .workflow_logger_types import (
     Action,
@@ -132,7 +131,7 @@ class WorkflowLogger:
     # ITERATION MANAGEMENT
     ################################################################
 
-    def start_iteration(self, iteration_number: int, agent_name: str, input_response: Optional[Response]) -> None:
+    def start_iteration(self, iteration_number: int, agent_name: str, input_message: Optional[Message]) -> None:
         """
         Start a new iteration within the current phase.
         """
@@ -145,8 +144,8 @@ class WorkflowLogger:
         self.current_iteration = PhaseIteration(
             iteration_number=iteration_number,
             agent_name=agent_name,
-            input_response=input_response,
-            output_response=None,
+            input_message=input_message,
+            output_message=None,
             start_time=datetime.now().isoformat(),
             end_time=None,
             actions=[],
@@ -154,7 +153,7 @@ class WorkflowLogger:
             status="in_progress",
         )
 
-    def end_iteration(self, output_response: Response, status: str = "completed") -> None:
+    def end_iteration(self, output_message: Message, status: str = "completed") -> None:
         """
         End the current iteration and add it to the current phase.
         """
@@ -164,7 +163,7 @@ class WorkflowLogger:
         if not self.current_iteration:
             raise RuntimeError("No iteration in progress.")
 
-        self.current_iteration.output_response = output_response
+        self.current_iteration.output_message = output_message
         self.current_iteration.end_time = datetime.now().isoformat()
         self.current_iteration.status = status
         self.get_aggregate_metadata()
@@ -290,7 +289,7 @@ class WorkflowLogger:
         if isinstance(obj, Path):
             return str(obj)
         elif hasattr(obj, '__dict__'):
-            # For objects with a __dict__ attribute (like BaseResponse),
+            # For objects with a __dict__ attribute (like Message),
             # we'll convert them to a dictionary
             return {key: self._json_serializable(value) for key, value in obj.__dict__.items()}
         elif isinstance(obj, (list, tuple)):
@@ -316,8 +315,6 @@ class WorkflowLogger:
         if hasattr(self.workflow_log.metadata, 'task'):
             metadata_dict["task"] = self.workflow_log.metadata.task
 
-        metadata_dict["additional_metadata"] = self.workflow_log.metadata.additional_metadata
-
         log_dict = {
             "metadata": metadata_dict,
             "phases": [
@@ -331,9 +328,9 @@ class WorkflowLogger:
                             "iteration_number": iteration.iteration_number,
                             "agent_name": iteration.agent_name,
                             "status": iteration.status,
-                            "input_response": self._format_response(iteration.input_response),
+                            "input_message": self._format_message(iteration.input_message),
                             "actions": iteration.actions,
-                            "output_response": self._format_response(iteration.output_response),
+                            "output_message": self._format_message(iteration.output_message),
                             "start_time": iteration.start_time,
                             "end_time": iteration.end_time,
                             "metadata": iteration.metadata
@@ -343,6 +340,7 @@ class WorkflowLogger:
             ],
             "agents_used": self.workflow_log.agents_used,
             "resources_used": self.workflow_log.resources_used,
+            "additional_metadata": self.workflow_log.metadata.additional_metadata
         }
 
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -351,13 +349,13 @@ class WorkflowLogger:
             json.dump(log_dict, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
 
-    def _format_response(self, response):
-        if isinstance(response, dict) and '_response' in response:
-            return {"response": response['_response']}
-        elif isinstance(response, Response):
-            return {"response": response.response}
+    def _format_message(self, message):
+        if isinstance(message, dict) and '_message' in message:
+            return {"message": message['_message']}
+        elif isinstance(message, Message):
+            return {"message": message.message}
         else:
-            return response
+            return message
     ################################################################
     # CONTEXT MANAGERS
     ################################################################
@@ -378,12 +376,12 @@ class WorkflowLogger:
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            status = "failed" if exc_type else "completed"
+            status = "incomplete" if exc_type else "completed"
             self.logger.end_phase(status, self.phase_instance)
             # If we return False, we do NOT suppress exceptions.
             return False
 
-        def iteration(self, iteration_number: int, agent_name: str, input_response: Optional[Response]):
+        def iteration(self, iteration_number: int, agent_name: str, input_message: Optional[Message]):
             """
             Returns an iteration context within this phase.
             """
@@ -391,7 +389,7 @@ class WorkflowLogger:
                 self.logger,
                 iteration_number,
                 agent_name,
-                input_response
+                input_message
             )
 
     class IterationContext:
@@ -405,38 +403,38 @@ class WorkflowLogger:
             logger: 'WorkflowLogger',
             iteration_number: int,
             agent_name: str,
-            input_response: Optional[Response]
+            input_message: Optional[Message]
         ):
             self.logger = logger
             self.iteration_number = iteration_number
             self.agent_name = agent_name
-            self.input_response = input_response
-            self.output_response: Optional[Response] = None
+            self.input_message = input_message
+            self.output_message: Optional[Message] = None
 
         def __enter__(self):
-            self.logger.start_iteration(self.iteration_number, self.agent_name, self.input_response)
+            self.logger.start_iteration(self.iteration_number, self.agent_name, self.input_message)
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            # If an exception happens, produce an ErrorResponse:
+            # If an exception happens, produce an ErrorMessage:
             if exc_type:
-                self.output_response = ErrorResponse(
+                self.output_message = ErrorMessage(
                     answer=str(exc_val),
                     error=True,
                     metadata={"exception_type": exc_type.__name__}
                 )
-            # If no output was set, create a default "no response" placeholder:
-            elif not self.output_response:
-                self.output_response = ErrorResponse(
-                    answer="Iteration completed without explicit response",
+            # If no output was set, create a default "no message" placeholder:
+            elif not self.output_message:
+                self.output_message = ErrorMessage(
+                    answer="Iteration completed without explicit message",
                     error=False
                 )
-            self.logger.end_iteration(self.output_response, "failed" if exc_type else "completed")
+            self.logger.end_iteration(self.output_message, "incomplete" if exc_type else "completed")
             return False  # Don't suppress exceptions
 
-        def set_output(self, output_response: Response):
-            """Set the output response for this iteration"""
-            self.output_response = output_response
+        def set_output(self, output_message: Message):
+            """Set the output message for this iteration"""
+            self.output_message = output_message
 
         def log_action(
             self, 
