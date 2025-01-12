@@ -19,7 +19,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     workflow_name: '',
-    task_repo_dir: '',
+    task_dir: '',
     bounty_number: '',
     interactive: true
   });
@@ -44,7 +44,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-
+  
+    console.log('Form Data:', formData); // Debugging: Log the form data
+  
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
         method: 'POST',
@@ -53,28 +55,30 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         },
         body: JSON.stringify({
           workflow_name: formData.workflow_name,
-          task_repo_dir: formData.task_repo_dir,
+          task_dir: formData.task_dir,
           bounty_number: formData.bounty_number,
-          interactive: interactiveMode
+          interactive: interactiveMode,
         }),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to start workflow');
       }
-
+  
       const data = await response.json();
       if (data.error) {
         setError(data.error);
       } else {
+        console.log('Workflow Started:', data); // Debugging: Log the workflow response
         onWorkflowStart(data.workflow_id, interactiveMode);
       }
     } catch (err) {
+      console.error('Error starting workflow:', err); // Debugging: Log any errors
       setError(err.message || 'Failed to start workflow. Make sure the backend server is running.');
     }
   };
-
+  
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
     setFormData(prev => ({
@@ -127,8 +131,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         <TextField
           fullWidth
           label="Task Repository Directory"
-          name="task_repo_dir"
-          value={formData.task_repo_dir}
+          name="task_dir"
+          value={formData.task_dir}
           onChange={handleInputChange}
           required
           margin="normal"

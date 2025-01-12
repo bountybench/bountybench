@@ -102,14 +102,27 @@ async def list_workflows():
 async def start_workflow(workflow_data: dict):
     """Start a new workflow instance"""
     try:
+
+        print(f"Received workflow_data: {workflow_data}")  # Log the input data
         workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        print(f"Generated workflow ID: {workflow_id}")
+
         
+
+        print("Initializing workflow instance...")
+        if workflow_data['workflow_name'] not in id_to_workflow:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Workflow '{workflow_data['workflow_name']}' is not supported."
+            )
         # Initialize workflow instance
         workflow = id_to_workflow[workflow_data['workflow_name']](
-            task_repo_dir=Path(workflow_data['task_dir']),
+            task_dir=Path(workflow_data['task_dir']),
             bounty_number=workflow_data['bounty_number'],
             interactive=workflow_data.get('interactive', False)
         )
+        
 
         
         # Store workflow instance
@@ -117,14 +130,23 @@ async def start_workflow(workflow_data: dict):
             "instance": workflow,
             "status": "initialized"
         }
+
+
+        print(f"Workflow instance stored with ID: {workflow_id}")
+        
+        # Initialize workflow logger with the same workflow ID
+        print("Initializing workflow logger...")
         
         # Initialize workflow logger with the same workflow ID
         workflow_logger.initialize(
             workflow_name=workflow_data['workflow_name'],
             workflow_id=workflow_id,
-            task_repo_dir=workflow_data['task_dir'],
+            task_dir=workflow_data['task_dir'],
             bounty_number=workflow_data['bounty_number']
         )
+
+        print("Workflow logger initialized.")
+
         
         
         # Return workflow ID immediately
