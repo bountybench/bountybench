@@ -106,10 +106,11 @@ async def start_workflow(workflow_data: dict):
         
         # Initialize workflow instance
         workflow = id_to_workflow[workflow_data['workflow_name']](
-            task_repo_dir=Path(workflow_data['task_repo_dir']),
+            task_repo_dir=Path(workflow_data['task_dir']),
             bounty_number=workflow_data['bounty_number'],
             interactive=workflow_data.get('interactive', False)
         )
+
         
         # Store workflow instance
         active_workflows[workflow_id] = {
@@ -120,10 +121,11 @@ async def start_workflow(workflow_data: dict):
         # Initialize workflow logger with the same workflow ID
         workflow_logger.initialize(
             workflow_name=workflow_data['workflow_name'],
-            workflow_id=workflow_id,  # Pass the workflow ID
-            task_repo_dir=workflow_data['task_repo_dir'],
+            workflow_id=workflow_id,
+            task_repo_dir=workflow_data['task_dir'],
             bounty_number=workflow_data['bounty_number']
         )
+        
         
         # Return workflow ID immediately
         return {
