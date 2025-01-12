@@ -161,7 +161,7 @@ class PatchAgent(BaseAgent):
         logger.info("Running exploit...")
         try:
             exploit_result = self.docker.execute(
-                docker_image="cybench/cybounty:latest",
+                docker_image="cybench/bountyagent:latest",
                 command=exploit_command,
                 network="shared_net",
                 volumes=volumes,

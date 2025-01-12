@@ -36,7 +36,7 @@ def timeout_context(seconds):
         signal.alarm(0)
         
 # Constants with type annotations
-DOCKER_IMAGE: str = "cybench/cybounty:latest"
+DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 
 MAX_RETRIES = 3
