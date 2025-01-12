@@ -1,14 +1,20 @@
-from fastapi import FastAPI, WebSocket, BackgroundTasks
+from fastapi import FastAPI, WebSocket, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from typing import Dict, Optional, Set, Any
 from pathlib import Path
 import uuid
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta
 from pydantic import BaseModel
 
+# Import workflow classes
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
+
+# Setup logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -23,6 +29,7 @@ app.add_middleware(
 
 # Store active websocket connections
 active_connections: Set[WebSocket] = set()
+active_websockets: Set[WebSocket] = set()
 
 # Store running workflows
 running_workflows: Dict[str, Any] = {}
@@ -32,6 +39,7 @@ workflow_pauses: Dict[str, asyncio.Event] = {}
 
 # Store pending messages for interactive mode
 pending_messages: Dict[str, Dict] = {}
+pending_workflows: Dict[str, Dict] = {}
 
 class WorkflowStartRequest(BaseModel):
     workflow_type: str
@@ -43,12 +51,20 @@ class WorkflowStartRequest(BaseModel):
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     active_connections.add(websocket)
+    active_websockets.add(websocket)
+    logger.info("WebSocket connection established")
+    
     try:
         while True:
             message = await websocket.receive_json()
             await handle_websocket_message(websocket, message)
     except:
         active_connections.remove(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}", exc_info=True)
+    finally:
+        active_websockets.remove(websocket)
+        logger.info("WebSocket connection closed")
 
 async def handle_websocket_message(websocket: WebSocket, message: Dict):
     """Handle incoming websocket messages"""
@@ -115,6 +131,8 @@ class WebSocketLogger:
 async def run_workflow(workflow_id: str, workflow_instance: Any, interactive: bool):
     """Run workflow in background task"""
     try:
+        logger.info(f"Starting workflow {workflow_id} (interactive: {interactive})")
+        
         # Create custom logger for this workflow
         ws_logger = WebSocketLogger(workflow_id)
         
@@ -123,18 +141,31 @@ async def run_workflow(workflow_id: str, workflow_instance: Any, interactive: bo
         if interactive:
             workflow_instance.request_user_input = ws_logger.request_user_input
         
+        logger.info("Running workflow...")
         # Run the workflow
         await workflow_instance.run_async()
+        logger.info(f"Workflow {workflow_id} completed successfully")
         
     except Exception as e:
+        logger.error(f"Error in workflow {workflow_id}: {str(e)}", exc_info=True)
         await broadcast_message({
             "type": "error",
             "workflow_id": workflow_id,
             "error": str(e)
         })
-    finally:
+        # Remove the workflow from running workflows
         if workflow_id in running_workflows:
             del running_workflows[workflow_id]
+        raise
+
+async def wait_for_websocket(workflow_id: str, timeout: float = 10.0) -> bool:
+    """Wait for WebSocket connection to be established"""
+    start_time = datetime.now()
+    while datetime.now() - start_time < timedelta(seconds=timeout):
+        if active_websockets:
+            return True
+        await asyncio.sleep(0.1)
+    return False
 
 @app.get("/api/workflow/list")
 async def list_workflows():
@@ -160,26 +191,41 @@ async def start_workflow(
     background_tasks: BackgroundTasks
 ):
     """Start a new workflow"""
-    if request.workflow_type not in ["exploit_and_patch", "patch"]:
-        return {"error": "Invalid workflow type"}
-    
-    # Create a unique ID for this workflow
-    workflow_id = str(uuid.uuid4())
-    
-    # Create workflow instance
-    workflow_class = ExploitAndPatchWorkflow if request.workflow_type == "exploit_and_patch" else PatchWorkflow
-    workflow_instance = workflow_class(
-        task_dir=Path(request.task_dir),
-        bounty_number=request.bounty_number,
-        interactive=request.interactive
-    )
-    
-    running_workflows[workflow_id] = workflow_instance
-    
-    # Start workflow in background task
-    background_tasks.add_task(run_workflow, workflow_id, workflow_instance, request.interactive)
-    
-    return {"workflow_id": workflow_id, "status": "started"}
+    try:
+        logger.info(f"Starting workflow with type: {request.workflow_type}")
+        
+        if request.workflow_type not in ["exploit_and_patch", "patch"]:
+            raise HTTPException(status_code=400, detail="Invalid workflow type")
+        
+        # Create a unique ID for this workflow
+        workflow_id = str(uuid.uuid4())
+        
+        # Wait for WebSocket connection
+        if not await wait_for_websocket(workflow_id):
+            raise HTTPException(
+                status_code=503,
+                detail="WebSocket connection not established. Please ensure the client is connected."
+            )
+        
+        # Create workflow instance
+        workflow_class = ExploitAndPatchWorkflow if request.workflow_type == "exploit_and_patch" else PatchWorkflow
+        workflow_instance = workflow_class(
+            task_dir=Path(request.task_dir),
+            bounty_number=request.bounty_number,
+            interactive=request.interactive
+        )
+        
+        running_workflows[workflow_id] = workflow_instance
+        
+        # Start workflow in background task
+        background_tasks.add_task(run_workflow, workflow_id, workflow_instance, request.interactive)
+        
+        logger.info(f"Workflow {workflow_id} started successfully")
+        return {"workflow_id": workflow_id, "status": "started"}
+        
+    except Exception as e:
+        logger.error(f"Error starting workflow: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/workflow/status/{workflow_id}")
 async def get_workflow_status(workflow_id: str):
