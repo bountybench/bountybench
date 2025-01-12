@@ -5,6 +5,7 @@ from resources.init_files_resource import InitFilesResource
 from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
+from resources.kali_env_resource import KaliEnvResource
 
 
 logger = get_main_logger(__name__)
@@ -77,7 +78,17 @@ class ResourceManager:
             if self._resource_registration.get(rid) and issubclass(self._resource_registration[rid][0], InitFilesResource)), 
             None
         )
-        other_resource_ids = resource_id_set - {init_files_resource_id} if init_files_resource_id else resource_id_set
+
+        kali_resource_id = next(
+            (rid for rid in resource_id_set 
+            if self._resource_registration.get(rid) and issubclass(self._resource_registration[rid][0], KaliEnvResource)), 
+            None
+        )
+
+        
+        #other_resource_ids = resource_id_set - {init_files_resource_id} if init_files_resource_id else resource_id_set
+
+        other_resource_ids = resource_id_set - {init_files_resource_id, kali_resource_id}
 
         # Initialize InitFilesResource first if it exists
         if init_files_resource_id:
@@ -86,6 +97,10 @@ class ResourceManager:
         # Initialize other resources
         for resource_id in other_resource_ids:
             self._initialize_single_resource(resource_id, phase_index)
+        
+        if kali_resource_id:
+            self._initialize_single_resource(kali_resource_id, phase_index)
+
 
         logger.debug(f"Resource lifecycle state: {self._resource_lifecycle}")
         logger.debug(f"Exiting initialize_phase_resources for phase {phase_index}")
