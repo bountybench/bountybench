@@ -2,6 +2,9 @@
   padding: 24px;
   max-width: 600px;
   margin: 0 auto;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  border: 1px solid #333;
 }
 
 .launcher-form {
@@ -33,4 +36,42 @@
   display: block;
   margin-left: 8px;
   color: rgba(255, 255, 255, 0.7);
+}
+
+/* Override Material-UI styles for dark theme */
+.MuiInputBase-root {
+  color: #fff !important;
+}
+
+.MuiInputLabel-root {
+  color: #888 !important;
+}
+
+.MuiOutlinedInput-notchedOutline {
+  border-color: #444 !important;
+}
+
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #666 !important;
+}
+
+.MuiSelect-icon {
+  color: #888 !important;
+}
+
+.MuiMenuItem-root {
+  color: #fff !important;
+}
+
+.MuiSwitch-track {
+  background-color: #444 !important;
+}
+
+.MuiButton-contained {
+  background-color: #2196f3 !important;
+  color: #fff !important;
+}
+
+.MuiButton-contained:hover {
+  background-color: #1976d2 !important;
 }

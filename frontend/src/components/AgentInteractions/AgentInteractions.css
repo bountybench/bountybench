@@ -195,3 +195,81 @@
   visibility: visible !important;
   opacity: 1 !important;
 }
+
+.interactions-container {
+  padding: 16px;
+  height: calc(100vh - 200px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message-paper {
+  padding: 16px;
+  margin-bottom: 16px;
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+}
+
+.message-header {
+  padding: 8px 16px;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.message-content {
+  padding: 16px;
+}
+
+.system-message {
+  color: #888;
+  font-style: italic;
+}
+
+.agent-message {
+  color: #fff;
+}
+
+.error-message {
+  color: #ff6b6b;
+  background-color: rgba(255, 107, 107, 0.1);
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.unknown-message {
+  color: #888;
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+
+/* Interactive Mode Dialog */
+.MuiDialog-paper {
+  background-color: #1e1e1e !important;
+  color: #fff !important;
+}
+
+.MuiDialogTitle-root {
+  background-color: #333;
+}
+
+.MuiTextField-root {
+  margin-top: 16px !important;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.MuiTextField-root .MuiInputBase-root {
+  color: #fff !important;
+}
+
+.MuiTextField-root .MuiInputLabel-root {
+  color: #888 !important;
+}
+
+.MuiTextField-root .MuiOutlinedInput-notchedOutline {
+  border-color: #444 !important;
+}
+
+.MuiButton-contained {
+  margin-top: 16px !important;
+}

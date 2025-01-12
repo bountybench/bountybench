@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Card, CardContent, IconButton, TextField, Button, CircularProgress, Collapse } from '@mui/material';
+import { Box, Typography, Card, CardContent, IconButton, TextField, Button, CircularProgress, Collapse, Paper, Divider } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit'; 
 import SaveIcon from '@mui/icons-material/Save';
 import ReactMarkdown from 'react-markdown';
 import './AgentInteractions.css';
+import { formatDistanceToNow } from 'date-fns';
 
 export const ActionCard = ({ action, onUpdateActionInput }) => {
   // 1) Default to expanded so partial updates are visible
@@ -305,7 +306,7 @@ export const MessageBubble = ({ message, onUpdateActionInput }) => {
             )} */}
           </Box>
           
-          <Collapse in={expanded || message.isSystem}>
+          <Collapse in={expanded}>
             {message.input?.content && (
               <Box mt={1}>
                 <Typography variant="caption" color="text.secondary">Input:</Typography>
@@ -341,6 +342,58 @@ export const MessageBubble = ({ message, onUpdateActionInput }) => {
       </Card>
     </Box>
   );
+};
+
+const MessageContent = ({ message }) => {
+  const { type, content } = message;
+  
+  switch (type) {
+    case 'system':
+      return (
+        <Box className="system-message">
+          <Typography variant="body2" color="text.secondary">
+            {content}
+          </Typography>
+        </Box>
+      );
+      
+    case 'agent':
+      return (
+        <Box className="agent-message">
+          <Typography variant="subtitle2" color="primary">
+            {message.agent_name}
+          </Typography>
+          <Typography variant="body1">
+            {Array.isArray(content) 
+              ? content.map((msg, idx) => (
+                  <div key={idx}>{msg.content}</div>
+                ))
+              : content}
+          </Typography>
+        </Box>
+      );
+      
+    case 'error':
+      return (
+        <Box className="error-message">
+          <Typography variant="subtitle2" color="error">
+            Error in {message.phase || 'workflow'}
+          </Typography>
+          <Typography variant="body1" color="error">
+            {content}
+          </Typography>
+        </Box>
+      );
+      
+    default:
+      return (
+        <Box className="unknown-message">
+          <Typography variant="body1">
+            {JSON.stringify(content)}
+          </Typography>
+        </Box>
+      );
+  }
 };
 
 export const AgentInteractions = ({ 
@@ -410,13 +463,19 @@ export const AgentInteractions = ({
             No messages yet
           </Typography>
         ) : (
-          messages.map((message, index) => (
+          messages.map((message) => (
             // 5) Unique key per message
-            <MessageBubble
-              key={message.id || index}
-              message={message}
-              onUpdateActionInput={onUpdateActionInput} 
-            />
+            <Paper key={message.id} className="message-paper" elevation={1}>
+              <Box className="message-header">
+                <Typography variant="caption" color="text.secondary">
+                  {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box className="message-content">
+                <MessageContent message={message} />
+              </Box>
+            </Paper>
           ))
         )}
         <div ref={messagesEndRef} />
