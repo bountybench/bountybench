@@ -1,9 +1,8 @@
 import atexit
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import os
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import List, Tuple, Optional
@@ -58,7 +57,9 @@ class PatchAgent(BaseAgent):
         self.tmp_exploits_dir_name = "exploit_files"
         self.tmp_exploits_dir = self.task_dir /"tmp" / self.bounty_dir / self.tmp_exploits_dir_name
         self.log_history = []
-
+        
+        self.codebase = None
+        
         self.patch_id = 1
         self.patch_dir_name = "agent-patches"
 
@@ -302,7 +303,7 @@ class PatchAgent(BaseAgent):
         """Perform cleanup operations."""
         self.store_patch()
         
-        if os.path.exists(self.codebase):
+        if self.codebase and os.path.exists(self.codebase):
             try:
                 subprocess.check_call(['git', 'checkout', 'main'], cwd=self.codebase)
                 logger.info("Checked out to branch 'main'.")

@@ -65,7 +65,7 @@ from utils.workflow_logger import workflow_logger
 workflow_logger.initialize(
     workflow_name="your_workflow_name",
     logs_dir="logs",
-    task_repo_dir="/path/to/repo",
+    task_dir="/path/to/repo",
     bounty_number="123",
     model_config=your_model_config
 )

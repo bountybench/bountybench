@@ -183,7 +183,7 @@ class BasePhase(ABC):
                 self.current_agent_index += 1
 
         if not self.phase_summary:
-            self._set_phase_summary("completed_max_phase_iterations")
+            self._set_phase_summary("completed_failure")
 
         # Deallocate resources after completing iterations
         self.deallocate_resources()

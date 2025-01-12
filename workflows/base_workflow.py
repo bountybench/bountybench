@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import atexit
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -18,11 +19,15 @@ logger = get_main_logger(__name__)
 
 class WorkflowStatus(Enum):
     """Status of workflow execution"""
-    INITIALIZED = "initialized"
     INCOMPLETE = "incomplete"
     COMPLETED_SUCCESS = "completed_success"
     COMPLETED_FAILURE = "completed_failure"
-    COMPLETED_MAX_ITERATIONS = "completed_max_iterations"
+
+class PhaseStatus(Enum):
+    """Status of phase execution"""
+    INCOMPLETE = "incomplete"
+    COMPLETED_SUCCESS = "completed_success"
+    COMPLETED_FAILURE = "completed_failure"
 
 @dataclass
 class WorkflowConfig:
@@ -35,6 +40,8 @@ class WorkflowConfig:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 class BaseWorkflow(ABC):
+    status = WorkflowStatus.INCOMPLETE
+    
     def __init__(self, **kwargs):
         logger.info(f"Initializing workflow {self.name}")
         self.workflow_id = self.name
@@ -48,13 +55,14 @@ class BaseWorkflow(ABC):
         self._root_phase = None
 
         self._initialize()
-        self._set_workflow_status(WorkflowStatus.INITIALIZED)
         self._setup_logger()
         self._setup_resource_manager()
         self._setup_agent_manager()
         self._create_phases()
         self._compute_resource_schedule()
         logger.info(f"Finished initializing workflow {self.name}")
+        
+        atexit.register(self._finalize_workflow)
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
@@ -157,9 +165,15 @@ class BaseWorkflow(ABC):
 
             while current_phase:
                 logger.info(f"Running {current_phase.name}")
+                self._set_phase_status(current_phase.name, PhaseStatus.INCOMPLETE)
                 phase_message = self._run_single_phase(current_phase, prev_phase_message)
                 yield phase_message
                 
+                if phase_response.success:
+                    self._set_phase_status(current_phase.name, PhaseStatus.COMPLETED_SUCCESS)
+                else:
+                    self._set_phase_status(current_phase.name, PhaseStatus.COMPLETED_FAILURE)
+
                 if not phase_message.success or self._max_iterations_reached():
                     break
                     
@@ -167,13 +181,19 @@ class BaseWorkflow(ABC):
                 current_phase = next_phases[0] if next_phases else None
                 prev_phase_message = phase_message
 
-            self._finalize_workflow()
+            if prev_phase_response.success:
+                self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
+            else:
+                self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
 
         except Exception as e:
             self._handle_workflow_exception(e)
 
     def _set_workflow_status(self, status: WorkflowStatus):
         self.status = status
+
+    def _set_phase_status(self, phase_name: str, status: PhaseStatus):
+        self.workflow_logger.add_phase_status(phase_name, status.value)
 
     def _get_initial_phase_message(self) -> PhaseMessage:
         initial_message = Message(self.config.initial_prompt) if self.config.initial_prompt else None
@@ -187,19 +207,12 @@ class BaseWorkflow(ABC):
 
         self._workflow_iteration_count += 1
 
-        if not phase_message.success:
-            self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
-        elif self._max_iterations_reached():
-            self._set_workflow_status(WorkflowStatus.COMPLETED_MAX_ITERATIONS)
-
         return phase_message
 
     def _max_iterations_reached(self) -> bool:
         return self._workflow_iteration_count >= self.config.max_iterations
 
     def _finalize_workflow(self):
-        if self.status == WorkflowStatus.INCOMPLETE:
-            self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
         self.workflow_logger.finalize(self.status.value)
 
     def _handle_workflow_exception(self, exception: Exception):
