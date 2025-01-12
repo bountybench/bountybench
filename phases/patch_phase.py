@@ -1,7 +1,7 @@
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from phase_messages.phase_message import PhaseMessage
-from phases.base_phase import BasePhase
+from phases.async_phase import AsyncPhase
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
 from resources.base_resource import BaseResource
@@ -21,7 +21,7 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-class PatchPhase(BasePhase):
+class PatchPhase(AsyncPhase):
     """Phase responsible for patching vulnerabilities."""
     
     AGENT_CLASSES = [PatchAgent, ExecutorAgent]
