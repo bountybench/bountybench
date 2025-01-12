@@ -170,7 +170,6 @@ class WorkflowLogger:
             status="in_progress",
             actions=[],
             metadata={},
-            status="in_progress",
         )
 
     def end_iteration(self, output_response: Response, status: str = "completed") -> None:
