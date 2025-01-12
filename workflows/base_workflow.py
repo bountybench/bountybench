@@ -169,7 +169,7 @@ class BaseWorkflow(ABC):
                 phase_message = self._run_single_phase(current_phase, prev_phase_message)
                 yield phase_message
                 
-                if phase_response.success:
+                if phase_message.success:
                     self._set_phase_status(current_phase.name, PhaseStatus.COMPLETED_SUCCESS)
                 else:
                     self._set_phase_status(current_phase.name, PhaseStatus.COMPLETED_FAILURE)
@@ -181,7 +181,7 @@ class BaseWorkflow(ABC):
                 current_phase = next_phases[0] if next_phases else None
                 prev_phase_message = phase_message
 
-            if prev_phase_response.success:
+            if prev_phase_message.success:
                 self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
             else:
                 self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
