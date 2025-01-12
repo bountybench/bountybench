@@ -25,7 +25,7 @@ class TestMessageClasses(unittest.TestCase):
 
     def test_messages_are_not_incorrect_interfaces(self):
         # Ensure that the base Message class is not a CommandMessageInterface.
-        message = Message()
+        message = Message("hi")
         self.assertFalse(isinstance(message, CommandMessageInterface))
         # Ensure that CommandMessage is an instance of CommandMessageInterface.
         command_message = CommandMessage("Command: ls")
@@ -93,9 +93,9 @@ class TestMessageClasses(unittest.TestCase):
         self.assertEqual(str(context.exception), "Observation is missing or the command has not been executed yet.")
 
     def test_command_message_parsing_prompt_example(self):
-        lm_message_str = "Command:\ncat << EOF >> print_file.py\nprint('example of creating a file in python')\nEOF"
+        lm_message_str = "Command:\necho hi"
         message = CommandMessage(lm_message_str)
-        result = run_command(command=message.command)
-
+        self.assertEqual(message.command, "echo hi")
+        
 if __name__ == "__main__":
     unittest.main()

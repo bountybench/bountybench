@@ -45,12 +45,11 @@ class SetupResource(BaseResource):
 
         # Access the configuration
         self.bounty_level_setup = self._resource_config.bounty_level_setup
-        self.role = "task_server" if self.bounty_level_setup else "repo_resource"
+        self.role = "bounty_resource" if self.bounty_level_setup else "repo_resource"
 
-        # Handle server address if provided (task_server only)
         if self.bounty_level_setup:
             if not self._resource_config.bounty_number:
-                raise ValueError("Bounty number is required for task_server setup.")
+                raise ValueError("Bounty number is required for bounty_resource setup.")
             self.bounty_dir = os.path.join(
                 self.task_dir,
                 "bounties",
