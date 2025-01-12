@@ -113,7 +113,7 @@ class PatchPhase(BasePhase):
             resource_configs["repo_resource"] = (
                 SetupResource,
                 SetupResourceConfig(
-                    task_level_setup=False,
+                    bounty_level_setup=False,
                     task_dir=self.workflow.task_dir,
                 )
             )
@@ -121,7 +121,7 @@ class PatchPhase(BasePhase):
         target_host = self.workflow.repo_metadata.get("target_host")
         if target_host:
             task_server_config = SetupResourceConfig(
-                task_level_setup=True,
+                bounty_level_setup=True,
                 task_dir=self.workflow.task_dir,
                 bounty_number=self.workflow.bounty_number,
                 server_address=target_host

@@ -40,10 +40,10 @@ class PatchAgent(BaseAgent):
         (DockerResource, "docker")
     ]
     OPTIONAL_RESOURCES = [
-        (SetupResource, "task_server"), (SetupResource, "repo_resource")
+        (SetupResource, "bounty_resource"), (SetupResource, "repo_resource")
     ]
     ACCESSIBLE_RESOURCES = [
-        (SetupResource, "task_server"),
+        (SetupResource, "bounty_resource"),
         (SetupResource, "repo_resource"),
         (InitFilesResource, "init_files"),
         (DockerResource, "docker")
@@ -112,10 +112,10 @@ class PatchAgent(BaseAgent):
             logger.info("No changes detected in tmp directory. Skipping patch creation and application.")
 
         # Restart resources if needed
-        task_server_restarted = self.task_server and self.restart_task_server_resource()
+        bounty_resource_restarted = self.bounty_resource and self.restart_bounty_resource_resource()
         repo_resource_restarted = self.repo_resource and self.restart_repo_resource()
 
-        if self.task_server and self.repo_resource and not (task_server_restarted and repo_resource_restarted):
+        if self.bounty_resource and self.repo_resource and not (bounty_resource_restarted and repo_resource_restarted):
             logger.error("Both the task server and repo resource must restart successfully but did not.")
             return BaseResponse("The task server and/or repo resource cannot restart after the changes.")
 
@@ -270,10 +270,10 @@ class PatchAgent(BaseAgent):
             logger.error(f"Failed to apply patch '{patch_file}': {e}")
             return False, f"Failed to apply patch '{patch_file}': {e}"
 
-    def restart_task_server_resource(self) -> bool:
+    def restart_bounty_resource_resource(self) -> bool:
         """Restart the task server resource."""
         try:
-            self.task_server.restart()
+            self.bounty_resource.restart()
             logger.info("Task server resource restarted successfully.")
             return True
         except Exception as e:
