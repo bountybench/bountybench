@@ -76,6 +76,7 @@ def query(
     max_tokens: int,
     stop_sequences: List[str],
     helm: bool,
+    interactive: bool = False,
 ) -> ModelResponse:
     """
     Send a query to the specified model and get a response.
@@ -98,6 +99,15 @@ def query(
         max_tokens=max_tokens,
         stop_sequences=stop_sequences,
     )
+    if interactive:
+        old_message = message
+        message = update_input(old_message) # TODO Implement this function that should be handled by the frontend
+        workflow_logger.log_action(
+            action_name="user",
+            input_data=old_message,
+            output_data=message,
+            metadata={},
+        )
     workflow_logger.log_action(
         action_name="llm",
         input_data=message,
