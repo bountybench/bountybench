@@ -103,7 +103,6 @@ class KaliEnvResource(BaseResource):
                 except docker.errors.NotFound:
                     logger.info(f"No existing container named '{name}'.")
 
-                # logger.info(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
                 start_progress(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
                 try:
                     container = self.client.containers.run(
