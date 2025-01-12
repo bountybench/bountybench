@@ -9,7 +9,7 @@ from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
 from resources.resource_manager import ResourceManager
 from phases.base_phase import BasePhase, PhaseConfig
-from responses.base_response import BaseResponse
+from messages.message import Message
 from resources.base_resource import BaseResource, BaseResourceConfig
 
 
@@ -42,7 +42,7 @@ class TestAgentManager(unittest.TestCase):
         )
 
         # Mock the ExecutorAgent's run method
-        with patch.object(ExecutorAgent, 'run', return_value=BaseResponse("Executed successfully.")) as mock_run:
+        with patch.object(ExecutorAgent, 'run', return_value=Message("Executed successfully.")) as mock_run:
             agent = self.agent_manager.get_or_create_agent(
                 agent_id="executor_agent",
                 agent_class=ExecutorAgent,
@@ -87,7 +87,7 @@ class TestAgentManager(unittest.TestCase):
 
 
         # Mock the ExecutorAgent's run method
-        with patch.object(ExecutorAgent, 'run', return_value=BaseResponse("Executed successfully.")) as mock_run:
+        with patch.object(ExecutorAgent, 'run', return_value=Message("Executed successfully.")) as mock_run:
             agent1 = self.agent_manager.get_or_create_agent(
                 agent_id="executor_agent",
                 agent_class=ExecutorAgent,
@@ -124,7 +124,7 @@ class TestAgentManager(unittest.TestCase):
 
         # Create a mock agent instance
         mock_agent = ExecutorAgent(agent_config=executor_config, resource_manager=self.agent_manager.resource_manager)
-        mock_agent.run = MagicMock(return_value=BaseResponse("Executed successfully."))
+        mock_agent.run = MagicMock(return_value=Message("Executed successfully."))
 
         # Register the agent manually
         self.agent_manager.register_agent("executor_agent", mock_agent)
@@ -323,12 +323,12 @@ class TestBasePhase(unittest.TestCase):
         self.agent_manager.resource_manager.initialize_phase_resources = MagicMock()
         self.agent_manager.resource_manager.deallocate_phase_resources = MagicMock()
 
-        # Mock agents and their responses
+        # Mock agents and their messages
         MockAgent1 = MagicMock()
-        MockAgent1.run.return_value = BaseResponse("MockAgent1 Response")
+        MockAgent1.run.return_value = Message("MockAgent1 Message")
 
         MockAgent2 = MagicMock()
-        MockAgent2.run.return_value = BaseResponse("MockAgent2 Response")
+        MockAgent2.run.return_value = Message("MockAgent2 Message")
 
         # Define a mock PhaseConfig
         phase_config = PhaseConfig(
@@ -344,14 +344,14 @@ class TestBasePhase(unittest.TestCase):
         # Define a mock phase
         mock_phase = MagicMock(spec=BasePhase)
         mock_phase.phase_config = phase_config
-        mock_phase.run_phase.return_value = (BaseResponse("Phase Completed"), True)
+        mock_phase.run_phase.return_value = (Message("Phase Completed"), True)
 
         # Simulate running the phase
         output, success = mock_phase.run_phase()
 
         # Assert the phase ran successfully
         mock_phase.run_phase.assert_called_once()
-        self.assertEqual(output.response, "Phase Completed")
+        self.assertEqual(output.message, "Phase Completed")
         self.assertTrue(success)
 
 

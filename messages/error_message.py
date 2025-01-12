@@ -1,16 +1,16 @@
-from responses.response import Response
+from messages.message import Message
 from typing import Optional
 
-class ErrorResponse(Response):
+class ErrorMessage(Message):
     def __init__(self, answer: str, error: bool, metadata: Optional[dict] = None) -> None:
-        self._response = answer
+        self._message = answer
         self._answer = answer
         self._error = error
         self._metadata = metadata
  
     @property
-    def response(self) -> str:
-        return self._response
+    def message(self) -> str:
+        return self._message
     
     @property
     def answer(self) -> str:
@@ -26,7 +26,7 @@ class ErrorResponse(Response):
     
     def to_dict(self) -> dict:
         return {
-            "response": self.response,
+            "message": self.message,
             "answer": self.answer,
             "error": self.error,
             "metadata": self.metadata

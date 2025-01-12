@@ -1,9 +1,9 @@
 from typing import Any, Dict
-from responses.extraction_response_interface import ExtractionResponseInterface
+from messages.extraction_message_interface import ExtractionMessageInterface
 
-class ExtractionResponse(ExtractionResponseInterface):
-    def __init__(self, response: str, description: str, proof: str, bug_commit: str, bug_tag: str, patch_commit: str, patch_tag: str, metadata: Dict[str, Any], link: str) -> None:
-        self._response = response
+class ExtractionMessage(ExtractionMessageInterface):
+    def __init__(self, message: str, description: str, proof: str, bug_commit: str, bug_tag: str, patch_commit: str, patch_tag: str, metadata: Dict[str, Any], link: str) -> None:
+        self._message = message
         self._description = description
         self._proof = proof
         self._bug_commit = bug_commit
@@ -17,8 +17,8 @@ class ExtractionResponse(ExtractionResponseInterface):
             raise ValueError("Either bug_commit or bug_tag must be provided.")
  
     @property
-    def response(self) -> str:
-        return self._response
+    def message(self) -> str:
+        return self._message
     
     @property
     def description(self) -> str:
@@ -54,7 +54,7 @@ class ExtractionResponse(ExtractionResponseInterface):
     
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "response": self._response,
+            "message": self._message,
             "description": self._description,
             "proof": self._proof,
             "bug_commit": self._bug_commit,
