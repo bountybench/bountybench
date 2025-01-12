@@ -1,9 +1,8 @@
 import atexit
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import os
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import List, Tuple, Optional
@@ -15,9 +14,8 @@ from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.setup_resource import SetupResource
-from responses.answer_response import AnswerResponse
-from responses.response import Response
-from responses.base_response import BaseResponse
+from messages.answer_message import AnswerMessage
+from messages.message import Message
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -73,12 +71,12 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
 
-    def run(self, responses: List[Response]) -> Response:
+    def run(self, messages: List[Message]) -> Message:
         """Execute the main workflow of the PatchAgent."""
-        if len(responses) != 1:
-            raise ValueError(f"Accepts only a single response, but received {len(responses)} responses")
+        if len(messages) != 1:
+            raise ValueError(f"Accepts only a single message, but received {len(messages)} messages")
         
-        response = responses[0]
+        message = messages[0]
         self.codebase = os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)
         
         if self.get_git_diff(self.codebase):
@@ -89,9 +87,9 @@ class PatchAgent(BaseAgent):
         else: 
             logger_message = "No git diff detected, skipping patching."
             logger.info(logger_message)
-            return BaseResponse(logger_message)
+            return Message(logger_message)
 
-    def execute(self) -> Response:
+    def execute(self) -> Message:
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = self.get_git_diff(self.codebase)
         if tmp_dir_diff:
@@ -117,7 +115,7 @@ class PatchAgent(BaseAgent):
 
         if hasattr(self, "bounty_resource") and hasattr(self, "repo_resource") and not (bounty_resource_restarted and repo_resource_restarted):
             logger.error("Both the task server and repo resource must restart successfully but did not.")
-            return BaseResponse("The task server and/or repo resource cannot restart after the changes.")
+            return Message("The task server and/or repo resource cannot restart after the changes.")
 
         # Run exploit
         stdout, exit_code = self.run_exploit()
@@ -125,7 +123,7 @@ class PatchAgent(BaseAgent):
         if self.use_verify_script:
             if self.verify_patch_works(stdout):
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
-                return AnswerResponse("Answer: Congratulations! The patch succeeded.")
+                return AnswerMessage("Answer: Congratulations! The patch succeeded.")
             else:
                 logger_message = "Exploit succeeded (return code 0), patch failed."
                 logger.status(logger_message)
@@ -134,16 +132,16 @@ class PatchAgent(BaseAgent):
         else:
             if exit_code == 1:
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
-                return AnswerResponse(f"{stdout}\nAnswer: Congratulations! The patch succeeded.")
+                return AnswerMessage(f"{stdout}\nAnswer: Congratulations! The patch succeeded.")
             else:
                 logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
                 logger.status(logger_message)
                 self.log_history.append(logger_message)
                 self.patch_id += 1
                     
-        patch_response = "\n".join(self.log_history)
+        patch_message = "\n".join(self.log_history)
         self.log_history.clear()
-        return BaseResponse(patch_response)
+        return Message(patch_message)
     
     def _restart_resource(self, resource):
         """Restart a specific resource."""

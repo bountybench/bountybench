@@ -47,19 +47,19 @@ class MockResourceManager:
             raise KeyError(f"Resource '{resource_id}' not found.")
         return self.resources[resource_id]
 
-class Response:
-    """Placeholder for a Response base class."""
+class Message:
+    """Placeholder for a Message base class."""
     pass
 
-class ResponseHistory:
-    """Placeholder for response history logic."""
-    def is_repetitive(self, response: Response) -> bool:
+class MessageHistory:
+    """Placeholder for message history logic."""
+    def is_repetitive(self, message: Message) -> bool:
         return False
-    def log(self, response: Response):
+    def log(self, message: Message):
         pass
 
-class FailureResponse(Response):
-    """A placeholder indicating a failure response."""
+class FailureMessage(Message):
+    """A placeholder indicating a failure message."""
     def __init__(self, reason: str):
         self.reason = reason
 
@@ -81,9 +81,9 @@ class MyAgent(BaseAgent):
         DockerResource
     ]
 
-    def run(self, responses: List[Response]) -> Response:
+    def run(self, messages: List[Message]) -> Message:
         # Implementation not important for this test
-        return Response()
+        return Message()
 
 class MyAgentWithCustomSetup(BaseAgent):
     REQUIRED_RESOURCES = [
@@ -103,8 +103,8 @@ class MyAgentWithCustomSetup(BaseAgent):
         DockerResource
     ]
 
-    def run(self, responses: List[Response]) -> Response:
-        return Response()
+    def run(self, messages: List[Message]) -> Message:
+        return Message()
 
 # ----- The Unit Tests -----
 
@@ -188,8 +188,8 @@ class TestBaseAgent(unittest.TestCase):
                 DockerResource
             ]
 
-            def run(self, responses: List[Response]) -> Response:
-                return Response()
+            def run(self, messages: List[Message]) -> Message:
+                return Message()
 
         rm = MockResourceManager({
             "init_files": InitFilesResource(),

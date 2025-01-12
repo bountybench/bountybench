@@ -6,7 +6,6 @@ from agents.base_agent import BaseAgent
 from phases.base_phase import BasePhase, PhaseConfig
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.resource_manager import ResourceManager
-from responses.response import Response
 
 class MockResourceConfig(BaseResourceConfig):
     def __init__(self, config: Dict[str, Any] = None):

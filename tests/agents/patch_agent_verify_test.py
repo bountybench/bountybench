@@ -6,9 +6,9 @@ import pytest
 from pathlib import Path
 import unittest
 
-from responses.command_response import CommandResponse
-from responses.answer_response import AnswerResponse
-from responses.patch_response import PatchResponse
+from messages.command_message import CommandMessage
+from messages.answer_message import AnswerMessage
+from messages.patch_message import PatchMessage
 from resources.init_files_resource import InitFilesResource
 from resources.docker_resource import DockerResource
 from agents.patch_agent.patch_agent import PatchAgent
@@ -95,10 +95,10 @@ def test_no_verify_sh_exploit_returns_1(patch_agent, exploit_script):
     exploit_script.write_text("#!/usr/bin/env bash\necho 'Exploit after patch'\nexit 1\n")
     make_executable(exploit_script)
 
-    cmd_response = CommandResponse("simulate patch command")
-    result = patch_agent.execute(cmd_response)
-    assert isinstance(result, AnswerResponse)
-    assert "patch succeeded" in result.response.lower()
+    cmd_message = CommandMessage("simulate patch command")
+    result = patch_agent.execute(cmd_message)
+    assert isinstance(result, AnswerMessage)
+    assert "patch succeeded" in result.message.lower()
 
 def test_no_verify_sh_exploit_returns_0(patch_agent, exploit_script):
     """
@@ -107,10 +107,10 @@ def test_no_verify_sh_exploit_returns_0(patch_agent, exploit_script):
     patch_agent.use_verify_script = False
 
     # By default exploit_script returns exit 0 (from fixture)
-    cmd_response = CommandResponse("simulate patch command")
-    result = patch_agent.execute(cmd_response)
-    assert isinstance(result, PatchResponse)
-    assert "patch failed" in result.response.lower()
+    cmd_message = CommandMessage("simulate patch command")
+    result = patch_agent.execute(cmd_message)
+    assert isinstance(result, PatchMessage)
+    assert "patch failed" in result.message.lower()
 
 def test_no_verify_sh_exploit_invalid_exit_code(patch_agent, exploit_script):
     """
@@ -123,14 +123,14 @@ def test_no_verify_sh_exploit_invalid_exit_code(patch_agent, exploit_script):
     exploit_script.write_text("#!/usr/bin/env bash\necho 'Invalid code'\nexit 2\n")
     make_executable(exploit_script)
 
-    cmd_response = CommandResponse("simulate patch command")
+    cmd_message = CommandMessage("simulate patch command")
     # If exploit returns code != 0 or 1, we want patch failed scenario.
     # Since code 2 is not what we want, we treat it as exploit succeeded scenario (which means patch failed)
     # or we can assert patch fails. Let's assume we treat any non-(0 or 1) as exploit=0 scenario.
-    result = patch_agent.execute(cmd_response)
+    result = patch_agent.execute(cmd_message)
     # Should result in patch failed
-    assert isinstance(result, PatchResponse)
-    assert "patch failed" in result.response.lower()
+    assert isinstance(result, PatchMessage)
+    assert "patch failed" in result.message.lower()
 
 def test_with_verify_sh_success(patch_agent, exploit_script, verify_script):
     """
@@ -144,10 +144,10 @@ def test_with_verify_sh_success(patch_agent, exploit_script, verify_script):
     exploit_script.write_text("#!/usr/bin/env bash\necho 'Operation Success'\n") 
     make_executable(exploit_script)
 
-    cmd_response = CommandResponse("simulate patch command")
-    result = patch_agent.execute(cmd_response)
-    assert isinstance(result, AnswerResponse)
-    assert "patch succeeded" in result.response.lower()
+    cmd_message = CommandMessage("simulate patch command")
+    result = patch_agent.execute(cmd_message)
+    assert isinstance(result, AnswerMessage)
+    assert "patch succeeded" in result.message.lower()
 
 def test_with_verify_sh_fail(patch_agent, exploit_script, verify_script):
     """
@@ -160,10 +160,10 @@ def test_with_verify_sh_fail(patch_agent, exploit_script, verify_script):
     exploit_script.write_text("#!/usr/bin/env bash\necho 'Some other message'\n")
     make_executable(exploit_script)
 
-    cmd_response = CommandResponse("simulate patch command")
-    result = patch_agent.execute(cmd_response)
-    assert isinstance(result, PatchResponse)
-    assert "patch failed" in result.response.lower()
+    cmd_message = CommandMessage("simulate patch command")
+    result = patch_agent.execute(cmd_message)
+    assert isinstance(result, PatchMessage)
+    assert "patch failed" in result.message.lower()
 
 
 if __name__ == '__main__':
