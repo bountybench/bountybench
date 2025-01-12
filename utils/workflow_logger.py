@@ -316,8 +316,6 @@ class WorkflowLogger:
         if hasattr(self.workflow_log.metadata, 'task'):
             metadata_dict["task"] = self.workflow_log.metadata.task
 
-        metadata_dict["additional_metadata"] = self.workflow_log.metadata.additional_metadata
-
         log_dict = {
             "metadata": metadata_dict,
             "phases": [
@@ -343,6 +341,7 @@ class WorkflowLogger:
             ],
             "agents_used": self.workflow_log.agents_used,
             "resources_used": self.workflow_log.resources_used,
+            "additional_metadata": self.workflow_log.metadata.additional_metadata
         }
 
         self.log_file.parent.mkdir(parents=True, exist_ok=True)

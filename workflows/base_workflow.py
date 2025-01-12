@@ -213,8 +213,7 @@ class BaseWorkflow(ABC):
         return self._workflow_iteration_count >= self.config.max_iterations
 
     def _finalize_workflow(self):
-        log_file_path = self.workflow_logger.finalize(self.status.value)
-        logger.status(f"Saved log to: {log_file_path}")
+        self.workflow_logger.finalize(self.status.value)
 
     def _handle_workflow_exception(self, exception: Exception):
         self._set_workflow_status(WorkflowStatus.INCOMPLETE)
