@@ -7,7 +7,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import ReactMarkdown from 'react-markdown';
 import './AgentInteractions.css';
 
-const ActionCard = ({ action, onUpdateActionInput }) => {
+export const ActionCard = ({ action, onUpdateActionInput }) => {
   // 1) Default to expanded so partial updates are visible
   const [expanded, setExpanded] = useState(true);
   console.log('Rendering action:', action);
@@ -268,10 +268,10 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
   );
 };
 
-export default ActionCard;
+//export default ActionCard;
 
 
-const MessageBubble = ({ message, onUpdateActionInput }) => {
+export const MessageBubble = ({ message, onUpdateActionInput }) => {
   // 3) Default to expanded
   const [expanded, setExpanded] = useState(true);
   console.log('Rendering message:', message);
