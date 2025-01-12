@@ -1,0 +1,25 @@
+.log-container {
+  height: 100%;
+}
+
+.log-content {
+  background-color: #0d1b2a !important;
+  padding: 8px;
+  height: calc(100% - 40px);
+  overflow: auto;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+
+.log-info {
+  color: #4fc3f7;
+}
+
+.log-warning {
+  color: #ffa726;
+}
+
+.log-error {
+  color: #ef5350;
+}

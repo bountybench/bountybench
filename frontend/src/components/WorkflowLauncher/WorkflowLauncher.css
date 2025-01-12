@@ -1,0 +1,36 @@
+.launcher-container {
+  padding: 24px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.launcher-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.launcher-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
+
+.launcher-alert {
+  margin-bottom: 16px;
+}
+
+.launcher-button {
+  margin-top: 16px !important;
+}
+
+.launcher-switch {
+  margin-top: 8px !important;
+}
+
+.workflow-description {
+  display: block;
+  margin-left: 8px;
+  color: rgba(255, 255, 255, 0.7);
+}
