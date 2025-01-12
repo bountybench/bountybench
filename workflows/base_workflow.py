@@ -201,7 +201,7 @@ class BaseWorkflow(ABC):
 
     async def _run_single_phase(self, phase: BasePhase, prev_phase_response: PhaseResponse) -> PhaseResponse:
         phase_instance = self._setup_phase(phase)
-        phase_response = phase_instance.run_phase(prev_phase_response)
+        phase_response = await phase_instance.run_phase(prev_phase_response)
         
         logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_response.success}", phase_response.success)
 
