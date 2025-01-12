@@ -12,8 +12,8 @@ class MockAgent(BaseAgent):
     CONFIG_CLASS = AgentConfig
 
 class TestPhase(BasePhase):
-    def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
-        return []
+    def define_agents(self):
+        return {}
         
     def define_resources(self):
         return {}
