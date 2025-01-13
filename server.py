@@ -269,7 +269,7 @@ async def edit_action_input(workflow_id: str, data: ActionInputData):
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
-        result = workflow.edit_action_input_in_agent("", data.new_input_data)
+        result = await workflow.edit_action_input_in_agent("", data.new_input_data)
         print(f"Received result : {result}")
         # Broadcast the update to all connected clients
         await websocket_manager.broadcast(workflow_id, {

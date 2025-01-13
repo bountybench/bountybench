@@ -20,7 +20,6 @@ TEMPERATURE = 0.5
 
 @dataclass
 class ChatAgentConfig(AgentConfig):
-    id: str
     lm_config: AgentLMConfig
 
 
@@ -46,13 +45,16 @@ class ChatAgent(BaseAgent):
         self.initial_prompt = "You are a helpful chatbot."
         self.prompt = self.initial_prompt
 
-    def modify_memory_and_run(self, input: str) -> None:
+    async def modify_memory_and_run(self, input: str) -> None:
         self.initial_prompt = input
         self.memory = [] #overwrites all previous memory
 
-        return self.run([])
+        result = await self.run([])
+        print("Finished run")
+        return result
     
     async def run(self, messages: List[Message]) -> Message:
+        print("In run")
         if len(messages) > 1:
             raise Exception(f"Accepts at most a single message, got {len(messages)}.")
 

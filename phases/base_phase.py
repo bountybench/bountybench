@@ -56,6 +56,7 @@ class BasePhase(ABC):
         self.phase_summary: Optional[str] = None
         self.iteration_count = 0
         self.current_agent_index = 0
+        self.last_agent_message = None
 
     @abstractmethod
     def define_resources(self) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
@@ -151,8 +152,9 @@ class BasePhase(ABC):
             PhaseMessage: The message of the current phase.
         """
         logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
-
-        last_agent_message = prev_phase_message.agent_messages[-1]
+        logger.debug(f"Running phase {self.name}")
+        if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
+            self.last_agent_message = prev_phase_message.agent_messages[-1]
         curr_phase_message = PhaseMessage(agent_messages=[])
 
         # 1) Start phase context
@@ -174,18 +176,18 @@ class BasePhase(ABC):
                 logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
 
                 # 2) Start iteration context in the logger
-                with phase_ctx.iteration(iteration_num, agent_id, last_agent_message) as iteration_ctx:
+                with phase_ctx.iteration(iteration_num, agent_id, self.last_agent_message) as iteration_ctx:
                     message = await self.run_one_iteration(
                         phase_message=curr_phase_message,
                         agent_instance=agent_instance,
-                        previous_output=last_agent_message,
+                        previous_output=self.last_agent_message,
                     )
                     iteration_ctx.set_output(message)
                 logger.info(f"Finished iteration {iteration_num} of {self.name} with {agent_id}")
                 if curr_phase_message.complete:
                     break
 
-                last_agent_message = curr_phase_message.agent_messages[-1]
+                self.last_agent_message = curr_phase_message.agent_messages[-1]
 
                 # Increment the iteration count
                 self.iteration_count += 1
@@ -199,11 +201,24 @@ class BasePhase(ABC):
 
         return curr_phase_message
 
+    async def handle_user_input(self, user_input: str) -> str:
+        user_input_message = Message(user_input)
+        
+        # Update the last output
+        self.last_agent_message = user_input_message
+        
+        return user_input_message.message
+    
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:
         """Retrieve the next agent in a round-robin fashion."""
         agent = self.agents[self.current_agent_index % len(self.agents)]
         return agent
 
+    def _get_last_agent(self) -> Tuple[str, BaseAgent]:
+        """Retrieve the next agent in a round-robin fashion."""
+        agent = self.agents[(self.current_agent_index - 1) % len(self.agents)]
+        return agent
+    
     def _set_phase_summary(self, summary: str):
         """Allows a subclass to record a short message describing the phase outcome."""
         self.phase_summary = summary

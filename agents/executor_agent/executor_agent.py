@@ -81,12 +81,19 @@ class ExecutorAgent(BaseAgent):
 
         return executor_message
 
+    async def modify_memory_and_run(self, input: str) -> None:
+        self.initial_prompt = input
+        self.memory = [] #overwrites all previous memory
+
+        result = await self.run([])
+        return result
+    
     def _update_memory(self, message: Message) -> None:
         if len(self.memory) >= self.agent_config.lm_config.max_iterations_stored_in_memory:
             self.memory = self.memory[1:] + [message.message]
         else:
             self.memory.append(message.message)
-
+    
     def formulate_prompt(self, message: Optional[Message] = None) -> str:
         """
         Formulates the prompt, including the truncated memory.
