@@ -166,7 +166,7 @@ class BaseWorkflow(ABC):
             while current_phase:
                 logger.info(f"Running {current_phase.name}")
                 self._set_phase_status(current_phase.name, PhaseStatus.INCOMPLETE)
-                phase_message = self._run_single_phase(current_phase, prev_phase_message)
+                phase_message = await self._run_single_phase(current_phase, prev_phase_message)
                 yield phase_message
                 
                 if phase_message.success:
@@ -199,9 +199,9 @@ class BaseWorkflow(ABC):
         initial_message = Message(self.config.initial_prompt) if self.config.initial_prompt else None
         return PhaseMessage(agent_messages=[initial_message] if initial_message else [])
 
-    def _run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
+    async def _run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
         phase_instance = self._setup_phase(phase)
-        phase_message = phase_instance.run_phase(prev_phase_message)
+        phase_message = await phase_instance.run_phase(prev_phase_message)
         
         logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
 

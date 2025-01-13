@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class PhaseConfig:
     phase_name: str
     agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)
-    max_iterations: int = field(default=3)
+    max_iterations: int = field(default=1)
     interactive: bool = False
     phase_idx: Optional[int] = None
     initial_prompt: Optional[str] = None
@@ -140,7 +140,7 @@ class BasePhase(ABC):
             raise
 
     
-    def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
+    async def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.
 
@@ -151,6 +151,10 @@ class BasePhase(ABC):
             PhaseMessage: The message of the current phase.
         """
         logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
+
+
+        if not prev_phase_message.agent_messages:
+            raise ValueError("Previous phase message does not contain any agent messages")
 
         last_agent_message = prev_phase_message.agent_messages[-1]
         curr_phase_message = PhaseMessage(agent_messages=[])
@@ -166,7 +170,7 @@ class BasePhase(ABC):
 
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_id, last_agent_message) as iteration_ctx:
-                    message = self.run_one_iteration(
+                    message = await self.run_one_iteration(
                         phase_message=curr_phase_message,
                         agent_instance=agent_instance,
                         previous_output=last_agent_message,
@@ -200,7 +204,7 @@ class BasePhase(ABC):
         self.phase_summary = summary
 
     @abstractmethod
-    def run_one_iteration(
+    async def run_one_iteration(
         self, phase_message: PhaseMessage, agent_instance: Any, previous_output: Optional[Message]
     ) -> Message:
         """

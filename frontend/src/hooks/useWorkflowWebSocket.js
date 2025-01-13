@@ -13,6 +13,8 @@ export const useWorkflowWebSocket = (workflowId) => {
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
   const currentIterationRef = useRef(null);
+  const [messageCount, setMessageCount] = useState(0);
+
 
   console.log('useWorkflowWebSocket state:', { 
     workflowId, 
@@ -100,9 +102,16 @@ export const useWorkflowWebSocket = (workflowId) => {
 
         switch (data.type) {
           case 'status_update':
+            console.log('Handling status update:', data.status);
+            setWorkflowStatus(data.status);
+            if (data.currentPhase) setCurrentPhase(data.currentPhase);
+            if (data.currentIteration) setCurrentIteration(data.currentIteration);
+            setMessageCount(prev => prev + 1);  // Update message count
+            break;
           case 'initial_state':
             console.log('Handling status update:', data.status);
             setWorkflowStatus(data.status);
+            setMessageCount(prev => prev + 1);  // Add this line
             break;
 
           case 'phase_update':
@@ -124,39 +133,48 @@ export const useWorkflowWebSocket = (workflowId) => {
             break;
 
           case 'iteration_update': {
-              console.log('Handling iteration update:', data.iteration);
-              setCurrentIteration(data.iteration);
-              currentIterationRef.current = data.iteration;
-            
-              const iterationMessage = {
-                id: `msg_${messageIdCounter.current++}`,
-                iteration_number: data.iteration.iteration_number,
-                agent_name: data.iteration.agent_name,
-                timestamp: new Date().toISOString(),
-                input: data.iteration.input,
-                output: data.iteration.output,
-                actions: [],
-                status: data.iteration.status
-              };
-            
-              setMessages(prev => {
-                // Check if a message with the same iteration number already exists
-                if (prev.some(msg => msg.iteration_number === iterationMessage.iteration_number)) {
-                  console.log('Duplicate iteration message, not adding');
-                  return prev;
-                }
-                return [...prev, iterationMessage];
-              });
-              break;
+            console.log('Handling iteration update:', data.iteration);
+          
+            if (!data.iteration || data.iteration.iteration_number == null) {
+              console.warn('Invalid iteration data received:', data);
+              return;
+            }
+          
+            setCurrentIteration(data.iteration);
+            currentIterationRef.current = data.iteration;
+          
+            const iterationMessage = {
+              id: `msg_${messageIdCounter.current++}`,
+              iteration_number: data.iteration.iteration_number,
+              agent_name: data.iteration.agent_name,
+              timestamp: new Date().toISOString(),
+              input: data.iteration.input,
+              output: data.iteration.output,
+              actions: [],
+              status: data.iteration.status
+            };
+          
+            setMessages(prev => {
+              if (prev.some(msg => msg.iteration_number === iterationMessage.iteration_number)) {
+                console.log('Duplicate iteration message, not adding');
+                return prev;
+              }
+              return [...prev, iterationMessage];
+            });
+            break;
           }
 
           case 'action_update': {
             console.log('Handling action update:', data.action);
+            
+            const iterationNumber = currentIterationRef.current?.iteration_number;
+            if (iterationNumber == null) {
+              console.warn('Iteration number is undefined. Skipping action update.');
+              return;
+            }
+          
             setMessages(prev => {
               const updated = [...prev];
-              const iterationNumber = currentIterationRef.current?.iteration_number;
-              console.log('Current iteration number:', iterationNumber);
-          
               const index = updated.findIndex(
                 msg => msg.iteration_number === iterationNumber
               );
@@ -167,10 +185,10 @@ export const useWorkflowWebSocket = (workflowId) => {
               }
           
               const target = { ...updated[index] };
-              
+          
               // Check if this action already exists
-              const actionExists = target.actions.some(action => 
-                action.timestamp === data.action.timestamp && 
+              const actionExists = target.actions.some(action =>
+                action.timestamp === data.action.timestamp &&
                 action.action_type === data.action.action_type
               );
           

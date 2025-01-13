@@ -100,7 +100,7 @@ async def list_workflows():
 async def start_workflow(workflow_data: dict):
     """Start a new workflow instance"""
     try:
-
+        
         workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         # Initialize workflow instance
@@ -157,7 +157,10 @@ async def run_workflow(workflow_id: str):
         workflow_data["status"] = "running"
         await websocket_manager.broadcast(workflow_id, {
             "type": "status_update",
-            "status": "running"
+            "status": "running",
+            "currentPhase": workflow.current_phase,  # Add this
+            "currentIteration": workflow.current_iteration  # Add this
+
         })
 
         # Run the workflow
@@ -167,7 +170,10 @@ async def run_workflow(workflow_id: str):
             workflow_data["status"] = "completed"
             await websocket_manager.broadcast(workflow_id, {
                 "type": "status_update",
-                "status": "completed"
+                "status": "completed",
+                "currentPhase": workflow.current_phase,  # Add this
+                "currentIteration": workflow.current_iteration  # Add this
+
             })
 
     except Exception as e:

@@ -19,7 +19,7 @@ class PatchWorkflow(BountyWorkflow):
         phase_kwargs = {
             'model': self.params.get('model'),
             'bounty_number': self.bounty_number,
-            'max_iterations': 20,
+            'max_iterations': 3,
             'use_agent_exploit': False
         }
         if hasattr(self, "phase_iterations"):
