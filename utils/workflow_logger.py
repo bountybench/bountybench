@@ -340,9 +340,10 @@ class WorkflowLogger:
             ],
             "agents_used": self.workflow_log.agents_used,
             "resources_used": self.workflow_log.resources_used,
-            "additional_metadata": self.workflow_log.metadata.additional_metadata
         }
 
+        if hasattr(self.workflow_log.metadata, "additional_metadata"):
+            log_dict["additional_metadata"] = self.workflow_log.metadata.additional_metadata
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
         with open(self.log_file, 'w') as f:

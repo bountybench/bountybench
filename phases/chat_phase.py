@@ -1,9 +1,13 @@
-from typing import Optional, Tuple, Any
-from phases.base_phase import BasePhase
-from responses.response import Response
-from responses.answer_response import AnswerResponseInterface
-from agents.chat_agent.chat_agent import ChatAgent
+from typing import Dict, Optional, Tuple, Any, Type
+from agents.base_agent import AgentConfig, BaseAgent
+from agents.dataclasses.agent_lm_spec import AgentLMConfig
+from messages.answer_message import AnswerMessageInterface
+from messages.message import Message
+from phases.base_phase import BasePhase, PhaseMessage
+from resources.base_resource import BaseResource
+from agents.chat_agent.chat_agent import ChatAgent, ChatAgentConfig
 from utils.logger import get_main_logger
+from workflows.base_workflow import BaseWorkflow
 
 logger = get_main_logger(__name__)
 
@@ -27,7 +31,7 @@ class ChatPhase(BasePhase):
     def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
         return {}
 
-    def run_one_iteration(
+    async def run_one_iteration(
         self,
         phase_message: PhaseMessage,
         agent_instance: Any,
