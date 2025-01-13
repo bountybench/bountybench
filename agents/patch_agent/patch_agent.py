@@ -71,7 +71,7 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
 
-    def run(self, messages: List[Message]) -> Message:
+    async def run(self, messages: List[Message]) -> Message:
         """Execute the main workflow of the PatchAgent."""
         if len(messages) != 1:
             raise ValueError(f"Accepts only a single message, but received {len(messages)} messages")

@@ -66,7 +66,7 @@ class ExecutorAgent(BaseAgent):
         #if self.target_host: 
             #self.kali_env.health_check(self.target_host)
         
-    def run(self, messages: List[Message]) -> Message:
+    async def run(self, messages: List[Message]) -> Message:
         if len(messages) > 1:
             raise Exception(f"Accepts at most a single message, got {len(messages)}.")
 
