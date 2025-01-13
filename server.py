@@ -13,7 +13,6 @@ import sys
 # from workflows.detect_and_patch_workflow import DetectAndPatchWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
-from workflows.chat_workflow import ChatWorkflow
 from utils.workflow_logger import workflow_logger
 from utils.websocket_manager import websocket_manager
 
@@ -67,7 +66,6 @@ id_to_workflow = {
     # "Detect and Patch Workflow": DetectAndPatchWorkflow,
     "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
     "Patch Workflow": PatchWorkflow,
-    "Chat Workflow": ChatWorkflow
 }
 
 @app.get("/workflow/list")
