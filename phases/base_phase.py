@@ -140,7 +140,7 @@ class BasePhase(ABC):
             raise
 
     
-    def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
+    async def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.
 
@@ -161,12 +161,21 @@ class BasePhase(ABC):
                 if curr_phase_message.complete:
                     break
 
+
+                if self.phase_config.interactive:
+                    if hasattr(self.workflow, 'next_iteration_event'):
+                        logger.info("Waiting for 'next' signal ...")
+                        self.workflow.next_iteration_event.clear()
+                        await self.workflow.next_iteration_event.wait()
+                    else:
+                        logger.warning("Interactive mode is set, but workflow doesn't have next_iteration_event")
+    
                 agent_id, agent_instance = self._get_current_agent()
                 logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
 
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_id, last_agent_message) as iteration_ctx:
-                    message = self.run_one_iteration(
+                    message = await self.run_one_iteration(
                         phase_message=curr_phase_message,
                         agent_instance=agent_instance,
                         previous_output=last_agent_message,
@@ -200,7 +209,7 @@ class BasePhase(ABC):
         self.phase_summary = summary
 
     @abstractmethod
-    def run_one_iteration(
+    async def run_one_iteration(
         self, phase_message: PhaseMessage, agent_instance: Any, previous_output: Optional[Message]
     ) -> Message:
         """

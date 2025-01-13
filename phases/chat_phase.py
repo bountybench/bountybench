@@ -8,36 +8,53 @@ from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 class ChatPhase(BasePhase):
-    """
-    Phase that cycles through:
-      - ChatAgent
-    Checks for answer submission (Chat) to end early.
-    """
-    REQUIRED_AGENTS = [ChatAgent]
+    AGENT_CLASSES = [ChatAgent]
 
-    async def run_one_iteration(
+    def __init__(self, workflow: 'BaseWorkflow', **kwargs):
+        self.model = kwargs.get('model')
+        super().__init__(workflow, **kwargs)
+
+    def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
+        # assume we get model through some kwargs situation with the Message
+        lm_config = AgentLMConfig.create(model=self.model)
+        # Create the chat_config
+        chat_config = ChatAgentConfig(
+            lm_config=lm_config,
+        )
+        return {"chat_agent": (ChatAgent, chat_config),
+        }
+    
+    def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
+        return {}
+
+    def run_one_iteration(
         self,
+        phase_message: PhaseMessage,
         agent_instance: Any,
-        previous_output: Optional[Response],
-        iteration_num: int
-    ) -> Tuple[Response, bool]:
+        previous_output: Optional[Message]
+    ) -> Message:
         """
-        1) Call the agent with the previous_response as input (if any).
-        2) If ChatAgent produces an AnswerResponseInterface, treat as answer submission -> finalize & done.
+        1) Call the agent with the previous_message as input (if any).
+        2) If ChatAgent produces an AnswerMessageInterface, treat as hallucination -> finalize & done.
         4) Otherwise continue.
         """
-        # Prepare input response list for agent
+        # Prepare input message list for agent
         input_list = []
         if previous_output is not None:
             input_list.append(previous_output)
 
-        response = agent_instance.run(input_list)
+        message = await agent_instance.run(input_list)
+        phase_message.add_agent_message(message)
 
-        # Check for answer submission (ExecutorAgent)
-        if isinstance(response, AnswerResponseInterface):
-            logger.info("Termination successful!")
-            self._set_phase_summary("detect_success")
-            return response, True
-            
-        # Otherwise, continue looping
-        return response, False        
+        # Determine which agent name was used in this iteration
+        _, agent_instance = self._get_current_agent()
+
+        # Check for hallucination (ChatAgent)
+        if isinstance(agent_instance, ChatAgent):
+            if isinstance(message, AnswerMessageInterface):
+                logger.status("Executor agent hallucinated an answer!")
+                self._set_phase_summary("completed_with_hallucination")
+                phase_message.set_complete()
+                return message
+
+        return message
