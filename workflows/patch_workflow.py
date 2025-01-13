@@ -24,6 +24,8 @@ class PatchWorkflow(BountyWorkflow):
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations
 
+        phase_kwargs["interactive"] = self.interactive
+        
         patch_phase = PatchPhase(workflow=self, **phase_kwargs)
 
         self._register_root_phase(patch_phase)
