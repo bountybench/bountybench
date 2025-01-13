@@ -134,7 +134,7 @@ class PatchPhase(BasePhase):
         return resource_configs
 
 
-    def run_one_iteration(
+    async def run_one_iteration(
         self,
         phase_message: PhaseMessage,
         agent_instance: Any,
@@ -151,7 +151,7 @@ class PatchPhase(BasePhase):
         if previous_output is not None:
             input_list.append(previous_output)
 
-        message = agent_instance.run(input_list)
+        message = await agent_instance.run(input_list)
         phase_message.add_agent_message(message)
 
         # Determine which agent name was used in this iteration

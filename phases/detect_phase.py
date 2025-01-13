@@ -108,7 +108,7 @@ class DetectPhase(BasePhase):
         logger.debug(f"Exiting define_resources for ExploitPhase")
         return resource_configs
 
-    def run_one_iteration(
+    async def run_one_iteration(
         self,
         agent_instance: Any,
         previous_output: Optional[Message]
@@ -123,7 +123,7 @@ class DetectPhase(BasePhase):
         if previous_output is not None:
             input_list.append(previous_output)
 
-        message = agent_instance.run(input_list)
+        message = await agent_instance.run(input_list)
 
         # Check for answer submission (ExecutorAgent)
         if isinstance(message, AnswerMessageInterface):

@@ -1,3 +1,5 @@
+import asyncio
+from functools import wraps
 import json
 import os
 from dataclasses import dataclass, field
@@ -5,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
+from utils.websocket_manager import websocket_manager
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -20,6 +23,23 @@ from .workflow_logger_types import (
     WorkflowMetadata,
 )
 
+def ensure_event_loop():
+    """Ensure there's an event loop available in the current thread"""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop
+
+def run_async(func):
+    """Decorator to run async functions from sync code"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        loop = ensure_event_loop()
+        return loop.run_until_complete(func(*args, **kwargs))
+    return wrapper
+
 class WorkflowLogger:
     _initialized = False
 
@@ -27,14 +47,51 @@ class WorkflowLogger:
         if not WorkflowLogger._initialized:
             self.workflow_log: Optional[WorkflowLog] = None
             self.log_file: Optional[Path] = None
+            self.worfklow_id: Optional[str] = None
             WorkflowLogger._initialized = True
 
         self.current_phase: Optional[WorkflowPhase] = None
         self.current_iteration: Optional[PhaseIteration] = None
 
+    async def _broadcast_update(self, data: dict):
+        """Broadcast update to WebSocket clients"""
+        if self.workflow_id:
+            try:
+                print(f"Attempting to broadcast message type: {data.get('type')}")
+                print(f"Full message data: {data}")
+                await websocket_manager.broadcast(self.workflow_id, data)
+                print(f"Successfully broadcasted message type: {data.get('type')}")
+            except Exception as e:
+                print(f"Error broadcasting update: {e}")
+                print(f"Failed message data: {data}")
+
+    def broadcast_update(self, data: dict):
+        """Synchronous wrapper for _broadcast_update"""
+        try:
+            loop = asyncio.get_running_loop()
+            if not loop.is_running():
+                return asyncio.run(self._broadcast_update(data))
+            else:
+                # Create and store the task to prevent it from being dropped
+                task = asyncio.create_task(self._broadcast_update(data))
+                # Add a callback to handle any errors
+                task.add_done_callback(lambda t: self._handle_broadcast_error(t))
+                return task
+        except Exception as e:
+            print(f"Error in broadcast_update: {e}")
+
+    def _handle_broadcast_error(self, task):
+        """Handle any errors from the broadcast task"""
+        try:
+            # Get the result to raise any exceptions
+            task.result()
+        except Exception as e:
+            print(f"Error in broadcast task: {e}")
+            
     def initialize(
         self,
         workflow_name: str,
+        workflow_id: Optional[str] = None,
         logs_dir: str = "logs",
         task: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -58,12 +115,19 @@ class WorkflowLogger:
             phases=[],
         )
 
+        # Use provided workflow ID or generate one
+        self.workflow_id = workflow_id if workflow_id else f"{workflow_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+
         components = [workflow_name]
         for _, value in task.items():
             if value:
                 components.append(str(value.name if isinstance(value, Path) else value))
 
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+
+        
+        print(f"Initialized workflow logger with ID: {self.workflow_id}")
 
     def add_metadata(self, key: str, value: Any) -> None:
         if self.workflow_log is None:
@@ -95,6 +159,16 @@ class WorkflowLogger:
             status="in_progress",
             iterations=[],
         )
+        
+        # Broadcast phase update
+        self.broadcast_update({
+            "type": "phase_update",
+            "phase": {
+                "phase_idx": phase_idx,
+                "phase_name": phase_name,
+                "status": "in_progress"
+            }
+        })
 
     def end_phase(self, status: str, phase_instance) -> None:
         """
@@ -108,6 +182,16 @@ class WorkflowLogger:
         self.get_phase_metadata(phase_instance)
         self.current_phase.end_time = datetime.now().isoformat()
         self.workflow_log.phases.append(self.current_phase)
+        # Broadcast phase completion
+        self.broadcast_update({
+            "type": "phase_update",
+            "phase": {
+                "phase_idx": self.current_phase.phase_idx,
+                "phase_name": self.current_phase.phase_name,
+                "status": status
+            }
+        })
+
         self.current_phase = None
 
         # For durability, save after each phase
@@ -152,6 +236,17 @@ class WorkflowLogger:
             metadata={},
             status="in_progress",
         )
+        
+        # Broadcast iteration update
+        self.broadcast_update({
+            "type": "iteration_update",
+            "iteration": {
+                "iteration_number": iteration_number,
+                "agent_name": agent_name,
+                "status": "in_progress",
+                "input": input_message.to_dict() if input_message else None
+            }
+        })
 
     def end_iteration(self, output_message: Message, status: str = "completed") -> None:
         """
@@ -169,6 +264,16 @@ class WorkflowLogger:
         self.get_aggregate_metadata()
 
         self.current_phase.iterations.append(self.current_iteration)
+        # Broadcast iteration completion
+        self.broadcast_update({
+            "type": "iteration_update",
+            "iteration": {
+                "iteration_number": self.current_iteration.iteration_number,
+                "agent_name": self.current_iteration.agent_name,
+                "status": status,
+                "output": output_message.to_dict() if output_message else None
+            }
+        })
         self.current_iteration = None
 
         # You could save after each iteration, but this might be too frequent:
@@ -210,14 +315,28 @@ class WorkflowLogger:
         if not self.current_iteration:
             raise RuntimeError("Must start_iteration before logging actions.")
         
-        self.current_iteration.actions.append(
-            Action(
+        action = Action(
                 action_type=action_name,
                 input_data=input_data,
                 output_data=output_data,
                 metadata=metadata
-            )
         )
+        
+        self.current_iteration.actions.append(action)
+        
+        # Broadcast action update
+        update_data = {
+            "type": "action_update",
+            "action": {
+                "action_type": action_name,
+                "input_data": input_data,
+                "output_data": output_data,
+                "metadata": metadata,
+                "timestamp": action.timestamp
+            }
+        }
+        print(f"Preparing to broadcast action update: {update_data}")
+        self.broadcast_update(update_data)
 
     ################################################################
     # ERROR / METADATA / FINALIZE
@@ -340,9 +459,10 @@ class WorkflowLogger:
             ],
             "agents_used": self.workflow_log.agents_used,
             "resources_used": self.workflow_log.resources_used,
-            "additional_metadata": self.workflow_log.metadata.additional_metadata
         }
 
+        if hasattr(self.workflow_log.metadata, "additional_metadata"):
+            log_dict["additional_metadata"] = self.workflow_log.metadata.additional_metadata
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
         with open(self.log_file, 'w') as f:
