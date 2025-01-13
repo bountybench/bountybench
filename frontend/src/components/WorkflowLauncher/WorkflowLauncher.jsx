@@ -19,7 +19,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     workflow_name: '',
-    task_repo_dir: '',
+    task_dir: '',
     bounty_number: '',
     interactive: true
   });
@@ -53,7 +53,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         },
         body: JSON.stringify({
           workflow_name: formData.workflow_name,
-          task_repo_dir: formData.task_repo_dir,
+          task_dir: formData.task_dir,
           bounty_number: formData.bounty_number,
           interactive: interactiveMode
         }),
@@ -127,8 +127,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         <TextField
           fullWidth
           label="Task Repository Directory"
-          name="task_repo_dir"
-          value={formData.task_repo_dir}
+          name="task_dir"
+          value={formData.task_dir}
           onChange={handleInputChange}
           required
           margin="normal"
