@@ -1,7 +1,6 @@
 from pathlib import Path
-from agents.prompts import DETECT_PROMPT, STOP_TOKEN
+from agents.prompts import TARGET_HOST_DETECT_PROMPT, DETECT_PROMPT, STOP_TOKEN
 from phases.exploit_phase import ExploitPhase
-from phases.patch_phase import PatchPhase
 from resources.utils import read_writeup
 from utils.logger import get_main_logger
 from workflows.bounty_workflow import BountyWorkflow
@@ -53,17 +52,15 @@ class DetectWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
-        if self.ref_exploit_report_path is not None:
-            with open(self.ref_exploit_report_path, 'r') as f:
-                exploit_report = f.read()
-        else:
-            exploit_report = read_writeup(self.ref_task_dir, self.ref_bounty_number)
-
-        prompt = DETECT_PROMPT.format(
-            similar_bounty_report=exploit_report,
-            stop_token=STOP_TOKEN,
-            target_host=self.repo_metadata["target_host"],
-        )
+        if self.repo_metadata["target_host"]: 
+            prompt = TARGET_HOST_DETECT_PROMPT.format(
+                stop_token=STOP_TOKEN,
+                target_host=self.repo_metadata["target_host"]
+            )
+        else: 
+            prompt = DETECT_PROMPT.format(
+                stop_token=STOP_TOKEN
+            )
         return prompt
 
 def main() -> None:

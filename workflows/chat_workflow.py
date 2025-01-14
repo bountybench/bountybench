@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from agents.prompts import PATCH_PROMPT, STOP_TOKEN
 from phases.chat_phase import ChatPhase
-from resources.utils import read_writeup
 from workflows.bounty_workflow import BountyWorkflow
 
 from utils.logger import get_main_logger

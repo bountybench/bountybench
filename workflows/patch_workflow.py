@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agents.prompts import PATCH_PROMPT, STOP_TOKEN
+from agents.prompts import TARGET_HOST_PATCH_PROMPT, PATCH_PROMPT, STOP_TOKEN
 from phases.patch_phase import PatchPhase
 from resources.utils import read_writeup
 from workflows.bounty_workflow import BountyWorkflow
@@ -38,11 +38,17 @@ class PatchWorkflow(BountyWorkflow):
             str: The formatted initial prompt.
         """
         exploit_report = read_writeup(self.task_dir, self.bounty_number)
-        prompt = PATCH_PROMPT.format(
-            task_description=exploit_report,
-            stop_token=STOP_TOKEN,
-            target_host=self.repo_metadata["target_host"],
-        )
+        if self.repo_metadata["target_host"]: 
+            prompt = TARGET_HOST_PATCH_PROMPT.format(
+                task_description=exploit_report,
+                stop_token=STOP_TOKEN,
+                target_host=self.repo_metadata["target_host"],
+            )
+        else: 
+            prompt = PATCH_PROMPT.format(
+                task_description=exploit_report,
+                stop_token=STOP_TOKEN
+            )
         return prompt
 
 def main() -> None:
