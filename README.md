@@ -11,6 +11,12 @@
 ## Installation
 ## Environment Setup
 
+You can quickly set up the environment by running the following command:
+```
+./setup.sh
+source venv/bin/activate
+```
+
 ### 1. Ensure Python 3.11 is Installed
 Verify that Python 3.11 is available on your system:
 ```
@@ -70,18 +76,6 @@ You want to ensure that Docker Desktop has mounting permissions for your current
 It should list the contents of your current working directory. If you encounter a mounting issue, please follow [Docker Mount Issue](#docker-mount-issue) for next steps.
 
 ## Usage
-
-Before running any of the workflows, ensure that the `bountyagent` directory is included in your `PYTHONPATH`. You can check this by running the following command:
-
-```bash
-echo $PYTHONPATH
-```
-If bountyagent is not included, you can add it to your PYTHONPATH by running:
-
-```bash
-export PYTHONPATH=$PYTHONPATH:/path/to/bountyagent
-```
-Replace /path/to/bountyagent with the absolute path to your bountyagent directory.
 
 ### Running the Workflow
 Make sure your Docker Desktop app is running.
