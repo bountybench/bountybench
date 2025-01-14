@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
+from agents.prompts import PATCH_PROMPT, STOP_TOKEN
 from phases.patch_phase import PatchPhase
 from resources.utils import read_writeup
 from workflows.bounty_workflow import BountyWorkflow

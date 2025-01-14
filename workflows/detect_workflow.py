@@ -1,5 +1,5 @@
 from pathlib import Path
-from agents.executor_agent.prompt import DETECT_PROMPT, STOP_TOKEN
+from agents.prompts import DETECT_PROMPT, STOP_TOKEN
 from phases.exploit_phase import ExploitPhase
 from phases.patch_phase import PatchPhase
 from resources.utils import read_writeup
