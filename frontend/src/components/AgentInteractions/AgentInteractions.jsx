@@ -363,6 +363,9 @@ export const AgentInteractions = ({
   
   const [userInput, setUserInput] = useState('');
   const messagesEndRef = useRef(null);
+  const [textAreaHeight, setTextAreaHeight] = useState('auto');
+  const textAreaRef = useRef(null);
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -370,6 +373,40 @@ export const AgentInteractions = ({
 
   useEffect(() => {
     scrollToBottom();
+  }, [messages]);
+
+  const fetchLastMessage = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/workflow/last-message/${workflow.id}`); 
+      if (response.ok) {
+        const lastMessage = await response.json();
+        setUserInput(lastMessage.content);
+        adjustTextAreaHeight();
+      }
+    } catch (error) {
+      console.error('Failed to fetch last message:', error);
+    }
+  };
+
+  const fetchFirstMessage = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/workflow/first-message/${workflow.id}`); 
+      if (response.ok) {
+        const firstMessage = await response.json();
+        setUserInput(firstMessage.content);
+        adjustTextAreaHeight();
+      }
+    } catch (error) {
+      console.error('Failed to fetch last message:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      fetchLastMessage();
+    } else {
+      fetchFirstMessage();
+    }
   }, [messages]);
 
   const handleSendMessage = () => {
@@ -380,6 +417,31 @@ export const AgentInteractions = ({
       });
       setUserInput('');
     }
+  };
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.output?.content) {
+        setUserInput(lastMessage.output.content);
+        adjustTextAreaHeight();
+      }
+    }
+  }, [messages]);
+
+  const adjustTextAreaHeight = () => {
+    if (textAreaRef.current) {
+      console.log("Trying to adjust height")
+      textAreaRef.current.style.height = 'auto';
+      const newHeight = Math.min(textAreaRef.current.scrollHeight, window.innerHeight * 0.4);
+      textAreaRef.current.style.height = `${newHeight}px`;
+      setTextAreaHeight(`${newHeight}px`);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setUserInput(e.target.value);
+    adjustTextAreaHeight();
   };
 
   if (!messages) {
@@ -424,17 +486,21 @@ export const AgentInteractions = ({
           <TextField
             fullWidth
             multiline
+            inputRef={textAreaRef}
             rows={2}
             variant="outlined"
             placeholder="Type your message..."
             value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
+            onChange={handleInputChange}
             sx={{ 
               '& .MuiInputBase-input': {
                 color: 'black',
+                height: textAreaHeight,
+                minHeight: '25px',
+                overflow: 'auto',
               },
-              border: '1px solid #ccc',  // Add this line
-              borderRadius: '6px',       // Optional: rounds the corners
+              border: '1px solid #ccc',
+              borderRadius: '6px',
             }}
             onKeyPress={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
