@@ -134,7 +134,7 @@ class PatchPhase(BasePhase):
         return resource_configs
 
 
-    async def run_one_iteration(
+    async def async_run_one_iteration(
         self,
         phase_message: PhaseMessage,
         agent_instance: Any,

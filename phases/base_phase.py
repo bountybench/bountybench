@@ -140,7 +140,7 @@ class BasePhase(ABC):
             logger.error(f"Failed to deallocate resources for phase {self.phase_config.phase_idx}: {e}")
             raise
 
-    async def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
+    async def async_run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.
 
@@ -176,7 +176,7 @@ class BasePhase(ABC):
 
                 # 2) Start iteration context in the logger
                 with phase_ctx.iteration(iteration_num, agent_id, self._last_agent_message) as iteration_ctx:
-                    message = await self.run_one_iteration(
+                    message = await self.async_run_one_iteration(
                         phase_message=curr_phase_message,
                         agent_instance=agent_instance,
                         previous_output=self._last_agent_message,
@@ -261,7 +261,7 @@ class BasePhase(ABC):
         return curr_phase_message
 
 
-    async def set_message_input(self, user_input: str) -> str:
+    async def async_set_message_input(self, user_input: str) -> str:
         user_input_message = Message(user_input)
         
         # Update the last output
@@ -293,7 +293,7 @@ class BasePhase(ABC):
         self.phase_summary = summary
 
     @abstractmethod
-    async def run_one_iteration(
+    async def async_run_one_iteration(
         self, phase_message: PhaseMessage, agent_instance: Any, previous_output: Optional[Message]
     ) -> Message:
         """

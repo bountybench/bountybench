@@ -152,10 +152,10 @@ class BaseWorkflow(ABC):
     def _get_metadata(self) -> Dict[str, Any]:
         return {}
     
-    async def run(self) -> None:
+    async def async_run(self) -> None:
         """Execute the entire workflow by running all phases in sequence."""
         logger.info(f"Running workflow {self.name}")
-        async for _ in self._run_phases():
+        async for _ in self._async_run_phases():
             continue
     
     def run(self) -> None:
@@ -164,7 +164,7 @@ class BaseWorkflow(ABC):
         for _ in self._run_phases():
             continue
 
-    async def _run_phases(self):
+    async def _async_run_phases(self):
         try:
             if not self._root_phase:
                 raise ValueError("No root phase registered")
@@ -176,7 +176,7 @@ class BaseWorkflow(ABC):
             while self._current_phase:
                 logger.info(f"Running {self._current_phase.name}")
                 self._set_phase_status(self._current_phase.name, PhaseStatus.INCOMPLETE)
-                phase_message = await self._run_single_phase(self._current_phase, prev_phase_message)
+                phase_message = await self._async_run_single_phase(self._current_phase, prev_phase_message)
                 yield phase_message
                 
                 if phase_message.success:
@@ -245,9 +245,9 @@ class BaseWorkflow(ABC):
         initial_message = Message(self.config.initial_prompt) if self.config.initial_prompt else None
         return PhaseMessage(agent_messages=[initial_message] if initial_message else [])
 
-    async def _run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
+    async def _async_run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
         phase_instance = self._setup_phase(phase)
-        phase_message = await phase_instance.run_phase(prev_phase_message)
+        phase_message = await phase_instance.async_run_phase(prev_phase_message)
         
         logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
 
@@ -265,11 +265,11 @@ class BaseWorkflow(ABC):
 
         return phase_message
     
-    async def edit_action_input_in_agent(self, action_id: str, new_input: str):
+    async def async_edit_action_input_in_agent(self, action_id: str, new_input: str):
         _, agent_instance = self._current_phase._get_last_agent()
         print(f"In edit action going to run the last agent of {agent_instance.agent_id}")
         if hasattr(agent_instance, 'modify_memory_and_run'):
-            result = await agent_instance.modify_memory_and_run(new_input)
+            result = await agent_instance.async_modify_memory_and_run(new_input)
             if result:
                 print(f"Got result {result.message}")
                 return result.message
@@ -287,8 +287,8 @@ class BaseWorkflow(ABC):
         print("Doesn't have attribute")
         raise ValueError(f"No agent found that can modify action {action_id}")
     
-    async def set_message_input(self, user_input: str) -> str:
-        result = await self._current_phase.set_message_input(user_input)
+    async def async_set_message_input(self, user_input: str) -> str:
+        result = await self._current_phase.async_set_message_input(user_input)
         
         # Trigger the next iteration
         self.next_iteration_event.set()

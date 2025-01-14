@@ -59,7 +59,7 @@ class BaseAgent(ABC):
         return set(cls._parse_resource_entry(resource)[1] for resource in cls.OPTIONAL_RESOURCES)
 
     @abstractmethod
-    async def run(self, messages: List[Message]) -> Message:
+    async def async_run(self, messages: List[Message]) -> Message:
         """
         Execute the agent's main logic and produce a message.
         

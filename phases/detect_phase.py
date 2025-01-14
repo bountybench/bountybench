@@ -108,7 +108,7 @@ class DetectPhase(BasePhase):
         logger.debug(f"Exiting define_resources for ExploitPhase")
         return resource_configs
 
-    async def run_one_iteration(
+    async def async_run_one_iteration(
         self,
         agent_instance: Any,
         previous_output: Optional[Message]
