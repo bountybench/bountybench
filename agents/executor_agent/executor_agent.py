@@ -58,10 +58,6 @@ class ExecutorAgent(BaseAgent):
         if hasattr(agent_config, "initial_prompt"):
             self.initial_prompt = agent_config.initial_prompt
         self.prompt = self.initial_prompt
-        print("**********************************")
-        print("I AM IN EXECUTOR AGENT")
-        print(self.prompt)
-        print("**********************************")
 
 
         
