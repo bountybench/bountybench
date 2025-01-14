@@ -13,6 +13,5 @@ class AgentLMConfig:
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
 
     def __post_init__(self):
-        # If 'claude' is in the model name, set use_helm to True
-        if 'claude' in self.model.lower():
+        if 'openai/o3' not in self.model.lower():
             self.use_helm = True

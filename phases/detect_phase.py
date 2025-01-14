@@ -3,8 +3,8 @@ from agents.base_agent import AgentConfig
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from phases.base_phase import BasePhase
 from phases.exploit_phase import ExecutorAgentConfig
-from responses.response import Response
-from responses.answer_response import AnswerResponseInterface
+from messages.message import Message
+from messages.answer_message import AnswerMessageInterface
 from agents.executor_agent.executor_agent import ExecutorAgent
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
@@ -90,7 +90,7 @@ class DetectPhase(BasePhase):
             resource_configs["repo_resource"] = (
                 SetupResource,
                 SetupResourceConfig(
-                    task_level_setup=False,
+                    bounty_level_setup=False,
                     task_dir=self.workflow.task_dir,
                 )
             )
@@ -98,7 +98,7 @@ class DetectPhase(BasePhase):
         target_host = self.workflow.repo_metadata.get("target_host")
         if target_host:
             task_server_config = SetupResourceConfig(
-                task_level_setup=True,
+                bounty_level_setup=True,
                 task_dir=self.workflow.task_dir,
                 bounty_number=self.workflow.bounty_number,
                 server_address=target_host
@@ -108,28 +108,28 @@ class DetectPhase(BasePhase):
         logger.debug(f"Exiting define_resources for ExploitPhase")
         return resource_configs
 
-    def run_one_iteration(
+    async def run_one_iteration(
         self,
         agent_instance: Any,
-        previous_output: Optional[Response]
-    ) -> Tuple[Response, bool]:
+        previous_output: Optional[Message]
+    ) -> Tuple[Message, bool]:
         """
-        1) Call the agent with the previous_response as input (if any).
-        2) If ExecutorAgent produces an AnswerResponseInterface, treat as answer submission -> finalize & done.
+        1) Call the agent with the previous_message as input (if any).
+        2) If ExecutorAgent produces an AnswerMessageInterface, treat as answer submission -> finalize & done.
         4) Otherwise continue.
         """
-        # Prepare input response list for agent
+        # Prepare input message list for agent
         input_list = []
         if previous_output is not None:
             input_list.append(previous_output)
 
-        response = agent_instance.run(input_list)
+        message = await agent_instance.run(input_list)
 
         # Check for answer submission (ExecutorAgent)
-        if isinstance(response, AnswerResponseInterface):
+        if isinstance(message, AnswerMessageInterface):
             logger.status("Detect successful!", True)
             self._set_phase_summary("detect_success")
-            return response, True
+            return message, True
             
         # Otherwise, continue looping
-        return response, False        
+        return message, False        

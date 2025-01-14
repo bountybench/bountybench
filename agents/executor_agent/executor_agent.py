@@ -10,11 +10,11 @@ from models.query import query
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.setup_resource import SetupResource
-from responses.answer_response import AnswerResponse
-from responses.command_response import CommandResponse
-from responses.command_response_interface import CommandResponseInterface
-from responses.observation import Observation
-from responses.response import Response
+from messages.answer_message import AnswerMessage
+from messages.command_message import CommandMessage
+from messages.command_message_interface import CommandMessageInterface
+from messages.observation import Observation
+from messages.message import Message
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -34,19 +34,16 @@ class ExecutorAgentConfig(AgentConfig):
 class ExecutorAgent(BaseAgent):
     memory: List[str] = []
 
-    # Switch from listing just resource classes to (ResourceClass, "attr_name").
-    # BaseAgent will do: self.init_files = resource_manager.get_resource("init_files")
-    # etc.
     REQUIRED_RESOURCES = [
        (InitFilesResource, "init_files"),
         (KaliEnvResource, "kali_env")
     ]
-    OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "task_server")]
+    OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "bounty_resource")]
     ACCESSIBLE_RESOURCES = [
         (KaliEnvResource, "kali_env"),
        (InitFilesResource, "init_files"),
         (SetupResource, "repo_resource"),
-        (SetupResource, "task_server")
+        (SetupResource, "bounty_resource")
     ]
     
     def __init__(self, agent_id, agent_config: ExecutorAgentConfig):#, resource_manager: ResourceManager):
@@ -56,7 +53,7 @@ class ExecutorAgent(BaseAgent):
             resource_manager: ResourceManager instance responsible for managing resources.
         """
         # Pass the agent_config and resource_manager to BaseAgent
-        super().__init__(agent_id, agent_config)#, resource_manager)
+        super().__init__(agent_id, agent_config)
 
         # Initialize specific attributes
         if hasattr(agent_config, "initial_prompt"):
@@ -66,39 +63,46 @@ class ExecutorAgent(BaseAgent):
         # If a target_host is provided, run health_check on self.kali_env
         self.target_host = agent_config.target_host
 
-        # if self.target_host: 
-        #     self.kali_env.health_check(self.target_host)
+        #if self.target_host: 
+            #self.kali_env.health_check(self.target_host)
         
-    def run(self, responses: List[Response]) -> Response:
-        if len(responses) > 1:
-            raise Exception(f"Accepts at most a single response, got {len(responses)}.")
+    async def run(self, messages: List[Message]) -> Message:
+        if len(messages) > 1:
+            raise Exception(f"Accepts at most a single message, got {len(messages)}.")
 
-        if len(responses) == 0:        
+        if len(messages) == 0:        
             self.formulate_prompt()
         else:
-            response = responses[0]
-            self.formulate_prompt(response)
+            message = messages[0]
+            self.formulate_prompt(message)
 
-        executor_response = self.execute()
-        self._update_memory(executor_response)
+        executor_message = self.execute()
+        self._update_memory(executor_message)
 
-        return executor_response
+        return executor_message
 
-    def _update_memory(self, response: Response) -> None:
+    async def modify_memory_and_run(self, input: str) -> None:
+        self.initial_prompt = input
+        self.memory = [] #overwrites all previous memory
+
+        result = await self.run([])
+        return result
+    
+    def _update_memory(self, message: Message) -> None:
         if len(self.memory) >= self.agent_config.lm_config.max_iterations_stored_in_memory:
-            self.memory = self.memory[1:] + [response.response]
+            self.memory = self.memory[1:] + [message.message]
         else:
-            self.memory.append(response.response)
-
-    def formulate_prompt(self, response: Optional[Response] = None) -> str:
+            self.memory.append(message.message)
+    
+    def formulate_prompt(self, message: Optional[Message] = None) -> str:
         """
         Formulates the prompt, including the truncated memory.
         """
-        if response:
+        if message:
             if self.initial_prompt:
-                self._update_memory(response)
+                self._update_memory(message)
             else:
-                self.initial_prompt = response.response
+                self.initial_prompt = message.message
         
 
         truncated_input = truncate_input_to_max_tokens(
@@ -111,30 +115,30 @@ class ExecutorAgent(BaseAgent):
         self.prompt = prompt
         return prompt
 
-    def execute(self) -> Response:
-        lm_executor_response = self.call_lm()
+    def execute(self) -> Message:
+        lm_executor_message = self.call_lm()
         # If the model decides to output a command, we run it in the environment
-        logger.info(f"LM Response:\n{lm_executor_response.response}")
-        if issubclass(lm_executor_response.__class__, CommandResponseInterface):
-            observation = self.execute_in_env(lm_executor_response)
-            lm_executor_response.set_observation(observation)
-        return lm_executor_response
+        logger.info(f"LM Response:\n{lm_executor_message.message}")
+        if issubclass(lm_executor_message.__class__, CommandMessageInterface):
+            observation = self.execute_in_env(lm_executor_message)
+            lm_executor_message.set_observation(observation)
+        return lm_executor_message
 
-    def _parse_response(self, response: str) -> Response:
+    def _parse_response(self, response: str) -> Message:
         """
-        Attempts to parse the raw model string into either AnswerResponse or CommandResponse.
+        Attempts to parse the raw model string into either AnswerMessage or CommandMessage.
         """
         try:
-            return AnswerResponse(response)
+            return AnswerMessage(response)
         except:
-            logger.debug("Not an AnswerResponse, trying CommandResponse.")
+            logger.debug("Not an AnswerMessage, trying CommandMessage.")
             try:
-                return CommandResponse(response)
+                return CommandMessage(response)
             except:
-                logger.debug("Could not parse as CommandResponse.")
-                raise Exception("Could not parse LM response as AnswerResponse or CommandResponse.")
+                logger.debug("Could not parse as CommandMessage.")
+                raise Exception("Could not parse LM response as AnswerMessage or CommandMessage.")
 
-    def call_lm(self) -> Response:
+    def call_lm(self) -> Message:
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
@@ -174,12 +178,12 @@ class ExecutorAgent(BaseAgent):
         finally:
             stop_progress()
 
-    def execute_in_env(self, executor_response: CommandResponse) -> Observation:
+    def execute_in_env(self, executor_message: CommandMessage) -> Observation:
         """
         Executes the command in the environment using self.kali_env,
         captures the output, and returns an Observation.
         """
-        command = executor_response.command
+        command = executor_message.command
         try:
             stdout, stderr = self.kali_env.run_command(
                 command, timeout=TIMEOUT_PER_COMMAND, workdir="/app/", logging=True

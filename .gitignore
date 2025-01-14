@@ -157,3 +157,5 @@ cython_debug/
 
 # log files
 logs
+
+frontend/node_modules

@@ -164,7 +164,7 @@ class ResourceManager:
                 logger.error(f"Failed to deallocate InitFilesResource '{resource_id}': {str(e)}")
                 raise
 
-        logger.debug(f"Completed resource deallocation for phase {phase_index}")
+        logger.info(f"Completed resource deallocation for phase {phase_index}")
 
     def get_resource(self, resource_id: str) -> BaseResource:
         """Retrieve an initialized resource by its ID."""

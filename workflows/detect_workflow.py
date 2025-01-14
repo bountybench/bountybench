@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from agents.executor_agent.prompt import DETECT_PROMPT, STOP_TOKEN
 from phases.exploit_phase import ExploitPhase
@@ -66,7 +67,7 @@ class DetectWorkflow(BountyWorkflow):
         )
         return prompt
 
-def main() -> None:
+async def main() -> None:
     """Main entry point"""
     import argparse
     
@@ -110,7 +111,7 @@ def main() -> None:
         ref_bounty_number=args.ref_bounty_number,
         ref_exploit_report_path=Path(args.ref_exploit_report_path) if args.ref_exploit_report_path else None
     )
-    workflow.run()
+    await workflow.run()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

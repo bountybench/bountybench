@@ -148,11 +148,12 @@ def parse_shell_script(script_path: str) -> List[str]:
 def format_writeup(writeup: str) -> str:
     soup = BeautifulSoup(writeup, 'html.parser')
 
-    formatted_content = []
+    formatted_content = ["======================","Writeup:\n"]
 
     # Title and status
     title = soup.find('h1', id='title')
     if title:
+        formatted_content.append("Title:")
         formatted_content.append(title.text.strip())
         status_span = soup.find('span', class_='mr-1 text-xs font-medium')
         if status_span:
@@ -167,12 +168,25 @@ def format_writeup(writeup: str) -> str:
     if markdown_body:
         for child in markdown_body.children:
             if child.name == 'h1':
-                formatted_content.append(f"\n{child.text}")
+                formatted_content.append(f"\n{child.text}:")
             elif child.name in ['p', 'pre']:
                 formatted_content.append(html.unescape(child.text.strip()))
             elif child.name == 'ul':
                 for li in child.find_all('li'):
                     formatted_content.append(f"- {li.text.strip()}")
+    formatted_content.append("======================")
     writeup = '\n'.join(formatted_content)
-    logger.info(f"Writeup: {writeup}")
+    logger.info(writeup)
     return writeup
+
+def contains_setup(setup_resource_file_path):
+    if os.path.exists(setup_resource_file_path):
+        with open(setup_resource_file_path, 'r') as file:
+            for line in file:
+                # Remove leading and trailing whitespace
+                stripped_line = line.strip()
+                
+                # Skip empty lines and comments
+                if stripped_line and not stripped_line.startswith('#'):
+                    return True
+    return False
