@@ -10,7 +10,7 @@ import './App.css';
 
 function App() {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
-  const [interactiveMode, setInteractiveMode] = useState(false);
+  const [interactiveMode, setInteractiveMode] = useState(true);
 
   const handleWorkflowStart = (workflowId, isInteractive) => {
     setSelectedWorkflow({ id: workflowId });
