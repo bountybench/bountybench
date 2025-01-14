@@ -1,5 +1,5 @@
 from typing import List
-from agents.executor_agent.prompt import STOP_TOKEN
+from agents.prompts import STOP_TOKEN
 from messages.command_message_interface import  CommandMessageInterface
 from messages.parse_message import parse_field
 from messages.observation import Observation

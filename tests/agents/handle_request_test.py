@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 from agents.executor_agent.executor_agent import ExecutorAgent    
 from models.query import query
-from agents.executor_agent.prompt import STOP_TOKEN
+from agents.prompts import STOP_TOKEN
 
 from models.model_response import ModelResponse
 from agents.dataclasses.agent_spec import AgentConfig
