@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from agents.executor_agent.prompt import PATCH_PROMPT, STOP_TOKEN
@@ -45,7 +46,7 @@ class PatchWorkflow(BountyWorkflow):
         )
         return prompt
 
-def main() -> None:
+async def main() -> None:
     """Main entry point"""
     import argparse
 
@@ -63,7 +64,7 @@ def main() -> None:
 
     # Run workflow
     workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive, model=args.model, phase_iterations=args.phase_iterations)
-    workflow.run()
+    await workflow.run()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
