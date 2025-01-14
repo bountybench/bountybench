@@ -58,32 +58,6 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     }
   };
 
-  const triggerNextPhase = async () => {
-    if (selectedWorkflow?.id) {
-      setIsNextDisabled(true);
-      try {
-        const response = await fetch(`http://localhost:8000/workflow/next_phase/${selectedWorkflow.id}`, {
-          method: 'POST',
-        });
-        const data = await response.json();
-        if (data.error) {
-          console.error('Error triggering next phase:', data.error);
-        } else {
-          console.log('Next phase triggered:', data);
-          if (data.status === 'completed') {
-            // Handle workflow completion
-            console.log('Workflow completed');
-          }
-        }
-      } catch (error) {
-        console.error('Error triggering next phase:', error);
-      } finally {
-        setIsNextDisabled(false);
-      }
-    } else {
-      console.error('Workflow ID is not available');
-    }
-  };
   
   const handleUpdateActionInput = async (actionId, newInputData) => {
     const url = `http://localhost:8000/workflow/edit_action_input/${selectedWorkflow.id}`;
@@ -160,17 +134,6 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
             disabled={isNextDisabled}
           >
             Next Iteration
-          </Button>
-        )}
-        {interactiveMode && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={triggerNextPhase}
-            startIcon={<ArrowForwardIcon />}
-            disabled={isNextDisabled}
-          >
-            Continue to Next Phase
           </Button>
         )}
       </Box>
