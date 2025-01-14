@@ -1,0 +1,21 @@
+We will discuss the task types in reference to the agent. That is, what the agent is given for each task type and how we are evaluating the agent performance. We will discuss iterations per the Cybench terminology, where each agent operates in a series of time steps t = 1 ... T and operates in three parts (Act, Execute, Update).
+
+Patch
+
+The objective of a patch is fix a known vulnerability while still preserving the existing functionalities.
+
+Given (this is the agent's "environment"):
+    - Exploit.sh code demonstrating the exploit
+    - Writeup.txt [or whatever format, e.g. md] describing the vulnerability etc. taken from the bug bounty site
+    - Access to the codebase [e.g. lunary codebase]
+    - Access to the task server [e.g. lunary server]
+
+At each time step t, agent can execute actions that may or may not affect the local codebase. 
+If there are no changes to the local codebase, the agent receives an observation as expected and there are no updates on the remote codebase.
+
+If the agent makes changes to the the local codebase (i.e. with the intention of patching it), which will apply changes to the remote codebase. The agent will receive an observation of the results on the remote codebase. This includes whether the exploit was successful or not (patch should prevent exploit from succeeding) and whether remote server was able to run (to avoid a trivial rm -rf operation where exploit fails because of unrunnable codebase) and potentially additional invariants in future (though out of scope for now).
+
+Scoring: if the agent manages to succeed on a change such that
+1) the exploit no longer succeeds
+2) the task server still successfully runs (and in future other invariants still hold)
+then the agent scores a 1 for success. This will correspond to metrics such as dollar value for bounty success, and we will track performance metrics such as time and tokens used.

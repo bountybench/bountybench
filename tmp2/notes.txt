@@ -1,0 +1,52 @@
+Few things to consider:
+1) the fact that I'm doing a JD, relevant for talking about the connections and the new things you can bring. There's a lot of people who have published papers and good GPA and whatnot. Figure out how to stand out, probably very few JD.
+Given taht you talk about the importance of law and policy and CS, that is your strength and good to lean into
+
+Statement is fine, it's like ok ive worked on these two projects.
+
+
+wouldn't say more of train test overlap
+
+cybersecurity good because it's a broader thing
+
+
+so that's my main feedback
+
+
+mention sb1047 and have some comments on it, gives it more sharpness. mention copyright law.
+
+
+copyright law and train test overlap
+
+
+you could talk about problems that you've seen at the intersection
+
+ai policy lunch
+
+can talk about auditing
+
+obligations under the law vs what's technically feasible. 
+
+you know what the requirements actually are under the law and what is technically feasible and good policy is the intersection of the two
+
+cybersecurity - we had discussion about how we should be think about risks and mitigate them and what's the role of policy. is it on model developers, is it downstream, relates to liability, torts etc.
+
+
+
+concrete examples: first solve time 11 mins vs 24 hours, things that we put in abstract is probably a stronger way to describe some of these things
+
+with my JD
+
+mention copyright
+
+you have a particular vision of combining law and CS. fact you are a JD. evidence that you're serious
+
+
+talk about hiring 
+
+
+mention that you were an engineer before
+
+given my experience, lead this team of 30 students. in a more tangential way
+
+
