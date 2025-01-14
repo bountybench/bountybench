@@ -218,7 +218,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 if data.get("type") == "user_input" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
-                        result = await workflow.handle_user_input(data["content"])
+                        result = await workflow.set_message_input(data["content"])
                         await websocket_manager.broadcast(workflow_id, {
                             "type": "user_input_response",
                             "content": result
@@ -254,6 +254,30 @@ async def next_iteration(workflow_id: str):
     else:
         return {"error": "Workflow is not in interactive mode"}
     
+@app.get("/workflow/last-message/{workflow_id}")
+async def last_message(workflow_id: str):
+    if workflow_id not in active_workflows:
+        return {"error": "Workflow not found"}
+    
+    workflow = active_workflows[workflow_id]["instance"]
+    last_message_str = await workflow.get_last_message()
+    return {
+                "type": "last_message",
+                "content": last_message_str
+            }
+
+@app.get("/workflow/first-message/{workflow_id}")
+async def first_message(workflow_id: str):
+    if workflow_id not in active_workflows:
+        return {"error": "Workflow not found"}
+    
+    workflow = active_workflows[workflow_id]["instance"]
+    first_message_str = workflow.initial_prompt
+    return {
+                "type": "first_message",
+                "content": first_message_str
+            }
+
 class ActionInputData(BaseModel):
     action_id: str
     new_input_data: str
