@@ -306,7 +306,7 @@ async def edit_action_input(workflow_id: str, data: ActionInputData):
         return {"status": "updated", "result": result}
     except Exception as e:
         return {"error": str(e)}
-    
+
 @app.get("/workflow/{workflow_id}/resources")
 async def get_workflow_resources(workflow_id: str):
     if workflow_id not in active_workflows:
@@ -318,6 +318,65 @@ async def get_workflow_resources(workflow_id: str):
     resources = workflow.resource_manager.resources
     
     return resources
+
+@app.post("/workflow/restart/{workflow_id}")
+async def restart_workflow(workflow_id: str):
+    """Restart a workflow with the same configuration"""
+    if workflow_id not in active_workflows:
+        raise HTTPException(status_code=404, detail="Workflow not found")
     
+    try:
+        # Get current workflow data
+        current_workflow = active_workflows[workflow_id]
+        workflow_instance = current_workflow["instance"]
+        
+        # Save configuration
+        config = {
+            "workflow_name": workflow_instance.__class__.__name__,
+            "task_dir": str(workflow_instance.task_dir),
+            "bounty_number": workflow_instance.bounty_number,
+            "interactive": workflow_instance.interactive
+        }
+        
+        # Cancel current workflow task if it exists
+        if hasattr(workflow_instance, 'task') and workflow_instance.task:
+            workflow_instance.task.cancel()
+        
+        # Close all WebSocket connections for this workflow
+        await websocket_manager.close_all_connections(workflow_id)
+        
+        # Clean up old workflow logger (How do we handle singleton in this case?)
+        
+        # Remove old workflow
+        del active_workflows[workflow_id]
+        
+        # Initialize new workflow instance with same ID to avoid redirection
+        new_workflow = id_to_workflow[config['workflow_name']](
+            task_dir=Path(config['task_dir']),
+            bounty_number=config['bounty_number'],
+            interactive=config['interactive']
+        )
+        
+        # Store new workflow instance with same ID
+        active_workflows[workflow_id] = {
+            "instance": new_workflow,
+            "status": "initialized"
+        }
+        
+        # Initialize workflow logger
+        workflow_logger.initialize(
+            workflow_name=config['workflow_name'],
+            workflow_id=workflow_id,  # Use same workflow ID
+            task={"task_dir": config['task_dir'], "bounty_number": config['bounty_number']}
+        )
+        
+        return {
+            "workflow_id": workflow_id,
+            "status": "restarted"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
