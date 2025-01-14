@@ -280,13 +280,13 @@ export const useWorkflowWebSocket = (workflowId) => {
   }, [connect, workflowId]);
 
   // ----------------------------------
-  // 5) sendMessage: for user input
+  // 5) sendMessage: for user message
   // ----------------------------------
   const sendMessage = useCallback((message) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       console.log('Sending message:', message);
       ws.current.send(JSON.stringify({
-        type: 'user_input',
+        type: 'user_message',
         content: message.content
       }));
       
@@ -295,7 +295,7 @@ export const useWorkflowWebSocket = (workflowId) => {
         id: `msg_${messageIdCounter.current++}`,
         agent_name: 'User',
         timestamp: new Date().toISOString(),
-        input: { content: message.content },
+        output: { content: message.content },
         isUser: true
       };
       setMessages(prev => [...prev, userMessage]);

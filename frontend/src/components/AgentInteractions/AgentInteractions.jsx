@@ -11,8 +11,8 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
   // 1) Default to expanded so partial updates are visible
   const [expanded, setExpanded] = useState(true);
   console.log('Rendering action:', action);
-  const [editing, setEditing] = useState(false);            // ADDED
-  const [editedInput, setEditedInput] = useState('');       // ADDED
+  const [editing, setEditing] = useState(false);            
+  const [editedInput, setEditedInput] = useState(''); 
 
   if (!action) return null;
 
@@ -273,7 +273,7 @@ export default ActionCard;
 
 const MessageBubble = ({ message, onUpdateActionInput }) => {
   const [expanded, setExpanded] = useState(true);
-  //console.log('==============MessageBubble received message:==============', message);
+  const [inputExpanded, setInputExpanded] = useState(false); 
   
   if (!message) return null;
 
@@ -281,6 +281,11 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
   const hasActions = message.actions && message.actions.length > 0;
   const messageClass = message.isSystem ? 'system' : message.isUser ? 'user' : 'agent';
   
+  const handleInputExpandClick = (e) => {
+    e.stopPropagation();
+    setInputExpanded((prev) => !prev);
+  };
+
   const renderContent = (content, label) => {
     if (!content) return null;
     return (
@@ -304,7 +309,14 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
           </Box>
           
           <Collapse in={expanded || message.isSystem}>
-            {renderContent(message.input, 'Input')}
+            {message.input && !message.isSystem && (
+              <Box mt={1} onClick={handleInputExpandClick} style={{ cursor: 'pointer' }}>
+                <Typography variant="caption" color="primary">
+                  {inputExpanded ? 'Hide Input' : 'Show Input'}
+                </Typography>
+                {inputExpanded && renderContent(message.input, 'Input')}
+              </Box>
+            )}
             {renderContent(message.output, 'Output')}
             {hasActions && (
               <Box mt={2}>
@@ -344,7 +356,7 @@ export const AgentInteractions = ({
     messages: messages
   });
   
-  const [userInput, setUserInput] = useState('');
+  const [userMessage, setUserMessage] = useState('');
   const messagesEndRef = useRef(null);
   const [textAreaHeight, setTextAreaHeight] = useState('auto');
   const textAreaRef = useRef(null);
@@ -363,7 +375,7 @@ export const AgentInteractions = ({
       const response = await fetch(`http://localhost:8000/workflow/last-message/${workflow.id}`); 
       if (response.ok) {
         const lastMessage = await response.json();
-        setUserInput(lastMessage.content);
+        setUserMessage(lastMessage.content);
         adjustTextAreaHeight();
       }
     } catch (error) {
@@ -376,7 +388,7 @@ export const AgentInteractions = ({
       const response = await fetch(`http://localhost:8000/workflow/first-message/${workflow.id}`); 
       if (response.ok) {
         const firstMessage = await response.json();
-        setUserInput(firstMessage.content);
+        setUserMessage(firstMessage.content);
         adjustTextAreaHeight();
       }
     } catch (error) {
@@ -393,12 +405,12 @@ export const AgentInteractions = ({
   }, [messages]);
 
   const handleSendMessage = () => {
-    if (userInput.trim()) {
+    if (userMessage.trim()) {
       onSendMessage({
-        type: 'user_input',
-        content: userInput
+        type: 'user_message',
+        content: userMessage
       });
-      setUserInput('');
+      setUserMessage('');
     }
   };
 
@@ -406,7 +418,7 @@ export const AgentInteractions = ({
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.output?.content) {
-        setUserInput(lastMessage.output.content);
+        setUserMessage(lastMessage.output.content);
         adjustTextAreaHeight();
       }
     }
@@ -422,8 +434,8 @@ export const AgentInteractions = ({
     }
   };
 
-  const handleInputChange = (e) => {
-    setUserInput(e.target.value);
+  const handleMessageChange = (e) => {
+    setUserMessage(e.target.value);
     adjustTextAreaHeight();
   };
 
@@ -473,8 +485,8 @@ export const AgentInteractions = ({
             rows={2}
             variant="outlined"
             placeholder="Type your message..."
-            value={userInput}
-            onChange={handleInputChange}
+            value={userMessage}
+            onChange={handleMessageChange}
             sx={{ 
               '& .MuiInputBase-input': {
                 color: 'black',
@@ -496,7 +508,7 @@ export const AgentInteractions = ({
             variant="contained"
             color="primary"
             onClick={handleSendMessage}
-            disabled={!userInput.trim()}
+            disabled={!userMessage.trim()}
           >
             Send
           </Button>
