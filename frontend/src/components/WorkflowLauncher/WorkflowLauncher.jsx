@@ -128,7 +128,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           fullWidth
           label="Task Repository Directory"
           name="task_dir"
-          value={formData.task_dir}
+          value={formData.task_repo_dir}
           onChange={handleInputChange}
           required
           margin="normal"

@@ -272,61 +272,44 @@ export default ActionCard;
 
 
 const MessageBubble = ({ message, onUpdateActionInput }) => {
-  // 3) Default to expanded
   const [expanded, setExpanded] = useState(true);
-  console.log('Rendering message:', message);
+  //console.log('==============MessageBubble received message:==============', message);
   
   if (!message) return null;
 
-  const hasContent = message.input?.content || message.output?.content;
+  const hasContent = message.input?.content || message.output?.content || message.input?.message || message.output?.message;
   const hasActions = message.actions && message.actions.length > 0;
   const messageClass = message.isSystem ? 'system' : message.isUser ? 'user' : 'agent';
   
+  const renderContent = (content, label) => {
+    if (!content) return null;
+    return (
+      <Box mt={1}>
+        <Typography variant="caption" color="text.secondary">{label}:</Typography>
+        <Box sx={{ mt: 1 }}>
+          <ReactMarkdown>{typeof content === 'string' ? content : content.content || content.message}</ReactMarkdown>
+        </Box>
+      </Box>
+    );
+  };
+
   return (
     <Box className={`message-container ${messageClass}`}>
-      <Card 
-        className={`message-bubble ${messageClass}-bubble`}
-        // If you do NOT want toggling on click, remove onClick or the entire cursor pointer
-        // onClick={() => setExpanded(!expanded)}
-        sx={{ cursor: 'pointer' }}
-      >
+      <Card className={`message-bubble ${messageClass}-bubble`}>
         <CardContent>
           <Box display="flex" alignItems="center" justifyContent="space-between">
             <Typography variant="body2" color="text.secondary" gutterBottom>
               {message.agent_name || 'System'}
             </Typography>
-            {/* {(hasContent || hasActions) && (
-              <IconButton
-                size="small"
-                sx={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-              >
-                <ExpandMoreIcon />
-              </IconButton>
-            )} */}
           </Box>
           
           <Collapse in={expanded || message.isSystem}>
-            {message.input?.content && (
-              <Box mt={1}>
-                <Typography variant="caption" color="text.secondary">Input:</Typography>
-                <Box sx={{ mt: 1 }}>
-                  <ReactMarkdown>{message.input.content}</ReactMarkdown>
-                </Box>
-              </Box>
-            )}
-            {message.output?.content && (
-              <Box mt={1}>
-                <Typography variant="caption" color="text.secondary">Output:</Typography>
-                <Box sx={{ mt: 1 }}>
-                  <ReactMarkdown>{message.output.content}</ReactMarkdown>
-                </Box>
-              </Box>
-            )}
+            {renderContent(message.input, 'Input')}
+            {renderContent(message.output, 'Output')}
             {hasActions && (
               <Box mt={2}>
                 <Typography variant="subtitle2" gutterBottom>Actions:</Typography>
                 {message.actions.map((action, index) => (
-                  // 4) Unique key for each action
                   <Box key={`${message.id}_action_${index}`} mt={1}>
                     <ActionCard 
                       action={action}
