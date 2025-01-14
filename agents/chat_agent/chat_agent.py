@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from agents.executor_agent.prompt import STOP_TOKEN
+from agents.prompts import STOP_TOKEN
 from agents.utils import truncate_input_to_max_tokens
 from models.model_response import ModelResponse
 from models.query import query

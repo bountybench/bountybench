@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from agents.executor_agent.prompt import STOP_TOKEN
+from agents.prompts import STOP_TOKEN
 from agents.utils import truncate_input_to_max_tokens
 from models.model_response import ModelResponse
 from models.query import query
@@ -59,6 +59,11 @@ class ExecutorAgent(BaseAgent):
         if hasattr(agent_config, "initial_prompt"):
             self.initial_prompt = agent_config.initial_prompt
         self.prompt = self.initial_prompt
+        print("**********************************")
+        print("I AM IN EXECUTOR AGENT")
+        print(self.prompt)
+        print("**********************************")
+
 
         # If a target_host is provided, run health_check on self.kali_env
         self.target_host = agent_config.target_host
