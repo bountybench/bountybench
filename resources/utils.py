@@ -148,7 +148,7 @@ def parse_shell_script(script_path: str) -> List[str]:
 def format_writeup(writeup: str) -> str:
     soup = BeautifulSoup(writeup, 'html.parser')
 
-    formatted_content = ["======================"]
+    formatted_content = ["======================","Writeup:\n"]
 
     # Title and status
     title = soup.find('h1', id='title')
@@ -176,7 +176,7 @@ def format_writeup(writeup: str) -> str:
                     formatted_content.append(f"- {li.text.strip()}")
     formatted_content.append("======================")
     writeup = '\n'.join(formatted_content)
-    logger.info(f"Writeup: {writeup}")
+    logger.info(writeup)
     return writeup
 
 def contains_setup(setup_resource_file_path):

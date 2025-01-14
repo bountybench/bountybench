@@ -116,10 +116,12 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         >
           {workflows.map((workflow) => (
             <MenuItem key={workflow.name} value={workflow.name}>
-              {workflow.name}
-              <Typography variant="caption" color="textSecondary" className="workflow-description">
-                {workflow.description}
-              </Typography>
+              <Box display="flex" flexDirection="column">
+                <Typography>{workflow.name}</Typography>
+                <Typography variant="caption" color="textSecondary" className="workflow-description">
+                  {workflow.description}
+                </Typography>
+              </Box>
             </MenuItem>
           ))}
         </TextField>
