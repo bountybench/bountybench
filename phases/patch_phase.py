@@ -29,7 +29,7 @@ class PatchPhase(BasePhase):
     def __init__(self, workflow: 'BaseWorkflow', **kwargs):
         self.model = kwargs.get('model')
         self.bounty_number = kwargs.get('bounty_number')
-        self.initial_prompt = kwargs.get('initial_prompt')
+        #self.initial_prompt = kwargs.get('initial_prompt')
         self.use_agent_exploit = kwargs.get('use_agent_exploit')
         self.use_verify_script = kwargs.get('use_verify_script')
 
@@ -42,8 +42,7 @@ class PatchPhase(BasePhase):
         # Create the executor_config
         executor_config = ExecutorAgentConfig(
             lm_config=executor_lm_config,
-            target_host=self.workflow.repo_metadata["target_host"],
-            initial_prompt=self.initial_prompt 
+            #initial_prompt=self.initial_prompt 
         )
 
         bounty_dir = os.path.join("bounties", f"bounty_{self.bounty_number}")
@@ -100,7 +99,8 @@ class PatchPhase(BasePhase):
                     bounty_number=self.workflow.bounty_number,
                     volumes={
                         os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
-                    }
+                    }, 
+                    target_host=self.workflow.repo_metadata["target_host"]
                 )
             ),
             "docker": (

@@ -324,7 +324,6 @@ class PatchAgent(BaseAgent):
         return {
             'bounty_dir': str(self.bounty_dir),
             'patch_dir': str(self.patch_dir),
-            'log_history': self.log_history,
             'patch_id': self.patch_id,
             'use_verify_script': self.use_verify_script,
             'agent_id': self.agent_id,

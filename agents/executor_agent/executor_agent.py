@@ -28,7 +28,6 @@ TEMPERATURE = 0.5
 @dataclass
 class ExecutorAgentConfig(AgentConfig):
     lm_config: AgentLMConfig = field(default_factory=AgentLMConfig)
-    target_host: str = field(default='')
     initial_prompt: Optional[str] = field(default=None)
 
 class ExecutorAgent(BaseAgent):
@@ -65,11 +64,6 @@ class ExecutorAgent(BaseAgent):
         print("**********************************")
 
 
-        # If a target_host is provided, run health_check on self.kali_env
-        self.target_host = agent_config.target_host
-
-        #if self.target_host: 
-            #self.kali_env.health_check(self.target_host)
         
     async def run(self, messages: List[Message]) -> Message:
         if len(messages) > 1:
@@ -205,9 +199,7 @@ class ExecutorAgent(BaseAgent):
         """
         return {
             "config": self.agent_config.lm_config.__dict__,
-            "memory": self.memory,
             "initial_prompt": getattr(self, "initial_prompt", None),
-            "prompt": getattr(self, "prompt", None),
             'agent_id': self.agent_id,
             "timestamp": getattr(self, "timestamp", None),
         }

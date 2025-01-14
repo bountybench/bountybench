@@ -49,6 +49,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
     task_dir: Optional[str] = None
     bounty_number: Optional[str] = None
     volumes: Optional[Dict[str, Dict[str, str]]] = None
+    target_host: Optional[str] = None
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
@@ -69,6 +70,8 @@ class KaliEnvResource(BaseResource):
         
         self.client = docker.from_env()
         self.container = self._start(self.resource_id, self._resource_config.volumes)
+
+        self.target_host = self._resource_config.target_host
         
         # Initialize bounty directory if task_dir and bounty_number provided
         if self._resource_config.task_dir and self._resource_config.bounty_number:
@@ -77,6 +80,8 @@ class KaliEnvResource(BaseResource):
                 "bounties",
                 f"bounty_{self._resource_config.bounty_number}"
             )
+        
+        self.connect_to_target_hosts_check(self.target_host)
 
         atexit.register(self.stop)
     
@@ -221,9 +226,9 @@ class KaliEnvResource(BaseResource):
                 f"Invalid target_host format: {target_host}. Expected format: hostname:port")
             sys.exit(1)
 
-    def health_check(self, target_hosts: str) -> None:
+    def connect_to_target_hosts_check(self, target_hosts: str) -> None:
         """
-        Perform health checks on the specified target hosts with retries.
+        Checks if kali resource can connect on the specified target hosts with retries.
 
         Args:
             target_hosts (str): A string containing space-separated target hosts in the format hostname:port.
@@ -262,11 +267,11 @@ class KaliEnvResource(BaseResource):
             for attempt in range(MAX_RETRIES):
                 if http_check() or nc_check():
                     logger.info(
-                        f"Health check passed for {hostname}:{port} on attempt {attempt + 1}.")
+                        f"Can connect to {hostname}:{port} on attempt {attempt + 1}.")
                     break
                 else:
                     logger.warning(
-                        f"Health check failed for {hostname}:{port} (Attempt {attempt + 1}/{MAX_RETRIES}).")
+                        f"Cannot connect to {hostname}:{port} (Attempt {attempt + 1}/{MAX_RETRIES}).")
                     if attempt < MAX_RETRIES - 1:
                         time.sleep(RETRY_DELAY)
                     else:
@@ -274,11 +279,11 @@ class KaliEnvResource(BaseResource):
 
         if failed_hosts:
             logger.error(
-                f"Health checks failed for the following hosts: {', '.join(failed_hosts)}")
+                f"Failure to connect for the following hosts: {', '.join(failed_hosts)}")
             raise RuntimeError(
-                "Health checks failed for one or more target hosts.")
+                "Failure to connect for one or more target hosts.")
         else:
-            logger.info("All target hosts passed the health check.")
+            logger.info("All target hosts can be connected to.")
 
     def to_dict(self) -> dict:
         """
