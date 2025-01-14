@@ -174,3 +174,45 @@ class PatchPhase(BasePhase):
                 phase_message.set_success()
                 return message
         return message
+    
+    def run_one_iteration(
+        self,
+        phase_message: PhaseMessage,
+        agent_instance: Any,
+        previous_output: Optional[Message],
+    ) -> Message:
+        """
+        1) Call the agent with previous_output as input.
+        2) If ExecutorAgent produces an AnswerMessageInterface -> hallucination -> finalize & done.
+        3) If PatchAgent produces an AnswerMessageInterface -> patch success -> finalize & done.
+        4) Otherwise continue.
+        """
+        # Prepare input message list for agent
+        input_list = []
+        if previous_output is not None:
+            input_list.append(previous_output)
+
+        message = agent_instance.run(input_list)
+        phase_message.add_agent_message(message)
+
+        # Determine which agent name was used in this iteration
+        _, agent_instance = self._get_current_agent()
+
+        # Check for hallucination (ExecutorAgent)
+        if isinstance(agent_instance, ExecutorAgent):
+            if isinstance(message, AnswerMessageInterface):
+                logger.status("Executor agent hallucinated an answer!")
+                self._set_phase_summary("completed_with_hallucination")
+                phase_message.set_complete()
+                return message
+
+        # Check for exploit success (PatchAgent)
+        elif isinstance(agent_instance, PatchAgent):
+            if isinstance(message, AnswerMessageInterface):
+                logger.info("Patch Success!")
+                self._set_phase_summary("patch_success")
+                phase_message.set_complete()
+                phase_message.set_success()
+                return message
+        return message
+

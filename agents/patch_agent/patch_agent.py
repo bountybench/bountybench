@@ -88,6 +88,24 @@ class PatchAgent(BaseAgent):
             logger_message = "No git diff detected, skipping patching."
             logger.info(logger_message)
             return Message(logger_message)
+    
+    def run(self, messages: List[Message]) -> Message:
+        """Execute the main workflow of the PatchAgent."""
+        if len(messages) != 1:
+            raise ValueError(f"Accepts only a single message, but received {len(messages)} messages")
+        
+        message = messages[0]
+        self.codebase = os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)
+        
+        if self.get_git_diff(self.codebase):
+            log_message = "Git diff detected, applying changes..."
+            logger.info(log_message)
+            self.log_history.append(log_message)
+            return self.execute()
+        else: 
+            logger_message = "No git diff detected, skipping patching."
+            logger.info(logger_message)
+            return Message(logger_message)
 
     def execute(self) -> Message:
         """Execute the patching command and verify patch effectiveness."""

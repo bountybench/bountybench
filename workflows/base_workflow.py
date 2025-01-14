@@ -157,6 +157,12 @@ class BaseWorkflow(ABC):
         logger.info(f"Running workflow {self.name}")
         async for _ in self._run_phases():
             continue
+    
+    def run(self) -> None:
+        """Execute the entire workflow by running all phases in sequence."""
+        logger.info(f"Running workflow {self.name}")
+        for _ in self._run_phases():
+            continue
 
     async def _run_phases(self):
         try:
@@ -171,6 +177,42 @@ class BaseWorkflow(ABC):
                 logger.info(f"Running {self._current_phase.name}")
                 self._set_phase_status(self._current_phase.name, PhaseStatus.INCOMPLETE)
                 phase_message = await self._run_single_phase(self._current_phase, prev_phase_message)
+                yield phase_message
+                
+                if phase_message.success:
+                    self._set_phase_status(self._current_phase.name, PhaseStatus.COMPLETED_SUCCESS)
+                else:
+                    self._set_phase_status(self._current_phase.name, PhaseStatus.COMPLETED_FAILURE)
+
+                if not phase_message.success or self._max_iterations_reached():
+                    break
+                    
+                next_phases = self._phase_graph.get(self._current_phase, [])
+                self._current_phase = next_phases[0] if next_phases else None
+                prev_phase_message = phase_message
+
+            if prev_phase_message.success:
+                self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
+            else:
+                self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
+
+        except Exception as e:
+            self._handle_workflow_exception(e)
+    
+
+    def _run_phases(self):
+        try:
+            if not self._root_phase:
+                raise ValueError("No root phase registered")
+
+            self._set_workflow_status(WorkflowStatus.INCOMPLETE)
+            self._current_phase = self._root_phase
+            prev_phase_message = self._get_initial_phase_message()
+
+            while self._current_phase:
+                logger.info(f"Running {self._current_phase.name}")
+                self._set_phase_status(self._current_phase.name, PhaseStatus.INCOMPLETE)
+                phase_message = self._run_single_phase(self._current_phase, prev_phase_message)
                 yield phase_message
                 
                 if phase_message.success:
@@ -213,11 +255,32 @@ class BaseWorkflow(ABC):
 
         return phase_message
 
+    def _run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
+        phase_instance = self._setup_phase(phase)
+        phase_message = phase_instance.run_phase(prev_phase_message)
+        
+        logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
+
+        self._workflow_iteration_count += 1
+
+        return phase_message
+    
     async def edit_action_input_in_agent(self, action_id: str, new_input: str):
         _, agent_instance = self._current_phase._get_last_agent()
         print(f"In edit action going to run the last agent of {agent_instance.agent_id}")
         if hasattr(agent_instance, 'modify_memory_and_run'):
             result = await agent_instance.modify_memory_and_run(new_input)
+            if result:
+                print(f"Got result {result.message}")
+                return result.message
+        print("Doesn't have attribute")
+        raise ValueError(f"No agent found that can modify action {action_id}")
+    
+    def edit_action_input_in_agent(self, action_id: str, new_input: str):
+        _, agent_instance = self._current_phase._get_last_agent()
+        print(f"In edit action going to run the last agent of {agent_instance.agent_id}")
+        if hasattr(agent_instance, 'modify_memory_and_run'):
+            result = agent_instance.modify_memory_and_run(new_input)
             if result:
                 print(f"Got result {result.message}")
                 return result.message
@@ -232,7 +295,19 @@ class BaseWorkflow(ABC):
         
         return result
     
+    def set_message_input(self, user_input: str) -> str:
+        result = self._current_phase.set_message_input(user_input)
+        
+        # Trigger the next iteration
+        self.next_iteration_event.set()
+        
+        return result
+    
     async def get_last_message(self) -> str:
+        result = self._current_phase.last_agent_message  
+        return result.message if result else ""
+    
+    def get_last_message(self) -> str:
         result = self._current_phase.last_agent_message  
         return result.message if result else ""
     

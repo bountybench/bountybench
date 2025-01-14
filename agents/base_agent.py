@@ -71,6 +71,19 @@ class BaseAgent(ABC):
         """
         pass
 
+    @abstractmethod
+    def run(self, messages: List[Message]) -> Message:
+        """
+        Execute the agent's main logic and produce a message.
+        
+        Args:
+            messages: List of previous messages, if any.
+        
+        Returns:
+            The agent's message after processing.
+        """
+        pass
+
     @property
     def agent_id(self) -> str:
         return self._agent_id

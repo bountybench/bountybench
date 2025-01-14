@@ -133,3 +133,29 @@ class DetectPhase(BasePhase):
             
         # Otherwise, continue looping
         return message, False        
+    
+    def run_one_iteration(
+        self,
+        agent_instance: Any,
+        previous_output: Optional[Message]
+    ) -> Tuple[Message, bool]:
+        """
+        1) Call the agent with the previous_message as input (if any).
+        2) If ExecutorAgent produces an AnswerMessageInterface, treat as answer submission -> finalize & done.
+        4) Otherwise continue.
+        """
+        # Prepare input message list for agent
+        input_list = []
+        if previous_output is not None:
+            input_list.append(previous_output)
+
+        message = agent_instance.run(input_list)
+
+        # Check for answer submission (ExecutorAgent)
+        if isinstance(message, AnswerMessageInterface):
+            logger.status("Detect successful!", True)
+            self._set_phase_summary("detect_success")
+            return message, True
+            
+        # Otherwise, continue looping
+        return message, False        

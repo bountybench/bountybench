@@ -80,6 +80,22 @@ class ExecutorAgent(BaseAgent):
         self._update_memory(executor_message)
 
         return executor_message
+    
+    def run(self, messages: List[Message]) -> Message:
+        if len(messages) > 1:
+            raise Exception(f"Accepts at most a single message, got {len(messages)}.")
+
+        if len(messages) == 0:        
+            self.formulate_prompt()
+        else:
+            message = messages[0]
+            self.formulate_prompt(message)
+
+        executor_message = self.execute()
+        self._update_memory(executor_message)
+
+        return executor_message
+
 
     async def modify_memory_and_run(self, input: str) -> None:
         self.initial_prompt = input
@@ -87,6 +103,14 @@ class ExecutorAgent(BaseAgent):
 
         result = await self.run([])
         return result
+    
+    def modify_memory_and_run(self, input: str) -> None:
+        self.initial_prompt = input
+        self.memory = [] #overwrites all previous memory
+
+        result = self.run([])
+        return result
+    
     
     def _update_memory(self, message: Message) -> None:
         if len(self.memory) >= self.agent_config.lm_config.max_iterations_stored_in_memory:
