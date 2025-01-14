@@ -123,33 +123,38 @@ export const useWorkflowWebSocket = (workflowId) => {
             }
             break;
 
-          case 'iteration_update': {
+            case 'iteration_update': {
               console.log('Handling iteration update:', data.iteration);
               setCurrentIteration(data.iteration);
               currentIterationRef.current = data.iteration;
             
-              const iterationMessage = {
-                id: `msg_${messageIdCounter.current++}`,
-                iteration_number: data.iteration.iteration_number,
-                agent_name: data.iteration.agent_name,
-                timestamp: new Date().toISOString(),
-                input: data.iteration.input,
-                output: data.iteration.output,
-                actions: [],
-                status: data.iteration.status
-              };
-            
               setMessages(prev => {
-                // Check if a message with the same iteration number already exists
-                if (prev.some(msg => msg.iteration_number === iterationMessage.iteration_number)) {
-                  console.log('Duplicate iteration message, not adding');
-                  return prev;
+                const updatedMessages = [...prev];
+                const existingMessageIndex = updatedMessages.findIndex(
+                  msg => msg.iteration_number === data.iteration.iteration_number
+                );
+            
+                const updatedMessage = {
+                  id: existingMessageIndex !== -1 ? updatedMessages[existingMessageIndex].id : `msg_${messageIdCounter.current++}`,
+                  iteration_number: data.iteration.iteration_number,
+                  agent_name: data.iteration.agent_name,
+                  timestamp: new Date().toISOString(),
+                  input: data.iteration.input || updatedMessages[existingMessageIndex]?.input,
+                  output: data.iteration.output,
+                  actions: updatedMessages[existingMessageIndex]?.actions || [],
+                  status: data.iteration.status
+                };
+            
+                if (existingMessageIndex !== -1) {
+                  updatedMessages[existingMessageIndex] = updatedMessage;
+                } else {
+                  updatedMessages.push(updatedMessage);
                 }
-                return [...prev, iterationMessage];
+            
+                return updatedMessages;
               });
               break;
-          }
-
+            }
           case 'action_update': {
             console.log('Handling action update:', data.action);
             setMessages(prev => {
