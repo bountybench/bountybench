@@ -1,0 +1,286 @@
+To adjust your workflow to the new paradigm you've described, we'll refactor the code to treat phases as nodes in a workflow graph, where phases can be connected using the `>>` operator to define the flow. Phases will register themselves with the workflow, and the workflow will manage the execution order based on the graph.
+
+We'll also need to handle dynamic phase generation, where a phase can create new phases during its execution (e.g., `find_task_phase` finding multiple tasks and spawning corresponding `exploit_phase` instances).
+
+Below is the refactored code with explanations of the design choices, pros, and cons.
+
+---
+
+### **Refactored Code**
+
+```python
+from pathlib import Path
+from typing import List, Dict, Set
+from collections import deque
+from utils.logger import get_main_logger
+from phases.base_phase import BasePhase, PhaseConfig
+from phases.find_task_phase import FindTaskPhase
+from phases.exploit_phase import ExploitPhase
+from phases.patch_phase import PatchPhase
+from phases.taskify_phase import TaskifyPhase
+from workflows.base_workflow import BaseWorkflow
+
+logger = get_main_logger(__name__)
+
+class ExploitAndPatchWorkflow(BaseWorkflow):
+    """Workflow for finding tasks, exploiting, and patching vulnerabilities"""
+
+    def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
+        workflow_id = "exploit_and_patch_workflow"
+        super().__init__(task_repo_dir, bounty_number, workflow_id, interactive)
+
+    def create_phases(self):
+        """Define and register phases specific to ExploitAndPatchWorkflow."""
+        # Define Phase Configurations
+        find_task_config = PhaseConfig(
+            phase_name="FindTaskPhase",
+            max_iterations=10
+        )
+        exploit_phase_config = PhaseConfig(
+            phase_name="ExploitPhase",
+            max_iterations=10
+        )
+        patch_phase_config = PhaseConfig(
+            phase_name="PatchPhase",
+            max_iterations=10
+        )
+        taskify_phase_config = PhaseConfig(
+            phase_name="TaskifyPhase",
+            max_iterations=10
+        )
+
+        # Initialize Phases
+        find_task_phase = FindTaskPhase(
+            phase_config=find_task_config,
+            workflow=self,
+        )
+
+        # Register Root Phase
+        self.register_root_phase(find_task_phase)
+        logger.info(f"FindTaskPhase registered with config: {find_task_config}")
+
+        # Note: We don't create exploit_phase, patch_phase, and taskify_phase instances here
+        # because they will be generated dynamically during execution based on tasks found.
+
+    def run(self):
+        """Run the workflow starting from the root phases."""
+        self.execute_phase(self.root_phase)
+
+    def execute_phase(self, phase: BasePhase):
+        """Recursively execute phases."""
+        phase.execute()
+        if phase.children_phases:
+            for child_phase in phase.children_phases:
+                self.execute_phase(child_phase)
+
+# Below are the phase implementations adjusted for dynamic behavior
+
+# base_phase.py
+class BasePhase:
+    def __init__(self, phase_config: PhaseConfig, workflow: 'BaseWorkflow'):
+        self.phase_config = phase_config
+        self.workflow = workflow
+        self.phase_name = phase_config.phase_name
+        self.children_phases: List['BasePhase'] = []
+        self.parent_phases: List['BasePhase'] = []
+
+    def __rshift__(self, other_phase: 'BasePhase'):
+        """Allows connecting phases using >> operator."""
+        self.children_phases.append(other_phase)
+        other_phase.parent_phases.append(self)
+        return other_phase
+
+    def execute(self):
+        """Placeholder for phase execution logic."""
+        raise NotImplementedError(f"Execute method not implemented in {self.phase_name}")
+
+    def add_child_phase(self, phase: 'BasePhase'):
+        """Adds a child phase dynamically during execution."""
+        self.children_phases.append(phase)
+        phase.parent_phases.append(self)
+        logger.info(f"{self.phase_name} added child phase {phase.phase_name}")
+
+# find_task_phase.py
+class FindTaskPhase(BasePhase):
+    def execute(self):
+        """Find tasks and create corresponding ExploitPhase instances."""
+        logger.info(f"Executing {self.phase_name}")
+        # Simulate finding tasks
+        tasks = self.find_tasks()
+
+        for task in tasks:
+            exploit_phase_config = PhaseConfig(
+                phase_name=f"ExploitPhase_{task['id']}",
+                max_iterations=10
+            )
+            exploit_phase = ExploitPhase(
+                phase_config=exploit_phase_config,
+                workflow=self.workflow,
+                task=task
+            )
+            self.add_child_phase(exploit_phase)
+
+    def find_tasks(self):
+        """Simulates task discovery."""
+        # For demonstration, we'll return a list of dummy tasks
+        tasks = [{'id': i, 'description': f'Task {i}'} for i in range(1, 4)]  # Simulate 3 tasks
+        logger.info(f"{self.phase_name} found {len(tasks)} tasks")
+        return tasks
+
+# exploit_phase.py
+class ExploitPhase(BasePhase):
+    def __init__(self, phase_config: PhaseConfig, workflow: 'BaseWorkflow', task: dict):
+        super().__init__(phase_config, workflow)
+        self.task = task
+
+    def execute(self):
+        logger.info(f"Executing {self.phase_name} for {self.task['description']}")
+        # Simulate exploitation logic
+        success = self.exploit_task()
+        if success:
+            # Create PatchPhase
+            patch_phase_config = PhaseConfig(
+                phase_name=f"PatchPhase_{self.task['id']}",
+                max_iterations=10
+            )
+            patch_phase = PatchPhase(
+                phase_config=patch_phase_config,
+                workflow=self.workflow,
+                task=self.task
+            )
+            self.add_child_phase(patch_phase)
+            # Create TaskifyPhase
+            taskify_phase_config = PhaseConfig(
+                phase_name=f"TaskifyPhase_{self.task['id']}",
+                max_iterations=10
+            )
+            taskify_phase = TaskifyPhase(
+                phase_config=taskify_phase_config,
+                workflow=self.workflow,
+                task=self.task
+            )
+            self.add_child_phase(taskify_phase)
+        else:
+            logger.warning(f"{self.phase_name} failed to exploit {self.task['description']}")
+
+    def exploit_task(self):
+        """Simulates exploit logic."""
+        # For demonstration, we'll assume all exploits succeed
+        return True
+
+# patch_phase.py
+class PatchPhase(BasePhase):
+    def __init__(self, phase_config: PhaseConfig, workflow: 'BaseWorkflow', task: dict):
+        super().__init__(phase_config, workflow)
+        self.task = task
+
+    def execute(self):
+        logger.info(f"Executing {self.phase_name} for {self.task['description']}")
+        # Simulate patching logic
+        self.patch_task()
+
+    def patch_task(self):
+        """Simulates patching logic."""
+        logger.info(f"{self.phase_name} patched {self.task['description']}")
+
+# taskify_phase.py
+class TaskifyPhase(BasePhase):
+    def __init__(self, phase_config: PhaseConfig, workflow: 'BaseWorkflow', task: dict):
+        super().__init__(phase_config, workflow)
+        self.task = task
+
+    def execute(self):
+        logger.info(f"Executing {self.phase_name} for {self.task['description']}")
+        # Simulate taskification logic
+        self.taskify()
+
+    def taskify(self):
+        """Simulates taskification logic."""
+        logger.info(f"{self.phase_name} taskified {self.task['description']}")
+
+def main() -> None:
+    """Main entry point"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Run the exploit and patch workflow")
+    parser.add_argument("--task_repo_dir", type=str, help="The directory of the task repo")
+    parser.add_argument("--bounty_number", type=str, help="The bounty number")
+    parser.add_argument("--interactive", action="store_true", help="Run in interactive mode")
+    args = parser.parse_args()
+
+    # Create logs directory
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    
+    # Run workflow
+    workflow = ExploitAndPatchWorkflow(Path(args.task_repo_dir), args.bounty_number, args.interactive)
+    workflow.create_phases()
+    workflow.run()
+
+if __name__ == "__main__":
+    main()
+```
+
+---
+
+### **Design Choices and Explanations**
+
+1. **Phases as Nodes in a Workflow Graph:**
+   - Each phase is a node that knows its child phases.
+   - Phases are connected using the `>>` operator, which appends child phases to the `children_phases` list.
+   - The workflow doesn't need to manage the graph explicitly; phases manage their connections.
+
+2. **Dynamic Phase Generation:**
+   - Phases can create and add child phases during execution using the `add_child_phase` method.
+   - This allows for dynamic workflows where the execution path can change based on runtime conditions.
+   - For example, `FindTaskPhase` finds tasks and creates corresponding `ExploitPhase` instances.
+
+3. **Clean API with `>>` Operator:**
+   - The `>>` operator provides an intuitive way to define phase flows.
+   - However, since some phases are generated dynamically, not all connections are defined statically.
+   - Static phases can be connected in `create_phases`, while dynamic ones are connected during execution.
+
+4. **Workflow Execution:**
+   - The `run` method starts execution from the root phase and recursively executes child phases.
+   - This recursive execution respects the dependencies defined by the phase graph.
+
+5. **Handling Phase Execution Logic:**
+   - Each phase implements its own `execute` method containing the logic for that phase.
+   - Phases can decide whether to create new phases based on their execution outcomes.
+
+6. **Simplifying the Workflow Class:**
+   - By moving phase connections and execution responsibilities to phases, the workflow class remains clean and focused.
+   - The workflow's primary role is to initiate the execution and provide shared resources or context.
+
+### **Pros and Cons**
+
+#### **Pros:**
+
+- **Flexibility:** The workflow can adapt to different scenarios at runtime, allowing for dynamic creation of phases based on conditions.
+- **Modularity:** Phases are self-contained units that manage their own execution logic and connections.
+- **Readability:** Using the `>>` operator and clear method names (`add_child_phase`) makes the code more readable and intuitive.
+- **Ease of Extension:** New phases can be added without modifying the core workflow logic.
+
+#### **Cons:**
+
+- **Complexity:** Managing dynamic phase creation can introduce complexity, especially in larger workflows.
+- **Debugging Difficulty:** With dynamic phases, it might be harder to trace the execution flow or predict the workflow behavior upfront.
+- **Potential for Cycles:** Care must be taken to avoid creating cycles in the phase graph, which could lead to infinite loops.
+
+### **Necessary Complexity for Expressivity and Power**
+
+The introduced complexity is necessary to achieve a flexible and powerful workflow system that can handle dynamic scenarios. By allowing phases to create other phases during execution, we can model complex processes that aren't strictly linear or known ahead of time.
+
+### **Avoiding Useless Complexity**
+
+We've avoided adding unnecessary abstractions or over-engineering solutions. The design focuses on simplicity and clarity, ensuring that each component has a well-defined responsibility.
+
+### **Making the End-User Experience Easier**
+
+- **Clean API:** End-users can define workflows using simple and intuitive syntax.
+- **Extensibility:** Users can easily add new phases or modify existing ones without deep changes to the workflow infrastructure.
+- **Transparency:** By keeping the workflow and phase logic straightforward, users can understand and predict the behavior of the system.
+
+---
+
+By refactoring the code in this manner, we've adjusted to the desired paradigm while focusing on clean design and user experience. The code is now better structured to handle dynamic workflows and provides a clear API for users to define and manage phases.

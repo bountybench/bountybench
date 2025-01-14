@@ -1,0 +1,850 @@
+MOST IMPORTANT INSTRUCTIONS: 
+
+I'm trying to figure out how to best set up the workflow class in the following code. See the comment below for guidance
+
+"""
+handled by phase or by workflow, phase.parent, phase.childrens / the phase graph. should phases be aware or just workflow? perhaps phase is sensify
+
+node structure. phases are just nodes in a workflow
+
+agents are nodes within a phase
+
+idea: could we have dynamic phase generation, i.e. i find a new task and i append it down? vs static phases. Or the dynamicness part of agents? or
+find_task_phase >>
+
+are there conditions that then affect the phases we want to run. conditional variables of sorts. how to handle / define
+
+necessary complexity for expressivity / power
+useless complexity bc bad design
+
+The challenge with dynamic allocation is that we cannot leverage the resourcemanager as easily to compute a static graph.
+"""
+
+Rewrite all the logic to adjust to this paradigm and think through how to make this happen. Think through pros and cons and focus on the design choices you are making i.e. what are the necessary complexity we are introducing and how to focus on building infra and framework to make the end user experience easier.
+
+
+Focus on having clean api e.g.
+find_task_phase >> exploit_phase
+exploit_phase >> patch_phase
+exploit_phase >> taskify_phase
+
+self.register_root_phase(find_task_phase)
+
+during the phase, the find_task_phase may signal 
+
+I guess the question is, after find_task_phase finds 30 tasks, how does it know to / who does the new phase creation. or if exploit_phase struggles and we need to go back to another phase, how does that look
+
+
+BELOW HERE IS BACKGROUND CODE
+----------------
+
+from pathlib import Path
+from agents.executor_agent.prompt import EXPLOIT_AND_PATCH_PROMPT, STOP_TOKEN
+from phases.base_phase import PhaseConfig
+from phases.exploit_phase import ExploitPhase
+from phases.patch_phase import PatchPhase
+from resources.utils import read_exploit_report
+from utils.logger import get_main_logger
+from workflows.base_workflow import BaseWorkflow
+
+logger = get_main_logger(__name__)
+
+class ExploitAndPatchWorkflow(BaseWorkflow):
+    """Workflow for exploiting and patching vulnerabilities"""
+
+    def __init__(self, task_repo_dir: Path, bounty_number: str, interactive: bool = False):
+        workflow_id = "exploit_and_patch_workflow"
+        super().__init__(task_repo_dir, bounty_number, workflow_id, interactive)     
+
+    def create_phases(self):
+        """Define and register phases specific to ExploitAndPatchWorkflow."""
+        exploit_phase_config = PhaseConfig(
+            phase_name="ExploitPhase",
+            max_iterations=10
+        )
+
+        exploit_phase = ExploitPhase(
+            phase_config=exploit_phase_config,
+            workflow=self,
+        )
+        
+        # Register the PatchPhase
+        # self.register_phase(exploit_phase)
+        logger.info(f"ExploitPhase registered with config: {exploit_phase_config}")
+
+        # Initialize PatchPhase with its PhaseConfig
+        patch_phase_config = PhaseConfig(
+            phase_name="PatchPhase",
+            max_iterations=10
+        )
+
+        patch_phase = PatchPhase(
+            phase_config=patch_phase_config,
+            workflow=self,
+        )
+
+        # Register the PatchPhase
+        # self.register_phase(patch_phase)
+
+        exploit_phase >> patch_phase
+        exploit_phase >> taskify_phase
+        
+        self.register_root_phase()
+        """
+        handled by phase or by workflow, phase.parent, phase.childrens / the phase graph. should phases be aware or just workflow? perhaps phase is sensify
+
+        node structure. phases are just nodes in a workflow
+
+        agents are nodes within a phase
+        
+        idea: could we have dynamic phase generation, i.e. i find a new task and i append it down? vs static phases. Or the dynamicness part of agents? or
+        find_task_phase >>
+
+        are there conditions that then affect the phases we want to run. conditional variables of sorts. how to handle / define
+
+        necessary complexity for expressivity / power
+        useless complexity bc bad design
+
+        The challenge with dynamic allocation is that we cannot leverage the resourcemanager as easily to compute a static graph.
+        """
+
+        logger.info(f"PatchPhase registered with config: {patch_phase_config}")
+
+
+    def get_initial_prompt(self):
+        """
+        Provide the initial prompt for the workflow by reading the exploit report.
+
+        Returns:
+            str: The formatted initial prompt.
+        """
+        exploit_report = read_exploit_report(self.task_repo_dir, self.bounty_number)
+        prompt = EXPLOIT_AND_PATCH_PROMPT.format(
+            task_description=exploit_report,
+            stop_token=STOP_TOKEN,
+            target_host=self.repo_metadata["target_host"],
+        )
+        return prompt
+
+def main() -> None:
+    """Main entry point"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Run the exploit and patch workflow")
+    parser.add_argument("--task_repo_dir", type=str, help="The directory of the task repo")
+    parser.add_argument("--bounty_number", type=str, help="The bounty number")
+    parser.add_argument("--interactive", action="store_true", help="Run in interactive mode")
+    args = parser.parse_args()
+    
+    # Create logs directory
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    
+    # Run workflow
+    workflow = ExploitAndPatchWorkflow(Path(args.task_repo_dir), args.bounty_number, args.interactive)
+    workflow.run()
+
+if __name__ == "__main__":
+    main()
+----------
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+import os
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+from agents.agent_manager import AgentManager
+
+from enum import Enum
+import logging
+
+# Import your specific modules and classes here
+from phases.base_phase import BasePhase, PhaseConfig
+from responses.base_response import BaseResponse
+from resources.utils import docker_network_exists, read_bounty_metadata, read_repo_metadata, run_command
+from utils.workflow_logger import workflow_logger
+
+# Initialize the module-level logger
+logger = logging.getLogger(__name__)
+
+class WorkflowStatus(Enum):
+    """Status of workflow execution"""
+    INITIALIZED = "initialized"
+    INCOMPLETE = "incomplete"
+    COMPLETED_SUCCESS = "completed_success"
+    COMPLETED_FAILURE = "completed_failure"
+    COMPLETED_MAX_ITERATIONS = "completed_max_iterations"
+
+
+@dataclass
+class WorkflowConfig:
+    """Configuration for a workflow"""
+    id: str
+    max_iterations: int
+    logs_dir: Path
+    task_repo_dir: Path
+    bounty_number: int
+    initial_prompt: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    phase_configs: List['PhaseConfig'] = field(default_factory=list)  
+
+
+
+class BaseWorkflow(ABC):
+    """
+    Base class for defining workflows that coordinate phases and their agents.
+    Delegates resource management to individual phases.
+    """
+
+    def __init__(
+        self,
+        task_repo_dir: Path,
+        bounty_number: str,
+        workflow_id: Optional[str] = "base_workflow",
+        interactive: Optional[bool] = False
+    ):
+        """Initialize workflow with configuration"""
+        self.task_repo_dir = task_repo_dir
+        self.bounty_number = str(bounty_number)  # Ensure it's a string
+        self.interactive = interactive
+        self.repo_metadata = read_repo_metadata(str(task_repo_dir))
+        self.bounty_metadata = read_bounty_metadata(str(task_repo_dir), str(self.bounty_number))
+        
+        # Setup workflow config
+        config = WorkflowConfig(
+            id=workflow_id,
+            max_iterations=25,
+            logs_dir=Path("logs"),
+            task_repo_dir=task_repo_dir,
+            bounty_number=self.bounty_number,
+            initial_prompt=self.get_initial_prompt(),
+            metadata={
+                "repo_metadata": self.repo_metadata,
+                "bounty_metadata": self.bounty_metadata
+            }
+        )
+
+        self.config = config
+        self.status = WorkflowStatus.INITIALIZED
+        self._current_phase_idx = 0
+        self._workflow_iteration_count = 0
+
+        self.workflow_logger = workflow_logger
+        self.workflow_logger.initialize(
+            workflow_name=config.id,
+            logs_dir=str(config.logs_dir),
+            task_repo_dir=str(config.task_repo_dir),
+            bounty_number=str(config.bounty_number)
+        )
+
+        # Add workflow metadata
+        for key, value in config.metadata.items():
+            self.workflow_logger.add_metadata(key, value)
+
+        # Initialize ResourceManager
+        self.agent_manager = AgentManager()
+
+        # Initialize tracking structures
+        self.phases: List[BasePhase] = []       # List to store phase instances
+        self.phase_class_map = {}
+
+        # Initialize additional attributes
+        self.vulnerable_files: List[str] = []
+
+        # Setup workflow
+        self.setup_init()
+        self.create_phases() # To be implemented by subclasses
+        self._compute_resource_schedule()
+
+    @abstractmethod
+    def get_initial_prompt(self) -> str:
+        """Provide the initial prompt for the workflow."""
+        pass
+
+    @abstractmethod
+    def create_phases(self):
+        """Create and register phases. To be implemented by subclasses."""
+        pass
+
+    def _compute_resource_schedule(self) -> None:
+        """
+        Compute the agent (which will compute resource) schedule across all phases.
+        """
+        phase_classes = [type(phase) for phase in self.phases]
+        self.agent_manager.compute_resource_schedule(phase_classes)
+        logger.debug("Computed resource schedule for all phases based on agents.")
+
+    def setup_phase(self, phase_idx: int, initial_response: Optional[BaseResponse] = None) -> BasePhase:
+        """
+        Setup and run a specific phase.
+
+        Args:
+            phase_idx (int): The index of the phase to set up.
+            initial_response (Optional[BaseResponse]): The initial response for the phase.
+
+        Returns:
+            BasePhase: The phase instance.
+        """
+        try:
+            phase_instance = self.phases[phase_idx]
+
+            logger.info(f"Setting up phase {phase_idx}: {phase_instance.__class__.__name__}")
+
+            if initial_response:
+                phase_instance.initial_response = initial_response
+                logger.info(f"Set initial response for phase {phase_idx}")
+            else:
+                logger.info(f"No initial response provided for phase {phase_idx}")
+            # Setup the phase
+            phase_instance.setup()
+
+            return phase_instance
+
+        except Exception as e:
+            self.status = WorkflowStatus.INCOMPLETE
+            logger.error(f"Failed to set up phase {phase_idx}: {e}")
+            raise
+
+    def run_phases(self):
+        """
+        Execute all phases in sequence.
+        Yields:
+            Tuple[BaseResponse, bool]: The response from each phase and a success flag.
+        """
+        try:
+            self.status = WorkflowStatus.INCOMPLETE
+            prev_response = BaseResponse(self.config.initial_prompt) if self.config.initial_prompt else None
+
+            for phase_idx, phase in enumerate(self.phases):
+                self._current_phase_idx = phase_idx
+
+                # Setup and run the phase
+                phase_instance = self.setup_phase(phase_idx, prev_response)
+                phase_response, phase_success = phase_instance.run_phase()
+                
+                logger.info(f"Phase {phase_idx} completed: {phase_instance.__class__.__name__} with success={phase_success}")
+
+                # Update workflow state
+                prev_response = phase_response
+                if not phase_success:
+                    self.status = WorkflowStatus.COMPLETED_FAILURE
+                    yield phase_response, phase_success
+                    break
+
+                self._workflow_iteration_count += 1
+                if self._workflow_iteration_count >= self.config.max_iterations:
+                    self.status = WorkflowStatus.COMPLETED_MAX_ITERATIONS
+                    yield phase_response, phase_success
+                    break
+
+                # Yield current phase results
+                yield phase_response, phase_success
+
+                # Resources are already handled within the phase
+
+            else:
+                # If all phases completed successfully
+                self.status = WorkflowStatus.COMPLETED_SUCCESS
+
+            # Finalize workflow
+            self.workflow_logger.finalize(self.status.value)
+
+        except Exception as e:
+            self.status = WorkflowStatus.INCOMPLETE
+            self.workflow_logger.finalize(self.status.value)
+            raise e
+
+    def run(self) -> None:
+        """
+        Execute the entire workflow by running all phases in sequence.
+        This is a convenience method that runs the workflow to completion.
+        """
+        # Run through all phases
+        for _ in self.run_phases():
+            continue
+
+    @property
+    def current_phase(self) -> Optional[PhaseConfig]:
+        """Get current phase configuration"""
+        if 0 <= self._current_phase_idx < len(self.config.phase_configs):
+            return self.config.phase_configs[self._current_phase_idx]
+        return None
+
+    def setup_init(self) -> None:
+        """Setup initial state of the workflow."""
+        self.setup_network()
+        self.setup_git_state()
+
+    def setup_network(self) -> None:
+        """Setup Docker network if it does not exist."""
+        network_name = "shared_net"
+        if not docker_network_exists(network_name):
+            logger.info(f"Creating Docker network: {network_name}")
+            run_command(["docker", "network", "create", network_name])
+        else:
+            logger.debug(f"Docker network '{network_name}' already exists.")
+
+    def setup_git_state(self) -> None:
+        """Setup Git state by checking out the vulnerable commit and identifying vulnerable files."""
+        vulnerable_commit = self.bounty_metadata.get('vulnerable_commit', 'main')
+        codebase_path = os.path.join(str(self.task_repo_dir), "codebase")
+        
+        logger.info(f"Checking out vulnerable commit: {vulnerable_commit}")
+        run_command(["git", "checkout", vulnerable_commit], codebase_path)
+        
+        for _, value in self.bounty_metadata.get('patch', {}).items():
+            relative_path = os.path.relpath(value, start="codebase")
+            full_path = os.path.join(str(self.task_repo_dir), value)
+            if os.path.exists(full_path):
+                self.vulnerable_files.append(relative_path)
+                logger.debug(f"Identified vulnerable file: {relative_path}")
+        
+        logger.info("Checking out main branch.")
+        run_command(["git", "checkout", "main"], codebase_path)
+
+    def register_phase(self, phase: BasePhase):
+        phase_idx = len(self.phases)
+        phase.phase_config.phase_idx = phase_idx  # Set phase index
+        self.phases.append(phase)
+        logger.debug(f"Registered phase {phase_idx}: {phase.__class__.__name__}")
+
+-------------
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, List, Optional, Set, Tuple, Type
+
+from agents.base_agent import AgentConfig, BaseAgent
+from responses.base_response import BaseResponse
+from utils.logger import get_main_logger
+from utils.workflow_logger import workflow_logger
+
+logger = get_main_logger(__name__)
+
+
+if TYPE_CHECKING:
+    from agents.agent_manager import AgentManager  # Only import for type checking
+    from workflows.base_workflow import BaseWorkflow
+
+@dataclass
+class PhaseConfig:
+    max_iterations: int
+    phase_name: str = "base_phase"
+    agent_configs: List[Tuple[str, 'AgentConfig']] = field(default_factory=list)  # List of (agent_id, AgentConfig)
+    interactive: bool = False
+    phase_idx: Optional[int] = None
+
+
+
+class BasePhase(ABC):
+    AGENT_CLASSES: List[Type[BaseAgent]] = []
+
+    def __init__(
+        self,
+        phase_config: PhaseConfig,
+        workflow: 'BaseWorkflow',
+        initial_response: Optional[BaseResponse] = None
+    ):
+        self.workflow = workflow
+        self.phase_config = phase_config
+        self.agent_manager = self.workflow.agent_manager
+        self.agents: List[Tuple[str, BaseAgent]] = []
+        self.initial_response = initial_response
+        self._done = False
+        self.resource_manager = self.agent_manager.resource_manager
+        self.phase_summary: Optional[str] = None
+        self.iteration_count = 0
+        self.current_agent_index = 0
+
+        phase_config.phase_name = self.name
+        phase_config.agent_configs = self.get_agent_configs()
+        self._initialize_agents()
+
+    def get_phase_resources(self):
+        phase_resources = {}
+        for agent_class in self.AGENT_CLASSES:
+            phase_resources.update(agent_class.REQUIRED_RESOURCES)
+        return phase_resources
+
+    def _initialize_agents(self):
+        """Initialize and register required agents using AgentManager."""
+        logger.debug(f"Initializing agents for {self.name}")
+        
+        # First get agent configs
+        self.phase_config.agent_configs = self.get_agent_configs()
+        logger.debug(f"Got agent configs: {[config[0] for config in self.phase_config.agent_configs]}")
+        
+        for agent_id, agent_config in self.phase_config.agent_configs:
+            # Find matching agent class based on config type
+            agent_class = next(
+                (ac for ac in self.AGENT_CLASSES if isinstance(agent_config, ac.CONFIG_CLASS)), 
+                None
+            )
+            
+            if not agent_class:
+                logger.warning("No matching agent class found for config type {type(agent_config)}")
+                continue
+
+            try:
+                logger.debug(f"Creating agent {agent_id} of type {agent_class.__name__}")
+                agent_instance = self.agent_manager.get_or_create_agent(agent_id, agent_class, agent_config)
+                self.agents.append((agent_id, agent_instance))
+                logger.debug(f"Successfully created agent {agent_id}")
+            except Exception as e:
+                print(f"Error creating agent {agent_id}: {str(e)}")
+                raise
+
+        # Verify all required agents present
+        required_classes = set(self.AGENT_CLASSES)
+        present_classes = {type(agent) for _, agent in self.agents}
+        missing = required_classes - present_classes
+        
+        if missing:
+            missing_names = ', '.join(agent.__name__ for agent in missing)
+            raise ValueError(
+                f"Phase '{self.phase_config.phase_name}' requires agents: {missing_names}. "
+                f"Current agents: {[type(agent).__name__ for _, agent in self.agents]}"
+            )
+            
+        if not self.agents:
+            raise ValueError(
+                f"No agents were initialized for phase {self.phase_config.phase_name}. "
+                f"Expected agent classes: {[cls.__name__ for cls in self.AGENT_CLASSES]}"
+            )
+            
+        logger.debug(f"Completed agent initialization for {self.name}")
+
+    def register_resources(self):
+        """
+        Register required resources with the ResourceManager.
+        Should be called after resources are initialized for the phase.
+        """
+        logger.debug(f"Registering resources for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
+        for agent_id, agent in self.agents:
+            logger.debug(f"Registering resources for agent {agent_id}")
+            agent.register_resources(self.resource_manager)
+            
+            workflow_logger.add_agent(agent.agent_config.id, agent)
+        logger.debug(f"Finished registering resources for phase {self.phase_config.phase_idx}")
+
+    @classmethod
+    def get_required_resources(cls) -> Set[str]:
+        resources = set()
+        for agent_cls in cls.AGENT_CLASSES:
+            resources.update(agent_cls.get_required_resources())
+        return resources
+
+    def setup(self):
+        """
+        Initialize and register resources for the phase and its agents.
+        Resources must be fully initialized before agents can access them.
+        """
+        logger.debug(f"Entering setup for {self.name}")
+        
+        # 1. First define all resources
+        resource_configs = self.define_resources()
+        if not resource_configs:
+            print("Warning: No resources defined in define_resources")
+            return
+            
+        # 2. Register each resource
+        for resource_id, (resource_class, resource_config) in resource_configs.items():
+            logger.debug(f"Registering resource {resource_id} of type {resource_class.__name__}")
+            try:
+                self.resource_manager.register_resource(resource_id, resource_class, resource_config)
+            except Exception as e:
+                print(f"Error registering resource {resource_id}: {str(e)}")
+                raise
+                
+        # 3. Initialize all resources for this phase
+        logger.debug("Initializing all phase resources")
+        try:
+            self.resource_manager.initialize_phase_resources(
+                phase_index=self.phase_config.phase_idx,
+                resource_ids=resource_configs.keys()
+            )
+        except Exception as e:
+            print(f"Error initializing phase resources: {str(e)}")
+            raise
+                
+        # 4. Only after all resources are initialized, register them with agents
+        logger.debug("All resources initialized, registering with agents")
+        for agent_id, agent in self.agents:
+            print(f"Registering resources for agent {agent_id}")
+            agent.register_resources(self.resource_manager)        
+            workflow_logger.add_agent(agent.agent_config.id, agent)
+            
+        logger.debug(f"Completed setup for {self.name}")
+
+
+    def deallocate_resources(self):
+        """
+        Deallocate resources after the phase is completed.
+        """
+        try:
+            self.resource_manager.deallocate_phase_resources(self.phase_config.phase_idx)
+            logger.info(f"Phase {self.phase_config.phase_idx} ({self.phase_config.phase_name}) resources deallocated.")
+        except Exception as e:
+            logger.error(f"Failed to deallocate resources for phase {self.phase_config.phase_idx}: {e}")
+            raise
+
+    def run_phase(self) -> Tuple[Optional[BaseResponse], bool]:
+        """
+        Execute the phase by running its iterations.
+
+        Returns:
+            Tuple[Optional[BaseResponse], bool]: The last response and a success flag.
+        """
+        logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
+
+        last_output = self.initial_response
+        success_flag = False
+
+        # 1) Start phase context
+        with workflow_logger.phase(self) as phase_ctx:
+            for iteration_num in range(1, self.phase_config.max_iterations + 1):
+                if self._done:
+                    break
+
+                agent_id, agent_instance = self._get_current_agent()
+
+                if last_output:
+                    print(f"Last output was {last_output.response}")
+                else:
+                    print("No last output")
+
+                # 2) Start iteration context in the logger
+                with phase_ctx.iteration(iteration_num, agent_id, last_output) as iteration_ctx:
+                    response, done = self.run_one_iteration(
+                        agent_instance=agent_instance,
+                        previous_output=last_output,
+                    )
+                    iteration_ctx.set_output(response)
+
+                if done:
+                    success_flag = True
+                    self._done = True
+                    last_output = response
+                    break
+
+                last_output = response
+
+                # Increment the iteration count
+                self.iteration_count += 1
+                self.current_agent_index += 1
+
+        if not self.phase_summary:
+            self._set_phase_summary("completed_max_phase_iterations")
+
+        # Deallocate resources after completing iterations
+        self.deallocate_resources()
+
+        return last_output, success_flag
+
+    def _get_current_agent(self) -> Tuple[str, BaseAgent]:
+        """Retrieve the next agent in a round-robin fashion."""
+        agent = self.agents[self.current_agent_index % len(self.agents)]
+        self.current_agent_index += 1
+        return agent
+
+    def _set_phase_summary(self, summary: str):
+        """Allows a subclass to record a short message describing the phase outcome."""
+        self.phase_summary = summary
+
+    @abstractmethod
+    def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
+        """
+        Provide agent configurations for the phase.
+
+        Returns:
+            List[Tuple[str, AgentConfig]]: List of (agent_id, AgentConfig) tuples.
+        """
+        pass
+
+
+    @abstractmethod
+    def get_agent_configs(self) -> List[Tuple[str, AgentConfig]]:
+        pass
+
+    
+    @abstractmethod
+    def define_resources(self): 
+        pass
+
+    @abstractmethod
+    def run_one_iteration(
+        self, agent_instance: Any, previous_output: Optional[BaseResponse]
+    ) -> Tuple[BaseResponse, bool]:
+        """
+        Run a single iteration of the phase.
+
+        Args:
+            agent_instance (BaseAgent): The agent to run.
+            previous_output (Optional[BaseResponse]): The output from the previous iteration.
+
+        Returns:
+            Tuple[BaseResponse, bool]: The response from the agent and a flag indicating if the phase is complete.
+        """
+        pass
+
+-----------
+
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
+from phases.base_phase import BasePhase
+from resources.base_resource import BaseResource, BaseResourceConfig
+from utils.logger import get_main_logger
+from utils.workflow_logger import workflow_logger
+
+logger = get_main_logger(__name__)
+
+class ResourceManager:
+    """
+    ResourceManager is responsible for managing the lifecycle of resources across multiple phases of a workflow.
+    Handles:
+    1. Registration and Scheduling: Resources are registered and their usage across phases is scheduled.
+    2. Initialization and Deallocation: Resources are initialized when needed and deallocated when no longer required.
+    """
+
+    def __init__(self):
+        # resource_id -> resource: Stores initialized resource objects.
+        self._resources: Dict[str, BaseResource] = {}
+        
+        #The below data structures use resource_id because resource object may not be initialized yet
+        # Maps resource_id -> (ResourceClass, ResourceConfig)
+        self._resource_registration: Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]] = {}
+        # phase_int -> set(resource_ids). Tracks which resources used by each phase.
+        self._phase_resources: Dict[int, Set[str]] = {}
+        # resource_id -> (init_phase, term_phase)
+        self._resource_lifecycle: Dict[str, Tuple[int, int]] = {}  
+
+    @property
+    def resources(self):
+        return self._resources
+    
+    def register_resource(self, resource_id: str, resource_class: Type[BaseResource], resource_config: Optional[BaseResourceConfig] = None):
+        """Register a resource with its class and configuration."""
+        self._resource_registration[resource_id] = (resource_class, resource_config)
+        logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
+
+    def compute_schedule(self, phases: List[Type[BasePhase]]):
+        """
+        Compute the resource usage schedule across all phases.
+        This method populates the phase_resources and resource_lifecycle dictionaries.
+        """
+        resource_phases = {}
+
+        for i, phase_cls in enumerate(phases):
+            phase_resources = phase_cls.get_required_resources()
+            self._phase_resources[i] = phase_resources
+            for resource_id in phase_resources:
+                if resource_id not in resource_phases:
+                    resource_phases[resource_id] = set()
+                resource_phases[resource_id].add(i)
+
+        for resource_id, phases in resource_phases.items():
+            init_phase = min(phases)
+            term_phase = max(phases)
+            self._resource_lifecycle[resource_id] = (init_phase, term_phase)
+
+    def initialize_phase_resources(self, phase_index: int, resource_ids: Iterable[str]):
+        """Initialize resources for a phase and update lifecycle information."""
+        logger.debug(f"Entering initialize_phase_resources for phase {phase_index}")
+        logger.debug(f"Registered resources: {self._resource_registration.keys()}")
+        logger.debug(f"Phase resources: {resource_ids}")
+        
+        # Convert resource_ids to set and store in phase_resources
+        resource_id_set = set(resource_ids)
+        self._phase_resources[phase_index] = resource_id_set
+        
+        # Update lifecycle information for each resource
+        for resource_id in resource_id_set:
+            if resource_id not in self._resource_lifecycle:
+                # If not in lifecycle dict, this is the first phase using it
+                self._resource_lifecycle[resource_id] = (phase_index, phase_index)
+            else:
+                # Update term_phase if this phase is later
+                init_phase, _ = self._resource_lifecycle[resource_id]
+                self._resource_lifecycle[resource_id] = (init_phase, max(phase_index, self._resource_lifecycle[resource_id][1]))
+        
+        # Initialize resources that aren't already initialized
+        for resource_id in resource_id_set:
+            if resource_id in self._resources:
+                logger.debug(f"Resource '{resource_id}' already initialized. Skipping.")
+                continue
+
+            logger.debug(f"Attempting to initialize resource '{resource_id}'")
+            if resource_id not in self._resource_registration:
+                logger.debug(f"Resource '{resource_id}' not registered. Skipping.")
+                continue
+            
+            # Create and initialize the resource
+            resource_class, resource_config = self._resource_registration[resource_id]
+            try:
+                resource = resource_class(resource_id, resource_config)
+                if hasattr(resource, "role"):
+                    workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.role}", resource)
+                else:
+                    workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.resource_id}", resource)
+                
+                self._resources[resource_id] = resource
+                logger.debug(f"Successfully initialized resource '{resource_id}'")
+            except Exception as e:
+                logger.debug(f"Failed to initialize resource '{resource_id}': {str(e)}")
+                raise
+                
+        logger.debug(f"Resource lifecycle state: {self._resource_lifecycle}")
+        logger.debug(f"Exiting initialize_phase_resources for phase {phase_index}")
+
+    def deallocate_phase_resources(self, phase_index: int):
+        """Deallocate resources that are no longer needed after a phase."""
+        logger.debug(f"Deallocating resources for phase {phase_index}")
+        logger.debug(f"Current phase resources: {self._phase_resources.get(phase_index, set())}")
+        logger.debug(f"Current lifecycle state: {self._resource_lifecycle}")
+        
+        if phase_index not in self._phase_resources:
+            print(f"Warning: No resources registered for phase {phase_index}")
+            return
+            
+        for resource_id in self._phase_resources[phase_index]:
+            # Skip if resource not in lifecycle dict (shouldn't happen with fixes)
+            if resource_id not in self._resource_lifecycle:
+                print(f"Warning: No lifecycle information for resource '{resource_id}'")
+                continue
+                
+            _, term_phase = self._resource_lifecycle[resource_id]
+            if phase_index == term_phase and resource_id in self._resources:
+                resource = self._resources[resource_id]
+                try:
+                    logger.debug(f"Stopping resource '{resource_id}'")
+                    resource.stop()
+                    del self._resources[resource_id]
+                    logger.info(f"Deallocated resource '{resource_id}'")
+                except Exception as e:
+                    logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
+                    raise
+                    
+        logger.debug(f"Completed resource deallocation for phase {phase_index}")
+
+    def get_resource(self, resource_id: str) -> BaseResource:
+        """Retrieve an initialized resource by its ID."""
+        if resource_id not in self._resources:
+            raise KeyError(f"Resource '{resource_id}' not initialized")
+        return self._resources[resource_id]
+    
+    def get_phase_resources(self, phase_index: int) -> Dict[str, BaseResource]:
+        """Retrieve resources used by a phase by its ID."""
+        return {resource_id: self.get_resource(resource_id) 
+                for resource_id in self._phase_resources.get(phase_index, [])}
+
+    def get_registered_resource_classes(self) -> List[Type[BaseResource]]:
+        """
+        Returns a list of all registered resource classes.
+        """
+        return [resource_class for resource_class, _ in self._resource_registration.values()]
+    
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for resource in self._resources.values():
+            resource.stop()
+        self._resources.clear()

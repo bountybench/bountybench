@@ -1,0 +1,19 @@
+Thinking about the logs today / interactive mode, I think we should analogize to classical machine learning.
+
+Here, you are trying to train a model to minimize a cost function. The key here is to 1) provide a score for how it's doing and 2) provide context about how to improve how its doing (gradient descent / backpropagation).
+
+What you don't want to do is have the model just go at it and not have feedback. Feedback / labels are key. And especially early on, you want feedback early, often, and quickly.
+
+Similarly, it is more valuable to run stochastic gradient descent on a few samples many times, than just run gradient descent once, even if the number of data points are equivalent. Similarly here, rather than running the full number of iterations / on all the tasks, we want to start with iterating on a single task on a single iteration, then a few iterations, then more. Only as you get better and better, do you want to scale up the sample size / decrease the step size.
+
+Hopefully this provides some intuition of how folks should be working. Of course, we cannot compute gradients / run backprop; the space is too large, ill-defined. Later, we will be able to apply such methods (with fine-tuning/RL), but that's only after fixing the other pieces of the system.
+
+Just as we need to first 1) define the task before 2) building the agent / defining the scaffold and 3) fine tuning the agent; there is similarly a series of operations that we need for running/building the agent. Iterate on a single iteration / task, and then run it fully, then run many cycles etc. 
+
+And we need to make it as easy as possible to get feedback early, i.e. implement stochastic gradient descent where we can run operations quickly. The faster the feedback loop, the better we can improve our agent.
+
+The reason that transformers were revolutionary is not the theoretical expressivity of the framework; it is because of the computational parallelism making it possible to train billion parameter models.
+
+Similarly people use stochastic gradient descent because of the faster feedback loop.
+
+
