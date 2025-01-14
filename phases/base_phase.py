@@ -56,7 +56,7 @@ class BasePhase(ABC):
         self.phase_summary: Optional[str] = None
         self.iteration_count = 0
         self.current_agent_index = 0
-        self.last_agent_message = None
+        self._last_agent_message = None
 
     @abstractmethod
     def define_resources(self) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
@@ -140,7 +140,6 @@ class BasePhase(ABC):
             logger.error(f"Failed to deallocate resources for phase {self.phase_config.phase_idx}: {e}")
             raise
 
-    
     async def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.
@@ -154,7 +153,7 @@ class BasePhase(ABC):
         logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
         logger.debug(f"Running phase {self.name}")
         if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
-            self.last_agent_message = prev_phase_message.agent_messages[-1]
+            self._last_agent_message = prev_phase_message.agent_messages[-1]
         curr_phase_message = PhaseMessage(agent_messages=[])
 
         # 1) Start phase context
@@ -176,18 +175,18 @@ class BasePhase(ABC):
                 logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
 
                 # 2) Start iteration context in the logger
-                with phase_ctx.iteration(iteration_num, agent_id, self.last_agent_message) as iteration_ctx:
+                with phase_ctx.iteration(iteration_num, agent_id, self._last_agent_message) as iteration_ctx:
                     message = await self.run_one_iteration(
                         phase_message=curr_phase_message,
                         agent_instance=agent_instance,
-                        previous_output=self.last_agent_message,
+                        previous_output=self._last_agent_message,
                     )
                     iteration_ctx.set_output(message)
                 logger.info(f"Finished iteration {iteration_num} of {self.name} with {agent_id}")
                 if curr_phase_message.complete:
                     break
 
-                self.last_agent_message = curr_phase_message.agent_messages[-1]
+                self._last_agent_message = curr_phase_message.agent_messages[-1]
 
                 # Increment the iteration count
                 self.iteration_count += 1
@@ -201,11 +200,11 @@ class BasePhase(ABC):
 
         return curr_phase_message
 
-    async def handle_user_input(self, user_input: str) -> str:
+    async def set_message_input(self, user_input: str) -> str:
         user_input_message = Message(user_input)
         
         # Update the last output
-        self.last_agent_message = user_input_message
+        self._last_agent_message = user_input_message
         
         return user_input_message.message
     
@@ -242,3 +241,7 @@ class BasePhase(ABC):
     @property
     def name(self) -> str:
         return self.__class__.__name__
+    
+    @property
+    def last_agent_message(self) -> Optional[Message]:
+        return self._last_agent_message

@@ -224,13 +224,17 @@ class BaseWorkflow(ABC):
         print("Doesn't have attribute")
         raise ValueError(f"No agent found that can modify action {action_id}")
     
-    async def handle_user_input(self, user_input: str) -> str:
-        result = await self._current_phase.handle_user_input(user_input)
+    async def set_message_input(self, user_input: str) -> str:
+        result = await self._current_phase.set_message_input(user_input)
         
         # Trigger the next iteration
         self.next_iteration_event.set()
         
         return result
+    
+    async def get_last_message(self) -> str:
+        result = self._current_phase.last_agent_message  
+        return result.message if result else ""
     
     def _max_iterations_reached(self) -> bool:
         return self._workflow_iteration_count >= self.config.max_iterations
@@ -271,3 +275,7 @@ class BaseWorkflow(ABC):
     @property
     def name(self):
         return self.__class__.__name__
+    
+    @property
+    def initial_prompt(self):
+        return self.config.initial_prompt
