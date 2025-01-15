@@ -306,7 +306,56 @@ export const useWorkflowWebSocket = (workflowId) => {
   }, []);
 
   // ----------------------------------
-  // 6) Return relevant state/hooks
+  // 6) restartWorkflow: for restarting workflow
+  // ----------------------------------
+  const restartWorkflow = useCallback(async () => {
+    if (!workflowId) {
+      console.warn('No workflow ID provided');
+      return;
+    }
+
+    try {
+      // Close existing WebSocket connection
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        ws.current.close();
+      }
+
+      // Call restart endpoint
+      const response = await fetch(`http://localhost:8000/workflow/restart/${workflowId}`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to restart workflow');
+      }
+
+      const data = await response.json();
+      
+      // Reset state
+      setMessages([]);
+      setCurrentPhase(null);
+      setCurrentIteration(null);
+      setWorkflowStatus(null);
+      currentIterationRef.current = null;
+      
+      // Update workflow ID and reconnect WebSocket with new ID
+      const newWorkflowId = data.new_workflow_id;
+      window.history.replaceState(null, '', `/workflow/${newWorkflowId}`);
+      
+      // Wait a short moment before reconnecting to ensure cleanup is complete
+      setTimeout(() => {
+        connect();
+      }, 500);
+      
+    } catch (err) {
+      console.error('Failed to restart workflow:', err);
+      setError('Failed to restart workflow: ' + err.message);
+    }
+  }, [workflowId, connect]);
+
+  // ----------------------------------
+  // 7) Return relevant state/hooks
   // ----------------------------------
   return {
     isConnected,
@@ -315,6 +364,7 @@ export const useWorkflowWebSocket = (workflowId) => {
     currentIteration,
     messages,
     error,
-    sendMessage
+    sendMessage,
+    restartWorkflow
   };
 };

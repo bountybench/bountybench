@@ -3,6 +3,7 @@ import { Box, Typography, CircularProgress, Alert, Button, Grid, IconButton } fr
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { AgentInteractions } from '../AgentInteractions/AgentInteractions';
 import { PhasePanel } from '../PhasePanel/PhasePanel';
 import { AgentPanel } from '../AgentPanel/AgentPanel';
@@ -23,7 +24,8 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     currentIteration,
     messages,
     error,
-    sendMessage
+    sendMessage,
+    restartWorkflow
   } = useWorkflowWebSocket(selectedWorkflow?.id);
 
   console.log('WebSocket state:', { 
@@ -94,7 +96,13 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
   const togglePanel = () => {
     setIsPanelExpanded(!isPanelExpanded);
   };
-  
+
+  const handleRestart = async () => {
+    if (window.confirm('Are you sure you want to restart the workflow? This will terminate the current workflow and start a new one with the same configuration.')) {
+      await restartWorkflow();
+    }
+  };
+
   if (!isConnected) {
     return (
       <Box className="dashboard-container" display="flex" justifyContent="center" alignItems="center">
@@ -116,26 +124,26 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
 
   return (
     <Box className="dashboard-container">
-      <Box className="dashboard-header">
+      <Box className="dashboard-header" display="flex" alignItems="center" justifyContent="space-between" p={2}>
         <Typography variant="h5">
-          Workflow Status: {workflowStatus || 'Unknown'}
+          {selectedWorkflow?.name || 'Workflow Dashboard'}
         </Typography>
-        {currentPhase && (
-          <Typography variant="h6">
-            Current Phase: {currentPhase.phase_name} (Phase {currentPhase.phase_idx + 1})
-          </Typography>
-        )}
-        {interactiveMode && (
-          <Button
-            variant="contained"
+        <Box>
+          <IconButton
+            onClick={handleRestart}
+            disabled={!isConnected}
+            title="Restart Workflow"
             color="primary"
-            onClick={triggerNextIteration}
-            startIcon={<ArrowForwardIcon />}
-            disabled={isNextDisabled}
           >
-            Next Iteration
-          </Button>
-        )}
+            <RestartAltIcon />
+          </IconButton>
+          <IconButton
+            onClick={togglePanel}
+            title={isPanelExpanded ? 'Collapse Panel' : 'Expand Panel'}
+          >
+            {isPanelExpanded ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          </IconButton>
+        </Box>
       </Box>
         
       <Grid container spacing={2} className="dashboard-content">
@@ -170,6 +178,19 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
           </Box>
         </Grid>
       </Grid>
+      {interactiveMode && (
+        <Box className="dashboard-footer" display="flex" justifyContent="center" p={2}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={triggerNextIteration}
+            startIcon={<ArrowForwardIcon />}
+            disabled={isNextDisabled}
+          >
+            Next Iteration
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 };

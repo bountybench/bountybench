@@ -70,6 +70,13 @@ id_to_workflow = {
     "Chat Workflow": ChatWorkflow
 }
 
+# Map workflow class names to workflow types
+class_to_workflow_type = {
+    "ExploitAndPatchWorkflow": "Exploit and Patch Workflow",
+    "PatchWorkflow": "Patch Workflow",
+    "ChatWorkflow": "Chat Workflow"
+}
+
 @app.get("/workflow/list")
 async def list_workflows():
     """List available workflow types"""
@@ -113,7 +120,7 @@ async def start_workflow(workflow_data: dict):
         
         # Store workflow instance
         active_workflows[workflow_id] = {
-            "instance": workflow,
+            "workflow": workflow,
             "status": "initialized"
         }
         
@@ -157,7 +164,7 @@ async def run_workflow(workflow_id: str):
         return
     
     workflow_data = active_workflows[workflow_id]
-    workflow = workflow_data["instance"]
+    workflow = workflow_data["workflow"]
     
     try:
         workflow_data["status"] = "running"
@@ -216,7 +223,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 print(f"Received message from workflow {workflow_id}: {data}")
                 
                 if data.get("type") == "user_message" and workflow_id in active_workflows:
-                    workflow = active_workflows[workflow_id]["instance"]
+                    workflow = active_workflows[workflow_id]["workflow"]
                     if workflow.interactive:
                         result = await workflow.set_message_input(data["content"])
                         await websocket_manager.broadcast(workflow_id, {
@@ -247,7 +254,7 @@ async def next_iteration(workflow_id: str):
     if workflow_id not in active_workflows:
         return {"error": "Workflow not found"}
     
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = active_workflows[workflow_id]["workflow"]
     if hasattr(workflow, 'next_iteration_event'):
         workflow.next_iteration_event.set()
         return {"status": "next iteration triggered"}
@@ -259,7 +266,7 @@ async def last_message(workflow_id: str):
     if workflow_id not in active_workflows:
         return {"error": "Workflow not found"}
     
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = active_workflows[workflow_id]["workflow"]
     last_message_str = await workflow.get_last_message()
     return {
                 "type": "last_message",
@@ -271,7 +278,7 @@ async def first_message(workflow_id: str):
     if workflow_id not in active_workflows:
         return {"error": "Workflow not found"}
     
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = active_workflows[workflow_id]["workflow"]
     first_message_str = workflow.initial_prompt
     return {
                 "type": "first_message",
@@ -290,7 +297,7 @@ async def edit_action_input(workflow_id: str, data: ActionInputData):
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = active_workflows[workflow_id]["workflow"]
 
     try:
         result = await workflow.edit_action_input_in_agent("", data.new_input_data)
@@ -306,13 +313,115 @@ async def edit_action_input(workflow_id: str, data: ActionInputData):
         return {"status": "updated", "result": result}
     except Exception as e:
         return {"error": str(e)}
-    
+
+async def cleanup_workflow(workflow_id: str):
+    """Clean up workflow resources and connections"""
+    if workflow_id in active_workflows:
+        workflow = active_workflows[workflow_id]["workflow"]
+        
+        # Save the configuration for restart
+        workflow_config = {
+            "workflow_type": class_to_workflow_type[workflow.__class__.__name__],  # Map class name to workflow type
+            "params": workflow.params
+        }
+        
+        try:
+            # 1. Clean up workflow logger
+            if workflow_logger.current_phase:
+                workflow_logger.end_phase("terminated", workflow._current_phase)
+            workflow_logger.finalize("terminated")  # Mark workflow as terminated
+            workflow_logger.save()  # Save final state
+            
+            # Reset workflow logger state
+            workflow_logger.workflow_log = None
+            workflow_logger.current_phase = None
+            workflow_logger.current_iteration = None
+            workflow_logger.workflow_id = None
+            
+            # 2. Clean up agents
+            for agent_id, agent in workflow.agent_manager._agents.items():
+                # Remove agent from workflow logger
+                if hasattr(agent, 'cleanup'):
+                    agent.cleanup()
+            workflow.agent_manager._agents.clear()
+            workflow.agent_manager._phase_agents.clear()
+            
+            # 3. Clean up resources
+            # Clear all resource bindings and terminate any active resources
+            for resource in workflow.resource_manager.resources.values():
+                if hasattr(resource, 'terminate'):
+                    resource.terminate()
+            workflow.resource_manager.resources.clear()
+            workflow.resource_manager._resource_registration.clear()
+            
+            # 4. Clean up phases
+            if hasattr(workflow, '_current_phase'):
+                if workflow._current_phase and hasattr(workflow._current_phase, 'cleanup'):
+                    workflow._current_phase.cleanup()
+            workflow._current_phase = None
+            workflow._current_phase_idx = 0
+            
+            # 5. Close websocket connections
+            for connection in list(websocket_manager.active_connections.get(workflow_id, [])):
+                try:
+                    await connection.close()
+                except:
+                    pass
+            if workflow_id in websocket_manager.active_connections:
+                websocket_manager.active_connections[workflow_id].clear()
+                del websocket_manager.active_connections[workflow_id]
+            
+            # 6. Remove from active workflows
+            del active_workflows[workflow_id]
+            
+            return workflow_config
+            
+        except Exception as e:
+            print(f"Error during workflow cleanup: {str(e)}")
+            raise
+    return None
+
+@app.post("/workflow/restart/{workflow_id}")
+async def restart_workflow(workflow_id: str):
+    """Restart a workflow with the same configuration"""
+    try:
+        # Cleanup existing workflow and get its configuration
+        workflow_config = await cleanup_workflow(workflow_id)
+        if not workflow_config:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+            
+        # Create new workflow with same configuration
+        workflow_class = id_to_workflow[workflow_config["workflow_type"]]
+        workflow = workflow_class(**workflow_config["params"])
+        
+        # Generate new workflow ID with current timestamp
+        new_workflow_id = f"{workflow_config['workflow_type']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Initialize workflow logger for new workflow
+        workflow_logger.initialize(
+            workflow_name=workflow.__class__.__name__,
+            workflow_id=new_workflow_id,
+            task=workflow_config["params"].get("task", {})
+        )
+        
+        # Store in active workflows
+        active_workflows[new_workflow_id] = {
+            "workflow": workflow,
+            "status": "initialized"
+        }
+        
+        return {"status": "success", "message": "Workflow restarted successfully", "new_workflow_id": new_workflow_id}
+        
+    except Exception as e:
+        print(f"Error restarting workflow: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/workflow/{workflow_id}/resources")
 async def get_workflow_resources(workflow_id: str):
     if workflow_id not in active_workflows:
         raise HTTPException(status_code=404, detail="Workflow not found")
     
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = active_workflows[workflow_id]["workflow"]
     
     # Implement a method in your workflow class to get the current resources
     resources = workflow.resource_manager.resources
