@@ -79,6 +79,19 @@ class BaseWorkflow(ABC):
         if phase not in self._phase_graph:
             self._phase_graph[phase] = []
             logger.debug(f"Registered phase: {phase.__class__.__name__}")
+    
+
+    async def cleanup(self) -> None:
+        """Cleanup workflow resources"""
+        try:
+            if hasattr(self, 'resource_manager'):
+                await self.resource_manager.deallocate_all_resources()
+            if hasattr(self, 'agent_manager'):
+                await self.agent_manager.deallocate_all_agents()
+            logger.info("Cleaned up workflow resources")
+        except Exception as e:
+            logger.error(f"Error during workflow cleanup: {e}")
+            raise
         
     @abstractmethod
     def _create_phases(self):

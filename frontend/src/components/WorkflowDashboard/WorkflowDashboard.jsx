@@ -167,17 +167,6 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
               Next Iteration
             </Button>
           )}
-          {interactiveMode && (
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={triggerNextPhase}
-              startIcon={<ArrowForwardIcon />}
-              disabled={isNextDisabled}
-            >
-              Continue to Next Phase
-            </Button>
-          )}
           <Button
             variant="contained"
             color="secondary"

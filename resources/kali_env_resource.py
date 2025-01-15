@@ -145,26 +145,53 @@ class KaliEnvResource(BaseResource):
                     sys.exit(1)
 
     def cleanup_tmp(self):
-        cleanup_command = "rm -rf * .*"
-        return self.run_command(cleanup_command, workdir="/app")
+        """Clean up temporary files in the container"""
+        try:
+            # First cd to root to ensure we're in a valid directory
+            self.run_command("cd /", workdir="/")
+            
+            # Then clean up /app directory if it exists
+            self.run_command("if [ -d /app ]; then cd /app && rm -rf ./* ./.[!.]* ; fi", workdir="/")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error during cleanup_tmp: {e}")
+            return False
     
     def stop(self) -> None:
         """
         Stop and remove the Docker container when the program exits.
-
-        This function is automatically registered to run when the program terminates.
         """
         if self.container:
             try:
                 logger.info("Cleaning up: removing tmp files.")
-                self.cleanup_tmp()
+                cleanup_success = self.cleanup_tmp()
+                if not cleanup_success:
+                    logger.warning("Failed to clean up temporary files, continuing with container removal.")
+                    
                 logger.info("Cleaning up: stopping and removing Docker container.")
-                self.container.stop()
-                self.container.remove()
+                try:
+                    self.container.stop()
+                except Exception as e:
+                    logger.error(f"Error stopping container: {e}")
+                    
+                try:
+                    self.container.remove(force=True)  # Add force=True to ensure removal
+                except Exception as e:
+                    logger.error(f"Error removing container: {e}")
+                    
                 self.container = None
                 logger.info("Docker container cleaned up successfully.")
+                
             except Exception as e:
                 logger.error(f"Error cleaning up Docker container: {e}")
+                # Try force removal as last resort
+                try:
+                    if self.container:
+                        self.container.remove(force=True)
+                        self.container = None
+                except:
+                    pass
 
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
         command_str = command

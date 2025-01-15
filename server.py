@@ -32,6 +32,23 @@ app.add_middleware(
 active_workflows: Dict[str, dict] = {}
 should_exit = False
 
+
+# Add cleanup function
+async def cleanup_workflow(workflow_id: str):
+    """Clean up workflow resources and state"""
+    try:
+        if workflow_id in active_workflows:
+            workflow = active_workflows[workflow_id]["instance"]
+            await workflow.cleanup()
+            workflow_logger.reset_state()
+            
+            # Clean up workflow instance
+            active_workflows[workflow_id]["status"] = "cleaned_up"
+            print(f"Cleaned up workflow {workflow_id}")
+    except Exception as e:
+        print(f"Error during workflow cleanup: {e}")
+
+
 def signal_handler(signum, frame):
     """Handle shutdown signals"""
     global should_exit
@@ -102,8 +119,14 @@ async def list_workflows():
 async def start_workflow(workflow_data: dict):
     """Start a new workflow instance"""
     try:
+        print("Cleanup existing workflows")
+        for existing_id in list(active_workflows.keys()):
+            await cleanup_workflow(existing_id)
+
         print("Calling start_workflow")
         workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+
         
         # Initialize workflow instance
         workflow = id_to_workflow[workflow_data['workflow_name']](
@@ -229,14 +252,17 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                     asyncio.create_task(run_workflow(workflow_id))
             except WebSocketDisconnect:
                 print(f"WebSocket disconnected for workflow {workflow_id}")
+                await cleanup_workflow(workflow_id)
                 break
             except Exception as e:
                 print(f"Error handling message: {e}")
                 if "disconnect" in str(e).lower():
+                    await cleanup_workflow(workflow_id)
                     break
                     
     except WebSocketDisconnect:
         print(f"WebSocket disconnected for workflow {workflow_id}")
+        await cleanup_workflow(workflow_id)
     except Exception as e:
         print(f"WebSocket error for workflow {workflow_id}: {e}")
     finally:
