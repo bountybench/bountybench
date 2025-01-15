@@ -324,45 +324,28 @@ async def cleanup_workflow(workflow_id: str):
             "workflow_type": class_to_workflow_type[workflow.__class__.__name__],  # Map class name to workflow type
             "params": workflow.params
         }
-        
+
         try:
             # 1. Clean up workflow logger
             if workflow_logger.current_phase:
-                workflow_logger.end_phase("terminated", workflow._current_phase)
-            workflow_logger.finalize("terminated")  # Mark workflow as terminated
+                workflow_logger.end_phase("incomplete", workflow._current_phase)
+            workflow_logger.finalize("incomplete")
             workflow_logger.save()  # Save final state
             
             # Reset workflow logger state
+            workflow_logger.log_file = None
             workflow_logger.workflow_log = None
             workflow_logger.current_phase = None
             workflow_logger.current_iteration = None
             workflow_logger.workflow_id = None
             
             # 2. Clean up agents
-            for agent_id, agent in workflow.agent_manager._agents.items():
-                # Remove agent from workflow logger
-                if hasattr(agent, 'cleanup'):
-                    agent.cleanup()
-            workflow.agent_manager._agents.clear()
-            workflow.agent_manager._phase_agents.clear()
+            workflow.agent_manager.deallocate_all_agents()
             
             # 3. Clean up resources
-            # Clear all resource bindings and terminate any active resources
-            for resource in workflow.resource_manager.resources.values():
-                if hasattr(resource, 'terminate'):
-                    resource.terminate()
-            print(workflow.resource_manager.resources)
-            workflow.resource_manager.resources.clear()
-            workflow.resource_manager._resource_registration.clear()
+            workflow.resource_manager.deallocate_all_resources()
             
-            # 4. Clean up phases
-            if hasattr(workflow, '_current_phase'):
-                if workflow._current_phase and hasattr(workflow._current_phase, 'cleanup'):
-                    workflow._current_phase.cleanup()
-            workflow._current_phase = None
-            workflow._current_phase_idx = 0
-            
-            # 5. Close websocket connections
+            # 4. Close websocket connections
             for connection in list(websocket_manager.active_connections.get(workflow_id, [])):
                 try:
                     await connection.close()
@@ -372,7 +355,7 @@ async def cleanup_workflow(workflow_id: str):
                 websocket_manager.active_connections[workflow_id].clear()
                 del websocket_manager.active_connections[workflow_id]
             
-            # 6. Remove from active workflows
+            # 5. Remove from active workflows
             del active_workflows[workflow_id]
             
             return workflow_config
@@ -411,7 +394,10 @@ async def restart_workflow(workflow_id: str):
             "status": "initialized"
         }
         
-        return {"status": "success", "message": "Workflow restarted successfully", "new_workflow_id": new_workflow_id}
+        return {
+            "workflow_id": workflow_id,
+            "status": "initialized"
+        }
         
     except Exception as e:
         print(f"Error restarting workflow: {str(e)}")

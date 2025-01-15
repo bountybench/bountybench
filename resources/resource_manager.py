@@ -206,3 +206,9 @@ class ResourceManager:
             resource.stop()
         self._resources.id_to_resource.clear()
         self._resources.resource_type_to_resources.clear()
+
+    def deallocate_all_resources(self):
+        for resource in self._resources.id_to_resource.values():
+            resource.stop()
+        self._resources.id_to_resource.clear()
+        self._resources.resource_type_to_resources.clear()
