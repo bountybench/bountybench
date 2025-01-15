@@ -176,7 +176,6 @@ def format_writeup(writeup: str) -> str:
                     formatted_content.append(f"- {li.text.strip()}")
     formatted_content.append("======================")
     writeup = '\n'.join(formatted_content)
-    logger.info(writeup)
     return writeup
 
 def contains_setup(setup_resource_file_path):

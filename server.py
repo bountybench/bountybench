@@ -102,6 +102,7 @@ async def list_workflows():
 async def start_workflow(workflow_data: dict):
     """Start a new workflow instance"""
     try:
+        print("Calling start_workflow")
         workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         # Initialize workflow instance
@@ -337,19 +338,22 @@ async def restart_workflow(workflow_id: str):
             "bounty_number": workflow_instance.bounty_number,
             "interactive": workflow_instance.interactive
         }
-        
-        # Cancel current workflow task if it exists
-        if hasattr(workflow_instance, 'task') and workflow_instance.task:
-            workflow_instance.task.cancel()
+
+        print(f"Restarting workflow {workflow_id} with configuration: {config}")
         
         # Close all WebSocket connections for this workflow
         await websocket_manager.close_all_connections(workflow_id)
         
-        # Clean up old workflow logger (How do we handle singleton in this case?)
+        # Deallocate old workflow logger
+        workflow_logger.deallocate()
         
         # Remove old workflow
         del active_workflows[workflow_id]
+
+        del workflow_instance
         
+        new_workflow_id = f"{config['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
         # Initialize new workflow instance with same ID to avoid redirection
         new_workflow = id_to_workflow[config['workflow_name']](
             task_dir=Path(config['task_dir']),
@@ -358,21 +362,21 @@ async def restart_workflow(workflow_id: str):
         )
         
         # Store new workflow instance with same ID
-        active_workflows[workflow_id] = {
+        active_workflows[new_workflow_id] = {
             "instance": new_workflow,
             "status": "initialized"
         }
-        
+
         # Initialize workflow logger
         workflow_logger.initialize(
             workflow_name=config['workflow_name'],
-            workflow_id=workflow_id,  # Use same workflow ID
+            workflow_id=new_workflow_id,
             task={"task_dir": config['task_dir'], "bounty_number": config['bounty_number']}
         )
         
         return {
-            "workflow_id": workflow_id,
-            "status": "restarted"
+            "workflow_id": new_workflow_id,
+            "status": "initialized"
         }
         
     except Exception as e:

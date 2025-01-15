@@ -264,6 +264,24 @@ export const useWorkflowWebSocket = (workflowId) => {
     };
   }, [workflowId]);
 
+  // Force reconnect function
+  const reconnect = useCallback(async () => {
+    console.log('Force reconnecting WebSocket...');
+    // Close existing connection if any
+    if (ws.current) {
+      ws.current.close();
+    }
+    // Reset states
+    setWorkflowStatus(null);
+    setCurrentPhase(null);
+    setCurrentIteration(null);
+    setMessages([]);
+    setError(null);
+    reconnectAttempts.current = 0;
+    // Reconnect
+    connect();
+  }, [connect]);
+
   // ----------------------------------
   // 4) useEffect to initiate connection
   // ----------------------------------
@@ -315,6 +333,7 @@ export const useWorkflowWebSocket = (workflowId) => {
     currentIteration,
     messages,
     error,
-    sendMessage
+    sendMessage,
+    reconnect
   };
 };

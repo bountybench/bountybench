@@ -25,7 +25,8 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     currentIteration,
     messages,
     error,
-    sendMessage
+    sendMessage,
+    reconnect
   } = useWorkflowWebSocket(selectedWorkflow?.id);
 
   console.log('WebSocket state:', { 
@@ -132,7 +133,9 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
         } else {
           console.log('Workflow restarted successfully:', data);
           // Reconnect WebSocket with same workflow ID
-          window.location.reload(); // This will reconnect the WebSocket and reset the UI state
+          if (reconnect) {
+            await reconnect();  // Reconnect WebSocket if function available
+          }
         }
       } catch (error) {
         console.error('Error restarting workflow:', error);
