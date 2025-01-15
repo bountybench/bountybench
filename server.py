@@ -11,6 +11,7 @@ import signal
 import sys
 
 # from workflows.detect_and_patch_workflow import DetectAndPatchWorkflow
+from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
@@ -64,7 +65,7 @@ async def shutdown_event():
                 pass
 
 id_to_workflow = {
-    # "Detect and Patch Workflow": DetectAndPatchWorkflow,
+    "Detect Workflow": DetectWorkflow,
     "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
     "Patch Workflow": PatchWorkflow,
     "Chat Workflow": ChatWorkflow
@@ -75,11 +76,11 @@ async def list_workflows():
     """List available workflow types"""
     return {
         "workflows": [
-            # {
-            #     "id": "detect_and_patch",
-            #     "name": "Detect and Patch Workflow",
-            #     "description": "Workflow for detecting, exploiting, and patching vulnerabilities"
-            # },
+            {
+                "id": "detect",
+                "name": "Detect Workflow",
+                "description": "Workflow for detecting and exploiting vulnerabilities"
+            },
             {
                 "id": "exploit_and_patch",
                 "name": "Exploit and Patch Workflow",
