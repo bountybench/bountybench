@@ -52,6 +52,43 @@ class WorkflowLogger:
 
         self.current_phase: Optional[WorkflowPhase] = None
         self.current_iteration: Optional[PhaseIteration] = None
+    
+
+    def reset_state(self):
+        """Reset the workflow logger state when navigating away"""
+        if self.current_phase:
+            # Update phase status directly without using end_phase
+            try:
+                self.current_phase.status = "incomplete"
+                self.current_phase.end_time = datetime.now().isoformat()
+                if self.workflow_log and self.current_phase not in self.workflow_log.phases:
+                    self.workflow_log.phases.append(self.current_phase)
+                
+                # Broadcast phase completion
+                self.broadcast_update({
+                    "type": "phase_update",
+                    "phase": {
+                        "phase_idx": self.current_phase.phase_idx,
+                        "phase_name": self.current_phase.phase_name,
+                        "status": "incomplete"
+                    }
+                })
+            except Exception as e:
+                logger.error(f"Error updating phase during reset: {e}")
+                
+        # Reset all state variables
+        self.current_phase = None
+        self.current_iteration = None
+        WorkflowLogger._initialized = False
+        
+        # Broadcast reset event
+        self.broadcast_update({
+            "type": "workflow_reset",
+            "message": "Workflow state has been reset"
+        })
+        
+        
+        logger.info("WorkflowLogger state has been reset")
 
     async def _broadcast_update(self, data: dict):
         """Broadcast update to WebSocket clients"""
@@ -98,6 +135,9 @@ class WorkflowLogger:
         self.workflow_name = workflow_name
         self.logs_dir = Path(logs_dir)
         self.logs_dir.mkdir(exist_ok=True)
+
+        if self.current_phase is not None:
+            self.reset_state()
         
         task = task or {}
 
