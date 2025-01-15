@@ -3,6 +3,7 @@ import { Box, Typography, CircularProgress, Alert, Button, Grid, IconButton } fr
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { AgentInteractions } from '../AgentInteractions/AgentInteractions';
 import { PhasePanel } from '../PhasePanel/PhasePanel';
 import { AgentPanel } from '../AgentPanel/AgentPanel';
@@ -15,6 +16,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
   
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [isPanelExpanded, setIsPanelExpanded] = useState(true);
+  const [isRestarting, setIsRestarting] = useState(false);
 
   const {
     isConnected,
@@ -23,7 +25,8 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     currentIteration,
     messages,
     error,
-    sendMessage
+    sendMessage,
+    reconnect
   } = useWorkflowWebSocket(selectedWorkflow?.id);
 
   console.log('WebSocket state:', { 
@@ -91,6 +94,33 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     }
   };
   
+  const handleRestart = async () => {
+    if (selectedWorkflow?.id) {
+      setIsRestarting(true);
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/restart/${selectedWorkflow.id}`, {
+          method: 'POST',
+        });
+        const data = await response.json();
+        if (data.error) {
+          console.error('Error restarting workflow:', data.error);
+        } else {
+          console.log('Workflow restarted successfully:', data);
+          // Reconnect WebSocket with same workflow ID
+          if (reconnect) {
+            await reconnect();  // Reconnect WebSocket if function available
+          }
+        }
+      } catch (error) {
+        console.error('Error restarting workflow:', error);
+      } finally {
+        setIsRestarting(false);
+      }
+    } else {
+      console.error('Workflow ID is not available');
+    }
+  };
+
   const togglePanel = () => {
     setIsPanelExpanded(!isPanelExpanded);
   };
@@ -125,17 +155,39 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
             Current Phase: {currentPhase.phase_name} (Phase {currentPhase.phase_idx + 1})
           </Typography>
         )}
-        {interactiveMode && (
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          {interactiveMode && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={triggerNextIteration}
+              startIcon={<ArrowForwardIcon />}
+              disabled={isNextDisabled}
+            >
+              Next Iteration
+            </Button>
+          )}
+          {interactiveMode && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={triggerNextPhase}
+              startIcon={<ArrowForwardIcon />}
+              disabled={isNextDisabled}
+            >
+              Continue to Next Phase
+            </Button>
+          )}
           <Button
             variant="contained"
-            color="primary"
-            onClick={triggerNextIteration}
-            startIcon={<ArrowForwardIcon />}
-            disabled={isNextDisabled}
+            color="secondary"
+            onClick={handleRestart}
+            startIcon={<RestartAltIcon />}
+            disabled={isRestarting}
           >
-            Next Iteration
+            {isRestarting ? 'Restarting...' : 'Restart Workflow'}
           </Button>
-        )}
+        </Box>
       </Box>
         
       <Grid container spacing={2} className="dashboard-content">

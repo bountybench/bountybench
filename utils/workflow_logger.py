@@ -125,6 +125,13 @@ class WorkflowLogger:
         except Exception as e:
             print(f"Error in broadcast task: {e}")
             
+    def deallocate(self):
+        self.workflow_log: Optional[WorkflowLog] = None
+        self.log_file: Optional[Path] = None
+        self.worfklow_id: Optional[str] = None
+        self.current_phase: Optional[WorkflowPhase] = None
+        self.current_iteration: Optional[PhaseIteration] = None
+
     def initialize(
         self,
         workflow_name: str,
@@ -391,11 +398,6 @@ class WorkflowLogger:
         }
         self.workflow_log.error_log.append(error_entry)
         self.save()
-    
-    # def add_metadata(self, key: str, value: Any) -> None:
-    #     """Add additional metadata to the workflow"""
-    #     self._ensure_initialized()
-    #     self.workflow_log.metadata.additional_metadata[key] = value
     
     def add_agent(self, agent_name: str, agent) -> None:
         """
