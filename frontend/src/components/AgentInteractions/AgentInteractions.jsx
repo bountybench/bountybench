@@ -274,6 +274,7 @@ export default ActionCard;
 const MessageBubble = ({ message, onUpdateActionInput }) => {
   const [expanded, setExpanded] = useState(true);
   const [inputExpanded, setInputExpanded] = useState(false); 
+  const [outputExpanded, setOutputExpanded] = useState(false); 
   
   if (!message) return null;
 
@@ -284,6 +285,11 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
   const handleInputExpandClick = (e) => {
     e.stopPropagation();
     setInputExpanded((prev) => !prev);
+  };
+
+  const handleOutputExpandClick = (e) => {
+    e.stopPropagation();
+    setOutputExpanded((prev) => !prev);
   };
 
   const renderContent = (content, label) => {
@@ -317,7 +323,14 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
                 {inputExpanded && renderContent(message.input, 'Input')}
               </Box>
             )}
-            {renderContent(message.output, 'Output')}
+            {message.output && !message.isSystem && (
+              <Box mt={1} onClick={handleOutputExpandClick} style={{ cursor: 'pointer' }}>
+                <Typography variant="caption" color="primary">
+                  {outputExpanded ? 'Hide Output' : 'Show Output'}
+                </Typography>
+                {outputExpanded && renderContent(message.output, 'Output')}
+              </Box>
+            )}
             {hasActions && (
               <Box mt={2}>
                 <Typography variant="subtitle2" gutterBottom>Actions:</Typography>
