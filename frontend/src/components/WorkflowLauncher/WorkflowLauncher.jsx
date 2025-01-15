@@ -53,7 +53,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         },
         body: JSON.stringify({
           workflow_name: formData.workflow_name,
-          task_dir: formData.task_dir,
+          task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: formData.bounty_number,
           interactive: interactiveMode
         }),
@@ -134,7 +134,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           onChange={handleInputChange}
           required
           margin="normal"
-          placeholder="e.g., bountybench/astropy"
+          placeholder="e.g., astropy"
         />
 
         <TextField
