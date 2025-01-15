@@ -21,7 +21,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     workflow_name: '',
     task_dir: '',
     bounty_number: '',
-    interactive: true
+    interactive: true,
+    iterations: 10
   });
 
   // Fetch available workflows
@@ -55,7 +56,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           workflow_name: formData.workflow_name,
           task_dir: formData.task_dir,
           bounty_number: formData.bounty_number,
-          interactive: interactiveMode
+          interactive: interactiveMode,
+          iterations: formData.iterations
         }),
       });
 
@@ -146,6 +148,17 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
           placeholder="e.g., 0"
+        />
+
+        <TextField
+          fullWidth
+          label="Iterations (per phase)"
+          name="iterations"
+          value={formData.iterations}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          placeholder="e.g., 10"
         />
 
         <FormControlLabel
