@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-export const useWorkflowWebSocket = (workflowId) => {
+export const useWorkflowWebSocket = (initialWorkflowId) => {
   const [isConnected, setIsConnected] = useState(false);
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
   const [currentIteration, setCurrentIteration] = useState(null);
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState(null);
+  const [workflowId, setWorkflowId] = useState(initialWorkflowId);
   
   const ws = useRef(null);
   const messageIdCounter = useRef(0);
@@ -14,8 +15,14 @@ export const useWorkflowWebSocket = (workflowId) => {
   const maxReconnectAttempts = 5;
   const currentIterationRef = useRef(null);
 
+  // Update workflowId when initialWorkflowId changes
+  useEffect(() => {
+    setWorkflowId(initialWorkflowId);
+  }, [initialWorkflowId]);
+
   console.log('useWorkflowWebSocket state:', { 
     workflowId, 
+    initialWorkflowId,
     isConnected, 
     workflowStatus,
     currentPhase,
@@ -27,30 +34,8 @@ export const useWorkflowWebSocket = (workflowId) => {
   // ----------------------------------
   // 1) Connect / Reconnect logic
   // ----------------------------------
-  const connect = useCallback(() => {
-    if (!workflowId) {
-      console.warn('No workflow ID provided, skipping connection');
-      return;
-    }
-
-    if (reconnectAttempts.current >= maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
-      setError('Failed to connect after multiple attempts');
-      return;
-    }
-
-    const wsUrl = `ws://localhost:8000/ws/${workflowId}`;
-    console.log('Connecting to WebSocket:', wsUrl);
-    console.log('Current workflow ID:', workflowId);
-    
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
-      return;
-    }
-    
-    ws.current = new WebSocket(wsUrl);
-
-    ws.current.onopen = async () => {
+  const setupWebSocketHandlers = useCallback((websocket) => {
+    websocket.onopen = async () => {
       console.log('WebSocket connected for workflow:', workflowId);
       setIsConnected(true);
       setError(null);
@@ -72,7 +57,7 @@ export const useWorkflowWebSocket = (workflowId) => {
       }
     };
 
-    ws.current.onclose = (event) => {
+    websocket.onclose = (event) => {
       console.log('WebSocket disconnected for workflow:', workflowId, 'Event:', event);
       setIsConnected(false);
       
@@ -83,15 +68,12 @@ export const useWorkflowWebSocket = (workflowId) => {
       }
     };
 
-    ws.current.onerror = (event) => {
+    websocket.onerror = (event) => {
       console.error('WebSocket error for workflow:', workflowId, 'Event:', event);
       setError('Failed to connect to workflow');
     };
 
-    // ----------------------------------
-    // 2) onmessage: handle real-time updates
-    // ----------------------------------
-    ws.current.onmessage = (event) => {
+    websocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         console.log('Raw WebSocket message:', event.data);
@@ -257,12 +239,36 @@ export const useWorkflowWebSocket = (workflowId) => {
           default:
             console.warn('Unknown message type:', data.type);
         }
-      } catch (err) {
-        console.error('Error processing WebSocket message:', err);
-        setError('Failed to process workflow update: ' + err.message);
+      } catch (error) {
+        console.error('Error handling WebSocket message:', error);
       }
     };
   }, [workflowId]);
+
+  const connect = useCallback(() => {
+    if (!workflowId) {
+      console.warn('No workflow ID provided, skipping connection');
+      return;
+    }
+
+    if (reconnectAttempts.current >= maxReconnectAttempts) {
+      console.error('Max reconnection attempts reached');
+      setError('Failed to connect after multiple attempts');
+      return;
+    }
+
+    const wsUrl = `ws://localhost:8000/ws/${workflowId}`;
+    console.log('Connecting to WebSocket:', wsUrl);
+    console.log('Current workflow ID:', workflowId);
+    
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      console.log('WebSocket already connected');
+      return;
+    }
+    
+    ws.current = new WebSocket(wsUrl);
+    setupWebSocketHandlers(ws.current);
+  }, [workflowId, setupWebSocketHandlers]);
 
   // ----------------------------------
   // 4) useEffect to initiate connection
@@ -340,19 +346,35 @@ export const useWorkflowWebSocket = (workflowId) => {
       currentIterationRef.current = null;
       
       // Update workflow ID and reconnect WebSocket with new ID
-      const newWorkflowId = data.new_workflow_id;
-      window.history.replaceState(null, '', `/workflow/${newWorkflowId}`);
+      const newWorkflowId = data.workflow_id;
+      console.log('Restarting workflow with new ID:', newWorkflowId);
+      
+      // Update the workflow ID state
+      setWorkflowId(newWorkflowId);
       
       // Wait a short moment before reconnecting to ensure cleanup is complete
       setTimeout(() => {
-        connect();
+        // Update URL with new workflow ID
+        window.history.replaceState(null, '', `/workflow/${newWorkflowId}`);
+        
+        // Reconnect WebSocket with new ID
+        ws.current = new WebSocket(`ws://localhost:8000/ws/${newWorkflowId}`);
+        setupWebSocketHandlers(ws.current);
+        
+        // Start workflow execution
+        fetch(`http://localhost:8000/workflow/execute/${newWorkflowId}`, {
+          method: 'POST'
+        }).catch(err => {
+          console.error('Failed to execute restarted workflow:', err);
+          setError('Failed to execute restarted workflow: ' + err.message);
+        });
       }, 500);
       
     } catch (err) {
       console.error('Failed to restart workflow:', err);
       setError('Failed to restart workflow: ' + err.message);
     }
-  }, [workflowId, connect]);
+  }, [workflowId, setupWebSocketHandlers]);
 
   // ----------------------------------
   // 7) Return relevant state/hooks
@@ -365,6 +387,7 @@ export const useWorkflowWebSocket = (workflowId) => {
     messages,
     error,
     sendMessage,
-    restartWorkflow
+    restartWorkflow,
+    workflowId
   };
 };

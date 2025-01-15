@@ -395,8 +395,9 @@ async def restart_workflow(workflow_id: str):
         }
         
         return {
-            "workflow_id": workflow_id,
-            "status": "initialized"
+            "status": "success",
+            "message": "Workflow restarted successfully",
+            "workflow_id": new_workflow_id
         }
         
     except Exception as e:

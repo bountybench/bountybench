@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, CircularProgress, Alert, Button, Grid, IconButton } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -16,6 +16,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
   
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [isPanelExpanded, setIsPanelExpanded] = useState(true);
+  const [currentWorkflowId, setCurrentWorkflowId] = useState(selectedWorkflow?.id);
 
   const {
     isConnected,
@@ -27,6 +28,12 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     sendMessage,
     restartWorkflow
   } = useWorkflowWebSocket(selectedWorkflow?.id);
+
+  useEffect(() => {
+    if (selectedWorkflow?.id) {
+      setCurrentWorkflowId(selectedWorkflow.id);
+    }
+  }, [selectedWorkflow?.id]);
 
   console.log('WebSocket state:', { 
     isConnected, 
@@ -147,18 +154,20 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
       </Box>
         
       <Grid container spacing={2} className="dashboard-content">
-        <Grid item xs={12} md={isPanelExpanded ? 8 : 11} className="main-content">
-          <AgentInteractions
-            workflow={selectedWorkflow}
-            interactiveMode={interactiveMode}
-            currentPhase={currentPhase}
-            currentIteration={currentIteration}
-            messages={messages}
-            onSendMessage={sendMessage}
-            onUpdateActionInput={handleUpdateActionInput}
-          />
+        <Grid item xs={isPanelExpanded ? 8 : 12}>
+          <Box className="agent-interactions">
+            <AgentInteractions
+              workflow={{ id: currentWorkflowId }}
+              interactiveMode={interactiveMode}
+              currentPhase={currentPhase}
+              currentIteration={currentIteration}
+              messages={messages}
+              onSendMessage={sendMessage}
+              onUpdateActionInput={handleUpdateActionInput}
+            />
+          </Box>
         </Grid>
-        <Grid item xs={12} md={isPanelExpanded ? 4 : 1} className="side-panel-container">
+        <Grid item xs={isPanelExpanded ? 4 : 1} className="side-panel-container">
           <Box className="side-panel-wrapper">
             <IconButton
               onClick={togglePanel}
