@@ -351,6 +351,7 @@ async def cleanup_workflow(workflow_id: str):
             for resource in workflow.resource_manager.resources.values():
                 if hasattr(resource, 'terminate'):
                     resource.terminate()
+            print(workflow.resource_manager.resources)
             workflow.resource_manager.resources.clear()
             workflow.resource_manager._resource_registration.clear()
             
