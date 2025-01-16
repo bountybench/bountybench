@@ -4,6 +4,9 @@ from typing import Dict, Any
 from abc import ABC
 import json
 
+from messages.action_messages.action_message import ActionMessage
+from utils.workflow_logger import workflow_logger
+
 
 @dataclass
 class BaseResourceConfig(ABC):
@@ -59,6 +62,10 @@ class BaseResource(ABC):
     def stop(*args, **kwargs):
         pass
 
+    @abstractmethod
+    def perform_action(self, prev_action_message, **kwargs):
+        pass
+
     def __init__(self, resource_id, resource_config):
         self._resource_id = resource_id
         self._resource_config = resource_config
@@ -76,3 +83,13 @@ class BaseResource(ABC):
 
     def __str__(self):
         return self._resource_id
+
+    def run(self, prev_action_message, **kwargs):
+        #TODO: Handle parent, children, version_parent
+
+        curr_action_message = self.perform_action(prev_action_message, **kwargs)
+
+        #TODO: Need to update the workflow logger with the new actionmessage schema?
+        workflow_logger.log_action(curr_action_message) 
+
+        return curr_action_message
