@@ -89,6 +89,7 @@ class BaseWorkflow(ABC):
             if hasattr(self, 'agent_manager'):
                 await self.agent_manager.deallocate_all_agents()
             logger.info("Cleaned up workflow resources")
+            self._finalize_workflow()
         except Exception as e:
             logger.error(f"Error during workflow cleanup: {e}")
             raise
