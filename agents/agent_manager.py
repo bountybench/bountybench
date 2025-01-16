@@ -93,3 +93,8 @@ class AgentManager:
         if agent_id not in self._agents:
             raise KeyError(f"Agent '{agent_id}' not initialized")
         return self._agents[agent_id]
+
+    async def deallocate_all_agents(self):
+        self._agents.clear()
+        self._phase_agents.clear()
+        self._agent_configs.clear()
