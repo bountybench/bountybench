@@ -192,7 +192,6 @@ class ExecutorAgent(BaseAgent):
         Serializes the ExecutorAgent state to a dictionary.
         """
         return {
-            "config": self.model.to_dict(),
             "initial_prompt": getattr(self, "initial_prompt", None),
             'agent_id': self.agent_id,
             "timestamp": getattr(self, "timestamp", None),
@@ -203,9 +202,7 @@ class ExecutorAgent(BaseAgent):
         """
         Creates an ExecutorAgent instance from a serialized dictionary.
         """
-        config = ModelResourceConfig(**data["config"])
         agent = cls(
-            config=config,
             initial_prompt=data["initial_prompt"],
             **kwargs
         )
