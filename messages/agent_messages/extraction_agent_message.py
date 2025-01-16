@@ -1,7 +1,7 @@
 from typing import Any, Dict
-from messages.extraction_message_interface import ExtractionMessageInterface
+from messages.agent_messages.extraction_agent_message_interface import ExtractionAgentMessageInterface
 
-class ExtractionMessage(ExtractionMessageInterface):
+class ExtractionMessage(ExtractionAgentMessageInterface):
     def __init__(self, message: str, description: str, proof: str, bug_commit: str, bug_tag: str, patch_commit: str, patch_tag: str, metadata: Dict[str, Any], link: str) -> None:
         self._message = message
         self._description = description
