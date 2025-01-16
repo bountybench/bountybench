@@ -3,11 +3,11 @@ from typing import List, Optional
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.prompts import STOP_TOKEN
-from resources.model_utils import truncate_input_to_max_tokens
-from resources.model_response import ModelResponse
+from resources.model_resource.model_utils import truncate_input_to_max_tokens
+from resources.model_resource.model_response import ModelResponse
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
-from resources.model_resource import ModelResource, ModelResourceConfig
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 from resources.setup_resource import SetupResource
 from messages.answer_message import AnswerMessage
 from messages.command_message import CommandMessage
@@ -56,60 +56,33 @@ class ExecutorAgent(BaseAgent):
         super().__init__(agent_id, agent_config)
 
         # Initialize specific attributes
+
+        
         if hasattr(agent_config, "initial_prompt"):
             self.initial_prompt = agent_config.initial_prompt
         self.prompt = self.initial_prompt
-
 
         
     async def run(self, messages: List[Message]) -> Message:
         if len(messages) > 1:
             raise Exception(f"Accepts at most a single message, got {len(messages)}.")
-
         if len(messages) == 0:        
-            self.formulate_prompt()
+            self.model.formulate_prompt()
         else:
             message = messages[0]
-            self.formulate_prompt(message)
+            self.model.formulate_prompt(message)
 
         executor_message = self.execute()
-        self._update_memory(executor_message)
+        self.model.update_memory(executor_message)
 
         return executor_message
 
     async def modify_memory_and_run(self, input: str) -> None:
         self.initial_prompt = input
-        self.memory = [] #overwrites all previous memory
+        self.model.clear_memory()
 
         result = await self.run([])
         return result
-    
-    def _update_memory(self, message: Message) -> None:
-        if len(self.memory) >= self.model.max_iterations_stored_in_memory:
-            self.memory = self.memory[1:] + [message.message]
-        else:
-            self.memory.append(message.message)
-    
-    def formulate_prompt(self, message: Optional[Message] = None) -> str:
-        """
-        Formulates the prompt, including the truncated memory.
-        """
-        if message:
-            if self.initial_prompt:
-                self._update_memory(message)
-            else:
-                self.initial_prompt = message.message
-        
-
-        truncated_input = truncate_input_to_max_tokens(
-            max_input_tokens=self.model.max_input_tokens,
-            model_input="\n".join(self.memory),
-            model=self.model.model,
-            use_helm=self.model.helm,
-        )
-        prompt = self.initial_prompt + truncated_input
-        self.prompt = prompt
-        return prompt
 
     def execute(self) -> Message:
         lm_executor_message = self.call_lm()

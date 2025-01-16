@@ -1,15 +1,17 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 import tiktoken
 
 from agents.prompts import STOP_TOKEN
-from resources.model_provider import ModelProvider
-from resources.model_response import ModelResponse
+from messages.message import Message
+from resources.model_resource.model_provider import ModelProvider
+from resources.model_resource.model_response import ModelResponse
 from resources.base_resource import BaseResource, BaseResourceConfig
 from utils import workflow_logger
-from resources.model_utils import get_model_provider
+from resources.model_resource.model_utils import get_model_provider, truncate_input_to_max_tokens
 from utils.logger import get_main_logger
+
 
 
 
@@ -58,7 +60,43 @@ class ModelResource(BaseResource):
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
 
+        self.memory: List[str] = []
+        self.initial_prompt: Optional[str] = None
 
+
+
+    def update_memory(self, message: str) -> None:
+        """Update model's memory with new message"""
+        if len(self.memory) >= self.max_iterations_stored_in_memory:
+            self.memory = self.memory[1:] + [message]
+        else:
+            self.memory.append(message)
+
+    def formulate_prompt(self, message: Optional[Message] = None) -> str:
+        """
+        Formulates the prompt, including the truncated memory.
+        """
+        if message:
+            if self.initial_prompt:
+                self.update_memory(message)
+            else:
+                self.initial_prompt = message.message
+        
+
+        truncated_input = truncate_input_to_max_tokens(
+            max_input_tokens=self.max_input_tokens,
+            model_input="\n".join(self.memory),
+            model=self.model,
+            use_helm=self.helm,
+        )
+        prompt = self.initial_prompt + truncated_input
+        self.prompt = prompt
+        return prompt
+    
+    
+    def clear_memory(self) -> None:
+        """Clear model's memory"""
+        self.memory = []
 
     def tokenize(self, message: str) -> List[int]:
         """
