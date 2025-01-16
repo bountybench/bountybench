@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class AgentLMConfig:
-    model: str = field(default='openai/o3-mini-2024-12-17')
+    model: str = field(default='openai/o3-mini-2025-01-14')
     max_output_tokens: int = field(default=4096)
     max_input_tokens: int = field(default=4096)
     max_iterations_stored_in_memory: int = field(default=3)
