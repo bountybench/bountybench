@@ -42,8 +42,14 @@ class TestInitFilesResource(unittest.TestCase):
         )
 
     def tearDown(self):
+        # Clean up directories after testing
         if os.path.exists(self.task_repo_dir):
             shutil.rmtree(self.task_repo_dir)
+        
+        # Remove 'dev' branch from any git repositories
+        if os.path.exists(self.original_files_dir):
+            subprocess.run(["git", "checkout", "main"], cwd=self.original_files_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "branch", "-D", "dev"], cwd=self.original_files_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def test_setup_repo(self):
         # Set up InitFilesResource
