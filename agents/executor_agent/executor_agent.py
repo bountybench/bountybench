@@ -2,13 +2,12 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from agents.base_agent import AgentConfig, BaseAgent
-from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from agents.prompts import STOP_TOKEN
-from agents.utils import truncate_input_to_max_tokens
-from models.model_response import ModelResponse
-from models.query import query
+from resources.model_utils import truncate_input_to_max_tokens
+from resources.model_response import ModelResponse
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
+from resources.model_resource import ModelResource, ModelResourceConfig
 from resources.setup_resource import SetupResource
 from messages.answer_message import AnswerMessage
 from messages.command_message import CommandMessage
@@ -23,11 +22,9 @@ logger = get_main_logger(__name__)
 TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
 RETRY_DELAY = 30
-TEMPERATURE = 0.5
 
 @dataclass
 class ExecutorAgentConfig(AgentConfig):
-    lm_config: AgentLMConfig = field(default_factory=AgentLMConfig)
     initial_prompt: Optional[str] = field(default=None)
 
 class ExecutorAgent(BaseAgent):
@@ -35,17 +32,21 @@ class ExecutorAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
        (InitFilesResource, "init_files"),
-        (KaliEnvResource, "kali_env")
+        (KaliEnvResource, "kali_env"),
+        (ModelResource, "model")
+
     ]
     OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "bounty_resource")]
     ACCESSIBLE_RESOURCES = [
         (KaliEnvResource, "kali_env"),
        (InitFilesResource, "init_files"),
         (SetupResource, "repo_resource"),
-        (SetupResource, "bounty_resource")
-    ]
+        (SetupResource, "bounty_resource"),
+        (ModelResource, "model")]
+
     
-    def __init__(self, agent_id, agent_config: ExecutorAgentConfig):#, resource_manager: ResourceManager):
+    
+    def __init__(self, agent_id, agent_config: ExecutorAgentConfig):
         """
         Args:
             agent_config: ExecutorAgentConfig containing model, initial prompt, and target host.
@@ -84,7 +85,7 @@ class ExecutorAgent(BaseAgent):
         return result
     
     def _update_memory(self, message: Message) -> None:
-        if len(self.memory) >= self.agent_config.lm_config.max_iterations_stored_in_memory:
+        if len(self.memory) >= self.model.max_iterations_stored_in_memory:
             self.memory = self.memory[1:] + [message.message]
         else:
             self.memory.append(message.message)
@@ -101,10 +102,10 @@ class ExecutorAgent(BaseAgent):
         
 
         truncated_input = truncate_input_to_max_tokens(
-            max_input_tokens=self.agent_config.lm_config.max_input_tokens,
+            max_input_tokens=self.model.max_input_tokens,
             model_input="\n".join(self.memory),
-            model=self.agent_config.lm_config.model,
-            use_helm=self.agent_config.lm_config.use_helm,
+            model=self.model.model,
+            use_helm=self.model.helm,
         )
         prompt = self.initial_prompt + truncated_input
         self.prompt = prompt
@@ -117,6 +118,8 @@ class ExecutorAgent(BaseAgent):
         if issubclass(lm_executor_message.__class__, CommandMessageInterface):
             observation = self.execute_in_env(lm_executor_message)
             lm_executor_message.set_observation(observation)
+
+            
         return lm_executor_message
 
     def _parse_response(self, response: str) -> Message:
@@ -145,13 +148,8 @@ class ExecutorAgent(BaseAgent):
         try:
             iterations = 0  # Make sure this is defined
             while iterations < MAX_RETRIES:
-                model_response: ModelResponse = query(
-                    model=self.agent_config.lm_config.model,
+                model_response: ModelResponse = self.model.query(
                     message=model_input,
-                    temperature=TEMPERATURE,
-                    max_tokens=self.agent_config.lm_config.max_output_tokens,
-                    stop_sequences=[STOP_TOKEN],
-                    helm=self.agent_config.lm_config.use_helm
                 )
 
                 model_response = model_response.remove_hallucinations()
@@ -194,7 +192,7 @@ class ExecutorAgent(BaseAgent):
         Serializes the ExecutorAgent state to a dictionary.
         """
         return {
-            "config": self.agent_config.lm_config.__dict__,
+            "config": self.model.to_dict(),
             "initial_prompt": getattr(self, "initial_prompt", None),
             'agent_id': self.agent_id,
             "timestamp": getattr(self, "timestamp", None),
@@ -205,7 +203,7 @@ class ExecutorAgent(BaseAgent):
         """
         Creates an ExecutorAgent instance from a serialized dictionary.
         """
-        config = AgentLMConfig(**data["config"])
+        config = ModelResourceConfig(**data["config"])
         agent = cls(
             config=config,
             initial_prompt=data["initial_prompt"],

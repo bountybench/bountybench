@@ -5,7 +5,7 @@ from typing import List
 
 from dotenv import load_dotenv
 
-from models.model_response import ModelResponse
+from resources.model_response import ModelResponse
 
 
 class ModelProvider(ABC):

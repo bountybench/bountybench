@@ -8,9 +8,9 @@ from helm.common.tokenization_request import (DecodeRequest,
                                               TokenizationRequestResult)
 from helm.proxy.services.remote_service import RemoteService
 
-from models.model_mapping import ModelRegistry
-from models.model_provider import ModelProvider
-from models.model_response import ModelResponse
+from resources.model_mapping import ModelRegistry
+from resources.model_provider import ModelProvider
+from resources.model_response import ModelResponse
 
 
 class HelmModels(ModelProvider):

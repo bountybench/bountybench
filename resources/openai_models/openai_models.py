@@ -4,8 +4,8 @@ from typing import List
 import tiktoken
 from openai import OpenAI
 
-from models.model_provider import ModelProvider
-from models.model_response import ModelResponse
+from resources.model_provider import ModelProvider
+from resources.model_response import ModelResponse
 
 
 class OpenAIModels(ModelProvider):
