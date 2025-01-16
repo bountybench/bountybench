@@ -7,6 +7,7 @@ from typing import Dict, Optional, Tuple
 import docker
 from docker.models.containers import Container
 
+from messages.action_messages.kali_env_action_message import KaliEnvActionMessage
 from resources.base_resource import BaseResource
 from resources.utils import get_stdout_text
 from utils.workflow_logger import workflow_logger
@@ -165,8 +166,19 @@ class KaliEnvResource(BaseResource):
                 logger.info("Docker container cleaned up successfully.")
             except Exception as e:
                 logger.error(f"Error cleaning up Docker container: {e}")
+    
+    def perform_action(self, prev_action_message, **kwargs):
+        logger.info(f"Performing action: {prev_action_message}")
 
-    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
+        stdout, stderr = self.run_command(prev_action_message.command, **kwargs)
+
+        raw_message = stdout.strip() + stderr.strip()
+
+        kali_env_action_message = KaliEnvActionMessage(raw_message, self.resource_id, prev_action_message)
+
+        return kali_env_action_message
+    
+    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None) -> Tuple[str, str]:
         command_str = command
         if len(command) > 33:
             command_str = command[:30] + "..."
@@ -188,8 +200,6 @@ class KaliEnvResource(BaseResource):
             stdout_text = get_stdout_text(stdout)
             stderr_text = get_stdout_text(stderr)
             logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
-            if logging:
-                workflow_logger.log_action(action_name="kali", input_data=command, output_data={"stdout": stdout_text, "stderr": stderr_text}, metadata={})
             return stdout_text, stderr_text
 
         except TimeoutError:
