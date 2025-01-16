@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 from enum import Enum
 import logging
 
-from phase_messages.phase_message import PhaseMessage
+from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from messages.message import Message

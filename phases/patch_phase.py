@@ -1,6 +1,6 @@
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from phase_messages.phase_message import PhaseMessage
+from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
