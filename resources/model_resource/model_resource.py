@@ -165,7 +165,6 @@ class ModelResource(BaseResource):
         
         LLM resources don't maintain persistent connections or state,
         so this is a no-op implementation to satisfy the BaseResource interface.
-        However, we still log the stop for consistency and debugging purposes.
         """
         logger.debug(f"Stopping LLM resource {self.resource_id} (no cleanup required)")
     
