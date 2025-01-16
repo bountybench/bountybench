@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
-from phase_messages.phase_message import PhaseMessage
+from messages.phase_messages.phase_message import PhaseMessage
 from resources.base_resource import BaseResource
 from messages.message import Message
 from utils.logger import get_main_logger
