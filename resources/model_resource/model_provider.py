@@ -5,7 +5,8 @@ from typing import List
 
 from dotenv import load_dotenv
 
-from models.model_response import ModelResponse
+from messages.action_messages.action_message import ActionMessage
+from messages.action_messages.model_action_message import ModelActionMessage
 
 
 class ModelProvider(ABC):
@@ -64,7 +65,7 @@ class ModelProvider(ABC):
         temperature: float,
         max_tokens: int,
         stop_sequences: List[str],
-    ) -> ModelResponse:
+    ) -> ActionMessage:
         """
         Abstract method to request a response from a model.
         Args:

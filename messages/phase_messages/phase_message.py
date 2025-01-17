@@ -8,7 +8,6 @@ class PhaseMessage(Message):
         self._success = False
         self._complete = False
         self._agent_messages = agent_messages
-        self._phase_summary = None
     
     @property
     def success(self) -> bool:
@@ -21,10 +20,6 @@ class PhaseMessage(Message):
     @property
     def agent_messages(self) -> List[AgentMessage]:
         return self._agent_messages
-    
-    @property
-    def phase_summary(self) -> str:
-        return self._phase_summary
 
     def set_success(self):
         self._success = True
@@ -32,7 +27,7 @@ class PhaseMessage(Message):
     def set_complete(self):
         self._complete = True
 
-    def add_agent_message(self, agent_message: Message):
+    def add_agent_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
 
     def to_dict(self) -> dict:

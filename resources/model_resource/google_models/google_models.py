@@ -3,8 +3,8 @@ from typing import List
 
 import google.generativeai as gemini
 
-from models.model_provider import ModelProvider
-from models.model_response import ModelResponse
+from resources.model_provider import ModelProvider
+from resources.model_response import ModelResponse
 
 
 class GoogleModels(ModelProvider):

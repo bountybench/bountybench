@@ -15,6 +15,9 @@ class AgentMessage(Message):
     @property
     def action_messages(self) -> List[ActionMessage]:
         return self._action_messages
+   
+    def add_action_message(self, action_message: ActionMessage):
+        self._action_messages.append(action_message)
 
     def to_dict(self) -> dict:
         base_dict = super().to_dict()        
