@@ -171,12 +171,14 @@ class KaliEnvResource(BaseResource):
 
     def run(self, command_message: CommandMessage) -> ActionMessage:
         command_str = command_message.command
-        output = self.run_command(command_str, TIMEOUT_PER_COMMAND)
-        return ActionMessage(resource_id=self.resource_id, message=output, prev=command_message)
+        stdout, stderr = self.run_command(command_str, TIMEOUT_PER_COMMAND)
+        observation_text = stdout.strip() + stderr.strip()
+        return ActionMessage(resource_id=self.resource_id, message=observation_text, prev=command_message)
 
-    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = "/app") -> str:
+    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = "/app") -> Tuple[str, str]:
+        command_str = command
         if len(command) > 33:
-            command_str = command[:30] + "..."
+            command_str = command_str[:30] + "..."
         start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
         try:
             with timeout_context(timeout):
@@ -190,11 +192,13 @@ class KaliEnvResource(BaseResource):
                 )["Id"]
 
                 output = self.client.api.exec_start(exec_id, stream=False, demux=True)
+                stdout, stderr = output or (None, None)
 
-            output_text = get_stdout_text(output)
-            logger.info(f"Command executed successfully.\nOutput: {output_text}")
-            return output
-
+            stdout_text = get_stdout_text(stdout)
+            stderr_text = get_stdout_text(stderr)
+            logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
+            return stdout_text, stderr_text
+        
         except TimeoutError:
             logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
             # We can't stop the execution, but we can log that it timed out

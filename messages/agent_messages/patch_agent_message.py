@@ -2,7 +2,7 @@ from messages.agent_messages.agent_message import AgentMessage
 
 class PatchAgentMessage(AgentMessage):
     def __init__(self, agent_id: str, message: str, success: bool = False, patch_files_dir: str=None, prev: AgentMessage = None) -> None:
-        super().__init__(prev, agent_id)
+        super().__init__(agent_id, prev)
         self._message = message
         self._success = success
         self._patch_files_dir = patch_files_dir

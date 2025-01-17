@@ -3,10 +3,12 @@ class Message(ABC):
     _next: 'Message' = None
 
     def __init__(self, prev: 'Message' = None) -> None:
-        if prev:
-            prev.set_next(self)
         self._prev = prev
-    
+        if prev is not None and hasattr(prev, 'set_next'):
+            prev.set_next(self)
+        else:
+            print(f"Warning: prev is not a Message object. Type: {type(prev)}")
+
     @property
     def prev(self) -> str:
         return self._prev

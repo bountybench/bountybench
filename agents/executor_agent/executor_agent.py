@@ -47,7 +47,7 @@ class ExecutorAgent(BaseAgent):
 
         agent_message = AgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
         # Assuming we want to pass in the last action message. 
-        action_message = prev_agent_message.action_messages[-1] if prev_agent_message and len(prev_agent_message.action_messages > 0) else None
+        action_message = prev_agent_message.action_messages[-1] if prev_agent_message and len(prev_agent_message.action_messages) > 0 else None
         executor_message = self.execute(agent_message, action_message)
         self.model.update_memory(executor_message)
 
