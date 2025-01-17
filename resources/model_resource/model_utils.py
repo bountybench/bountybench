@@ -4,11 +4,28 @@ from requests.exceptions import ConnectionError, HTTPError, Timeout
 from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
                       wait_exponential)
 
-from models.query import get_model_provider
 from utils.logger import get_main_logger
+from resources.model_provider import ModelProvider
+from resources.helm_models.helm_models import HelmModels
+from resources.openai_models.openai_models import OpenAIModels
+
 
 logger = get_main_logger(__name__)
 
+
+
+def get_model_provider(use_helm: bool = False) -> ModelProvider:
+    """
+    Get the appropriate model provider based on the model type.
+    Returns:
+        ModelProvider: An instance of the appropriate model provider class.
+    """
+    # TODO: Support Different Model Providers (Also handle Azure case)
+    if use_helm:
+        model_provider = HelmModels()
+    else:
+        model_provider = OpenAIModels()
+    return model_provider
 
 def get_num_tokens(model_input: str, model: str, use_helm: bool = False) -> int:
     """
@@ -22,7 +39,7 @@ def get_num_tokens(model_input: str, model: str, use_helm: bool = False) -> int:
     Returns:
     int: The number of tokens in the model input.
     """
-    return get_model_provider(model, use_helm).get_num_tokens(model, model_input)
+    return get_model_provider(use_helm).get_num_tokens(model, model_input)
 
 
 @retry(
@@ -45,7 +62,7 @@ def tokenize_input(model_input: str, model: str, use_helm: bool = False) -> List
     Returns:
     List[int]: A list of token IDs representing the tokenized input.
     """
-    return get_model_provider(model, use_helm).tokenize(model, model_input)
+    return get_model_provider(use_helm).tokenize(model, model_input)
 
 
 @retry(
@@ -68,7 +85,7 @@ def decode_tokenized_inputs(tokens: List[int], model: str, use_helm: bool = Fals
     Returns:
     str: The decoded string from the token IDs.
     """
-    return get_model_provider(model, use_helm).decode(model, tokens)
+    return get_model_provider(use_helm).decode(model, tokens)
 
 def truncate_input_to_max_tokens(max_input_tokens: int, model_input: str, model: str, use_helm: bool = False) -> str:
     num_input_tokens = get_num_tokens(model_input, model, use_helm)
