@@ -1,18 +1,16 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.prompts import STOP_TOKEN
-from resources.model_resource.model_utils import truncate_input_to_max_tokens
-from resources.model_resource.model_response import ModelResponse
+from messages.action_messages.answer_message import AnswerMessage
+from messages.action_messages.command_message import CommandMessage
+from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
-from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.model_resource.model_resource import ModelResource
 from resources.setup_resource import SetupResource
-from messages.answer_message import AnswerMessage
-from messages.command_message import CommandMessage
-from messages.command_message_interface import CommandMessageInterface
-from messages.observation import Observation
+from messages.action_messages.command_message_interface import CommandMessageInterface
 from messages.message import Message
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
@@ -23,12 +21,8 @@ TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
 RETRY_DELAY = 30
 
-@dataclass
-class ExecutorAgentConfig(AgentConfig):
-    initial_prompt: Optional[str] = field(default=None)
 
 class ExecutorAgent(BaseAgent):
-    memory: List[str] = []
 
     REQUIRED_RESOURCES = [
        (InitFilesResource, "init_files"),
@@ -45,24 +39,6 @@ class ExecutorAgent(BaseAgent):
         (ModelResource, "model")]
 
     
-    
-    def __init__(self, agent_id, agent_config: ExecutorAgentConfig):
-        """
-        Args:
-            agent_config: ExecutorAgentConfig containing model, initial prompt, and target host.
-            resource_manager: ResourceManager instance responsible for managing resources.
-        """
-        # Pass the agent_config and resource_manager to BaseAgent
-        super().__init__(agent_id, agent_config)
-
-        # Initialize specific attributes
-
-        
-        if hasattr(agent_config, "initial_prompt"):
-            self.initial_prompt = agent_config.initial_prompt
-        self.prompt = self.initial_prompt
-
-        
     async def run(self, messages: List[Message]) -> Message:
         if len(messages) > 1:
             raise Exception(f"Accepts at most a single message, got {len(messages)}.")
@@ -78,12 +54,15 @@ class ExecutorAgent(BaseAgent):
         return executor_message
 
     async def modify_memory_and_run(self, input: str) -> None:
-        self.initial_prompt = input
+        self.model.prompt = input
         self.model.clear_memory()
 
         result = await self.run([])
         return result
 
+    """
+    NEED TO CHANGE THIS
+    """
     def execute(self) -> Message:
         lm_executor_message = self.call_lm()
         # If the model decides to output a command, we run it in the environment
@@ -91,45 +70,27 @@ class ExecutorAgent(BaseAgent):
         if issubclass(lm_executor_message.__class__, CommandMessageInterface):
             observation = self.execute_in_env(lm_executor_message)
             lm_executor_message.set_observation(observation)
-
             
         return lm_executor_message
 
-    def _parse_response(self, response: str) -> Message:
-        """
-        Attempts to parse the raw model string into either AnswerMessage or CommandMessage.
-        """
-        try:
-            return AnswerMessage(response)
-        except:
-            logger.debug("Not an AnswerMessage, trying CommandMessage.")
-            try:
-                return CommandMessage(response)
-            except:
-                logger.debug("Could not parse as CommandMessage.")
-                raise Exception("Could not parse LM response as AnswerMessage or CommandMessage.")
 
-    def call_lm(self) -> Message:
+    def call_lm(self) -> Union[AnswerMessage, CommandMessage]:
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
         """
-        model_input = self.prompt
         iterations = 0
         
         start_progress(f"Getting response from LM")
         try:
             iterations = 0  # Make sure this is defined
             while iterations < MAX_RETRIES:
-                model_response: ModelResponse = self.model.query(
-                    message=model_input,
-                )
-
-                model_response = model_response.remove_hallucinations()
-                lm_response = model_response + f"\n{STOP_TOKEN}"
+                model_response = self.model.run()
+                model_response._message = self.model.remove_hallucinations(model_response._message)
+                lm_response = model_response._message + f"\n{STOP_TOKEN}"
 
                 try:
-                    return self._parse_response(lm_response)
+                    return self.model.parse_response(lm_response)
                 except Exception as e:
                     logger.warning(f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}")
                     iterations += 1
@@ -144,7 +105,11 @@ class ExecutorAgent(BaseAgent):
         finally:
             stop_progress()
 
-    def execute_in_env(self, executor_message: CommandMessage) -> Observation:
+
+    """
+    NEED TO CHANGE THIS
+    """
+    def execute_in_env(self, executor_message: CommandMessage) -> ExecutorAgentMessage:
         """
         Executes the command in the environment using self.kali_env,
         captures the output, and returns an Observation.
@@ -159,53 +124,3 @@ class ExecutorAgent(BaseAgent):
         except Exception as e:
             logger.exception(f"Failed to execute command: {command}.\nException: {str(e)}")
             return Observation(str(e))
-
-    def to_dict(self) -> dict:
-        """
-        Serializes the ExecutorAgent state to a dictionary.
-        """
-        return {
-            "initial_prompt": getattr(self, "initial_prompt", None),
-            'agent_id': self.agent_id,
-            "timestamp": getattr(self, "timestamp", None),
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict, **kwargs) -> "ExecutorAgent":
-        """
-        Creates an ExecutorAgent instance from a serialized dictionary.
-        """
-        agent = cls(
-            initial_prompt=data["initial_prompt"],
-            **kwargs
-        )
-        agent.memory = data["memory"]
-        agent.prompt = data["prompt"]
-        agent._agent_id = data['agent_id']
-        if data.get("timestamp"):
-            agent.timestamp = data["timestamp"]
-        return agent
-
-    def save_to_file(self, filepath: str) -> None:
-        """
-        Saves the agent state to a JSON file, adding a timestamp.
-        """
-        import json
-        from datetime import datetime
-
-        state = self.to_dict()
-        state["timestamp"] = datetime.now().isoformat()
-
-        with open(filepath, "w") as f:
-            json.dump(state, f, indent=2)
-
-    @classmethod
-    def load_from_file(cls, filepath: str, **kwargs) -> "ExecutorAgent":
-        """
-        Loads an agent state from a JSON file and reconstructs it.
-        """
-        import json
-
-        with open(filepath, "r") as f:
-            data = json.load(f)
-        return cls.from_dict(data, **kwargs)
