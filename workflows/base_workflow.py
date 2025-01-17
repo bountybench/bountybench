@@ -169,15 +169,9 @@ class BaseWorkflow(ABC):
 
             while self._current_phase:
                 logger.info(f"Running {self._current_phase.name}")
-                self._set_phase_status(self._current_phase.name, PhaseStatus.INCOMPLETE)
                 phase_message = await self._run_single_phase(self._current_phase, prev_phase_message)
                 yield phase_message
                 
-                if phase_message.success:
-                    self._set_phase_status(self._current_phase.name, PhaseStatus.COMPLETED_SUCCESS)
-                else:
-                    self._set_phase_status(self._current_phase.name, PhaseStatus.COMPLETED_FAILURE)
-
                 if not phase_message.success or self._max_iterations_reached():
                     break
                     
@@ -185,7 +179,7 @@ class BaseWorkflow(ABC):
                 self._current_phase = next_phases[0] if next_phases else None
                 prev_phase_message = phase_message
 
-            if prev_phase_message.success:
+            if prev_phase_message and prev_phase_message.success:
                 self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
             else:
                 self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
@@ -195,9 +189,6 @@ class BaseWorkflow(ABC):
 
     def _set_workflow_status(self, status: WorkflowStatus):
         self.status = status
-
-    def _set_phase_status(self, phase_name: str, status: PhaseStatus):
-        self.workflow_logger.add_phase_status(phase_name, status.value)
 
     async def _run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
         phase_instance = self._setup_phase(phase)

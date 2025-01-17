@@ -99,26 +99,6 @@ class BasePhase(ABC):
         for agent_cls in cls.AGENT_CLASSES:
             resources.update(agent_cls.get_required_resources())
         return resources
-
-    @staticmethod
-    def link_messages_decorator(func):
-        """
-        Decorator to handle linking of previous and next PhaseMessage.
-        """
-        @wraps(func)
-        async def wrapper(self, prev_phase_message: PhaseMessage, *args, **kwargs) -> PhaseMessage:
-            # Call the original run method
-            new_message = await func(self, prev_phase_message, *args, **kwargs)
-
-            if not isinstance(new_message, PhaseMessage):
-                raise TypeError("The run method must return a PhaseMessage.")
-
-            # Link the new message to the input message
-            new_message.prev = prev_phase_message
-            prev_phase_message.next = new_message
-
-            return new_message
-        return wrapper
     
     def setup(self):
         """
@@ -156,7 +136,6 @@ class BasePhase(ABC):
             logger.error(f"Failed to deallocate resources for phase {self.phase_config.phase_idx}: {e}")
             raise
 
-    @link_messages_decorator
     async def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.

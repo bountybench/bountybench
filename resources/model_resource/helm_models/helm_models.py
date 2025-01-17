@@ -11,6 +11,7 @@ from helm.proxy.services.remote_service import RemoteService
 from messages.action_messages.action_message import ActionMessage
 from resources.model_resource.model_mapping import ModelRegistry
 from resources.model_resource.model_provider import ModelProvider
+from resources.model_resource.model_response import ModelResponse
 
 
 class HelmModels(ModelProvider):
@@ -31,7 +32,7 @@ class HelmModels(ModelProvider):
         temperature: float,
         max_tokens: int,
         stop_sequences: List[str]
-    ) -> ActionMessage:
+    ) -> ModelResponse:
         mapped_model = ModelRegistry.get_model(model)
 
         if "o1" in model:  # o1 and o1-mini don't have stop argument
@@ -60,24 +61,12 @@ class HelmModels(ModelProvider):
         end_time = datetime.now()
         response_request_duration = (
             end_time - start_time).total_seconds() * 1000
-    
 
-        response_text = request_result.completions[0].text
-        input_tokens = len(self.tokenize(model, message))
-        output_tokens = len(self.tokenize(model, response_text))
-
-        # Create an ActionMessage with relevant metadata
-        additional_metadata = {
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "time_taken_in_ms": response_request_duration,
-        }
-
-        return ActionMessage(
-            resource_id=mapped_model,
-            message=response_text,
-            additional_metadata=additional_metadata
-        )
+        return ModelResponse(content=request_result.completions[0].text,
+                             input_tokens=len(self.tokenize(model, message)),
+                             output_tokens=len(self.tokenize(
+                                 model, request_result.completions[0].text)),
+                             time_taken_in_ms=response_request_duration)
 
     def tokenize(self, model: str, message: str) -> List[int]:
         tokenizer = ModelRegistry.get_tokenizer(model)
