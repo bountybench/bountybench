@@ -16,7 +16,7 @@ class ChatWorkflow(BaseWorkflow):
 
         phase_kwargs = {
             'model': self.params.get('model'),
-            'initial_prompt': self.config.initial_prompt
+            'initial_prompt': self.initial_prompt
         }
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations

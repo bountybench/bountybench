@@ -1,4 +1,5 @@
 from abc import ABC
+import time
 class Message(ABC): 
     _next: 'Message' = None
 
@@ -8,6 +9,8 @@ class Message(ABC):
             prev.set_next(self)
         else:
             print(f"Warning: prev is not a Message object. Type: {type(prev)}")
+            
+        self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
 
     @property
     def prev(self) -> str:
@@ -23,5 +26,14 @@ class Message(ABC):
     def to_dict(self) -> dict:
         return {
             "prev": self.prev,
-            "next": self.next
+            "next": self.next,
+            "timestamp": self.timestamp
         }
+    
+    def log_message(self) -> None:
+        """
+        Embeds a call to our global SimpleLogger.
+        We do a local import to avoid circular imports if the logger also imports Message.
+        """
+        from utils.workflow_logger import logger
+        logger.write(self.to_dict())
