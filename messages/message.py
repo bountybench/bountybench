@@ -2,14 +2,9 @@ from abc import ABC
 class Message(ABC): 
     _next: 'Message' = None
 
-    def __init__(self, message: str, prev: 'Message' = None) -> None:
+    def __init__(self, prev: 'Message' = None) -> None:
         prev.set_next(self)
-        self._message = message
         self._prev = prev
-
-    @property
-    def message(self) -> str:
-        return self._message
     
     @property
     def prev(self) -> str:
@@ -24,7 +19,6 @@ class Message(ABC):
     
     def to_dict(self) -> dict:
         return {
-            "message": self.message,
             "prev": self.prev,
             "next": self.next
         }

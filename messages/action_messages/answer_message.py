@@ -1,4 +1,4 @@
-from messages.answer_message_interface import  AnswerMessageInterface
+from messages.action_messages.answer_message_interface import  AnswerMessageInterface
 from messages.parse_message import parse_field
 
 class AnswerMessage(AnswerMessageInterface):

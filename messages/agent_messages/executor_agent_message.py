@@ -2,8 +2,8 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
 class ExecutorAgentMessage(AgentMessage):
-    def __init__(self, message: str, agent_id: str, response: str, observation: str, prev: 'Message' = None) -> None:
-        super().__init__(message, agent_id, prev)
+    def __init__(self, agent_id: str, response: str, observation: str, prev: 'Message' = None) -> None:
+        super().__init__(agent_id, prev)
         self._response = response
         self._observation = observation
 
