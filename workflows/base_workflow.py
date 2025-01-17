@@ -139,13 +139,14 @@ class BaseWorkflow(ABC):
             continue
 
     async def _run_phases(self):
+        prev_phase_message = None
         try:
             if not self._root_phase:
                 raise ValueError("No root phase registered")
 
             self.workflow_message.set_complete(False)
             self._current_phase = self._root_phase
-            #prev_phase_message = self._get_initial_phase_message()
+            prev_phase_message = self._get_initial_phase_message()
 
             while self._current_phase:
                 logger.info(f"Running {self._current_phase.name}")
@@ -168,11 +169,6 @@ class BaseWorkflow(ABC):
 
         except Exception as e:
             self._handle_workflow_exception(e)
-
-
-    def _get_initial_phase_message(self) -> PhaseMessage:
-        initial_message = Message(self.config.initial_prompt) if self.config.initial_prompt else None
-        return PhaseMessage(agent_messages=[initial_message] if initial_message else [])
 
     async def _run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
         phase_instance = self._setup_phase(phase)
