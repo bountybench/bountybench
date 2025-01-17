@@ -2,10 +2,13 @@ from abc import ABC
 class Message(ABC): 
     _next: 'Message' = None
 
-    def __init__(self, prev: 'Message' = None) -> None:
+    def __init__(self, prev: 'Message' = None, auto_log: bool = False) -> None:
         if prev:
             prev.set_next(self)
         self._prev = prev
+
+        if auto_log:
+            self.log_message()
     
     @property
     def prev(self) -> str:
@@ -23,3 +26,11 @@ class Message(ABC):
             "prev": self.prev,
             "next": self.next
         }
+    
+    def log_message(self) -> None:
+        """
+        Embeds a call to our global SimpleLogger.
+        We do a local import to avoid circular imports if the logger also imports Message.
+        """
+        from utils.simple_workflow_logger import logger
+        logger.write(self.to_dict())
