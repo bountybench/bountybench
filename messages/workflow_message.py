@@ -16,6 +16,8 @@ class WorkflowMessage(Message):
         self._success = False
         self._complete = False
         self._phase_messages = []
+        self.agents_used = {}
+        self.resources_used = {}
 
         # Logging
         self.logs_dir = Path(logs_dir)
@@ -62,6 +64,13 @@ class WorkflowMessage(Message):
             json.dump(self.to_dict(), f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
 
+    def add_agent(self, agent_name: str, agent) -> None:
+        if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
+            self.agents_used[agent_name] = agent.to_dict()
+
+    def add_resource(self, resource_name: str, resource) -> None:
+        if resource_name not in self.resources_used and hasattr(resource, 'to_dict'):
+            self.resources_used[resource_name] = resource.to_dict()
 
     def to_dict(self) -> dict:
         return {
