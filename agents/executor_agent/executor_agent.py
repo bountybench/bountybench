@@ -58,7 +58,6 @@ class ExecutorAgent(BaseAgent):
         agent_message.add_action_message(model_action_message)
         # If the model decides to output a command, we run it in the environment
         logger.info(f"LM Response:\n{model_action_message.message}")
-        logger.infO(f"LM returned message type {model_action_message.__class__}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             kali_action_message = self.execute_in_env(model_action_message)
             agent_message.add_action_message(kali_action_message)
@@ -103,4 +102,4 @@ class ExecutorAgent(BaseAgent):
             return kali_message
         except Exception as e:
             logger.exception(f"Failed to execute command: {executor_message.command}.\nException: {str(e)}")
-            return ActionMessage(str(e))
+            return ActionMessage(resource_id=self.kali_env.resource_id, message=str(e), prev=executor_message)

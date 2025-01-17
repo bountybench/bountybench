@@ -175,7 +175,7 @@ class KaliEnvResource(BaseResource):
         return ActionMessage(resource_id=self.resource_id, message=output, prev=command_message)
 
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = "/app") -> str:
-        if len(command_str) > 33:
+        if len(command) > 33:
             command_str = command[:30] + "..."
         start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
         try:
