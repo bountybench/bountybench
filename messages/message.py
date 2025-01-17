@@ -1,4 +1,6 @@
 from abc import ABC
+
+from utils import workflow_logger
 class Message(ABC): 
     _next: 'Message' = None
 
@@ -33,4 +35,4 @@ class Message(ABC):
         We do a local import to avoid circular imports if the logger also imports Message.
         """
         from utils.workflow_logger import logger
-        logger.write(self.to_dict())
+        workflow_logger.log_message(self)
