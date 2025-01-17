@@ -8,6 +8,7 @@ from enum import Enum
 import logging
 
 from messages.phase_messages.phase_message import PhaseMessage
+from messages.workflow_message import WorkflowMessage
 from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from messages.message import Message
@@ -56,8 +57,13 @@ class BaseWorkflow(ABC):
         self._root_phase = None
         self._current_phase = None
 
+
+        self.workflow_message = WorkflowMessage(
+            workflow_name=self.name,
+            task=self._get_task(),
+        )
+
         self._initialize()
-        self._setup_logger()
         self._setup_resource_manager()
         self._setup_agent_manager()
         self._create_phases()
@@ -112,32 +118,6 @@ class BaseWorkflow(ABC):
         """Handles any task level setup pre-resource/agent/phase creation and sets additional params."""
         pass
 
-    def _setup_logger(self):
-        config = self._create_workflow_config()
-        self.config = config
-        self._initialize_workflow_logger(config)
-        logger.info(f"Initialized workflow logger")
-
-    def _create_workflow_config(self) -> WorkflowConfig:
-        return WorkflowConfig(
-            id=self.workflow_id,
-            max_iterations=25,
-            logs_dir=Path("logs"),
-            task=self._get_task(),
-            initial_prompt=self._get_initial_prompt(),
-            metadata=self._get_metadata()
-        )
-
-    def _initialize_workflow_logger(self, config: WorkflowConfig):
-        self.workflow_logger = workflow_logger
-        self.workflow_logger.initialize(
-            workflow_name=config.id,
-            logs_dir=str(config.logs_dir),
-            task=config.task
-        )
-        for key, value in config.metadata.items():
-            self.workflow_logger.add_metadata(key, value)
-
     def _setup_agent_manager(self):
         self.agent_manager = AgentManager()
         logger.info("Setup agent manager")
@@ -163,20 +143,16 @@ class BaseWorkflow(ABC):
             if not self._root_phase:
                 raise ValueError("No root phase registered")
 
-            self._set_workflow_status(WorkflowStatus.INCOMPLETE)
+            self.workflow_message.set_complete(False)
             self._current_phase = self._root_phase
-            prev_phase_message = self._get_initial_phase_message()
+            #prev_phase_message = self._get_initial_phase_message()
 
             while self._current_phase:
                 logger.info(f"Running {self._current_phase.name}")
-                self._set_phase_status(self._current_phase.name, PhaseStatus.INCOMPLETE)
                 phase_message = await self._run_single_phase(self._current_phase, prev_phase_message)
                 yield phase_message
-                
-                if phase_message.success:
-                    self._set_phase_status(self._current_phase.name, PhaseStatus.COMPLETED_SUCCESS)
-                else:
-                    self._set_phase_status(self._current_phase.name, PhaseStatus.COMPLETED_FAILURE)
+
+                self.workflow_message.add_phase_message(phase_message)
 
                 if not phase_message.success or self._max_iterations_reached():
                     break
@@ -186,18 +162,13 @@ class BaseWorkflow(ABC):
                 prev_phase_message = phase_message
 
             if prev_phase_message.success:
-                self._set_workflow_status(WorkflowStatus.COMPLETED_SUCCESS)
+                self.workflow_message.set_success(WorkflowStatus.COMPLETED_SUCCESS)
             else:
-                self._set_workflow_status(WorkflowStatus.COMPLETED_FAILURE)
+                self.workflow_message.set_success(WorkflowStatus.COMPLETED_FAILURE)
 
         except Exception as e:
             self._handle_workflow_exception(e)
 
-    def _set_workflow_status(self, status: WorkflowStatus):
-        self.status = status
-
-    def _set_phase_status(self, phase_name: str, status: PhaseStatus):
-        self.workflow_logger.add_phase_status(phase_name, status.value)
 
     def _get_initial_phase_message(self) -> PhaseMessage:
         initial_message = Message(self.config.initial_prompt) if self.config.initial_prompt else None
@@ -213,6 +184,7 @@ class BaseWorkflow(ABC):
 
         return phase_message
 
+    """
     async def edit_action_input_in_agent(self, action_id: str, new_input: str):
         _, agent_instance = self._current_phase._get_last_agent()
         print(f"In edit action going to run the last agent of {agent_instance.agent_id}")
@@ -223,7 +195,7 @@ class BaseWorkflow(ABC):
                 return result.message
         print("Doesn't have attribute")
         raise ValueError(f"No agent found that can modify action {action_id}")
-    
+    """
     async def set_message_input(self, user_input: str) -> str:
         result = await self._current_phase.set_message_input(user_input)
         
@@ -239,12 +211,9 @@ class BaseWorkflow(ABC):
     def _max_iterations_reached(self) -> bool:
         return self._workflow_iteration_count >= self.config.max_iterations
 
-    def _finalize_workflow(self):
-        self.workflow_logger.finalize(self.status.value)
 
     def _handle_workflow_exception(self, exception: Exception):
-        self._set_workflow_status(WorkflowStatus.INCOMPLETE)
-        self.workflow_logger.finalize(self.status.value)
+        self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
         raise exception
 
     def _setup_phase(self, phase: BasePhase) -> BasePhase:
@@ -253,7 +222,7 @@ class BaseWorkflow(ABC):
             phase.setup()
             return phase
         except Exception as e:
-            self._set_workflow_status(WorkflowStatus.INCOMPLETE)
+            self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
             logger.error(f"Failed to set up phase: {e}")
             raise
 
