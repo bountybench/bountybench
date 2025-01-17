@@ -1,11 +1,10 @@
 from typing import List, Optional
 from messages.agent_messages.agent_message import AgentMessage
-from messages.phase_messages.phase_message_interface import PhaseMessageInterface
 from messages.message import Message
 
-class PhaseMessage(Message, PhaseMessageInterface):
-    def __init__(self, message: str, prev: 'PhaseMessage' = None, agent_messages: Optional[List[AgentMessage]] = []) -> None:
-        super().__init__(message, prev)
+class PhaseMessage(Message):
+    def __init__(self, prev: 'PhaseMessage' = None, agent_messages: Optional[List[AgentMessage]] = []) -> None:
+        super().__init__(prev)
         self._success = False
         self._complete = False
         self._agent_messages = agent_messages

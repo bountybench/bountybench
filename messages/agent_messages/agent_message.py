@@ -1,12 +1,11 @@
 from typing import List
 from messages.action_messages.action_message import ActionMessage
-from messages.agent_messages.agent_message_interface import AgentMessageInterface
 from messages.message import Message
 
-class AgentMessage(Message, AgentMessageInterface):
+class AgentMessage(Message):
     _action_messages: List[ActionMessage] = []
-    def __init__(self, message: str, agent_id: str, prev: 'AgentMessage' = None) -> None:
-        super().__init__(message, prev)
+    def __init__(self, agent_id: str, prev: 'AgentMessage' = None) -> None:
+        super().__init__(prev)
         self._agent_id = agent_id
 
     @property
