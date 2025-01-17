@@ -1,6 +1,5 @@
-from messages.message_interface import MessageInterface
-
-class Message(MessageInterface): 
+from abc import ABC
+class Message(ABC): 
     _next: 'Message' = None
 
     def __init__(self, message: str, prev: 'Message' = None) -> None:

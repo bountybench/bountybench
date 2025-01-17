@@ -1,7 +1,6 @@
-from messages.action_messages.action_message_interface import ActionMessageInterface
 from messages.message import Message
 
-class ActionMessage(Message, ActionMessageInterface):
+class ActionMessage(Message):
     def __init__(self, message: str, resource_id: str, prev: 'ActionMessage' = None) -> None:
         super().__init__(message, prev)
         self._resource_id = resource_id
