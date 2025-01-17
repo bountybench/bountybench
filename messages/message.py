@@ -3,7 +3,8 @@ class Message(ABC):
     _next: 'Message' = None
 
     def __init__(self, prev: 'Message' = None) -> None:
-        prev.set_next(self)
+        if prev:
+            prev.set_next(self)
         self._prev = prev
     
     @property
