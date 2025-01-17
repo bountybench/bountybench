@@ -6,7 +6,6 @@ from typing import List
 from dotenv import load_dotenv
 
 from messages.action_messages.action_message import ActionMessage
-from messages.action_messages.model_action_message import ModelActionMessage
 
 
 class ModelProvider(ABC):
@@ -28,7 +27,7 @@ class ModelProvider(ABC):
             env_var = f"{cls.__name__.upper().replace('MODELS', '')}_API_KEY"
 
         # Define the path to the .env file, which is assumed to be in the root directory.
-        env_path = Path(__file__).resolve().parent.parent / ".env"
+        env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 
         # If the .env file exists, load environment variables from it.
         if env_path.is_file():

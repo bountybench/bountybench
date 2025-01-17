@@ -1,14 +1,13 @@
 from agents.base_agent import AgentConfig, BaseAgent
-from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
-from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
-from resources.model_resource import ModelResource, ModelResourceConfig
+from agents.executor_agent.executor_agent import ExecutorAgent
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 from resources.base_resource import BaseResource
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 from resources.utils import contains_setup
-from messages.answer_message import AnswerMessageInterface
+from messages.action_messages.answer_message_interface import AnswerMessageInterface
 from messages.message import Message
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.docker_resource import DockerResource, DockerResourceConfig
@@ -37,7 +36,7 @@ class PatchPhase(BasePhase):
    
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         # assume we get model through some kwargs situation with the Message
-        executor_config = ExecutorAgentConfig()
+        executor_config = AgentConfig()
 
         patch_config = PatchAgentConfig(
             bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),

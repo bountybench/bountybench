@@ -5,17 +5,15 @@ import tiktoken
 
 from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
-from messages.
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
 from resources.model_resource.model_provider import ModelProvider
 from resources.base_resource import BaseResource, BaseResourceConfig
-from utils import workflow_logger
 from resources.model_resource.model_utils import get_model_provider, truncate_input_to_max_tokens
 from utils.logger import get_main_logger
 
-
+logger = get_main_logger(__name__)
 
 HALLUCINATION_STRINGS = [
     "----------Message from assistant----------",
@@ -24,12 +22,6 @@ HALLUCINATION_STRINGS = [
     "----------</assistant",
     "----------Message from agent",
 ]
-
-
-
-
-logger = get_main_logger(__name__)
-
 
 @dataclass
 class ModelResourceConfig(BaseResourceConfig):

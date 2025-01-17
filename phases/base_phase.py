@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.phase_messages.phase_message import PhaseMessage
-from resources.base_resource import BaseResource
+from resources.base_resource import BaseResource, BaseResourceConfig
 from messages.message import Message
 from utils.logger import get_main_logger
 from utils.workflow_logger import workflow_logger
@@ -37,11 +37,6 @@ class PhaseConfig:
         )
         return config
     
-from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Tuple, Type
-from agents.base_agent import AgentConfig, BaseAgent
-from resources.base_resource import BaseResource, BaseResourceConfig
-
 class BasePhase(ABC):
     AGENT_CLASSES: List[Type[BaseAgent]] = []
 
@@ -176,7 +171,7 @@ class BasePhase(ABC):
         logger.debug(f"Running phase {self.name}")
         if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
             self._last_agent_message = prev_phase_message.agent_messages[-1]
-        curr_phase_message = PhaseMessage()
+        curr_phase_message = PhaseMessage(prev=prev_phase_message)
 
         for iteration_num in range(1, self.phase_config.max_iterations + 1):
             if curr_phase_message.complete:

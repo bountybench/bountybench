@@ -1,7 +1,7 @@
 from typing import Dict, Optional, Tuple, Any, Type
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from messages.answer_message import AnswerMessageInterface
+from messages.action_messages.answer_message import AnswerMessageInterface
 from messages.message import Message
 from phases.base_phase import BasePhase, PhaseMessage
 from resources.base_resource import BaseResource

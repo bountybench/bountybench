@@ -1,0 +1,29 @@
+from messages.agent_messages.agent_message import AgentMessage
+
+class PatchAgentMessage(AgentMessage):
+    def __init__(self, agent_id: str, message: str, success: bool = False, patch_files_dir: str=None, prev: AgentMessage = None) -> None:
+        super().__init__(prev, agent_id)
+        self._message = message
+        self._success = success
+        self._patch_files_dir = patch_files_dir
+
+    @property
+    def message(self) -> str:
+        return self._message
+    
+    @property
+    def success(self) -> bool:
+        return self._success
+    
+    @property
+    def patch_files_dir(self) -> str:
+        return self._patch_files_dir
+
+    def to_dict(self) -> dict:
+        base_dict = super().to_dict()        
+        base_dict.update({
+            "message": self.message,
+            "success": self.success,
+            "patch_files_dir": self.patch_files_dir
+        })
+        return base_dict
