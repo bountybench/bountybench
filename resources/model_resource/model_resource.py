@@ -169,9 +169,6 @@ class ModelResource(BaseResource):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.decode(tokens)
 
-
-
-    @BaseResource.link_messages_decorator
     def run(
         self,
     ) -> ActionMessage:
@@ -193,8 +190,14 @@ class ModelResource(BaseResource):
             stop_sequences=self.stop_sequences,
         )
 
-        return model_response
-    
+        model_response._message = self.model.remove_hallucinations(model_response._message)
+        model_response = model_response._message + f"\n{STOP_TOKEN}"
+
+        try:
+            model_response = self.model.parse_response(model_response)
+            return model_response
+        except Exception as e:
+            logger.warning(f"Unable to parse response as CommandResponse or ActionResponse")
 
     def stop(self) -> None:
         """
