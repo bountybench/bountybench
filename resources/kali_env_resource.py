@@ -81,7 +81,8 @@ class KaliEnvResource(BaseResource):
                 f"bounty_{self._resource_config.bounty_number}"
             )
         
-        self.connect_to_target_hosts_check(self.target_host)
+        if self.target_host:
+            self.connect_to_target_hosts_check(self.target_host)
 
         atexit.register(self.stop)
     
