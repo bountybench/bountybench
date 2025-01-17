@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from functools import wraps
 from typing import List, Set, Tuple, Type, Union
 
+from messages.agent_messages.agent_message import AgentMessage
 from resources.base_resource import BaseResource
 from messages.message import Message
 from messages.message_history import MessageHistory
@@ -16,7 +18,13 @@ class AgentConfig(ABC):
     """Abstract base class for all agent configurations."""
     pass
 
-class BaseAgent(ABC):
+class AgentMeta(type):
+    def __new__(cls, name, bases, attrs):
+        if 'run' in attrs:
+            attrs['run'] = BaseAgent.link_messages_decorator(attrs['run'])
+        return super().__new__(cls, name, bases, attrs)
+    
+class BaseAgent(ABC,  metaclass=AgentMeta):
     """
     Abstract base class for agents with managed resources.
 
@@ -59,7 +67,7 @@ class BaseAgent(ABC):
         return set(cls._parse_resource_entry(resource)[1] for resource in cls.OPTIONAL_RESOURCES)
 
     @abstractmethod
-    async def run(self, messages: List[Message]) -> Message:
+    async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """
         Execute the agent's main logic and produce a message.
         
@@ -74,3 +82,23 @@ class BaseAgent(ABC):
     @property
     def agent_id(self) -> str:
         return self._agent_id
+    
+    @staticmethod
+    def link_messages_decorator(func):
+        """
+        Decorator to handle linking of previous and next AgentMessage.
+        """
+        @wraps(func)
+        def wrapper(self, message: AgentMessage) -> AgentMessage:
+            # Call the original run method
+            new_message = func(self, message)
+
+            if not isinstance(new_message, AgentMessage):
+                raise TypeError("The run method must return an AgentMessage.")
+
+            # Link the new message to the input message
+            new_message.prev = message
+            message.next = new_message
+
+            return new_message
+        return wrapper

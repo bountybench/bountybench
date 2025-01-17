@@ -41,15 +41,14 @@ class ExecutorAgent(BaseAgent):
         if len(messages) > 1:
             raise Exception(f"Accepts at most a single message, got {len(messages)}.")
         if len(messages) == 0:        
-            self.model.formulate_prompt()
-            message = None
+            prev_agent_message = None
         else:
             prev_agent_message = messages[0]
-            self.model.formulate_prompt(message)
 
-        agent_message = AgentMessage(prev_agent_message)
+        agent_message = AgentMessage()
         # how to get to action message?
-        executor_message = self.execute(message)
+        action_message = prev_agent_message.action_messages[-1] if prev_agent_message and len(prev_agent_message.action_messages > 0) else None
+        executor_message = self.execute(agent_message, action_message)
         self.model.update_memory(executor_message)
 
         return agent_message
