@@ -30,13 +30,14 @@ class DetectPhase(BasePhase):
 
     def __init__(self, workflow: 'BaseWorkflow', **kwargs):
         self.model = kwargs.get('model')
+        self.helm = kwargs.get('helm')
         self.bounty_number = kwargs.get('bounty_number')
         self.initial_prompt = kwargs.get('initial_prompt')
         super().__init__(workflow, **kwargs)
 
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
         # assume we get model through some kwargs situation with the Message
-        executor_lm_config = AgentLMConfig.create(model=self.model)
+        executor_lm_config = AgentLMConfig.create(model=self.model, use_helm=self.helm)
         # Create the executor_config
         executor_config = ExecutorAgentConfig(
             lm_config=executor_lm_config,

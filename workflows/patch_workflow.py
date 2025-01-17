@@ -18,6 +18,7 @@ class PatchWorkflow(BountyWorkflow):
 
         phase_kwargs = {
             'model': self.params.get('model'),
+            'helm': self.params.get('helm'),
             'bounty_number': self.bounty_number,
             'max_iterations': 20,
             'use_agent_exploit': False
@@ -61,6 +62,7 @@ async def main() -> None:
     parser.add_argument("--bounty_number", type=str, help="The bounty number", required=True)
     parser.add_argument("--interactive", action="store_true", help="Enable interactive mode")
     parser.add_argument("--model", type=str, help="The LM model to query")
+    parser.add_argument("--helm", action="store_true", help="Use HelmModels")
     parser.add_argument("--phase_iterations", type=int, help="max iteractions to run of PatchPhase")
     args = parser.parse_args()
 

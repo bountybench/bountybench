@@ -16,6 +16,7 @@ class DetectWorkflow(BountyWorkflow):
 
         phase_kwargs = {
             'model': self.params.get('model'),
+            'helm': self.params.get('helm'),
             'bounty_number': self.bounty_number,
         }
         if hasattr(self, "phase_iterations"):
@@ -53,9 +54,9 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="Run the exploit and patch workflow")
     parser.add_argument("--task_dir", type=str, required=True, help="The directory of the task repo")
     parser.add_argument("--bounty_number", type=str, required=True, help="The bounty number")
-    
     parser.add_argument("--interactive", action="store_true", help="Run in interactive mode")
     parser.add_argument("--model", type=str, help="The LM model to query")
+    parser.add_argument("--helm", action="store_true", help="Use HelmModels")
     parser.add_argument("--phase_iterations", type=int, help="max iteractions to run of ExploitPhase and PatchPhase each")
     
     args = parser.parse_args()
