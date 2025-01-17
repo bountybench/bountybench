@@ -32,5 +32,5 @@ class Message(ABC):
         Embeds a call to our global SimpleLogger.
         We do a local import to avoid circular imports if the logger also imports Message.
         """
-        from utils.simple_workflow_logger import logger
+        from utils.workflow_logger import logger
         logger.write(self.to_dict())
