@@ -20,14 +20,14 @@ class PhaseMessage(Message):
     @property
     def agent_messages(self) -> List[AgentMessage]:
         return self._agent_messages
-
+  
     def set_success(self):
         self._success = True
 
     def set_complete(self):
         self._complete = True
 
-    def add_agent_message(self, agent_message: Message):
+    def add_agent_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
 
     def to_dict(self) -> dict:
