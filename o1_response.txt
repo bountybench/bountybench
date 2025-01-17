@@ -1,0 +1,238 @@
+Below is a suggested approach for evolving your current **linked-list-style** `Message` into a more general Directed Acyclic Graph (DAG) structure that meets your needs:
+
+1. **Allow multiple parents and children**  
+   Instead of having a single `prev` and `next`, use lists to track parents (incoming edges) and children (outgoing edges). This gives you true DAG semantics—where a node can branch into multiple child nodes or converge from multiple parents.
+
+2. **Use a manager or registry**  
+   A central “DAG Manager” (or message registry) can track messages by a unique ID. This makes it easier to retrieve nodes for logging, revert to old states, or perform DAG-wide operations. You can automatically register new messages in the manager upon creation.
+
+3. **Minimize overhead for developers**  
+   Ideally, developers creating new phases, agents, etc., just produce or consume `Message` objects without worrying about how logging or DAG wiring happens. This means:
+   - When a new `Message` is created, it automatically sets up references to its parents (and the parents’ children lists).
+   - The registry automatically stores it by ID, so you can look up any node and restore state from it.
+
+Below is a simplified sketch of how you might define the `Message` class and a `DAGManager`. You can then adapt your `start_iteration`, `end_iteration`, and `run_phase` methods to leverage this structure.
+
+---
+
+## 1) Updated `Message` Class
+
+```python
+import uuid
+from typing import List, Optional, Dict, Any
+from messages.message_interface import MessageInterface
+
+class Message(MessageInterface):
+    def __init__(
+        self,
+        content: Any,
+        parents: Optional[List['Message']] = None,
+        manager: Optional['DAGManager'] = None,
+    ) -> None:
+        """
+        A DAG-based message structure. Each message can have multiple parents 
+        and multiple children. A manager can store references for future lookups.
+        """
+        self.id = str(uuid.uuid4())
+        self._content = content
+        self._parents: List[Message] = parents or []
+        self._children: List[Message] = []
+
+        # Automatically link children->parents, parents->children
+        for p in self._parents:
+            p._children.append(self)
+
+        # If we have a DAGManager, register this message
+        self._manager = manager
+        if self._manager:
+            self._manager.register_message(self)
+
+    @property
+    def content(self) -> Any:
+        return self._content
+
+    @property
+    def parents(self) -> List['Message']:
+        return self._parents
+
+    @property
+    def children(self) -> List['Message']:
+        return self._children
+
+    def add_child(self, child: 'Message') -> None:
+        """
+        Helper if you want to manually set child relationships.
+        """
+        if child not in self._children:
+            self._children.append(child)
+        if self not in child._parents:
+            child._parents.append(self)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serialize minimal info. You can expand to capture full state
+        for debugging, revert, etc.
+        """
+        return {
+            "id": self.id,
+            "content": self.content,
+            "parent_ids": [p.id for p in self._parents],
+            "child_ids": [c.id for c in self._children],
+        }
+```
+
+Key changes:
+- **Multiple parents** are stored in `self._parents`.
+- Each parent’s `_children` list is updated when the new `Message` is constructed.
+- A unique `id` is assigned so that we can track or retrieve the node from a central place.
+- `content` is the “payload” (could be a dict, string, or custom object).
+- `to_dict` shows how you might serialize the node.
+
+---
+
+## 2) A `DAGManager` or Registry
+
+```python
+class DAGManager:
+    """
+    Tracks Message nodes by ID and allows revert/lookups.
+    """
+    def __init__(self):
+        self._messages: Dict[str, Message] = {}
+
+    def register_message(self, message: Message) -> None:
+        self._messages[message.id] = message
+
+    def get_message(self, message_id: str) -> Optional[Message]:
+        return self._messages.get(message_id)
+
+    def revert_to(self, message_id: str) -> None:
+        """
+        Example placeholder: 
+        In practice, you'd load the state from the message's content 
+        or from a snapshot. 
+        """
+        msg = self.get_message(message_id)
+        if not msg:
+            raise ValueError(f"No message found with ID {message_id}")
+        # Implement your logic to restore system state from msg content
+        # e.g., reload environment, set phase/agent states, etc.
+        print(f"Reverting system to the state of message {message_id}")
+```
+
+This `DAGManager`:
+- Maintains an internal dictionary of message IDs to `Message` objects.
+- Allows quick retrieval for display, debugging, or reversion.
+- A `revert_to(...)` method conceptually shows how you might restore state from a saved message.
+
+---
+
+## 3) Integrating with `start_iteration` and `end_iteration`
+
+Below is a conceptual example of how you might adapt your iteration-logging code to produce a new `Message` node for each iteration’s input and output:
+
+```python
+# Example usage within your iteration context
+
+def start_iteration(self, iteration_number: int, agent_name: str, input_message: Optional[Message]) -> None:
+    # ...
+    # Instead of just storing the input_message, we might create or register it if needed:
+    if input_message and not input_message.id in self.dag_manager._messages:
+        self.dag_manager.register_message(input_message)
+
+    self.current_iteration = PhaseIteration(
+        iteration_number=iteration_number,
+        agent_name=agent_name,
+        input_message=input_message,
+        output_message=None,
+        start_time=datetime.now().isoformat(),
+        # ...
+    )
+
+    # Logging the iteration start
+    self.broadcast_update({
+        "type": "iteration_update",
+        "iteration": {
+            "iteration_number": iteration_number,
+            "agent_name": agent_name,
+            "status": "in_progress",
+            "input": input_message.to_dict() if input_message else None
+        }
+    })
+
+def end_iteration(self, output_message: Message, status: str = "completed") -> None:
+    # ...
+    if not output_message.id in self.dag_manager._messages:
+        self.dag_manager.register_message(output_message)
+
+    # Optionally link input -> output if you'd like a direct chain
+    if self.current_iteration.input_message:
+        self.current_iteration.input_message.add_child(output_message)
+
+    # Set the iteration's output
+    self.current_iteration.output_message = output_message
+    self.current_iteration.end_time = datetime.now().isoformat()
+    self.current_iteration.status = status
+    self.get_aggregate_metadata()
+
+    # ...
+    self.broadcast_update({
+        "type": "iteration_update",
+        "iteration": {
+            "iteration_number": self.current_iteration.iteration_number,
+            "agent_name": self.current_iteration.agent_name,
+            "status": status,
+            "output": output_message.to_dict() if output_message else None
+        }
+    })
+    self.current_iteration = None
+```
+
+- You can see how the new DAG-based `Message` links input and output messages. If multiple messages converge or diverge, your DAG structure accommodates that naturally.
+
+---
+
+## 4) Example Workflow Usage
+
+In your `run_phase`, each time you produce a new `PhaseMessage` or `AgentMessage`, you can:
+1. Create a new `Message` node (with references to the prior node(s)).
+2. Register the new node with the `DAGManager`.
+3. If needed, revert or debug by fetching the relevant node from the manager.
+
+For instance:
+
+```python
+async def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
+    # ...
+    if prev_phase_message:
+        # Perhaps turn it into or wrap it as a DAG-based Message
+        dag_input = Message(content=prev_phase_message, manager=self.dag_manager)
+
+    curr_phase_message = PhaseMessage(agent_messages=[])
+    # ...
+    for iteration_num in range(1, self.phase_config.max_iterations + 1):
+        if curr_phase_message.complete:
+            break
+
+        # ...
+        with phase_ctx.iteration(iteration_num, agent_id, self._last_agent_message) as iteration_ctx:
+            message = await self.run_one_iteration(
+                phase_message=curr_phase_message,
+                agent_instance=agent_instance,
+                previous_output=self._last_agent_message,
+            )
+            # Possibly wrap the raw output in a DAG-based Message
+            dag_output = Message(content=message, manager=self.dag_manager)
+            iteration_ctx.set_output(dag_output)
+        # ...
+```
+
+---
+
+### Summary of Benefits
+
+- **Revert to Any Prior State**: By storing the complete state or references to the state in each message’s `content`, you can reconstruct or “revert” to that snapshot.
+- **Flexible DAG Representation**: Multiple inputs/outputs per phase or iteration become naturally modelable.  
+- **Minimal Developer Overhead**: Using the manager and the DAG-based `Message` behind the scenes allows phase/agent authors to simply consume or produce `Message` objects.
+
+These ideas should help you **cleanly** represent the full workflow as a graph of messages, with the ability to revert, log, and debug in a more powerful way than a simple linear chain. Feel free to refine or rename pieces to match your existing code style and requirements.

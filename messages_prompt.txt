@@ -2,31 +2,173 @@ I have a codebase where I want to introduce the idea of a DAG message structure,
 
 The main question is how to make this clean. Ideally this just happens via python magic / automagically.
 
+The codebase consists of several key data structures which are worth noting here and I will explain to you in details to make you have a better sense of what your task is:
+
+We are attempting to develop a multi-agent architecture that is able to solve a specific task. Usually, we call the task a workflow. A *workflow* consists of one or multiple *phases* and each *phase* should achieve a sub-goal of the overall task. Within each phase, one or more *agents* (here, we use *iteration* to refer to the work done by an agent at a time) collaborate with each other to attempt to complete the phase. Each agent has access to a list of resources (e.g. docker server, kali terminal, browser etc.) and within an iteration, an agent performs a series of *actions*. 
+
+Each phase takes in a PhaseMessage as input and outputs a PhaseMessage.
+Each agent takes in an AgentMessage as input and outputs an AgentMessage.
+
+Based on the above, here is what I want you to achieve with the DAG message structure:
+1. Should be able to represent the whole workflow as a tree/graph structure consisting of messages (messages similar to nodes). Imagine that each message corresponds to a snapshot of the workflow and users should be able to retrieve all the information at that particular stage from that single message.
+2. Should be able to revert back to a specific state based on the message object and rerun from there. 
+3. The code-level implementation should be intuitive, maintainable and extensible such that people working on developing workflow, phases, agents, and resources should not worry too much about logging messages, etc.
+
 Here's the relevant code:
 
-from typing import List
-from messages.action_messages.action_message import ActionMessage
-from messages.agent_messages.agent_message_interface import AgentMessageInterface
-from messages.message import Message
+Base Message Definition (feel free to update this as well):
 
-class AgentMessage(Message, AgentMessageInterface):
-    _action_messages: List[ActionMessage] = []
-    def __init__(self, message: str, agent_id: str, prev: 'AgentMessage' = None) -> None:
-        super().__init__(message, prev)
-        self._agent_id = agent_id
+from messages.message_interface import MessageInterface
 
-    @property
-    def agent_id(self) -> str:
-        return self._agent_id
+class Message(MessageInterface): 
+    _next: 'Message' = None
+
+    def __init__(self, message: str, prev: 'Message' = None) -> None:
+        prev.set_next(self)
+        self._message = message
+        self._prev = prev
 
     @property
-    def action_messages(self) -> List[ActionMessage]:
-        return self._action_messages
-
+    def message(self) -> str:
+        return self._message
+    
+    @property
+    def prev(self) -> str:
+        return self._prev
+    
+    @property
+    def next(self) -> str:
+        return self._next
+    
+    def set_next(self, next: 'Message') -> None:
+        self._next = next
+    
     def to_dict(self) -> dict:
-        base_dict = super().to_dict()        
-        base_dict.update({
-            "agent_id": self.agent_id,
-            "action_messages": [action_message.to_dict() for action_message in self.action_messages]
+        return {
+            "message": self.message,
+            "prev": self.prev,
+            "next": self.next
+        }
+
+The current logging system (use iteration as an example):
+    def start_iteration(self, iteration_number: int, agent_name: str, input_message: Optional[Message]) -> None:
+        """
+        Start a new iteration within the current phase.
+        """
+        self._ensure_initialized()
+        if not self.current_phase:
+            raise RuntimeError("Must start a phase before starting an iteration.")
+        if self.current_iteration is not None:
+            raise RuntimeError("A previous iteration was not ended properly.")
+
+        self.current_iteration = PhaseIteration(
+            iteration_number=iteration_number,
+            agent_name=agent_name,
+            input_message=input_message,
+            output_message=None,
+            start_time=datetime.now().isoformat(),
+            end_time=None,
+            actions=[],
+            metadata={},
+            status="in_progress",
+        )
+        
+        # Broadcast iteration update
+        self.broadcast_update({
+            "type": "iteration_update",
+            "iteration": {
+                "iteration_number": iteration_number,
+                "agent_name": agent_name,
+                "status": "in_progress",
+                "input": input_message.to_dict() if input_message else None
+            }
         })
-        return base_dict
+
+    def end_iteration(self, output_message: Message, status: str = "completed") -> None:
+        """
+        End the current iteration and add it to the current phase.
+        """
+        self._ensure_initialized()
+        if not self.current_phase:
+            raise RuntimeError("No phase in progress.")
+        if not self.current_iteration:
+            raise RuntimeError("No iteration in progress.")
+
+        self.current_iteration.output_message = output_message
+        self.current_iteration.end_time = datetime.now().isoformat()
+        self.current_iteration.status = status
+        self.get_aggregate_metadata()
+
+        self.current_phase.iterations.append(self.current_iteration)
+        # Broadcast iteration completion
+        self.broadcast_update({
+            "type": "iteration_update",
+            "iteration": {
+                "iteration_number": self.current_iteration.iteration_number,
+                "agent_name": self.current_iteration.agent_name,
+                "status": status,
+                "output": output_message.to_dict() if output_message else None
+            }
+        })
+        self.current_iteration = None
+
+The current run_phase function:
+    async def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
+        """
+        Execute the phase by running its iterations.
+
+        Args:
+            phase_message (PhaseMessage): The message from the previous phase.
+
+        Returns:
+            PhaseMessage: The message of the current phase.
+        """
+        logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
+        logger.debug(f"Running phase {self.name}")
+        if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
+            self._last_agent_message = prev_phase_message.agent_messages[-1]
+        curr_phase_message = PhaseMessage(agent_messages=[])
+
+        # 1) Start phase context
+        with workflow_logger.phase(self) as phase_ctx:
+            for iteration_num in range(1, self.phase_config.max_iterations + 1):
+                if curr_phase_message.complete:
+                    break
+
+
+                if self.phase_config.interactive:
+                    if hasattr(self.workflow, 'next_iteration_event'):
+                        logger.info("Waiting for 'next' signal ...")
+                        self.workflow.next_iteration_event.clear()
+                        await self.workflow.next_iteration_event.wait()
+                    else:
+                        logger.warning("Interactive mode is set, but workflow doesn't have next_iteration_event")
+    
+                agent_id, agent_instance = self._get_current_agent()
+                logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
+
+                # 2) Start iteration context in the logger
+                with phase_ctx.iteration(iteration_num, agent_id, self._last_agent_message) as iteration_ctx:
+                    message = await self.run_one_iteration(
+                        phase_message=curr_phase_message,
+                        agent_instance=agent_instance,
+                        previous_output=self._last_agent_message,
+                    )
+                    iteration_ctx.set_output(message)
+                logger.info(f"Finished iteration {iteration_num} of {self.name} with {agent_id}")
+                if curr_phase_message.complete:
+                    break
+
+                self._last_agent_message = curr_phase_message.agent_messages[-1]
+
+                # Increment the iteration count
+                self.iteration_count += 1
+                self.current_agent_index += 1
+
+        if not self.phase_summary:
+            self._set_phase_summary("completed_failure")
+
+        # Deallocate resources after completing iterations
+        self.deallocate_resources()
+
+        return curr_phase_message
