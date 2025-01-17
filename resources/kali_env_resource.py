@@ -172,7 +172,7 @@ class KaliEnvResource(BaseResource):
     def run(self, command_message: CommandMessage) -> ActionMessage:
         command_str = command_message.command
         output = self.run_command(command_str, TIMEOUT_PER_COMMAND)
-        return ActionMessage(output)
+        return ActionMessage(resource_id=self.resource_id, message=output, prev=command_message)
 
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = "/app") -> str:
         if len(command_str) > 33:

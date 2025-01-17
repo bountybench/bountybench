@@ -18,13 +18,7 @@ class AgentConfig(ABC):
     """Abstract base class for all agent configurations."""
     pass
 
-class AgentMeta(type):
-    def __new__(cls, name, bases, attrs):
-        if 'run' in attrs:
-            attrs['run'] = BaseAgent.link_messages_decorator(attrs['run'])
-        return super().__new__(cls, name, bases, attrs)
-    
-class BaseAgent(ABC,  metaclass=AgentMeta):
+class BaseAgent(ABC):
     """
     Abstract base class for agents with managed resources.
 
@@ -82,23 +76,3 @@ class BaseAgent(ABC,  metaclass=AgentMeta):
     @property
     def agent_id(self) -> str:
         return self._agent_id
-    
-    @staticmethod
-    def link_messages_decorator(func):
-        """
-        Decorator to handle linking of previous and next AgentMessage.
-        """
-        @wraps(func)
-        def wrapper(self, message: AgentMessage) -> AgentMessage:
-            # Call the original run method
-            new_message = func(self, message)
-
-            if not isinstance(new_message, AgentMessage):
-                raise TypeError("The run method must return an AgentMessage.")
-
-            # Link the new message to the input message
-            new_message.prev = message
-            message.next = new_message
-
-            return new_message
-        return wrapper

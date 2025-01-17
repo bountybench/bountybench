@@ -55,13 +55,7 @@ class BaseResourceConfig(ABC):
         """
         pass
 
-class ResourceMeta(type):
-    def __new__(cls, name, bases, attrs):
-        if 'run' in attrs:
-            attrs['run'] = BaseResource.link_messages_decorator(attrs['run'])
-        return super().__new__(cls, name, bases, attrs)
-
-class BaseResource(ABC, metaclass=ResourceMeta):
+class BaseResource(ABC):
     @abstractmethod
     def stop(*args, **kwargs):
         pass
@@ -87,23 +81,3 @@ class BaseResource(ABC, metaclass=ResourceMeta):
 
     def __str__(self):
         return self._resource_id
-
-    @staticmethod
-    def link_messages_decorator(func):
-        """
-        Decorator to handle linking of previous and next ActionMessages.
-        """
-        @wraps(func)
-        def wrapper(self, message: ActionMessage) -> ActionMessage:
-            # Call the original run method
-            new_message = func(self, message)
-
-            if not isinstance(new_message, ActionMessage):
-                raise TypeError("The run method must return an ActionMessage.")
-
-            # Link the new message to the input message
-            new_message.prev = message
-            message.next = new_message
-
-            return new_message
-        return wrapper

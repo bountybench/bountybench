@@ -1,17 +1,15 @@
 from typing import List
 from agents.prompts import STOP_TOKEN
+from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message_interface import  CommandMessageInterface
 from messages.parse_message import parse_field
 
-class CommandMessage(CommandMessageInterface):
-    def __init__(self, message: str) -> None:
-        self._message = message
+from typing import Dict, Any, Optional
+    
+class CommandMessage(CommandMessageInterface, ActionMessage):
+    def __init__(self, resource_id: str, message: str, additional_metadata: Optional[Dict[str, Any]] = {}, prev: 'ActionMessage' = None) -> None:
+        super().__init__(resource_id, message, additional_metadata, prev)
         self._command = self.parse_command()
-        self._observation = None
- 
-    @property
-    def message(self) -> str:
-        return self._message
 
     @property
     def command(self) -> str:
@@ -24,7 +22,8 @@ class CommandMessage(CommandMessageInterface):
         return command
     
     def to_dict(self) -> dict:
-        return {
-            "message": self.message,
+        base_dict = super().to_dict()        
+        base_dict.update({
             "command": self.command,
-        }
+        })
+        return base_dict
