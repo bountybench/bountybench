@@ -17,6 +17,7 @@ class DetectWorkflow(BountyWorkflow):
         phase_kwargs = {
             'model': self.params.get('model'),
             'bounty_number': self.bounty_number,
+            'initial_prompt': self.config.initial_prompt
         }
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations

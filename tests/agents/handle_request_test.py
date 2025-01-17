@@ -4,7 +4,7 @@ from agents.executor_agent.executor_agent import ExecutorAgent
 from models.query import query
 from agents.prompts import STOP_TOKEN
 
-from models.model_response import ModelResponse
+from resources.model_resource.model_response import ModelResponse
 from agents.dataclasses.agent_spec import AgentConfig
 from resources.kali_env_resource import KaliEnvResource
 

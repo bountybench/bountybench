@@ -5,17 +5,15 @@ import tiktoken
 
 from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
-from messages.
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
 from resources.model_resource.model_provider import ModelProvider
 from resources.base_resource import BaseResource, BaseResourceConfig
-from utils import workflow_logger
 from resources.model_resource.model_utils import get_model_provider, truncate_input_to_max_tokens
 from utils.logger import get_main_logger
 
-
+logger = get_main_logger(__name__)
 
 HALLUCINATION_STRINGS = [
     "----------Message from assistant----------",
@@ -24,12 +22,6 @@ HALLUCINATION_STRINGS = [
     "----------</assistant",
     "----------Message from agent",
 ]
-
-
-
-
-logger = get_main_logger(__name__)
-
 
 @dataclass
 class ModelResourceConfig(BaseResourceConfig):
@@ -73,7 +65,7 @@ class ModelResource(BaseResource):
         self.helm = self._resource_config.use_helm
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
-        self.prompt = self._resource_config.initial_prompt
+        self.initial_prompt = self._resource_config.initial_prompt
         self.memory = []
 
 
@@ -99,6 +91,10 @@ class ModelResource(BaseResource):
                 logger.debug("Could not parse as CommandMessage.")
                 raise Exception("Could not parse LM response as AnswerMessage or CommandMessage.")
 
+    def update_initial_prompt(self, message_str: str) -> None:
+        self.initial_prompt = message_str
+        self.memory.clear()
+
     def update_memory(self, message_str: str) -> None:
         """Update model's memory with new message"""
         if len(self.memory) >= self.max_iterations_stored_in_memory:
@@ -106,16 +102,12 @@ class ModelResource(BaseResource):
         else:
             self.memory.append(message_str)
 
-    def formulate_prompt(self, message: Optional[ExecutorAgentMessage] = None) -> str:
+    def formulate_prompt(self, message: Optional[ActionMessage] = None) -> str:
         """
         Formulates the prompt, including the truncated memory.
         """
         if message:
-            if self.initial_prompt:
-                self.update_memory(message)
-            else:
-                self.initial_prompt = message._response 
-    
+            self.update_memory(message.message)
 
         truncated_input = truncate_input_to_max_tokens(
             max_input_tokens=self.max_input_tokens,
@@ -123,7 +115,10 @@ class ModelResource(BaseResource):
             model=self.model,
             use_helm=self.helm,
         )
-        prompt = self.initial_prompt + truncated_input
+        if self.initial_prompt:
+            prompt = self.initial_prompt + truncated_input
+        else:
+            prompt = truncated_input
         self.prompt = prompt
         return prompt
     
@@ -192,13 +187,12 @@ class ModelResource(BaseResource):
             stop_sequences=self.stop_sequences,
         )
 
-        model_response._message = self.remove_hallucinations(model_response._message)
-        lm_response = model_response._message + f"\n{STOP_TOKEN}"
-
+        lm_response = self.remove_hallucinations(model_response.content)
+        lm_response = lm_response + f"\n{STOP_TOKEN}"
         metadata={
             "model": self.model,
             "temperature": self.temperature,
-            "max_input_tokens": self.max_tokens,
+            "max_input_tokens": self.max_input_tokens,
             "stop_sequences": self.stop_sequences,
             "input_tokens": model_response.input_tokens,
             "output_tokens": model_response.output_tokens,

@@ -3,8 +3,8 @@ from typing import List
 
 from together import Together
 
-from resources.model_provider import ModelProvider
-from resources.model_response import ModelResponse
+from resources.model_resource.model_provider import ModelProvider
+from resources.model_resource.model_response import ModelResponse
 
 
 class TogetherModels(ModelProvider):

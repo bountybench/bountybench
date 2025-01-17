@@ -4,7 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 
-from resources.openai_models.openai_models import OpenAIModels
+from resources.model_resource.openai_models.openai_models import OpenAIModels
 
 
 class AzureOpenAIModels(OpenAIModels):
@@ -13,7 +13,7 @@ class AzureOpenAIModels(OpenAIModels):
 
     def _endpoint(self) -> str:
         env_var = "AZURE_OPENAI_ENDPOINT"
-        current_dir = Path(__file__).resolve().parent.parent
+        current_dir = Path(__file__).resolve().parent.parent.parent
         root_dir = current_dir.parent
         env_path = root_dir / ".env"
         if env_path.is_file():

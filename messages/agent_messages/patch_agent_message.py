@@ -1,11 +1,11 @@
 from messages.agent_messages.agent_message import AgentMessage
 
-class ExploitAgentMessage(AgentMessage):
-    def __init__(self, agent_id: str, message: str, success: bool = False, exploit_files_dir: str = None, prev: AgentMessage = None) -> None:
+class PatchAgentMessage(AgentMessage):
+    def __init__(self, agent_id: str, message: str, success: bool = False, patch_files_dir: str=None, prev: AgentMessage = None) -> None:
         super().__init__(agent_id, prev)
         self._message = message
         self._success = success
-        self._exploit_files_dir = exploit_files_dir
+        self._patch_files_dir = patch_files_dir
 
     @property
     def message(self) -> str:
@@ -16,13 +16,14 @@ class ExploitAgentMessage(AgentMessage):
         return self._success
     
     @property
-    def exploit_files_dir(self) -> str:
-        return self._exploit_files_dir
+    def patch_files_dir(self) -> str:
+        return self._patch_files_dir
 
     def to_dict(self) -> dict:
         base_dict = super().to_dict()        
         base_dict.update({
+            "message": self.message,
             "success": self.success,
-            "exploit_files_dir": self.exploit_files_dir
+            "patch_files_dir": self.patch_files_dir
         })
         return base_dict

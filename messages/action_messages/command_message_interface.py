@@ -6,6 +6,6 @@ class CommandMessageInterface(ABC):
         if cls is CommandMessageInterface:
             return all(
                 any(attr in B.__dict__ for B in subclass.__mro__)
-                for attr in ['command', 'observation', 'message']
+                for attr in ['command', 'message']
             )
         return NotImplemented

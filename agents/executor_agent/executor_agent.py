@@ -45,9 +45,9 @@ class ExecutorAgent(BaseAgent):
         else:
             prev_agent_message = messages[0]
 
-        agent_message = AgentMessage()
+        agent_message = AgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
         # Assuming we want to pass in the last action message. 
-        action_message = prev_agent_message.action_messages[-1] if prev_agent_message and len(prev_agent_message.action_messages > 0) else None
+        action_message = prev_agent_message.action_messages[-1] if prev_agent_message and len(prev_agent_message.action_messages) > 0 else None
         executor_message = self.execute(agent_message, action_message)
         self.model.update_memory(executor_message)
 
@@ -61,8 +61,8 @@ class ExecutorAgent(BaseAgent):
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             kali_action_message = self.execute_in_env(model_action_message)
             agent_message.add_action_message(kali_action_message)
-
-        return kali_action_message
+            return kali_action_message
+        return model_action_message
 
     def call_lm(self, lm_input_message: Optional[ActionMessage] = None) -> Union[AnswerMessage, CommandMessage]:
         """
@@ -102,4 +102,4 @@ class ExecutorAgent(BaseAgent):
             return kali_message
         except Exception as e:
             logger.exception(f"Failed to execute command: {executor_message.command}.\nException: {str(e)}")
-            return ActionMessage(str(e))
+            return ActionMessage(resource_id=self.kali_env.resource_id, message=str(e), prev=executor_message)

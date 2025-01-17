@@ -2,7 +2,7 @@ from typing import List
 
 from anthropic import Anthropic
 
-from resources.model_provider import ModelProvider
+from resources.model_resource.model_provider import ModelProvider
 
 
 class AnthropicModels(ModelProvider):
