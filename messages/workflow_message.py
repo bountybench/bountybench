@@ -16,6 +16,8 @@ class WorkflowMessage(Message):
         self._success = False
         self._complete = False
         self._phase_messages = []
+        self.agents_used = {}
+        self.resources_used = {}
 
         # Logging
         self.logs_dir = Path(logs_dir)
@@ -33,9 +35,6 @@ class WorkflowMessage(Message):
         self._start_time = datetime.now().isoformat()
         self._end_time = None
         self._phase_status = {}
-        self.agents_used = {}
-        self.resources_used = {}
-
     @property
     def success(self) -> bool:
         return self._success
@@ -67,11 +66,11 @@ class WorkflowMessage(Message):
 
     def add_agent(self, agent_name: str, agent) -> None:
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
-            self.workflow_log.agents_used[agent_name] = agent.to_dict()
+            self.agents_used[agent_name] = agent.to_dict()
 
     def add_resource(self, resource_name: str, resource) -> None:
-        if resource_name not in self.workflow_log.resources_used and hasattr(resource, 'to_dict'):
-            self.workflow_log.resources_used[resource_name] = resource.to_dict()
+        if resource_name not in self.resources_used and hasattr(resource, 'to_dict'):
+            self.resources_used[resource_name] = resource.to_dict()
 
     def to_dict(self) -> dict:
         return {
