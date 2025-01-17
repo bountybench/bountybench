@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from functools import wraps
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
@@ -104,6 +105,26 @@ class BasePhase(ABC):
             resources.update(agent_cls.get_required_resources())
         return resources
 
+    @staticmethod
+    def link_messages_decorator(func):
+        """
+        Decorator to handle linking of previous and next PhaseMessage.
+        """
+        @wraps(func)
+        async def wrapper(self, prev_phase_message: PhaseMessage, *args, **kwargs) -> PhaseMessage:
+            # Call the original run method
+            new_message = await func(self, prev_phase_message, *args, **kwargs)
+
+            if not isinstance(new_message, PhaseMessage):
+                raise TypeError("The run method must return a PhaseMessage.")
+
+            # Link the new message to the input message
+            new_message.prev = prev_phase_message
+            prev_phase_message.next = new_message
+
+            return new_message
+        return wrapper
+    
     def setup(self):
         """
         Initialize and register resources and agents for the phase.
@@ -140,6 +161,7 @@ class BasePhase(ABC):
             logger.error(f"Failed to deallocate resources for phase {self.phase_config.phase_idx}: {e}")
             raise
 
+    @link_messages_decorator
     async def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.
@@ -154,43 +176,37 @@ class BasePhase(ABC):
         logger.debug(f"Running phase {self.name}")
         if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
             self._last_agent_message = prev_phase_message.agent_messages[-1]
-        curr_phase_message = PhaseMessage(agent_messages=[])
+        curr_phase_message = PhaseMessage()
 
-        # 1) Start phase context
-        with workflow_logger.phase(self) as phase_ctx:
-            for iteration_num in range(1, self.phase_config.max_iterations + 1):
-                if curr_phase_message.complete:
-                    break
+        for iteration_num in range(1, self.phase_config.max_iterations + 1):
+            if curr_phase_message.complete:
+                break
 
+            if self.phase_config.interactive:
+                if hasattr(self.workflow, 'next_iteration_event'):
+                    logger.info("Waiting for 'next' signal ...")
+                    self.workflow.next_iteration_event.clear()
+                    await self.workflow.next_iteration_event.wait()
+                else:
+                    logger.warning("Interactive mode is set, but workflow doesn't have next_iteration_event")
 
-                if self.phase_config.interactive:
-                    if hasattr(self.workflow, 'next_iteration_event'):
-                        logger.info("Waiting for 'next' signal ...")
-                        self.workflow.next_iteration_event.clear()
-                        await self.workflow.next_iteration_event.wait()
-                    else:
-                        logger.warning("Interactive mode is set, but workflow doesn't have next_iteration_event")
-    
-                agent_id, agent_instance = self._get_current_agent()
-                logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
+            agent_id, agent_instance = self._get_current_agent()
+            logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
 
-                # 2) Start iteration context in the logger
-                with phase_ctx.iteration(iteration_num, agent_id, self._last_agent_message) as iteration_ctx:
-                    message = await self.run_one_iteration(
-                        phase_message=curr_phase_message,
-                        agent_instance=agent_instance,
-                        previous_output=self._last_agent_message,
-                    )
-                    iteration_ctx.set_output(message)
-                logger.info(f"Finished iteration {iteration_num} of {self.name} with {agent_id}")
-                if curr_phase_message.complete:
-                    break
+            message = await self.run_one_iteration(
+                phase_message=curr_phase_message,
+                agent_instance=agent_instance,
+                previous_output=self._last_agent_message,
+            )
+            logger.info(f"Finished iteration {iteration_num} of {self.name} with {agent_id}")
+            if curr_phase_message.complete:
+                break
 
-                self._last_agent_message = curr_phase_message.agent_messages[-1]
+            self._last_agent_message = curr_phase_message.agent_messages[-1]
 
-                # Increment the iteration count
-                self.iteration_count += 1
-                self.current_agent_index += 1
+            # Increment the iteration count
+            self.iteration_count += 1
+            self.current_agent_index += 1
 
         if not self.phase_summary:
             self._set_phase_summary("completed_failure")

@@ -7,6 +7,8 @@ from typing import Dict, Optional, Tuple
 import docker
 from docker.models.containers import Container
 
+from messages.action_messages.action_message import ActionMessage
+from messages.action_messages.command_message import CommandMessage
 from resources.base_resource import BaseResource
 from resources.utils import get_stdout_text
 from utils.workflow_logger import workflow_logger
@@ -39,6 +41,7 @@ def timeout_context(seconds):
 DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 
+TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
 RETRY_DELAY = 10
 
@@ -166,9 +169,13 @@ class KaliEnvResource(BaseResource):
             except Exception as e:
                 logger.error(f"Error cleaning up Docker container: {e}")
 
-    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False) -> Tuple[str, str]:
-        command_str = command
-        if len(command) > 33:
+    def run(self, command_message: CommandMessage) -> ActionMessage:
+        command_str = command_message.command
+        output = self.run_command(command_str, TIMEOUT_PER_COMMAND)
+        return ActionMessage(output)
+
+    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = "/app") -> str:
+        if len(command_str) > 33:
             command_str = command[:30] + "..."
         start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
         try:
@@ -183,27 +190,23 @@ class KaliEnvResource(BaseResource):
                 )["Id"]
 
                 output = self.client.api.exec_start(exec_id, stream=False, demux=True)
-                stdout, stderr = output or (None, None)
 
-            stdout_text = get_stdout_text(stdout)
-            stderr_text = get_stdout_text(stderr)
-            logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
-            if logging:
-                workflow_logger.log_action(action_name="kali", input_data=command, output_data={"stdout": stdout_text, "stderr": stderr_text}, metadata={})
-            return stdout_text, stderr_text
+            output_text = get_stdout_text(output)
+            logger.info(f"Command executed successfully.\nOutput: {output_text}")
+            return output
 
         except TimeoutError:
             logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
             # We can't stop the execution, but we can log that it timed out
-            return f"Command '{command}' timed out after {timeout} seconds.", ""
+            return f"Command '{command}' timed out after {timeout} seconds."
 
         except docker.errors.APIError as e:
             logger.error(f"Docker API error while executing command: {e}")
-            return "", f"Docker API error: {str(e)}"
+            return f"Docker API error: {str(e)}"
 
         except Exception as e:
             logger.error(f"Unexpected error while executing command: {e}")
-            return "", f"Unexpected error: {str(e)}"
+            return f"Unexpected error: {str(e)}"
         
         finally:
             stop_progress()
