@@ -56,13 +56,6 @@ class WorkflowMessage(Message):
     def add_phase_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
 
-    def save(self):
-        self._end_time = datetime.now().isoformat()
-        self.log_file.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(self.log_file, 'w') as f:
-            json.dump(self.to_dict(), f, indent=4, default=self._json_serializable)
-            logger.status(f"Saved log to: {self.log_file}")
 
     def add_agent(self, agent_name: str, agent) -> None:
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
@@ -78,3 +71,14 @@ class WorkflowMessage(Message):
             "complete": self.complete,
             "phase_messages": [phase_message.to_dict() for phase_message in self._phase_messages]
         }
+    
+
+    def save(self):
+        self._end_time = datetime.now().isoformat()
+        self.log_file.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(self.log_file, 'w') as f:
+            json.dump(self.to_dict(), f, indent=4, default=self._json_serializable)
+            logger.status(f"Saved log to: {self.log_file}")
+
+workflow_message = WorkflowMessage("Workflow")

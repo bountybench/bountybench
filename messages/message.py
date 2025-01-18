@@ -11,6 +11,8 @@ class Message(ABC):
             print(f"Warning: prev is not a Message object. Type: {type(prev)}")
             
         self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        from messages.message_utils import log_message
+        log_message(self)
 
     @property
     def prev(self) -> str:
@@ -30,10 +32,3 @@ class Message(ABC):
             "timestamp": self.timestamp
         }
     
-    def log_message(self) -> None:
-        """
-        Embeds a call to our global SimpleLogger.
-        We do a local import to avoid circular imports if the logger also imports Message.
-        """
-        from utils.workflow_logger import logger
-        logger.write(self.to_dict())

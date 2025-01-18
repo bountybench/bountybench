@@ -37,6 +37,16 @@ class ExecutorAgent(BaseAgent):
         (ModelResource, "model")]
 
     
+
+
+    async def modify_memory_and_run(self, input: str) -> None:
+        self.model.prompt = input
+        self.model.memory = [] #overwrites all previous memory
+
+        result = await self.run([])
+        return result
+    
+
     async def run(self, messages: List[Message]) -> Message:
         if len(messages) > 1:
             raise Exception(f"Accepts at most a single message, got {len(messages)}.")

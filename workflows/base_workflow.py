@@ -48,10 +48,9 @@ class BaseWorkflow(ABC):
         self._current_phase = None
 
 
-        self.workflow_message = WorkflowMessage(
-            workflow_name=self.name,
-            task=self._get_task(),
-        )
+        workflow_message.workflow_name = self.name
+        workflow_message.task = self._get_task()
+        self.workflow_message = workflow_message
 
         self._initialize()
         self._setup_resource_manager()
@@ -62,7 +61,7 @@ class BaseWorkflow(ABC):
         
         self.next_iteration_event = asyncio.Event()
         
-        atexit.register(self._finalize_workflow)
+        atexit.register()
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
@@ -130,10 +129,12 @@ class BaseWorkflow(ABC):
 
     async def _run_phases(self):
         prev_phase_message = None
+        prev_phase_message = None
         try:
             if not self._root_phase:
                 raise ValueError("No root phase registered")
 
+            self.workflow_message.set_complete(False)
             self.workflow_message.set_complete(False)
             self._current_phase = self._root_phase
 
@@ -141,6 +142,9 @@ class BaseWorkflow(ABC):
                 logger.info(f"Running {self._current_phase.name}")
                 phase_message = await self._run_single_phase(self._current_phase, prev_phase_message)
                 yield phase_message
+
+                self.workflow_message.add_phase_message(phase_message)
+
 
                 self.workflow_message.add_phase_message(phase_message)
 
@@ -154,7 +158,9 @@ class BaseWorkflow(ABC):
 
             if prev_phase_message.success:
                 self.workflow_message.set_success(WorkflowStatus.COMPLETED_SUCCESS)
+                self.workflow_message.set_success(WorkflowStatus.COMPLETED_SUCCESS)
             else:
+                self.workflow_message.set_success(WorkflowStatus.COMPLETED_FAILURE)
                 self.workflow_message.set_success(WorkflowStatus.COMPLETED_FAILURE)
 
         except Exception as e:
@@ -162,6 +168,12 @@ class BaseWorkflow(ABC):
 
     async def _run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
         phase_instance = self._setup_phase(phase)
+
+        for agent_name, agent in phase_instance.agents:
+            self.workflow_message.add_agent(agent_name, agent)
+
+        for resource_id, resource in phase_instance.resource_manager._resources.id_to_resource.items():
+            self.workflow_message.add_resource(resource_id, resource)
 
         for agent_name, agent in phase_instance.agents:
             self.workflow_message.add_agent(agent_name, agent)
@@ -193,6 +205,7 @@ class BaseWorkflow(ABC):
 
     def _handle_workflow_exception(self, exception: Exception):
         self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
+        self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
         raise exception
 
     def _setup_phase(self, phase: BasePhase) -> BasePhase:
@@ -201,6 +214,7 @@ class BaseWorkflow(ABC):
             phase.setup()
             return phase
         except Exception as e:
+            self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
             self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
             logger.error(f"Failed to set up phase: {e}")
             raise
