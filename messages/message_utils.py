@@ -22,10 +22,9 @@ def broadcast_update(data: dict):
     except Exception as e:
         logger.error(f"Error in broadcast_update: {e}")
 
-async def _broadcast_update_async(workflow_id, data: dict):
-    if workflow_id:
+async def _broadcast_update_async(data: dict):
         try:
-            await websocket_manager.broadcast(workflow_id, data)
+            await websocket_manager.broadcast(data)
         except Exception as e:
             logger.error(f"[WorkflowLogger] Error broadcasting update: {e}")
 
