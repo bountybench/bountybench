@@ -12,7 +12,8 @@ class WorkflowMessage(Message):
     _instance = None
 
     @classmethod
-    def initialize(cls, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, additional_metadata: Optional[Dict[str, Any]] = None, logs_dir: str = "logs"):
+    def initialize(cls, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, 
+                  additional_metadata: Optional[Dict[str, Any]] = None, logs_dir: str = "logs"):
         if cls._instance is None:
             cls._instance = cls.__new__(cls)
             cls._instance._initialize(workflow_name, workflow_id, task, additional_metadata, logs_dir)
@@ -24,7 +25,9 @@ class WorkflowMessage(Message):
             raise RuntimeError("WorkflowMessage has not been initialized. Call initialize() first.")
         return cls._instance
     
-    def _initialize(self, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, additional_metadata: Optional[Dict[str, Any]] = None, logs_dir: str = "logs") -> None:
+    def _initialize(self, workflow_name: str, workflow_id: Optional[str] = None, 
+                   task: Optional[Dict[str, Any]] = None, additional_metadata: Optional[Dict[str, Any]] = None, 
+                   logs_dir: str = "logs") -> None:
         # Core
         self._summary = "incomplete"
         self._phase_messages = []
@@ -41,7 +44,7 @@ class WorkflowMessage(Message):
                 if value:
                     components.append(str(value.name if isinstance(value, Path) else value))
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        self.workflow_id = workflow_id
+        self.workflow_id = workflow_id if workflow_id else id(self)
 
         # Metadata
         self.workflow_name = workflow_name
@@ -51,7 +54,7 @@ class WorkflowMessage(Message):
         self._end_time = None
         self._phase_status = {}
 
-        super().__init__() 
+        super().__init__()
         
     def __init__(self):
         # This method should not be called directly
@@ -71,7 +74,7 @@ class WorkflowMessage(Message):
     def add_phase_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
 
-    def add_agent(self, agent_name: str, agent) -> None:
+    def add_agent(self, agent_name: str, agent) -> None:        
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
             self.agents_used[agent_name] = agent.to_dict()
 

@@ -159,7 +159,6 @@ class BaseWorkflow(ABC):
 
     async def _run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
         phase_instance = self._setup_phase(phase)
-
         for agent_name, agent in phase_instance.agents:
             self.workflow_message.add_agent(agent_name, agent)
 
@@ -215,6 +214,11 @@ class BaseWorkflow(ABC):
             phase.phase_config.phase_idx = len(self._phase_graph) - 1
             logger.debug(f"Registered phase { phase.phase_config.phase_idx}: {phase.__class__.__name__}")
             logger.info(f"{phase.phase_config.phase_name} registered")
+
+    async def get_last_message(self) -> str:
+        result = self._current_phase.last_agent_message  
+        return result.message if result else ""
+    
 
     @property
     def name(self):

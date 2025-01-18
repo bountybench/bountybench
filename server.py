@@ -118,14 +118,6 @@ async def start_workflow(workflow_data: dict):
             "status": "initialized"
         }
         
-        # Initialize workflow logger with the same workflow ID
-        workflow_logger.initialize(
-            workflow_name=workflow_data['workflow_name'],
-            workflow_id=workflow_id,  # Pass the workflow ID
-            task={"task_dir":workflow_data['task_dir'],
-            "bounty_number":workflow_data['bounty_number']}
-        )
-        
         # Return workflow ID immediately
         return {
             "workflow_id": workflow_id,
