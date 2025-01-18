@@ -18,7 +18,7 @@ class WorkflowMessage(Message):
             cls._instance._initialize("Workflow")
         return cls._instance
     
-    def _initialize(self, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, logs_dir: str = "logs") -> None:
+    def _initialize(self, workflow_name: str, task: Optional[Dict[str, Any]] = None, logs_dir: str = "logs") -> None:
         # Core
         self._success = False
         self._complete = False
@@ -36,7 +36,7 @@ class WorkflowMessage(Message):
                 if value:
                     components.append(str(value.name if isinstance(value, Path) else value))
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        self.worfklow_id = workflow_id
+        self.workflow_id = id(self)
 
         # Metadata
         self.workflow_name = workflow_name
