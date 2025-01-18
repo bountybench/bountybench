@@ -134,19 +134,22 @@ class BaseWorkflow(ABC):
 
             while self._current_phase:
                 logger.info(f"Running {self._current_phase.name}")
+                print("******************************")
+                print(self._current_phase, prev_phase_message)
+                print("******************************")
                 phase_message = await self._run_single_phase(self._current_phase, prev_phase_message)
                 yield phase_message
 
                 self.workflow_message.add_phase_message(phase_message)
 
 
-
+                prev_phase_message = phase_message
+                print("AFTER I GET THE PHASE_MESSAGE", phase_message.success)
                 if not phase_message.success or self._max_iterations_reached():
                     break
                     
                 next_phases = self._phase_graph.get(self._current_phase, [])
                 self._current_phase = next_phases[0] if next_phases else None
-                prev_phase_message = phase_message
 
             if prev_phase_message.success:
                 self.workflow_message.set_success()
@@ -166,7 +169,15 @@ class BaseWorkflow(ABC):
         for resource_id, resource in phase_instance.resource_manager._resources.id_to_resource.items():
             self.workflow_message.add_resource(resource_id, resource)
 
+        print("=====================")
+        print("THIS IS PREVIOUS PHASE MESSAGE", prev_phase_message)
+        print("=====================")
         phase_message = await phase_instance.run_phase(prev_phase_message)
+
+
+        print("=====================")
+        print("THIS IS PHASE MESSAGE", phase_message.agent_messages)
+        print("=====================")
         
         logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
 
