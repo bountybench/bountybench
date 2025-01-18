@@ -219,6 +219,11 @@ class BaseWorkflow(ABC):
             logger.debug(f"Registered phase { phase.phase_config.phase_idx}: {phase.__class__.__name__}")
             logger.info(f"{phase.phase_config.phase_name} registered")
 
+    async def get_last_message(self) -> str:
+        result = self._current_phase.last_agent_message  
+        return result.message if result else ""
+    
+
     @property
     def name(self):
         return self.__class__.__name__
