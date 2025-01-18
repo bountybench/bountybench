@@ -166,11 +166,6 @@ class BaseWorkflow(ABC):
         for resource_id, resource in phase_instance.resource_manager._resources.id_to_resource.items():
             self.workflow_message.add_resource(resource_id, resource)
 
-        for agent_name, agent in phase_instance.agents:
-            self.workflow_message.add_agent(agent_name, agent)
-
-        for resource_id, resource in phase_instance.resource_manager._resources.id_to_resource.items():
-            self.workflow_message.add_resource(resource_id, resource)
         phase_message = await phase_instance.run_phase(prev_phase_message)
         
         logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
