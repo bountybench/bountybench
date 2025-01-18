@@ -137,6 +137,8 @@ class BaseWorkflow(ABC):
                 phase_message = await self._run_single_phase(self._current_phase, prev_phase_message)
                 yield phase_message
 
+
+
                 self.workflow_message.add_phase_message(phase_message)
 
 
