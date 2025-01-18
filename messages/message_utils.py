@@ -9,7 +9,7 @@ logger = get_main_logger(__name__)
 # Set the logging level
 set_logging_level(MessageType.AGENT)
 
-def broadcast_update(self, data: dict):
+def broadcast_update(data: dict):
     """Send an update over WebSocket. This can be disabled or customized as desired."""
     try:
         loop = asyncio.get_running_loop()
@@ -22,7 +22,7 @@ def broadcast_update(self, data: dict):
     except Exception as e:
         logger.error(f"Error in broadcast_update: {e}")
 
-async def _broadcast_update_async(self, workflow_id, data: dict):
+async def _broadcast_update_async(workflow_id, data: dict):
     if workflow_id:
         try:
             await websocket_manager.broadcast(workflow_id, data)

@@ -19,7 +19,6 @@ class WorkflowMessage(Message):
     
     def __init__(self, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, logs_dir: str = "logs") -> None:
         
-        super().__init__()
         # Core
         self._success = False
         self._complete = False
@@ -27,6 +26,8 @@ class WorkflowMessage(Message):
         self.agents_used = {}
         self.resources_used = {}
 
+        super().__init__()
+        
         # Logging
         self.logs_dir = Path(logs_dir)
         self.logs_dir.mkdir(exist_ok=True)
@@ -43,6 +44,7 @@ class WorkflowMessage(Message):
         self._start_time = datetime.now().isoformat()
         self._end_time = None
         self._phase_status = {}
+
     @property
     def success(self) -> bool:
         return self._success
@@ -63,7 +65,6 @@ class WorkflowMessage(Message):
 
     def add_phase_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
-
 
     def add_agent(self, agent_name: str, agent) -> None:
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
