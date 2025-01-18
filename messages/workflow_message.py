@@ -14,11 +14,11 @@ class WorkflowMessage(Message):
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
-            cls._instance = cls("Workflow")
+            cls._instance = cls.__new__(cls)
+            cls._instance._initialize("Workflow")
         return cls._instance
     
-    def __init__(self, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, logs_dir: str = "logs") -> None:
-        
+    def _initialize(self, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, logs_dir: str = "logs") -> None:
         # Core
         self._success = False
         self._complete = False
@@ -26,16 +26,15 @@ class WorkflowMessage(Message):
         self.agents_used = {}
         self.resources_used = {}
 
-        super().__init__()
-        
         # Logging
         self.logs_dir = Path(logs_dir)
         self.logs_dir.mkdir(exist_ok=True)
 
         components = [workflow_name]
-        for _, value in task.items():
-            if value:
-                components.append(str(value.name if isinstance(value, Path) else value))
+        if task:
+            for _, value in task.items():
+                if value:
+                    components.append(str(value.name if isinstance(value, Path) else value))
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         self.worfklow_id = workflow_id
 
@@ -44,6 +43,10 @@ class WorkflowMessage(Message):
         self._start_time = datetime.now().isoformat()
         self._end_time = None
         self._phase_status = {}
+
+    def __init__(self, *args, **kwargs):
+        # This method should not be called directly
+        pass
 
     @property
     def success(self) -> bool:
