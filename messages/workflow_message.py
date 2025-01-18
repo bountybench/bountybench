@@ -92,3 +92,19 @@ class WorkflowMessage(Message):
         with open(self.log_file, 'w') as f:
             json.dump(self.to_dict(), f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
+    
+    def _json_serializable(self, obj: Any) -> Any:
+        if isinstance(obj, Path):
+            return str(obj)
+        elif hasattr(obj, '__dict__'):
+            # For objects with a __dict__ attribute (like Message),
+            # we'll convert them to a dictionary
+            return {key: self._json_serializable(value) for key, value in obj.__dict__.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [self._json_serializable(item) for item in obj]
+        elif isinstance(obj, dict):
+            return {key: self._json_serializable(value) for key, value in obj.items()}
+        elif hasattr(obj, '__str__'):
+            # For any other objects, we'll use their string representation
+            return str(obj)
+        raise TypeError(f'Object of type {obj.__class__.__name__} is not JSON serializable')
