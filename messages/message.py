@@ -29,10 +29,4 @@ class Message(ABC):
             "next": self.next
         }
     
-    def log_message(self) -> None:
-        """
-        Embeds a call to our global SimpleLogger.
-        We do a local import to avoid circular imports if the logger also imports Message.
-        """
-        from utils.workflow_logger import logger
-        workflow_logger.log_message(self)
+
