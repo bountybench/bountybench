@@ -6,6 +6,12 @@ class ResourceDict(dict):
         self.id_to_resource = dict()
         self.resource_type_to_resources = defaultdict(list)
 
+    def __len__(self): 
+        return len(self.id_to_resource)
+    
+    def __contains__(self, key):
+        return key in self.id_to_resource
+
     def get_item_of_resource_type(self, resource_type):
         items = self.get_items_of_resource_type(resource_type)
         if items:
