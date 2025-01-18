@@ -43,7 +43,8 @@ class BaseWorkflow(ABC):
 
         self.workflow_message = WorkflowMessage.initialize(
             workflow_name=self.name,
-            task=self._get_task()
+            task=self._get_task(),
+            additional_metadata=self._get_metadata()
         )
 
         self._setup_resource_manager()

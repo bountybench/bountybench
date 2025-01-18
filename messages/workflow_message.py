@@ -12,10 +12,10 @@ class WorkflowMessage(Message):
     _instance = None
 
     @classmethod
-    def initialize(cls, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, logs_dir: str = "logs"):
+    def initialize(cls, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, additional_metadata: Optional[Dict[str, Any]] = None, logs_dir: str = "logs"):
         if cls._instance is None:
             cls._instance = cls.__new__(cls)
-            cls._instance._initialize(workflow_name, workflow_id, task, logs_dir)
+            cls._instance._initialize(workflow_name, workflow_id, task, additional_metadata, logs_dir)
         return cls._instance
 
     @classmethod
@@ -24,7 +24,7 @@ class WorkflowMessage(Message):
             raise RuntimeError("WorkflowMessage has not been initialized. Call initialize() first.")
         return cls._instance
     
-    def _initialize(self, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, logs_dir: str = "logs") -> None:
+    def _initialize(self, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, additional_metadata: Optional[Dict[str, Any]] = None, logs_dir: str = "logs") -> None:
         # Core
         self._summary = "incomplete"
         self._phase_messages = []
@@ -46,6 +46,7 @@ class WorkflowMessage(Message):
         # Metadata
         self.workflow_name = workflow_name
         self.task = task
+        self.additional_metadata = additional_metadata
         self._start_time = datetime.now().isoformat()
         self._end_time = None
         self._phase_status = {}
@@ -87,12 +88,13 @@ class WorkflowMessage(Message):
 
     def to_dict(self) -> dict:
         return {
-            "metadata": self.metadata_dict(),
+            "workflow_metadata": self.metadata_dict(),
             "phase_messages": [phase_message.to_dict() for phase_message in self._phase_messages],
             "agents_used": self.agents_used,
             "resources_used": self.resources_used,
             "start_time": self._start_time,
-            "end_time": self._end_time
+            "end_time": self._end_time,
+            "additional_metadata": self.additional_metadata
         }
 
     def save(self):
