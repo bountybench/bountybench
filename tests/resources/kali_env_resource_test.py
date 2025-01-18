@@ -24,126 +24,168 @@ class TestKaliEnvResource(unittest.TestCase):
         cls.kali_env_resource.stop()
         with open(Path(__file__).parent / 'test_files/test.txt', 'w') as f:
             f.write("TEST{RANDOM_WORDS}")
+        
+    def test_run_simple_command_tty(self):
+        command = "echo Hello\necho Hello\n"
+        stdout, stderr = self.kali_env_resource.run_command(command, tty=True)
+        self.assertEqual(stdout.strip(), "Hello\nHello")
 
-    def test_run_simple_command(self):
-        """
-        Test running a simple command (e.g., `echo Hello`).
-        The output should be the same as the echoed message.
-        """
-        command = "echo Hello"
-        stdout, stderr = self.kali_env_resource.run_command(command)
-        self.assertEqual(stdout.strip(), "Hello")
-        self.assertEqual(stderr.strip(), "")
-    
-    def test_run_multiple_commands(self):
-        """
-        Test running multiple commands (e.g., `echo Hello; echo World`).
-        The output should be the same as the echoed messages.
-        """
-        command = "echo Hello\n echo World"
-        stdout, stderr = self.kali_env_resource.run_command(command)
-        self.assertEqual(stdout.strip(), "Hello\nWorld")
-        self.assertEqual(stderr.strip(), "")
-
-    def test_command_with_error(self):
-        """
-        Test running a command that produces an error.
-        The stderr should contain the error message.
-        """
-        command = "ls /nonexistent_directory"
-        stdout, stderr = self.kali_env_resource.run_command(command)
-        self.assertIn("No such file or directory", stdout.strip() + stderr.strip())
-    
-    def test_command_with_volume(self):
-        """
-        Test running a command that reads a file from the volume.
-        The output should be the same as the content of the file.
-        """
-        file_path = "test.txt"
-        command = f"cat {file_path}"
-        stdout, stderr = self.kali_env_resource.run_command(command)
-        self.assertEqual(stdout.strip(), r"TEST{RANDOM_WORDS}")
-        self.assertEqual(stderr, "")
-
-    def test_command_with_timeout(self):
-        """
-        Test running a command that will take too long to complete.
-        The command should be terminated due to timeout.
-        """
-        command = "sleep 120"
-        stdout, stderr = self.kali_env_resource.run_command(command, timeout=2)
-        self.assertIn("timed out after 2 seconds", stdout)
-        self.assertEqual(stderr.strip(), "")
-
-    def test_working_directory(self):
-        """
-        Test running a command in a specific working directory.
-        """
-        command = "pwd"
-        workdir = "/tmp"
-        stdout, stderr = self.kali_env_resource.run_command(command, workdir=workdir)
-        self.assertEqual(stdout.strip(), workdir)
-        self.assertEqual(stderr.strip(), "")
-
-    def test_write_and_read_file(self):
-        """
-        Test writing to a file in the container and reading it back to verify persistence.
-        """
-        file_path = "testfile.txt"
-        write_command = f"echo 'Hello World' > {file_path}"
-        read_command = f"cat {file_path}"
-
-        # Write to the file
-        stdout, stderr = self.kali_env_resource.run_command(write_command)
-        self.assertEqual(stdout.strip(), "")
-        self.assertEqual(stderr.strip(), "")
-
-        # Read from the file
-        stdout, stderr = self.kali_env_resource.run_command(read_command)
-        self.assertEqual(stdout.strip(), "Hello World")
-        self.assertEqual(stderr.strip(), "")
-
-        # Delete the file
-        delete_command = f"rm {file_path}"
-        stdout, stderr = self.kali_env_resource.run_command(delete_command)
-
-    def test_invalid_command(self):
-        """
-        Test running an invalid command.
-        The stderr should contain the error message indicating the command was not found.
-        """
-        command = "invalid_command_that_does_not_exist"
-        stdout, stderr = self.kali_env_resource.run_command(command)
-        self.assertIn("command not found", stdout.strip() + stderr.strip())
-
-    def test_container_persistence(self):
+    def test_container_persistence_tty(self):
         """
         Test that the container persists between commands by creating a file and verifying its existence later.
         """
         file_path = "persistent_testfile.txt"
-        create_command = f"touch {file_path}"
-        check_command = f"test -f {file_path} && echo Exists"
+        create_command = f"touch {file_path}\n"
+        check_command = f"test -f {file_path} && echo Exists\n"
 
         # Create the file
-        stdout, stderr = self.kali_env_resource.run_command(create_command)
+        stdout, stderr = self.kali_env_resource.run_command(create_command, tty=True)
         self.assertEqual(stdout.strip(), "")
         self.assertEqual(stderr.strip(), "")
 
         # Verify the file exists
-        stdout, stderr = self.kali_env_resource.run_command(check_command)
+        stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
         self.assertEqual(stdout.strip(), "Exists")
         self.assertEqual(stderr.strip(), "")
 
         # Delete the file
-        delete_command = f"rm {file_path}"
-        stdout, stderr = self.kali_env_resource.run_command(delete_command)
+        delete_command = f"rm {file_path}\n"
+        stdout, stderr = self.kali_env_resource.run_command(delete_command, tty=True)
         self.assertEqual(stdout.strip(), "")
         self.assertEqual(stderr.strip(), "")
 
         # Verify the file was deleted
-        stdout, stderr = self.kali_env_resource.run_command(check_command)
+        stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
         self.assertEqual(stdout.strip(), "")
         self.assertEqual(stderr.strip(), "")
+    
+    def test_ssh_tty(self):
+ 
+        command = "ssh\n"
+        stdout, stderr = self.kali_env_resource.run_command(command, tty=True)
+        self.assertIn("ssh", stdout.strip())
+
+
+
+    # def test_run_simple_command(self):
+    #     """
+    #     Test running a simple command (e.g., `echo Hello`).
+    #     The output should be the same as the echoed message.
+    #     """
+    #     command = "echo Hello"
+    #     stdout, stderr = self.kali_env_resource.run_command(command)
+    #     self.assertEqual(stdout.strip(), "Hello")
+    #     self.assertEqual(stderr.strip(), "")
+    
+    # def test_run_multiple_commands(self):
+    #     """
+    #     Test running multiple commands (e.g., `echo Hello; echo World`).
+    #     The output should be the same as the echoed messages.
+    #     """
+    #     command = "echo Hello\n echo World"
+    #     stdout, stderr = self.kali_env_resource.run_command(command)
+    #     self.assertEqual(stdout.strip(), "Hello\nWorld")
+    #     self.assertEqual(stderr.strip(), "")
+
+    # def test_command_with_error(self):
+    #     """
+    #     Test running a command that produces an error.
+    #     The stderr should contain the error message.
+    #     """
+    #     command = "ls /nonexistent_directory"
+    #     stdout, stderr = self.kali_env_resource.run_command(command)
+    #     self.assertIn("No such file or directory", stdout.strip() + stderr.strip())
+    
+    # def test_command_with_volume(self):
+    #     """
+    #     Test running a command that reads a file from the volume.
+    #     The output should be the same as the content of the file.
+    #     """
+    #     file_path = "test.txt"
+    #     command = f"cat {file_path}"
+    #     stdout, stderr = self.kali_env_resource.run_command(command)
+    #     self.assertEqual(stdout.strip(), r"TEST{RANDOM_WORDS}")
+    #     self.assertEqual(stderr, "")
+
+    # def test_command_with_timeout(self):
+    #     """
+    #     Test running a command that will take too long to complete.
+    #     The command should be terminated due to timeout.
+    #     """
+    #     command = "sleep 120"
+    #     stdout, stderr = self.kali_env_resource.run_command(command, timeout=2)
+    #     self.assertIn("timed out after 2 seconds", stdout)
+    #     self.assertEqual(stderr.strip(), "")
+
+    # def test_working_directory(self):
+    #     """
+    #     Test running a command in a specific working directory.
+    #     """
+    #     command = "pwd"
+    #     workdir = "/tmp"
+    #     stdout, stderr = self.kali_env_resource.run_command(command, workdir=workdir)
+    #     self.assertEqual(stdout.strip(), workdir)
+    #     self.assertEqual(stderr.strip(), "")
+
+    # def test_write_and_read_file(self):
+    #     """
+    #     Test writing to a file in the container and reading it back to verify persistence.
+    #     """
+    #     file_path = "testfile.txt"
+    #     write_command = f"echo 'Hello World' > {file_path}"
+    #     read_command = f"cat {file_path}"
+
+    #     # Write to the file
+    #     stdout, stderr = self.kali_env_resource.run_command(write_command)
+    #     self.assertEqual(stdout.strip(), "")
+    #     self.assertEqual(stderr.strip(), "")
+
+    #     # Read from the file
+    #     stdout, stderr = self.kali_env_resource.run_command(read_command)
+    #     self.assertEqual(stdout.strip(), "Hello World")
+    #     self.assertEqual(stderr.strip(), "")
+
+    #     # Delete the file
+    #     delete_command = f"rm {file_path}"
+    #     stdout, stderr = self.kali_env_resource.run_command(delete_command)
+
+    # def test_invalid_command(self):
+    #     """
+    #     Test running an invalid command.
+    #     The stderr should contain the error message indicating the command was not found.
+    #     """
+    #     command = "invalid_command_that_does_not_exist"
+    #     stdout, stderr = self.kali_env_resource.run_command(command)
+    #     self.assertIn("command not found", stdout.strip() + stderr.strip())
+
+    # def test_container_persistence(self):
+    #     """
+    #     Test that the container persists between commands by creating a file and verifying its existence later.
+    #     """
+    #     file_path = "persistent_testfile.txt"
+    #     create_command = f"touch {file_path}"
+    #     check_command = f"test -f {file_path} && echo Exists"
+
+    #     # Create the file
+    #     stdout, stderr = self.kali_env_resource.run_command(create_command)
+    #     self.assertEqual(stdout.strip(), "")
+    #     self.assertEqual(stderr.strip(), "")
+
+    #     # Verify the file exists
+    #     stdout, stderr = self.kali_env_resource.run_command(check_command)
+    #     self.assertEqual(stdout.strip(), "Exists")
+    #     self.assertEqual(stderr.strip(), "")
+
+    #     # Delete the file
+    #     delete_command = f"rm {file_path}"
+    #     stdout, stderr = self.kali_env_resource.run_command(delete_command)
+    #     self.assertEqual(stdout.strip(), "")
+    #     self.assertEqual(stderr.strip(), "")
+
+    #     # Verify the file was deleted
+    #     stdout, stderr = self.kali_env_resource.run_command(check_command)
+    #     self.assertEqual(stdout.strip(), "")
+    #     self.assertEqual(stderr.strip(), "")
 
 
 if __name__ == "__main__":

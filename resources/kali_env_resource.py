@@ -2,6 +2,7 @@ import atexit
 import os
 import sys
 import time
+import select
 from typing import Dict, Optional, Tuple
 
 import docker
@@ -72,6 +73,7 @@ class KaliEnvResource(BaseResource):
         self.container = self._start(self.resource_id, self._resource_config.volumes)
 
         self.target_host = self._resource_config.target_host
+        self.socket = None # Socket for writing to the pseudo-terminal
         
         # Initialize bounty directory if task_dir and bounty_number provided
         if self._resource_config.task_dir and self._resource_config.bounty_number:
@@ -173,28 +175,74 @@ class KaliEnvResource(BaseResource):
             command_str = command[:30] + "..."
         start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
         try:
-            with timeout_context(timeout):
-                exec_id = self.client.api.exec_create(
-                    container=self.container.id,
-                    cmd=["/bin/bash", "-c", command],
-                    workdir=workdir,
-                    stdin=False,
-                    stdout=True,
-                    stderr=True,
-                    tty=tty,
-                )["Id"]
+            if not tty:
+                with timeout_context(timeout):
+                    exec_id = self.client.api.exec_create(
+                        container=self.container.id,
+                        cmd=["/bin/bash", "-c", command],
+                        workdir=workdir,
+                        stdin=False,
+                        stdout=True,
+                        stderr=True,
+                    )["Id"]
 
-                output = self.client.api.exec_start(exec_id, stream=False, demux=True)
-                stdout, stderr = output or (None, None)
+                    output = self.client.api.exec_start(exec_id, stream=False, demux=True)
+                    stdout, stderr = output or (None, None)
 
-            stdout_text = get_stdout_text(stdout)
-            if tty:
-                stdout_text = stdout_text.replace("\r", "")
-            stderr_text = get_stdout_text(stderr)
-            logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
-            if logging:
-                workflow_logger.log_action(action_name="kali", input_data=command, output_data={"stdout": stdout_text, "stderr": stderr_text}, metadata={})
-            return stdout_text, stderr_text
+                stdout_text = get_stdout_text(stdout)
+                if tty:
+                    stdout_text = stdout_text.replace("\r", "")
+                stderr_text = get_stdout_text(stderr)
+                logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
+                if logging:
+                    workflow_logger.log_action(action_name="kali", input_data=command, output_data={"stdout": stdout_text, "stderr": stderr_text}, metadata={})
+                return stdout_text, stderr_text
+            else:
+                with timeout_context(timeout):
+                    if not self.socket:
+                        exec_id = self.client.api.exec_create(
+                                container=self.container.id,
+                                cmd=["/bin/bash"],
+                                workdir=workdir,
+                                stdin=True,
+                                stdout=True,
+                                stderr=True,
+                            )["Id"]
+                        
+                        sock = self.client.api.exec_start(
+                            exec_id=exec_id,
+                            stream=True,
+                            demux=False,   
+                            socket=True,
+                            tty=True,
+                        )
+                        self.socket = sock
+
+                    sock = self.socket
+                    cmd_bytes = (command).encode("utf-8")
+
+                    sock._sock.sendall(cmd_bytes) # why sock.write() does not work?
+                    output_buffer = []
+
+                    output = b''
+                    timeout = 30 
+                    end_time = time.time() + timeout
+                    while time.time() < end_time:
+                        rlist, _, _ = select.select([sock.fileno()], [], [], 1)
+                        
+                        if sock.fileno() in rlist:
+                            chunk = sock._sock.recv(1024)
+                            if not chunk:
+                                break
+                            output_buffer.append(chunk.decode("utf-8", errors="replace"))
+                        else:
+                            break
+                    
+                    full_output = "".join(output_buffer)
+                    logger.info(f"Command in shell done.\nOutput: {full_output}")
+
+                    return full_output, ""
+                
 
         except TimeoutError:
             logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
