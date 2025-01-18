@@ -126,7 +126,6 @@ class BaseWorkflow(ABC):
 
     async def _run_phases(self):
         prev_phase_message = None
-        prev_phase_message = None
         try:
             if not self._root_phase:
                 raise ValueError("No root phase registered")
@@ -140,8 +139,6 @@ class BaseWorkflow(ABC):
 
                 self.workflow_message.add_phase_message(phase_message)
 
-
-                self.workflow_message.add_phase_message(phase_message)
 
 
                 if not phase_message.success or self._max_iterations_reached():
