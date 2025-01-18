@@ -155,6 +155,19 @@ class TestKaliEnvResource(unittest.TestCase):
         stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
         self.assertEqual(stdout.strip(), "$")
         self.assertEqual(stderr.strip(), "")
+    
+    def test_command_with_timeout_tty(self):
+        """
+        Test running a command that will take too long to complete.
+        The command should be terminated due to timeout.
+        """
+        sleep_command = "sleep 120\n"
+        stdout, stderr = self.kali_env_resource.run_command(sleep_command, timeout=1, tty=True)
+        self.assertIn("timed out after 1 seconds", stdout)
+        
+        cancel_command = "\x03\n"
+        stdout, stderr = self.kali_env_resource.run_command(cancel_command, tty=True)
+
 
 
 if __name__ == "__main__":

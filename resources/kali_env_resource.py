@@ -315,7 +315,7 @@ class KaliEnvResource(BaseResource):
                 rlist, _, _ = select.select([self.socket.fileno()], [], [], 0.1)
                 if self.socket.fileno() in rlist:
                     try:
-                        os.read(self.socket.fileno(), 1024)  # Discard the data
+                        chunk = self.socket._sock.recv(1024)
                     except OSError as e:
                         logger.error(f"Error while clearing bash buffer: {str(e)}")
                         break
