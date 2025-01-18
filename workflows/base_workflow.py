@@ -55,7 +55,10 @@ class BaseWorkflow(ABC):
         
         self.next_iteration_event = asyncio.Event()
         
-        atexit.register(self.workflow_message.save())
+        atexit.register(self._finalize_workflow)
+        
+    def _finalize_workflow(self):
+        self.workflow_message.save()
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
