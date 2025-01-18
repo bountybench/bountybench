@@ -81,8 +81,10 @@ class WorkflowMessage(Message):
         return {
             "success": self.success,
             "complete": self.complete,
-            "phase_messages": [phase_message.to_dict() for phase_message in self._phase_messages]
-        }
+            "phase_messages": [phase_message.to_dict() for phase_message in self._phase_messages],
+            "agents_used": [agent for agent in self.agents_used],
+            "resources_used": [resource for resource in self.resources_used]
+        }   
     
 
     def save(self):
