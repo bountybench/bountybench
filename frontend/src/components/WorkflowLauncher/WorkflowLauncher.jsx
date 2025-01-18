@@ -20,8 +20,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [formData, setFormData] = useState({
     workflow_name: '',
     task_dir: '',
-    bounty_number: '',
-    interactive: true
+    bounty_number: "0",
+    interactive: true,
+    iterations: 10
   });
 
   // Fetch available workflows
@@ -53,9 +54,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         },
         body: JSON.stringify({
           workflow_name: formData.workflow_name,
-          task_dir: formData.task_dir,
+          task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: formData.bounty_number,
-          interactive: interactiveMode
+          interactive: interactiveMode,
+          iterations: formData.iterations
         }),
       });
 
@@ -134,7 +136,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           onChange={handleInputChange}
           required
           margin="normal"
-          placeholder="e.g., bountybench/astropy"
+          placeholder="e.g., astropy"
         />
 
         <TextField
@@ -146,6 +148,17 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
           placeholder="e.g., 0"
+        />
+
+        <TextField
+          fullWidth
+          label="Iterations (per phase)"
+          name="iterations"
+          value={formData.iterations}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          placeholder="e.g., 10"
         />
 
         <FormControlLabel

@@ -16,11 +16,12 @@ class ChatPhase(BasePhase):
 
     def __init__(self, workflow: 'BaseWorkflow', **kwargs):
         self.model = kwargs.get('model')
+        self.helm = kwargs.get('helm')
         super().__init__(workflow, **kwargs)
 
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         # assume we get model through some kwargs situation with the Message
-        lm_config = AgentLMConfig.create(model=self.model)
+        lm_config = AgentLMConfig.create(model=self.model, use_helm=self.helm)
         # Create the chat_config
         chat_config = ChatAgentConfig(
             lm_config=lm_config,

@@ -7,7 +7,7 @@ class TestAgentConfigs(unittest.TestCase):
     def test_agent_lm_config(self):
         # Test default configuration
         lm_config1 = AgentLMConfig()
-        self.assertEqual(lm_config1.model, 'openai/o3-mini-2024-12-17')
+        self.assertEqual(lm_config1.model, 'openai/o3-mini-2025-01-14')
         self.assertEqual(lm_config1.max_output_tokens, 5000)
         self.assertFalse(lm_config1.use_helm)
 
@@ -62,7 +62,7 @@ class TestAgentConfigs(unittest.TestCase):
         config5 = ExecutorAgentConfig(target_host='default-lm-host.com')
         self.assertEqual(config5.id, 'ExecutorAgentConfig')
         self.assertEqual(config5.target_host, 'default-lm-host.com')
-        self.assertEqual(config5.lm_config.model, 'openai/o3-mini-2024-12-17')
+        self.assertEqual(config5.lm_config.model, 'openai/o3-mini-2025-01-14')
 
 if __name__ == '__main__':
     unittest.main()

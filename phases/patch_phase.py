@@ -28,6 +28,7 @@ class PatchPhase(BasePhase):
 
     def __init__(self, workflow: 'BaseWorkflow', **kwargs):
         self.model = kwargs.get('model')
+        self.helm = kwargs.get('helm')
         self.bounty_number = kwargs.get('bounty_number')
         #self.initial_prompt = kwargs.get('initial_prompt')
         self.use_agent_exploit = kwargs.get('use_agent_exploit')
@@ -37,7 +38,7 @@ class PatchPhase(BasePhase):
    
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         # assume we get model through some kwargs situation with the Message
-        executor_lm_config = AgentLMConfig.create(model=self.model)
+        executor_lm_config = AgentLMConfig.create(model=self.model, use_helm=self.helm)
         
         # Create the executor_config
         executor_config = ExecutorAgentConfig(
