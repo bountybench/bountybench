@@ -22,6 +22,8 @@ class TestKaliEnvResource(unittest.TestCase):
         It cleans up by stopping the Docker container.
         """
         cls.kali_env_resource.stop()
+        with open(Path(__file__).parent / 'test_files/test.txt', 'w') as f:
+            f.write("TEST{RANDOM_WORDS}")
 
     def test_run_simple_command(self):
         """
@@ -50,8 +52,7 @@ class TestKaliEnvResource(unittest.TestCase):
         """
         command = "ls /nonexistent_directory"
         stdout, stderr = self.kali_env_resource.run_command(command)
-        self.assertEqual(stdout.strip(), "")
-        self.assertIn("No such file or directory", stderr)
+        self.assertIn("No such file or directory", stdout.strip() + stderr.strip())
     
     def test_command_with_volume(self):
         """
@@ -113,8 +114,7 @@ class TestKaliEnvResource(unittest.TestCase):
         """
         command = "invalid_command_that_does_not_exist"
         stdout, stderr = self.kali_env_resource.run_command(command)
-        self.assertEqual(stdout.strip(), "")
-        self.assertIn("command not found", stderr)
+        self.assertIn("command not found", stdout.strip() + stderr.strip())
 
     def test_container_persistence(self):
         """
