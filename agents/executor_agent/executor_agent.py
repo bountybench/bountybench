@@ -5,6 +5,7 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
+from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.model_resource.model_resource import ModelResource
@@ -34,18 +35,7 @@ class ExecutorAgent(BaseAgent):
        (InitFilesResource, "init_files"),
         (SetupResource, "repo_resource"),
         (SetupResource, "bounty_resource"),
-        (ModelResource, "model")]
-
-    
-
-
-    async def modify_memory_and_run(self, input: str) -> None:
-        self.model.prompt = input
-        self.model.memory = [] #overwrites all previous memory
-
-        result = await self.run([])
-        return result
-    
+        (ModelResource, "model")]    
 
     async def run(self, messages: List[Message]) -> Message:
         if len(messages) > 1:
@@ -55,15 +45,17 @@ class ExecutorAgent(BaseAgent):
         else:
             prev_agent_message = messages[0]
 
-        agent_message = AgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
+        agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
         # Assuming we want to pass in the last action message. 
-        action_message = prev_agent_message.action_messages[-1] if prev_agent_message and len(prev_agent_message.action_messages) > 0 else None
+        action_message = None
+        if prev_agent_message and prev_agent_message.agent_id != self.agent_id:
+            action_message = prev_agent_message.message
         executor_message = self.execute(agent_message, action_message)
         self.model.update_memory(executor_message)
 
         return agent_message
 
-    def execute(self, agent_message: AgentMessage, action_message: Optional[ActionMessage] = None) -> Message:
+    def execute(self, agent_message: ExecutorAgentMessage, action_message: Optional[ActionMessage] = None) -> Message:
         model_action_message = self.call_lm(action_message)
         agent_message.add_action_message(model_action_message)
         # If the model decides to output a command, we run it in the environment

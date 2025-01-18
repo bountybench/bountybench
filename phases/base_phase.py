@@ -52,7 +52,6 @@ class BasePhase(ABC):
         self.agents: List[Tuple[str, BaseAgent]] = []
         self.initial_message = kwargs.get("initial_prompt", None)
         self._done = False
-        self.phase_summary: Optional[str] = None
         self.iteration_count = 0
         self.current_agent_index = 0
         self._last_agent_message = None
@@ -185,8 +184,8 @@ class BasePhase(ABC):
             self.iteration_count += 1
             self.current_agent_index += 1
 
-        if not self.phase_summary:
-            self._set_phase_summary("completed_failure")
+        if curr_phase_message.summary == "incomplete":
+            curr_phase_message.set_summary("completed_failure")
 
         # Deallocate resources after completing iterations
         self.deallocate_resources()
@@ -211,10 +210,6 @@ class BasePhase(ABC):
         agent = self.agents[(self.current_agent_index - 1) % len(self.agents)]
         return agent
     
-    def _set_phase_summary(self, summary: str):
-        """Allows a subclass to record a short message describing the phase outcome."""
-        self.phase_summary = summary
-
     @abstractmethod
     async def run_one_iteration(
         self, phase_message: PhaseMessage, agent_instance: Any, previous_output: Optional[Message]
