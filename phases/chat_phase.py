@@ -70,7 +70,7 @@ class ChatPhase(BasePhase):
         if isinstance(agent_instance, ChatAgent):
             if isinstance(message, AnswerMessageInterface):
                 logger.status("Executor agent hallucinated an answer!")
-                self._set_phase_summary("completed_with_hallucination")
+                phase_message.set_summary("completed_with_hallucination")
                 phase_message.set_complete()
                 return message
 

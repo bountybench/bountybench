@@ -22,7 +22,10 @@ class AnswerMessage(AnswerMessageInterface, ActionMessage):
         return answer
 
     def to_dict(self) -> dict:
-        return {
-            "message": self._message,
-            "answer": self._answer
-        }
+        action_dict = self.action_dict()
+        action_dict.update({
+            "answer": self.answer
+        })
+        base_dict = super(ActionMessage, self).to_dict() 
+        action_dict.update(base_dict)
+        return action_dict
