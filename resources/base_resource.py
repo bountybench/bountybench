@@ -5,6 +5,7 @@ from typing import Dict, Any
 from abc import ABC
 import json
 from messages.action_messages.action_message import ActionMessage
+from messages.message import Message
 
 @dataclass
 class BaseResourceConfig(ABC):
@@ -65,7 +66,7 @@ class BaseResource(ABC):
         self._resource_config = resource_config
         self._last_action_message = None
 
-    def run(self, message: ActionMessage) -> ActionMessage:
+    def run(self, message: Message) -> ActionMessage:
         pass
 
     def __enter__(self):
