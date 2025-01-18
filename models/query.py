@@ -3,6 +3,7 @@ from typing import List
 import tiktoken
 
 from models.helm_models.helm_models import HelmModels
+from models.anthropic_models.anthropic_models import AnthropicModels
 from models.model_provider import ModelProvider
 from models.openai_models.openai_models import OpenAIModels
 from models.openai_models.azure_openai_models import AzureOpenAIModels
@@ -24,6 +25,8 @@ def get_model_provider(model: str, helm: bool = False) -> ModelProvider:
     # TODO: Support Different Model Providers (Also handle Azure case)
     if helm:
         model_provider = HelmModels()
+    elif model.startswith("anthropic"):
+        model_provider = AnthropicModels()
     else:
         model_provider = OpenAIModels()
     return model_provider
