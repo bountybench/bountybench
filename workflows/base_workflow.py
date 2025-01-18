@@ -21,16 +21,6 @@ class WorkflowStatus(Enum):
     COMPLETED_SUCCESS = "completed_success"
     COMPLETED_FAILURE = "completed_failure"
 
-@dataclass
-class WorkflowConfig:
-    """Configuration for a workflow"""
-    id: str
-    max_iterations: int
-    logs_dir: Path
-    initial_prompt: str
-    task: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
 class BaseWorkflow(ABC):
     status = WorkflowStatus.INCOMPLETE
     
@@ -41,6 +31,8 @@ class BaseWorkflow(ABC):
         self.interactive = kwargs.get('interactive', False)
         if kwargs.get("phase_iterations"):
             self.phase_iterations = kwargs.get("phase_iterations")
+            
+        self.max_iterations = 25
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
         self._phase_graph = {}  # Stores phase relationships
@@ -49,6 +41,8 @@ class BaseWorkflow(ABC):
 
         self._initialize()
         
+        self.initial_prompt=self._get_initial_prompt()
+
         self.workflow_message = WorkflowMessage.get_instance()
         self.workflow_message.workflow_name = self.name
         self.workflow_message.task = self._get_task()
@@ -61,7 +55,7 @@ class BaseWorkflow(ABC):
         
         self.next_iteration_event = asyncio.Event()
         
-        atexit.register()
+        atexit.register(self.workflow_message.save())
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
@@ -201,7 +195,7 @@ class BaseWorkflow(ABC):
         return result.message if result else ""
     
     def _max_iterations_reached(self) -> bool:
-        return self._workflow_iteration_count >= self.config.max_iterations
+        return self._workflow_iteration_count >= self.max_iterations
 
     def _handle_workflow_exception(self, exception: Exception):
         self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
@@ -237,7 +231,3 @@ class BaseWorkflow(ABC):
     @property
     def name(self):
         return self.__class__.__name__
-    
-    @property
-    def initial_prompt(self):
-        return self.config.initial_prompt
