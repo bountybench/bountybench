@@ -47,10 +47,9 @@ class BaseWorkflow(ABC):
         self._root_phase = None
         self._current_phase = None
 
-
-        workflow_message.workflow_name = self.name
-        workflow_message.task = self._get_task()
-        self.workflow_message = workflow_message
+        self.workflow_message = WorkflowMessage.get_instance()
+        self.workflow_message.workflow_name = self.name
+        self.workflow_message.task = self._get_task()
 
         self._initialize()
         self._setup_resource_manager()

@@ -8,7 +8,15 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-class WorkflowMessage(Message):
+class WorkflowMessage(Message):    
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls("Workflow")
+        return cls._instance
+    
     def __init__(self, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, logs_dir: str = "logs") -> None:
         
         super().__init__()
@@ -80,5 +88,3 @@ class WorkflowMessage(Message):
         with open(self.log_file, 'w') as f:
             json.dump(self.to_dict(), f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
-
-workflow_message = WorkflowMessage("Workflow")
