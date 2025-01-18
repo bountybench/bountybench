@@ -4,11 +4,11 @@ from messages.message import Message
 
 class PhaseMessage(Message):
     def __init__(self, prev: 'PhaseMessage' = None, agent_messages: Optional[List[AgentMessage]] = []) -> None:
-        super().__init__(prev)
         self._success = False
         self._complete = False
         self._agent_messages = agent_messages
         self._phase_summary = None
+        super().__init__(prev)
 
     
     @property

@@ -3,10 +3,10 @@ from typing import Dict, Any, Optional
 
 class ActionMessage(Message):
     def __init__(self, resource_id: str, message: str, additional_metadata: Optional[Dict[str, Any]] = {}, prev: 'ActionMessage' = None) -> None:
-        super().__init__(prev)
         self._resource_id = resource_id
         self._message = message
         self._additional_metadata = additional_metadata
+        super().__init__(prev)
 
     @property
     def resource_id(self) -> str:

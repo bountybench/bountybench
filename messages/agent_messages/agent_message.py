@@ -5,8 +5,8 @@ from messages.message import Message
 class AgentMessage(Message):
     _action_messages: List[ActionMessage] = []
     def __init__(self, agent_id: str, prev: 'AgentMessage' = None) -> None:
-        super().__init__(prev)
         self._agent_id = agent_id
+        super().__init__(prev)
 
     @property
     def agent_id(self) -> str:
