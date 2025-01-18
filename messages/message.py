@@ -7,8 +7,6 @@ class Message(ABC):
         self._prev = prev
         if prev is not None and hasattr(prev, 'set_next'):
             prev.set_next(self)
-        else:
-            print(f"Warning: prev is not a Message object. Type: {type(prev)}")
             
         self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
         from messages.message_utils import log_message
