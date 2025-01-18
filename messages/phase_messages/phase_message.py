@@ -6,6 +6,7 @@ class PhaseMessage(Message):
     def __init__(self, prev: 'PhaseMessage' = None, agent_messages: Optional[List[AgentMessage]] = []) -> None:
         self._success = False
         self._complete = False
+        self._summary = "incomplete"
         self._agent_messages = agent_messages
         self._phase_summary = None
         super().__init__(prev)
@@ -20,12 +21,16 @@ class PhaseMessage(Message):
         return self._complete
     
     @property
+    def summary(self) -> bool:
+        return self._summary
+    
+    @property
     def agent_messages(self) -> List[AgentMessage]:
         return self._agent_messages
     
     @property
     def phase_summary(self) -> str:
-        return self._phase_summary
+        return self.summary
   
     def set_success(self):
         self._success = True
@@ -33,13 +38,15 @@ class PhaseMessage(Message):
     def set_complete(self):
         self._complete = True
 
+    def set_summary(self, summary: str):
+        self._summary = summary
+
     def add_agent_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
 
     def to_dict(self) -> dict:
         phase_dict = {
-            "success": self.success,
-            "complete": self.complete,
+            "phase_summary": self.summary,
             "agent_messages": [agent_message.to_dict() for agent_message in self.agent_messages],
             "phase_summary": self.phase_summary
         }

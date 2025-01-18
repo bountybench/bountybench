@@ -22,8 +22,10 @@ class CommandMessage(CommandMessageInterface, ActionMessage):
         return command
     
     def to_dict(self) -> dict:
-        base_dict = super().to_dict()        
-        base_dict.update({
-            "command": self.command,
+        action_dict = self.action_dict()
+        action_dict.update({
+            "command": self.command
         })
-        return base_dict
+        base_dict = super(ActionMessage, self).to_dict() 
+        action_dict.update(base_dict)
+        return action_dict

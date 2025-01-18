@@ -16,9 +16,11 @@ class ExecutorAgentMessage(AgentMessage):
         return self._observation
 
     def to_dict(self) -> dict:
-        base_dict = super().to_dict()
-        base_dict.update({
+        agent_dict = self.agent_dict()
+        agent_dict.update({
             "response": self.response,
             "observation": self.observation
         })
-        return base_dict
+        base_dict = super(AgentMessage, self).to_dict() 
+        agent_dict.update(base_dict)
+        return agent_dict

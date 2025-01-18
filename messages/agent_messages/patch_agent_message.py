@@ -20,10 +20,12 @@ class PatchAgentMessage(AgentMessage):
         return self._patch_files_dir
 
     def to_dict(self) -> dict:
-        base_dict = super().to_dict()        
-        base_dict.update({
+        agent_dict = self.agent_dict()
+        agent_dict.update({
             "message": self.message,
             "success": self.success,
             "patch_files_dir": self.patch_files_dir
         })
-        return base_dict
+        base_dict = super(AgentMessage, self).to_dict() 
+        agent_dict.update(base_dict)
+        return agent_dict

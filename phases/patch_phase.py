@@ -152,7 +152,7 @@ class PatchPhase(BasePhase):
         if isinstance(agent_instance, ExecutorAgent):
             if isinstance(message, AnswerMessageInterface):
                 logger.status("Executor agent hallucinated an answer!")
-                self._set_phase_summary("completed_with_hallucination")
+                phase_message.set_summary("completed_with_hallucination")
                 phase_message.set_complete()
                 return message
 
@@ -160,7 +160,7 @@ class PatchPhase(BasePhase):
         elif isinstance(agent_instance, PatchAgent):
             if isinstance(message, AnswerMessageInterface):
                 logger.info("Patch Success!")
-                self._set_phase_summary("patch_success")
+                phase_message.set_summary("patch_success")
                 phase_message.set_complete()
                 phase_message.set_success()
                 return message

@@ -12,16 +12,21 @@ class WorkflowMessage(Message):
     _instance = None
 
     @classmethod
-    def get_instance(cls):
+    def initialize(cls, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, logs_dir: str = "logs"):
         if cls._instance is None:
             cls._instance = cls.__new__(cls)
-            cls._instance._initialize("Workflow")
+            cls._instance._initialize(workflow_name, workflow_id, task, logs_dir)
+        return cls._instance
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            raise RuntimeError("WorkflowMessage has not been initialized. Call initialize() first.")
         return cls._instance
     
     def _initialize(self, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, logs_dir: str = "logs") -> None:
         # Core
-        self._success = False
-        self._complete = False
+        self._summary = "incomplete"
         self._phase_messages = []
         self.agents_used = {}
         self.resources_used = {}
@@ -36,35 +41,31 @@ class WorkflowMessage(Message):
                 if value:
                     components.append(str(value.name if isinstance(value, Path) else value))
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        self.worfklow_id = workflow_id
+        self.workflow_id = workflow_id
 
         # Metadata
         self.workflow_name = workflow_name
+        self.task = task
         self._start_time = datetime.now().isoformat()
         self._end_time = None
         self._phase_status = {}
 
-    def __init__(self, *args, **kwargs):
+        super().__init__() 
+        
+    def __init__(self):
         # This method should not be called directly
-        pass
+        raise RuntimeError("WorkflowMessage should not be instantiated directly. Use initialize() or get_instance().")
 
     @property
-    def success(self) -> bool:
-        return self._success
-    
-    @property
-    def complete(self) -> bool:
-        return self._complete
+    def summary(self) -> str:
+        return self._summary
     
     @property
     def phase_messages(self) -> List[PhaseMessage]:
         return self._phase_messages
 
-    def set_success(self):
-        self._success = True
-
-    def set_complete(self):
-        self._complete = True
+    def set_summary(self, summary: str):
+        self._summary = summary
 
     def add_phase_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
@@ -76,16 +77,23 @@ class WorkflowMessage(Message):
     def add_resource(self, resource_name: str, resource) -> None:
         if resource_name not in self.resources_used and hasattr(resource, 'to_dict'):
             self.resources_used[resource_name] = resource.to_dict()
+    
+    def metadata_dict(self) -> dict:
+        return {
+            "workflow_name": self.workflow_name,
+            "workflow_summary": self.summary,
+            "task": self.task,
+        }
 
     def to_dict(self) -> dict:
         return {
-            "success": self.success,
-            "complete": self.complete,
+            "metadata": self.metadata_dict(),
             "phase_messages": [phase_message.to_dict() for phase_message in self._phase_messages],
-            "agents_used": [agent for agent in self.agents_used],
-            "resources_used": [resource for resource in self.resources_used]
-        }   
-    
+            "agents_used": self.agents_used,
+            "resources_used": self.resources_used,
+            "start_time": self._start_time,
+            "end_time": self._end_time
+        }
 
     def save(self):
         self._end_time = datetime.now().isoformat()

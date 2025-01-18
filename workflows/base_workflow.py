@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 import asyncio
 import atexit
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Dict, Type
 from enum import Enum
 from messages.phase_messages.phase_message import PhaseMessage
@@ -43,9 +41,10 @@ class BaseWorkflow(ABC):
         
         self.initial_prompt=self._get_initial_prompt()
 
-        self.workflow_message = WorkflowMessage.get_instance()
-        self.workflow_message.workflow_name = self.name
-        self.workflow_message.task = self._get_task()
+        self.workflow_message = WorkflowMessage.initialize(
+            workflow_name=self.name,
+            task=self._get_task()
+        )
 
         self._setup_resource_manager()
         self._setup_agent_manager()
@@ -134,9 +133,6 @@ class BaseWorkflow(ABC):
 
             while self._current_phase:
                 logger.info(f"Running {self._current_phase.name}")
-                print("******************************")
-                print(self._current_phase, prev_phase_message)
-                print("******************************")
                 phase_message = await self._run_single_phase(self._current_phase, prev_phase_message)
                 yield phase_message
 
@@ -144,7 +140,6 @@ class BaseWorkflow(ABC):
 
 
                 prev_phase_message = phase_message
-                print("AFTER I GET THE PHASE_MESSAGE", phase_message.success)
                 if not phase_message.success or self._max_iterations_reached():
                     break
                     
@@ -152,10 +147,9 @@ class BaseWorkflow(ABC):
                 self._current_phase = next_phases[0] if next_phases else None
 
             if prev_phase_message.success:
-                self.workflow_message.set_success()
-                self.workflow_message.set_complete()
+                self.workflow_message.set_summary(WorkflowStatus.COMPLETED_SUCCESS.value)
             else:
-                self.workflow_message.set_complete()
+                self.workflow_message.set_summary(WorkflowStatus.COMPLETED_FAILURE.value)
 
         except Exception as e:
             self._handle_workflow_exception(e)
@@ -169,16 +163,8 @@ class BaseWorkflow(ABC):
         for resource_id, resource in phase_instance.resource_manager._resources.id_to_resource.items():
             self.workflow_message.add_resource(resource_id, resource)
 
-        print("=====================")
-        print("THIS IS PREVIOUS PHASE MESSAGE", prev_phase_message)
-        print("=====================")
         phase_message = await phase_instance.run_phase(prev_phase_message)
 
-
-        print("=====================")
-        print("THIS IS PHASE MESSAGE", phase_message.agent_messages)
-        print("=====================")
-        
         logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
 
         self._workflow_iteration_count += 1
