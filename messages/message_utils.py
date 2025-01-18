@@ -35,7 +35,7 @@ def _handle_broadcast_error(task):
         logger.error(f"[WorkflowLogger] Error in broadcast task: {e}")
 
 def log_message(message: Message):
-    broadcast_update(message.to_dict())
+    # broadcast_update(message.to_dict())
     if should_log(message):
         from messages.workflow_message import WorkflowMessage
         WorkflowMessage.get_instance().save()

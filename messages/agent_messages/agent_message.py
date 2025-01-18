@@ -20,9 +20,10 @@ class AgentMessage(Message):
         self._action_messages.append(action_message)
 
     def to_dict(self) -> dict:
-        base_dict = super().to_dict()        
-        base_dict.update({
+        agent_dict = {
             "agent_id": self.agent_id,
             "action_messages": [action_message.to_dict() for action_message in self.action_messages]
-        })
-        return base_dict
+        }
+        base_dict = super().to_dict()
+        agent_dict.update(base_dict)
+        return agent_dict

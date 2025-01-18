@@ -21,11 +21,10 @@ class ActionMessage(Message):
         return self._additional_metadata
 
     def to_dict(self) -> dict:
-        base_dict = super().to_dict()        
-        base_dict.update({
+        resource_dict = {
             "resource_id": self.resource_id,
             "message": self.message
-        })
-        if self.additional_metadata:
-            base_dict["additional_metadata"] = self.additional_metadata
-        return base_dict
+        }
+        base_dict = super().to_dict()
+        resource_dict.update(base_dict)
+        return resource_dict

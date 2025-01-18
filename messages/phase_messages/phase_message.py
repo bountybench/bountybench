@@ -37,11 +37,12 @@ class PhaseMessage(Message):
         self._agent_messages.append(agent_message)
 
     def to_dict(self) -> dict:
-        base_dict = super().to_dict()        
-        base_dict.update({
+        phase_dict = {
             "success": self.success,
             "complete": self.complete,
             "agent_messages": [agent_message.to_dict() for agent_message in self.agent_messages],
             "phase_summary": self.phase_summary
-        })
-        return base_dict
+        }
+        base_dict = super().to_dict()
+        phase_dict.update(base_dict)
+        return phase_dict
