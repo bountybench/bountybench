@@ -4,6 +4,7 @@ from functools import wraps
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
+from messages.agent_messages.agent_message import AgentMessage
 from messages.phase_messages.phase_message import PhaseMessage
 from resources.base_resource import BaseResource, BaseResourceConfig
 from messages.message import Message
@@ -193,7 +194,7 @@ class BasePhase(ABC):
         return curr_phase_message
 
     async def set_message_input(self, user_input: str) -> str:
-        user_input_message = Message(user_input)
+        user_input_message = AgentMessage(agent_id="human", message=user_input)
         
         # Update the last output
         self._last_agent_message = user_input_message
