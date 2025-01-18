@@ -128,8 +128,6 @@ class BaseWorkflow(ABC):
             if not self._root_phase:
                 raise ValueError("No root phase registered")
 
-            self.workflow_message.set_complete(False)
-            self.workflow_message.set_complete(False)
             self._current_phase = self._root_phase
 
             while self._current_phase:
@@ -151,11 +149,10 @@ class BaseWorkflow(ABC):
                 prev_phase_message = phase_message
 
             if prev_phase_message.success:
-                self.workflow_message.set_success(WorkflowStatus.COMPLETED_SUCCESS)
-                self.workflow_message.set_success(WorkflowStatus.COMPLETED_SUCCESS)
+                self.workflow_message.set_success()
+                self.workflow_message.set_complete()
             else:
-                self.workflow_message.set_success(WorkflowStatus.COMPLETED_FAILURE)
-                self.workflow_message.set_success(WorkflowStatus.COMPLETED_FAILURE)
+                self.workflow_message.set_complete()
 
         except Exception as e:
             self._handle_workflow_exception(e)
@@ -198,8 +195,6 @@ class BaseWorkflow(ABC):
         return self._workflow_iteration_count >= self.max_iterations
 
     def _handle_workflow_exception(self, exception: Exception):
-        self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
-        self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
         raise exception
 
     def _setup_phase(self, phase: BasePhase) -> BasePhase:
@@ -208,8 +203,6 @@ class BaseWorkflow(ABC):
             phase.setup()
             return phase
         except Exception as e:
-            self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
-            self.workflow_message.set_complete(WorkflowStatus.INCOMPLETE)
             logger.error(f"Failed to set up phase: {e}")
             raise
 
