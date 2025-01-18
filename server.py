@@ -15,7 +15,6 @@ from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
-from utils.workflow_logger import workflow_logger
 from utils.websocket_manager import websocket_manager
 
 app = FastAPI()
