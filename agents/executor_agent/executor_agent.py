@@ -102,3 +102,12 @@ class ExecutorAgent(BaseAgent):
         except Exception as e:
             logger.exception(f"Failed to execute command: {executor_message.command}.\nException: {str(e)}")
             return ActionMessage(resource_id=self.kali_env.resource_id, message=str(e), prev=executor_message)
+        
+    def to_dict(self) -> dict:
+        """
+        Serializes the ExecutorAgent state to a dictionary.
+        """
+        return {
+            'agent_id': self.agent_id,
+            "timestamp": getattr(self, "timestamp", None)
+        }

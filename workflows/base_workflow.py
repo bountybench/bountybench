@@ -159,7 +159,6 @@ class BaseWorkflow(ABC):
 
     async def _run_single_phase(self, phase: BasePhase, prev_phase_message: PhaseMessage) -> PhaseMessage:
         phase_instance = self._setup_phase(phase)
-
         for agent_name, agent in phase_instance.agents:
             self.workflow_message.add_agent(agent_name, agent)
 

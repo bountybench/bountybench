@@ -74,7 +74,7 @@ class WorkflowMessage(Message):
     def add_phase_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
 
-    def add_agent(self, agent_name: str, agent) -> None:
+    def add_agent(self, agent_name: str, agent) -> None:        
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
             self.agents_used[agent_name] = agent.to_dict()
 
