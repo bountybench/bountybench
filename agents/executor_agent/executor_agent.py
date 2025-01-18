@@ -46,17 +46,14 @@ class ExecutorAgent(BaseAgent):
             prev_agent_message = messages[0]
 
         agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
-        # Assuming we want to pass in the last action message. 
-        action_message = None
-        if prev_agent_message and prev_agent_message.agent_id != self.agent_id:
-            action_message = prev_agent_message.message
-        executor_message = self.execute(agent_message, action_message)
+        
+        executor_message = self.execute(agent_message, prev_agent_message)
         self.model.update_memory(executor_message)
 
         return agent_message
 
-    def execute(self, agent_message: ExecutorAgentMessage, action_message: Optional[ActionMessage] = None) -> Message:
-        model_action_message = self.call_lm(action_message)
+    def execute(self, agent_message: ExecutorAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> Message:
+        model_action_message = self.call_lm(prev_agent_message)
         agent_message.add_action_message(model_action_message)
         # If the model decides to output a command, we run it in the environment
         logger.info(f"LM Response:\n{model_action_message.message}")
