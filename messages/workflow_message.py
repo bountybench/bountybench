@@ -80,3 +80,5 @@ class WorkflowMessage(Message):
         with open(self.log_file, 'w') as f:
             json.dump(self.to_dict(), f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
+
+workflow_message = WorkflowMessage("Workflow")

@@ -1,7 +1,9 @@
 import asyncio
 
+from messages.message import Message
 from utils.websocket_manager import websocket_manager
 from utils.logger import get_main_logger
+from messages.workflow_message import workflow_message
 
 
 
@@ -33,3 +35,12 @@ def _handle_broadcast_error(task):
         task.result()
     except Exception as e:
         logger.error(f"[WorkflowLogger] Error in broadcast task: {e}")
+
+def log_message(message: Message):
+    if x: 
+        workflow_message.save()
+    
+    broadcast_update(message.to_dict())
+
+
+

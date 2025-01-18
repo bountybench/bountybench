@@ -8,11 +8,10 @@ from enum import Enum
 import logging
 
 from messages.phase_messages.phase_message import PhaseMessage
-from messages.workflow_message import WorkflowMessage
+from messages.workflow_message import workflow_message
 from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from messages.message import Message
-from utils.workflow_logger import workflow_logger
 from agents.agent_manager import AgentManager
 
 from utils.logger import get_main_logger
@@ -58,10 +57,9 @@ class BaseWorkflow(ABC):
         self._current_phase = None
 
 
-        self.workflow_message = WorkflowMessage(
-            workflow_name=self.name,
-            task=self._get_task(),
-        )
+        workflow_message.workflow_name = self.name
+        workflow_message.task = self._get_task()
+        self.workflow_message = workflow_message
 
         self._initialize()
         self._setup_resource_manager()
@@ -72,7 +70,7 @@ class BaseWorkflow(ABC):
         
         self.next_iteration_event = asyncio.Event()
         
-        atexit.register(self._finalize_workflow)
+        atexit.register()
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
