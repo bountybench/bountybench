@@ -47,7 +47,7 @@ class PhaseMessage(Message):
     def to_dict(self) -> dict:
         phase_dict = {
             "phase_summary": self.summary,
-            "agent_messages": [agent_message.to_dict() for agent_message in self.agent_messages],
+            "agent_messages": [agent_message.to_dict() for agent_message in self.agent_messages if agent_message is not None] if self.agent_messages else None,
             "phase_summary": self.phase_summary
         }
         base_dict = super().to_dict()

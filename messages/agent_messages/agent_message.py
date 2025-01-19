@@ -28,7 +28,7 @@ class AgentMessage(Message):
     def agent_dict(self) -> dict:
         return {
             "agent_id": self.agent_id,
-            "action_messages": [action_message.to_dict() for action_message in self.action_messages],
+            "action_messages": [action_message.to_dict() for action_message in self.action_messages if action_message is not None] if self.action_messages else None,
             "message": self.message
         }
     
