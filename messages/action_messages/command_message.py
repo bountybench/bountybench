@@ -8,9 +8,10 @@ from typing import Dict, Any, Optional
     
 class CommandMessage(CommandMessageInterface, ActionMessage):
     def __init__(self, resource_id: str, message: str, additional_metadata: Optional[Dict[str, Any]] = {}, prev: 'ActionMessage' = None) -> None:
-        super().__init__(resource_id, message, additional_metadata, prev)
+        self._message = message
         self._command = self.parse_command()
-
+        super().__init__(resource_id, message, additional_metadata, prev)
+        
     @property
     def command(self) -> str:
         return self._command
