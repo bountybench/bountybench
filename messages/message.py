@@ -1,15 +1,16 @@
 from abc import ABC
 import time
 class Message(ABC): 
-    _next: 'Message' = None
-    _version_prev: 'Message' = None
-    _version_next: 'Message' = None
 
     def __init__(self, prev: 'Message' = None) -> None:
         self._prev = prev
         if prev is not None and hasattr(prev, 'set_next'):
             prev.set_next(self)
             
+        self._next = None
+        self._version_prev = None
+        self._version_next = None
+        
         self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
         self._id = id(self)
         from messages.message_utils import log_message
@@ -44,7 +45,7 @@ class Message(ABC):
     def set_version_next(self, version_next: 'Message') -> None:
         self._version_next = version_next
     
-
+    
     @property
     def message_type(self) -> str:
         """
@@ -54,21 +55,21 @@ class Message(ABC):
         return self.__class__.__name__
     
     def to_dict(self) -> dict:
-        result = {}
-        result["message_type"] = self.message_type
-        if self.prev is not None:
-            result["prev"] = id(self.prev)
+            result = {}
+            result["message_type"] = self.message_type
+            if self.prev is not None:
+                result["prev"] = id(self.prev)
+            
+            result["current_id"] = self.id
+            
+            if self.next is not None:
+                result["next"] = id(self.next)
+            if self.version_prev is not None:
+                result["version_prev"] = id(self.version_prev)
+            if self.version_next is not None:
+                result["version_next"] = id(self.version_next)
+            
+            result["timestamp"] = self.timestamp
+            
         
-        result["current_id"] = self.id
-        
-        if self.next is not None:
-            result["next"] = id(self.next)
-        if self.version_prev is not None:
-            result["version_prev"] = id(self.version_prev)
-        if self.version_next is not None:
-            result["version_next"] = id(self.version_next)
-        
-        result["timestamp"] = self.timestamp
-        
-        
-        return result
+            return result

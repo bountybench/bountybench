@@ -21,10 +21,13 @@ class ActionMessage(Message):
         return self._additional_metadata
 
     def action_dict(self) -> dict:
-        return {
+        action_dict = {
             "resource_id": self.resource_id,
-            "message": self.message
+            "message": self.message,
         }
+        if self.additional_metadata:
+            action_dict["additional_metadata"]=  self.additional_metadata
+        return action_dict
 
     def to_dict(self) -> dict:
         action_dict = self.action_dict()

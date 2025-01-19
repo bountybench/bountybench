@@ -7,6 +7,7 @@ class ExecutorAgentMessage(AgentMessage):
         self._message = ""
         #TODO: add version history
         for action_message in self.action_messages:
-            self._message += action_message.message
+            if action_message:
+                self._message += action_message.message
 
         return self._message
