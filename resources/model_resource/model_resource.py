@@ -95,8 +95,12 @@ class ModelResource(BaseResource):
         self.initial_prompt = message_str
         self.memory.clear()
 
-    def update_memory(self, message_str: str) -> None:
+
+    def update_memory(self, message: Message) -> None:
         """Update model's memory with new message"""
+        if not hasattr(message, "message"):
+            return
+        message_str = message.message
         if len(self.memory) >= self.max_iterations_stored_in_memory:
             self.memory = self.memory[1:] + [message_str]
         else:
@@ -107,8 +111,8 @@ class ModelResource(BaseResource):
         Formulates the prompt, including the truncated memory.
         """
         if message:
-            self.update_memory(message.message)
-
+            self.update_memory(message)
+            
         truncated_input = truncate_input_to_max_tokens(
             max_input_tokens=self.max_input_tokens,
             model_input="\n".join(self.memory),
@@ -187,7 +191,7 @@ class ModelResource(BaseResource):
             message=model_input,
             temperature=self.temperature,
             max_tokens=self.max_output_tokens,
-            stop_sequences=self.stop_sequences,
+            stop_sequences=self.stop_sequences
         )
 
         lm_response = self.remove_hallucinations(model_response.content)
@@ -199,7 +203,7 @@ class ModelResource(BaseResource):
             "stop_sequences": self.stop_sequences,
             "input_tokens": model_response.input_tokens,
             "output_tokens": model_response.output_tokens,
-            "time_taken_in_ms": model_response.time_taken_in_ms,
+            "time_taken_in_ms": model_response.time_taken_in_ms
         },
 
         try:
