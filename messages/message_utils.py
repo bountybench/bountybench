@@ -43,7 +43,7 @@ def log_message(message: Message):
     if should_log(message):
         instance.save()
 
-def edit_message(old_message, edit):
+async def edit_message(old_message, edit):
     while old_message.version_next:
         old_message = old_message.version_next
 
