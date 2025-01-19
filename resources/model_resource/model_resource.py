@@ -206,7 +206,7 @@ class ModelResource(BaseResource):
             model_response = self.parse_response(lm_response, metadata, prev_action_message)
             return model_response
         except Exception as e:
-            logger.warning(f"Unable to parse response as CommandResponse or ActionResponse")
+            logger.warning(f"Unable to parse response as CommandResponse.")
 
 
     def stop(self) -> None:
