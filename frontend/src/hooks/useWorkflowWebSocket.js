@@ -93,7 +93,6 @@ export const useWorkflowWebSocket = (workflowId) => {
         console.log('Full message data:', data);
 
         switch (data.message_type) {
-
           case 'status_update':
           case 'initial_state':
             console.log('Handling status update:', data.status);
@@ -103,20 +102,21 @@ export const useWorkflowWebSocket = (workflowId) => {
             setWorkflowStatus(data.workflow_metadata?.workflow_summary || 'Unknown');
             setMessages((prev) => [...prev, data]);
             break;
-
           case 'PhaseMessage':
             setCurrentPhase(data.phase_summary || 'No summary');
             setMessages((prev) => [...prev, data]);
             break;
-
           case 'AgentMessage':
             setMessages((prev) => [...prev, data]);
             break;
-
           case 'ActionMessage':
             setMessages((prev) => [...prev, data]);
             break;
-
+          case 'last_message':
+          case 'first_message':
+            // Handle these messages if needed
+            console.log(`Received ${data.message_type}:`, data.content);
+            break;
           default:
             console.warn('Unknown message_type:', data.message_type);
             setMessages((prev) => [...prev, data]);

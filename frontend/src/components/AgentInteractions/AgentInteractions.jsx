@@ -442,11 +442,25 @@ export const AgentInteractions = ({
     setDisplayedMessageIndex(messages.length - 1);
   }, [messages]);
 
-  const handleNextMessage = () => {
+  const handleNextMessage = async () => {
     if (displayedMessageIndex < messages.length - 1) {
       setDisplayedMessageIndex(prevIndex => prevIndex + 1);
+    } else {
+      // Send the "next" signal to the backend
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/next/${workflow.id}`, {
+          method: 'POST'
+        });
+        if (!response.ok) {
+          throw new Error('Failed to send next signal');
+        }
+        console.log('Next signal sent successfully');
+      } catch (error) {
+        console.error('Error sending next signal:', error);
+      }
     }
   };
+
 
   if (!messages) {
     return (
@@ -484,14 +498,15 @@ export const AgentInteractions = ({
         <div ref={messagesEndRef} />
       </Box>
 
-      {interactiveMode && displayedMessageIndex < messages.length - 1 && (
+      {interactiveMode && (
         <Box className="input-container">
           <Button
             variant="contained"
             color="primary"
             onClick={handleNextMessage}
+            disabled={displayedMessageIndex >= messages.length - 1 && messages.length > 0}
           >
-            Next Message
+            {displayedMessageIndex < messages.length - 1 ? 'Next Message' : 'Next Iteration'}
           </Button>
         </Box>
       )}
