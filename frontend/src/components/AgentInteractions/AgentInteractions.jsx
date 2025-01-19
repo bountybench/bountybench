@@ -8,14 +8,13 @@ import ReactMarkdown from 'react-markdown';
 import './AgentInteractions.css';
 
 const ActionCard = ({ action, onUpdateActionInput }) => {
-  // 1) Default to expanded so partial updates are visible
   const [expanded, setExpanded] = useState(true);
-  console.log('Rendering action:', action);
   const [editing, setEditing] = useState(false);            
-  const [editedInput, setEditedInput] = useState(''); 
+  const [editedMessage, setEditedMessage] = useState(''); 
 
   if (!action) return null;
 
+  // Format the action message
   const formatData = (data) => {
     if (!data) return '';
     if (typeof data === 'string') return data;
@@ -37,130 +36,79 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
     }
   };
 
-  // We grab the original input to show if editing.
-  const originalInputContent = formatData(action.input_data);
+  // Original message content
+  const originalMessageContent = formatData(action.message);
 
   const renderContent = (content, label) => {
     if (!content) return null;
     const formattedContent = formatData(content);
     if (!formattedContent) return null;
 
-    if (action.action_type === 'llm' && label === 'Input') {
-      return (
-        <Box mt={1}>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.5 }}
-            >
-              {label}:
-            </Typography>
-          </Box>
-          {editing ? (
-            <TextField
-              multiline
-              fullWidth
-              minRows={3}
-              maxRows={10}
-              value={editedInput}
-              onChange={(e) => setEditedInput(e.target.value)}
-              sx={{
-                mt: 1,
-                '& .MuiInputBase-input': {
-                  color: 'black',
-                },
-              }}
-            />
-          ) : (
-            <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1, mt: 1 }}>
-              <Typography
-                variant="body2"
-                component="pre"
-                sx={{
-                  whiteSpace: 'pre-wrap',
-                  overflowX: 'auto',
-                  m: 0,
-                  fontFamily: 'monospace',
-                  fontSize: '0.85rem',
-                }}
-              >
-                {formattedContent}
-              </Typography>
-            </Card>
-          )}
-          {editing && (
-            <Box display="flex" justifyContent="flex-end" mt={1}>
-              <Button
-                size="small"
-                variant="contained"
-                color="primary"
-                onClick={handleSaveClick}
-              >
-                Save
-              </Button>
-            </Box>
-          )}
-        </Box>
-      );
-    }
-    if (action.action_type === 'llm' && label === 'Output' && content) {
-      try {
-        const parsed = typeof content === 'string' ? JSON.parse(content) : content;
-        if (parsed.response) {
-          return (
-            <Box mt={1}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                {label}:
-              </Typography>
-              <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                <ReactMarkdown>{parsed.response}</ReactMarkdown>
-              </Card>
-            </Box>
-          );
-        }
-      } catch (e) {
-        // fall back to default rendering
-      }
-    }
-    
-    // Default rendering
+    // Customize rendering based on resource_id or other logic if needed
     return (
       <Box mt={1}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
           {label}:
         </Typography>
-        <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-          <Typography
-            variant="body2"
-            component="pre"
+        {editing ? (
+          <TextField
+            multiline
+            fullWidth
+            minRows={3}
+            maxRows={10}
+            value={editedMessage}
+            onChange={(e) => setEditedMessage(e.target.value)}
             sx={{
-              whiteSpace: 'pre-wrap',
-              overflowX: 'auto',
-              m: 0,
-              fontFamily: 'monospace',
-              fontSize: '0.85rem'
+              mt: 1,
+              '& .MuiInputBase-input': {
+                color: 'black',
+              },
             }}
-          >
-            {formattedContent}
-          </Typography>
-        </Card>
+          />
+        ) : (
+          <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1, mt: 1 }}>
+            <Typography
+              variant="body2"
+              component="pre"
+              sx={{
+                whiteSpace: 'pre-wrap',
+                overflowX: 'auto',
+                m: 0,
+                fontFamily: 'monospace',
+                fontSize: '0.85rem',
+              }}
+            >
+              {formattedContent}
+            </Typography>
+          </Card>
+        )}
+        {editing && (
+          <Box display="flex" justifyContent="flex-end" mt={1}>
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              onClick={handleSaveClick}
+            >
+              <SaveIcon/>
+            </Button>
+          </Box>
+        )}
       </Box>
     );
   };
 
-
   const handleEditClick = () => {
     setEditing(true);
-    setEditedInput(formatData(action.input_data)); // Populate with original input
+    setEditedMessage(originalMessageContent); // Populate with original message
   };
 
   const handleSaveClick = async () => {
     if (!action.timestamp) {
-      console.error('Action ID is undefined');
+      console.error('Action timestamp is undefined');
       return;
     }
-    await onUpdateActionInput(action.timestamp, editedInput);
+    await onUpdateActionInput(action.timestamp, editedMessage);
     setEditing(false);
   };
 
@@ -175,7 +123,7 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box>
             <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold' }}>
-              {action.action_type ? action.action_type.toUpperCase() : 'ACTION'}
+              {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
             </Typography>
             {action.timestamp && (
               <Typography variant="caption" color="text.secondary">
@@ -197,14 +145,14 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
           {editing ? (
             <Box mt={1}>
               <Typography variant="caption" color="text.secondary">
-                Editing Input:
+                Editing Message:
               </Typography>
               <TextField
                 multiline
                 minRows={3}
                 maxRows={10}
-                value={editedInput}
-                onChange={(e) => setEditedInput(e.target.value)}
+                value={editedMessage}
+                onChange={(e) => setEditedMessage(e.target.value)}
                 sx={{
                   '& .MuiInputBase-input': {
                     color: 'black',
@@ -225,7 +173,7 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
             </Box>
           ) : (
             <>
-              {renderContent(action.input_data, 'Input')}
+              {renderContent(action.message, 'Message')}
               <Box mt={1} display="flex" justifyContent="flex-end">
                 <Button
                   variant="outlined"
@@ -239,8 +187,7 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
             </>
           )}
 
-          {renderContent(action.output_data, 'Output')}
-          {action.metadata && Object.keys(action.metadata).length > 0 && (
+          {action.additional_metadata && Object.keys(action.additional_metadata).length > 0 && (
             <Box mt={1}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                 Metadata:
@@ -257,7 +204,7 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
                     fontSize: '0.85rem'
                   }}
                 >
-                  {formatData(action.metadata)}
+                  {formatData(action.additional_metadata)}
                 </Typography>
               </Card>
             </Box>
@@ -273,82 +220,194 @@ export default ActionCard;
 
 const MessageBubble = ({ message, onUpdateActionInput }) => {
   const [expanded, setExpanded] = useState(true);
-  const [inputExpanded, setInputExpanded] = useState(false); 
-  const [outputExpanded, setOutputExpanded] = useState(false); 
-  
+
   if (!message) return null;
 
-  const hasContent = message.input?.content || message.output?.content || message.input?.message || message.output?.message;
-  const hasActions = message.actions && message.actions.length > 0;
-  const messageClass = message.isSystem ? 'system' : message.isUser ? 'user' : 'agent';
-  
-  const handleInputExpandClick = (e) => {
-    e.stopPropagation();
-    setInputExpanded((prev) => !prev);
-  };
+  const handleToggleExpanded = () => setExpanded((prev) => !prev);
 
-  const handleOutputExpandClick = (e) => {
-    e.stopPropagation();
-    setOutputExpanded((prev) => !prev);
-  };
-
-  const renderContent = (content, label) => {
-    if (!content) return null;
-    return (
-      <Box mt={1}>
-        <Typography variant="caption" color="text.secondary">{label}:</Typography>
-        <Box sx={{ mt: 1 }}>
-          <ReactMarkdown>{typeof content === 'string' ? content : content.content || content.message}</ReactMarkdown>
-        </Box>
-      </Box>
-    );
-  };
-
-  return (
-    <Box className={`message-container ${messageClass}`}>
-      <Card className={`message-bubble ${messageClass}-bubble`}>
-        <CardContent>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              {message.agent_name || 'System'}
-            </Typography>
-          </Box>
-          
-          <Collapse in={expanded || message.isSystem}>
-            {message.input && !message.isSystem && (
-              <Box mt={1} onClick={handleInputExpandClick} style={{ cursor: 'pointer' }}>
-                <Typography variant="caption" color="primary">
-                  {inputExpanded ? 'Hide Input' : 'Show Input'}
+  switch (message.message_type) {
+    case 'AgentMessage':
+      return (
+        <Box className={`message-container agent`}>
+          <Card className="message-bubble agent-bubble">
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center" onClick={handleToggleExpanded} style={{ cursor: 'pointer' }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Agent: {message.agent_id}
                 </Typography>
-                {inputExpanded && renderContent(message.input, 'Input')}
+                <IconButton size="small">
+                  {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
               </Box>
-            )}
-            {message.output && !message.isSystem && (
-              <Box mt={1} onClick={handleOutputExpandClick} style={{ cursor: 'pointer' }}>
-                <Typography variant="caption" color="primary">
-                  {outputExpanded ? 'Hide Output' : 'Show Output'}
-                </Typography>
-                {outputExpanded && renderContent(message.output, 'Output')}
-              </Box>
-            )}
-            {hasActions && (
-              <Box mt={2}>
-                <Typography variant="subtitle2" gutterBottom>Actions:</Typography>
-                {message.actions.map((action, index) => (
-                  <Box key={`${message.id}_action_${index}`} mt={1}>
-                    <ActionCard 
-                      action={action}
-                      onUpdateActionInput={onUpdateActionInput}
-                    />
+              <Collapse in={expanded}>
+                <Box mt={1}>
+                  <ReactMarkdown>{message.message || ''}</ReactMarkdown>
+                </Box>
+
+                {message.action_messages && message.action_messages.length > 0 && (
+                  <Box mt={2}>
+                    <Typography variant="subtitle2">Actions:</Typography>
+                    {message.action_messages.map((action, index) => (
+                      <Box key={`action_${index}`} mt={1}>
+                        <ActionCard
+                          action={action}
+                          onUpdateActionInput={onUpdateActionInput}
+                        />
+                      </Box>
+                    ))}
                   </Box>
-                ))}
+                )}
+              </Collapse>
+            </CardContent>
+          </Card>
+        </Box>
+      );
+
+    case 'ActionMessage':
+      // If ActionMessage can appear independently
+      return (
+        <Box className={`message-container action`}>
+          <Card className="message-bubble action-bubble">
+            <CardContent onClick={handleToggleExpanded} style={{ cursor: 'pointer' }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle2" color="text.secondary">
+                  Action on Resource: {message.resource_id}
+                </Typography>
+                <IconButton size="small">
+                  {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
               </Box>
-            )}
-          </Collapse>
-        </CardContent>
-      </Card>
-    </Box>
-  );
+              <Collapse in={expanded}>
+                <Box mt={1}>
+                  <ReactMarkdown>{message.message || ''}</ReactMarkdown>
+                </Box>
+                {message.additional_metadata && (
+                  <Box mt={1}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                      Metadata:
+                    </Typography>
+                    <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
+                      <Typography
+                        variant="body2"
+                        component="pre"
+                        sx={{
+                          whiteSpace: 'pre-wrap',
+                          overflowX: 'auto',
+                          m: 0,
+                          fontFamily: 'monospace',
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        {JSON.stringify(message.additional_metadata, null, 2)}
+                      </Typography>
+                    </Card>
+                  </Box>
+                )}
+              </Collapse>
+            </CardContent>
+          </Card>
+        </Box>
+      );
+
+    case 'PhaseMessage':
+      return (
+        <Box className={`message-container system`}>
+          <Card className="message-bubble system-bubble">
+            <CardContent onClick={handleToggleExpanded} style={{ cursor: 'pointer' }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle2" color="text.secondary">
+                  Phase
+                </Typography>
+                <IconButton size="small">
+                  {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              </Box>
+              <Collapse in={expanded}>
+                <Typography variant="body2" mt={1}>
+                  Summary: {message.phase_summary || '(no summary)'}
+                </Typography>
+                {message.additional_metadata && (
+                  <Box mt={1}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                      Metadata:
+                    </Typography>
+                    <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
+                      <Typography
+                        variant="body2"
+                        component="pre"
+                        sx={{
+                          whiteSpace: 'pre-wrap',
+                          overflowX: 'auto',
+                          m: 0,
+                          fontFamily: 'monospace',
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        {JSON.stringify(message.additional_metadata, null, 2)}
+                      </Typography>
+                    </Card>
+                  </Box>
+                )}
+              </Collapse>
+            </CardContent>
+          </Card>
+        </Box>
+      );
+
+    case 'WorkflowMessage':
+      return (
+        <Box className={`message-container system`}>
+          <Card className="message-bubble system-bubble">
+            <CardContent onClick={handleToggleExpanded} style={{ cursor: 'pointer' }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle2" color="text.secondary">
+                  Workflow
+                </Typography>
+                <IconButton size="small">
+                  {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              </Box>
+              <Collapse in={expanded}>
+                <Typography variant="body2" mt={1}>
+                  Name: {message.workflow_metadata?.workflow_name || '(unknown)'}
+                </Typography>
+                <Typography variant="body2">
+                  Summary: {message.workflow_metadata?.workflow_summary || '(none)'}
+                </Typography>
+                {/* Optionally, render phase_messages or other metadata */}
+                {message.workflow_metadata?.phase_messages && message.workflow_metadata.phase_messages.length > 0 && (
+                  <Box mt={1}>
+                    <Typography variant="subtitle2">Phases:</Typography>
+                    {message.workflow_metadata.phase_messages.map((phase, index) => (
+                      <Box key={`phase_${index}`} mt={1}>
+                        <Typography variant="body2">
+                          {phase.phase_summary || 'No summary'}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Collapse>
+            </CardContent>
+          </Card>
+        </Box>
+      );
+
+    default:
+      // Fallback for unknown message types
+      return (
+        <Box className="message-container system">
+          <Card className="message-bubble system-bubble">
+            <CardContent>
+              <Typography variant="subtitle2" color="error">
+                Unknown message_type: {message.message_type}
+              </Typography>
+              <pre>{JSON.stringify(message, null, 2)}</pre>
+            </CardContent>
+          </Card>
+        </Box>
+      );
+  }
 };
 
 export const AgentInteractions = ({ 
