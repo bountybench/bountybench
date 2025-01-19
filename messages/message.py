@@ -2,6 +2,8 @@ from abc import ABC
 import time
 class Message(ABC): 
     _next: 'Message' = None
+    _version_prev: 'Message' = None
+    _version_next: 'Message' = None
 
     def __init__(self, prev: 'Message' = None) -> None:
         self._prev = prev
@@ -22,17 +24,41 @@ class Message(ABC):
         return self._next
     
     @property
+    def version_prev(self) -> str:
+        return self._version_prev
+    
+    @property
+    def version_next(self) -> str:
+        return self._version_next
+    
+    @property
     def id(self) -> str:
         return self._id
     
     def set_next(self, next: 'Message') -> None:
         self._next = next
     
-    def to_dict(self) -> dict:
-        return {
-            "prev": id(self.prev) if self.prev else None,
-            "current_id": self.id,
-            "next": id(self.next) if self.next else None,
-            "timestamp": self.timestamp
-        }
+    def set_version_prev(self, version_prev: 'Message') -> None:
+        self._version_prev = version_prev
+
+    def set_version_next(self, version_next: 'Message') -> None:
+        self._version_next = version_next
     
+def to_dict(self) -> dict:
+    result = {}
+    
+    if self.prev is not None:
+        result["prev"] = id(self.prev)
+    
+    result["current_id"] = self.id
+    
+    if self.next is not None:
+        result["next"] = id(self.next)
+    if self.version_prev is not None:
+        result["version_prev"] = id(self.version_prev)
+    if self.version_next is not None:
+        result["version_next"] = id(self.version_next)
+    
+    result["timestamp"] = self.timestamp
+    
+    return result
