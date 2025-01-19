@@ -62,7 +62,6 @@ class ChatPhase(BasePhase):
         logger.info(f"Running {agent_instance.agent_id}")
         message = await agent_instance.run(input_list)
         logger.info(f"Got message {message}")
-        phase_message.add_agent_message(message)
 
         # Determine which agent name was used in this iteration
         _, agent_instance = self._get_current_agent()

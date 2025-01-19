@@ -3,7 +3,10 @@ import asyncio
 import atexit
 from typing import Any, Dict, Type
 from enum import Enum
+from messages.message import Message
+from messages.message_utils import edit_message, message_dict
 from messages.phase_messages.phase_message import PhaseMessage
+from messages.rerun_manager import RerunManager
 from messages.workflow_message import WorkflowMessage
 from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
@@ -49,6 +52,7 @@ class BaseWorkflow(ABC):
 
         self._setup_resource_manager()
         self._setup_agent_manager()
+        self._setup_rerun_manager()
         self._create_phases()
         self._compute_resource_schedule()
         logger.info(f"Finished initializing workflow {self.name}")
@@ -112,6 +116,10 @@ class BaseWorkflow(ABC):
         self.resource_manager = ResourceManager()
         logger.info("Setup resource manager")
 
+    def _setup_rerun_manager(self):
+        self.rerun_manager = RerunManager(self.agent_manager, self.resource_manager)
+        logger.info("Setup rerun manager")
+        
     def _get_task(self) -> Dict[str, Any]:
         return {}
     
@@ -136,12 +144,7 @@ class BaseWorkflow(ABC):
                 logger.info(f"Running {self._current_phase.name}")
                 phase_message = await self._run_single_phase(self._current_phase, prev_phase_message)
                 yield phase_message
-
-
-
-                self.workflow_message.add_phase_message(phase_message)
-
-
+                
                 prev_phase_message = phase_message
                 if not phase_message.success or self._max_iterations_reached():
                     break
@@ -165,7 +168,7 @@ class BaseWorkflow(ABC):
         for resource_id, resource in phase_instance.resource_manager._resources.id_to_resource.items():
             self.workflow_message.add_resource(resource_id, resource)
 
-        phase_message = await phase_instance.run_phase(prev_phase_message)
+        phase_message = await phase_instance.run_phase(self.workflow_message, prev_phase_message)
 
         logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
 
@@ -218,8 +221,22 @@ class BaseWorkflow(ABC):
     async def get_last_message(self) -> str:
         result = self._current_phase.last_agent_message  
         return result.message if result else ""
-    
 
+    async def rerun_message(self, message_id: str):
+        message = message_dict[message_id]
+        message = await self.rerun_manager.rerun(message)
+        return message
+    
+    async def run_edited_message(self, message_id: str):
+        message = message_dict[message_id]
+        message = await self.rerun_manager.run_edited(message)
+        return message
+    
+    async def edit_one_message(self, message_id: str, new_message_data: str) -> Message:
+        message = message_dict[message_id]
+        message = await edit_message(message, new_message_data)
+        return message
+    
     @property
     def name(self):
         return self.__class__.__name__

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.agent_message import AgentMessage
 from messages.phase_messages.phase_message import PhaseMessage
+from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResource, BaseResourceConfig
 from messages.message import Message
 from utils.logger import get_main_logger
@@ -139,7 +140,7 @@ class BasePhase(ABC):
             logger.error(f"Failed to deallocate resources for phase {self.phase_config.phase_idx}: {e}")
             raise
 
-    async def run_phase(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
+    async def run_phase(self, workflow_message: WorkflowMessage, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.
 
@@ -154,6 +155,7 @@ class BasePhase(ABC):
         if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
             self._last_agent_message = prev_phase_message.agent_messages[-1]
         curr_phase_message = PhaseMessage(prev=prev_phase_message)
+        workflow_message.add_phase_message(curr_phase_message)
 
         for iteration_num in range(1, self.phase_config.max_iterations + 1):
             if curr_phase_message.complete:
@@ -175,6 +177,8 @@ class BasePhase(ABC):
                 agent_instance=agent_instance,
                 previous_output=self._last_agent_message,
             )
+            curr_phase_message.add_agent_message(message)
+
             logger.info(f"Finished iteration {iteration_num} of {self.name} with {agent_id}")
             if curr_phase_message.complete:
                 break

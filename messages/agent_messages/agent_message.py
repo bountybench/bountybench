@@ -3,11 +3,11 @@ from messages.action_messages.action_message import ActionMessage
 from messages.message import Message
 
 class AgentMessage(Message):
-    _action_messages: List[ActionMessage] = []
     
     def __init__(self, agent_id: str, message: Optional[str] = "", prev: 'AgentMessage' = None) -> None:
         self._message = message
         self._agent_id = agent_id
+        self._action_messages = []
         super().__init__(prev)
 
     @property
@@ -28,7 +28,7 @@ class AgentMessage(Message):
     def agent_dict(self) -> dict:
         return {
             "agent_id": self.agent_id,
-            "action_messages": [action_message.to_dict() for action_message in self.action_messages],
+            "action_messages": [action_message.to_dict() for action_message in self.action_messages if action_message is not None] if self.action_messages else None,
             "message": self.message
         }
     

@@ -1,15 +1,16 @@
 from abc import ABC
 import time
 class Message(ABC): 
-    _next: 'Message' = None
-    _version_prev: 'Message' = None
-    _version_next: 'Message' = None
 
     def __init__(self, prev: 'Message' = None) -> None:
         self._prev = prev
         if prev is not None and hasattr(prev, 'set_next'):
             prev.set_next(self)
             
+        self._next = None
+        self._version_prev = None
+        self._version_next = None
+        
         self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
         self._id = id(self)
         from messages.message_utils import log_message

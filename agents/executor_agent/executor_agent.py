@@ -62,6 +62,8 @@ class ExecutorAgent(BaseAgent):
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             kali_action_message = self.execute_in_env(model_action_message)
+            if not kali_action_message:
+                return
             agent_message.add_action_message(kali_action_message)
             return kali_action_message
         return model_action_message

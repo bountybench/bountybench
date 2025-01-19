@@ -171,6 +171,12 @@ class KaliEnvResource(BaseResource):
             except Exception as e:
                 logger.error(f"Error cleaning up Docker container: {e}")
 
+    def run(self, command_message: CommandMessage) -> ActionMessage:
+        command_str = command_message.command
+        stdout, stderr = self.run_command(command_str, TIMEOUT_PER_COMMAND)
+        observation_text = stdout.strip() + stderr.strip()
+        return ActionMessage(resource_id=self.resource_id, message=observation_text, prev=command_message)
+
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, tty: bool = False) -> Tuple[str, str]:
         command_str = command
         if len(command) > 33:

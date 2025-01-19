@@ -1,4 +1,6 @@
 import asyncio
+import inspect
+from typing import Dict
 
 from messages.message import Message
 from messages.config import MessageType, set_logging_level, should_log
@@ -8,6 +10,8 @@ logger = get_main_logger(__name__)
 
 # Set the logging level
 set_logging_level(MessageType.AGENT)
+
+message_dict: Dict[str, Message] = {}
 
 def broadcast_update(workflow_id: str, data: dict):
     """Send an update over WebSocket. This can be disabled or customized as desired."""
@@ -35,10 +39,34 @@ def _handle_broadcast_error(task):
         logger.error(f"[WorkflowLogger] Error in broadcast task: {e}")
 
 def log_message(message: Message):
+    message_dict[message.id] = message
+
     from messages.workflow_message import WorkflowMessage
     instance = WorkflowMessage.get_instance()
 
     broadcast_update(instance.workflow_id, message.to_dict())
     if should_log(message):
         instance.save()
-    
+
+async def edit_message(old_message: Message, edit: str) -> Message:
+    while old_message.version_next:
+        old_message = old_message.version_next
+
+    dic = old_message.__dict__
+    cls = type(old_message)
+    init_method = cls.__init__
+    signature = inspect.signature(init_method)
+    params = {}
+    for name, param in signature.parameters.items():
+        if "_" + name in dic:
+            params[name] = dic["_" + name]
+
+    params['prev'] = None
+    params['message'] = edit
+    new_message = cls(**params)
+
+    new_message.set_version_prev(old_message)
+    new_message.set_next(old_message.next)
+    old_message.set_version_next(new_message)
+
+    return new_message
