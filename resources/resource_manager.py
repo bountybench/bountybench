@@ -4,7 +4,6 @@ from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.init_files_resource import InitFilesResource
 from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
-from utils.workflow_logger import workflow_logger
 from resources.kali_env_resource import KaliEnvResource
 
 
@@ -119,11 +118,6 @@ class ResourceManager:
         resource_class, resource_config = self._resource_registration[resource_id]
         try:
             resource = resource_class(resource_id, resource_config)
-            if hasattr(resource, "role"):
-                workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.role}", resource)
-            else:
-                workflow_logger.add_resource(f"{resource.__class__.__name__}: {resource.resource_id}", resource)
-            
             self._resources[resource_id] = resource
             logger.debug(f"Successfully initialized resource '{resource_id}'")
         except Exception as e:
