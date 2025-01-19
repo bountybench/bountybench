@@ -44,9 +44,18 @@ class Message(ABC):
     def set_version_next(self, version_next: 'Message') -> None:
         self._version_next = version_next
     
+
+    @property
+    def message_type(self) -> str:
+        """
+        Return the type of this message. By default, use the class name.
+        Subclasses can override or rely on the base class name.
+        """
+        return self.__class__.__name__
+    
     def to_dict(self) -> dict:
         result = {}
-        
+        result["message_type"] = self.message_type
         if self.prev is not None:
             result["prev"] = id(self.prev)
         
@@ -60,5 +69,6 @@ class Message(ABC):
             result["version_next"] = id(self.version_next)
         
         result["timestamp"] = self.timestamp
+        
         
         return result

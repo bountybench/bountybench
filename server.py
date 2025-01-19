@@ -206,7 +206,10 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 if should_exit:
                     break
                     
+                print("********************************************")
                 print(f"Received message from workflow {workflow_id}: {data}")
+                print("********************************************")
+
                 
                 if data.get("type") == "user_message" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
