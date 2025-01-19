@@ -21,7 +21,7 @@ class RerunManager:
 
     async def _rerun_action_message(self, old_message):
         resource = self.resource_manager.get_resource(old_message.resource_id)
-        new_message = await resource.run(old_message.prev)
+        new_message = resource.run(old_message.prev)
         self._update_version_links(old_message, new_message)
         return new_message
 
