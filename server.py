@@ -203,6 +203,9 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
         while not should_exit:
             try:
                 data = await websocket.receive_json()
+                print("===================DATATATADADATATATAT")
+                print(data)
+                print("======================")
                 if should_exit:
                     break
                     
