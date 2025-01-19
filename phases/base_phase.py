@@ -177,6 +177,8 @@ class BasePhase(ABC):
                 agent_instance=agent_instance,
                 previous_output=self._last_agent_message,
             )
+            curr_phase_message.add_agent_message(message)
+
             logger.info(f"Finished iteration {iteration_num} of {self.name} with {agent_id}")
             if curr_phase_message.complete:
                 break
