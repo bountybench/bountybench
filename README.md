@@ -97,19 +97,6 @@ workflow.run()
 ```
 These will execute the entire exploit-and-patch workflow, running through all defined phases and handling resource allocation/deallocation automatically
 
-### Running the frontend
-In one terminal in `bountyagent`, run:
-```
-python server.py
-```
-
-In another terminal in `bountyagent`, run:
-```
-cd frontend
-npm install
-npm start
-```
-
 ### Sample Run
 ![Screen recording of a run](media/sample_run.gif)
 

@@ -15,6 +15,7 @@ from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
+from utils.workflow_logger import workflow_logger
 from utils.websocket_manager import websocket_manager
 
 app = FastAPI()
@@ -117,6 +118,14 @@ async def start_workflow(workflow_data: dict):
             "instance": workflow,
             "status": "initialized"
         }
+        
+        # Initialize workflow logger with the same workflow ID
+        workflow_logger.initialize(
+            workflow_name=workflow_data['workflow_name'],
+            workflow_id=workflow_id,  # Pass the workflow ID
+            task={"task_dir":workflow_data['task_dir'],
+            "bounty_number":workflow_data['bounty_number']}
+        )
         
         # Return workflow ID immediately
         return {

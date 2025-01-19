@@ -8,15 +8,13 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 import docker
-from messages.agent_messages.agent_message import AgentMessage
-from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.setup_resource import SetupResource
-from messages.action_messages.answer_message import AnswerMessage
+from messages.answer_message import AnswerMessage
 from messages.message import Message
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
@@ -61,7 +59,6 @@ class PatchAgent(BaseAgent):
         self.log_history = []
         
         self.codebase = None
-        self.new_patch_dir = None
         
         self.patch_id = 1
         self.patch_dir_name = "agent-patches"
@@ -74,25 +71,25 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
 
-    async def run(self, messages: List[AgentMessage]) -> AgentMessage:
+    async def run(self, messages: List[Message]) -> Message:
         """Execute the main workflow of the PatchAgent."""
         if len(messages) != 1:
             raise ValueError(f"Accepts only a single message, but received {len(messages)} messages")
         
-        prev_agent_message = messages[0]
+        message = messages[0]
         self.codebase = os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)
         
         if self.get_git_diff(self.codebase):
             log_message = "Git diff detected, applying changes..."
             logger.info(log_message)
             self.log_history.append(log_message)
-            return self.execute(prev_agent_message)
+            return self.execute()
         else: 
             logger_message = "No git diff detected, skipping patching."
             logger.info(logger_message)
-            return AgentMessage(agent_id=self.agent_id, message=logger_message, prev=prev_agent_message)
+            return Message(logger_message)
 
-    def execute(self, prev_agent_message: Optional[AgentMessage] = None) -> AgentMessage:
+    def execute(self) -> Message:
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = self.get_git_diff(self.codebase)
         if tmp_dir_diff:
@@ -118,7 +115,7 @@ class PatchAgent(BaseAgent):
 
         if hasattr(self, "bounty_resource") and hasattr(self, "repo_resource") and not (bounty_resource_restarted and repo_resource_restarted):
             logger.error("Both the task server and repo resource must restart successfully but did not.")
-            return PatchAgentMessage(agent_id=self.agent_id, message="The task server and/or repo resource cannot restart after the changes.", prev=prev_agent_message)
+            return Message("The task server and/or repo resource cannot restart after the changes.")
 
         # Run exploit
         stdout, exit_code = self.run_exploit()
@@ -126,7 +123,7 @@ class PatchAgent(BaseAgent):
         if self.use_verify_script:
             if self.verify_patch_works(stdout):
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
-                return PatchAgentMessage(agent_id=self.agent_id, message="Congratulations! The patch succeeded.", success=True, patch_files_dir=self.new_patch_dir, prev=prev_agent_message)
+                return AnswerMessage("Answer: Congratulations! The patch succeeded.")
             else:
                 logger_message = "Exploit succeeded (return code 0), patch failed."
                 logger.status(logger_message)
@@ -135,7 +132,7 @@ class PatchAgent(BaseAgent):
         else:
             if exit_code == 1:
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
-                return PatchAgentMessage(agent_id=self.agent_id, message="Congratulations! The patch succeeded.", success=True, patch_files_dir=self.new_patch_dir, prev=prev_agent_message)
+                return AnswerMessage(f"{stdout}\nAnswer: Congratulations! The patch succeeded.")
             else:
                 logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
                 logger.status(logger_message)
@@ -144,7 +141,7 @@ class PatchAgent(BaseAgent):
                     
         patch_message = "\n".join(self.log_history)
         self.log_history.clear()
-        return PatchAgentMessage(agent_id=self.agent_id, message=patch_message, prev=prev_agent_message)
+        return Message(patch_message)
     
     def _restart_resource(self, resource):
         """Restart a specific resource."""
@@ -305,11 +302,12 @@ class PatchAgent(BaseAgent):
         """Store the patches in a timestamped folder."""
         try:
             timestamp = time.strftime('%Y%m%d-%H%M%S')
-            self.new_patch_dir = f"{self.patch_dir}-{timestamp}"
+            new_patch_dir = f"{self.patch_dir}-{timestamp}"
+
             if self.patch_dir.exists() and self.patch_dir.is_dir():
                 if any(self.patch_dir.iterdir()):
-                    shutil.move(str(self.patch_dir), self.new_patch_dir)
-                    logger.info(f"Patches successfully moved to {self.new_patch_dir}.")
+                    shutil.move(str(self.patch_dir), new_patch_dir)
+                    logger.info(f"Patches successfully moved to {new_patch_dir}.")
                 else:
                     logger.info("Patches directory is empty. No need to move.")
                     shutil.rmtree(self.patch_dir)

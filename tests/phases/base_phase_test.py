@@ -5,7 +5,8 @@ from typing import List, Optional, Tuple
 from phases.base_phase import BasePhase, PhaseConfig
 from agents.base_agent import BaseAgent
 from messages.message import Message
-from messages.action_messages.answer_message import AnswerMessage, AnswerMessageInterface
+from messages.answer_message import AnswerMessage, AnswerMessageInterface
+from utils import workflow_logger
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)

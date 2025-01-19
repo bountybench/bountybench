@@ -15,7 +15,6 @@ mock_workflow_logger = Mock()
 mock_workflow_logger.add_resource = Mock()
 mock_workflow_logger.add_agent = Mock()
 mock_workflow_logger.phase = Mock()
-mock_workflow_logger.workflow_log = Mock()
 
 # Mock resources and agents for testing
 class MockResource(BaseResource):
@@ -68,7 +67,7 @@ class MockPhase1(BasePhase):
         }
 
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
-        return {"agent1": (MockAgent1, MockAgentConfig1('mock_agent_config1'))}
+        return [("agent1", MockAgentConfig1("agent1"))]
 
     def run_one_iteration(self, phase_message, agent_instance, previous_output):
         pass
@@ -83,14 +82,14 @@ class MockPhase2(BasePhase):
         }
 
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
-        return {"agent2": (MockAgent2, MockAgentConfig2('mock_agent_config2'))}
+        return [("agent2", MockAgentConfig2("agent2"))]
 
     def run_one_iteration(self, phase_message, agent_instance, previous_output):
         pass
 
 @patch('resources.resource_manager.workflow_logger', mock_workflow_logger)
 @patch('phases.base_phase.workflow_logger', mock_workflow_logger)
-@patch('agents.agent_manager.workflow_logger', mock_workflow_logger)
+@patch('agents.base_agent.workflow_logger', mock_workflow_logger)
 class TestPhaseResourceAndAgentHandling(unittest.TestCase):
 
     def setUp(self):
@@ -98,6 +97,9 @@ class TestPhaseResourceAndAgentHandling(unittest.TestCase):
         self.workflow.resource_manager = ResourceManager()
         self.workflow.agent_manager = AgentManager()
 
+    @patch('resources.resource_manager.workflow_logger', mock_workflow_logger)
+    @patch('phases.base_phase.workflow_logger', mock_workflow_logger)
+    @patch('agents.base_agent.workflow_logger', mock_workflow_logger)
     def test_resource_and_agent_handling(self):
         # Create phases with explicit phase indices
         phase1 = MockPhase1(self.workflow)

@@ -1,11 +1,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
-from functools import wraps
 from typing import Dict, Any
 from abc import ABC
 import json
-from messages.action_messages.action_message import ActionMessage
-from messages.message import Message
+
 
 @dataclass
 class BaseResourceConfig(ABC):
@@ -55,7 +53,7 @@ class BaseResourceConfig(ABC):
         Raises ValueError if validation fails.
         """
         pass
-
+    
 class BaseResource(ABC):
     @abstractmethod
     def stop(*args, **kwargs):
@@ -64,10 +62,6 @@ class BaseResource(ABC):
     def __init__(self, resource_id, resource_config):
         self._resource_id = resource_id
         self._resource_config = resource_config
-        self._last_action_message = None
-
-    def run(self, message: Message) -> ActionMessage:
-        pass
 
     def __enter__(self):
         return self

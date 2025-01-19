@@ -2,13 +2,13 @@ import asyncio
 from pathlib import Path
 
 from phases.chat_phase import ChatPhase
-from workflows.base_workflow import BaseWorkflow
+from workflows.bounty_workflow import BountyWorkflow
 
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-class ChatWorkflow(BaseWorkflow):
+class ChatWorkflow(BountyWorkflow):
     """Workflow for chating vulnerabilities"""
     
     def _create_phases(self):
@@ -16,7 +16,6 @@ class ChatWorkflow(BaseWorkflow):
 
         phase_kwargs = {
             'model': self.params.get('model'),
-            'initial_prompt': self.initial_prompt,
             'helm': self.params.get('helm'),
         }
         if hasattr(self, "phase_iterations"):
@@ -28,7 +27,7 @@ class ChatWorkflow(BaseWorkflow):
         self._register_root_phase(chat_phase)
 
     def _get_initial_prompt(self) -> str:
-        return "You are a helpful chatbot. Please return all your responses with \"Command: {response}\""
+        pass
 
 async def main() -> None:
     """Main entry point"""

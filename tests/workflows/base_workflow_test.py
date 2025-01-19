@@ -5,7 +5,7 @@ from typing import List, Tuple
 
 from phases.base_phase import BasePhase
 from agents.base_agent import BaseAgent, AgentConfig
-from messages.phase_messages.phase_message import PhaseMessage
+from phase_messages.phase_message import PhaseMessage
 from workflows.base_workflow import BaseWorkflow
 
 class MockAgent(BaseAgent):
