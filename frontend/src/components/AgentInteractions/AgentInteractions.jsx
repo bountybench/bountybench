@@ -219,6 +219,9 @@ export default ActionCard;
 
 
 const MessageBubble = ({ message, onUpdateActionInput }) => {
+
+  console.log('MessageBubble render, message:', message);
+
   const [expanded, setExpanded] = useState(true);
 
   if (!message) return null;
@@ -416,23 +419,15 @@ export const AgentInteractions = ({
   currentPhase,
   currentIteration,
   messages = [],
-  onSendMessage,
   onUpdateActionInput,
 }) => {
-  console.log('AgentInteractions props:', { 
-    workflow, 
-    interactiveMode, 
-    currentPhase, 
-    currentIteration, 
-    messageCount: messages?.length,
-    messages: messages
-  });
-  
-  const [userMessage, setUserMessage] = useState('');
-  const messagesEndRef = useRef(null);
-  const [textAreaHeight, setTextAreaHeight] = useState('auto');
-  const textAreaRef = useRef(null);
 
+  console.log('AgentInteractions render, messages:', messages);
+  console.log('interactiveMode:', interactiveMode);
+  console.log('currentPhase:', currentPhase);
+  console.log('currentIteration:', currentIteration);
+  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(0);
+  const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -440,75 +435,17 @@ export const AgentInteractions = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
-
-  const fetchLastMessage = async () => {
-    try {
-      const response = await fetch(`http://localhost:8000/workflow/last-message/${workflow.id}`); 
-      if (response.ok) {
-        const lastMessage = await response.json();
-        setUserMessage(lastMessage.content);
-        adjustTextAreaHeight();
-      }
-    } catch (error) {
-      console.error('Failed to fetch last message:', error);
-    }
-  };
-
-  const fetchFirstMessage = async () => {
-    try {
-      const response = await fetch(`http://localhost:8000/workflow/first-message/${workflow.id}`); 
-      if (response.ok) {
-        const firstMessage = await response.json();
-        setUserMessage(firstMessage.content);
-        adjustTextAreaHeight();
-      }
-    } catch (error) {
-      console.error('Failed to fetch last message:', error);
-    }
-  };
+  }, [displayedMessageIndex]);
 
   useEffect(() => {
-    if (messages.length > 0) {
-      fetchLastMessage();
-    } else {
-      fetchFirstMessage();
-    }
+    // When a new message is received, update the displayed message index
+    setDisplayedMessageIndex(messages.length - 1);
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (userMessage.trim()) {
-      onSendMessage({
-        type: 'user_message',
-        content: userMessage
-      });
-      setUserMessage('');
+  const handleNextMessage = () => {
+    if (displayedMessageIndex < messages.length - 1) {
+      setDisplayedMessageIndex(prevIndex => prevIndex + 1);
     }
-  };
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.output?.content) {
-        setUserMessage(lastMessage.output.content);
-        adjustTextAreaHeight();
-      }
-    }
-  }, [messages]);
-
-  const adjustTextAreaHeight = () => {
-    if (textAreaRef.current) {
-      console.log("Trying to adjust height")
-      textAreaRef.current.style.height = 'auto';
-      const newHeight = Math.min(textAreaRef.current.scrollHeight, window.innerHeight * 0.4);
-      textAreaRef.current.style.height = `${newHeight}px`;
-      setTextAreaHeight(`${newHeight}px`);
-    }
-  };
-
-  const handleMessageChange = (e) => {
-    setUserMessage(e.target.value);
-    adjustTextAreaHeight();
   };
 
   if (!messages) {
@@ -536,8 +473,7 @@ export const AgentInteractions = ({
             No messages yet
           </Typography>
         ) : (
-          messages.map((message, index) => (
-            // 5) Unique key per message
+          messages.slice(0, displayedMessageIndex + 1).map((message, index) => (
             <MessageBubble
               key={message.id || index}
               message={message}
@@ -548,41 +484,14 @@ export const AgentInteractions = ({
         <div ref={messagesEndRef} />
       </Box>
 
-      {interactiveMode && (
+      {interactiveMode && displayedMessageIndex < messages.length - 1 && (
         <Box className="input-container">
-          <TextField
-            fullWidth
-            multiline
-            inputRef={textAreaRef}
-            rows={2}
-            variant="outlined"
-            placeholder="Type your message..."
-            value={userMessage}
-            onChange={handleMessageChange}
-            sx={{ 
-              '& .MuiInputBase-input': {
-                color: 'black',
-                height: textAreaHeight,
-                minHeight: '25px',
-                overflow: 'auto',
-              },
-              border: '1px solid #ccc',
-              borderRadius: '6px',
-            }}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-          />
           <Button
             variant="contained"
             color="primary"
-            onClick={handleSendMessage}
-            disabled={!userMessage.trim()}
+            onClick={handleNextMessage}
           >
-            Send
+            Next Message
           </Button>
         </Box>
       )}

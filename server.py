@@ -155,7 +155,7 @@ async def run_workflow(workflow_id: str):
     try:
         workflow_data["status"] = "running"
         await websocket_manager.broadcast(workflow_id, {
-            "type": "status_update",
+            "message_type": "status_update",
             "status": "running"
         })
         
@@ -167,7 +167,7 @@ async def run_workflow(workflow_id: str):
         if not should_exit:
             workflow_data["status"] = "completed"
             await websocket_manager.broadcast(workflow_id, {
-                "type": "status_update",
+                "message_type": "status_update",
                 "status": "completed"
             })
         
@@ -176,7 +176,7 @@ async def run_workflow(workflow_id: str):
             print(f"Workflow error: {e}")
             workflow_data["status"] = "error"
             await websocket_manager.broadcast(workflow_id, {
-                "type": "status_update",
+                "message_type": "status_update",
                 "status": "error",
                 "error": str(e)
             })
@@ -194,7 +194,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
         if workflow_id in active_workflows:
             workflow_data = active_workflows[workflow_id]
             await websocket.send_json({
-                "type": "initial_state",
+                "message_type": "initial_state",
                 "status": workflow_data["status"]
             })
             print(f"Sent initial state for workflow {workflow_id}: {workflow_data['status']}")
@@ -211,15 +211,15 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 print("********************************************")
 
                 
-                if data.get("type") == "user_message" and workflow_id in active_workflows:
+                if data.get("message_type") == "user_message" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
                         result = await workflow.set_message_input(data["content"])
                         await websocket_manager.broadcast(workflow_id, {
-                            "type": "user_message_response",
+                            "message_type": "user_message_response",
                             "content": result
                         })
-                elif data.get("type") == "start_execution":
+                elif data.get("message_type") == "start_execution":
                     print(f"Starting execution for workflow {workflow_id}")
                     asyncio.create_task(run_workflow(workflow_id))
             except WebSocketDisconnect:
@@ -258,7 +258,7 @@ async def last_message(workflow_id: str):
     workflow = active_workflows[workflow_id]["instance"]
     last_message_str = await workflow.get_last_message()
     return {
-                "type": "last_message",
+                "message_type": "last_message",
                 "content": last_message_str
             }
 
@@ -270,7 +270,7 @@ async def first_message(workflow_id: str):
     workflow = active_workflows[workflow_id]["instance"]
     first_message_str = workflow.initial_prompt
     return {
-                "type": "first_message",
+                "message_type": "first_message",
                 "content": first_message_str
             }
 

@@ -93,6 +93,12 @@ export const useWorkflowWebSocket = (workflowId) => {
         console.log('Full message data:', data);
 
         switch (data.message_type) {
+
+          case 'status_update':
+          case 'initial_state':
+            console.log('Handling status update:', data.status);
+            setWorkflowStatus(data.status);
+            break;
           case 'WorkflowMessage':
             setWorkflowStatus(data.workflow_metadata?.workflow_summary || 'Unknown');
             setMessages((prev) => [...prev, data]);
