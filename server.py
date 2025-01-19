@@ -256,7 +256,6 @@ async def next_iteration(workflow_id: str):
 
 @app.post("/workflow/next-message/{workflow_id}")
 async def next_message(workflow_id: str, data: MessageData):
-    print(f"Received edit request for workflow: {workflow_id}")
     print(f"Request data: {data}")
 
     if workflow_id not in active_workflows:
@@ -267,12 +266,6 @@ async def next_message(workflow_id: str, data: MessageData):
     try:
         result = await workflow.run_edited_message(data.message_id)
         print(f"Received result : {result}")
-        # Broadcast the update to all connected clients
-        await websocket_manager.broadcast(workflow_id, {
-            "type": "input_edit_update",
-            "message_id": data.message_id,
-            "new_output": result
-        })
         
         return {"status": "updated", "result": result}
     except Exception as e:
@@ -280,7 +273,6 @@ async def next_message(workflow_id: str, data: MessageData):
 
 @app.post("/workflow/rerun-message/{workflow_id}")
 async def next_message(workflow_id: str, data: MessageData):
-    print(f"Received edit request for workflow: {workflow_id}")
     print(f"Request data: {data}")
 
     if workflow_id not in active_workflows:
@@ -291,13 +283,7 @@ async def next_message(workflow_id: str, data: MessageData):
     try:
         result = await workflow.rerun_message(data.message_id)
         print(f"Received result : {result}")
-        # Broadcast the update to all connected clients
-        await websocket_manager.broadcast(workflow_id, {
-            "type": "input_edit_update",
-            "message_id": data.message_id,
-            "new_output": result
-        })
-        
+
         return {"status": "updated", "result": result}
     except Exception as e:
         return {"error": str(e)}
@@ -315,13 +301,6 @@ async def edit_action_input(workflow_id: str, data: MessageInputData):
     try:
         result = await workflow.edit_one_message(data.message_id, data.new_input_data)
         print(f"Received result : {result}")
-        # Broadcast the update to all connected clients
-        await websocket_manager.broadcast(workflow_id, {
-            "type": "input_edit_update",
-            "message_id": data.message_id,
-            "new_input": data.new_input_data,
-            "new_output": result
-        })
         
         return {"status": "updated", "result": result}
     except Exception as e:
