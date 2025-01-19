@@ -2,6 +2,7 @@ import atexit
 import os
 import sys
 import time
+import select
 from typing import Dict, Optional, Tuple
 
 import docker
@@ -74,6 +75,7 @@ class KaliEnvResource(BaseResource):
         self.container = self._start(self.resource_id, self._resource_config.volumes)
 
         self.target_host = self._resource_config.target_host
+        self.socket = None # Socket for writing to the pseudo-terminal
         
         # Initialize bounty directory if task_dir and bounty_number provided
         if self._resource_config.task_dir and self._resource_config.bounty_number:
@@ -169,51 +171,197 @@ class KaliEnvResource(BaseResource):
             except Exception as e:
                 logger.error(f"Error cleaning up Docker container: {e}")
 
-    def run(self, command_message: CommandMessage) -> ActionMessage:
-        command_str = command_message.command
-        stdout, stderr = self.run_command(command_str, TIMEOUT_PER_COMMAND)
-        observation_text = stdout.strip() + stderr.strip()
-        return ActionMessage(resource_id=self.resource_id, message=observation_text, prev=command_message)
-
-    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = "/app") -> Tuple[str, str]:
+    def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, tty: bool = False) -> Tuple[str, str]:
         command_str = command
         if len(command) > 33:
             command_str = command_str[:30] + "..."
         start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
         try:
-            with timeout_context(timeout):
-                exec_id = self.client.api.exec_create(
-                    container=self.container.id,
-                    cmd=["/bin/bash", "-c", command],
-                    workdir=workdir,
-                    stdin=False,
-                    stdout=True,
-                    stderr=True,
-                )["Id"]
+            if not tty:
+                with timeout_context(timeout):
+                    exec_id = self.client.api.exec_create(
+                        container=self.container.id,
+                        cmd=["/bin/bash", "-c", command],
+                        workdir=workdir,
+                        stdin=False,
+                        stdout=True,
+                        stderr=True,
+                    )["Id"]
 
-                output = self.client.api.exec_start(exec_id, stream=False, demux=True)
-                stdout, stderr = output or (None, None)
+                    output = self.client.api.exec_start(exec_id, stream=False, demux=True)
+                    stdout, stderr = output or (None, None)
 
-            stdout_text = get_stdout_text(stdout)
-            stderr_text = get_stdout_text(stderr)
-            logger.info(f"Command executed successfully.\nstdout: {stdout_text}\nstderr: {stderr_text}")
-            return stdout_text, stderr_text
-        
+                stdout_text = get_stdout_text(stdout)
+                stderr_text = get_stdout_text(stderr)
+                logger.info(f"Command executed successfully in [line-mode].\nstdout: {stdout_text}\nstderr: {stderr_text}")
+                return stdout_text, stderr_text
+            else:
+                with timeout_context(timeout):
+                    if not self.socket:
+                        exec_id = self.client.api.exec_create(
+                                container=self.container.id,
+                                cmd=["/bin/bash"],
+                                workdir=workdir,
+                                stdin=True,
+                                stdout=True,
+                                stderr=True,
+                                tty=True,
+                            )["Id"]
+                        
+                        sock = self.client.api.exec_start(
+                            exec_id=exec_id,
+                            stream=True,
+                            demux=False,   
+                            socket=True,
+                            tty=True,
+                        )
+                        self.socket = sock
+                        self._send_to_bash('export PS1="$"\n')
+
+                    self._clear_bash_output_buffer()
+                    num_new_lines = self._count_trailing_new_lines(command)
+                    command = command.strip()
+
+                    if self._is_single_control_character(command):
+                        command = command.strip().encode('utf-8').decode('unicode_escape')
+                        self._send_to_bash(command)
+                    else:
+                        self._send_to_bash(command)
+                        self._clear_bash_output_buffer()
+
+                    for _ in range(num_new_lines):
+                        self._send_to_bash('\n')
+
+                    output = b''
+                    sock_timeout = 30
+                    end_time = time.time() + sock_timeout
+                    last_data_time = time.time()    
+                    max_inactivity = 3  # seconds
+                    execution_time = time.time()
+
+                    while execution_time < end_time:
+                        rlist, _, _ = select.select([self.socket.fileno()], [], [], 1)
+                        
+                        if self.socket.fileno() in rlist:
+                            chunk = self.socket._sock.recv(1024)
+                            if not chunk:
+                                break
+                            output += chunk
+                            last_data_time = time.time()
+                        else:
+                            break
+
+                        if output and time.time() - last_data_time > max_inactivity:
+                            # No data received for max_inactivity seconds
+                            break
+
+                        execution_time = time.time()
+                    
+                    if execution_time >= end_time and not output:
+                        stdout_text = f"No output received for {sock_timeout} seconds."
+                    else:
+                        stdout_text = get_stdout_text(output)
+                        stdout_text = self._clean_command_output(stdout_text, command)
+                    logger.info(f"Command executed successfully in [pty-mode].\nstdout: {stdout_text}\n")
+                    stderr_text = "" # Combined stdout and stderr in pty-mode
+                    return stdout_text, stderr_text
+                
         except TimeoutError:
             logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
             # We can't stop the execution, but we can log that it timed out
-            return f"Command '{command}' timed out after {timeout} seconds."
+            return f"Command '{command}' timed out after {timeout} seconds.", ""
 
         except docker.errors.APIError as e:
             logger.error(f"Docker API error while executing command: {e}")
-            return f"Docker API error: {str(e)}"
+            return "", f"Docker API error: {str(e)}"
 
         except Exception as e:
             logger.error(f"Unexpected error while executing command: {e}")
-            return f"Unexpected error: {str(e)}"
+            return "", f"Unexpected error: {str(e)}"
         
         finally:
             stop_progress()
+        
+    def _send_to_bash(self, input_str: str):
+        self.socket._sock.sendall(input_str.encode())  # why socket.write() does not work?
+    
+    def _count_trailing_new_lines(self, input_str: str) -> int:
+        input_str = input_str.rstrip(' ')
+        return len(input_str) - len(input_str.rstrip('\n'))
+
+    def _is_single_control_character(self, s):
+        s = s.strip()
+        s = s.encode('utf-8').decode('unicode_escape')
+        if len(s) != 1:
+            return False
+        return ord(s) < 32 or ord(s) == 127
+    
+    def _control_char_to_text(self, char: str) -> str:
+        if ord(char) == 127:  # Special case for DEL
+            return '^?'
+        return f"^{chr(ord(char) + 64)}"
+    
+
+    def _clear_bash_output_buffer(self, timeout: float = 2.0):
+        """
+        Clears the bash output buffer by reading until no more data is available
+        or until the timeout is reached.
+
+        Copied from 
+        """
+        start_time = time.time()
+        try:
+            while time.time() - start_time < timeout:
+                rlist, _, _ = select.select([self.socket.fileno()], [], [], 0.1)
+                if self.socket.fileno() in rlist:
+                    try:
+                        chunk = self.socket._sock.recv(1024)
+                    except OSError as e:
+                        logger.error(f"Error while clearing bash buffer: {str(e)}")
+                        break
+                else:
+                    # No data ready; buffer is clear
+                    break
+        except Exception as e:
+            logger.error(f"Unexpected error while clearing bash buffer: {str(e)}")
+        
+
+    def _clean_command_output(self, raw_output: str, command_str: str) -> str:
+        """
+        Cleans the raw bash output to remove initialization strings and the echoed command.
+        Also removes echoed multiline outputs for commands like `cat << EOF`.
+        """
+        import re
+
+        # Use a regex to remove ANSI escape sequences
+        cleaned_output = re.sub(r'\x1b\[[0-9;?]*[a-zA-Z]', '', raw_output)
+        # Remove patterns like \r followed by digits, a comma, and more digits
+        cleaned_output = re.sub(r'\r\d+,\s*\d*', '', cleaned_output)
+        # Remove sequences like \r8, \r08, etc.
+        cleaned_output = re.sub(r'\r\d*', '', cleaned_output)
+        # Replace standalone carriage returns (\r) with nothing
+        cleaned_output = cleaned_output.replace('\r', '')
+        cleaned_output = cleaned_output.replace('\n\n$', '\n$')
+
+        if self._is_single_control_character(command_str):
+            command_str = self._control_char_to_text(command_str)
+
+        # Escape command_str for regex safety
+        command_pattern = re.escape(command_str.strip())
+
+        # Use regex to find the command and split the output after the match
+        match = re.search(f"^{command_pattern}.*$", cleaned_output, re.MULTILINE)
+        # print("CLEANED_OUTPUT:", cleaned_output)
+        # print("COMMAND PATTERN:", command_pattern)
+        if not match:
+            # print("No match found.")
+            return cleaned_output.strip()  # If no match, return the original stripped output
+
+        # Get everything after the command match
+        start_index = match.end()
+        cleaned_output = cleaned_output[start_index:].strip()
+
+        return cleaned_output
 
     def parse_target_host(self, target_host: str) -> Tuple[str, int]:
         """

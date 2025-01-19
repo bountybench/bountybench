@@ -22,6 +22,8 @@ class TestKaliEnvResource(unittest.TestCase):
         It cleans up by stopping the Docker container.
         """
         cls.kali_env_resource.stop()
+        with open(Path(__file__).parent / 'test_files/test.txt', 'w') as f:
+            f.write("TEST{RANDOM_WORDS}")
 
     def test_run_simple_command(self):
         """
