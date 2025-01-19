@@ -44,21 +44,21 @@ class Message(ABC):
     def set_version_next(self, version_next: 'Message') -> None:
         self._version_next = version_next
     
-def to_dict(self) -> dict:
-    result = {}
-    
-    if self.prev is not None:
-        result["prev"] = id(self.prev)
-    
-    result["current_id"] = self.id
-    
-    if self.next is not None:
-        result["next"] = id(self.next)
-    if self.version_prev is not None:
-        result["version_prev"] = id(self.version_prev)
-    if self.version_next is not None:
-        result["version_next"] = id(self.version_next)
-    
-    result["timestamp"] = self.timestamp
-    
-    return result
+    def to_dict(self) -> dict:
+        result = {}
+        
+        if self.prev is not None:
+            result["prev"] = id(self.prev)
+        
+        result["current_id"] = self.id
+        
+        if self.next is not None:
+            result["next"] = id(self.next)
+        if self.version_prev is not None:
+            result["version_prev"] = id(self.version_prev)
+        if self.version_next is not None:
+            result["version_next"] = id(self.version_next)
+        
+        result["timestamp"] = self.timestamp
+        
+        return result
