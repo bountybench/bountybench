@@ -1,13 +1,13 @@
 from agents.base_agent import AgentConfig, BaseAgent
-from agents.dataclasses.agent_lm_spec import AgentLMConfig
-from phase_messages.phase_message import PhaseMessage
+from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
-from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
+from agents.executor_agent.executor_agent import ExecutorAgent
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 from resources.base_resource import BaseResource
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 from resources.utils import contains_setup
-from messages.answer_message import AnswerMessageInterface
+from messages.action_messages.answer_message_interface import AnswerMessageInterface
 from messages.message import Message
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.docker_resource import DockerResource, DockerResourceConfig
@@ -30,7 +30,6 @@ class PatchPhase(BasePhase):
         self.model = kwargs.get('model')
         self.helm = kwargs.get('helm')
         self.bounty_number = kwargs.get('bounty_number')
-        #self.initial_prompt = kwargs.get('initial_prompt')
         self.use_agent_exploit = kwargs.get('use_agent_exploit')
         self.use_verify_script = kwargs.get('use_verify_script')
 
@@ -38,15 +37,7 @@ class PatchPhase(BasePhase):
    
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         # assume we get model through some kwargs situation with the Message
-        executor_lm_config = AgentLMConfig.create(model=self.model, use_helm=self.helm)
-        
-        # Create the executor_config
-        executor_config = ExecutorAgentConfig(
-            lm_config=executor_lm_config,
-            #initial_prompt=self.initial_prompt 
-        )
-
-        bounty_dir = os.path.join("bounties", f"bounty_{self.bounty_number}")
+        executor_config = AgentConfig()
 
         patch_config = PatchAgentConfig(
             bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),
@@ -67,10 +58,6 @@ class PatchPhase(BasePhase):
         """
         logger.debug(f"Entering define_resources for PatchPhase")
 
-        #tmp_dir = os.path.join(self.workflow.task_dir, "tmp")
-        #patch_files_path = os.path.join(tmp_dir, "patch_files")
-        #os.makedirs(patch_files_path, exist_ok=True)
-
         if self.use_agent_exploit: 
             exploit_files_dir_name = None
         else: 
@@ -82,6 +69,10 @@ class PatchPhase(BasePhase):
         tmp_dir = os.path.join(self.workflow.task_dir, tmp_dir_name)
 
         resource_configs = {
+            "model": (
+                ModelResource,
+                ModelResourceConfig.create(model=self.model)
+            ),
             "init_files": (
                 InitFilesResource,
                 InitFilesResourceConfig(
@@ -158,19 +149,11 @@ class PatchPhase(BasePhase):
         # Determine which agent name was used in this iteration
         _, agent_instance = self._get_current_agent()
 
-        # Check for hallucination (ExecutorAgent)
-        if isinstance(agent_instance, ExecutorAgent):
-            if isinstance(message, AnswerMessageInterface):
-                logger.status("Executor agent hallucinated an answer!")
-                self._set_phase_summary("completed_with_hallucination")
-                phase_message.set_complete()
-                return message
-
         # Check for exploit success (PatchAgent)
-        elif isinstance(agent_instance, PatchAgent):
+        if isinstance(agent_instance, PatchAgent):
             if isinstance(message, AnswerMessageInterface):
                 logger.info("Patch Success!")
-                self._set_phase_summary("patch_success")
+                phase_message.set_summary("patch_success")
                 phase_message.set_complete()
                 phase_message.set_success()
                 return message
