@@ -81,15 +81,15 @@ class ModelResource(BaseResource):
         """
         Attempts to parse the raw model string into either AnswerMessage or CommandMessage.
         """
+        #try:
+            #return AnswerMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message)
+        #except:
+            #logger.debug("Not an AnswerMessage, trying CommandMessage.")
         try:
-            return AnswerMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message)
+            return CommandMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message)
         except:
-            logger.debug("Not an AnswerMessage, trying CommandMessage.")
-            try:
-                return CommandMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message)
-            except:
-                logger.debug("Could not parse as CommandMessage.")
-                raise Exception("Could not parse LM response as AnswerMessage or CommandMessage.")
+            logger.debug("Could not parse as CommandMessage.")
+            raise Exception("Could not parse LM response as AnswerMessage or CommandMessage.")
 
     def update_initial_prompt(self, message_str: str) -> None:
         self.initial_prompt = message_str
