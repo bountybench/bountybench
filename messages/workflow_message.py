@@ -92,7 +92,7 @@ class WorkflowMessage(Message):
     def to_dict(self) -> dict:
         return {
             "workflow_metadata": self.metadata_dict(),
-            "phase_messages": [phase_message.to_dict() for phase_message in self._phase_messages],
+            "phase_messages": [phase_message.to_dict() for phase_message in self.phase_messages],
             "agents_used": self.agents_used,
             "resources_used": self.resources_used,
             "start_time": self._start_time,
