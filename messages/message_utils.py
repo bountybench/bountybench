@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 
 from messages.message import Message
 from messages.config import MessageType, set_logging_level, should_log
@@ -41,4 +42,26 @@ def log_message(message: Message):
     broadcast_update(instance.workflow_id, message.to_dict())
     if should_log(message):
         instance.save()
-    
+
+def edit_message(old_message, edit):
+    while old_message.version_next:
+        old_message = old_message.version_next
+
+    dic = old_message.__dict__
+    cls = type(old_message)
+    init_method = cls.__init__
+    signature = inspect.signature(init_method)
+    params = {}
+    for name, param in signature.parameters.items():
+        if "_" + name in dic:
+            params[name] = dic["_" + name]
+
+    params['prev'] = None
+    params['message'] = edit
+    new_message = cls(**params)
+
+    new_message.set_version_prev(old_message)
+    new_message.set_next(old_message.next)
+    old_message.set_version_next(new_message)
+
+    return new_message
