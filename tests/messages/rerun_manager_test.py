@@ -6,6 +6,7 @@ from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
+from messages.message_utils import edit_message
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.rerun_manager import RerunManager
 from messages.workflow_message import WorkflowMessage
@@ -99,10 +100,6 @@ class TestWorkflow(BaseWorkflow):
         self._compute_resource_schedule()
         logger.info(f"Finished initializing workflow {self.name}")
         
-        # self.next_iteration_event = asyncio.Event()
-        
-        # atexit.register(self._finalize_workflow)
-        
     def _create_phases(self):
         kali_phase = KaliPhase(workflow=self)
         self._register_root_phase(kali_phase)
@@ -123,7 +120,8 @@ class TestWorkflow(BaseWorkflow):
         self.rerun_manager = RerunManager(self.agent_manager, self.resource_manager)
         logger.info("Setup rerun manager")
         
-    def test_rerun(self):
+
+    async def test_rerun(self):
         self._current_phase = self._root_phase
         phase = self._current_phase
 
@@ -131,27 +129,51 @@ class TestWorkflow(BaseWorkflow):
 
         kali = self.resource_manager.get_resource("kali_env")
         command = "Command: echo \"line\" >> file.txt"
-        message = kali.run(CommandMessage(resource_id="", message=command))
+        command_message = CommandMessage(resource_id="", message=command)
+        message = kali.run(command_message)
+
         # Read and print file contents
         read_command = "Command: cat file.txt"
         read_message = kali.run(CommandMessage(resource_id="", message=read_command))
         
-        # Print the contents
+        print("================================")
         print("Contents of file.txt:")
         print(read_message.message)
-        
-        message = asyncio.run(self.rerun_message(message))
+        print("================================")
+
+        new_command = "Command: echo \"edited-line\" >> file.txt"
+        edited_message = await edit_message(command_message, new_command)  # await here
+        message = await self.run_edited_message(edited_message)
+        print(message.message)
+
         # Read and print file contents
         read_command = "Command: cat file.txt"
         read_message = kali.run(CommandMessage(resource_id="", message=read_command))
         
-        # Print the contents
+        print("================================")
         print("Contents of file.txt:")
         print(read_message.message)
+        print("================================")
+        message = await self.rerun_message(message)
+        
+        # Read and print file contents
+        read_command = "Command: cat file.txt"
+        read_message = kali.run(CommandMessage(resource_id="", message=read_command))
+        
+        print("================================")
+        print("Contents of file.txt:")
+        print(read_message.message)
+        print("================================")
 
     async def rerun_message(self, message):
         message = await self.rerun_manager.rerun(message)
         return message
     
-test_workflow = TestWorkflow()
-test_workflow.test_rerun()
+    async def run_edited_message(self, message):
+        message = await self.rerun_manager.run_edited(message)
+        return message
+    
+if __name__ == "__main__":
+    test_workflow = TestWorkflow()
+    asyncio.run(test_workflow.test_rerun())
+    
