@@ -54,6 +54,9 @@ class ExecutorAgent(BaseAgent):
 
     def execute(self, agent_message: ExecutorAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> Message:
         model_action_message = self.call_lm(prev_agent_message)
+        if not model_action_message:
+            return
+        
         agent_message.add_action_message(model_action_message)
         # If the model decides to output a command, we run it in the environment
         logger.info(f"LM Response:\n{model_action_message.message}")
