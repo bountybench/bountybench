@@ -10,7 +10,6 @@ from docker.models.containers import Container
 
 from resources.base_resource import BaseResource
 from resources.utils import get_stdout_text
-from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 from dataclasses import dataclass
@@ -192,8 +191,6 @@ class KaliEnvResource(BaseResource):
                 stdout_text = get_stdout_text(stdout)
                 stderr_text = get_stdout_text(stderr)
                 logger.info(f"Command executed successfully in [line-mode].\nstdout: {stdout_text}\nstderr: {stderr_text}")
-                if logging:
-                    workflow_logger.log_action(action_name="kali", input_data=command, output_data={"stdout": stdout_text, "stderr": stderr_text}, metadata={})
                 return stdout_text, stderr_text
             else:
                 with timeout_context(timeout):
