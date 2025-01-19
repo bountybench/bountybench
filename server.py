@@ -235,6 +235,13 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
         websocket_manager.disconnect(workflow_id, websocket)
         print(f"Cleaned up connection for workflow {workflow_id}")
 
+class MessageInputData(BaseModel):
+    message_id: str
+    new_input_data: str
+    
+class MessageData(BaseModel):
+    message_id: str
+
 @app.post("/workflow/next/{workflow_id}")
 async def next_iteration(workflow_id: str):
     if workflow_id not in active_workflows:
@@ -246,6 +253,79 @@ async def next_iteration(workflow_id: str):
         return {"status": "next iteration triggered"}
     else:
         return {"error": "Workflow is not in interactive mode"}
+
+@app.post("/workflow/next-message/{workflow_id}")
+async def next_message(workflow_id: str, data: MessageData):
+    print(f"Received edit request for workflow: {workflow_id}")
+    print(f"Request data: {data}")
+
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+
+    try:
+        result = await workflow.run_edited_message(data.message_id)
+        print(f"Received result : {result}")
+        # Broadcast the update to all connected clients
+        await websocket_manager.broadcast(workflow_id, {
+            "type": "input_edit_update",
+            "message_id": data.message_id,
+            "new_output": result
+        })
+        
+        return {"status": "updated", "result": result}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/workflow/rerun-message/{workflow_id}")
+async def next_message(workflow_id: str, data: MessageData):
+    print(f"Received edit request for workflow: {workflow_id}")
+    print(f"Request data: {data}")
+
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+
+    try:
+        result = await workflow.rerun_message(data.message_id)
+        print(f"Received result : {result}")
+        # Broadcast the update to all connected clients
+        await websocket_manager.broadcast(workflow_id, {
+            "type": "input_edit_update",
+            "message_id": data.message_id,
+            "new_output": result
+        })
+        
+        return {"status": "updated", "result": result}
+    except Exception as e:
+        return {"error": str(e)}
+    
+@app.post("/workflow/edit-message/{workflow_id}")
+async def edit_action_input(workflow_id: str, data: MessageInputData):
+    print(f"Received edit request for workflow: {workflow_id}")
+    print(f"Request data: {data}")
+
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+
+    try:
+        result = await workflow.edit_one_message(data.message_id, data.new_input_data)
+        print(f"Received result : {result}")
+        # Broadcast the update to all connected clients
+        await websocket_manager.broadcast(workflow_id, {
+            "type": "input_edit_update",
+            "message_id": data.message_id,
+            "new_input": data.new_input_data,
+            "new_output": result
+        })
+        
+        return {"status": "updated", "result": result}
+    except Exception as e:
+        return {"error": str(e)}
     
 @app.get("/workflow/last-message/{workflow_id}")
 async def last_message(workflow_id: str):
@@ -261,6 +341,10 @@ async def last_message(workflow_id: str):
 
 @app.get("/workflow/first-message/{workflow_id}")
 async def first_message(workflow_id: str):
+    
+@app.get("/workflow/{workflow_id}/resources")
+async def get_workflow_resources(workflow_id: str):
+    if workflow_id not in active_workflows:
     if workflow_id not in active_workflows:
         return {"error": "Workflow not found"}
     
@@ -270,39 +354,6 @@ async def first_message(workflow_id: str):
                 "type": "first_message",
                 "content": first_message_str
             }
-
-class ActionInputData(BaseModel):
-    action_id: str
-    new_input_data: str
-
-@app.post("/workflow/edit_action_input/{workflow_id}")
-async def edit_action_input(workflow_id: str, data: ActionInputData):
-    print(f"Received edit request for workflow: {workflow_id}")
-    print(f"Request data: {data}")
-
-    if workflow_id not in active_workflows:
-        return {"error": f"Workflow {workflow_id} not found"}
-
-    workflow = active_workflows[workflow_id]["instance"]
-
-    try:
-        result = await workflow.edit_action_input_in_agent("", data.new_input_data)
-        print(f"Received result : {result}")
-        # Broadcast the update to all connected clients
-        await websocket_manager.broadcast(workflow_id, {
-            "type": "input_edit_update",
-            "action_id": data.action_id,
-            "new_input": data.new_input_data,
-            "new_output": result
-        })
-        
-        return {"status": "updated", "result": result}
-    except Exception as e:
-        return {"error": str(e)}
-    
-@app.get("/workflow/{workflow_id}/resources")
-async def get_workflow_resources(workflow_id: str):
-    if workflow_id not in active_workflows:
         raise HTTPException(status_code=404, detail="Workflow not found")
     
     workflow = active_workflows[workflow_id]["instance"]

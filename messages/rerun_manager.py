@@ -21,7 +21,7 @@ class RerunManager:
             else:
                 raise ValueError("Unsupported message type for rerun")
         else:
-            raise ValueError("No defined next actions to run")
+            raise ValueError("No defined next actions to run, please continue to next iteration")
         
     async def rerun(self, message: Message) -> Message:
         if isinstance(message, ActionMessage):
