@@ -1,6 +1,11 @@
 from enum import Enum
 from typing import Type
 
+from messages.action_messages.action_message import ActionMessage
+from messages.agent_messages.agent_message import AgentMessage
+from messages.phase_messages.phase_message import PhaseMessage
+from messages.workflow_message import WorkflowMessage
+
 class MessageType(Enum):
     WORKFLOW = 0
     PHASE = 1
@@ -17,17 +22,24 @@ class LoggingConfig:
     def should_log(self, message_class: Type):
         message_level = self.get_message_level(message_class)
         return message_level <= self.current_level.value
-
+    
     @staticmethod
     def get_message_level(message_class: Type) -> int:
-        message_type_mapping = {
-            'WorkflowMessage': MessageType.WORKFLOW,
-            'PhaseMessage': MessageType.PHASE,
-            'AgentMessage': MessageType.AGENT,
-            'ActionMessage': MessageType.ACTION
-        }
-        return message_type_mapping.get(message_class.__name__, MessageType.ACTION).value
+        if not isinstance(message_class, type):
+            raise TypeError("message_class must be a type")
 
+        if issubclass(message_class, WorkflowMessage):
+            return MessageType.WORKFLOW.value
+        elif issubclass(message_class, PhaseMessage):
+            return MessageType.PHASE.value
+        elif issubclass(message_class, AgentMessage):
+            return MessageType.AGENT.value
+        elif issubclass(message_class, ActionMessage):
+            return MessageType.ACTION.value
+        else:
+            print(f"Unknown message class: {message_class.__name__}. Defaulting to ACTION level.")
+            return MessageType.ACTION.value
+            
 # Create a global instance of LoggingConfig
 logging_config = LoggingConfig()
 
