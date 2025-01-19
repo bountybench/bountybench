@@ -63,7 +63,7 @@ class ExecutorAgent(BaseAgent):
             return kali_action_message
         return model_action_message
 
-    def call_lm(self, lm_input_message: Optional[Message] = None) -> Union[AnswerMessage, CommandMessage]:
+    def call_lm(self, lm_input_message: Optional[Message] = None) -> CommandMessage:
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.

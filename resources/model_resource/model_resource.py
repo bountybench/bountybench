@@ -77,19 +77,15 @@ class ModelResource(BaseResource):
                 response = response[:hallucination_index]
         return response.strip()
     
-    def parse_response(self, response: str, metadata: Dict[str, Any], prev_message: Optional[ActionMessage] = None) -> Union[AnswerMessage, CommandMessage]:
+    def parse_response(self, response: str, metadata: Dict[str, Any], prev_message: Optional[ActionMessage] = None) -> CommandMessage:
         """
-        Attempts to parse the raw model string into either AnswerMessage or CommandMessage.
+        Attempts to parse the raw model string intoCommandMessage.
         """
-        #try:
-            #return AnswerMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message)
-        #except:
-            #logger.debug("Not an AnswerMessage, trying CommandMessage.")
         try:
             return CommandMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message)
         except:
             logger.debug("Could not parse as CommandMessage.")
-            raise Exception("Could not parse LM response as AnswerMessage or CommandMessage.")
+            raise Exception("Could not parse LM response as CommandMessage.")
 
     def update_initial_prompt(self, message_str: str) -> None:
         self.initial_prompt = message_str
@@ -211,6 +207,7 @@ class ModelResource(BaseResource):
             return model_response
         except Exception as e:
             logger.warning(f"Unable to parse response as CommandResponse or ActionResponse")
+
 
     def stop(self) -> None:
         """

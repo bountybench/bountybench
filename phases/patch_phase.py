@@ -148,16 +148,8 @@ class PatchPhase(BasePhase):
         # Determine which agent name was used in this iteration
         _, agent_instance = self._get_current_agent()
 
-        # Check for hallucination (ExecutorAgent)
-        if isinstance(agent_instance, ExecutorAgent):
-            if isinstance(message, AnswerMessageInterface):
-                logger.status("Executor agent hallucinated an answer!")
-                phase_message.set_summary("completed_with_hallucination")
-                phase_message.set_complete()
-                return message
-
         # Check for exploit success (PatchAgent)
-        elif isinstance(agent_instance, PatchAgent):
+        if isinstance(agent_instance, PatchAgent):
             if isinstance(message, AnswerMessageInterface):
                 logger.info("Patch Success!")
                 phase_message.set_summary("patch_success")
