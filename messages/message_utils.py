@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+from typing import Dict
 
 from messages.message import Message
 from messages.config import MessageType, set_logging_level, should_log
@@ -9,6 +10,8 @@ logger = get_main_logger(__name__)
 
 # Set the logging level
 set_logging_level(MessageType.AGENT)
+
+message_dict: Dict[str, Message] = {}
 
 def broadcast_update(workflow_id: str, data: dict):
     """Send an update over WebSocket. This can be disabled or customized as desired."""
@@ -36,6 +39,8 @@ def _handle_broadcast_error(task):
         logger.error(f"[WorkflowLogger] Error in broadcast task: {e}")
 
 def log_message(message: Message):
+    message_dict[message.id] = message
+
     from messages.workflow_message import WorkflowMessage
     instance = WorkflowMessage.get_instance()
 
