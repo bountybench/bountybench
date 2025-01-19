@@ -8,6 +8,8 @@ from typing import Dict, Optional, Tuple
 import docker
 from docker.models.containers import Container
 
+from messages.action_messages.action_message import ActionMessage
+from messages.action_messages.command_message import CommandMessage
 from resources.base_resource import BaseResource
 from resources.utils import get_stdout_text
 from utils.logger import get_main_logger
@@ -39,6 +41,7 @@ def timeout_context(seconds):
 DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 
+TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
 RETRY_DELAY = 10
 
@@ -171,7 +174,7 @@ class KaliEnvResource(BaseResource):
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, logging: bool = False, tty: bool = False) -> Tuple[str, str]:
         command_str = command
         if len(command) > 33:
-            command_str = command[:30] + "..."
+            command_str = command_str[:30] + "..."
         start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
         try:
             if not tty:
@@ -266,15 +269,15 @@ class KaliEnvResource(BaseResource):
         except TimeoutError:
             logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
             # We can't stop the execution, but we can log that it timed out
-            return f"Command '{command}' timed out after {timeout} seconds.", ""
+            return f"Command '{command}' timed out after {timeout} seconds."
 
         except docker.errors.APIError as e:
             logger.error(f"Docker API error while executing command: {e}")
-            return "", f"Docker API error: {str(e)}"
+            return f"Docker API error: {str(e)}"
 
         except Exception as e:
             logger.error(f"Unexpected error while executing command: {e}")
-            return "", f"Unexpected error: {str(e)}"
+            return f"Unexpected error: {str(e)}"
         
         finally:
             stop_progress()

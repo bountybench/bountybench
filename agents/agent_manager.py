@@ -1,7 +1,6 @@
 from typing import Dict, List, Optional, Tuple, Type, Union
 from agents.base_agent import BaseAgent, AgentConfig
 from resources.resource_manager import resource_dict
-from utils.workflow_logger import workflow_logger
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -61,15 +60,17 @@ class AgentManager:
     def create_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> BaseAgent:
         """Create a new agent and bind resources to it."""
         agent = agent_class(agent_id, agent_config)
-        workflow_logger.add_agent(agent.agent_id, agent)
         self.bind_resources_to_agent(agent)
         return agent
 
     def bind_resources_to_agent(self, agent: BaseAgent):
         """Bind required and optional resources to the agent."""
+        
         for resource_entry in agent.REQUIRED_RESOURCES + agent.OPTIONAL_RESOURCES:
             resource_type, attr_name = self._parse_resource_entry(resource_entry)
+
             resource = self.resource_dict.get_item_of_resource_type(resource_type)
+
             if resource:
                 setattr(agent, attr_name, resource)
             elif resource_entry in agent.REQUIRED_RESOURCES:
