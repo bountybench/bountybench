@@ -20,7 +20,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [formData, setFormData] = useState({
     workflow_name: '',
     task_dir: '',
-    bounty_number: '',
+    bounty_number: "0",
     interactive: true,
     iterations: 10
   });

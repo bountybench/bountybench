@@ -28,6 +28,7 @@ class PatchPhase(BasePhase):
 
     def __init__(self, workflow: 'BaseWorkflow', **kwargs):
         self.model = kwargs.get('model')
+        self.helm = kwargs.get('helm')
         self.bounty_number = kwargs.get('bounty_number')
         self.use_agent_exploit = kwargs.get('use_agent_exploit')
         self.use_verify_script = kwargs.get('use_verify_script')

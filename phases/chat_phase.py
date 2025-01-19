@@ -18,6 +18,7 @@ class ChatPhase(BasePhase):
 
     def __init__(self, workflow: 'BaseWorkflow', **kwargs):
         self.model = kwargs.get('model')
+        self.helm = kwargs.get('helm')
         super().__init__(workflow, **kwargs)
 
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:

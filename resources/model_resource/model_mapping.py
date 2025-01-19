@@ -17,7 +17,7 @@ class TokenizerMapping:
         # Together Models (LLAMA)
         "meta/llama-3-8b": "meta/llama-3-8b",
         "meta/llama-3-70b": "meta/llama-3-8b",
-        "meta/llama-3-70b-chat": "meta/llama-3-8b-instruct",
+        "meta/llama-3-70b-chat": "meta/llama-3-8b",
         "meta/llama-3.1-70b-instruct-turbo": "meta/llama-3.1-8b",
         "meta/llama-3.1-405b-instruct-turbo": "meta/llama-3.1-8b",
 
