@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from functools import wraps
 from typing import List, Set, Tuple, Type, Union
 
+from messages.agent_messages.agent_message import AgentMessage
 from resources.base_resource import BaseResource
 from messages.message import Message
 from messages.message_history import MessageHistory
@@ -59,7 +61,7 @@ class BaseAgent(ABC):
         return set(cls._parse_resource_entry(resource)[1] for resource in cls.OPTIONAL_RESOURCES)
 
     @abstractmethod
-    async def run(self, messages: List[Message]) -> Message:
+    async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """
         Execute the agent's main logic and produce a message.
         
