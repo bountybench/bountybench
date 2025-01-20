@@ -6,6 +6,7 @@ class ActionMessage(Message):
         self._resource_id = resource_id
         self._message = message
         self._additional_metadata = additional_metadata
+
         super().__init__(prev)
 
     @property
@@ -24,7 +25,6 @@ class ActionMessage(Message):
         """
         return "ActionMessage"
     
-    
     @property
     def additional_metadata(self) -> str:
         return self._additional_metadata
@@ -36,6 +36,7 @@ class ActionMessage(Message):
         }
         if self.additional_metadata:
             action_dict["additional_metadata"]=  self.additional_metadata
+
         return action_dict
 
     def to_dict(self) -> dict:
