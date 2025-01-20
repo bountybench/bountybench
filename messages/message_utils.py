@@ -2,8 +2,10 @@ import asyncio
 import inspect
 from typing import Dict
 
+from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 from messages.config import MessageType, set_logging_level, should_log
+from messages.phase_messages.phase_message import PhaseMessage
 from utils.websocket_manager import websocket_manager
 from messages.workflow_message import WorkflowMessage
 
@@ -96,8 +98,12 @@ async def edit_message(old_message: Message, edit: str) -> Message:
 
     new_message.set_version_prev(old_message)
     new_message.set_next(old_message.next)
-    old_message.set_version_next(new_message)
-
+    parent_message = old_message.parent
+    if parent_message:
+        if isinstance(parent_message, AgentMessage):
+            parent_message.add_action_message(new_message)
+        if isinstance(parent_message, PhaseMessage):
+            parent_message.add_agent_message(new_message)
 
     return new_message
 

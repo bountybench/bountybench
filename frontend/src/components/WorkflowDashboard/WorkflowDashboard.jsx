@@ -53,9 +53,9 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
   };
 
   
-  const handleUpdateActionInput = async (actionId, newInputData) => {
-    const url = `http://localhost:8000/workflow/edit_action_input/${selectedWorkflow.id}`;
-    const requestBody = { action_id: actionId, new_input_data: newInputData };
+  const handleUpdateActionInput = async (messageId, newInputData) => {
+    const url = `http://localhost:8000/workflow/edit-message/${selectedWorkflow.id}`;
+    const requestBody = { message_id: messageId, new_input_data: newInputData };
     
     console.log('Sending request to:', url);
     console.log('Request body:', JSON.stringify(requestBody));

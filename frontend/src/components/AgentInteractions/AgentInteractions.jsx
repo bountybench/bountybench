@@ -103,13 +103,17 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
     setEditedMessage(originalMessageContent); // Populate with original message
   };
 
-  const handleSaveClick = async () => {
-    if (!action.timestamp) {
-      console.error('Action timestamp is undefined');
+  const handleSaveClick = async () => {  
+    if (!action.current_id) {
+      console.error('Action id is undefined');
       return;
     }
-    await onUpdateActionInput(action.timestamp, editedMessage);
-    setEditing(false);
+    try {
+      await onUpdateActionInput(action.current_id, editedMessage);
+      setEditing(false);
+    } catch (error) {
+      console.error('Error updating action message:', error);
+    }
   };
 
   const handleExpandClick = (e) => {
@@ -131,14 +135,37 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
               </Typography>
             )}
           </Box>
-          <IconButton
-            onClick={handleExpandClick}
-            aria-expanded={expanded}
-            aria-label="show more"
-            sx={{ color: 'black' }} 
-          >
-            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </IconButton>
+          <Box>
+            {editing ? (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSaveClick}
+                size="small"
+                sx={{ mr: 1 }}
+              >
+                <SaveIcon />
+              </Button>
+            ) : (
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={handleEditClick}
+                size="small"
+                sx={{ mr: 1 }}
+              >
+                <EditIcon />
+              </Button>
+            )}
+            <IconButton
+              onClick={handleExpandClick}
+              aria-expanded={expanded}
+              aria-label="show more"
+              sx={{ color: 'black' }}
+            >
+              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
+          </Box>
         </Box>
 
         <Collapse in={expanded}>
@@ -243,90 +270,12 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
 
 
   const renderActionMessage = (actionMessage) => (
-    <Box className={`message-container action`} sx={{ mt: 2 }}>
-      <Card 
-        className="message-bubble action-bubble" 
-        sx={{ 
-          backgroundColor: '#ffffff !important',
-          '& .MuiCardContent-root': {
-            backgroundColor: '#ffffff !important'
-          }
-        }}
-      >
-        <CardContent>
-          {/* Main header */}
-          <Box sx={{ mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-              Action: {actionMessage.resource_id}
-            </Typography>
-          </Box>
-  
-          {/* Message content */}
-          <Box mt={1}>
-            <ReactMarkdown>{actionMessage.message || ''}</ReactMarkdown>
-          </Box>
-  
-          {/* Metadata section */}
-          {actionMessage.additional_metadata && (
-            <Box mt={2}>
-              <Box 
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                  py: 0.5,
-                  '&:hover': {
-                    bgcolor: 'rgba(0, 0, 0, 0.04)',
-                  },
-                }}
-                onClick={handleToggleMetadata}
-              >
-                <Typography 
-                  variant="caption" 
-                  color="text.secondary" 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    fontWeight: 'medium'
-                  }}
-                >
-                    Click here to show metadata:
-                    <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
-                    {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                  </IconButton>
-                </Typography>
-              </Box>
-              
-              <Collapse in={metadataExpanded}>
-                <Box mt={1}>
-                  <Card 
-                    variant="outlined" 
-                    sx={{ bgcolor: '#f5f5f5', p: 1 }}
-                  >
-                    <Typography
-                      variant="body2"
-                      component="pre"
-                      sx={{
-                        whiteSpace: 'pre-wrap',
-                        overflowX: 'auto',
-                        m: 0,
-                        fontFamily: 'monospace',
-                        fontSize: '0.85rem'
-                      }}
-                    >
-                      {JSON.stringify(actionMessage.additional_metadata, null, 2)}
-                    </Typography>
-                  </Card>
-                </Box>
-              </Collapse>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-    </Box>
+    <ActionCard
+      key={actionMessage.current_id}
+      action={actionMessage}
+      onUpdateActionInput={onUpdateActionInput}
+    />
   );
-  
-  
 
   switch (message.message_type) {
     case 'AgentMessage':
@@ -530,6 +479,7 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
         </Box>
       );
   }
+
 };
 
 export const AgentInteractions = ({ 

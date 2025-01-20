@@ -305,7 +305,7 @@ async def next_message(workflow_id: str, data: MessageData):
         return {"status": "updated", "result": result}
     except Exception as e:
         return {"error": str(e)}
-    
+
 @app.post("/workflow/edit-message/{workflow_id}")
 async def edit_action_input(workflow_id: str, data: MessageInputData):
     print(f"Received edit request for workflow: {workflow_id}")
@@ -318,9 +318,9 @@ async def edit_action_input(workflow_id: str, data: MessageInputData):
 
     try:
         result = await workflow.edit_one_message(data.message_id, data.new_input_data)
-        print(f"Received result : {result}")
+        print(f"Received result : {result.id}, version prev: {result.version_prev}")
         
-        return {"status": "updated", "result": result}
+        return {"status": "updated", "result": result.id}
     except Exception as e:
         return {"error": str(e)}
     
