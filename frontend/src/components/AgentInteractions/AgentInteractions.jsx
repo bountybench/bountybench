@@ -333,14 +333,14 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
             <Typography variant="subtitle1" sx={{ mb: 2 }}>Agent: {message.agent_id}</Typography>
 
             {/* Action messages nested inside */}
-            {message.action_messages && message.action_messages.length > 0 && (
+            {message.current_children && message.current_children.length > 0 && (
               <Box sx={{ 
                 mt: 2,
                 '& .message-container.action': {
                   px: 0
                 }
               }}>
-                {message.action_messages.map((actionMessage, index) => (
+                {message.current_children.map((actionMessage, index) => (
                   <Box key={index}>
                     {renderActionMessage(actionMessage)}
                   </Box>

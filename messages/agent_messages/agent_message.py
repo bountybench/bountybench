@@ -34,11 +34,28 @@ class AgentMessage(Message):
     def action_messages(self) -> List[ActionMessage]:
         return self._action_messages
    
+    @property 
+    def current_actions_list(self) -> List[ActionMessage]:
+        current_actions = []
+        if len(self.action_messages) > 0:
+            current_message = self.action_messages[0]
+            while current_message.version_next:
+                current_message = current_message.version_next
+
+            current_actions.append(current_message)
+            while current_message.next:
+                current_message = current_message.next
+                current_actions.append(current_message)
+            
+        return current_actions
+    
     def add_action_message(self, action_message: ActionMessage):
         self._action_messages.append(action_message)
         action_message.set_parent(self)
         from messages.message_utils import broadcast_update
-        broadcast_update(self.to_dict())
+        agent_dict = self.to_dict()
+        agent_dict["current_children"] = [action_message.to_dict() for action_message in self.current_actions_list]
+        broadcast_update(agent_dict)
 
     def agent_dict(self) -> dict:
         return {
