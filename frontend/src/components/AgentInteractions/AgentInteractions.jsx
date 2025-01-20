@@ -332,28 +332,6 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
             {/* Agent header */}
             <Typography variant="subtitle1" sx={{ mb: 2 }}>Agent: {message.agent_id}</Typography>
 
-             {/* Display input_str if available */}
-             {message.input && (
-              <Box mt={1} mb={2}>
-                <Typography variant="caption" color="text.secondary">Input:</Typography>
-                <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                  <Typography
-                    variant="body2"
-                    component="pre"
-                    sx={{
-                      whiteSpace: 'pre-wrap',
-                      overflowX: 'auto',
-                      m: 0,
-                      fontFamily: 'monospace',
-                      fontSize: '0.85rem'
-                    }}
-                  >
-                    {message.input}
-                  </Typography>
-                </Card>
-              </Box>
-            )}
-
             {/* Action messages nested inside */}
             {message.current_children && message.current_children.length > 0 && (
               <Box sx={{ 
