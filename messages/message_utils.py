@@ -5,6 +5,8 @@ from typing import Dict
 from messages.message import Message
 from messages.config import MessageType, set_logging_level, should_log
 from utils.websocket_manager import websocket_manager
+from messages.workflow_message import WorkflowMessage
+
 from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
@@ -64,6 +66,7 @@ def _handle_broadcast_error(task):
 def log_message(message: Message):
     message_dict[message.id] = message
 
+
     from messages.workflow_message import WorkflowMessage
     instance = WorkflowMessage.get_instance()
 
@@ -93,4 +96,9 @@ async def edit_message(old_message: Message, edit: str) -> Message:
     new_message.set_next(old_message.next)
     old_message.set_version_next(new_message)
 
+
     return new_message
+
+def update_message(message: Message):
+    instance = WorkflowMessage.get_instance()
+    broadcast_update(instance.workflow_id, message.to_dict())

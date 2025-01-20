@@ -2,6 +2,8 @@ from typing import List, Optional
 from messages.action_messages.action_message import ActionMessage
 from messages.message import Message
 
+
+
 class AgentMessage(Message):
     
     def __init__(self, agent_id: str, message: Optional[str] = "", prev: 'AgentMessage' = None) -> None:
@@ -13,6 +15,7 @@ class AgentMessage(Message):
     @property
     def message(self) -> str:
         return self._message
+
     
     @property
     def message_type(self) -> str:
@@ -32,6 +35,8 @@ class AgentMessage(Message):
    
     def add_action_message(self, action_message: ActionMessage):
         self._action_messages.append(action_message)
+        from messages.message_utils import update_message
+        update_message(self)
 
     def agent_dict(self) -> dict:
         return {
