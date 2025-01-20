@@ -6,8 +6,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import ReactMarkdown from 'react-markdown';
 import './AgentInteractions.css';
+import ReplayIcon from '@mui/icons-material/Replay';
 
-const ActionCard = ({ action, onUpdateActionInput }) => {
+const ActionCard = ({ action, onUpdateActionInput, onRerunAction }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);            
   const [editedMessage, setEditedMessage] = useState(''); 
@@ -40,6 +41,18 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
   const handleToggleMetadata = (event) => {
     event.stopPropagation();
     setMetadataExpanded(!metadataExpanded);
+  };
+
+  const handleRerunClick = async () => {
+    if (!action.current_id) {
+      console.error('Action id is undefined');
+      return;
+    }
+    try {
+      await onRerunAction(action.current_id);
+    } catch (error) {
+      console.error('Error rerunning action:', error);
+    }
   };
 
   // Original message content
@@ -194,6 +207,14 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
                 >
                   <EditIcon />
                 </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleRerunClick}
+                  size="small"
+                >
+                  <ReplayIcon />
+                </Button>
               </Box>
             </>
           )}
@@ -263,7 +284,7 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
 export default ActionCard;
 
 
-const MessageBubble = ({ message, onUpdateActionInput }) => {
+const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(false); // New state for agent message
 
@@ -286,6 +307,7 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
       key={actionMessage.current_id}
       action={actionMessage}
       onUpdateActionInput={onUpdateActionInput}
+      onRerunAction={onRerunAction}
     />
   );
 
@@ -501,6 +523,7 @@ export const AgentInteractions = ({
   currentIteration,
   messages = [],
   onUpdateActionInput,
+  onRerunAction,
 }) => {
   console.log('AgentInteractions render, messages:', messages);
   const [displayedMessageIndex, setDisplayedMessageIndex] = useState(messages.length - 1);
@@ -548,7 +571,8 @@ export const AgentInteractions = ({
             <MessageBubble
               key={message.id || index}
               message={message}
-              onUpdateActionInput={onUpdateActionInput} 
+              onUpdateActionInput={onUpdateActionInput}
+              onRerunAction={onRerunAction}
             />
           ))
         )}

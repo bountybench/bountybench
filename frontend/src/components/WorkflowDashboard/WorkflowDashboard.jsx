@@ -111,6 +111,31 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     }
   };
 
+  const handleRerunAction = async (messageId) => {
+    if (selectedWorkflow?.id) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/rerun-message/${selectedWorkflow.id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message_id: messageId }),
+        });
+        const data = await response.json();
+        if (data.error) {
+          console.error('Error rerunning action:', data.error);
+        } else {
+          console.log('Action rerun successfully', data);
+          // You might want to update the UI or refetch messages here
+        }
+      } catch (error) {
+        console.error('Error rerunning action:', error);
+      }
+    } else {
+      console.error('Workflow ID is not available');
+    }
+  };
+
   if (!isConnected) {
     return (
       <Box className="dashboard-container" display="flex" justifyContent="center" alignItems="center">
@@ -178,6 +203,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
             messages={messages}
             onSendMessage={sendMessage}
             onUpdateActionInput={handleUpdateActionInput}
+            onRerunAction={handleRerunAction}
           />
         </Grid>
 

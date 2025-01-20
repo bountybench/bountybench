@@ -303,11 +303,14 @@ async def next_message(workflow_id: str, data: MessageData):
 
     try:
         result = await workflow.rerun_message(data.message_id)
-        print(f"Received result : {result}")
+        print(f"Received result : {result.id}")
 
-        return {"status": "updated", "result": result}
+        return {"status": "updated", "result": result.id}
     except Exception as e:
-        return {"error": str(e)}
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error in rerun_message: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
 
 @app.post("/workflow/edit-message/{workflow_id}")
 async def edit_action_input(workflow_id: str, data: MessageInputData):
