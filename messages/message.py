@@ -12,7 +12,7 @@ class Message(ABC):
         self._version_next = None
         
         self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
-        self._id = id(self)
+        self._id = str(id(self))
         from messages.message_utils import log_message
         log_message(self)
 
