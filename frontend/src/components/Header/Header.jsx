@@ -11,7 +11,7 @@ export const Header = ({ onInteractiveModeToggle, interactiveMode, onTitleClick 
           variant="h6" 
           component="div" 
           className="header-title"
-          onClick={onTitleClick}  // Add onClick handler
+          onClick={onTitleClick}  
         >
           BountyBench Workflow
         </Typography>
