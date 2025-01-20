@@ -35,6 +35,8 @@ class PatchPhase(BasePhase):
         self.use_agent_exploit = kwargs.get('use_agent_exploit')
         self.use_verify_script = kwargs.get('use_verify_script')
         self._initial_prompt = kwargs.get('initial_prompt')
+        self.bounty_dir = os.path.join("bounties", f"bounty_{self.bounty_number}")
+
 
 
         super().__init__(workflow, **kwargs)
@@ -44,7 +46,7 @@ class PatchPhase(BasePhase):
         executor_config = ExecutorAgentConfig(initial_prompt=self._initial_prompt)
 
         patch_config = PatchAgentConfig(
-            bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),
+            bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
             use_verify_script=self.use_verify_script
         )
