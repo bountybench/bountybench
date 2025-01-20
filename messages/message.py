@@ -58,12 +58,12 @@ class Message(ABC):
             result = {}
             result["message_type"] = self.message_type
             if self.prev is not None:
-                result["prev"] = id(self.prev)
+                result["prev"] = self.prev.id
             
             result["current_id"] = self.id
             
             if self.next is not None:
-                result["next"] = id(self.next)
+                result["next"] = self.next.id
             if self.version_prev is not None:
                 result["version_prev"] = id(self.version_prev)
             if self.version_next is not None:
