@@ -65,6 +65,10 @@ class PhaseMessage(Message):
     def add_agent_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
         agent_message.set_parent(self)
+        from messages.message_utils import broadcast_update
+        phase_dict = self.to_dict()
+        phase_dict["current_children"] = [agent_message.to_dict() for agent_message in self.current_agent_list]
+        broadcast_update(phase_dict)
 
     def to_dict(self) -> dict:
         phase_dict = {

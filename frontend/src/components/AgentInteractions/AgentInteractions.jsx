@@ -544,12 +544,17 @@ export const AgentInteractions = ({
   currentPhase,
   currentIteration,
   messages = [],
+  onSendMessage,
   onUpdateActionInput,
   onRerunAction,
 }) => {
   console.log('AgentInteractions render, messages:', messages);
   const [displayedMessageIndex, setDisplayedMessageIndex] = useState(messages.length - 1);
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef(null);  
+  
+  const [userMessage, setUserMessage] = useState('');
+  const [textAreaHeight, setTextAreaHeight] = useState('auto');
+  const textAreaRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -564,6 +569,18 @@ export const AgentInteractions = ({
     setDisplayedMessageIndex(messages.length - 1);
   }, [messages]);
 
+  
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.output?.content) {
+        setUserMessage(lastMessage.output.content);
+        adjustTextAreaHeight();
+      }
+    }
+  }, [messages]);
+  
+
   if (!messages) {
     return (
       <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
@@ -571,6 +588,30 @@ export const AgentInteractions = ({
       </Box>
     );
   }
+  const handleSendMessage = () => {
+    if (userMessage.trim()) {
+      onSendMessage({
+        type: 'user_message',
+        content: userMessage
+      });
+      setUserMessage('');
+    }
+  };
+
+  const adjustTextAreaHeight = () => {
+    if (textAreaRef.current) {
+      console.log("Trying to adjust height")
+      textAreaRef.current.style.height = 'auto';
+      const newHeight = Math.min(textAreaRef.current.scrollHeight, window.innerHeight * 0.4);
+      textAreaRef.current.style.height = `${newHeight}px`;
+      setTextAreaHeight(`${newHeight}px`);
+    }
+  };
+
+  const handleMessageChange = (e) => {
+    setUserMessage(e.target.value);
+    adjustTextAreaHeight();
+  };
 
   return (
     <Box className="interactions-container">
@@ -600,6 +641,45 @@ export const AgentInteractions = ({
         )}
         <div ref={messagesEndRef} />
       </Box>
+
+      {interactiveMode && (
+        <Box className="input-container">
+          <TextField
+            fullWidth
+            multiline
+            inputRef={textAreaRef}
+            rows={2}
+            variant="outlined"
+            placeholder="Type your message..."
+            value={userMessage}
+            onChange={handleMessageChange}
+            sx={{ 
+              '& .MuiInputBase-input': {
+                color: 'black',
+                height: textAreaHeight,
+                minHeight: '25px',
+                overflow: 'auto',
+              },
+              border: '1px solid #ccc',
+              borderRadius: '6px',
+            }}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSendMessage}
+            disabled={!userMessage.trim()}
+          >
+            Send
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 };

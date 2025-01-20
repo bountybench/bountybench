@@ -153,13 +153,22 @@ class BasePhase(ABC):
         """
         logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
         logger.debug(f"Running phase {self.name}")
+        
+        self._phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
+
         if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
             self._last_agent_message = prev_phase_message.agent_messages[-1]
-        curr_phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
-        workflow_message.add_phase_message(curr_phase_message)
+        else:
+            logger.info(f"Adding initial prompt to phase")
+            self._last_agent_message = AgentMessage(
+                agent_id="system",
+                message=self.initial_message,
+            )
+            self._phase_message.add_agent_message(self._last_agent_message)
+        workflow_message.add_phase_message(self._phase_message)
 
         for iteration_num in range(1, self.phase_config.max_iterations + 1):
-            if curr_phase_message.complete:
+            if self._phase_message.complete:
                 break
 
             if self.phase_config.interactive:
@@ -174,39 +183,49 @@ class BasePhase(ABC):
             logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
 
             message = await self.run_one_iteration(
-                phase_message=curr_phase_message,
+                phase_message=self._phase_message,
                 agent_instance=agent_instance,
                 previous_output=self._last_agent_message,
             )
-            curr_phase_message.add_agent_message(message)
+            self._phase_message.add_agent_message(message)
 
             logger.info(f"Finished iteration {iteration_num} of {self.name} with {agent_id}")
-            if curr_phase_message.complete:
+            if self._phase_message.complete:
                 break
 
-            self._last_agent_message = curr_phase_message.agent_messages[-1]
+            self._last_agent_message = self._phase_message.agent_messages[-1]
 
             # Increment the iteration count
             self.iteration_count += 1
             self.current_agent_index += 1
 
-        if curr_phase_message.summary == "incomplete":
-            curr_phase_message.set_summary("completed_failure")
+        if self._phase_message.summary == "incomplete":
+            self._phase_message.set_summary("completed_failure")
 
         # Deallocate resources after completing iterations
         self.deallocate_resources()
 
-        update_message(curr_phase_message)
-        return curr_phase_message
+        update_message(self._phase_message)
+        return self._phase_message
 
-    async def set_message_input(self, user_input: str) -> str:
+    async def add_user_message(self, user_input: str) -> str:
         user_input_message = AgentMessage(agent_id="human", message=user_input)
-        
+        print("Message created")
+        self._phase_message.add_agent_message(user_input_message)
+
         # Update the last output
         self._last_agent_message = user_input_message
         
         return user_input_message.message
     
+    def get_phase_memory(self):
+        memory = ""
+        if self._phase_message:
+            for agent in self._phase_message.current_agent_list:
+                memory += agent.message
+        
+        return memory
+
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:
         """Retrieve the next agent in a round-robin fashion."""
         agent = self.agents[self.current_agent_index % len(self.agents)]

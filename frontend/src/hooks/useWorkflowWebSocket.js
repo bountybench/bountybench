@@ -129,7 +129,9 @@ export const useWorkflowWebSocket = (workflowId) => {
           case 'ActionMessage':
             // setMessages((prev) => [...prev, data]);
             break;
-          case 'last_message':
+          case 'user_message_response':
+            console.log(`Received ${data.message_type}:`, data.content);
+            break;
           case 'first_message':
             // Handle these messages if needed
             console.log(`Received ${data.message_type}:`, data.content);
@@ -168,20 +170,10 @@ export const useWorkflowWebSocket = (workflowId) => {
       console.log('Sending user message:', message);
       ws.current.send(
         JSON.stringify({
-          type: 'user_message',
+          message_type: 'user_message',
           content: message.content
         })
       );
-
-      // Add a local "user message" to the state if you want it to appear in the UI
-      const userMessage = {
-        id: `msg_${messageIdCounter.current++}`,
-        agent_name: 'User',
-        timestamp: new Date().toISOString(),
-        output: { content: message.content },
-        isUser: true
-      };
-      setMessages((prev) => [...prev, userMessage]);
     } else {
       console.warn('WebSocket not ready for sending');
       setError('Cannot send message: not connected to workflow');

@@ -176,8 +176,8 @@ class BaseWorkflow(ABC):
 
         return phase_message
 
-    async def set_message_input(self, user_input: str) -> str:
-        result = await self._current_phase.set_message_input(user_input)
+    async def add_user_message(self, user_input: str) -> str:
+        result = await self._current_phase.add_user_message(user_input)
         
         # Trigger the next iteration
         self.next_iteration_event.set()
