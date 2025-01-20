@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Card, CardContent, IconButton, TextField, Button, CircularProgress, Collapse } from '@mui/material';
+import { Box, Typography, Card, CardContent, IconButton, TextField, Button, CircularProgress, Collapse, Divider } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit'; 
@@ -190,7 +190,7 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
           {action.additional_metadata && Object.keys(action.additional_metadata).length > 0 && (
             <Box mt={1}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                Metadata:
+              Click here to show metadata:
               </Typography>
               <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
                 <Typography
@@ -290,8 +290,8 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
                     fontWeight: 'medium'
                   }}
                 >
-                  Metadata
-                  <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
+                    Click here to show metadata:
+                    <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
                     {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                   </IconButton>
                 </Typography>
@@ -372,7 +372,7 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
                     fontWeight: 'medium'
                   }}
                 >
-                  Show Output
+                  Click here to show  {message.agent_id} output:
                   <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
                     {agentMessageExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                   </IconButton>
@@ -452,7 +452,7 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
                 {message.additional_metadata && (
                   <Box mt={1}>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Show Metadata:
+                    Click here to show metadata:
                     </Typography>
                     <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
                       <Typography
