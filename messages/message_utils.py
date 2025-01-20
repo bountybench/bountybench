@@ -44,7 +44,7 @@ def log_message(message: Message):
     from messages.workflow_message import WorkflowMessage
     instance = WorkflowMessage.get_instance()
 
-    #broadcast_update(instance.workflow_id, message.to_dict())
+    broadcast_update(instance.workflow_id, message.to_dict())
     if should_log(message):
         instance.save()
 

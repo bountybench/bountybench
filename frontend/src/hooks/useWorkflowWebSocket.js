@@ -48,7 +48,6 @@ export const useWorkflowWebSocket = (workflowId) => {
       setError(null);
       reconnectAttempts.current = 0;
 
-      // (Optional) Kick off the workflow if your backend expects it
       try {
         const response = await fetch(`http://localhost:8000/workflow/execute/${workflowId}`, {
           method: 'POST'

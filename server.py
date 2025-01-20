@@ -143,10 +143,11 @@ async def execute_workflow(workflow_id: str):
         return {"error": str(e)}
 
 async def run_workflow(workflow_id: str):
-    """Run workflow in background and broadcast updates"""
+    print(f"Entering run_workflow for {workflow_id}")
     global should_exit
     
     if workflow_id not in active_workflows or should_exit:
+        print(f"Workflow {workflow_id} not found or should exit")
         return
     
     workflow_data = active_workflows[workflow_id]
@@ -158,11 +159,12 @@ async def run_workflow(workflow_id: str):
             "message_type": "status_update",
             "status": "running"
         })
+        print(f"Broadcasted running status for {workflow_id}")
         
         # Run the workflow
         print(f"Starting workflow.run() for {workflow_id}...")
         await workflow.run()
-        print(f"Workflow.run() completed for {workflow_id}...")
+        print(f"Workflow.run() completed for {workflow_id}")
 
         if not should_exit:
             workflow_data["status"] = "completed"
@@ -170,8 +172,10 @@ async def run_workflow(workflow_id: str):
                 "message_type": "status_update",
                 "status": "completed"
             })
+            print(f"Broadcasted completed status for {workflow_id}")
         
     except Exception as e:
+        print(f"Error in run_workflow: {e}")
         if not should_exit:
             print(f"Workflow error: {e}")
             workflow_data["status"] = "error"
@@ -180,10 +184,12 @@ async def run_workflow(workflow_id: str):
                 "status": "error",
                 "error": str(e)
             })
-
+            print(f"Broadcasted error status for {workflow_id}")
+            
 @app.websocket("/ws/{workflow_id}")
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     """WebSocket endpoint for real-time workflow updates"""
+    print(f"Entering websocket_endpoint for {workflow_id}")
     global should_exit
     
     try:
@@ -219,6 +225,8 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                             "message_type": "user_message_response",
                             "content": result
                         })
+                        print(f"Broadcasted user_message_response for {workflow_id}")
+
                 elif data.get("message_type") == "start_execution":
                     print(f"Starting execution for workflow {workflow_id}")
                     asyncio.create_task(run_workflow(workflow_id))
