@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, CircularProgress, Alert, Button, Grid, IconButton } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { AgentInteractions } from '../AgentInteractions/AgentInteractions';
-import { PhasePanel } from '../PhasePanel/PhasePanel';
-import { AgentPanel } from '../AgentPanel/AgentPanel';
-import { ResourcePanel } from '../ResourcePanel/ResourcePanel';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
@@ -14,7 +9,6 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
   console.log('WorkflowDashboard props:', { selectedWorkflow, interactiveMode }); // Debug log
   
   const [isNextDisabled, setIsNextDisabled] = useState(false);
-  const [isPanelExpanded, setIsPanelExpanded] = useState(true);
 
   const {
     isConnected,
@@ -90,11 +84,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
       console.error('Error updating action:', error);
     }
   };
-  
-  const togglePanel = () => {
-    setIsPanelExpanded(!isPanelExpanded);
-  };
-  
+
   if (!isConnected) {
     return (
       <Box className="dashboard-container" display="flex" justifyContent="center" alignItems="center">
@@ -139,7 +129,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
       </Box>
         
       <Grid container spacing={2} className="dashboard-content">
-        <Grid item xs={12} md={isPanelExpanded ? 8 : 11} className="main-content">
+        <Grid item xs={12} md={12} className="main-content">
           <AgentInteractions
             workflow={selectedWorkflow}
             interactiveMode={interactiveMode}
@@ -150,6 +140,8 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
             onUpdateActionInput={handleUpdateActionInput}
           />
         </Grid>
+
+        {/* 
         <Grid item xs={12} md={isPanelExpanded ? 4 : 1} className="side-panel-container">
           <Box className="side-panel-wrapper">
             <IconButton
@@ -169,6 +161,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
             )}
           </Box>
         </Grid>
+        */}
       </Grid>
     </Box>
   );

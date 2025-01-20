@@ -102,7 +102,7 @@ async def list_workflows():
 async def start_workflow(workflow_data: dict):
     """Start a new workflow instance"""
     try:
-        workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        #workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         # Initialize workflow instance
         workflow = id_to_workflow[workflow_data['workflow_name']](
@@ -112,6 +112,10 @@ async def start_workflow(workflow_data: dict):
             phase_iterations=int(workflow_data['iterations'])
         )
         
+        workflow_id = workflow.workflow_message.workflow_id
+        print("***************")
+        print(workflow_id)
+        print("***************")
         # Store workflow instance
         active_workflows[workflow_id] = {
             "instance": workflow,
@@ -141,6 +145,8 @@ async def execute_workflow(workflow_id: str):
         return {"status": "executing"}
     except Exception as e:
         return {"error": str(e)}
+
+
 
 async def run_workflow(workflow_id: str):
     print(f"Entering run_workflow for {workflow_id}")

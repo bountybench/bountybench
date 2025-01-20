@@ -20,6 +20,8 @@ class WebSocketManager:
             WebSocketManager._initialized = True
             logger.info("WebSocket Manager initialized")
 
+
+    '''
     async def connect(self, workflow_id: str, websocket: WebSocket):
         """Connect a new WebSocket client"""
         try:
@@ -31,6 +33,15 @@ class WebSocketManager:
         except Exception as e:
             logger.error(f"Error accepting WebSocket connection: {e}")
             raise
+    '''
+
+    async def connect(self, workflow_id: str, websocket: WebSocket):
+        await websocket.accept()
+        if workflow_id not in self.active_connections:
+            self.active_connections[workflow_id] = []
+        self.active_connections[workflow_id].append(websocket)
+        print(f"WebSocket connected for workflow {workflow_id}. Total connections: {len(self.active_connections[workflow_id])}")
+
 
     def disconnect(self, workflow_id: str, websocket: WebSocket):
         """Disconnect a WebSocket client"""
@@ -49,6 +60,10 @@ class WebSocketManager:
 
     async def broadcast(self, workflow_id: str, message: dict):
         """Broadcast a message to all connected clients for a workflow"""
+
+
+        print(f"Broadcasting to workflow: {workflow_id}")
+        print(f"Active connections: {self.active_connections.keys()}")
         if workflow_id not in self.active_connections:
             print(f"No active connections for workflow {workflow_id}")
             return
@@ -60,10 +75,9 @@ class WebSocketManager:
         for connection in self.active_connections[workflow_id]:
             try:
                 await connection.send_json(message)
-                print(f"Successfully sent message type '{message.get('message_type')}' to a connection in workflow {workflow_id}")
+                print(f"Successfully sent message to a connection in workflow {workflow_id}")
             except Exception as e:
-                print(f"Failed to send message type '{message.get('message_type')}' to connection in workflow {workflow_id}: {e}")
-                print(f"Failed message content: {message}")
+                print(f"Error sending message to connection in workflow {workflow_id}: {e}")
                 failed_connections.append(connection)
 
         # Clean up failed connections
