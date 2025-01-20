@@ -142,7 +142,7 @@ class TestWorkflow(BaseWorkflow):
         print("================================")
 
         new_command = "Command: echo \"edited-line\" >> file.txt"
-        edited_message = await edit_message(command_message, new_command)  # await here
+        edited_message = await self.edit_message(command_message, new_command)  # await here
         message = await self.run_edited_message(edited_message)
         print(message.message)
 

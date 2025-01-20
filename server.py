@@ -273,21 +273,24 @@ async def next_iteration(workflow_id: str):
         return {"error": "Workflow is not in interactive mode"}
 
 @app.post("/workflow/next-message/{workflow_id}")
-async def next_message(workflow_id: str, data: MessageData):
-    print(f"Request data: {data}")
+async def next_message(workflow_id: str):
 
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
     workflow = active_workflows[workflow_id]["instance"]
-
     try:
-        result = await workflow.run_edited_message(data.message_id)
-        print(f"Received result : {result}")
+        result = await workflow.run_next_message()
+        if not result:
+            result = await next_iteration(workflow_id)
+        print(f"Received result : {result.id}")
         
-        return {"status": "updated", "result": result}
+        return {"status": "updated", "result": result.id}
     except Exception as e:
-        return {"error": str(e)}
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error in next_message: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
 
 @app.post("/workflow/rerun-message/{workflow_id}")
 async def next_message(workflow_id: str, data: MessageData):

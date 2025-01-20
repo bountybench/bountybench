@@ -17,7 +17,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     currentIteration,
     messages,
     error,
-    sendMessage
+    sendMessage,
   } = useWorkflowWebSocket(selectedWorkflow?.id);
 
   console.log('WebSocket state:', { 
@@ -52,6 +52,32 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     }
   };
 
+  
+  const triggerNextAction = async () => {
+    if (selectedWorkflow?.id) {
+      setIsNextDisabled(true);
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/next-message/${selectedWorkflow.id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await response.json();
+        if (data.error) {
+          console.error('Error triggering next message:', data.error);
+        } else {
+          console.log('Next message triggered successfully');
+        }
+      } catch (error) {
+        console.error('Error triggering next message:', error);
+      } finally {
+        setIsNextDisabled(false);
+      }
+    } else {
+      console.error('Workflow ID is not available or no last message');
+    }
+  };
   
   const handleUpdateActionInput = async (messageId, newInputData) => {
     const url = `http://localhost:8000/workflow/edit-message/${selectedWorkflow.id}`;
@@ -123,8 +149,21 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
             onClick={triggerNextIteration}
             startIcon={<ArrowForwardIcon />}
             disabled={isNextDisabled}
+            sx={{ margin: 1 }}
           >
             Next Iteration
+          </Button>
+        )}
+        {interactiveMode && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={triggerNextAction}
+            startIcon={<ArrowForwardIcon />}
+            disabled={isNextDisabled}
+            sx={{ margin: 1 }}
+          >
+            Next Action
           </Button>
         )}
       </Box>
