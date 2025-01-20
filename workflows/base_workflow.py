@@ -4,7 +4,7 @@ import atexit
 from typing import Any, Dict, Type
 from enum import Enum
 from messages.message import Message
-from messages.message_utils import edit_message, message_dict
+from messages.message_utils import message_dict
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.rerun_manager import RerunManager
 from messages.workflow_message import WorkflowMessage
@@ -227,14 +227,21 @@ class BaseWorkflow(ABC):
         message = await self.rerun_manager.rerun(message)
         return message
     
-    async def run_edited_message(self, message_id: str):
-        message = message_dict[message_id]
-        message = await self.rerun_manager.run_edited(message)
+    async def run_next_message(self):
+        if len(message_dict) > 0:
+            _, last_message = list(message_dict.items())[-1]
+            if last_message.next:
+                last_message = await self.rerun_manager.run_edited(last_message)
+                return last_message
+        return None
+    
+    async def edit_message(self, message: Message, new_message_data: str) -> Message:
+        message = await self.rerun_manager.edit_message(message, new_message_data)
         return message
     
     async def edit_one_message(self, message_id: str, new_message_data: str) -> Message:
         message = message_dict[message_id]
-        message = await edit_message(message, new_message_data)
+        message = await self.edit_message(message, new_message_data)
         return message
     
     @property

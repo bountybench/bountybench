@@ -1,4 +1,6 @@
+import inspect
 from agents.agent_manager import AgentManager
+from messages.phase_messages.phase_message import PhaseMessage
 from resources.resource_manager import ResourceManager
 
 from messages.message import Message
@@ -36,16 +38,43 @@ class RerunManager:
     async def _rerun_action_message(self, old_message: Message, input_message: Message) -> Message:
         resource = self.resource_manager.get_resource(old_message.resource_id)
         new_message = resource.run(input_message)
-        self._update_version_links(old_message, new_message)
+        self.update_version_links(old_message, new_message)
         return new_message
 
     async def _rerun_agent_message(self, old_message: Message, input_message: Message) -> Message:
         agent = self.agent_manager.get_agent(old_message.agent_id)
         new_message = await agent.run(input_message)
-        self._update_version_links(old_message, new_message)
+        self.update_version_links(old_message, new_message)
+        return new_message
+    
+    async def edit_message(self, old_message: Message, edit: str) -> Message:
+        while old_message.version_next:
+            old_message = old_message.version_next
+
+        dic = old_message.__dict__
+        cls = type(old_message)
+        init_method = cls.__init__
+        signature = inspect.signature(init_method)
+        params = {}
+        for name, param in signature.parameters.items():
+            if "_" + name in dic:
+                params[name] = dic["_" + name]
+
+        params['prev'] = None
+        params['message'] = edit
+        new_message = cls(**params)
+
+        self.update_version_links(old_message, new_message)
+
         return new_message
 
-    def _update_version_links(self, old_message: Message, new_message: Message) -> Message:
-        new_message.set_next(old_message.next)
-        old_message.set_version_next(new_message)
+    def update_version_links(self, old_message: Message, new_message: Message) -> Message:
         new_message.set_version_prev(old_message)
+        new_message.set_next(old_message.next)
+        parent_message = old_message.parent
+        if parent_message:
+            if isinstance(parent_message, AgentMessage):
+                parent_message.add_action_message(new_message)
+            if isinstance(parent_message, PhaseMessage):
+                parent_message.add_agent_message(new_message)
+                

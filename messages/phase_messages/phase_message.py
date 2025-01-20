@@ -38,6 +38,21 @@ class PhaseMessage(Message):
     def phase_summary(self) -> str:
         return self.summary
   
+    @property 
+    def current_agent_list(self) -> List[AgentMessage]:
+        current_agents = []
+        if len(self.agent_messages) > 0:
+            current_message = self.agent_messages[0]
+            while current_message.version_next:
+                current_message = current_message.version_next
+
+            current_agents.append(current_message)
+            while current_message.next:
+                current_message = current_message.next
+                current_agents.append(current_message)
+            
+        return current_agents
+
     def set_success(self):
         self._success = True
 

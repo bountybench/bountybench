@@ -78,11 +78,8 @@ class ExecutorAgent(BaseAgent):
         model_action_message = self.call_lm(prev_agent_message)
         if not model_action_message:
             return
-        
 
         agent_message.add_action_message(model_action_message)
-
-    
 
         # If the model decides to output a command, we run it in the environment
         logger.info(f"LM Response:\n{model_action_message.message}")
@@ -90,6 +87,7 @@ class ExecutorAgent(BaseAgent):
             kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
                 return
+            self.model.update_memory(kali_action_message.message)
             agent_message.add_action_message(kali_action_message)
             return kali_action_message
         return model_action_message

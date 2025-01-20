@@ -1,13 +1,9 @@
 import asyncio
-import inspect
 from typing import Dict
 
-from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 from messages.config import MessageType, set_logging_level, should_log
-from messages.phase_messages.phase_message import PhaseMessage
 from utils.websocket_manager import websocket_manager
-from messages.workflow_message import WorkflowMessage
 
 from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
@@ -78,34 +74,6 @@ def log_message(message: Message):
         from messages.workflow_message import WorkflowMessage
         instance = WorkflowMessage.get_instance()
         instance.save()
-
-async def edit_message(old_message: Message, edit: str) -> Message:
-    while old_message.version_next:
-        old_message = old_message.version_next
-
-    dic = old_message.__dict__
-    cls = type(old_message)
-    init_method = cls.__init__
-    signature = inspect.signature(init_method)
-    params = {}
-    for name, param in signature.parameters.items():
-        if "_" + name in dic:
-            params[name] = dic["_" + name]
-
-    params['prev'] = None
-    params['message'] = edit
-    new_message = cls(**params)
-
-    new_message.set_version_prev(old_message)
-    new_message.set_next(old_message.next)
-    parent_message = old_message.parent
-    if parent_message:
-        if isinstance(parent_message, AgentMessage):
-            parent_message.add_action_message(new_message)
-        if isinstance(parent_message, PhaseMessage):
-            parent_message.add_agent_message(new_message)
-
-    return new_message
 
 def update_message(message: Message):
     broadcast_update(message.to_dict())
