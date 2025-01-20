@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.agent_message import AgentMessage
+from messages.message_utils import update_message
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResource, BaseResourceConfig
@@ -195,6 +196,7 @@ class BasePhase(ABC):
         # Deallocate resources after completing iterations
         self.deallocate_resources()
 
+        update_message(curr_phase_message)
         return curr_phase_message
 
     async def set_message_input(self, user_input: str) -> str:
