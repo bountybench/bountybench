@@ -115,7 +115,7 @@ class PatchPhase(BasePhase):
                 )
             )
 
-        setup_bounty_env_script = os.path.join(str(self.workflow.task_dir), "setup_bounty_env.sh")
+        setup_bounty_env_script = os.path.join(str(self.workflow.task_dir), self.bounty_dir, "setup_files", "setup_bounty_env.sh")
         if contains_setup(setup_bounty_env_script):
             resource_configs["bounty_resource"] = (
                 SetupResource,
