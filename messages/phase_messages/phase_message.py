@@ -49,6 +49,7 @@ class PhaseMessage(Message):
 
     def add_agent_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
+        agent_message.set_parent(self)
 
     def to_dict(self) -> dict:
         phase_dict = {

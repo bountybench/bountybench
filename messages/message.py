@@ -11,6 +11,7 @@ class Message(ABC):
         self._next = None
         self._version_prev = None
         self._version_next = None
+        self._parent = None
         
         self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
         self._id = str(id(self))
@@ -37,15 +38,19 @@ class Message(ABC):
     def id(self) -> str:
         return self._id
     
+    @property
+    def parent(self) -> str:
+        return self._parent
+    
+    def set_parent(self, parent: 'Message') -> None:
+        self._parent = parent
+    
     def set_next(self, next: 'Message') -> None:
         self._next = next
     
     def set_version_prev(self, version_prev: 'Message') -> None:
         self._version_prev = version_prev
-
-    def set_version_next(self, version_next: 'Message') -> None:
-        self._version_next = version_next
-    
+        version_prev._version_next = self
     
     @property
     def message_type(self) -> str:

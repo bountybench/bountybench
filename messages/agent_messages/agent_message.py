@@ -36,6 +36,7 @@ class AgentMessage(Message):
    
     def add_action_message(self, action_message: ActionMessage):
         self._action_messages.append(action_message)
+        action_message.set_parent(self)
         from messages.message_utils import broadcast_update
         broadcast_update(self.to_dict())
 
