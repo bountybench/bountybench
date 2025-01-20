@@ -11,6 +11,7 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);            
   const [editedMessage, setEditedMessage] = useState(''); 
+  const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   if (!action) return null;
 
@@ -36,6 +37,11 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
     }
   };
 
+  const handleToggleMetadata = (event) => {
+    event.stopPropagation();
+    setMetadataExpanded(!metadataExpanded);
+  };
+
   // Original message content
   const originalMessageContent = formatData(action.message);
 
@@ -44,7 +50,6 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
     const formattedContent = formatData(content);
     if (!formattedContent) return null;
 
-    // Customize rendering based on resource_id or other logic if needed
     return (
       <Box mt={1}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
@@ -136,27 +141,6 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
             )}
           </Box>
           <Box>
-            {editing ? (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSaveClick}
-                size="small"
-                sx={{ mr: 1 }}
-              >
-                <SaveIcon />
-              </Button>
-            ) : (
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={handleEditClick}
-                size="small"
-                sx={{ mr: 1 }}
-              >
-                <EditIcon />
-              </Button>
-            )}
             <IconButton
               onClick={handleExpandClick}
               aria-expanded={expanded}
@@ -214,26 +198,60 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
             </>
           )}
 
-          {action.additional_metadata && Object.keys(action.additional_metadata).length > 0 && (
-            <Box mt={1}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-              Click here to show metadata:
-              </Typography>
-              <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                <Typography
-                  variant="body2"
-                  component="pre"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    overflowX: 'auto',
-                    m: 0,
-                    fontFamily: 'monospace',
-                    fontSize: '0.85rem'
+
+          {/* Metadata section */}
+          {action.additional_metadata && (
+            <Box mt={2}>
+              <Box 
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  py: 0.5,
+                  '&:hover': {
+                    bgcolor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+                onClick={handleToggleMetadata}
+              >
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary" 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    fontWeight: 'medium'
                   }}
                 >
-                  {formatData(action.additional_metadata)}
+                    Click here to show metadata:
+                    <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
+                    {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </IconButton>
                 </Typography>
-              </Card>
+              </Box>
+              
+              <Collapse in={metadataExpanded}>
+                <Box mt={1}>
+                  <Card 
+                    variant="outlined" 
+                    sx={{ bgcolor: '#f5f5f5', p: 1 }}
+                  >
+                    <Typography
+                      variant="body2"
+                      component="pre"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        overflowX: 'auto',
+                        m: 0,
+                        fontFamily: 'monospace',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      {JSON.stringify(action.additional_metadata, null, 2)}
+                    </Typography>
+                  </Card>
+                </Box>
+              </Collapse>
             </Box>
           )}
         </Collapse>
@@ -246,17 +264,11 @@ export default ActionCard;
 
 
 const MessageBubble = ({ message, onUpdateActionInput }) => {
-  const [metadataExpanded, setMetadataExpanded] = useState(false);
   const [contentExpanded, setContentExpanded] = useState(true);
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(false); // New state for agent message
 
 
   if (!message) return null;
-
-  const handleToggleMetadata = (event) => {
-    event.stopPropagation();
-    setMetadataExpanded(!metadataExpanded);
-  };
 
   const handleToggleContent = (event) => {
     event.stopPropagation();
