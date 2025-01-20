@@ -221,6 +221,8 @@ export default ActionCard;
 const MessageBubble = ({ message, onUpdateActionInput }) => {
   const [metadataExpanded, setMetadataExpanded] = useState(false);
   const [contentExpanded, setContentExpanded] = useState(true);
+  const [agentMessageExpanded, setAgentMessageExpanded] = useState(false); // New state for agent message
+
 
   if (!message) return null;
 
@@ -234,9 +236,23 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
     setContentExpanded(!contentExpanded);
   };
 
+  const handleToggleAgentMessage = (event) => {
+    event.stopPropagation();
+    setAgentMessageExpanded(!agentMessageExpanded);
+  };
+
+
   const renderActionMessage = (actionMessage) => (
     <Box className={`message-container action`} sx={{ mt: 2 }}>
-      <Card className="message-bubble action-bubble">
+      <Card 
+        className="message-bubble action-bubble" 
+        sx={{ 
+          backgroundColor: '#ffffff !important',
+          '& .MuiCardContent-root': {
+            backgroundColor: '#ffffff !important'
+          }
+        }}
+      >
         <CardContent>
           {/* Main header */}
           <Box sx={{ mb: 1 }}>
@@ -244,12 +260,12 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
               Action: {actionMessage.resource_id}
             </Typography>
           </Box>
-
+  
           {/* Message content */}
           <Box mt={1}>
             <ReactMarkdown>{actionMessage.message || ''}</ReactMarkdown>
           </Box>
-
+  
           {/* Metadata section */}
           {actionMessage.additional_metadata && (
             <Box mt={2}>
@@ -309,46 +325,109 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
       </Card>
     </Box>
   );
+  
+  
 
   switch (message.message_type) {
     case 'AgentMessage':
-      return (
-        <Box className={`message-container ${message.agent_id}`}>
-          <Card 
-            className="message-bubble agent-bubble"
-            sx={{
-              p: 2,
-              '& .action-bubble': {
-                boxShadow: 1,  // lighter shadow for nested cards
-              }
-            }}
-          >
-            <CardContent>
-              {/* Agent message content */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>{message.agent_id}</Typography>
-                <ReactMarkdown>{message.message || ''}</ReactMarkdown>
-              </Box>
+    return (
+      <Box className={`message-container ${message.agent_id}`}>
+        <Card 
+          className="message-bubble agent-bubble"
+          sx={{
+            backgroundColor: '#f0f4f8 !important',
+            '& .MuiCardContent-root': {
+              backgroundColor: '#f0f4f8 !important'
+            },
+            '& .action-bubble': {
+              boxShadow: 1,
+            },
+            p: 2
+          }}
+        >
+          <CardContent>
+            {/* Agent header */}
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>Agent: {message.agent_id}</Typography>
 
-              {/* Action messages nested inside */}
-              {message.action_messages && message.action_messages.length > 0 && (
-                <Box sx={{ 
-                  mt: 2,
-                  '& .message-container.action': {
-                    px: 0  // Remove horizontal padding for nested actions
-                  }
-                }}>
-                  {message.action_messages.map((actionMessage, index) => (
-                    <Box key={index}>
-                      {renderActionMessage(actionMessage)}
-                    </Box>
-                  ))}
+            {/* Show Output section */}
+            <Box mt={1}>
+              <Box 
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  py: 0.5,
+                  '&:hover': {
+                    bgcolor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+                onClick={handleToggleAgentMessage}
+              >
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary" 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    fontWeight: 'medium'
+                  }}
+                >
+                  Show Output
+                  <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
+                    {agentMessageExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </IconButton>
+                </Typography>
+              </Box>
+              
+              <Collapse in={agentMessageExpanded}>
+                <Box mt={1}>
+                  <Card 
+                    variant="outlined" 
+                    sx={{ 
+                      bgcolor: '#e5e9f0 !important',
+                      '& .MuiCardContent-root': {
+                        backgroundColor: '#e5e9f0 !important'
+                      },
+                      p: 1 
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      component="pre"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        overflowX: 'auto',
+                        m: 0,
+                        fontFamily: 'monospace',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      {message.message || ''}
+                    </Typography>
+                  </Card>
                 </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Box>
-      );
+              </Collapse>
+            </Box>
+
+            {/* Action messages nested inside */}
+            {message.action_messages && message.action_messages.length > 0 && (
+              <Box sx={{ 
+                mt: 2,
+                '& .message-container.action': {
+                  px: 0
+                }
+              }}>
+                {message.action_messages.map((actionMessage, index) => (
+                  <Box key={index}>
+                    {renderActionMessage(actionMessage)}
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      </Box>
+    );
       
     case 'ActionMessage':
       return renderActionMessage(message);
@@ -373,7 +452,7 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
                 {message.additional_metadata && (
                   <Box mt={1}>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Metadata:
+                      Show Metadata:
                     </Typography>
                     <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
                       <Typography
