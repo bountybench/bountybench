@@ -15,6 +15,14 @@ class AgentMessage(Message):
         return self._message
     
     @property
+    def message_type(self) -> str:
+        """
+        Override the message_type property to always return "AgentMessage"
+        for AgentMessage and its subclasses.
+        """
+        return "AgentMessage"
+    
+    @property
     def agent_id(self) -> str:
         return self._agent_id
 

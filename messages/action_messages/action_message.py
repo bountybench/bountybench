@@ -17,6 +17,15 @@ class ActionMessage(Message):
         return self._message
     
     @property
+    def message_type(self) -> str:
+        """
+        Override the message_type property to always return "ActionMessage"
+        for ActionMessage and its subclasses.
+        """
+        return "ActionMessage"
+    
+    
+    @property
     def additional_metadata(self) -> str:
         return self._additional_metadata
 

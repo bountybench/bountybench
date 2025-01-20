@@ -1,3 +1,4 @@
+from collections import deque
 from typing import Dict, List, Optional, Any
 from fastapi import WebSocket
 import logging
@@ -18,6 +19,8 @@ class WebSocketManager:
         if not WebSocketManager._initialized:
             self.active_connections: Dict[str, List[WebSocket]] = {}
             WebSocketManager._initialized = True
+            self.message_queues: Dict[str, deque] = {}
+
             logger.info("WebSocket Manager initialized")
 
 
@@ -33,6 +36,14 @@ class WebSocketManager:
         except Exception as e:
             logger.error(f"Error accepting WebSocket connection: {e}")
             raise
+    
+
+    async def connect(self, workflow_id: str, websocket: WebSocket):
+        await websocket.accept()
+        if workflow_id not in self.active_connections:
+            self.active_connections[workflow_id] = []
+        self.active_connections[workflow_id].append(websocket)
+        print(f"WebSocket connected for workflow {workflow_id}. Total connections: {len(self.active_connections[workflow_id])}")
     '''
 
     async def connect(self, workflow_id: str, websocket: WebSocket):
@@ -41,7 +52,12 @@ class WebSocketManager:
             self.active_connections[workflow_id] = []
         self.active_connections[workflow_id].append(websocket)
         print(f"WebSocket connected for workflow {workflow_id}. Total connections: {len(self.active_connections[workflow_id])}")
-
+        
+        # Send any queued messages
+        if workflow_id in self.message_queues:
+            while self.message_queues[workflow_id]:
+                message = self.message_queues[workflow_id].popleft()
+                await self.broadcast(workflow_id, message)
 
     def disconnect(self, workflow_id: str, websocket: WebSocket):
         """Disconnect a WebSocket client"""

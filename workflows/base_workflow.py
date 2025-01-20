@@ -27,7 +27,6 @@ class BaseWorkflow(ABC):
     
     def __init__(self, **kwargs):
         logger.info(f"Initializing workflow {self.name}")
-        self.workflow_id = self.name
         self.params = kwargs
         self.interactive = kwargs.get('interactive', False)
         if kwargs.get("phase_iterations"):
@@ -49,6 +48,7 @@ class BaseWorkflow(ABC):
             task=self._get_task(),
             additional_metadata=self._get_metadata()
         )
+        
 
         self._setup_resource_manager()
         self._setup_agent_manager()
