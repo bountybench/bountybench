@@ -349,6 +349,23 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
             {/* Agent header */}
             <Typography variant="subtitle1" sx={{ mb: 2 }}>Agent: {message.agent_id}</Typography>
 
+            {/* Action messages nested inside */}
+            {message.action_messages && message.action_messages.length > 0 && (
+              <Box sx={{ 
+                mt: 2,
+                '& .message-container.action': {
+                  px: 0
+                }
+              }}>
+                {message.action_messages.map((actionMessage, index) => (
+                  <Box key={index}>
+                    {renderActionMessage(actionMessage)}
+                  </Box>
+                ))}
+              </Box>
+            )}
+
+            
             {/* Show Output section */}
             <Box mt={1}>
               <Box 
@@ -408,22 +425,6 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
                 </Box>
               </Collapse>
             </Box>
-
-            {/* Action messages nested inside */}
-            {message.action_messages && message.action_messages.length > 0 && (
-              <Box sx={{ 
-                mt: 2,
-                '& .message-container.action': {
-                  px: 0
-                }
-              }}>
-                {message.action_messages.map((actionMessage, index) => (
-                  <Box key={index}>
-                    {renderActionMessage(actionMessage)}
-                  </Box>
-                ))}
-              </Box>
-            )}
           </CardContent>
         </Card>
       </Box>

@@ -155,7 +155,7 @@ class BasePhase(ABC):
         logger.debug(f"Running phase {self.name}")
         if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
             self._last_agent_message = prev_phase_message.agent_messages[-1]
-        curr_phase_message = PhaseMessage(prev=prev_phase_message)
+        curr_phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
         workflow_message.add_phase_message(curr_phase_message)
 
         for iteration_num in range(1, self.phase_config.max_iterations + 1):

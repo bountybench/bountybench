@@ -1,9 +1,6 @@
 from abc import ABC
 import time
 
-
-
-
 class Message(ABC): 
 
     def __init__(self, prev: 'Message' = None) -> None:

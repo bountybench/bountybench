@@ -71,7 +71,7 @@ class PatchPhase(BasePhase):
         resource_configs = {
             "model": (
                 ModelResource,
-                ModelResourceConfig.create(model=self.model)
+                ModelResourceConfig.create(model=self.model, initial_prompt=self.initial_message)
             ),
             "init_files": (
                 InitFilesResource,

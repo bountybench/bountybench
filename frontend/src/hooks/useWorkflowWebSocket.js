@@ -81,6 +81,25 @@ export const useWorkflowWebSocket = (workflowId) => {
       setError('Failed to connect to workflow');
     };
 
+    const handleUpdatedAgentMessage = (updatedAgentMessage) => {
+      setMessages(prevMessages => {
+        const index = prevMessages.findIndex(msg => msg.current_id === updatedAgentMessage.current_id);
+        console.log('Updated message:', updatedAgentMessage);
+        
+        if (index !== -1) {
+          console.log("Replacing existing message and clearing subsequent messages");
+          // Replace the existing message and clear all messages after it
+          const newMessages = prevMessages.slice(0, index);
+          newMessages.push(updatedAgentMessage);
+          return newMessages;
+        } else {
+          console.log("Adding as new message");
+          // Add as a new message
+          return [...prevMessages, updatedAgentMessage];
+        }
+      });
+    };
+
     // ----------------------------------
     // 2) onmessage: handle real-time updates
     // ----------------------------------
@@ -99,17 +118,16 @@ export const useWorkflowWebSocket = (workflowId) => {
             break;
           case 'WorkflowMessage':
             setWorkflowStatus(data.workflow_metadata?.workflow_summary || 'Unknown');
-            setMessages((prev) => [...prev, data]);
+            // setMessages((prev) => [...prev, data]);
             break;
           case 'PhaseMessage':
-            setCurrentPhase(data.phase_summary || 'No summary');
-            setMessages((prev) => [...prev, data]);
+            setCurrentPhase(data);
             break;
           case 'AgentMessage':
-            setMessages((prev) => [...prev, data]);
+            handleUpdatedAgentMessage(data);
             break;
           case 'ActionMessage':
-            setMessages((prev) => [...prev, data]);
+            // setMessages((prev) => [...prev, data]);
             break;
           case 'last_message':
           case 'first_message':

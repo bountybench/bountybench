@@ -12,9 +12,6 @@ class AgentMessage(Message):
         self._action_messages = []
         super().__init__(prev)
 
-        #from messages.message_utils import log_message
-        #log_message(self)
-
 
     @property
     def message(self) -> str:
@@ -39,6 +36,8 @@ class AgentMessage(Message):
    
     def add_action_message(self, action_message: ActionMessage):
         self._action_messages.append(action_message)
+        from messages.message_utils import broadcast_update
+        broadcast_update(self.to_dict())
 
     def agent_dict(self) -> dict:
         return {

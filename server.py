@@ -119,14 +119,14 @@ async def start_workflow(workflow_data: dict):
         # Store workflow instance
         active_workflows[workflow_id] = {
             "instance": workflow,
-            "status": "initialized"
+            "status": "initializing"
         }
 
         
         # Return workflow ID immediately
         return {
             "workflow_id": workflow_id,
-            "status": "initialized"
+            "status": "initializing"
         }
         
     except Exception as e:

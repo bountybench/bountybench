@@ -50,10 +50,6 @@ class ExecutorAgent(BaseAgent):
         executor_message = self.execute(agent_message, prev_agent_message)
         self.model.update_memory(executor_message)
 
-        from messages.message_utils import update_message
-        update_message(agent_message)
-
-
         return agent_message
 
     def execute(self, agent_message: ExecutorAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> Message:

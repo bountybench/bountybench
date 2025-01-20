@@ -3,7 +3,8 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
 class PhaseMessage(Message):
-    def __init__(self, prev: 'PhaseMessage' = None, agent_messages: Optional[List[AgentMessage]] = []) -> None:
+    def __init__(self, phase_id: str, prev: 'PhaseMessage' = None, agent_messages: Optional[List[AgentMessage]] = []) -> None:
+        self._phase_id = phase_id
         self._success = False
         self._complete = False
         self._summary = "incomplete"
@@ -13,7 +14,9 @@ class PhaseMessage(Message):
         from messages.message_utils import update_message
         update_message(self)
 
-
+    @property
+    def phase_id(self) -> str:
+        return self._phase_id
     
     @property
     def success(self) -> bool:
@@ -49,6 +52,7 @@ class PhaseMessage(Message):
 
     def to_dict(self) -> dict:
         phase_dict = {
+            "phase_id": self.phase_id,
             "phase_summary": self.summary,
             "agent_messages": [agent_message.to_dict() for agent_message in self.agent_messages if agent_message is not None] if self.agent_messages else None,
             "phase_summary": self.phase_summary

@@ -15,8 +15,12 @@ set_logging_level(MessageType.AGENT)
 
 message_dict: Dict[str, Message] = {}
 
-def broadcast_update(workflow_id: str, data: dict):
+def broadcast_update(data: dict):
     """Send an update over WebSocket. This can be disabled or customized as desired."""
+    from messages.workflow_message import WorkflowMessage
+    instance = WorkflowMessage.get_instance()
+    workflow_id = instance.workflow_id
+
     print(f"[DEBUG] Entering broadcast_update for workflow_id: {workflow_id}")
     print(f"[DEBUG] Data to broadcast: {data}")
     
@@ -66,13 +70,11 @@ def _handle_broadcast_error(task):
 def log_message(message: Message):
     message_dict[message.id] = message
 
+    broadcast_update(message.to_dict())
 
-    from messages.workflow_message import WorkflowMessage
-    instance = WorkflowMessage.get_instance()
-
-    #broadcast_update(instance.workflow_id, message.to_dict())
-
-    if should_log(message):
+    if should_log(message):  
+        from messages.workflow_message import WorkflowMessage
+        instance = WorkflowMessage.get_instance()
         instance.save()
 
 async def edit_message(old_message: Message, edit: str) -> Message:
@@ -100,6 +102,5 @@ async def edit_message(old_message: Message, edit: str) -> Message:
     return new_message
 
 def update_message(message: Message):
-    instance = WorkflowMessage.get_instance()
-    broadcast_update(instance.workflow_id, message.to_dict())
+    broadcast_update(message.to_dict())
     log_message(message)

@@ -112,7 +112,8 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
         </Typography>
         {currentPhase && (
           <Typography variant="h6">
-            Current Phase: {currentPhase.phase_name} (Phase {currentPhase.phase_idx + 1})
+            Current Phase: {currentPhase.phase_id} 
+            {/* (Phase {currentPhase.phase_idx + 1}) */}
           </Typography>
         )}
         {interactiveMode && (
