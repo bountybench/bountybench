@@ -102,7 +102,7 @@ async def list_workflows():
 async def start_workflow(workflow_data: dict):
     """Start a new workflow instance"""
     try:
-        workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        #workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         # Initialize workflow instance
         workflow = id_to_workflow[workflow_data['workflow_name']](
@@ -112,16 +112,21 @@ async def start_workflow(workflow_data: dict):
             phase_iterations=int(workflow_data['iterations'])
         )
         
+        workflow_id = workflow.workflow_message.workflow_id
+        print("***************")
+        print(workflow_id)
+        print("***************")
         # Store workflow instance
         active_workflows[workflow_id] = {
             "instance": workflow,
-            "status": "initialized"
+            "status": "initializing"
         }
+
         
         # Return workflow ID immediately
         return {
             "workflow_id": workflow_id,
-            "status": "initialized"
+            "status": "initializing"
         }
         
     except Exception as e:
@@ -142,11 +147,14 @@ async def execute_workflow(workflow_id: str):
     except Exception as e:
         return {"error": str(e)}
 
+
+
 async def run_workflow(workflow_id: str):
-    """Run workflow in background and broadcast updates"""
+    print(f"Entering run_workflow for {workflow_id}")
     global should_exit
     
     if workflow_id not in active_workflows or should_exit:
+        print(f"Workflow {workflow_id} not found or should exit")
         return
     
     workflow_data = active_workflows[workflow_id]
@@ -155,35 +163,40 @@ async def run_workflow(workflow_id: str):
     try:
         workflow_data["status"] = "running"
         await websocket_manager.broadcast(workflow_id, {
-            "type": "status_update",
+            "message_type": "status_update",
             "status": "running"
         })
+        print(f"Broadcasted running status for {workflow_id}")
         
         # Run the workflow
         print(f"Starting workflow.run() for {workflow_id}...")
         await workflow.run()
-        print(f"Workflow.run() completed for {workflow_id}...")
+        print(f"Workflow.run() completed for {workflow_id}")
 
         if not should_exit:
             workflow_data["status"] = "completed"
             await websocket_manager.broadcast(workflow_id, {
-                "type": "status_update",
+                "message_type": "status_update",
                 "status": "completed"
             })
+            print(f"Broadcasted completed status for {workflow_id}")
         
     except Exception as e:
+        print(f"Error in run_workflow: {e}")
         if not should_exit:
             print(f"Workflow error: {e}")
             workflow_data["status"] = "error"
             await websocket_manager.broadcast(workflow_id, {
-                "type": "status_update",
+                "message_type": "status_update",
                 "status": "error",
                 "error": str(e)
             })
-
+            print(f"Broadcasted error status for {workflow_id}")
+            
 @app.websocket("/ws/{workflow_id}")
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     """WebSocket endpoint for real-time workflow updates"""
+    print(f"Entering websocket_endpoint for {workflow_id}")
     global should_exit
     
     try:
@@ -194,7 +207,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
         if workflow_id in active_workflows:
             workflow_data = active_workflows[workflow_id]
             await websocket.send_json({
-                "type": "initial_state",
+                "message_type": "initial_state",
                 "status": workflow_data["status"]
             })
             print(f"Sent initial state for workflow {workflow_id}: {workflow_data['status']}")
@@ -206,17 +219,22 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 if should_exit:
                     break
                     
+                print("********************************************")
                 print(f"Received message from workflow {workflow_id}: {data}")
+                print("********************************************")
+
                 
-                if data.get("type") == "user_message" and workflow_id in active_workflows:
+                if data.get("message_type") == "user_message" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
                         result = await workflow.set_message_input(data["content"])
                         await websocket_manager.broadcast(workflow_id, {
-                            "type": "user_message_response",
+                            "message_type": "user_message_response",
                             "content": result
                         })
-                elif data.get("type") == "start_execution":
+                        print(f"Broadcasted user_message_response for {workflow_id}")
+
+                elif data.get("message_type") == "start_execution":
                     print(f"Starting execution for workflow {workflow_id}")
                     asyncio.create_task(run_workflow(workflow_id))
             except WebSocketDisconnect:
@@ -255,21 +273,24 @@ async def next_iteration(workflow_id: str):
         return {"error": "Workflow is not in interactive mode"}
 
 @app.post("/workflow/next-message/{workflow_id}")
-async def next_message(workflow_id: str, data: MessageData):
-    print(f"Request data: {data}")
+async def next_message(workflow_id: str):
 
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
     workflow = active_workflows[workflow_id]["instance"]
-
     try:
-        result = await workflow.run_edited_message(data.message_id)
-        print(f"Received result : {result}")
+        result = await workflow.run_next_message()
+        if not result:
+            result = await next_iteration(workflow_id)
+        print(f"Received result : {result.id}")
         
-        return {"status": "updated", "result": result}
+        return {"status": "updated", "result": result.id}
     except Exception as e:
-        return {"error": str(e)}
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error in next_message: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
 
 @app.post("/workflow/rerun-message/{workflow_id}")
 async def next_message(workflow_id: str, data: MessageData):
@@ -282,12 +303,15 @@ async def next_message(workflow_id: str, data: MessageData):
 
     try:
         result = await workflow.rerun_message(data.message_id)
-        print(f"Received result : {result}")
+        print(f"Received result : {result.id}")
 
-        return {"status": "updated", "result": result}
+        return {"status": "updated", "result": result.id}
     except Exception as e:
-        return {"error": str(e)}
-    
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error in rerun_message: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
+
 @app.post("/workflow/edit-message/{workflow_id}")
 async def edit_action_input(workflow_id: str, data: MessageInputData):
     print(f"Received edit request for workflow: {workflow_id}")
@@ -300,9 +324,9 @@ async def edit_action_input(workflow_id: str, data: MessageInputData):
 
     try:
         result = await workflow.edit_one_message(data.message_id, data.new_input_data)
-        print(f"Received result : {result}")
+        print(f"Received result : {result.id}, version prev: {result.version_prev}")
         
-        return {"status": "updated", "result": result}
+        return {"status": "updated", "result": result.id}
     except Exception as e:
         return {"error": str(e)}
     
@@ -314,7 +338,7 @@ async def last_message(workflow_id: str):
     workflow = active_workflows[workflow_id]["instance"]
     last_message_str = await workflow.get_last_message()
     return {
-                "type": "last_message",
+                "message_type": "last_message",
                 "content": last_message_str
             }
 
@@ -326,7 +350,7 @@ async def first_message(workflow_id: str):
     workflow = active_workflows[workflow_id]["instance"]
     first_message_str = workflow.initial_prompt
     return {
-                "type": "first_message",
+                "message_type": "first_message",
                 "content": first_message_str
             }
     

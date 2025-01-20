@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, CircularProgress, Alert, Button, Grid, IconButton } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { AgentInteractions } from '../AgentInteractions/AgentInteractions';
-import { PhasePanel } from '../PhasePanel/PhasePanel';
-import { AgentPanel } from '../AgentPanel/AgentPanel';
-import { ResourcePanel } from '../ResourcePanel/ResourcePanel';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
@@ -14,7 +9,6 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
   console.log('WorkflowDashboard props:', { selectedWorkflow, interactiveMode }); // Debug log
   
   const [isNextDisabled, setIsNextDisabled] = useState(false);
-  const [isPanelExpanded, setIsPanelExpanded] = useState(true);
 
   const {
     isConnected,
@@ -23,7 +17,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     currentIteration,
     messages,
     error,
-    sendMessage
+    sendMessage,
   } = useWorkflowWebSocket(selectedWorkflow?.id);
 
   console.log('WebSocket state:', { 
@@ -59,9 +53,35 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
   };
 
   
-  const handleUpdateActionInput = async (actionId, newInputData) => {
-    const url = `http://localhost:8000/workflow/edit_action_input/${selectedWorkflow.id}`;
-    const requestBody = { action_id: actionId, new_input_data: newInputData };
+  const triggerNextAction = async () => {
+    if (selectedWorkflow?.id) {
+      setIsNextDisabled(true);
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/next-message/${selectedWorkflow.id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await response.json();
+        if (data.error) {
+          console.error('Error triggering next message:', data.error);
+        } else {
+          console.log('Next message triggered successfully');
+        }
+      } catch (error) {
+        console.error('Error triggering next message:', error);
+      } finally {
+        setIsNextDisabled(false);
+      }
+    } else {
+      console.error('Workflow ID is not available or no last message');
+    }
+  };
+  
+  const handleUpdateActionInput = async (messageId, newInputData) => {
+    const url = `http://localhost:8000/workflow/edit-message/${selectedWorkflow.id}`;
+    const requestBody = { message_id: messageId, new_input_data: newInputData };
     
     console.log('Sending request to:', url);
     console.log('Request body:', JSON.stringify(requestBody));
@@ -90,11 +110,32 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
       console.error('Error updating action:', error);
     }
   };
-  
-  const togglePanel = () => {
-    setIsPanelExpanded(!isPanelExpanded);
+
+  const handleRerunAction = async (messageId) => {
+    if (selectedWorkflow?.id) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/rerun-message/${selectedWorkflow.id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message_id: messageId }),
+        });
+        const data = await response.json();
+        if (data.error) {
+          console.error('Error rerunning action:', data.error);
+        } else {
+          console.log('Action rerun successfully', data);
+          // You might want to update the UI or refetch messages here
+        }
+      } catch (error) {
+        console.error('Error rerunning action:', error);
+      }
+    } else {
+      console.error('Workflow ID is not available');
+    }
   };
-  
+
   if (!isConnected) {
     return (
       <Box className="dashboard-container" display="flex" justifyContent="center" alignItems="center">
@@ -122,7 +163,8 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
         </Typography>
         {currentPhase && (
           <Typography variant="h6">
-            Current Phase: {currentPhase.phase_name} (Phase {currentPhase.phase_idx + 1})
+            Current Phase: {currentPhase.phase_id} 
+            {/* (Phase {currentPhase.phase_idx + 1}) */}
           </Typography>
         )}
         {interactiveMode && (
@@ -132,14 +174,27 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
             onClick={triggerNextIteration}
             startIcon={<ArrowForwardIcon />}
             disabled={isNextDisabled}
+            sx={{ margin: 1 }}
           >
             Next Iteration
+          </Button>
+        )}
+        {interactiveMode && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={triggerNextAction}
+            startIcon={<ArrowForwardIcon />}
+            disabled={isNextDisabled}
+            sx={{ margin: 1 }}
+          >
+            Next Action
           </Button>
         )}
       </Box>
         
       <Grid container spacing={2} className="dashboard-content">
-        <Grid item xs={12} md={isPanelExpanded ? 8 : 11} className="main-content">
+        <Grid item xs={12} md={12} className="main-content">
           <AgentInteractions
             workflow={selectedWorkflow}
             interactiveMode={interactiveMode}
@@ -148,8 +203,11 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
             messages={messages}
             onSendMessage={sendMessage}
             onUpdateActionInput={handleUpdateActionInput}
+            onRerunAction={handleRerunAction}
           />
         </Grid>
+
+        {/* 
         <Grid item xs={12} md={isPanelExpanded ? 4 : 1} className="side-panel-container">
           <Box className="side-panel-wrapper">
             <IconButton
@@ -169,6 +227,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
             )}
           </Box>
         </Grid>
+        */}
       </Grid>
     </Box>
   );

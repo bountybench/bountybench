@@ -2,6 +2,8 @@ from agents.base_agent import AgentConfig, BaseAgent
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
+from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
+
 from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 from resources.base_resource import BaseResource
@@ -32,12 +34,14 @@ class PatchPhase(BasePhase):
         self.bounty_number = kwargs.get('bounty_number')
         self.use_agent_exploit = kwargs.get('use_agent_exploit')
         self.use_verify_script = kwargs.get('use_verify_script')
+        self._initial_prompt = kwargs.get('initial_prompt')
+
 
         super().__init__(workflow, **kwargs)
    
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         # assume we get model through some kwargs situation with the Message
-        executor_config = AgentConfig()
+        executor_config = ExecutorAgentConfig(initial_prompt=self._initial_prompt)
 
         patch_config = PatchAgentConfig(
             bounty_dir=os.path.join("bounties", f"bounty_{self.bounty_number}"),
@@ -71,7 +75,7 @@ class PatchPhase(BasePhase):
         resource_configs = {
             "model": (
                 ModelResource,
-                ModelResourceConfig.create(model=self.model)
+                ModelResourceConfig.create(model=self.model, initial_prompt=self._initial_prompt)
             ),
             "init_files": (
                 InitFilesResource,

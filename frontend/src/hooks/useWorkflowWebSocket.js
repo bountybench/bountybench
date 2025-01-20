@@ -2,27 +2,19 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 export const useWorkflowWebSocket = (workflowId) => {
   const [isConnected, setIsConnected] = useState(false);
-  const [workflowStatus, setWorkflowStatus] = useState(null);
-  const [currentPhase, setCurrentPhase] = useState(null);
-  const [currentIteration, setCurrentIteration] = useState(null);
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState(null);
-  
+
+  // Optionally keep some states if you want them (like workflowStatus, currentPhase, etc.)
+  // For now, let's remove them or rename them, since the new message format might not match
+  // the old 'status_update' or 'phase_update'. You can re-introduce them if needed.
+  const [workflowStatus, setWorkflowStatus] = useState(null);
+  const [currentPhase, setCurrentPhase] = useState(null);
+
   const ws = useRef(null);
-  const messageIdCounter = useRef(0);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
-  const currentIterationRef = useRef(null);
-
-  console.log('useWorkflowWebSocket state:', { 
-    workflowId, 
-    isConnected, 
-    workflowStatus,
-    currentPhase,
-    currentIteration,
-    messageCount: messages.length,
-    reconnectAttempts: reconnectAttempts.current
-  });
+  const messageIdCounter = useRef(0);
 
   // ----------------------------------
   // 1) Connect / Reconnect logic
@@ -41,23 +33,22 @@ export const useWorkflowWebSocket = (workflowId) => {
 
     const wsUrl = `ws://localhost:8000/ws/${workflowId}`;
     console.log('Connecting to WebSocket:', wsUrl);
-    console.log('Current workflow ID:', workflowId);
-    
+
     if (ws.current?.readyState === WebSocket.OPEN) {
       console.log('WebSocket already connected');
       return;
     }
-    
+
     ws.current = new WebSocket(wsUrl);
 
+    // WebSocket open handler
     ws.current.onopen = async () => {
       console.log('WebSocket connected for workflow:', workflowId);
       setIsConnected(true);
       setError(null);
       reconnectAttempts.current = 0;
-      
+
       try {
-        console.log('Starting workflow execution for:', workflowId);
         const response = await fetch(`http://localhost:8000/workflow/execute/${workflowId}`, {
           method: 'POST'
         });
@@ -72,10 +63,11 @@ export const useWorkflowWebSocket = (workflowId) => {
       }
     };
 
+    // WebSocket close handler
     ws.current.onclose = (event) => {
       console.log('WebSocket disconnected for workflow:', workflowId, 'Event:', event);
       setIsConnected(false);
-      
+
       if (!event.wasClean) {
         reconnectAttempts.current++;
         console.log(`Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
@@ -83,9 +75,29 @@ export const useWorkflowWebSocket = (workflowId) => {
       }
     };
 
+    // WebSocket error handler
     ws.current.onerror = (event) => {
       console.error('WebSocket error for workflow:', workflowId, 'Event:', event);
       setError('Failed to connect to workflow');
+    };
+
+    const handleUpdatedAgentMessage = (updatedAgentMessage) => {
+      setMessages(prevMessages => {
+        const index = prevMessages.findIndex(msg => msg.current_id === updatedAgentMessage.current_id);
+        console.log('Updated message:', updatedAgentMessage);
+        
+        if (index !== -1) {
+          console.log("Replacing existing message and clearing subsequent messages");
+          // Replace the existing message and clear all messages after it
+          const newMessages = prevMessages.slice(0, index);
+          newMessages.push(updatedAgentMessage);
+          return newMessages;
+        } else {
+          console.log("Adding as new message");
+          // Add as a new message
+          return [...prevMessages, updatedAgentMessage];
+        }
+      });
     };
 
     // ----------------------------------
@@ -95,167 +107,36 @@ export const useWorkflowWebSocket = (workflowId) => {
       try {
         const data = JSON.parse(event.data);
         console.log('Raw WebSocket message:', event.data);
-        console.log('Parsed WebSocket message type:', data.type);
+        console.log('Parsed WebSocket "message_type":', data.message_type);
         console.log('Full message data:', data);
 
-        switch (data.type) {
+        switch (data.message_type) {
           case 'status_update':
           case 'initial_state':
             console.log('Handling status update:', data.status);
             setWorkflowStatus(data.status);
             break;
-
-          case 'phase_update':
-            console.log('Handling phase update:', data.phase);
-            setCurrentPhase(data.phase);
-            // Create a system message for phase updates
-            if (data.phase.status) {
-              const phaseMessage = {
-                id: `msg_${messageIdCounter.current++}`,
-                agent_name: 'System',
-                timestamp: new Date().toISOString(),
-                input: {
-                  content: `Phase ${data.phase.phase_name} ${data.phase.status}`
-                },
-                isSystem: true
-              };
-              setMessages(prev => [...prev, phaseMessage]);
-            }
+          case 'WorkflowMessage':
+            setWorkflowStatus(data.workflow_metadata?.workflow_summary || 'Unknown');
+            // setMessages((prev) => [...prev, data]);
             break;
-
-            case 'iteration_update': {
-              console.log('Handling iteration update:', data.iteration);
-              setCurrentIteration(data.iteration);
-              currentIterationRef.current = data.iteration;
-            
-              setMessages(prev => {
-                const updatedMessages = [...prev];
-                const existingMessageIndex = updatedMessages.findIndex(
-                  msg => msg.iteration_number === data.iteration.iteration_number
-                );
-            
-                const updatedMessage = {
-                  id: existingMessageIndex !== -1 ? updatedMessages[existingMessageIndex].id : `msg_${messageIdCounter.current++}`,
-                  iteration_number: data.iteration.iteration_number,
-                  agent_name: data.iteration.agent_name,
-                  timestamp: new Date().toISOString(),
-                  input: data.iteration.input || updatedMessages[existingMessageIndex]?.input,
-                  output: data.iteration.output,
-                  actions: updatedMessages[existingMessageIndex]?.actions || [],
-                  status: data.iteration.status
-                };
-            
-                if (existingMessageIndex !== -1) {
-                  updatedMessages[existingMessageIndex] = updatedMessage;
-                } else {
-                  updatedMessages.push(updatedMessage);
-                }
-            
-                return updatedMessages;
-              });
-              break;
-            }
-          case 'action_update': {
-            console.log('Handling action update:', data.action);
-            setMessages(prev => {
-              const updated = [...prev];
-              const iterationNumber = currentIterationRef.current?.iteration_number;
-              console.log('Current iteration number:', iterationNumber);
-          
-              const index = updated.findIndex(
-                msg => msg.iteration_number === iterationNumber
-              );
-          
-              if (index === -1) {
-                console.warn('No matching iteration found for action:', data.action);
-                return prev;
-              }
-          
-              const target = { ...updated[index] };
-              
-              // Check if this action already exists
-              const actionExists = target.actions.some(action => 
-                action.timestamp === data.action.timestamp && 
-                action.action_type === data.action.action_type
-              );
-          
-              if (actionExists) {
-                console.log('Duplicate action, not adding');
-                return prev;
-              }
-          
-              target.actions = [...(target.actions || []), data.action];
-          
-              if (data.action.action_type === 'llm' && data.action.output_data) {
-                target.output = {
-                  content: data.action.output_data
-                };
-              }
-          
-              updated[index] = target;
-              return updated;
-            });
+          case 'PhaseMessage':
+            setCurrentPhase(data);
             break;
-          }
-
-          case 'input_edit_update': {
-            console.log('Handling input edit update:', data);
-            setMessages(prev => {
-              const updated = [...prev];
-              const iterationNumber = currentIterationRef.current?.iteration_number;
-              console.log('Current iteration number:', iterationNumber);
-          
-              const messageIndex = updated.findIndex(
-                msg => msg.iteration_number === iterationNumber
-              );
-          
-              if (messageIndex === -1) {
-                console.warn('No matching iteration found for input edit update');
-                return prev;
-              }
-          
-              const target = { ...updated[messageIndex] };
-              target.actions = target.actions || [];
-          
-              // Find the existing action
-              const actionIndex = target.actions.findIndex(action => action.timestamp === data.action_id);
-              
-              if (actionIndex !== -1) {
-                // Update existing action
-                const existingAction = target.actions[actionIndex];
-                if (existingAction.input_data === data.new_input && existingAction.output_data === data.new_output) {
-                  console.log('No changes in input or output, not updating');
-                  return prev;
-                }
-                target.actions[actionIndex] = {
-                  ...existingAction,
-                  input_data: data.new_input,
-                  output_data: data.new_output
-                };
-              } else {
-                // Add new action
-                target.actions.push({
-                  id: data.action_id || `action_${target.actions.length}`,
-                  input_data: data.new_input,
-                  output_data: data.new_output
-                });
-              }
-          
-              // Update the output of the message if it's an LLM action
-              if (data.new_output) {
-                target.output = {
-                  content: data.new_output
-                };
-              }
-          
-              updated[messageIndex] = target;
-              return updated;
-            });
+          case 'AgentMessage':
+            handleUpdatedAgentMessage(data);
             break;
-          }
-
+          case 'ActionMessage':
+            // setMessages((prev) => [...prev, data]);
+            break;
+          case 'last_message':
+          case 'first_message':
+            // Handle these messages if needed
+            console.log(`Received ${data.message_type}:`, data.content);
+            break;
           default:
-            console.warn('Unknown message type:', data.type);
+            console.warn('Unknown message_type:', data.message_type);
+            setMessages((prev) => [...prev, data]);
         }
       } catch (err) {
         console.error('Error processing WebSocket message:', err);
@@ -265,7 +146,7 @@ export const useWorkflowWebSocket = (workflowId) => {
   }, [workflowId]);
 
   // ----------------------------------
-  // 4) useEffect to initiate connection
+  // 3) useEffect to initiate connection
   // ----------------------------------
   useEffect(() => {
     if (workflowId) {
@@ -280,17 +161,19 @@ export const useWorkflowWebSocket = (workflowId) => {
   }, [connect, workflowId]);
 
   // ----------------------------------
-  // 5) sendMessage: for user message
+  // 4) sendMessage: for user messages (optional)
   // ----------------------------------
   const sendMessage = useCallback((message) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      console.log('Sending message:', message);
-      ws.current.send(JSON.stringify({
-        type: 'user_message',
-        content: message.content
-      }));
-      
-      // Add user message to the list
+      console.log('Sending user message:', message);
+      ws.current.send(
+        JSON.stringify({
+          type: 'user_message',
+          content: message.content
+        })
+      );
+
+      // Add a local "user message" to the state if you want it to appear in the UI
       const userMessage = {
         id: `msg_${messageIdCounter.current++}`,
         agent_name: 'User',
@@ -298,7 +181,7 @@ export const useWorkflowWebSocket = (workflowId) => {
         output: { content: message.content },
         isUser: true
       };
-      setMessages(prev => [...prev, userMessage]);
+      setMessages((prev) => [...prev, userMessage]);
     } else {
       console.warn('WebSocket not ready for sending');
       setError('Cannot send message: not connected to workflow');
@@ -306,15 +189,14 @@ export const useWorkflowWebSocket = (workflowId) => {
   }, []);
 
   // ----------------------------------
-  // 6) Return relevant state/hooks
+  // 5) Return relevant state/hooks
   // ----------------------------------
   return {
     isConnected,
-    workflowStatus,
-    currentPhase,
-    currentIteration,
     messages,
     error,
+    workflowStatus,
+    currentPhase,
     sendMessage
   };
 };

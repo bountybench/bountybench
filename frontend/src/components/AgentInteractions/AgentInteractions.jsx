@@ -1,21 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Card, CardContent, IconButton, TextField, Button, CircularProgress, Collapse } from '@mui/material';
+import { Box, Typography, Card, CardContent, IconButton, TextField, Button, CircularProgress, Collapse, Divider } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit'; 
 import SaveIcon from '@mui/icons-material/Save';
 import ReactMarkdown from 'react-markdown';
 import './AgentInteractions.css';
+import ReplayIcon from '@mui/icons-material/Replay';
 
-const ActionCard = ({ action, onUpdateActionInput }) => {
-  // 1) Default to expanded so partial updates are visible
+const ActionCard = ({ action, onUpdateActionInput, onRerunAction }) => {
   const [expanded, setExpanded] = useState(true);
-  console.log('Rendering action:', action);
   const [editing, setEditing] = useState(false);            
-  const [editedInput, setEditedInput] = useState(''); 
+  const [editedMessage, setEditedMessage] = useState(''); 
+  const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   if (!action) return null;
 
+  // Format the action message
   const formatData = (data) => {
     if (!data) return '';
     if (typeof data === 'string') return data;
@@ -37,131 +38,100 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
     }
   };
 
-  // We grab the original input to show if editing.
-  const originalInputContent = formatData(action.input_data);
+  const handleToggleMetadata = (event) => {
+    event.stopPropagation();
+    setMetadataExpanded(!metadataExpanded);
+  };
+
+  const handleRerunClick = async () => {
+    if (!action.current_id) {
+      console.error('Action id is undefined');
+      return;
+    }
+    try {
+      await onRerunAction(action.current_id);
+    } catch (error) {
+      console.error('Error rerunning action:', error);
+    }
+  };
+
+  // Original message content
+  const originalMessageContent = formatData(action.message);
 
   const renderContent = (content, label) => {
     if (!content) return null;
     const formattedContent = formatData(content);
     if (!formattedContent) return null;
 
-    if (action.action_type === 'llm' && label === 'Input') {
-      return (
-        <Box mt={1}>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.5 }}
-            >
-              {label}:
-            </Typography>
-          </Box>
-          {editing ? (
-            <TextField
-              multiline
-              fullWidth
-              minRows={3}
-              maxRows={10}
-              value={editedInput}
-              onChange={(e) => setEditedInput(e.target.value)}
-              sx={{
-                mt: 1,
-                '& .MuiInputBase-input': {
-                  color: 'black',
-                },
-              }}
-            />
-          ) : (
-            <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1, mt: 1 }}>
-              <Typography
-                variant="body2"
-                component="pre"
-                sx={{
-                  whiteSpace: 'pre-wrap',
-                  overflowX: 'auto',
-                  m: 0,
-                  fontFamily: 'monospace',
-                  fontSize: '0.85rem',
-                }}
-              >
-                {formattedContent}
-              </Typography>
-            </Card>
-          )}
-          {editing && (
-            <Box display="flex" justifyContent="flex-end" mt={1}>
-              <Button
-                size="small"
-                variant="contained"
-                color="primary"
-                onClick={handleSaveClick}
-              >
-                Save
-              </Button>
-            </Box>
-          )}
-        </Box>
-      );
-    }
-    if (action.action_type === 'llm' && label === 'Output' && content) {
-      try {
-        const parsed = typeof content === 'string' ? JSON.parse(content) : content;
-        if (parsed.response) {
-          return (
-            <Box mt={1}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                {label}:
-              </Typography>
-              <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                <ReactMarkdown>{parsed.response}</ReactMarkdown>
-              </Card>
-            </Box>
-          );
-        }
-      } catch (e) {
-        // fall back to default rendering
-      }
-    }
-    
-    // Default rendering
     return (
       <Box mt={1}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
           {label}:
         </Typography>
-        <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-          <Typography
-            variant="body2"
-            component="pre"
+        {editing ? (
+          <TextField
+            multiline
+            fullWidth
+            minRows={3}
+            maxRows={10}
+            value={editedMessage}
+            onChange={(e) => setEditedMessage(e.target.value)}
             sx={{
-              whiteSpace: 'pre-wrap',
-              overflowX: 'auto',
-              m: 0,
-              fontFamily: 'monospace',
-              fontSize: '0.85rem'
+              mt: 1,
+              '& .MuiInputBase-input': {
+                color: 'black',
+              },
             }}
-          >
-            {formattedContent}
-          </Typography>
-        </Card>
+          />
+        ) : (
+          <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1, mt: 1 }}>
+            <Typography
+              variant="body2"
+              component="pre"
+              sx={{
+                whiteSpace: 'pre-wrap',
+                overflowX: 'auto',
+                m: 0,
+                fontFamily: 'monospace',
+                fontSize: '0.85rem',
+              }}
+            >
+              {formattedContent}
+            </Typography>
+          </Card>
+        )}
+        {editing && (
+          <Box display="flex" justifyContent="flex-end" mt={1}>
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              onClick={handleSaveClick}
+            >
+              <SaveIcon/>
+            </Button>
+          </Box>
+        )}
       </Box>
     );
   };
 
-
   const handleEditClick = () => {
     setEditing(true);
-    setEditedInput(formatData(action.input_data)); // Populate with original input
+    setEditedMessage(originalMessageContent); // Populate with original message
   };
 
-  const handleSaveClick = async () => {
-    if (!action.timestamp) {
-      console.error('Action ID is undefined');
+  const handleSaveClick = async () => {  
+    if (!action.current_id) {
+      console.error('Action id is undefined');
       return;
     }
-    await onUpdateActionInput(action.timestamp, editedInput);
-    setEditing(false);
+    try {
+      await onUpdateActionInput(action.current_id, editedMessage);
+      setEditing(false);
+    } catch (error) {
+      console.error('Error updating action message:', error);
+    }
   };
 
   const handleExpandClick = (e) => {
@@ -175,7 +145,7 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box>
             <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold' }}>
-              {action.action_type ? action.action_type.toUpperCase() : 'ACTION'}
+              {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
             </Typography>
             {action.timestamp && (
               <Typography variant="caption" color="text.secondary">
@@ -183,28 +153,30 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
               </Typography>
             )}
           </Box>
-          <IconButton
-            onClick={handleExpandClick}
-            aria-expanded={expanded}
-            aria-label="show more"
-            sx={{ color: 'black' }} 
-          >
-            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </IconButton>
+          <Box>
+            <IconButton
+              onClick={handleExpandClick}
+              aria-expanded={expanded}
+              aria-label="show more"
+              sx={{ color: 'black' }}
+            >
+              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
+          </Box>
         </Box>
 
         <Collapse in={expanded}>
           {editing ? (
             <Box mt={1}>
               <Typography variant="caption" color="text.secondary">
-                Editing Input:
+                Editing Message:
               </Typography>
               <TextField
                 multiline
                 minRows={3}
                 maxRows={10}
-                value={editedInput}
-                onChange={(e) => setEditedInput(e.target.value)}
+                value={editedMessage}
+                onChange={(e) => setEditedMessage(e.target.value)}
                 sx={{
                   '& .MuiInputBase-input': {
                     color: 'black',
@@ -225,7 +197,7 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
             </Box>
           ) : (
             <>
-              {renderContent(action.input_data, 'Input')}
+              {renderContent(action.message, 'Message')}
               <Box mt={1} display="flex" justifyContent="flex-end">
                 <Button
                   variant="outlined"
@@ -235,31 +207,72 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
                 >
                   <EditIcon />
                 </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleRerunClick}
+                  size="small"
+                >
+                  <ReplayIcon />
+                </Button>
               </Box>
             </>
           )}
 
-          {renderContent(action.output_data, 'Output')}
-          {action.metadata && Object.keys(action.metadata).length > 0 && (
-            <Box mt={1}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                Metadata:
-              </Typography>
-              <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                <Typography
-                  variant="body2"
-                  component="pre"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    overflowX: 'auto',
-                    m: 0,
-                    fontFamily: 'monospace',
-                    fontSize: '0.85rem'
+
+          {/* Metadata section */}
+          {action.additional_metadata && (
+            <Box mt={2}>
+              <Box 
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  py: 0.5,
+                  '&:hover': {
+                    bgcolor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+                onClick={handleToggleMetadata}
+              >
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary" 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    fontWeight: 'medium'
                   }}
                 >
-                  {formatData(action.metadata)}
+                    Click here to show metadata:
+                    <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
+                    {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </IconButton>
                 </Typography>
-              </Card>
+              </Box>
+              
+              <Collapse in={metadataExpanded}>
+                <Box mt={1}>
+                  <Card 
+                    variant="outlined" 
+                    sx={{ bgcolor: '#f5f5f5', p: 1 }}
+                  >
+                    <Typography
+                      variant="body2"
+                      component="pre"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        overflowX: 'auto',
+                        m: 0,
+                        fontFamily: 'monospace',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      {JSON.stringify(action.additional_metadata, null, 2)}
+                    </Typography>
+                  </Card>
+                </Box>
+              </Collapse>
             </Box>
           )}
         </Collapse>
@@ -271,84 +284,258 @@ const ActionCard = ({ action, onUpdateActionInput }) => {
 export default ActionCard;
 
 
-const MessageBubble = ({ message, onUpdateActionInput }) => {
-  const [expanded, setExpanded] = useState(true);
-  const [inputExpanded, setInputExpanded] = useState(false); 
-  const [outputExpanded, setOutputExpanded] = useState(false); 
-  
+const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
+  const [contentExpanded, setContentExpanded] = useState(true);
+  const [agentMessageExpanded, setAgentMessageExpanded] = useState(false); // New state for agent message
+
+
   if (!message) return null;
 
-  const hasContent = message.input?.content || message.output?.content || message.input?.message || message.output?.message;
-  const hasActions = message.actions && message.actions.length > 0;
-  const messageClass = message.isSystem ? 'system' : message.isUser ? 'user' : 'agent';
-  
-  const handleInputExpandClick = (e) => {
-    e.stopPropagation();
-    setInputExpanded((prev) => !prev);
+  const handleToggleContent = (event) => {
+    event.stopPropagation();
+    setContentExpanded(!contentExpanded);
   };
 
-  const handleOutputExpandClick = (e) => {
-    e.stopPropagation();
-    setOutputExpanded((prev) => !prev);
+  const handleToggleAgentMessage = (event) => {
+    event.stopPropagation();
+    setAgentMessageExpanded(!agentMessageExpanded);
   };
 
-  const renderContent = (content, label) => {
-    if (!content) return null;
+
+  const renderActionMessage = (actionMessage) => (
+    <ActionCard
+      key={actionMessage.current_id}
+      action={actionMessage}
+      onUpdateActionInput={onUpdateActionInput}
+      onRerunAction={onRerunAction}
+    />
+  );
+
+  switch (message.message_type) {
+    case 'AgentMessage':
     return (
-      <Box mt={1}>
-        <Typography variant="caption" color="text.secondary">{label}:</Typography>
-        <Box sx={{ mt: 1 }}>
-          <ReactMarkdown>{typeof content === 'string' ? content : content.content || content.message}</ReactMarkdown>
-        </Box>
-      </Box>
-    );
-  };
+      <Box className={`message-container ${message.agent_id}`}>
+        <Card 
+          className="message-bubble agent-bubble"
+          sx={{
+            backgroundColor: '#f0f4f8 !important',
+            '& .MuiCardContent-root': {
+              backgroundColor: '#f0f4f8 !important'
+            },
+            '& .action-bubble': {
+              boxShadow: 1,
+            },
+            p: 2
+          }}
+        >
+          <CardContent>
+            {/* Agent header */}
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>Agent: {message.agent_id}</Typography>
 
-  return (
-    <Box className={`message-container ${messageClass}`}>
-      <Card className={`message-bubble ${messageClass}-bubble`}>
-        <CardContent>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              {message.agent_name || 'System'}
-            </Typography>
-          </Box>
-          
-          <Collapse in={expanded || message.isSystem}>
-            {message.input && !message.isSystem && (
-              <Box mt={1} onClick={handleInputExpandClick} style={{ cursor: 'pointer' }}>
-                <Typography variant="caption" color="primary">
-                  {inputExpanded ? 'Hide Input' : 'Show Input'}
-                </Typography>
-                {inputExpanded && renderContent(message.input, 'Input')}
+             {/* Display input_str if available */}
+             {message.input && (
+              <Box mt={1} mb={2}>
+                <Typography variant="caption" color="text.secondary">Input:</Typography>
+                <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
+                  <Typography
+                    variant="body2"
+                    component="pre"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      overflowX: 'auto',
+                      m: 0,
+                      fontFamily: 'monospace',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    {message.input}
+                  </Typography>
+                </Card>
               </Box>
             )}
-            {message.output && !message.isSystem && (
-              <Box mt={1} onClick={handleOutputExpandClick} style={{ cursor: 'pointer' }}>
-                <Typography variant="caption" color="primary">
-                  {outputExpanded ? 'Hide Output' : 'Show Output'}
-                </Typography>
-                {outputExpanded && renderContent(message.output, 'Output')}
-              </Box>
-            )}
-            {hasActions && (
-              <Box mt={2}>
-                <Typography variant="subtitle2" gutterBottom>Actions:</Typography>
-                {message.actions.map((action, index) => (
-                  <Box key={`${message.id}_action_${index}`} mt={1}>
-                    <ActionCard 
-                      action={action}
-                      onUpdateActionInput={onUpdateActionInput}
-                    />
+
+            {/* Action messages nested inside */}
+            {message.current_children && message.current_children.length > 0 && (
+              <Box sx={{ 
+                mt: 2,
+                '& .message-container.action': {
+                  px: 0
+                }
+              }}>
+                {message.current_children.map((actionMessage, index) => (
+                  <Box key={index}>
+                    {renderActionMessage(actionMessage)}
                   </Box>
                 ))}
               </Box>
             )}
-          </Collapse>
-        </CardContent>
-      </Card>
-    </Box>
-  );
+
+            
+            {/* Show Output section */}
+            <Box mt={1}>
+              <Box 
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  py: 0.5,
+                  '&:hover': {
+                    bgcolor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+                onClick={handleToggleAgentMessage}
+              >
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary" 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    fontWeight: 'medium'
+                  }}
+                >
+                  Click here to show  {message.agent_id} output:
+                  <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
+                    {agentMessageExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </IconButton>
+                </Typography>
+              </Box>
+              
+              <Collapse in={agentMessageExpanded}>
+                <Box mt={1}>
+                  <Card 
+                    variant="outlined" 
+                    sx={{ 
+                      bgcolor: '#e5e9f0 !important',
+                      '& .MuiCardContent-root': {
+                        backgroundColor: '#e5e9f0 !important'
+                      },
+                      p: 1 
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      component="pre"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        overflowX: 'auto',
+                        m: 0,
+                        fontFamily: 'monospace',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      {message.message || ''}
+                    </Typography>
+                  </Card>
+                </Box>
+              </Collapse>
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+    );
+      
+    case 'ActionMessage':
+      return renderActionMessage(message);
+
+    case 'PhaseMessage':
+      return (
+        <Box className={`message-container system`}>
+          <Card className="message-bubble system-bubble">
+            <CardContent onClick={handleToggleContent} style={{ cursor: 'pointer' }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle2" color="text.secondary">
+                  Phase
+                </Typography>
+                <IconButton size="small">
+                  {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              </Box>
+              <Collapse in={contentExpanded}>
+                <Typography variant="body2" mt={1}>
+                  Summary: {message.phase_summary || '(no summary)'}
+                </Typography>
+                {message.additional_metadata && (
+                  <Box mt={1}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Click here to show metadata:
+                    </Typography>
+                    <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
+                      <Typography
+                        variant="body2"
+                        component="pre"
+                        sx={{
+                          whiteSpace: 'pre-wrap',
+                          overflowX: 'auto',
+                          m: 0,
+                          fontFamily: 'monospace',
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        {JSON.stringify(message.additional_metadata, null, 2)}
+                      </Typography>
+                    </Card>
+                  </Box>
+                )}
+              </Collapse>
+            </CardContent>
+          </Card>
+        </Box>
+      );
+
+    case 'WorkflowMessage':
+      return (
+        <Box className={`message-container system`}>
+          <Card className="message-bubble system-bubble">
+            <CardContent onClick={handleToggleContent} style={{ cursor: 'pointer' }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle2" color="text.secondary">
+                  Workflow
+                </Typography>
+                <IconButton size="small">
+                  {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              </Box>
+              <Collapse in={contentExpanded}>
+                <Typography variant="body2" mt={1}>
+                  Name: {message.workflow_metadata?.workflow_name || '(unknown)'}
+                </Typography>
+                <Typography variant="body2">
+                  Summary: {message.workflow_metadata?.workflow_summary || '(none)'}
+                </Typography>
+                {message.workflow_metadata?.phase_messages && message.workflow_metadata.phase_messages.length > 0 && (
+                  <Box mt={1}>
+                    <Typography variant="subtitle2">Phases:</Typography>
+                    {message.workflow_metadata.phase_messages.map((phase, index) => (
+                      <Box key={`phase_${index}`} mt={1}>
+                        <Typography variant="body2">
+                          {phase.phase_summary || 'No summary'}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Collapse>
+            </CardContent>
+          </Card>
+        </Box>
+      );
+
+    default:
+      return (
+        <Box className="message-container system">
+          <Card className="message-bubble system-bubble">
+            <CardContent>
+              <Typography variant="subtitle2" color="error">
+                Unknown message_type: {message.message_type}
+              </Typography>
+              <pre>{JSON.stringify(message, null, 2)}</pre>
+            </CardContent>
+          </Card>
+        </Box>
+      );
+  }
+
 };
 
 export const AgentInteractions = ({ 
@@ -357,23 +544,12 @@ export const AgentInteractions = ({
   currentPhase,
   currentIteration,
   messages = [],
-  onSendMessage,
   onUpdateActionInput,
+  onRerunAction,
 }) => {
-  console.log('AgentInteractions props:', { 
-    workflow, 
-    interactiveMode, 
-    currentPhase, 
-    currentIteration, 
-    messageCount: messages?.length,
-    messages: messages
-  });
-  
-  const [userMessage, setUserMessage] = useState('');
+  console.log('AgentInteractions render, messages:', messages);
+  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(messages.length - 1);
   const messagesEndRef = useRef(null);
-  const [textAreaHeight, setTextAreaHeight] = useState('auto');
-  const textAreaRef = useRef(null);
-
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -381,76 +557,12 @@ export const AgentInteractions = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
-
-  const fetchLastMessage = async () => {
-    try {
-      const response = await fetch(`http://localhost:8000/workflow/last-message/${workflow.id}`); 
-      if (response.ok) {
-        const lastMessage = await response.json();
-        setUserMessage(lastMessage.content);
-        adjustTextAreaHeight();
-      }
-    } catch (error) {
-      console.error('Failed to fetch last message:', error);
-    }
-  };
-
-  const fetchFirstMessage = async () => {
-    try {
-      const response = await fetch(`http://localhost:8000/workflow/first-message/${workflow.id}`); 
-      if (response.ok) {
-        const firstMessage = await response.json();
-        setUserMessage(firstMessage.content);
-        adjustTextAreaHeight();
-      }
-    } catch (error) {
-      console.error('Failed to fetch last message:', error);
-    }
-  };
+  }, [displayedMessageIndex]);
 
   useEffect(() => {
-    if (messages.length > 0) {
-      fetchLastMessage();
-    } else {
-      fetchFirstMessage();
-    }
+    // When a new message is received, update the displayed message index
+    setDisplayedMessageIndex(messages.length - 1);
   }, [messages]);
-
-  const handleSendMessage = () => {
-    if (userMessage.trim()) {
-      onSendMessage({
-        type: 'user_message',
-        content: userMessage
-      });
-      setUserMessage('');
-    }
-  };
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.output?.content) {
-        setUserMessage(lastMessage.output.content);
-        adjustTextAreaHeight();
-      }
-    }
-  }, [messages]);
-
-  const adjustTextAreaHeight = () => {
-    if (textAreaRef.current) {
-      console.log("Trying to adjust height")
-      textAreaRef.current.style.height = 'auto';
-      const newHeight = Math.min(textAreaRef.current.scrollHeight, window.innerHeight * 0.4);
-      textAreaRef.current.style.height = `${newHeight}px`;
-      setTextAreaHeight(`${newHeight}px`);
-    }
-  };
-
-  const handleMessageChange = (e) => {
-    setUserMessage(e.target.value);
-    adjustTextAreaHeight();
-  };
 
   if (!messages) {
     return (
@@ -477,56 +589,17 @@ export const AgentInteractions = ({
             No messages yet
           </Typography>
         ) : (
-          messages.map((message, index) => (
-            // 5) Unique key per message
+          messages.slice(0, displayedMessageIndex + 1).map((message, index) => (
             <MessageBubble
               key={message.id || index}
               message={message}
-              onUpdateActionInput={onUpdateActionInput} 
+              onUpdateActionInput={onUpdateActionInput}
+              onRerunAction={onRerunAction}
             />
           ))
         )}
         <div ref={messagesEndRef} />
       </Box>
-
-      {interactiveMode && (
-        <Box className="input-container">
-          <TextField
-            fullWidth
-            multiline
-            inputRef={textAreaRef}
-            rows={2}
-            variant="outlined"
-            placeholder="Type your message..."
-            value={userMessage}
-            onChange={handleMessageChange}
-            sx={{ 
-              '& .MuiInputBase-input': {
-                color: 'black',
-                height: textAreaHeight,
-                minHeight: '25px',
-                overflow: 'auto',
-              },
-              border: '1px solid #ccc',
-              borderRadius: '6px',
-            }}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSendMessage}
-            disabled={!userMessage.trim()}
-          >
-            Send
-          </Button>
-        </Box>
-      )}
     </Box>
   );
 };

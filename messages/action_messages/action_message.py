@@ -6,6 +6,7 @@ class ActionMessage(Message):
         self._resource_id = resource_id
         self._message = message
         self._additional_metadata = additional_metadata
+
         super().__init__(prev)
 
     @property
@@ -15,6 +16,14 @@ class ActionMessage(Message):
     @property
     def message(self) -> str:
         return self._message
+    
+    @property
+    def message_type(self) -> str:
+        """
+        Override the message_type property to always return "ActionMessage"
+        for ActionMessage and its subclasses.
+        """
+        return "ActionMessage"
     
     @property
     def additional_metadata(self) -> str:
@@ -27,6 +36,7 @@ class ActionMessage(Message):
         }
         if self.additional_metadata:
             action_dict["additional_metadata"]=  self.additional_metadata
+
         return action_dict
 
     def to_dict(self) -> dict:

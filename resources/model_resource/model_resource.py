@@ -7,6 +7,7 @@ from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
+from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 from resources.model_resource.model_provider import ModelProvider
 from resources.base_resource import BaseResource, BaseResourceConfig
@@ -80,6 +81,7 @@ class ModelResource(BaseResource):
     def parse_response(self, response: str, metadata: Dict[str, Any], prev_message: Optional[ActionMessage] = None) -> CommandMessage:
         """
         Attempts to parse the raw model string intoCommandMessage.
+        
         """
         try:
             return CommandMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message)
@@ -120,6 +122,9 @@ class ModelResource(BaseResource):
         else:
             prompt = truncated_input
         self.prompt = prompt
+        print("*****************************")
+        print(prompt)
+        print("*****************************")
         return prompt
     
     
@@ -193,6 +198,7 @@ class ModelResource(BaseResource):
         lm_response = self.remove_hallucinations(model_response.content)
         lm_response = lm_response + f"\n{STOP_TOKEN}"
         metadata={
+            "input": model_input,
             "model": self.model,
             "temperature": self.temperature,
             "max_input_tokens": self.max_input_tokens,

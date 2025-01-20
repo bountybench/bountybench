@@ -86,11 +86,17 @@ class PatchAgent(BaseAgent):
             log_message = "Git diff detected, applying changes..."
             logger.info(log_message)
             self.log_history.append(log_message)
-            return self.execute(prev_agent_message)
+            agent_message = self.execute(prev_agent_message)
+            from messages.message_utils import update_message
+            update_message(agent_message)
+            return agent_message
         else: 
             logger_message = "No git diff detected, skipping patching."
             logger.info(logger_message)
-            return AgentMessage(agent_id=self.agent_id, message=logger_message, prev=prev_agent_message)
+            agent_message =  AgentMessage(agent_id=self.agent_id, message=logger_message, prev=prev_agent_message)
+            from messages.message_utils import update_message
+            update_message(agent_message)
+            return agent_message
 
     def execute(self, prev_agent_message: Optional[AgentMessage] = None) -> AgentMessage:
         """Execute the patching command and verify patch effectiveness."""
