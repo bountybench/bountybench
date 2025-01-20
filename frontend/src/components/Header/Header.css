@@ -4,4 +4,11 @@
 
 .header-title {
   flex-grow: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.2s;
+}
+
+.header-title:hover {
+  opacity: 0.8;
 }

@@ -17,6 +17,11 @@ function App() {
     setInteractiveMode(isInteractive);
   };
 
+  const handleBack = () => {
+    console.log("Going back to launcher");
+    setSelectedWorkflow(null);
+  };
+
   const handleInteractiveModeToggle = () => {
     setInteractiveMode(!interactiveMode);
     // If a workflow is already running, might need to send an update to the backend here
@@ -33,14 +38,15 @@ function App() {
         <Header 
           onInteractiveModeToggle={handleInteractiveModeToggle}
           interactiveMode={interactiveMode}
+          onTitleClick={handleBack}
         />
         {selectedWorkflow ? (
-          <WorkflowDashboard 
+          <WorkflowDashboard
             selectedWorkflow={selectedWorkflow}
             interactiveMode={interactiveMode}
           />
         ) : (
-          <WorkflowLauncher 
+          <WorkflowLauncher
             onWorkflowStart={handleWorkflowStart}
             interactiveMode={interactiveMode}
             setInteractiveMode={setInteractiveMode}

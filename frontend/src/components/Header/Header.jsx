@@ -2,11 +2,17 @@ import React from 'react';
 import { AppBar, Toolbar, Typography, Switch, FormControlLabel, Box } from '@mui/material';
 import './Header.css';
 
-export const Header = ({ onInteractiveModeToggle, interactiveMode }) => {
+// Add 'onTitleClick' to props
+export const Header = ({ onInteractiveModeToggle, interactiveMode, onTitleClick }) => {
   return (
     <AppBar position="static" className="header">
       <Toolbar>
-        <Typography variant="h6" component="div" className="header-title">
+        <Typography 
+          variant="h6" 
+          component="div" 
+          className="header-title"
+          onClick={onTitleClick}  // Add onClick handler
+        >
           BountyBench Workflow
         </Typography>
         <Box>
