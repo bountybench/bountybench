@@ -7,6 +7,7 @@ from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
+from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 from resources.model_resource.model_provider import ModelProvider
 from resources.base_resource import BaseResource, BaseResourceConfig
@@ -77,12 +78,13 @@ class ModelResource(BaseResource):
                 response = response[:hallucination_index]
         return response.strip()
     
-    def parse_response(self, response: str, metadata: Dict[str, Any], prev_message: Optional[ActionMessage] = None, input_str: Optional[str] = None) -> CommandMessage:
+    def parse_response(self, response: str, metadata: Dict[str, Any], prev_message: Optional[ActionMessage] = None) -> CommandMessage:
         """
         Attempts to parse the raw model string intoCommandMessage.
+        
         """
         try:
-            return CommandMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message, input_str=input_str)
+            return CommandMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message)
         except:
             logger.debug("Could not parse as CommandMessage.")
             raise Exception("Could not parse LM response as CommandMessage.")
@@ -206,7 +208,7 @@ class ModelResource(BaseResource):
         },
 
         try:
-            model_response = self.parse_response(lm_response, metadata, prev_action_message, self.prompt)
+            model_response = self.parse_response(lm_response, metadata, prev_action_message)
             return model_response
         except Exception as e:
             logger.warning(f"Unable to parse response as CommandResponse.")
