@@ -539,12 +539,8 @@ export const AgentInteractions = ({
   messages = [],
   onUpdateActionInput,
 }) => {
-
   console.log('AgentInteractions render, messages:', messages);
-  console.log('interactiveMode:', interactiveMode);
-  console.log('currentPhase:', currentPhase);
-  console.log('currentIteration:', currentIteration);
-  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(0);
+  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(messages.length - 1);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -559,26 +555,6 @@ export const AgentInteractions = ({
     // When a new message is received, update the displayed message index
     setDisplayedMessageIndex(messages.length - 1);
   }, [messages]);
-
-  const handleNextMessage = async () => {
-    if (displayedMessageIndex < messages.length - 1) {
-      setDisplayedMessageIndex(prevIndex => prevIndex + 1);
-    } else {
-      // Send the "next" signal to the backend
-      try {
-        const response = await fetch(`http://localhost:8000/workflow/next/${workflow.id}`, {
-          method: 'POST'
-        });
-        if (!response.ok) {
-          throw new Error('Failed to send next signal');
-        }
-        console.log('Next signal sent successfully');
-      } catch (error) {
-        console.error('Error sending next signal:', error);
-      }
-    }
-  };
-
 
   if (!messages) {
     return (
@@ -615,19 +591,6 @@ export const AgentInteractions = ({
         )}
         <div ref={messagesEndRef} />
       </Box>
-
-      {interactiveMode && (
-        <Box className="input-container">
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleNextMessage}
-            disabled={displayedMessageIndex >= messages.length - 1 && messages.length > 0}
-          >
-            {displayedMessageIndex < messages.length - 1 ? 'Next Message' : 'Next Iteration'}
-          </Button>
-        </Box>
-      )}
     </Box>
   );
 };
