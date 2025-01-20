@@ -50,6 +50,10 @@ class ExecutorAgent(BaseAgent):
         executor_message = self.execute(agent_message, prev_agent_message)
         self.model.update_memory(executor_message)
 
+        from messages.message_utils import update_message
+        update_message(agent_message)
+
+
         return agent_message
 
     def execute(self, agent_message: ExecutorAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> Message:
@@ -57,7 +61,11 @@ class ExecutorAgent(BaseAgent):
         if not model_action_message:
             return
         
+
         agent_message.add_action_message(model_action_message)
+
+    
+
         # If the model decides to output a command, we run it in the environment
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):

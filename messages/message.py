@@ -1,5 +1,9 @@
 from abc import ABC
 import time
+
+
+
+
 class Message(ABC): 
 
     def __init__(self, prev: 'Message' = None) -> None:
@@ -13,8 +17,8 @@ class Message(ABC):
         
         self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
         self._id = str(id(self))
-        from messages.message_utils import log_message
-        log_message(self)
+        #from messages.message_utils import log_message
+        #log_message(self)
 
     @property
     def prev(self) -> str:

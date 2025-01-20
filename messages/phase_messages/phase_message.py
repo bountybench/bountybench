@@ -10,6 +10,9 @@ class PhaseMessage(Message):
         self._agent_messages = agent_messages
         self._phase_summary = None
         super().__init__(prev)
+        from messages.message_utils import log_message
+        log_message(self)
+
 
     
     @property
