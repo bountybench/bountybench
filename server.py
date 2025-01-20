@@ -121,6 +121,7 @@ async def start_workflow(workflow_data: dict):
             "instance": workflow,
             "status": "initialized"
         }
+
         
         # Return workflow ID immediately
         return {
