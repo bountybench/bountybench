@@ -102,3 +102,4 @@ async def edit_message(old_message: Message, edit: str) -> Message:
 def update_message(message: Message):
     instance = WorkflowMessage.get_instance()
     broadcast_update(instance.workflow_id, message.to_dict())
+    log_message(message)
