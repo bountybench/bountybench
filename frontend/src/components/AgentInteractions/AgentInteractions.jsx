@@ -219,113 +219,154 @@ export default ActionCard;
 
 
 const MessageBubble = ({ message, onUpdateActionInput }) => {
-
-  console.log('MessageBubble render, message:', message);
-
-  const [expanded, setExpanded] = useState(true);
+  const [metadataExpanded, setMetadataExpanded] = useState(false);
+  const [contentExpanded, setContentExpanded] = useState(true);
 
   if (!message) return null;
 
-  const handleToggleExpanded = () => setExpanded((prev) => !prev);
+  const handleToggleMetadata = (event) => {
+    event.stopPropagation();
+    setMetadataExpanded(!metadataExpanded);
+  };
+
+  const handleToggleContent = (event) => {
+    event.stopPropagation();
+    setContentExpanded(!contentExpanded);
+  };
+
+  const renderActionMessage = (actionMessage) => (
+    <Box className={`message-container action`} sx={{ mt: 2 }}>
+      <Card className="message-bubble action-bubble">
+        <CardContent>
+          {/* Main header */}
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+              Action: {actionMessage.resource_id}
+            </Typography>
+          </Box>
+
+          {/* Message content */}
+          <Box mt={1}>
+            <ReactMarkdown>{actionMessage.message || ''}</ReactMarkdown>
+          </Box>
+
+          {/* Metadata section */}
+          {actionMessage.additional_metadata && (
+            <Box mt={2}>
+              <Box 
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  py: 0.5,
+                  '&:hover': {
+                    bgcolor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+                onClick={handleToggleMetadata}
+              >
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary" 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    fontWeight: 'medium'
+                  }}
+                >
+                  Metadata
+                  <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
+                    {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </IconButton>
+                </Typography>
+              </Box>
+              
+              <Collapse in={metadataExpanded}>
+                <Box mt={1}>
+                  <Card 
+                    variant="outlined" 
+                    sx={{ bgcolor: '#f5f5f5', p: 1 }}
+                  >
+                    <Typography
+                      variant="body2"
+                      component="pre"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        overflowX: 'auto',
+                        m: 0,
+                        fontFamily: 'monospace',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      {JSON.stringify(actionMessage.additional_metadata, null, 2)}
+                    </Typography>
+                  </Card>
+                </Box>
+              </Collapse>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+    </Box>
+  );
 
   switch (message.message_type) {
     case 'AgentMessage':
       return (
-        <Box className={`message-container agent`}>
-          <Card className="message-bubble agent-bubble">
+        <Box className={`message-container ${message.agent_id}`}>
+          <Card 
+            className="message-bubble agent-bubble"
+            sx={{
+              p: 2,
+              '& .action-bubble': {
+                boxShadow: 1,  // lighter shadow for nested cards
+              }
+            }}
+          >
             <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center" onClick={handleToggleExpanded} style={{ cursor: 'pointer' }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Agent: {message.agent_id}
-                </Typography>
-                <IconButton size="small">
-                  {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </IconButton>
+              {/* Agent message content */}
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>{message.agent_id}</Typography>
+                <ReactMarkdown>{message.message || ''}</ReactMarkdown>
               </Box>
-              <Collapse in={expanded}>
-                <Box mt={1}>
-                  <ReactMarkdown>{message.message || ''}</ReactMarkdown>
-                </Box>
 
-                {message.action_messages && message.action_messages.length > 0 && (
-                  <Box mt={2}>
-                    <Typography variant="subtitle2">Actions:</Typography>
-                    {message.action_messages.map((action, index) => (
-                      <Box key={`action_${index}`} mt={1}>
-                        <ActionCard
-                          action={action}
-                          onUpdateActionInput={onUpdateActionInput}
-                        />
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-              </Collapse>
+              {/* Action messages nested inside */}
+              {message.action_messages && message.action_messages.length > 0 && (
+                <Box sx={{ 
+                  mt: 2,
+                  '& .message-container.action': {
+                    px: 0  // Remove horizontal padding for nested actions
+                  }
+                }}>
+                  {message.action_messages.map((actionMessage, index) => (
+                    <Box key={index}>
+                      {renderActionMessage(actionMessage)}
+                    </Box>
+                  ))}
+                </Box>
+              )}
             </CardContent>
           </Card>
         </Box>
       );
-
+      
     case 'ActionMessage':
-      // If ActionMessage can appear independently
-      return (
-        <Box className={`message-container action`}>
-          <Card className="message-bubble action-bubble">
-            <CardContent onClick={handleToggleExpanded} style={{ cursor: 'pointer' }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="subtitle2" color="text.secondary">
-                  Action on Resource: {message.resource_id}
-                </Typography>
-                <IconButton size="small">
-                  {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </IconButton>
-              </Box>
-              <Collapse in={expanded}>
-                <Box mt={1}>
-                  <ReactMarkdown>{message.message || ''}</ReactMarkdown>
-                </Box>
-                {message.additional_metadata && (
-                  <Box mt={1}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Metadata:
-                    </Typography>
-                    <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                      <Typography
-                        variant="body2"
-                        component="pre"
-                        sx={{
-                          whiteSpace: 'pre-wrap',
-                          overflowX: 'auto',
-                          m: 0,
-                          fontFamily: 'monospace',
-                          fontSize: '0.85rem'
-                        }}
-                      >
-                        {JSON.stringify(message.additional_metadata, null, 2)}
-                      </Typography>
-                    </Card>
-                  </Box>
-                )}
-              </Collapse>
-            </CardContent>
-          </Card>
-        </Box>
-      );
+      return renderActionMessage(message);
 
     case 'PhaseMessage':
       return (
         <Box className={`message-container system`}>
           <Card className="message-bubble system-bubble">
-            <CardContent onClick={handleToggleExpanded} style={{ cursor: 'pointer' }}>
+            <CardContent onClick={handleToggleContent} style={{ cursor: 'pointer' }}>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Typography variant="subtitle2" color="text.secondary">
                   Phase
                 </Typography>
                 <IconButton size="small">
-                  {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                 </IconButton>
               </Box>
-              <Collapse in={expanded}>
+              <Collapse in={contentExpanded}>
                 <Typography variant="body2" mt={1}>
                   Summary: {message.phase_summary || '(no summary)'}
                 </Typography>
@@ -361,23 +402,22 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
       return (
         <Box className={`message-container system`}>
           <Card className="message-bubble system-bubble">
-            <CardContent onClick={handleToggleExpanded} style={{ cursor: 'pointer' }}>
+            <CardContent onClick={handleToggleContent} style={{ cursor: 'pointer' }}>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Typography variant="subtitle2" color="text.secondary">
                   Workflow
                 </Typography>
                 <IconButton size="small">
-                  {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                 </IconButton>
               </Box>
-              <Collapse in={expanded}>
+              <Collapse in={contentExpanded}>
                 <Typography variant="body2" mt={1}>
                   Name: {message.workflow_metadata?.workflow_name || '(unknown)'}
                 </Typography>
                 <Typography variant="body2">
                   Summary: {message.workflow_metadata?.workflow_summary || '(none)'}
                 </Typography>
-                {/* Optionally, render phase_messages or other metadata */}
                 {message.workflow_metadata?.phase_messages && message.workflow_metadata.phase_messages.length > 0 && (
                   <Box mt={1}>
                     <Typography variant="subtitle2">Phases:</Typography>
@@ -397,7 +437,6 @@ const MessageBubble = ({ message, onUpdateActionInput }) => {
       );
 
     default:
-      // Fallback for unknown message types
       return (
         <Box className="message-container system">
           <Card className="message-bubble system-bubble">
