@@ -7,10 +7,10 @@ from messages.parse_message import parse_field
 from typing import Dict, Any, Optional
     
 class CommandMessage(CommandMessageInterface, ActionMessage):
-    def __init__(self, resource_id: str, message: str, additional_metadata: Optional[Dict[str, Any]] = {}, prev: 'ActionMessage' = None) -> None:
+    def __init__(self, resource_id: str, message: str, additional_metadata: Optional[Dict[str, Any]] = {}, prev: 'ActionMessage' = None, input_str: Optional[str] = None) -> None:
         self._message = message
         self._command = self.parse_command()
-        super().__init__(resource_id, message, additional_metadata, prev)
+        super().__init__(resource_id, message, additional_metadata, prev, input_str)
         
     @property
     def command(self) -> str:

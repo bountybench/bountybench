@@ -2,10 +2,12 @@ from messages.message import Message
 from typing import Dict, Any, Optional
 
 class ActionMessage(Message):
-    def __init__(self, resource_id: str, message: str, additional_metadata: Optional[Dict[str, Any]] = {}, prev: 'ActionMessage' = None) -> None:
+    def __init__(self, resource_id: str, message: str, additional_metadata: Optional[Dict[str, Any]] = {}, prev: 'ActionMessage' = None, input_str: Optional[str] = None) -> None:
         self._resource_id = resource_id
         self._message = message
         self._additional_metadata = additional_metadata
+        self._input_str = input_str
+
         super().__init__(prev)
 
     @property
@@ -24,6 +26,11 @@ class ActionMessage(Message):
         """
         return "ActionMessage"
     
+
+    @property
+    def input_str(self) -> Optional[str]:
+        return self._input_str
+    
     
     @property
     def additional_metadata(self) -> str:
@@ -36,6 +43,9 @@ class ActionMessage(Message):
         }
         if self.additional_metadata:
             action_dict["additional_metadata"]=  self.additional_metadata
+        if self.input_str is not None:
+            action_dict["input_str"] = self.input_str
+
         return action_dict
 
     def to_dict(self) -> dict:

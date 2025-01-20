@@ -77,12 +77,12 @@ class ModelResource(BaseResource):
                 response = response[:hallucination_index]
         return response.strip()
     
-    def parse_response(self, response: str, metadata: Dict[str, Any], prev_message: Optional[ActionMessage] = None) -> CommandMessage:
+    def parse_response(self, response: str, metadata: Dict[str, Any], prev_message: Optional[ActionMessage] = None, input_str: Optional[str] = None) -> CommandMessage:
         """
         Attempts to parse the raw model string intoCommandMessage.
         """
         try:
-            return CommandMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message)
+            return CommandMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message, input_str=input_str)
         except:
             logger.debug("Could not parse as CommandMessage.")
             raise Exception("Could not parse LM response as CommandMessage.")
@@ -206,7 +206,7 @@ class ModelResource(BaseResource):
         },
 
         try:
-            model_response = self.parse_response(lm_response, metadata, prev_action_message)
+            model_response = self.parse_response(lm_response, metadata, prev_action_message, self.prompt)
             return model_response
         except Exception as e:
             logger.warning(f"Unable to parse response as CommandResponse.")
