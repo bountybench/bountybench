@@ -120,6 +120,9 @@ class ModelResource(BaseResource):
         else:
             prompt = truncated_input
         self.prompt = prompt
+        print("*****************************")
+        print(prompt)
+        print("*****************************")
         return prompt
     
     
