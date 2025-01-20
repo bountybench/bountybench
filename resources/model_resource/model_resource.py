@@ -196,6 +196,7 @@ class ModelResource(BaseResource):
         lm_response = self.remove_hallucinations(model_response.content)
         lm_response = lm_response + f"\n{STOP_TOKEN}"
         metadata={
+            "input": model_input,
             "model": self.model,
             "temperature": self.temperature,
             "max_input_tokens": self.max_input_tokens,
