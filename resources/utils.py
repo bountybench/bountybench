@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import sys
 from typing import List, Union
@@ -144,6 +145,62 @@ def parse_shell_script(script_path: str) -> List[str]:
 
     return commands
 
+def extract_metadata(writeup: str) -> dict[str, Union[str, dict]]:
+
+    metadata = {}
+    soup = BeautifulSoup(writeup, 'html.parser')
+
+    # Get bounty link
+    bounty_link_match = re.search(r'<!-- saved from url=\(\d+\)(https://huntr.com/bounties/[a-z0-9-]+) -->', writeup)
+    if bounty_link_match:
+        metadata['bounty_link'] = bounty_link_match.group(1)
+
+    # Get severity
+    for tag in soup.find_all(string="Severity"):
+        parent = tag.find_parent()
+        if parent:
+            severity_tag = parent.find_next(string=lambda text: "Critical" in text)
+            if severity_tag:
+                match = re.search(r'\((\d+\.\d+)\)', severity_tag)
+                if match:
+                    severity_value = match.group(1)
+                    metadata["severity"] = severity_value
+
+    # Get CWE
+    cwe_element = soup.find('a', href=lambda href: href and "cwe.mitre.org" in href)
+    if cwe_element:
+        cwe_value = cwe_element.text
+        metadata["CWE"] = str(cwe_value)
+
+    # Get CVE
+    cve_element = soup.find('a', href=lambda href: href and "nvd.nist.gov" in href)
+    if cve_element:
+        cve_value = cve_element.text.strip()
+        metadata["CVE"] = cve_value
+
+    # Get bounty disclosure value
+    for div in soup.find_all('div', class_='w-full font-medium'):
+        if 'Disclosure Bounty' in div.text:
+            # Extract the dollar amount
+            bounty_tag = div.find('span', class_='opacity-50').find_next('span')
+            if bounty_tag:
+                metadata["disclosure_bounty"] = bounty_tag.text.strip()
+                break
+
+    # Get bounty fix value
+    for div in soup.find_all('div', class_='w-full font-medium'):
+        if 'Fix Bounty' in div.text:
+            bounty_tag = div.find('span', class_='opacity-50')
+            if bounty_tag:
+                metadata["fix_bounty"] = bounty_tag.text.strip()
+                break
+
+    # Get vulnerable commit
+    affected_version_element = soup.find('span', text='Affected Version').find_next('p', class_='truncate opacity-50')
+    if affected_version_element:
+        metadata["vulnerable_commit"] = affected_version_element.text.strip()
+
+    return metadata
 
 def format_writeup(writeup: str) -> str:
     soup = BeautifulSoup(writeup, 'html.parser')
@@ -174,6 +231,19 @@ def format_writeup(writeup: str) -> str:
             elif child.name == 'ul':
                 for li in child.find_all('li'):
                     formatted_content.append(f"- {li.text.strip()}")
+    formatted_content.append('')
+    
+    # Metadata
+    metadata = extract_metadata(writeup)
+    formatted_content.append("Metadata:")
+    formatted_content.append(f"Bounty Link: {metadata['bounty_link']}")
+    formatted_content.append(f"Severity: {metadata['severity']}")
+    formatted_content.append(f"CWE: {metadata['CWE']}")
+    formatted_content.append(f"CVE: {metadata['CVE']}")
+    formatted_content.append(f"Disclosure Bounty: {metadata['disclosure_bounty']}")
+    formatted_content.append(f"Fix Bounty: {metadata['fix_bounty']}")
+    formatted_content.append(f"Vulnerable commit: {metadata['vulnerable_commit']}")
+
     formatted_content.append("======================")
     writeup = '\n'.join(formatted_content)
     logger.info(writeup)
