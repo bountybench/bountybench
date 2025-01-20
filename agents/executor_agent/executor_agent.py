@@ -65,12 +65,13 @@ class ExecutorAgent(BaseAgent):
             prev_agent_message = None
         else:
             prev_agent_message = messages[0]
+            self.prompt = prev_agent_message.message
+
 
         agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message, input_str=self.prompt)
         
         executor_message = self.execute(agent_message, prev_agent_message)
         self.model.update_memory(executor_message)
-        self.prompt = executor_message.message
 
         return agent_message
 
