@@ -301,10 +301,16 @@ async def next_message(workflow_id: str, data: MessageData):
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
-        result = await workflow.rerun_message(data.message_id)
-        print(f"Received result : {result.id}")
+        message = await workflow.rerun_message(data.message_id)
+        # Since we know message should be a Message object with an id attribute
+        print(f"Received result : {message.id}")
 
-        return {"status": "updated", "result": result.id}
+        return {"status": "updated", "result": message.id}
+    except AttributeError as ae:
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Message object does not have expected structure: {str(ae)}\n{error_traceback}")
+        return {"error": f"Invalid message structure: {str(ae)}", "traceback": error_traceback}
     except Exception as e:
         import traceback
         error_traceback = traceback.format_exc()
