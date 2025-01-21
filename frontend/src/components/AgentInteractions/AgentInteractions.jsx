@@ -496,58 +496,70 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
       return renderActionMessage(message);
 
       case 'PhaseMessage':
-        return (
-          <Box className="message-container system">
-            <Card className="message-bubble system-bubble">
-              <CardContent
-                onClick={handleToggleContent}
-                style={{ cursor: 'pointer' }}
-              >
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Phase
-                  </Typography>
-                  <IconButton size="small">
-                    {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
-                </Box>
-  
-                {/* Expand/collapse for the phase details */}
-                <Collapse in={contentExpanded}>
-                  <Typography variant="body2" mt={1}>
-                    Summary: {message.phase_summary || '(no summary)'}
-                  </Typography>
-  
-                  {/* 
-                    The important part: render the canonical list of AgentMessages 
-                    from "message.current_children" (which is PhaseMessage.current_agent_list).
-                  */}
-                  {message.current_children && message.current_children.length > 0 && (
-                    <Box mt={2}>
-                      <Typography variant="subtitle2">Agent Messages:</Typography>
-                      {message.current_children.map((agentMsg, index) => (
-                        <MessageBubble
-                          key={agentMsg.id || index}
-                          message={agentMsg}
-                          onUpdateActionInput={onUpdateActionInput}
-                          onRerunAction={onRerunAction}
-                        />
-                      ))}
-                    </Box>
-                  )}
-  
-                  {/* If you also have any phase-level metadata you want to show: */}
-                  {message.additional_metadata && (
-                    <Box mt={1}>
-                      {/* ... code to display metadata ... */}
-                    </Box>
-                  )}
-                </Collapse>
-              </CardContent>
-            </Card>
-          </Box>
-        );
-  
+  return (
+    <Box
+      className="message-container system"
+      sx={{
+        mb: 2,
+        width: '100%', // Ensure full width of the parent container
+        maxWidth: '95%', // Make it nearly full-screen but leave slight margins
+        margin: '0 auto', // Center the content horizontally
+      }}
+    >
+      {/* Optionally show a minimal summary */}
+      {message.phase_summary && (
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+          Phase Summary: {message.phase_summary}
+        </Typography>
+      )}
+
+      {/* Render the canonical list of AgentMessages (PhaseMessage.current_agent_list) */}
+      {message.current_children && message.current_children.length > 0 && (
+        <Box
+          sx={{
+            width: '100%', // Ensure child content matches the parent width
+          }}
+        >
+          {message.current_children.map((agentMsg, index) => (
+            <MessageBubble
+              key={agentMsg.id || index}
+              message={agentMsg}
+              onUpdateActionInput={onUpdateActionInput}
+              onRerunAction={onRerunAction}
+            />
+          ))}
+        </Box>
+      )}
+
+      {/* If you have any phase-level metadata, display it without a collapse: */}
+      {message.additional_metadata && (
+        <Box
+          mt={1}
+          sx={{
+            bgcolor: '#f5f5f5',
+            p: 2,
+            width: '100%',
+            maxWidth: '95%', // Match the wider width
+            overflowX: 'auto',
+          }}
+        >
+          <Typography
+            variant="body2"
+            component="pre"
+            sx={{
+              whiteSpace: 'pre-wrap',
+              overflowX: 'auto',
+              m: 0,
+              fontFamily: 'monospace',
+              fontSize: '0.85rem',
+            }}
+          >
+            {JSON.stringify(message.additional_metadata, null, 2)}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
 
     case 'WorkflowMessage':
       return (

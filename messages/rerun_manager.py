@@ -1,4 +1,5 @@
 import inspect
+from typing import Optional
 from agents.agent_manager import AgentManager
 from messages.message_utils import broadcast_update
 from messages.phase_messages.phase_message import PhaseMessage
@@ -109,9 +110,26 @@ class RerunManager:
         if parent_message:
             if isinstance(parent_message, AgentMessage):
                 parent_message.add_action_message(new_message)
+                # 1) find the top-level Phase
+                phase = self.find_phase_parent(parent_message)
+                # 2) broadcast from the Phase
+                if phase:
+                    phase_dict = phase.to_dict()
+                    phase_dict["current_children"] = [
+                        msg.to_dict() for msg in phase.current_agent_list
+                    ]
+                    from messages.message_utils import broadcast_update
+                    broadcast_update(phase_dict)
+
             if isinstance(parent_message, PhaseMessage):
                 parent_message.add_agent_message(new_message)
                 
-
+    def find_phase_parent(self, message: Message) -> Optional[PhaseMessage]:
+        current = message
+        while current.parent:
+            if isinstance(current.parent, PhaseMessage):
+                return current.parent
+            current = current.parent
+        return None
 
         
