@@ -136,9 +136,6 @@ class ModelResource(BaseResource):
             current_agent_message = current_agent_message.prev
 
         memory = list(reversed(memory))
-        print("**************THIS IS MY MEMORY*********************")
-        print(memory)
-        print("***********************************")
         initial_prompt = memory[0]
         memory = memory[1:]
         if len(memory) > 3:
