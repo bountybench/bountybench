@@ -5,9 +5,7 @@ export const useWorkflowWebSocket = (workflowId) => {
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState(null);
 
-  // Optionally keep some states if you want them (like workflowStatus, currentPhase, etc.)
-  // For now, let's remove them or rename them, since the new message format might not match
-  // the old 'status_update' or 'phase_update'. You can re-introduce them if needed.
+  // If you still want to track these separately:
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
 
@@ -81,20 +79,21 @@ export const useWorkflowWebSocket = (workflowId) => {
       setError('Failed to connect to workflow');
     };
 
+    // Helper: handle updated agent message
     const handleUpdatedAgentMessage = (updatedAgentMessage) => {
-      setMessages(prevMessages => {
-        const index = prevMessages.findIndex(msg => msg.current_id === updatedAgentMessage.current_id);
+      setMessages((prevMessages) => {
+        const index = prevMessages.findIndex(
+          (msg) => msg.current_id === updatedAgentMessage.current_id
+        );
         console.log('Updated message:', updatedAgentMessage);
-        
+
         if (index !== -1) {
-          console.log("Replacing existing message and clearing subsequent messages");
-          // Replace the existing message and clear all messages after it
-          const newMessages = prevMessages.slice(0, index);
-          newMessages.push(updatedAgentMessage);
+          // Replace the existing message in-place
+          const newMessages = [...prevMessages];
+          newMessages[index] = updatedAgentMessage;
           return newMessages;
         } else {
-          console.log("Adding as new message");
-          // Add as a new message
+          console.log('Adding as new message');
           return [...prevMessages, updatedAgentMessage];
         }
       });
@@ -116,26 +115,53 @@ export const useWorkflowWebSocket = (workflowId) => {
             console.log('Handling status update:', data.status);
             setWorkflowStatus(data.status);
             break;
+
           case 'WorkflowMessage':
+            // If you want to store the entire WorkflowMessage as well
+            setMessages((prev) => [...prev, data]);
+            // Or store partial info in workflowStatus
             setWorkflowStatus(data.workflow_metadata?.workflow_summary || 'Unknown');
-            // setMessages((prev) => [...prev, data]);
             break;
+
           case 'PhaseMessage':
+            // Keep the "currentPhase" if you want:
             setCurrentPhase(data);
+
+            // **Also** push it into "messages" so the UI can display it.
+            setMessages((prev) => {
+              const idx = prev.findIndex((msg) => msg.current_id === data.current_id);
+              if (idx > -1) {
+                const newArr = [...prev];
+                newArr[idx] = data;
+                return newArr;
+              } else {
+                return [...prev, data];
+              }
+            });
             break;
+
           case 'AgentMessage':
+            // Let your helper handle agent messages
             handleUpdatedAgentMessage(data);
             break;
+
           case 'ActionMessage':
-            // setMessages((prev) => [...prev, data]);
+            // Possibly store action messages directly too
+            setMessages((prev) => [...prev, data]);
             break;
+
           case 'user_message_response':
             console.log(`Received ${data.message_type}:`, data.content);
+            // If you want to store user messages:
+            setMessages((prev) => [...prev, data]);
             break;
+
           case 'first_message':
-            // Handle these messages if needed
             console.log(`Received ${data.message_type}:`, data.content);
+            // If you want, store it
+            setMessages((prev) => [...prev, data]);
             break;
+
           default:
             console.warn('Unknown message_type:', data.message_type);
             setMessages((prev) => [...prev, data]);

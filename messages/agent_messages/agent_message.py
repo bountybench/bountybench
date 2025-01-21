@@ -52,10 +52,10 @@ class AgentMessage(Message):
     def add_action_message(self, action_message: ActionMessage):
         self._action_messages.append(action_message)
         action_message.set_parent(self)
-        from messages.message_utils import broadcast_update
-        agent_dict = self.to_dict()
-        agent_dict["current_children"] = [action_message.to_dict() for action_message in self.current_actions_list]
-        broadcast_update(agent_dict)
+        #from messages.message_utils import broadcast_update
+        #agent_dict = self.to_dict()
+        #agent_dict["current_children"] = [action_message.to_dict() for action_message in self.current_actions_list]
+        #broadcast_update(agent_dict)
 
     def agent_dict(self) -> dict:
         agent_dict = {
@@ -63,6 +63,10 @@ class AgentMessage(Message):
             "action_messages": [action_message.to_dict() for action_message in self.action_messages if action_message is not None] if self.action_messages else None,
             "message": self.message
         }
+        agent_dict["current_children"] = [action_message.to_dict() for action_message in self.current_actions_list]
+
+        #from messages.message_utils import broadcast_update
+        #broadcast_update(agent_dict)
         
         return agent_dict
     

@@ -616,23 +616,17 @@ export const AgentInteractions = ({
 }) => {
   console.log('AgentInteractions render, messages:', messages);
 
-  const filteredMessages = messages.filter(msg => {
-    if (msg.message_type === 'AgentMessage' && msg.version_next) {
-      // This means msg has been superseded by a new version.
-      return false;
-    }
-    return true;
+  // ---- ONLY show PhaseMessage or WorkflowMessage at the top level ----
+  const filteredMessages = messages.filter((msg) => {
+    return msg.message_type === 'PhaseMessage' || msg.message_type === 'WorkflowMessage';
   });
 
-  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(messages.length - 1);
-  const messagesEndRef = useRef(null);  
-  
+  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(filteredMessages.length - 1);
+  const messagesEndRef = useRef(null);
+
   const [userMessage, setUserMessage] = useState('');
   const [textAreaHeight, setTextAreaHeight] = useState('auto');
   const textAreaRef = useRef(null);
-
-
-  
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -643,11 +637,11 @@ export const AgentInteractions = ({
   }, [displayedMessageIndex, filteredMessages]);
 
   useEffect(() => {
-    // When a new message is received, update the displayed message index
+    // Each time we get new filteredMessages, show the last one
     setDisplayedMessageIndex(filteredMessages.length - 1);
   }, [filteredMessages]);
 
-  
+  // Example: if you want to prefill your userMessage from the last backend message
   useEffect(() => {
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
@@ -658,7 +652,6 @@ export const AgentInteractions = ({
     }
   }, [messages]);
 
-
   if (!messages) {
     return (
       <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
@@ -666,19 +659,16 @@ export const AgentInteractions = ({
       </Box>
     );
   }
+
   const handleSendMessage = () => {
     if (userMessage.trim()) {
-      onSendMessage({
-        type: 'user_message',
-        content: userMessage
-      });
+      onSendMessage({ type: 'user_message', content: userMessage });
       setUserMessage('');
     }
   };
 
   const adjustTextAreaHeight = () => {
     if (textAreaRef.current) {
-      console.log("Trying to adjust height")
       textAreaRef.current.style.height = 'auto';
       const newHeight = Math.min(textAreaRef.current.scrollHeight, window.innerHeight * 0.4);
       textAreaRef.current.style.height = `${newHeight}px`;
@@ -702,10 +692,11 @@ export const AgentInteractions = ({
         )}
       </Box>
 
+      {/* Render only PhaseMessage/WorkflowMessage */}
       <Box className="messages-container">
         {filteredMessages.length === 0 ? (
           <Typography variant="body2" color="text.secondary" align="center">
-            No messages yet
+            No Phase or Workflow messages yet
           </Typography>
         ) : (
           filteredMessages.slice(0, displayedMessageIndex + 1).map((message, index) => (
@@ -720,7 +711,7 @@ export const AgentInteractions = ({
         <div ref={messagesEndRef} />
       </Box>
 
-
+      {/* Text input area, if interactive */}
       {interactiveMode && (
         <Box className="input-container">
           <TextField
