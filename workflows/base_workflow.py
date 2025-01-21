@@ -225,7 +225,14 @@ class BaseWorkflow(ABC):
 
     async def rerun_message(self, message_id: str):
         message = message_dict[message_id]
-        message = await self.rerun_manager.rerun(message)
+        message = await self.rerun_manager.rerun(message)        
+        if message.next:
+            message = await self.rerun_manager.run_edited(message)
+            message = message.next
+        if isinstance(message, ActionMessage):
+            while message.next:
+                message = await self.rerun_manager.run_edited(message)
+                message = message.next
         return message
     
     async def run_next_message(self):
