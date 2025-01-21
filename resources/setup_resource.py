@@ -65,6 +65,30 @@ class SetupResource(BaseResource):
 
         self._start()
         atexit.register(self.stop)
+    
+
+    def fix_script_format(self, script_path: str) -> None:
+        """Fix common script formatting issues."""
+        if not os.path.exists(script_path):
+            return
+
+        # Read the content of the script
+        with open(script_path, 'rb') as file:
+            content = file.read()
+        
+        # Convert CRLF to LF if present
+        content = content.replace(b'\r\n', b'\n')
+        
+        # Ensure there's a shebang line if missing
+        if not content.startswith(b'#!'):
+            content = b'#!/bin/bash\n' + content
+        
+        # Write the fixed content back
+        with open(script_path, 'wb') as file:
+            file.write(content)
+        
+        # Make the script executable
+        os.chmod(script_path, 0o755)
 
     def _start(self) -> None:
         """Start the environment by running the appropriate setup script."""
@@ -80,25 +104,52 @@ class SetupResource(BaseResource):
 
         try:
             start_progress(f"Executing {setup_script} in {work_dir}")
+            result = None  # Initialize result variable
+            
             try:
+                # Fix and prepare the script
+                script_path = os.path.join(work_dir, setup_script)
+                if not os.path.exists(script_path):
+                    raise FileNotFoundError(f"Setup script not found: {script_path}")
+                
+                # Fix script format and make executable
+                self.fix_script_format(script_path)
+                
+                # On macOS, try running with bash explicitly if direct execution fails
+                try:
+                    result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
+                except OSError as e:
+                    if e.errno == 8:  # Exec format error
+                        logger.warning(f"Direct execution failed, trying with explicit bash for {setup_script}")
+                        result = run_command(command=["bash", f"./{setup_script}"], work_dir=work_dir)
+                
                 result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
+                
+                if result.returncode != 0:
+                    raise RuntimeError(f"Setup script failed with return code {result.returncode}")
+                    
             except Exception as e:
-                logger.error(f"Unable to successfuly execute {setup_script} at {self.resource_id}: {e}")
+                logger.error(f"Unable to successfully execute {setup_script} at {self.resource_id}: {e}")
+                raise
             finally:
                 stop_progress()
-            logger.info(f"Environment setup complete for {self.resource_id}")
-            self.container_names = self.extract_container_names(result.stdout, result.stderr)
+                
+            if result and result.stdout:  # Only process output if result exists and has stdout
+                logger.info(f"Environment setup complete for {self.resource_id}")
+                self.container_names = self.extract_container_names(result.stdout, result.stderr)
 
-            if self.container_names:
-                self.wait_until_all_containers_healthy()
+                if self.container_names:
+                    self.wait_until_all_containers_healthy()
+            else:
+                raise RuntimeError(f"No output from setup script {setup_script}")
 
-        except FileNotFoundError:
-            logger.error(f"Setup script not found: {os.path.join(work_dir, setup_script)}")
+        except FileNotFoundError as e:
+            logger.error(str(e))
             raise
         except Exception as e:
             logger.error(f"Unable to set up environment at {self.resource_id}: {e}")
             raise
-
+        
     def restart(self) -> None:
         """Restart the environment by stopping and then starting it again."""
         self.stop()
@@ -162,6 +213,8 @@ class SetupResource(BaseResource):
 
         finally:
             stop_progress()
+        
+        
 
     def extract_container_names(self, stdout: Optional[str] = None, stderr: Optional[str] = None) -> List[str]:
         """
