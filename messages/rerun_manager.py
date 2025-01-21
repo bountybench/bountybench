@@ -92,7 +92,8 @@ class RerunManager:
                 parent_message.update_agent_message(old_message, new_message)
                 #parent_message.add_agent_message(new_message)
         
-        broadcast_update(old_message.to_dict())
+        broadcast_update(old_message.to_dict())  # show the old now has version_next
+        broadcast_update(new_message.to_dict())  # the new message has version_prev
 
 
 

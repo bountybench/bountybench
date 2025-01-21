@@ -57,8 +57,8 @@ class ExecutorAgent(BaseAgent):
         #print("AGENT MESSAGE", agent_message.to_dict())
         #print("PREVIOUS AGENT MESSAGE", prev_agent_message.to_dict())
         #print("***************************************************************")
-        executor_message = self.execute(agent_message, prev_agent_message)
-        self.model.update_memory(executor_message)
+        self.execute(agent_message, prev_agent_message)
+        #self.model.update_memory(executor_message)
 
         return agent_message
 

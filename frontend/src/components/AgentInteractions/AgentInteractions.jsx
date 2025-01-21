@@ -587,6 +587,15 @@ export const AgentInteractions = ({
   onRerunAction,
 }) => {
   console.log('AgentInteractions render, messages:', messages);
+
+  const filteredMessages = messages.filter(msg => {
+    if (msg.message_type === 'AgentMessage' && msg.version_next) {
+      // This means msg has been superseded by a new version.
+      return false;
+    }
+    return true;
+  });
+
   const [displayedMessageIndex, setDisplayedMessageIndex] = useState(messages.length - 1);
   const messagesEndRef = useRef(null);  
   
@@ -594,18 +603,21 @@ export const AgentInteractions = ({
   const [textAreaHeight, setTextAreaHeight] = useState('auto');
   const textAreaRef = useRef(null);
 
+
+  
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [displayedMessageIndex]);
+  }, [displayedMessageIndex, filteredMessages]);
 
   useEffect(() => {
     // When a new message is received, update the displayed message index
-    setDisplayedMessageIndex(messages.length - 1);
-  }, [messages]);
+    setDisplayedMessageIndex(filteredMessages.length - 1);
+  }, [filteredMessages]);
 
   
   useEffect(() => {
@@ -663,12 +675,12 @@ export const AgentInteractions = ({
       </Box>
 
       <Box className="messages-container">
-        {messages.length === 0 ? (
+        {filteredMessages.length === 0 ? (
           <Typography variant="body2" color="text.secondary" align="center">
             No messages yet
           </Typography>
         ) : (
-          messages.slice(0, displayedMessageIndex + 1).map((message, index) => (
+          filteredMessages.slice(0, displayedMessageIndex + 1).map((message, index) => (
             <MessageBubble
               key={message.id || index}
               message={message}
@@ -679,6 +691,7 @@ export const AgentInteractions = ({
         )}
         <div ref={messagesEndRef} />
       </Box>
+
 
       {interactiveMode && (
         <Box className="input-container">
