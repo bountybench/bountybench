@@ -286,8 +286,9 @@ export default ActionCard;
 
 const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
-  const [agentMessageExpanded, setAgentMessageExpanded] = useState(false); // New state for agent message
-
+  const [agentMessageExpanded, setAgentMessageExpanded] = useState(
+    message.agent_id === 'system' || message.agent_id === 'human'
+  );
 
   if (!message) return null;
 
@@ -557,7 +558,7 @@ export const AgentInteractions = ({
       }
     }
   }, [messages]);
-  
+
 
   if (!messages) {
     return (
