@@ -1,5 +1,6 @@
 import inspect
 from agents.agent_manager import AgentManager
+from messages.message_utils import broadcast_update
 from messages.phase_messages.phase_message import PhaseMessage
 from resources.resource_manager import ResourceManager
 
@@ -84,11 +85,15 @@ class RerunManager:
             print(f"Parent message type: {type(parent_message)}")
             if isinstance(parent_message, AgentMessage):
                 print("Updating action message in AgentMessage")
-                #parent_message.update_action_message(old_message, new_message)
-                parent_message.add_action_message(new_message)
+                parent_message.update_action_message(old_message, new_message)
+                #parent_message.add_action_message(new_message)
             elif isinstance(parent_message, PhaseMessage):
                 print("Updating agent message in PhaseMessage")
-                #parent_message.update_agent_message(old_message, new_message)
-                parent_message.add_agent_message(new_message)
+                parent_message.update_agent_message(old_message, new_message)
+                #parent_message.add_agent_message(new_message)
+        
+        broadcast_update(old_message.to_dict())
 
-                
+
+
+        

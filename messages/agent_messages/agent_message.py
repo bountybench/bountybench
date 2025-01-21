@@ -57,6 +57,25 @@ class AgentMessage(Message):
         agent_dict["current_children"] = [action_message.to_dict() for action_message in self.current_actions_list]
         broadcast_update(agent_dict)
 
+    
+    def update_action_message(self, old_msg: ActionMessage, new_msg: ActionMessage):
+        """
+        Find old_msg in self._action_messages by ID and replace it with new_msg.
+        """
+        for i, child in enumerate(self._action_messages):
+            if child.id == old_msg.id:
+                self._action_messages[i] = new_msg
+                new_msg.set_parent(self)
+                break
+
+        # Now broadcast the updated AgentMessage
+        from messages.message_utils import broadcast_update
+        agent_dict = self.to_dict()
+
+        # Rebuild current_children so the UI sees the updated chain
+        agent_dict["current_children"] = [am.to_dict() for am in self.current_actions_list]
+        broadcast_update(agent_dict)
+
     def agent_dict(self) -> dict:
         agent_dict = {
             "agent_id": self.agent_id,
