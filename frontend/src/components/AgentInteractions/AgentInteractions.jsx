@@ -336,143 +336,162 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
 
   switch (message.message_type) {
     case 'AgentMessage':
-      return (
-        <Box className={`message-container ${message.agent_id}`}>
-          <Card 
-            className="message-bubble agent-bubble"
-            sx={{
+    return (
+      <Box
+        className={`message-container ${message.agent_id}`}
+        sx={{
+          width: '100%', // Ensure it takes the full width of the container
+          maxWidth: '800px', // Set a reasonable maximum width
+          margin: '0 auto', // Center the component horizontally
+        }}
+      >
+        <Card 
+          className="message-bubble agent-bubble"
+          sx={{
+            backgroundColor: '#f0f4f8 !important',
+            '& .MuiCardContent-root': {
               backgroundColor: '#f0f4f8 !important',
-              '& .MuiCardContent-root': {
-                backgroundColor: '#f0f4f8 !important'
-              },
-              '& .action-bubble': {
-                boxShadow: 1,
-              },
-              p: 2
-            }}
-          >
-            <CardContent>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>Agent: {message.agent_id}</Typography>
+            },
+            '& .action-bubble': {
+              boxShadow: 1,
+            },
+            p: 2,
+            width: '100%', // Ensure the card spans the full container width
+          }}
+        >
+          <CardContent>
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>
+              Agent: {message.agent_id}
+            </Typography>
 
-              {message.current_children && message.current_children.length > 0 && (
-                <Box sx={{ 
+            {message.current_children && message.current_children.length > 0 && (
+              <Box
+                sx={{
                   mt: 2,
                   '& .message-container.action': {
-                    px: 0
-                  }
-                }}>
-                  {message.current_children.map((actionMessage, index) => (
-                    <Box key={index}>
-                      {renderActionMessage(actionMessage)}
-                    </Box>
-                  ))}
-                </Box>
-              )}
+                    px: 0,
+                  },
+                }}
+              >
+                {message.current_children.map((actionMessage, index) => (
+                  <Box key={index}>
+                    {renderActionMessage(actionMessage)}
+                  </Box>
+                ))}
+              </Box>
+            )}
 
-              <Box mt={1}>
-                <Box 
+            <Box mt={1}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  py: 0.5,
+                  '&:hover': {
+                    bgcolor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+                onClick={handleToggleAgentMessage}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    cursor: 'pointer',
-                    py: 0.5,
-                    '&:hover': {
-                      bgcolor: 'rgba(0, 0, 0, 0.04)',
-                    },
+                    fontWeight: 'medium',
                   }}
-                  onClick={handleToggleAgentMessage}
                 >
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary" 
-                    sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      fontWeight: 'medium'
-                    }}
-                  >
-                    Click here to show {message.agent_id} output:
-                    <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
-                      {agentMessageExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                    </IconButton>
-                  </Typography>
-                </Box>
-                
-                <Collapse in={agentMessageExpanded}>
-                  <Box mt={1}>
-                    {editing ? (
-                      <Box>
-                        <TextField
-                          multiline
-                          fullWidth
-                          minRows={3}
-                          maxRows={10}
-                          value={editedMessage}
-                          onChange={(e) => setEditedMessage(e.target.value)}
-                          sx={{
-                            '& .MuiInputBase-input': {
-                              color: 'black',
-                            },
-                          }}
-                        />
-                        <Box mt={1} display="flex" justifyContent="flex-end">
-                          <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={handleSaveClick}
-                            size="small"
-                          >
-                            <SaveIcon/>
-                          </Button>
-                        </Box>
-                      </Box>
+                  Click here to show {message.agent_id} output:
+                  <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
+                    {agentMessageExpanded ? (
+                      <ExpandLessIcon fontSize="small" />
                     ) : (
-                      <>
-                        <Card 
-                          variant="outlined" 
-                          sx={{ 
-                            bgcolor: '#e5e9f0 !important',
-                            '& .MuiCardContent-root': {
-                              backgroundColor: '#e5e9f0 !important'
-                            },
-                            p: 1 
+                      <ExpandMoreIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </Typography>
+              </Box>
+
+              <Collapse in={agentMessageExpanded}>
+                <Box mt={1}>
+                  {editing ? (
+                    <Box>
+                      <TextField
+                        multiline
+                        fullWidth
+                        minRows={3}
+                        maxRows={10}
+                        value={editedMessage}
+                        onChange={(e) => setEditedMessage(e.target.value)}
+                        sx={{
+                          '& .MuiInputBase-input': {
+                            color: 'black',
+                            minHeight: '75px', // Minimum height for text box
+                            maxHeight: '400px', // Limit maximum height
+                            overflow: 'auto',
+                          },
+                        }}
+                      />
+                      <Box mt={1} display="flex" justifyContent="flex-end">
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={handleSaveClick}
+                          size="small"
+                        >
+                          <SaveIcon />
+                        </Button>
+                      </Box>
+                    </Box>
+                  ) : (
+                    <>
+                      <Card
+                        variant="outlined"
+                        sx={{
+                          bgcolor: '#e5e9f0 !important',
+                          '& .MuiCardContent-root': {
+                            backgroundColor: '#e5e9f0 !important',
+                          },
+                          p: 1,
+                          width: '100%', // Ensure the card takes full width
+                        }}
+                      >
+                        <Typography
+                          variant="body2"
+                          component="pre"
+                          sx={{
+                            whiteSpace: 'pre-wrap',
+                            overflowX: 'auto',
+                            m: 0,
+                            fontFamily: 'monospace',
+                            fontSize: '0.85rem',
                           }}
                         >
-                          <Typography
-                            variant="body2"
-                            component="pre"
-                            sx={{
-                              whiteSpace: 'pre-wrap',
-                              overflowX: 'auto',
-                              m: 0,
-                              fontFamily: 'monospace',
-                              fontSize: '0.85rem'
-                            }}
-                          >
-                            {message.message || ''}
-                          </Typography>
-                        </Card>
-                        <Box mt={1} display="flex" justifyContent="flex-end">
-                          <Button
-                            variant="outlined"
-                            color="primary"
-                            onClick={handleEditClick}
-                            size="small"
-                          >
-                            <EditIcon />
-                          </Button>
-                        </Box>
-                      </>
-                    )}
-                  </Box>
-                </Collapse>
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
-      );
-      
-      
+                          {message.message || ''}
+                        </Typography>
+                      </Card>
+                      <Box mt={1} display="flex" justifyContent="flex-end">
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          onClick={handleEditClick}
+                          size="small"
+                        >
+                          <EditIcon />
+                        </Button>
+                      </Box>
+                    </>
+                  )}
+                </Box>
+              </Collapse>
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+    );
+    
     case 'ActionMessage':
       return renderActionMessage(message);
 
