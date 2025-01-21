@@ -238,6 +238,9 @@ class BaseWorkflow(ABC):
     
     async def edit_message(self, message: Message, new_message_data: str) -> Message:
         message = await self.rerun_manager.edit_message(message, new_message_data)
+        if message.next:
+            message = await self.rerun_manager.run_edited(message)
+            message = message.next
         if isinstance(message, ActionMessage):
             while message.next:
                 message = await self.rerun_manager.run_edited(message)
