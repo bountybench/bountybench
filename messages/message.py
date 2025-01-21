@@ -34,6 +34,11 @@ class Message(ABC):
     def version_next(self) -> str:
         return self._version_next
     
+    def get_latest_version(self, message):
+        while message.version_next:
+            message = message.version_next
+        return message
+    
     @property
     def id(self) -> str:
         return self._id
