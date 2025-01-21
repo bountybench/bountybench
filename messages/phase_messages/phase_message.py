@@ -70,6 +70,24 @@ class PhaseMessage(Message):
         phase_dict["current_children"] = [agent_message.to_dict() for agent_message in self.current_agent_list]
         broadcast_update(phase_dict)
 
+    def update_agent_message(self, old_msg: AgentMessage, new_msg: AgentMessage):
+        """
+        Find old_msg in self._agent_messages by ID and replace it with new_msg.
+        """
+        for i, child in enumerate(self._agent_messages):
+            if child.id == old_msg.id:
+                self._agent_messages[i] = new_msg
+                new_msg.set_parent(self)
+                break
+
+        # Now broadcast the updated PhaseMessage
+        from messages.message_utils import broadcast_update
+        phase_dict = self.to_dict()
+
+        # Rebuild current_children so the UI sees the updated chain
+        phase_dict["current_children"] = [m.to_dict() for m in self.current_agent_list]
+        broadcast_update(phase_dict)
+
     def to_dict(self) -> dict:
         phase_dict = {
             "phase_id": self.phase_id,

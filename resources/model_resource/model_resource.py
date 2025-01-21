@@ -159,6 +159,9 @@ class ModelResource(BaseResource):
         if isinstance(input_message, ActionMessage):
             prev_action_message = input_message
         model_input = self.generate_memory(input_message)
+        #print("************************************")
+        #print(model_input)
+        #print("************************************")
         model_provider: ModelProvider
         model_provider = get_model_provider(self.helm)
         model_response = model_provider.request(
