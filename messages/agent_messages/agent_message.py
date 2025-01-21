@@ -33,18 +33,18 @@ class AgentMessage(Message):
     @property
     def action_messages(self) -> List[ActionMessage]:
         return self._action_messages
-   
+
     @property 
     def current_actions_list(self) -> List[ActionMessage]:
         current_actions = []
         if len(self.action_messages) > 0:
             current_message = self.action_messages[0]
-            while current_message.version_next:
-                current_message = current_message.version_next
+            current_message = self.get_latest_version(current_message)
 
             current_actions.append(current_message)
             while current_message.next:
                 current_message = current_message.next
+                current_message = self.get_latest_version(current_message)
                 current_actions.append(current_message)
             
         return current_actions
