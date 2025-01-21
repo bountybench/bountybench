@@ -80,6 +80,7 @@ class RerunManager:
 
         return new_message
 
+    '''
     def update_version_links(self, old_message: Message, new_message: Message) -> Message:
         new_message.set_version_prev(old_message)
         new_message.set_next(old_message.next)
@@ -97,7 +98,19 @@ class RerunManager:
         
         broadcast_update(old_message.to_dict())  # show the old now has version_next
         broadcast_update(new_message.to_dict())  # the new message has version_prev
+    '''
 
+
+    def update_version_links(self, old_message: Message, new_message: Message) -> Message:
+        new_message.set_version_prev(old_message)
+        new_message.set_next(old_message.next)
+        parent_message = old_message.parent
+        if parent_message:
+            if isinstance(parent_message, AgentMessage):
+                parent_message.add_action_message(new_message)
+            if isinstance(parent_message, PhaseMessage):
+                parent_message.add_agent_message(new_message)
+                
 
 
         
