@@ -495,50 +495,59 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
     case 'ActionMessage':
       return renderActionMessage(message);
 
-    case 'PhaseMessage':
-      return (
-        <Box className={`message-container system`}>
-          <Card className="message-bubble system-bubble">
-            <CardContent onClick={handleToggleContent} style={{ cursor: 'pointer' }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="subtitle2" color="text.secondary">
-                  Phase
-                </Typography>
-                <IconButton size="small">
-                  {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </IconButton>
-              </Box>
-              <Collapse in={contentExpanded}>
-                <Typography variant="body2" mt={1}>
-                  Summary: {message.phase_summary || '(no summary)'}
-                </Typography>
-                {message.additional_metadata && (
-                  <Box mt={1}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    Click here to show metadata:
-                    </Typography>
-                    <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                      <Typography
-                        variant="body2"
-                        component="pre"
-                        sx={{
-                          whiteSpace: 'pre-wrap',
-                          overflowX: 'auto',
-                          m: 0,
-                          fontFamily: 'monospace',
-                          fontSize: '0.85rem'
-                        }}
-                      >
-                        {JSON.stringify(message.additional_metadata, null, 2)}
-                      </Typography>
-                    </Card>
-                  </Box>
-                )}
-              </Collapse>
-            </CardContent>
-          </Card>
-        </Box>
-      );
+      case 'PhaseMessage':
+        return (
+          <Box className="message-container system">
+            <Card className="message-bubble system-bubble">
+              <CardContent
+                onClick={handleToggleContent}
+                style={{ cursor: 'pointer' }}
+              >
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Phase
+                  </Typography>
+                  <IconButton size="small">
+                    {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                </Box>
+  
+                {/* Expand/collapse for the phase details */}
+                <Collapse in={contentExpanded}>
+                  <Typography variant="body2" mt={1}>
+                    Summary: {message.phase_summary || '(no summary)'}
+                  </Typography>
+  
+                  {/* 
+                    The important part: render the canonical list of AgentMessages 
+                    from "message.current_children" (which is PhaseMessage.current_agent_list).
+                  */}
+                  {message.current_children && message.current_children.length > 0 && (
+                    <Box mt={2}>
+                      <Typography variant="subtitle2">Agent Messages:</Typography>
+                      {message.current_children.map((agentMsg, index) => (
+                        <MessageBubble
+                          key={agentMsg.id || index}
+                          message={agentMsg}
+                          onUpdateActionInput={onUpdateActionInput}
+                          onRerunAction={onRerunAction}
+                        />
+                      ))}
+                    </Box>
+                  )}
+  
+                  {/* If you also have any phase-level metadata you want to show: */}
+                  {message.additional_metadata && (
+                    <Box mt={1}>
+                      {/* ... code to display metadata ... */}
+                    </Box>
+                  )}
+                </Collapse>
+              </CardContent>
+            </Card>
+          </Box>
+        );
+  
 
     case 'WorkflowMessage':
       return (
