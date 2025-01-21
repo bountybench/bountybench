@@ -43,7 +43,7 @@ class RerunManager:
 
     async def _rerun_agent_message(self, old_message: Message, input_message: Message) -> Message:
         agent = self.agent_manager.get_agent(old_message.agent_id)
-        new_message = await agent.run(input_message)
+        new_message = await agent.run([input_message])
         self.update_version_links(old_message, new_message)
         return new_message
     

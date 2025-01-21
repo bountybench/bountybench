@@ -260,7 +260,6 @@ class MessageInputData(BaseModel):
 class MessageData(BaseModel):
     message_id: str
 
-@app.post("/workflow/next/{workflow_id}")
 async def next_iteration(workflow_id: str):
     if workflow_id not in active_workflows:
         return {"error": "Workflow not found"}
@@ -272,7 +271,7 @@ async def next_iteration(workflow_id: str):
     else:
         return {"error": "Workflow is not in interactive mode"}
 
-@app.post("/workflow/next-message/{workflow_id}")
+@app.post("/workflow/next/{workflow_id}")
 async def next_message(workflow_id: str):
 
     if workflow_id not in active_workflows:
