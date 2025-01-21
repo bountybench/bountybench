@@ -287,8 +287,9 @@ export default ActionCard;
 
 const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
-  const [agentMessageExpanded, setAgentMessageExpanded] = useState(false); // New state for agent message
-  const [editing, setEditing] = useState(false); // Added missing state
+  const [agentMessageExpanded, setAgentMessageExpanded] = useState(
+    message.agent_id === 'system' || message.agent_id === 'human'
+  );  const [editing, setEditing] = useState(false); // Added missing state
   const [editedMessage, setEditedMessage] = useState(''); // Added missing state
 
 
@@ -616,7 +617,7 @@ export const AgentInteractions = ({
       }
     }
   }, [messages]);
-  
+
 
   if (!messages) {
     return (
