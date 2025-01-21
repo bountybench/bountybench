@@ -5,6 +5,7 @@ from typing import Any, Dict, Type
 from enum import Enum
 from messages.message import Message
 from messages.message_utils import message_dict
+from messages.action_messages.action_message import ActionMessage
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.rerun_manager import RerunManager
 from messages.workflow_message import WorkflowMessage
@@ -237,6 +238,10 @@ class BaseWorkflow(ABC):
     
     async def edit_message(self, message: Message, new_message_data: str) -> Message:
         message = await self.rerun_manager.edit_message(message, new_message_data)
+        if isinstance(message, ActionMessage):
+            while message.next:
+                message = await self.rerun_manager.run_edited(message)
+                message = message.next
         return message
     
     async def edit_one_message(self, message_id: str, new_message_data: str) -> Message:
