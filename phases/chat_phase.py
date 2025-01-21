@@ -39,7 +39,7 @@ class ChatPhase(BasePhase):
         resource_configs = {
             "model": (
                 ModelResource,
-                ModelResourceConfig.create(model=self.model, initial_prompt=self.initial_message)
+                ModelResourceConfig.create(model=self.model)
             ),
         }
         return resource_configs
