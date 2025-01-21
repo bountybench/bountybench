@@ -51,6 +51,8 @@ class RerunManager:
         while old_message.version_next:
             old_message = old_message.version_next
 
+        print(f"Latest version before edit: {old_message.id}")
+
         dic = old_message.__dict__
         cls = type(old_message)
         init_method = cls.__init__
@@ -67,11 +69,9 @@ class RerunManager:
         self.update_version_links(old_message, new_message)
 
 
-        print("*****************IN EDIT MESSAGE**********************")
-        print(old_message.to_dict())
-        print(new_message.to_dict())
-        print("***************************************")
-
+        print(f"New message created: {new_message.id}")
+        print(f"Old message parent: {old_message.parent.id if old_message.parent else 'None'}")
+        print(f"New message parent: {new_message.parent.id if new_message.parent else 'None'}")
 
 
         return new_message
@@ -81,8 +81,14 @@ class RerunManager:
         new_message.set_next(old_message.next)
         parent_message = old_message.parent
         if parent_message:
+            print(f"Parent message type: {type(parent_message)}")
             if isinstance(parent_message, AgentMessage):
+                print("Updating action message in AgentMessage")
+                #parent_message.update_action_message(old_message, new_message)
                 parent_message.add_action_message(new_message)
-            if isinstance(parent_message, PhaseMessage):
+            elif isinstance(parent_message, PhaseMessage):
+                print("Updating agent message in PhaseMessage")
+                #parent_message.update_agent_message(old_message, new_message)
                 parent_message.add_agent_message(new_message)
+
                 
