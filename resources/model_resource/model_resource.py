@@ -136,6 +136,9 @@ class ModelResource(BaseResource):
             current_agent_message = current_agent_message.prev
 
         memory = list(reversed(memory))
+        print("**************THIS IS MY MEMORY*********************")
+        print(memory)
+        print("***********************************")
         initial_prompt = memory[0]
         memory = memory[1:]
         if len(memory) > 3:
@@ -159,6 +162,9 @@ class ModelResource(BaseResource):
         if isinstance(input_message, ActionMessage):
             prev_action_message = input_message
         model_input = self.generate_memory(input_message)
+        #print("************************************")
+        #print(model_input)
+        #print("************************************")
         model_provider: ModelProvider
         model_provider = get_model_provider(self.helm)
         model_response = model_provider.request(

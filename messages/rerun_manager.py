@@ -66,6 +66,14 @@ class RerunManager:
 
         self.update_version_links(old_message, new_message)
 
+
+        print("*****************IN EDIT MESSAGE**********************")
+        print(old_message.to_dict())
+        print(new_message.to_dict())
+        print("***************************************")
+
+
+
         return new_message
 
     def update_version_links(self, old_message: Message, new_message: Message) -> Message:
