@@ -70,6 +70,7 @@ class RerunManager:
         params['message'] = edit
         new_message = cls(**params)
 
+        new_message.set_prev(old_message.prev)
         self.update_version_links(old_message, new_message)
 
 
