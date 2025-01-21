@@ -273,7 +273,6 @@ async def next_iteration(workflow_id: str):
 
 @app.post("/workflow/next/{workflow_id}")
 async def next_message(workflow_id: str):
-
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
@@ -282,8 +281,9 @@ async def next_message(workflow_id: str):
         result = await workflow.run_next_message()
         if not result:
             result = await next_iteration(workflow_id)
+            return result  # Return the dictionary directly
+            
         print(f"Received result : {result.id}")
-        
         return {"status": "updated", "result": result.id}
     except Exception as e:
         import traceback
