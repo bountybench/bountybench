@@ -28,7 +28,10 @@ class RerunManager:
         
     async def rerun(self, message: Message) -> Message:
         if isinstance(message, ActionMessage):
-            message = await self._rerun_action_message(message, message.prev)
+            if message.prev:
+                message = await self._rerun_action_message(message, message.prev)
+            else:
+                message = await self._rerun_action_message(message, message.parent)
             return message
         elif isinstance(message, AgentMessage):
             message = await self._rerun_agent_message(message, message.prev)
