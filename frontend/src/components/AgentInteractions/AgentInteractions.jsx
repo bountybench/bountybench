@@ -121,8 +121,9 @@ const ActionCard = ({ action, onUpdateActionInput, onRerunAction }) => {
     setEditedMessage(originalMessageContent); // Populate with original message
   };
 
-  const handleSaveClick = async () => {  
-    if (!action.current_id) {
+
+  const handleSaveClick = async () => {
+    if (!action.current_id) { // Changed from message to action
       console.error('Action id is undefined');
       return;
     }
@@ -287,6 +288,9 @@ export default ActionCard;
 const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(false); // New state for agent message
+  const [editing, setEditing] = useState(false); // Added missing state
+  const [editedMessage, setEditedMessage] = useState(''); // Added missing state
+
 
 
   if (!message) return null;
@@ -301,6 +305,24 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
     setAgentMessageExpanded(!agentMessageExpanded);
   };
 
+  const handleEditClick = () => {
+    setEditing(true);
+    setEditedMessage(message.message || '');
+  };
+
+  const handleSaveClick = async () => {
+    if (!message.current_id) {
+      console.error('Message id is undefined');
+      return;
+    }
+    try {
+      await onUpdateActionInput(message.current_id, editedMessage);
+      setEditing(false);
+    } catch (error) {
+      console.error('Error updating message:', error);
+    }
+  };
+
 
   const renderActionMessage = (actionMessage) => (
     <ActionCard
@@ -313,105 +335,142 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
 
   switch (message.message_type) {
     case 'AgentMessage':
-    return (
-      <Box className={`message-container ${message.agent_id}`}>
-        <Card 
-          className="message-bubble agent-bubble"
-          sx={{
-            backgroundColor: '#f0f4f8 !important',
-            '& .MuiCardContent-root': {
-              backgroundColor: '#f0f4f8 !important'
-            },
-            '& .action-bubble': {
-              boxShadow: 1,
-            },
-            p: 2
-          }}
-        >
-          <CardContent>
-            {/* Agent header */}
-            <Typography variant="subtitle1" sx={{ mb: 2 }}>Agent: {message.agent_id}</Typography>
+      return (
+        <Box className={`message-container ${message.agent_id}`}>
+          <Card 
+            className="message-bubble agent-bubble"
+            sx={{
+              backgroundColor: '#f0f4f8 !important',
+              '& .MuiCardContent-root': {
+                backgroundColor: '#f0f4f8 !important'
+              },
+              '& .action-bubble': {
+                boxShadow: 1,
+              },
+              p: 2
+            }}
+          >
+            <CardContent>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>Agent: {message.agent_id}</Typography>
 
-            {/* Action messages nested inside */}
-            {message.current_children && message.current_children.length > 0 && (
-              <Box sx={{ 
-                mt: 2,
-                '& .message-container.action': {
-                  px: 0
-                }
-              }}>
-                {message.current_children.map((actionMessage, index) => (
-                  <Box key={index}>
-                    {renderActionMessage(actionMessage)}
-                  </Box>
-                ))}
-              </Box>
-            )}
+              {message.current_children && message.current_children.length > 0 && (
+                <Box sx={{ 
+                  mt: 2,
+                  '& .message-container.action': {
+                    px: 0
+                  }
+                }}>
+                  {message.current_children.map((actionMessage, index) => (
+                    <Box key={index}>
+                      {renderActionMessage(actionMessage)}
+                    </Box>
+                  ))}
+                </Box>
+              )}
 
-            
-            {/* Show Output section */}
-            <Box mt={1}>
-              <Box 
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                  py: 0.5,
-                  '&:hover': {
-                    bgcolor: 'rgba(0, 0, 0, 0.04)',
-                  },
-                }}
-                onClick={handleToggleAgentMessage}
-              >
-                <Typography 
-                  variant="caption" 
-                  color="text.secondary" 
-                  sx={{ 
-                    display: 'flex', 
+              <Box mt={1}>
+                <Box 
+                  sx={{
+                    display: 'flex',
                     alignItems: 'center',
-                    fontWeight: 'medium'
+                    cursor: 'pointer',
+                    py: 0.5,
+                    '&:hover': {
+                      bgcolor: 'rgba(0, 0, 0, 0.04)',
+                    },
                   }}
+                  onClick={handleToggleAgentMessage}
                 >
-                  Click here to show  {message.agent_id} output:
-                  <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
-                    {agentMessageExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                  </IconButton>
-                </Typography>
-              </Box>
-              
-              <Collapse in={agentMessageExpanded}>
-                <Box mt={1}>
-                  <Card 
-                    variant="outlined" 
+                  <Typography 
+                    variant="caption" 
+                    color="text.secondary" 
                     sx={{ 
-                      bgcolor: '#e5e9f0 !important',
-                      '& .MuiCardContent-root': {
-                        backgroundColor: '#e5e9f0 !important'
-                      },
-                      p: 1 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      fontWeight: 'medium'
                     }}
                   >
-                    <Typography
-                      variant="body2"
-                      component="pre"
-                      sx={{
-                        whiteSpace: 'pre-wrap',
-                        overflowX: 'auto',
-                        m: 0,
-                        fontFamily: 'monospace',
-                        fontSize: '0.85rem'
-                      }}
-                    >
-                      {message.message || ''}
-                    </Typography>
-                  </Card>
+                    Click here to show {message.agent_id} output:
+                    <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
+                      {agentMessageExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                    </IconButton>
+                  </Typography>
                 </Box>
-              </Collapse>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
-    );
+                
+                <Collapse in={agentMessageExpanded}>
+                  <Box mt={1}>
+                    {editing ? (
+                      <Box>
+                        <TextField
+                          multiline
+                          fullWidth
+                          minRows={3}
+                          maxRows={10}
+                          value={editedMessage}
+                          onChange={(e) => setEditedMessage(e.target.value)}
+                          sx={{
+                            '& .MuiInputBase-input': {
+                              color: 'black',
+                            },
+                          }}
+                        />
+                        <Box mt={1} display="flex" justifyContent="flex-end">
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={handleSaveClick}
+                            size="small"
+                          >
+                            <SaveIcon/>
+                          </Button>
+                        </Box>
+                      </Box>
+                    ) : (
+                      <>
+                        <Card 
+                          variant="outlined" 
+                          sx={{ 
+                            bgcolor: '#e5e9f0 !important',
+                            '& .MuiCardContent-root': {
+                              backgroundColor: '#e5e9f0 !important'
+                            },
+                            p: 1 
+                          }}
+                        >
+                          <Typography
+                            variant="body2"
+                            component="pre"
+                            sx={{
+                              whiteSpace: 'pre-wrap',
+                              overflowX: 'auto',
+                              m: 0,
+                              fontFamily: 'monospace',
+                              fontSize: '0.85rem'
+                            }}
+                          >
+                            {message.message || ''}
+                          </Typography>
+                        </Card>
+                        <Box mt={1} display="flex" justifyContent="flex-end">
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            onClick={handleEditClick}
+                            size="small"
+                          >
+                            <EditIcon />
+                          </Button>
+                        </Box>
+                      </>
+                    )}
+                  </Box>
+                </Collapse>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+      );
+      
       
     case 'ActionMessage':
       return renderActionMessage(message);
