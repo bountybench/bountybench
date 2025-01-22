@@ -73,13 +73,13 @@ const AgentInteractions = ({
       </Box>
 
       <Box className="input-and-buttons-container" display="flex">
-        <Box className="input-wrapper" flexGrow={1} mr={2}>
+        {/* <Box className="input-wrapper" flexGrow={1} mr={2}>
           <InputContainer 
             onSendMessage={onSendMessage} 
             setUserMessage={setUserMessage}
             userMessage={userMessage}
           />
-        </Box>
+        </Box> */}
         <Box className="buttons-wrapper" display="flex" flexDirection="column" justifyContent="flex-end">
           {interactiveMode && (
             <>
@@ -94,7 +94,7 @@ const AgentInteractions = ({
               >
                 Next
               </Button>
-              <Button
+              {/* <Button
                 variant="contained"
                 color="primary"
                 onClick={handleSendMessage}
@@ -103,7 +103,7 @@ const AgentInteractions = ({
                 size="small"
               >
                 Send
-              </Button>
+              </Button> */}
             </>
           )}
         </Box>
