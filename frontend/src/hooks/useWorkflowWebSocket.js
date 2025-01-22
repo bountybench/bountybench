@@ -12,7 +12,6 @@ export const useWorkflowWebSocket = (workflowId) => {
   const ws = useRef(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
-  const messageIdCounter = useRef(0);
 
   // ----------------------------------
   // 1) Connect / Reconnect logic
@@ -79,28 +78,10 @@ export const useWorkflowWebSocket = (workflowId) => {
       setError('Failed to connect to workflow');
     };
 
-    // Helper: handle updated agent message
-    const handleUpdatedAgentMessage = (updatedAgentMessage) => {
-      setMessages((prevMessages) => {
-        const index = prevMessages.findIndex(
-          (msg) => msg.current_id === updatedAgentMessage.current_id
-        );
-        console.log('Updated message:', updatedAgentMessage);
-
-        if (index !== -1) {
-          // Replace the existing message in-place
-          const newMessages = [...prevMessages];
-          newMessages[index] = updatedAgentMessage;
-          return newMessages;
-        } else {
-          console.log('Adding as new message');
-          return [...prevMessages, updatedAgentMessage];
-        }
-      });
-    };
-
     // ----------------------------------
     // 2) onmessage: handle real-time updates
+    // We assume that we will only receive phase messages (where we obtain Agent > Action messages)
+    // Or workflow messages (where we only retrieve workflow status)
     // ----------------------------------
     ws.current.onmessage = (event) => {
       try {
@@ -117,49 +98,24 @@ export const useWorkflowWebSocket = (workflowId) => {
             break;
 
           case 'WorkflowMessage':
-            // If you want to store the entire WorkflowMessage as well
-            setMessages((prev) => [...prev, data]);
-            // Or store partial info in workflowStatus
             setWorkflowStatus(data.workflow_metadata?.workflow_summary || 'Unknown');
             break;
 
           case 'PhaseMessage':
-            // Keep the "currentPhase" if you want:
             setCurrentPhase(data);
 
-            // **Also** push it into "messages" so the UI can display it.
             setMessages((prev) => {
               const idx = prev.findIndex((msg) => msg.current_id === data.current_id);
               if (idx > -1) {
+                // Replaces old stored phase message for new version
                 const newArr = [...prev];
                 newArr[idx] = data;
                 return newArr;
               } else {
+                // Or appends new phase
                 return [...prev, data];
               }
             });
-            break;
-
-          case 'AgentMessage':
-            // Let your helper handle agent messages
-            handleUpdatedAgentMessage(data);
-            break;
-
-          case 'ActionMessage':
-            // Possibly store action messages directly too
-            setMessages((prev) => [...prev, data]);
-            break;
-
-          case 'user_message_response':
-            console.log(`Received ${data.message_type}:`, data.content);
-            // If you want to store user messages:
-            setMessages((prev) => [...prev, data]);
-            break;
-
-          case 'first_message':
-            console.log(`Received ${data.message_type}:`, data.content);
-            // If you want, store it
-            setMessages((prev) => [...prev, data]);
             break;
 
           default:
