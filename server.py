@@ -1,16 +1,13 @@
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-from typing import Dict, List, Optional
-import json
+from typing import Dict
 from pathlib import Path
-from datetime import datetime
 from pydantic import BaseModel
 import uvicorn
 import signal
 import sys
 
-# from workflows.detect_and_patch_workflow import DetectAndPatchWorkflow
 from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
@@ -102,8 +99,6 @@ async def list_workflows():
 async def start_workflow(workflow_data: dict):
     """Start a new workflow instance"""
     try:
-        #workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
         # Initialize workflow instance
         workflow = id_to_workflow[workflow_data['workflow_name']](
             task_dir=Path(workflow_data['task_dir']),
@@ -113,16 +108,12 @@ async def start_workflow(workflow_data: dict):
         )
         
         workflow_id = workflow.workflow_message.workflow_id
-        print("***************")
-        print(workflow_id)
-        print("***************")
         # Store workflow instance
         active_workflows[workflow_id] = {
             "instance": workflow,
             "status": "initializing"
         }
 
-        
         # Return workflow ID immediately
         return {
             "workflow_id": workflow_id,
@@ -147,10 +138,7 @@ async def execute_workflow(workflow_id: str):
     except Exception as e:
         return {"error": str(e)}
 
-
-
 async def run_workflow(workflow_id: str):
-    print(f"Entering run_workflow for {workflow_id}")
     global should_exit
     
     if workflow_id not in active_workflows or should_exit:
@@ -166,12 +154,9 @@ async def run_workflow(workflow_id: str):
             "message_type": "status_update",
             "status": "running"
         })
-        print(f"Broadcasted running status for {workflow_id}")
         
         # Run the workflow
-        print(f"Starting workflow.run() for {workflow_id}...")
         await workflow.run()
-        print(f"Workflow.run() completed for {workflow_id}")
 
         if not should_exit:
             workflow_data["status"] = "completed"
@@ -179,10 +164,8 @@ async def run_workflow(workflow_id: str):
                 "message_type": "status_update",
                 "status": "completed"
             })
-            print(f"Broadcasted completed status for {workflow_id}")
         
     except Exception as e:
-        print(f"Error in run_workflow: {e}")
         if not should_exit:
             print(f"Workflow error: {e}")
             workflow_data["status"] = "error"
@@ -196,12 +179,10 @@ async def run_workflow(workflow_id: str):
 @app.websocket("/ws/{workflow_id}")
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     """WebSocket endpoint for real-time workflow updates"""
-    print(f"Entering websocket_endpoint for {workflow_id}")
     global should_exit
     
     try:
         await websocket_manager.connect(workflow_id, websocket)
-        print(f"WebSocket connected for workflow {workflow_id}")
         
         # Send initial workflow state
         if workflow_id in active_workflows:
@@ -210,7 +191,6 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 "message_type": "initial_state",
                 "status": workflow_data["status"]
             })
-            print(f"Sent initial state for workflow {workflow_id}: {workflow_data['status']}")
         
         # Handle incoming messages
         while not should_exit:
@@ -218,12 +198,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 data = await websocket.receive_json()
                 if should_exit:
                     break
-                    
-                print("********************************************")
-                print(f"Received message from workflow {workflow_id}: {data}")
-                print("********************************************")
 
-                
                 if data.get("message_type") == "user_message" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
@@ -235,13 +210,10 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                         print(f"Broadcasted user_message_response for {workflow_id}")
 
                 elif data.get("message_type") == "start_execution":
-                    print(f"Starting execution for workflow {workflow_id}")
                     asyncio.create_task(run_workflow(workflow_id))
             except WebSocketDisconnect:
-                print(f"WebSocket disconnected for workflow {workflow_id}")
                 break
             except Exception as e:
-                print(f"Error handling message: {e}")
                 if "disconnect" in str(e).lower():
                     break
                     
@@ -293,8 +265,7 @@ async def next_message(workflow_id: str):
 
 @app.post("/workflow/rerun-message/{workflow_id}")
 async def next_message(workflow_id: str, data: MessageData):
-    print(f"Request data: {data}")
-
+    print(f"Rerunning message: {data.message_id}")
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
@@ -302,20 +273,16 @@ async def next_message(workflow_id: str, data: MessageData):
 
     try:
         result = await workflow.rerun_message(data.message_id)
-        print(f"Received result : {result.id}")
 
         return {"status": "updated", "result": result.id}
     except Exception as e:
         import traceback
         error_traceback = traceback.format_exc()
-        print(f"Error in rerun_message: {str(e)}\n{error_traceback}")
         return {"error": str(e), "traceback": error_traceback}
 
 @app.post("/workflow/edit-message/{workflow_id}")
 async def edit_action_input(workflow_id: str, data: MessageInputData):
-    print(f"Received edit request for workflow: {workflow_id}")
-    print(f"Request data: {data}")
-
+    print(f"Editing message: {data.message_id}")
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
@@ -323,7 +290,6 @@ async def edit_action_input(workflow_id: str, data: MessageInputData):
 
     try:
         result = await workflow.edit_one_message(data.message_id, data.new_input_data)
-        print(f"Received result : {result.id}, version prev: {result.version_prev}")
         
         return {"status": "updated", "result": result.id}
     except Exception as e:

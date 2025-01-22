@@ -18,6 +18,7 @@ class CommandMessage(CommandMessageInterface, ActionMessage):
     
     def parse_command(self) -> List[str]:
         command = parse_field(self._message, "Command:", stop_str=STOP_TOKEN)
+        command = command.lstrip().lstrip("*").lstrip()
         if not command:
             raise Exception("Command is missing from message, cannot be a command message.")
         return command
