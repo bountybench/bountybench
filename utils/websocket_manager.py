@@ -45,7 +45,6 @@ class WebSocketManager:
 
 
         if workflow_id not in self.active_connections:
-            logger.error(f"No active connections for workflow {workflow_id}")
             return
 
         failed_connections = []

@@ -210,13 +210,10 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                         print(f"Broadcasted user_message_response for {workflow_id}")
 
                 elif data.get("message_type") == "start_execution":
-                    print(f"Starting execution for workflow {workflow_id}")
                     asyncio.create_task(run_workflow(workflow_id))
             except WebSocketDisconnect:
-                print(f"WebSocket disconnected for workflow {workflow_id}")
                 break
             except Exception as e:
-                print(f"Error handling message: {e}")
                 if "disconnect" in str(e).lower():
                     break
                     
@@ -268,8 +265,6 @@ async def next_message(workflow_id: str):
 
 @app.post("/workflow/rerun-message/{workflow_id}")
 async def next_message(workflow_id: str, data: MessageData):
-    print(f"Request data: {data}")
-
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
@@ -277,19 +272,15 @@ async def next_message(workflow_id: str, data: MessageData):
 
     try:
         result = await workflow.rerun_message(data.message_id)
-        print(f"Received result : {result.id}")
 
         return {"status": "updated", "result": result.id}
     except Exception as e:
         import traceback
         error_traceback = traceback.format_exc()
-        print(f"Error in rerun_message: {str(e)}\n{error_traceback}")
         return {"error": str(e), "traceback": error_traceback}
 
 @app.post("/workflow/edit-message/{workflow_id}")
 async def edit_action_input(workflow_id: str, data: MessageInputData):
-    print(f"Received edit request for workflow: {workflow_id}")
-    print(f"Request data: {data}")
 
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
@@ -298,7 +289,6 @@ async def edit_action_input(workflow_id: str, data: MessageInputData):
 
     try:
         result = await workflow.edit_one_message(data.message_id, data.new_input_data)
-        print(f"Received result : {result.id}, version prev: {result.version_prev}")
         
         return {"status": "updated", "result": result.id}
     except Exception as e:
