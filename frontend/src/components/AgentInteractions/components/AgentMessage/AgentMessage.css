@@ -1,0 +1,98 @@
+/* AgentMessage.css */
+
+.agent-message-container {
+    margin-bottom: 16px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .agent-message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    background-color: #ffffff;
+  }
+  
+  .agent-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1f1f1f;
+  }
+  
+  .agent-message-content {
+    padding: 0px 16px;
+    background-color: #ffffff;
+  }
+  
+  .agent-message-text {
+    font-size: 0.8rem !important;
+    color: black !important;
+    padding: 8px;
+    color: #1f1f1f;
+    border: 1px solid #cccccc !important;
+    border-radius: 4px;
+    background-color: #ffffff;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  
+  .agent-message-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 16px;
+    background-color: #ffffff;
+  }
+  
+  .edit-button,
+  .action-button {
+    font-size: 0.8rem;
+    margin-left: 8px;
+  }
+  
+  .action-messages-container {
+    margin-top: 16px;
+  }
+  
+  .action-messages-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1f1f1f;
+    background-color: #ffffff;
+    margin-bottom: 8px;
+  }
+
+  .edit-mode-container .MuiInputBase-root {
+    font-size: 0.8rem !important;
+    color: black !important;
+  }
+  
+  .edit-mode-container .MuiInputBase-input {
+    font-size: 0.8rem !important;
+    color: black !important;
+  }
+  
+  .edit-textarea {
+    width: 100%;
+    min-height: 100px;
+    background-color: #ffffff !important;
+    color: black !important;
+    border: 1px solid #cccccc !important;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 0.8rem !important;
+    resize: vertical;
+  }
+
+  .save-button {
+    margin-top: 8px;
+  }
+  
+  .toggle-button {
+    color: #1f1f1f;
+  }
+  
+  .toggle-button:hover {
+    color: #313131;
+  }

@@ -44,7 +44,15 @@
     margin-bottom: 8px;
     color: #1f1f1f;
   }
+  .message-bubble.agent-bubble {
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
   
+  .message-bubble.agent-bubble .MuiCardContent-root {
+    background-color: transparent !important;
+    padding: 0;
+  }
   .metadata-toggle {
     display: flex;
     align-items: center;

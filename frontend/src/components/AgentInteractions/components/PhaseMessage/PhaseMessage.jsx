@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import AgentMessage from '../AgentMessage';
+import AgentMessage from '../AgentMessage/AgentMessage';
 import './PhaseMessage.css'
 
 const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
@@ -11,23 +11,7 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
 
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
-  
-  const styles = {
-    messageContainer: {
-      backgroundColor: '#1e1e1e',
-      borderRadius: '4px',
-      padding: '12px',
-      marginBottom: '12px',
-    },
-    messageHeader: {
-      fontSize: '14px',
-      fontWeight: 'bold',
-      marginBottom: '8px',
-    },
-    messageContent: {
-      fontSize: '14px',
-    },
-  };
+
   return (
     <Box className="message-container phase">
       <Card className="message-bubble phase-bubble">
