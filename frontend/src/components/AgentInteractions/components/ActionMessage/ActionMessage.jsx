@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import ReplayIcon from '@mui/icons-material/Replay';
-import { formatData } from '../utils/messageFormatters';
+import { formatData } from '../../utils/messageFormatters';
 
 const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
   const [expanded, setExpanded] = useState(true);

@@ -4,7 +4,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
-import ActionMessage from '../ActionMessage';
+import ActionMessage from '../ActionMessage/ActionMessage';
 import './AgentMessage.css'
 
 const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
