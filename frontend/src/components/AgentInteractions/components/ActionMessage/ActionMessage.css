@@ -1,26 +1,25 @@
 /* ActionMessage.css */
 
 .action-message {
-    /* margin-top: 16px; */
-    padding: 0px 20px;
-    background-color: #ffffff !important;
-    /* border: 1px solid #d0d5dd;
-    border-radius: 8px; */
-    overflow: hidden;
-  }
-  
+  /* margin-top: 16px; */
+  padding: 0px 20px;
+  background-color: #ffffff !important;
+  /* border: 1px solid #d0d5dd;
+  border-radius: 8px; */
+  overflow: hidden;
+}
 
-  .action-toggle-button {
-    color: black !important;
-    }
+.action-toggle-button {
+  color: black !important;
+}
 
-    .action-toggle-button:hover {
-    color: #333;
-    }
+.action-toggle-button:hover {
+  color: #333;
+}
 
-  .action-message .MuiCardContent-root {
-    padding: 16px;
-  }
+.action-message .MuiCardContent-root {
+  padding: 16px;
+}
   
   .action-message-header {
     display: flex;
@@ -40,13 +39,15 @@
     color: #6b7280;
   }
   
-  .action-message-content {
-    background-color: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    padding: 12px;
-    margin-top: 8px;
-  }
+.action-message-content {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 12px;
+  margin-top: 8px;
+  max-height: 400px; /* Set a maximum height for the content */
+  overflow-y: auto; /* Enable vertical scrolling for content */
+}
   
   .action-message-text {
     font-size: 0.75rem;
@@ -67,6 +68,8 @@
   
   .edit-mode-container {
     margin-top: 8px;
+    max-height: 400px; /* Set a maximum height for edit mode */
+    overflow-y: auto; /* Enable vertical scrolling for edit mode */
   }
   
   .edit-textarea {
