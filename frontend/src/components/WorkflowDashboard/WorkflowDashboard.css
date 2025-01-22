@@ -6,16 +6,6 @@
   padding: 24px;
   position: relative;
 }
-/* .dashboard-container {
-  flex-grow: 1;
-  overflow: hidden;
-} */
-
-/* .dashboard-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-} */
 
 .dashboard-grid {
   height: calc(100vh - 100px);
@@ -27,11 +17,6 @@
   overflow: auto;
   background-color: #132f4c !important;
 }
-
-/* .dashboard-content {
-  flex-grow: 1;
-  overflow: hidden;
-} */
 
 .dashboard-content {
   flex-grow: 1;
