@@ -59,7 +59,10 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
   };
 
   return (
-    <Card className="action-message" variant="outlined">
+    <Card 
+      className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''}`} 
+      variant="outlined"
+    >
     <CardContent>
       <Box className="action-message-header">
         <Box>

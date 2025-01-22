@@ -1,109 +1,124 @@
 /* PhaseMessage.css */
 
 .message-container.phase {
-    margin-bottom: 16px;
-  }
-  
-  .message-bubble.phase-bubble {
-    background-color: #ffffff;
-    color: #000000;
-  }
-  
-  .phase-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
+  margin-bottom: 24px; /* Increased margin for better separation */
+  border-bottom: 2px solid #e0e0e0; /* Add a clear separator line */
+  padding-bottom: 16px;
+}
 
-  .phase-toggle-button {
-    color: black !important;
-    }
+.message-bubble.phase-bubble {
+  background-color: #ffffff;
+  color: #000000;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
 
-    .phase-toggle-button:hover {
-    color: #333;
-    }
-  .phase-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1f1f1f;
-  }
-  
-  .phase-summary {
-    font-size: 0.9rem;
-    margin-top: 8px;
-    color: #333333;
-  }
-  
-  .agent-messages-container {
-    margin-top: 16px;
-  }
-  
-  .agent-messages-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: #1f1f1f;
-  }
-  .message-bubble.agent-bubble {
-    background-color: transparent !important;
-    box-shadow: none !important;
-  }
-  
-  .message-bubble.agent-bubble .MuiCardContent-root {
-    background-color: transparent !important;
-    padding: 0;
-  }
-  .metadata-toggle {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    padding: 4px 0;
-    margin-top: 16px;
-  }
-  
-  .metadata-toggle:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-  }
-  
-  .metadata-label {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: #b0b0b0;
-    display: flex;
-    align-items: center;
-  }
-  
-  .metadata-content {
-    background-color: #eeeeee;
-    padding: 8px;
-    margin-top: 8px;
-    border-radius: 4px;
-  }
-  
-  .metadata-text {
-    white-space: pre-wrap;
-    overflow-x: auto;
-    font-family: monospace;
-    font-size: 0.85rem;
-    color: #1f1f1f;
-  }
+.phase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 8px;
+}
 
-  .phase-title {
-    font-size: 0.9rem; 
-  }
-  
-  .phase-summary {
-    font-size: 0.8rem;
-  }
-  
-  .agent-messages-title {
-    font-size: 0.85rem;
-  }
-  
-  .metadata-label {
-    font-size: 0.75rem; 
-  }
-  
-  .metadata-text {
-    font-size: 0.75rem;
-  }
+.phase-toggle-button {
+  color: black !important;
+}
+
+.phase-toggle-button:hover {
+  color: #333;
+}
+
+.phase-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f1f1f;
+}
+
+.phase-summary {
+  font-size: 0.9rem;
+  margin-top: 8px;
+  color: #333333;
+  padding: 8px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.agent-messages-container {
+  margin-top: 16px;
+}
+
+.agent-messages-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #1f1f1f;
+}
+
+.message-bubble.agent-bubble {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.message-bubble.agent-bubble .MuiCardContent-root {
+  background-color: transparent !important;
+  padding: 0;
+}
+
+.metadata-toggle {
+  margin-top: 16px;
+  padding: 8px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  cursor: pointer;
+  border-left: 4px solid #2196f3; /* Blue accent to connect with the model box */
+}
+
+.metadata-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.metadata-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #666;
+}
+
+.metadata-content {
+  margin-top: 8px;
+  padding: 12px;
+  background-color: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.metadata-text {
+  font-size: 0.8rem !important;
+  color: #666 !important;
+  margin: 0 !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.phase-title {
+  font-size: 0.9rem; 
+}
+
+.phase-summary {
+  font-size: 0.8rem;
+}
+
+.agent-messages-title {
+  font-size: 0.85rem;
+}
+
+.metadata-label {
+  font-size: 0.75rem; 
+}
+
+.metadata-text {
+  font-size: 0.75rem;
+}
