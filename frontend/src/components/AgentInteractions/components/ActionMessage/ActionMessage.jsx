@@ -138,14 +138,14 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
 
         {/* Metadata section */}
         {action.additional_metadata && (
-          <Box>
+          <Box className="metadata-section">
             <Box 
               className="metadata-toggle"
               onClick={handleToggleMetadata}
             >
               <Typography className="metadata-label">
                 Metadata
-                <IconButton size="small">
+                <IconButton size="small" className="action-toggle-button">
                   {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                 </IconButton>
               </Typography>
