@@ -17,15 +17,32 @@ function App() {
     setInteractiveMode(isInteractive);
   };
 
-  const handleInteractiveModeToggle = () => {
-    setInteractiveMode(!interactiveMode);
-    // If a workflow is already running, might need to send an update to the backend here
+  const handleInteractiveModeToggle = async () => {
+    const newInteractiveMode = !interactiveMode;
+    setInteractiveMode(newInteractiveMode);
+    
     if (selectedWorkflow) {
-      // TODO: Implement backend update for interactive mode change
-      console.log("Update backend with new interactive mode:", !interactiveMode);
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/${selectedWorkflow.id}/interactive`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ interactive: newInteractiveMode }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to update interactive mode');
+        }
+        
+        console.log("Backend updated with new interactive mode:", newInteractiveMode);
+      } catch (error) {
+        console.error("Error updating interactive mode:", error);
+        setInteractiveMode(!newInteractiveMode);
+      }
     }
   };
-
+  
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
