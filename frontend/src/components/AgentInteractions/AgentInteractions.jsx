@@ -1,8 +1,10 @@
+// AgentInteractions.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import PhaseMessage from './components/PhaseMessage'; 
-import InputContainer from './components/InputContainer'; 
+import SendIcon from '@mui/icons-material/Send';
+import PhaseMessage from './components/PhaseMessage/PhaseMessage'; 
+import InputContainer from './components/InputContainer/InputContainer';
 import './AgentInteractions.css';
 
 const AgentInteractions = ({ 
@@ -17,6 +19,7 @@ const AgentInteractions = ({
   onTriggerNextIteration,
 }) => {
   const [displayedMessageIndex, setDisplayedMessageIndex] = useState(messages.length - 1);
+  const [userMessage, setUserMessage] = useState('');
   const messagesEndRef = useRef(null);
 
   const filteredMessages = messages.filter(msg => 
@@ -31,6 +34,16 @@ const AgentInteractions = ({
     setDisplayedMessageIndex(filteredMessages.length - 1);
   }, [filteredMessages]);
 
+  const handleSendMessage = () => {
+    if (userMessage.trim()) {
+      onSendMessage({
+        type: 'user_message',
+        content: userMessage
+      });
+      setUserMessage('');
+    }
+  };
+
   if (!messages) {
     return (
       <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
@@ -41,7 +54,6 @@ const AgentInteractions = ({
 
   return (
     <Box className="interactions-container">
-
       <Box className="messages-container">
         {filteredMessages.length === 0 ? (
           <Typography variant="body2" color="text.secondary" align="center">
@@ -60,23 +72,41 @@ const AgentInteractions = ({
         <div ref={messagesEndRef} />
       </Box>
 
-      <Box className="input-container" display="flex" alignItems="center">
-        {interactiveMode && (
-          <InputContainer onSendMessage={onSendMessage} />
-        )}
-        {interactiveMode && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={onTriggerNextIteration}
-            startIcon={<ArrowForwardIcon />}
-            disabled={isNextDisabled}
-            size="small"
-            sx={{ ml: 2 }}
-          >
-            Next Iteration
-          </Button>
-        )}
+      <Box className="input-and-buttons-container" display="flex">
+        <Box className="input-wrapper" flexGrow={1} mr={2}>
+          <InputContainer 
+            onSendMessage={onSendMessage} 
+            setUserMessage={setUserMessage}
+            userMessage={userMessage}
+          />
+        </Box>
+        <Box className="buttons-wrapper" display="flex" flexDirection="column" justifyContent="flex-end">
+          {interactiveMode && (
+            <>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={onTriggerNextIteration}
+                startIcon={<ArrowForwardIcon />}
+                disabled={isNextDisabled}
+                size="small"
+                sx={{ mb: 1 }}
+              >
+                Next
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSendMessage}
+                startIcon={<SendIcon />}
+                disabled={!userMessage.trim()}
+                size="small"
+              >
+                Send
+              </Button>
+            </>
+          )}
+        </Box>
       </Box>
     </Box>
   );

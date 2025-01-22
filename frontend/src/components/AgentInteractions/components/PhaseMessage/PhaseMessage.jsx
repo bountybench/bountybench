@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import AgentMessage from './AgentMessage';
+import AgentMessage from '../AgentMessage';
+import './PhaseMessage.css'
 
 const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
@@ -10,27 +11,47 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
 
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
-
+  
+  const styles = {
+    messageContainer: {
+      backgroundColor: '#1e1e1e',
+      borderRadius: '4px',
+      padding: '12px',
+      marginBottom: '12px',
+    },
+    messageHeader: {
+      fontSize: '14px',
+      fontWeight: 'bold',
+      marginBottom: '8px',
+    },
+    messageContent: {
+      fontSize: '14px',
+    },
+  };
   return (
     <Box className="message-container phase">
       <Card className="message-bubble phase-bubble">
         <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="subtitle2" color="text.secondary">
+          <Box className="phase-header">
+            <Typography className="phase-title">
               Phase: {message.phase_name}
             </Typography>
-            <IconButton size="small" onClick={handleToggleContent}>
+            <IconButton 
+              size="small" 
+              onClick={handleToggleContent} 
+              className="phase-toggle-button"
+            >
               {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </IconButton>
           </Box>
           <Collapse in={contentExpanded}>
-            <Typography variant="body2" mt={1}>
+            <Typography className="phase-summary">
               Summary: {message.phase_summary || '(no summary)'}
             </Typography>
             
             {message.current_children && message.current_children.length > 0 && (
-              <Box mt={2}>
-                <Typography variant="subtitle2">Agent Messages:</Typography>
+              <Box className="agent-messages-container">
+                <Typography className="agent-messages-title">Agent Messages:</Typography>
                 {message.current_children.map((agentMessage, index) => (
                   <AgentMessage 
                     key={index} 
@@ -41,30 +62,14 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
                 ))}
               </Box>
             )}
-
+  
             {message.additional_metadata && (
-              <Box mt={2}>
+              <Box>
                 <Box 
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    py: 0.5,
-                    '&:hover': {
-                      bgcolor: 'rgba(0, 0, 0, 0.04)',
-                    },
-                  }}
+                  className="metadata-toggle"
                   onClick={handleToggleMetadata}
                 >
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary" 
-                    sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      fontWeight: 'medium'
-                    }}
-                  >
+                  <Typography className="metadata-label">
                     Metadata
                     <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
                       {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
@@ -73,22 +78,13 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
                 </Box>
                 
                 <Collapse in={metadataExpanded}>
-                  <Box mt={1}>
-                    <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                      <Typography
-                        variant="body2"
-                        component="pre"
-                        sx={{
-                          whiteSpace: 'pre-wrap',
-                          overflowX: 'auto',
-                          m: 0,
-                          fontFamily: 'monospace',
-                          fontSize: '0.85rem'
-                        }}
-                      >
-                        {JSON.stringify(message.additional_metadata, null, 2)}
-                      </Typography>
-                    </Card>
+                  <Box className="metadata-content">
+                    <Typography
+                      component="pre"
+                      className="metadata-text"
+                    >
+                      {JSON.stringify(message.additional_metadata, null, 2)}
+                    </Typography>
                   </Box>
                 </Collapse>
               </Box>

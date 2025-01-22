@@ -3,7 +3,7 @@
   flex-direction: column;
   height: 100%;
   min-height: 400px;
-  background-color: #f5f5f5;
+  background-color: #ffffff;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
 }
@@ -15,181 +15,38 @@
   z-index: 1;
 }
 
-.messages-container {
-  flex: 1;
+.input-and-buttons-container {
+  display: flex;
+  align-items: flex-start;
   padding: 16px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  background-color: #f5f5f5;
+  width: 100%;
 }
 
-.message-container {
-  display: flex;
-  margin-bottom: 8px;
-  max-width: 85%;
-  opacity: 1 !important;
-}
-
-.message-container.user {
-  margin-left: auto;
+.input-wrapper {
+  flex-grow: 1;
   margin-right: 16px;
 }
 
-.message-container.agent {
-  margin-right: auto;
-  margin-left: 16px;
+.next-button-wrapper {
+  flex-shrink: 0;
 }
 
-.message-bubble {
+/* Ensure the InputContainer takes up all available space */
+.input-wrapper > * {
   width: 100%;
-  background-color: #ffffff !important;
-  border-radius: 12px !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-  transition: all 0.2s ease;
-  opacity: 1 !important;
-  color: #000000 !important;
 }
 
-.message-bubble.user-bubble {
-  background-color: #e3f2fd !important;
-  border: 1px solid #bbdefb;
+/* Optional: Adjust button size */
+.next-button-wrapper button {
+  min-width: 80px; /* Adjust as needed */
+  padding: 6px 12px;
 }
 
-.message-bubble.agent-bubble {
-  background-color: #ffffff !important;
-  border: 1px solid #e0e0e0;
-}
-
-.message-bubble .MuiCardContent-root {
-  padding: 12px 16px !important;
-  color: #000000;
-}
-
-.action-card {
-  margin-top: 8px;
-  background-color: #ffffff !important;
-  border: 1px solid #e0e0e0 !important;
-  border-radius: 8px !important;
-  transition: box-shadow 0.2s;
-}
-
-.action-card:hover {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-}
-
-.action-card .MuiCardContent-root {
-  padding: 12px !important;
-}
-
-.action-card pre {
-  margin: 0;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.85rem;
-  line-height: 1.4;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-  padding: 8px;
-  max-height: 300px;
+.messages-container {
+  flex: 1;
+  padding: 7px;
   overflow-y: auto;
-}
-
-.action-card pre::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.action-card pre::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.action-card pre::-webkit-scrollbar-thumb {
-  background: #bdbdbd;
-  border-radius: 3px;
-}
-
-.action-card pre::-webkit-scrollbar-thumb:hover {
-  background: #9e9e9e;
-}
-
-.input-container {
-  padding: 16px;
-  background-color: #ffffff;
-  border-top: 1px solid #e0e0e0;
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  z-index: 1;
-}
-
-/* Typography */
-.message-bubble .MuiTypography-root {
-  color: #000000 !important;
-}
-
-.message-bubble .MuiTypography-body2 {
-  color: #666666 !important;
-}
-
-/* Scrollbar styling */
-.messages-container::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.messages-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.messages-container::-webkit-scrollbar-thumb {
-  background: #bdbdbd;
-  border-radius: 4px;
-}
-
-.messages-container::-webkit-scrollbar-thumb:hover {
-  background: #9e9e9e;
-}
-
-.message-container {
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.message-bubble.system {
-  background-color: #f5f5f5 !important;
-  border: 1px solid #e0e0e0;
-  text-align: center;
-}
-
-/* Markdown content styling */
-.message-bubble pre {
+  flex-direction: column;
   background-color: #f5f5f5;
-  padding: 8px;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 8px 0;
-  border: 1px solid #e0e0e0;
-}
-
-.message-bubble code {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.9em;
-  background-color: #f5f5f5;
-  padding: 2px 4px;
-  border-radius: 3px;
-  color: #000000;
-}
-
-/* Ensure content is visible */
-.MuiCollapse-root {
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-.MuiCollapse-wrapper {
-  visibility: visible !important;
-  opacity: 1 !important;
 }
