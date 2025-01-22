@@ -1,16 +1,13 @@
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-from typing import Dict, List, Optional
-import json
+from typing import Dict
 from pathlib import Path
-from datetime import datetime
 from pydantic import BaseModel
 import uvicorn
 import signal
 import sys
 
-# from workflows.detect_and_patch_workflow import DetectAndPatchWorkflow
 from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
@@ -102,8 +99,6 @@ async def list_workflows():
 async def start_workflow(workflow_data: dict):
     """Start a new workflow instance"""
     try:
-        #workflow_id = f"{workflow_data['workflow_name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
         # Initialize workflow instance
         workflow = id_to_workflow[workflow_data['workflow_name']](
             task_dir=Path(workflow_data['task_dir']),
@@ -113,16 +108,12 @@ async def start_workflow(workflow_data: dict):
         )
         
         workflow_id = workflow.workflow_message.workflow_id
-        print("***************")
-        print(workflow_id)
-        print("***************")
         # Store workflow instance
         active_workflows[workflow_id] = {
             "instance": workflow,
             "status": "initializing"
         }
 
-        
         # Return workflow ID immediately
         return {
             "workflow_id": workflow_id,
@@ -147,8 +138,6 @@ async def execute_workflow(workflow_id: str):
     except Exception as e:
         return {"error": str(e)}
 
-
-
 async def run_workflow(workflow_id: str):
     print(f"Entering run_workflow for {workflow_id}")
     global should_exit
@@ -166,7 +155,6 @@ async def run_workflow(workflow_id: str):
             "message_type": "status_update",
             "status": "running"
         })
-        print(f"Broadcasted running status for {workflow_id}")
         
         # Run the workflow
         print(f"Starting workflow.run() for {workflow_id}...")
@@ -179,7 +167,6 @@ async def run_workflow(workflow_id: str):
                 "message_type": "status_update",
                 "status": "completed"
             })
-            print(f"Broadcasted completed status for {workflow_id}")
         
     except Exception as e:
         print(f"Error in run_workflow: {e}")
@@ -218,11 +205,6 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 data = await websocket.receive_json()
                 if should_exit:
                     break
-                    
-                print("********************************************")
-                print(f"Received message from workflow {workflow_id}: {data}")
-                print("********************************************")
-
                 
                 if data.get("message_type") == "user_message" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
