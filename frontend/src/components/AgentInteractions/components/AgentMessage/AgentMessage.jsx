@@ -38,7 +38,11 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
         <CardContent>
           <Box className="agent-message-header">
             <Typography className="agent-name">Agent: {message.agent_id}</Typography>
-            <IconButton className="toggle-button" size="small" onClick={handleToggleAgentMessage}>
+            <IconButton 
+              size="small" 
+              onClick={handleToggleAgentMessage} 
+              className="agent-toggle-button"
+            >
               {agentMessageExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </IconButton>
           </Box>
@@ -95,7 +99,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
               </Box>
             ) : (
               <Box className="action-messages-container">
-                <Typography className="action-messages-title">Actions:</Typography>
+                {/* <Typography className="action-messages-title">Actions:</Typography> */}
                 {message.current_children.map((actionMessage, index) => (
                   <ActionMessage
                     key={index}

@@ -16,7 +16,7 @@
   }
 
   .phase-toggle-button {
-    color: black;
+    color: black !important;
     }
 
     .phase-toggle-button:hover {

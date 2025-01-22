@@ -1,0 +1,110 @@
+/* ActionMessage.css */
+
+.action-message {
+    /* margin-top: 16px; */
+    padding: 0px 20px;
+    background-color: #ffffff !important;
+    /* border: 1px solid #d0d5dd;
+    border-radius: 8px; */
+    overflow: hidden;
+  }
+  
+
+  .action-toggle-button {
+    color: black !important;
+    }
+
+    .action-toggle-button:hover {
+    color: #333;
+    }
+
+  .action-message .MuiCardContent-root {
+    padding: 16px;
+  }
+  
+  .action-message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  
+  .action-message-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #266798;
+  }
+  
+  .action-message-timestamp {
+    font-size: 0.7rem;
+    color: #6b7280;
+  }
+  
+  .action-message-content {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 12px;
+    margin-top: 8px;
+  }
+  
+  .action-message-text {
+    font-size: 0.75rem;
+    color: #1f1f1f;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  
+  .action-message-buttons {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+  
+  .action-message-buttons button {
+    margin-left: 8px;
+  }
+  
+  .edit-mode-container {
+    margin-top: 8px;
+  }
+  
+  .edit-textarea {
+    background-color: #ffffff;
+    border: 1px solid #d0d5dd;
+    border-radius: 4px;
+    font-size: 0.75rem;
+  }
+  
+  .metadata-toggle {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 4px 0;
+    margin-top: 12px;
+  }
+  
+  .metadata-toggle:hover {
+    background-color: rgba(246, 246, 246, 0.04);
+  }
+  
+  .metadata-label {
+    font-size: 0.8rem;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+  }
+  
+  .metadata-content {
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 12px;
+    margin-top: 8px;
+  }
+  
+  .metadata-text {
+    font-size: 0.65rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }

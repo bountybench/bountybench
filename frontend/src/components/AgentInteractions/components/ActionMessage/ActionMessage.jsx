@@ -6,6 +6,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { formatData } from '../../utils/messageFormatters';
+import './ActionMessage.css'
 
 const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
   const [expanded, setExpanded] = useState(true);
@@ -58,159 +59,109 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
   };
 
   return (
-    <Card className="action-message" variant="outlined" sx={{ mt: 2 }}>
-      <CardContent>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box>
-            <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold' }}>
-              {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
+    <Card className="action-message" variant="outlined">
+    <CardContent>
+      <Box className="action-message-header">
+        <Box>
+          <Typography className="action-message-title">
+            {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
+          </Typography>
+          {action.timestamp && (
+            <Typography className="action-message-timestamp">
+              {new Date(action.timestamp).toLocaleTimeString()}
             </Typography>
-            {action.timestamp && (
-              <Typography variant="caption" color="text.secondary">
-                {new Date(action.timestamp).toLocaleTimeString()}
-              </Typography>
-            )}
-          </Box>
-          <Box>
-            <IconButton
-              onClick={handleExpandClick}
-              aria-expanded={expanded}
-              aria-label="show more"
-              sx={{ color: 'black' }}
-            >
-              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
-          </Box>
+          )}
         </Box>
+        <IconButton
+          onClick={handleExpandClick}
+          aria-expanded={expanded}
+          aria-label="show more"
+          className="action-toggle-button"
+        >
+          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
+      </Box>
 
-        <Collapse in={expanded}>
-          {editing ? (
-            <Box mt={1}>
-              <Typography variant="caption" color="text.secondary">
-                Editing Message:
-              </Typography>
-              <TextField
-                multiline
-                minRows={3}
-                maxRows={10}
-                value={editedMessage}
-                onChange={(e) => setEditedMessage(e.target.value)}
-                sx={{
-                  '& .MuiInputBase-input': {
-                    color: 'black',
-                  },
-                }}
-                fullWidth
-              />
-              <Box mt={1} display="flex" justifyContent="flex-end">
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSaveClick}
-                  size="small"
-                >
-                  <SaveIcon/>
-                </Button>
-              </Box>
-            </Box>
-          ) : (
-            <>
-              <Box mt={1}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                  Message:
-                </Typography>
-                <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1, mt: 1 }}>
-                  <Typography
-                    variant="body2"
-                    component="pre"
-                    sx={{
-                      whiteSpace: 'pre-wrap',
-                      overflowX: 'auto',
-                      m: 0,
-                      fontFamily: 'monospace',
-                      fontSize: '0.85rem',
-                    }}
-                  >
-                    {originalMessageContent}
-                  </Typography>
-                </Card>
-              </Box>
-              <Box mt={1} display="flex" justifyContent="flex-end">
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  onClick={handleEditClick}
-                  size="small"
-                >
-                  <EditIcon />
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={handleRerunClick}
-                  size="small"
-                >
-                  <ReplayIcon />
-                </Button>
-              </Box>
-            </>
-          )}
-
-          {action.additional_metadata && (
-            <Box mt={2}>
-              <Box 
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                  py: 0.5,
-                  '&:hover': {
-                    bgcolor: 'rgba(0, 0, 0, 0.04)',
-                  },
-                }}
-                onClick={handleToggleMetadata}
+      <Collapse in={expanded}>
+        {editing ? (
+          <Box className="edit-mode-container">
+            <Typography variant="caption" color="text.secondary">
+              Editing Message:
+            </Typography>
+            <TextField
+              multiline
+              minRows={3}
+              maxRows={10}
+              value={editedMessage}
+              onChange={(e) => setEditedMessage(e.target.value)}
+              className="edit-textarea"
+              fullWidth
+            />
+            <Box className="action-message-buttons">
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSaveClick}
+                size="small"
               >
-                <Typography 
-                  variant="caption" 
-                  color="text.secondary" 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    fontWeight: 'medium'
-                  }}
-                >
-                  Metadata
-                  <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
-                    {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                  </IconButton>
+                <SaveIcon/>
+              </Button>
+            </Box>
+          </Box>
+        ) : (
+          <>
+            <Box className="action-message-content">
+              <Typography className="action-message-text">
+                {originalMessageContent}
+              </Typography>
+            </Box>
+            <Box className="action-message-buttons">
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={handleEditClick}
+                size="small"
+              >
+                <EditIcon />
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleRerunClick}
+                size="small"
+              >
+                <ReplayIcon />
+              </Button>
+            </Box>
+          </>
+        )}
+
+        {/* Metadata section */}
+        {action.additional_metadata && (
+          <Box>
+            <Box 
+              className="metadata-toggle"
+              onClick={handleToggleMetadata}
+            >
+              <Typography className="metadata-label">
+                Metadata
+                <IconButton size="small">
+                  {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                </IconButton>
+              </Typography>
+            </Box>
+            
+            <Collapse in={metadataExpanded}>
+              <Box className="metadata-content">
+                <Typography className="metadata-text">
+                  {JSON.stringify(action.additional_metadata, null, 2)}
                 </Typography>
               </Box>
-              
-              <Collapse in={metadataExpanded}>
-                <Box mt={1}>
-                  <Card 
-                    variant="outlined" 
-                    sx={{ bgcolor: '#f5f5f5', p: 1 }}
-                  >
-                    <Typography
-                      variant="body2"
-                      component="pre"
-                      sx={{
-                        whiteSpace: 'pre-wrap',
-                        overflowX: 'auto',
-                        m: 0,
-                        fontFamily: 'monospace',
-                        fontSize: '0.85rem'
-                      }}
-                    >
-                      {JSON.stringify(action.additional_metadata, null, 2)} </Typography>
-                  </Card>
-                </Box>
-              </Collapse>
-            </Box>
-          )}
-        </Collapse>
-      </CardContent>
+            </Collapse>
+          </Box>
+        )}
+      </Collapse>
+    </CardContent>
     </Card>
   );
 };

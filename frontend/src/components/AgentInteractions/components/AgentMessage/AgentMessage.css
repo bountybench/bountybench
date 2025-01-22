@@ -25,9 +25,16 @@
     padding: 0px 16px;
     background-color: #ffffff;
   }
-  
+
+  .agent-toggle-button {
+    color: black !important;
+    }
+
+    .agent-toggle-button:hover {
+    color: #333;
+    }
   .agent-message-text {
-    font-size: 0.8rem !important;
+    font-size: 0.75rem !important;
     color: black !important;
     padding: 8px;
     color: #1f1f1f;
@@ -47,7 +54,7 @@
   
   .edit-button,
   .action-button {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     margin-left: 8px;
   }
   
@@ -64,12 +71,12 @@
   }
 
   .edit-mode-container .MuiInputBase-root {
-    font-size: 0.8rem !important;
+    font-size: 0.75rem !important;
     color: black !important;
   }
   
   .edit-mode-container .MuiInputBase-input {
-    font-size: 0.8rem !important;
+    font-size: 0.75rem !important;
     color: black !important;
   }
   
@@ -81,7 +88,7 @@
     border: 1px solid #cccccc !important;
     border-radius: 4px;
     padding: 8px;
-    font-size: 0.8rem !important;
+    font-size: 0.75rem !important;
     resize: vertical;
   }
 
