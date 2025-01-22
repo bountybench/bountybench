@@ -7,17 +7,12 @@ import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher
 import { AppHeader } from './components/AppHeader/AppHeader'; 
 import { darkTheme } from './theme';
 import './App.css';
-import { useWorkflowWebSocket } from './hooks/useWorkflowWebSocket';
 
 function App() {  
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [interactiveMode, setInteractiveMode] = useState(true);
-
-  const {
-    currentPhase,
-    workflowStatus,
-  } = useWorkflowWebSocket(selectedWorkflow?.id);
-
+  const [workflowStatus, setWorkflowStatus] = useState(null);
+  const [currentPhase, setCurrentPhase] = useState(null);
   
   const handleWorkflowStart = (workflowId, isInteractive) => {
     setSelectedWorkflow({ id: workflowId });
@@ -29,6 +24,11 @@ function App() {
     if (selectedWorkflow) {
       console.log("Update backend with new interactive mode:", !interactiveMode);
     }
+  };
+
+  const handleWorkflowStateUpdate = (status, phase) => {
+    setWorkflowStatus(status);
+    setCurrentPhase(phase);
   };
 
   return (
@@ -47,6 +47,7 @@ function App() {
             <WorkflowDashboard 
               selectedWorkflow={selectedWorkflow}
               interactiveMode={interactiveMode}
+              onWorkflowStateUpdate={handleWorkflowStateUpdate}
             />
           ) : (
             <WorkflowLauncher 

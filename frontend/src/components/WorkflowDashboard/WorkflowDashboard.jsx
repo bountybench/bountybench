@@ -5,7 +5,7 @@ import AgentInteractions from '../AgentInteractions/AgentInteractions';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
-export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
+export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflowStateUpdate }) => {
   console.log('WorkflowDashboard props:', { selectedWorkflow, interactiveMode });
   
   const [isNextDisabled, setIsNextDisabled] = useState(false);
@@ -20,6 +20,11 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     error,
     sendMessage,
   } = useWorkflowWebSocket(selectedWorkflow?.id);
+
+  // Update parent component with workflow state
+  useEffect(() => {
+    onWorkflowStateUpdate(workflowStatus, currentPhase);
+  }, [workflowStatus, currentPhase, onWorkflowStateUpdate]);
 
   console.log('WebSocket state:', { 
     isConnected, 
