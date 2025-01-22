@@ -22,7 +22,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     task_dir: '',
     bounty_number: "0",
     interactive: true,
-    iterations: 10
+    iterations: 10,
+    model: 'openai/o3-mini-2024-12-17'
   });
 
   // Fetch available workflows
@@ -159,6 +160,17 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
           placeholder="e.g., 10"
+        />
+
+        <TextField
+          fullWidth
+          label="Model"
+          name="model"
+          value={formData.model}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          placeholder="e.g., helm"
         />
 
         <FormControlLabel

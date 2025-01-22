@@ -109,7 +109,8 @@ async def start_workflow(workflow_data: dict):
             task_dir=Path(workflow_data['task_dir']),
             bounty_number=workflow_data['bounty_number'],
             interactive=workflow_data.get('interactive', False),
-            phase_iterations=int(workflow_data['iterations'])
+            phase_iterations=int(workflow_data['iterations']),
+            model=workflow_data['model'],
         )
         
         workflow_id = workflow.workflow_message.workflow_id
