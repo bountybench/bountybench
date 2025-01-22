@@ -265,6 +265,7 @@ async def next_message(workflow_id: str):
 
 @app.post("/workflow/rerun-message/{workflow_id}")
 async def next_message(workflow_id: str, data: MessageData):
+    print(f"Rerunning message: {data.message_id}")
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
@@ -281,7 +282,7 @@ async def next_message(workflow_id: str, data: MessageData):
 
 @app.post("/workflow/edit-message/{workflow_id}")
 async def edit_action_input(workflow_id: str, data: MessageInputData):
-
+    print(f"Editing message: {data.message_id}")
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
