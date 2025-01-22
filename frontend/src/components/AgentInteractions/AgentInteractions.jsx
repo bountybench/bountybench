@@ -496,58 +496,70 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
       return renderActionMessage(message);
 
       case 'PhaseMessage':
-        return (
-          <Box className="message-container system">
-            <Card className="message-bubble system-bubble">
-              <CardContent
-                onClick={handleToggleContent}
-                style={{ cursor: 'pointer' }}
-              >
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Phase
-                  </Typography>
-                  <IconButton size="small">
-                    {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
-                </Box>
-  
-                {/* Expand/collapse for the phase details */}
-                <Collapse in={contentExpanded}>
-                  <Typography variant="body2" mt={1}>
-                    Summary: {message.phase_summary || '(no summary)'}
-                  </Typography>
-  
-                  {/* 
-                    The important part: render the canonical list of AgentMessages 
-                    from "message.current_children" (which is PhaseMessage.current_agent_list).
-                  */}
-                  {message.current_children && message.current_children.length > 0 && (
-                    <Box mt={2}>
-                      <Typography variant="subtitle2">Agent Messages:</Typography>
-                      {message.current_children.map((agentMsg, index) => (
-                        <MessageBubble
-                          key={agentMsg.id || index}
-                          message={agentMsg}
-                          onUpdateActionInput={onUpdateActionInput}
-                          onRerunAction={onRerunAction}
-                        />
-                      ))}
-                    </Box>
-                  )}
-  
-                  {/* If you also have any phase-level metadata you want to show: */}
-                  {message.additional_metadata && (
-                    <Box mt={1}>
-                      {/* ... code to display metadata ... */}
-                    </Box>
-                  )}
-                </Collapse>
-              </CardContent>
-            </Card>
-          </Box>
-        );
-  
+  return (
+    <Box
+      className="message-container system"
+      sx={{
+        mb: 2,
+        width: '100%', // Ensure full width of the parent container
+        maxWidth: '95%', // Make it nearly full-screen but leave slight margins
+        margin: '0 auto', // Center the content horizontally
+      }}
+    >
+      {/* Optionally show a minimal summary */}
+      {message.phase_summary && (
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+          Phase Summary: {message.phase_summary}
+        </Typography>
+      )}
+
+      {/* Render the canonical list of AgentMessages (PhaseMessage.current_agent_list) */}
+      {message.current_children && message.current_children.length > 0 && (
+        <Box
+          sx={{
+            width: '100%', // Ensure child content matches the parent width
+          }}
+        >
+          {message.current_children.map((agentMsg, index) => (
+            <MessageBubble
+              key={agentMsg.id || index}
+              message={agentMsg}
+              onUpdateActionInput={onUpdateActionInput}
+              onRerunAction={onRerunAction}
+            />
+          ))}
+        </Box>
+      )}
+
+      {/* If you have any phase-level metadata, display it without a collapse: */}
+      {message.additional_metadata && (
+        <Box
+          mt={1}
+          sx={{
+            bgcolor: '#f5f5f5',
+            p: 2,
+            width: '100%',
+            maxWidth: '95%', // Match the wider width
+            overflowX: 'auto',
+          }}
+        >
+          <Typography
+            variant="body2"
+            component="pre"
+            sx={{
+              whiteSpace: 'pre-wrap',
+              overflowX: 'auto',
+              m: 0,
+              fontFamily: 'monospace',
+              fontSize: '0.85rem',
+            }}
+          >
+            {JSON.stringify(message.additional_metadata, null, 2)}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
 
     case 'WorkflowMessage':
       return (
@@ -616,23 +628,17 @@ export const AgentInteractions = ({
 }) => {
   console.log('AgentInteractions render, messages:', messages);
 
-  const filteredMessages = messages.filter(msg => {
-    if (msg.message_type === 'AgentMessage' && msg.version_next) {
-      // This means msg has been superseded by a new version.
-      return false;
-    }
-    return true;
+  // ---- ONLY show PhaseMessage or WorkflowMessage at the top level ----
+  const filteredMessages = messages.filter((msg) => {
+    return msg.message_type === 'PhaseMessage' || msg.message_type === 'WorkflowMessage';
   });
 
-  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(messages.length - 1);
-  const messagesEndRef = useRef(null);  
-  
+  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(filteredMessages.length - 1);
+  const messagesEndRef = useRef(null);
+
   const [userMessage, setUserMessage] = useState('');
   const [textAreaHeight, setTextAreaHeight] = useState('auto');
   const textAreaRef = useRef(null);
-
-
-  
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -643,11 +649,11 @@ export const AgentInteractions = ({
   }, [displayedMessageIndex, filteredMessages]);
 
   useEffect(() => {
-    // When a new message is received, update the displayed message index
+    // Each time we get new filteredMessages, show the last one
     setDisplayedMessageIndex(filteredMessages.length - 1);
   }, [filteredMessages]);
 
-  
+  // Example: if you want to prefill your userMessage from the last backend message
   useEffect(() => {
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
@@ -658,7 +664,6 @@ export const AgentInteractions = ({
     }
   }, [messages]);
 
-
   if (!messages) {
     return (
       <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
@@ -666,19 +671,16 @@ export const AgentInteractions = ({
       </Box>
     );
   }
+
   const handleSendMessage = () => {
     if (userMessage.trim()) {
-      onSendMessage({
-        type: 'user_message',
-        content: userMessage
-      });
+      onSendMessage({ type: 'user_message', content: userMessage });
       setUserMessage('');
     }
   };
 
   const adjustTextAreaHeight = () => {
     if (textAreaRef.current) {
-      console.log("Trying to adjust height")
       textAreaRef.current.style.height = 'auto';
       const newHeight = Math.min(textAreaRef.current.scrollHeight, window.innerHeight * 0.4);
       textAreaRef.current.style.height = `${newHeight}px`;
@@ -702,10 +704,11 @@ export const AgentInteractions = ({
         )}
       </Box>
 
+      {/* Render only PhaseMessage/WorkflowMessage */}
       <Box className="messages-container">
         {filteredMessages.length === 0 ? (
           <Typography variant="body2" color="text.secondary" align="center">
-            No messages yet
+            No Phase or Workflow messages yet
           </Typography>
         ) : (
           filteredMessages.slice(0, displayedMessageIndex + 1).map((message, index) => (
@@ -720,7 +723,7 @@ export const AgentInteractions = ({
         <div ref={messagesEndRef} />
       </Box>
 
-
+      {/* Text input area, if interactive */}
       {interactiveMode && (
         <Box className="input-container">
           <TextField
