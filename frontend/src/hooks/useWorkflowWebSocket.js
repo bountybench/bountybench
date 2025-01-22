@@ -4,19 +4,94 @@ export const useWorkflowWebSocket = (workflowId) => {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState(null);
-
-  // If you still want to track these separately:
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
 
   const ws = useRef(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
-  const messageIdCounter = useRef(0);
 
-  // ----------------------------------
-  // 1) Connect / Reconnect logic
-  // ----------------------------------
+  const handleUpdatedAgentMessage = useCallback((updatedAgentMessage) => {
+    setMessages((prevMessages) => {
+      const index = prevMessages.findIndex(
+        (msg) => msg.current_id === updatedAgentMessage.current_id
+      );
+      console.log('Updated message:', updatedAgentMessage);
+
+      if (index !== -1) {
+        const newMessages = [...prevMessages];
+        newMessages[index] = updatedAgentMessage;
+        return newMessages;
+      } else {
+        console.log('Adding as new message');
+        return [...prevMessages, updatedAgentMessage];
+      }
+    });
+  }, []);
+
+  const handleWebSocketMessage = useCallback((event) => {
+    try {
+      const data = JSON.parse(event.data);
+      console.log('Raw WebSocket message:', event.data);
+      console.log('Parsed WebSocket "message_type":', data.message_type);
+      console.log('Full message data:', data);
+
+      switch (data.message_type) {
+        case 'status_update':
+        case 'initial_state':
+          console.log('Handling status update:', data.status);
+          setWorkflowStatus(data.status);
+          break;
+
+        case 'WorkflowMessage':
+          setMessages((prev) => [...prev, data]);
+          setWorkflowStatus(data.workflow_metadata?.workflow_summary || 'Unknown');
+          break;
+
+        case 'PhaseMessage':
+          setCurrentPhase(data);
+          setMessages((prev) => {
+            const idx = prev.findIndex((msg) => msg.current_id === data.current_id);
+            if (idx > -1) {
+              const newArr = [...prev];
+              newArr[idx] = data;
+              return newArr;
+            } else {
+              return [...prev, data];
+            }
+          });
+          break;
+
+        case 'AgentMessage':
+          handleUpdatedAgentMessage(data);
+          break;
+
+        case 'ActionMessage':
+          setMessages((prev) => [...prev, data]);
+          break;
+
+        case 'user_message_response':
+        case 'first_message':
+          console.log(`Received ${data.message_type}:`, data.content);
+          setMessages((prev) => [...prev, data]);
+          break;
+
+        case 'workflow_completed':
+          console.log('Workflow completed:', data);
+          setWorkflowStatus('completed');
+          setMessages(prev => [...prev, data]);
+          break;
+
+        default:
+          console.warn('Unknown message_type:', data.message_type);
+          setMessages((prev) => [...prev, data]);
+      }
+    } catch (err) {
+      console.error('Error processing WebSocket message:', err);
+      setError('Failed to process workflow update: ' + err.message);
+    }
+  }, [handleUpdatedAgentMessage]);
+
   const connect = useCallback(() => {
     if (!workflowId) {
       console.warn('No workflow ID provided, skipping connection');
@@ -39,7 +114,6 @@ export const useWorkflowWebSocket = (workflowId) => {
 
     ws.current = new WebSocket(wsUrl);
 
-    // WebSocket open handler
     ws.current.onopen = async () => {
       console.log('WebSocket connected for workflow:', workflowId);
       setIsConnected(true);
@@ -51,17 +125,16 @@ export const useWorkflowWebSocket = (workflowId) => {
           method: 'POST'
         });
         if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to start workflow execution');
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        console.log('Workflow execution started successfully');
+        const data = await response.json();
+        console.log('Workflow execution started successfully:', data);
       } catch (err) {
         console.error('Failed to start workflow:', err);
         setError('Failed to start workflow execution: ' + err.message);
       }
     };
 
-    // WebSocket close handler
     ws.current.onclose = (event) => {
       console.log('WebSocket disconnected for workflow:', workflowId, 'Event:', event);
       setIsConnected(false);
@@ -73,109 +146,14 @@ export const useWorkflowWebSocket = (workflowId) => {
       }
     };
 
-    // WebSocket error handler
     ws.current.onerror = (event) => {
       console.error('WebSocket error for workflow:', workflowId, 'Event:', event);
-      setError('Failed to connect to workflow');
+      setError('WebSocket error: ' + (event.message || 'Unknown error'));
     };
 
-    // Helper: handle updated agent message
-    const handleUpdatedAgentMessage = (updatedAgentMessage) => {
-      setMessages((prevMessages) => {
-        const index = prevMessages.findIndex(
-          (msg) => msg.current_id === updatedAgentMessage.current_id
-        );
-        console.log('Updated message:', updatedAgentMessage);
+    ws.current.onmessage = handleWebSocketMessage;
+  }, [workflowId, handleWebSocketMessage]);
 
-        if (index !== -1) {
-          // Replace the existing message in-place
-          const newMessages = [...prevMessages];
-          newMessages[index] = updatedAgentMessage;
-          return newMessages;
-        } else {
-          console.log('Adding as new message');
-          return [...prevMessages, updatedAgentMessage];
-        }
-      });
-    };
-
-    // ----------------------------------
-    // 2) onmessage: handle real-time updates
-    // ----------------------------------
-    ws.current.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('Raw WebSocket message:', event.data);
-        console.log('Parsed WebSocket "message_type":', data.message_type);
-        console.log('Full message data:', data);
-
-        switch (data.message_type) {
-          case 'status_update':
-          case 'initial_state':
-            console.log('Handling status update:', data.status);
-            setWorkflowStatus(data.status);
-            break;
-
-          case 'WorkflowMessage':
-            // If you want to store the entire WorkflowMessage as well
-            setMessages((prev) => [...prev, data]);
-            // Or store partial info in workflowStatus
-            setWorkflowStatus(data.workflow_metadata?.workflow_summary || 'Unknown');
-            break;
-
-          case 'PhaseMessage':
-            // Keep the "currentPhase" if you want:
-            setCurrentPhase(data);
-
-            // **Also** push it into "messages" so the UI can display it.
-            setMessages((prev) => {
-              const idx = prev.findIndex((msg) => msg.current_id === data.current_id);
-              if (idx > -1) {
-                const newArr = [...prev];
-                newArr[idx] = data;
-                return newArr;
-              } else {
-                return [...prev, data];
-              }
-            });
-            break;
-
-          case 'AgentMessage':
-            // Let your helper handle agent messages
-            handleUpdatedAgentMessage(data);
-            break;
-
-          case 'ActionMessage':
-            // Possibly store action messages directly too
-            setMessages((prev) => [...prev, data]);
-            break;
-
-          case 'user_message_response':
-            console.log(`Received ${data.message_type}:`, data.content);
-            // If you want to store user messages:
-            setMessages((prev) => [...prev, data]);
-            break;
-
-          case 'first_message':
-            console.log(`Received ${data.message_type}:`, data.content);
-            // If you want, store it
-            setMessages((prev) => [...prev, data]);
-            break;
-
-          default:
-            console.warn('Unknown message_type:', data.message_type);
-            setMessages((prev) => [...prev, data]);
-        }
-      } catch (err) {
-        console.error('Error processing WebSocket message:', err);
-        setError('Failed to process workflow update: ' + err.message);
-      }
-    };
-  }, [workflowId]);
-
-  // ----------------------------------
-  // 3) useEffect to initiate connection
-  // ----------------------------------
   useEffect(() => {
     if (workflowId) {
       connect();
@@ -183,14 +161,12 @@ export const useWorkflowWebSocket = (workflowId) => {
         if (ws.current) {
           console.log('Closing WebSocket connection');
           ws.current.close();
+          ws.current = null;
         }
       };
     }
   }, [connect, workflowId]);
 
-  // ----------------------------------
-  // 4) sendMessage: for user messages (optional)
-  // ----------------------------------
   const sendMessage = useCallback((message) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       console.log('Sending user message:', message);
@@ -206,9 +182,20 @@ export const useWorkflowWebSocket = (workflowId) => {
     }
   }, []);
 
-  // ----------------------------------
-  // 5) Return relevant state/hooks
-  // ----------------------------------
+  useEffect(() => {
+    console.log('Connection status:', isConnected);
+  }, [isConnected]);
+
+  useEffect(() => {
+    console.log('Workflow status changed:', workflowStatus);
+  }, [workflowStatus]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      console.log('Last message:', messages[messages.length - 1]);
+    }
+  }, [messages]);
+
   return {
     isConnected,
     messages,
