@@ -68,7 +68,6 @@
   
   .edit-mode-container {
     margin-top: 8px;
-    max-height: 400px; /* Set a maximum height for edit mode */
     overflow-y: auto; /* Enable vertical scrolling for edit mode */
   }
   

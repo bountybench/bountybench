@@ -56,7 +56,6 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
                       multiline
                       fullWidth
                       minRows={3}
-                      maxRows={10}
                       value={editedMessage}
                       onChange={(e) => setEditedMessage(e.target.value)}
                       className="edit-textarea"
@@ -74,7 +73,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
                     </Box>
                   </Box>
                 ) : (
-                  <>
+                  <Box className="display-mode-container">
                     <Card className="agent-message-text-card">
                       <Typography
                         component="pre"
@@ -94,12 +93,11 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
                         <EditIcon />
                       </Button>
                     </Box>
-                  </>
+                  </Box>
                 )}
               </Box>
             ) : (
               <Box className="action-messages-container">
-                {/* <Typography className="action-messages-title">Actions:</Typography> */}
                 {message.current_children.map((actionMessage, index) => (
                   <ActionMessage
                     key={index}
