@@ -1,8 +1,9 @@
+// InputContainer.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, TextField, Button } from '@mui/material';
+import { Box, TextField } from '@mui/material';
+import './InputContainer.css';
 
-const InputContainer = ({ onSendMessage }) => {
-  const [userMessage, setUserMessage] = useState('');
+const InputContainer = ({ onSendMessage, setUserMessage, userMessage }) => {
   const [textAreaHeight, setTextAreaHeight] = useState('auto');
   const textAreaRef = useRef(null);
 
@@ -16,16 +17,6 @@ const InputContainer = ({ onSendMessage }) => {
       const newHeight = Math.min(textAreaRef.current.scrollHeight, window.innerHeight * 0.4);
       textAreaRef.current.style.height = `${newHeight}px`;
       setTextAreaHeight(`${newHeight}px`);
-    }
-  };
-
-  const handleSendMessage = () => {
-    if (userMessage.trim()) {
-      onSendMessage({
-        type: 'user_message',
-        content: userMessage
-      });
-      setUserMessage('');
     }
   };
 
@@ -53,18 +44,13 @@ const InputContainer = ({ onSendMessage }) => {
         onKeyPress={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSendMessage();
+            onSendMessage({
+              type: 'user_message',
+              content: userMessage
+            });
           }
         }}
       />
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleSendMessage}
-        disabled={!userMessage.trim()}
-      >
-        Send
-      </Button>
     </Box>
   );
 };

@@ -79,3 +79,23 @@
     font-size: 0.85rem;
     color: #1f1f1f;
   }
+
+  .phase-title {
+    font-size: 0.9rem; 
+  }
+  
+  .phase-summary {
+    font-size: 0.8rem;
+  }
+  
+  .agent-messages-title {
+    font-size: 0.85rem;
+  }
+  
+  .metadata-label {
+    font-size: 0.75rem; 
+  }
+  
+  .metadata-text {
+    font-size: 0.75rem;
+  }
