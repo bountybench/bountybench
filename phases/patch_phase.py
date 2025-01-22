@@ -2,7 +2,7 @@ from agents.base_agent import AgentConfig, BaseAgent
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
-from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
+from agents.executor_agent.executor_agent import ExecutorAgent
 
 from agents.executor_agent.executor_agent import ExecutorAgent
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
@@ -43,7 +43,7 @@ class PatchPhase(BasePhase):
    
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         # assume we get model through some kwargs situation with the Message
-        executor_config = ExecutorAgentConfig(initial_prompt=self._initial_prompt)
+        executor_config = AgentConfig()
 
         patch_config = PatchAgentConfig(
             bounty_dir=self.bounty_dir,
@@ -77,7 +77,7 @@ class PatchPhase(BasePhase):
         resource_configs = {
             "model": (
                 ModelResource,
-                ModelResourceConfig.create(model=self.model, initial_prompt=self._initial_prompt)
+                ModelResourceConfig.create(model=self.model)
             ),
             "init_files": (
                 InitFilesResource,

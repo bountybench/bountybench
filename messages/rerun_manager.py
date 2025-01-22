@@ -1,5 +1,7 @@
 import inspect
+from typing import Optional
 from agents.agent_manager import AgentManager
+from messages.message_utils import broadcast_update
 from messages.phase_messages.phase_message import PhaseMessage
 from resources.resource_manager import ResourceManager
 
@@ -27,7 +29,10 @@ class RerunManager:
         
     async def rerun(self, message: Message) -> Message:
         if isinstance(message, ActionMessage):
-            message = await self._rerun_action_message(message, message.prev)
+            if message.prev:
+                message = await self._rerun_action_message(message, message.prev)
+            else:
+                message = await self._rerun_action_message(message, message.parent)
             return message
         elif isinstance(message, AgentMessage):
             message = await self._rerun_agent_message(message, message.prev)
@@ -43,13 +48,15 @@ class RerunManager:
 
     async def _rerun_agent_message(self, old_message: Message, input_message: Message) -> Message:
         agent = self.agent_manager.get_agent(old_message.agent_id)
-        new_message = await agent.run(input_message)
+        new_message = await agent.run([input_message])
         self.update_version_links(old_message, new_message)
         return new_message
     
     async def edit_message(self, old_message: Message, edit: str) -> Message:
         while old_message.version_next:
             old_message = old_message.version_next
+
+        print(f"Latest version before edit: {old_message.id}")
 
         dic = old_message.__dict__
         cls = type(old_message)
@@ -64,9 +71,37 @@ class RerunManager:
         params['message'] = edit
         new_message = cls(**params)
 
+        new_message.set_prev(old_message.prev)
         self.update_version_links(old_message, new_message)
 
+
+        print(f"New message created: {new_message.id}")
+        print(f"Old message parent: {old_message.parent.id if old_message.parent else 'None'}")
+        print(f"New message parent: {new_message.parent.id if new_message.parent else 'None'}")
+
+
         return new_message
+
+    '''
+    def update_version_links(self, old_message: Message, new_message: Message) -> Message:
+        new_message.set_version_prev(old_message)
+        new_message.set_next(old_message.next)
+        parent_message = old_message.parent
+        if parent_message:
+            print(f"Parent message type: {type(parent_message)}")
+            if isinstance(parent_message, AgentMessage):
+                print("Updating action message in AgentMessage")
+                parent_message.update_action_message(old_message, new_message)
+                #parent_message.add_action_message(new_message)
+            elif isinstance(parent_message, PhaseMessage):
+                print("Updating agent message in PhaseMessage")
+                parent_message.update_agent_message(old_message, new_message)
+                #parent_message.add_agent_message(new_message)
+        
+        broadcast_update(old_message.to_dict())  # show the old now has version_next
+        broadcast_update(new_message.to_dict())  # the new message has version_prev
+    '''
+
 
     def update_version_links(self, old_message: Message, new_message: Message) -> Message:
         new_message.set_version_prev(old_message)
@@ -75,6 +110,26 @@ class RerunManager:
         if parent_message:
             if isinstance(parent_message, AgentMessage):
                 parent_message.add_action_message(new_message)
+                # 1) find the top-level Phase
+                phase = self.find_phase_parent(parent_message)
+                # 2) broadcast from the Phase
+                if phase:
+                    phase_dict = phase.to_dict()
+                    phase_dict["current_children"] = [
+                        msg.to_dict() for msg in phase.current_agent_list
+                    ]
+                    from messages.message_utils import broadcast_update
+                    broadcast_update(phase_dict)
+
             if isinstance(parent_message, PhaseMessage):
                 parent_message.add_agent_message(new_message)
                 
+    def find_phase_parent(self, message: Message) -> Optional[PhaseMessage]:
+        current = message
+        while current.parent:
+            if isinstance(current.parent, PhaseMessage):
+                return current.parent
+            current = current.parent
+        return None
+
+        

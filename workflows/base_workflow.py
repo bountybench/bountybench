@@ -5,6 +5,7 @@ from typing import Any, Dict, Type
 from enum import Enum
 from messages.message import Message
 from messages.message_utils import message_dict
+from messages.action_messages.action_message import ActionMessage
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.rerun_manager import RerunManager
 from messages.workflow_message import WorkflowMessage
@@ -176,8 +177,8 @@ class BaseWorkflow(ABC):
 
         return phase_message
 
-    async def set_message_input(self, user_input: str) -> str:
-        result = await self._current_phase.set_message_input(user_input)
+    async def add_user_message(self, user_input: str) -> str:
+        result = await self._current_phase.add_user_message(user_input)
         
         # Trigger the next iteration
         self.next_iteration_event.set()
@@ -224,7 +225,14 @@ class BaseWorkflow(ABC):
 
     async def rerun_message(self, message_id: str):
         message = message_dict[message_id]
-        message = await self.rerun_manager.rerun(message)
+        message = await self.rerun_manager.rerun(message)        
+        if message.next:
+            message = await self.rerun_manager.run_edited(message)
+            message = message.next
+        if isinstance(message, ActionMessage):
+            while message.next:
+                message = await self.rerun_manager.run_edited(message)
+                message = message.next
         return message
     
     async def run_next_message(self):
@@ -237,6 +245,13 @@ class BaseWorkflow(ABC):
     
     async def edit_message(self, message: Message, new_message_data: str) -> Message:
         message = await self.rerun_manager.edit_message(message, new_message_data)
+        if message.next:
+            message = await self.rerun_manager.run_edited(message)
+            message = message.next
+        if isinstance(message, ActionMessage):
+            while message.next:
+                message = await self.rerun_manager.run_edited(message)
+                message = message.next
         return message
     
     async def edit_one_message(self, message_id: str, new_message_data: str) -> Message:

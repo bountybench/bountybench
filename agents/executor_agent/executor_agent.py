@@ -21,10 +21,6 @@ logger = get_main_logger(__name__)
 MAX_RETRIES = 3
 RETRY_DELAY = 30
 
-@dataclass
-class ExecutorAgentConfig(AgentConfig):
-    initial_prompt: Optional[str] = field(default=None)
-
 
 class ExecutorAgent(BaseAgent):
 
@@ -40,23 +36,8 @@ class ExecutorAgent(BaseAgent):
        (InitFilesResource, "init_files"),
         (SetupResource, "repo_resource"),
         (SetupResource, "bounty_resource"),
-        (ModelResource, "model")]    
+        (ModelResource, "model")]     
     
-
-    def __init__(self, agent_id, agent_config: ExecutorAgentConfig):#, resource_manager: ResourceManager):
-        """
-        Args:
-            agent_config: ExecutorAgentConfig containing model, initial prompt, and target host.
-            resource_manager: ResourceManager instance responsible for managing resources.
-        """
-        # Pass the agent_config and resource_manager to BaseAgent
-        super().__init__(agent_id, agent_config)
-
-        # Initialize specific attributes
-        if hasattr(agent_config, "initial_prompt"):
-            self.initial_prompt = agent_config.initial_prompt
-        self.prompt = self.initial_prompt
-
 
     async def run(self, messages: List[Message]) -> Message:
         if len(messages) > 1:
@@ -65,13 +46,19 @@ class ExecutorAgent(BaseAgent):
             prev_agent_message = None
         else:
             prev_agent_message = messages[0]
-            self.prompt = prev_agent_message.message
+            while prev_agent_message.version_next:
+                prev_agent_message = prev_agent_message.version_next
 
 
-        agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message, input_str=self.prompt)
+
+        agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
         
-        executor_message = self.execute(agent_message, prev_agent_message)
-        self.model.update_memory(executor_message)
+        #print("************IN EXECUTOR AGENT RUN*****************************")
+        #print("AGENT MESSAGE", agent_message.to_dict())
+        #print("PREVIOUS AGENT MESSAGE", prev_agent_message.to_dict())
+        #print("***************************************************************")
+        self.execute(agent_message, prev_agent_message)
+        #self.model.update_memory(executor_message)
 
         return agent_message
 

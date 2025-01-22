@@ -34,6 +34,11 @@ class Message(ABC):
     def version_next(self) -> str:
         return self._version_next
     
+    def get_latest_version(self, message):
+        while message.version_next:
+            message = message.version_next
+        return message
+    
     @property
     def id(self) -> str:
         return self._id
@@ -45,6 +50,9 @@ class Message(ABC):
     def set_parent(self, parent: 'Message') -> None:
         self._parent = parent
     
+    def set_prev(self, prev: 'Message') -> None:
+        self._prev = prev
+
     def set_next(self, next: 'Message') -> None:
         self._next = next
     

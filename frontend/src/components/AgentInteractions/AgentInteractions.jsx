@@ -121,8 +121,9 @@ const ActionCard = ({ action, onUpdateActionInput, onRerunAction }) => {
     setEditedMessage(originalMessageContent); // Populate with original message
   };
 
-  const handleSaveClick = async () => {  
-    if (!action.current_id) {
+
+  const handleSaveClick = async () => {
+    if (!action.current_id) { // Changed from message to action
       console.error('Action id is undefined');
       return;
     }
@@ -286,7 +287,11 @@ export default ActionCard;
 
 const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
-  const [agentMessageExpanded, setAgentMessageExpanded] = useState(false); // New state for agent message
+  const [agentMessageExpanded, setAgentMessageExpanded] = useState(
+    message.agent_id === 'system' || message.agent_id === 'human'
+  );  const [editing, setEditing] = useState(false); // Added missing state
+  const [editedMessage, setEditedMessage] = useState(''); // Added missing state
+
 
 
   if (!message) return null;
@@ -299,6 +304,24 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
   const handleToggleAgentMessage = (event) => {
     event.stopPropagation();
     setAgentMessageExpanded(!agentMessageExpanded);
+  };
+
+  const handleEditClick = () => {
+    setEditing(true);
+    setEditedMessage(message.message || '');
+  };
+
+  const handleSaveClick = async () => {
+    if (!message.current_id) {
+      console.error('Message id is undefined');
+      return;
+    }
+    try {
+      await onUpdateActionInput(message.current_id, editedMessage);
+      setEditing(false);
+    } catch (error) {
+      console.error('Error updating message:', error);
+    }
   };
 
 
@@ -314,54 +337,42 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
   switch (message.message_type) {
     case 'AgentMessage':
     return (
-      <Box className={`message-container ${message.agent_id}`}>
+      <Box
+        className={`message-container ${message.agent_id}`}
+        sx={{
+          width: '100%', // Ensure it takes the full width of the container
+          maxWidth: '800px', // Set a reasonable maximum width
+          margin: '0 auto', // Center the component horizontally
+        }}
+      >
         <Card 
           className="message-bubble agent-bubble"
           sx={{
             backgroundColor: '#f0f4f8 !important',
             '& .MuiCardContent-root': {
-              backgroundColor: '#f0f4f8 !important'
+              backgroundColor: '#f0f4f8 !important',
             },
             '& .action-bubble': {
               boxShadow: 1,
             },
-            p: 2
+            p: 2,
+            width: '100%', // Ensure the card spans the full container width
           }}
         >
           <CardContent>
-            {/* Agent header */}
-            <Typography variant="subtitle1" sx={{ mb: 2 }}>Agent: {message.agent_id}</Typography>
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>
+              Agent: {message.agent_id}
+            </Typography>
 
-             {/* Display input_str if available */}
-             {message.input && (
-              <Box mt={1} mb={2}>
-                <Typography variant="caption" color="text.secondary">Input:</Typography>
-                <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                  <Typography
-                    variant="body2"
-                    component="pre"
-                    sx={{
-                      whiteSpace: 'pre-wrap',
-                      overflowX: 'auto',
-                      m: 0,
-                      fontFamily: 'monospace',
-                      fontSize: '0.85rem'
-                    }}
-                  >
-                    {message.input}
-                  </Typography>
-                </Card>
-              </Box>
-            )}
-
-            {/* Action messages nested inside */}
             {message.current_children && message.current_children.length > 0 && (
-              <Box sx={{ 
-                mt: 2,
-                '& .message-container.action': {
-                  px: 0
-                }
-              }}>
+              <Box
+                sx={{
+                  mt: 2,
+                  '& .message-container.action': {
+                    px: 0,
+                  },
+                }}
+              >
                 {message.current_children.map((actionMessage, index) => (
                   <Box key={index}>
                     {renderActionMessage(actionMessage)}
@@ -370,10 +381,8 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
               </Box>
             )}
 
-            
-            {/* Show Output section */}
             <Box mt={1}>
-              <Box 
+              <Box
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
@@ -385,48 +394,96 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
                 }}
                 onClick={handleToggleAgentMessage}
               >
-                <Typography 
-                  variant="caption" 
-                  color="text.secondary" 
-                  sx={{ 
-                    display: 'flex', 
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    display: 'flex',
                     alignItems: 'center',
-                    fontWeight: 'medium'
+                    fontWeight: 'medium',
                   }}
                 >
-                  Click here to show  {message.agent_id} output:
+                  Click here to show {message.agent_id} output:
                   <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
-                    {agentMessageExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                    {agentMessageExpanded ? (
+                      <ExpandLessIcon fontSize="small" />
+                    ) : (
+                      <ExpandMoreIcon fontSize="small" />
+                    )}
                   </IconButton>
                 </Typography>
               </Box>
-              
+
               <Collapse in={agentMessageExpanded}>
                 <Box mt={1}>
-                  <Card 
-                    variant="outlined" 
-                    sx={{ 
-                      bgcolor: '#e5e9f0 !important',
-                      '& .MuiCardContent-root': {
-                        backgroundColor: '#e5e9f0 !important'
-                      },
-                      p: 1 
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      component="pre"
-                      sx={{
-                        whiteSpace: 'pre-wrap',
-                        overflowX: 'auto',
-                        m: 0,
-                        fontFamily: 'monospace',
-                        fontSize: '0.85rem'
-                      }}
-                    >
-                      {message.message || ''}
-                    </Typography>
-                  </Card>
+                  {editing ? (
+                    <Box>
+                      <TextField
+                        multiline
+                        fullWidth
+                        minRows={3}
+                        maxRows={10}
+                        value={editedMessage}
+                        onChange={(e) => setEditedMessage(e.target.value)}
+                        sx={{
+                          '& .MuiInputBase-input': {
+                            color: 'black',
+                            minHeight: '75px', // Minimum height for text box
+                            maxHeight: '400px', // Limit maximum height
+                            overflow: 'auto',
+                          },
+                        }}
+                      />
+                      <Box mt={1} display="flex" justifyContent="flex-end">
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={handleSaveClick}
+                          size="small"
+                        >
+                          <SaveIcon />
+                        </Button>
+                      </Box>
+                    </Box>
+                  ) : (
+                    <>
+                      <Card
+                        variant="outlined"
+                        sx={{
+                          bgcolor: '#e5e9f0 !important',
+                          '& .MuiCardContent-root': {
+                            backgroundColor: '#e5e9f0 !important',
+                          },
+                          p: 1,
+                          width: '100%', // Ensure the card takes full width
+                        }}
+                      >
+                        <Typography
+                          variant="body2"
+                          component="pre"
+                          sx={{
+                            whiteSpace: 'pre-wrap',
+                            overflowX: 'auto',
+                            m: 0,
+                            fontFamily: 'monospace',
+                            fontSize: '0.85rem',
+                          }}
+                        >
+                          {message.message || ''}
+                        </Typography>
+                      </Card>
+                      <Box mt={1} display="flex" justifyContent="flex-end">
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          onClick={handleEditClick}
+                          size="small"
+                        >
+                          <EditIcon />
+                        </Button>
+                      </Box>
+                    </>
+                  )}
                 </Box>
               </Collapse>
             </Box>
@@ -434,54 +491,75 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
         </Card>
       </Box>
     );
-      
+    
     case 'ActionMessage':
       return renderActionMessage(message);
 
-    case 'PhaseMessage':
-      return (
-        <Box className={`message-container system`}>
-          <Card className="message-bubble system-bubble">
-            <CardContent onClick={handleToggleContent} style={{ cursor: 'pointer' }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="subtitle2" color="text.secondary">
-                  Phase
-                </Typography>
-                <IconButton size="small">
-                  {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </IconButton>
-              </Box>
-              <Collapse in={contentExpanded}>
-                <Typography variant="body2" mt={1}>
-                  Summary: {message.phase_summary || '(no summary)'}
-                </Typography>
-                {message.additional_metadata && (
-                  <Box mt={1}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    Click here to show metadata:
-                    </Typography>
-                    <Card variant="outlined" sx={{ bgcolor: '#f5f5f5', p: 1 }}>
-                      <Typography
-                        variant="body2"
-                        component="pre"
-                        sx={{
-                          whiteSpace: 'pre-wrap',
-                          overflowX: 'auto',
-                          m: 0,
-                          fontFamily: 'monospace',
-                          fontSize: '0.85rem'
-                        }}
-                      >
-                        {JSON.stringify(message.additional_metadata, null, 2)}
-                      </Typography>
-                    </Card>
-                  </Box>
-                )}
-              </Collapse>
-            </CardContent>
-          </Card>
+      case 'PhaseMessage':
+  return (
+    <Box
+      className="message-container system"
+      sx={{
+        mb: 2,
+        width: '100%', // Ensure full width of the parent container
+        maxWidth: '95%', // Make it nearly full-screen but leave slight margins
+        margin: '0 auto', // Center the content horizontally
+      }}
+    >
+      {/* Optionally show a minimal summary */}
+      {message.phase_summary && (
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+          Phase Summary: {message.phase_summary}
+        </Typography>
+      )}
+
+      {/* Render the canonical list of AgentMessages (PhaseMessage.current_agent_list) */}
+      {message.current_children && message.current_children.length > 0 && (
+        <Box
+          sx={{
+            width: '100%', // Ensure child content matches the parent width
+          }}
+        >
+          {message.current_children.map((agentMsg, index) => (
+            <MessageBubble
+              key={agentMsg.id || index}
+              message={agentMsg}
+              onUpdateActionInput={onUpdateActionInput}
+              onRerunAction={onRerunAction}
+            />
+          ))}
         </Box>
-      );
+      )}
+
+      {/* If you have any phase-level metadata, display it without a collapse: */}
+      {message.additional_metadata && (
+        <Box
+          mt={1}
+          sx={{
+            bgcolor: '#f5f5f5',
+            p: 2,
+            width: '100%',
+            maxWidth: '95%', // Match the wider width
+            overflowX: 'auto',
+          }}
+        >
+          <Typography
+            variant="body2"
+            component="pre"
+            sx={{
+              whiteSpace: 'pre-wrap',
+              overflowX: 'auto',
+              m: 0,
+              fontFamily: 'monospace',
+              fontSize: '0.85rem',
+            }}
+          >
+            {JSON.stringify(message.additional_metadata, null, 2)}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
 
     case 'WorkflowMessage':
       return (
@@ -544,12 +622,23 @@ export const AgentInteractions = ({
   currentPhase,
   currentIteration,
   messages = [],
+  onSendMessage,
   onUpdateActionInput,
   onRerunAction,
 }) => {
   console.log('AgentInteractions render, messages:', messages);
-  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(messages.length - 1);
+
+  // ---- ONLY show PhaseMessage or WorkflowMessage at the top level ----
+  const filteredMessages = messages.filter((msg) => {
+    return msg.message_type === 'PhaseMessage' || msg.message_type === 'WorkflowMessage';
+  });
+
+  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(filteredMessages.length - 1);
   const messagesEndRef = useRef(null);
+
+  const [userMessage, setUserMessage] = useState('');
+  const [textAreaHeight, setTextAreaHeight] = useState('auto');
+  const textAreaRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -557,11 +646,22 @@ export const AgentInteractions = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [displayedMessageIndex]);
+  }, [displayedMessageIndex, filteredMessages]);
 
   useEffect(() => {
-    // When a new message is received, update the displayed message index
-    setDisplayedMessageIndex(messages.length - 1);
+    // Each time we get new filteredMessages, show the last one
+    setDisplayedMessageIndex(filteredMessages.length - 1);
+  }, [filteredMessages]);
+
+  // Example: if you want to prefill your userMessage from the last backend message
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.output?.content) {
+        setUserMessage(lastMessage.output.content);
+        adjustTextAreaHeight();
+      }
+    }
   }, [messages]);
 
   if (!messages) {
@@ -571,6 +671,27 @@ export const AgentInteractions = ({
       </Box>
     );
   }
+
+  const handleSendMessage = () => {
+    if (userMessage.trim()) {
+      onSendMessage({ type: 'user_message', content: userMessage });
+      setUserMessage('');
+    }
+  };
+
+  const adjustTextAreaHeight = () => {
+    if (textAreaRef.current) {
+      textAreaRef.current.style.height = 'auto';
+      const newHeight = Math.min(textAreaRef.current.scrollHeight, window.innerHeight * 0.4);
+      textAreaRef.current.style.height = `${newHeight}px`;
+      setTextAreaHeight(`${newHeight}px`);
+    }
+  };
+
+  const handleMessageChange = (e) => {
+    setUserMessage(e.target.value);
+    adjustTextAreaHeight();
+  };
 
   return (
     <Box className="interactions-container">
@@ -583,13 +704,14 @@ export const AgentInteractions = ({
         )}
       </Box>
 
+      {/* Render only PhaseMessage/WorkflowMessage */}
       <Box className="messages-container">
-        {messages.length === 0 ? (
+        {filteredMessages.length === 0 ? (
           <Typography variant="body2" color="text.secondary" align="center">
-            No messages yet
+            No Phase or Workflow messages yet
           </Typography>
         ) : (
-          messages.slice(0, displayedMessageIndex + 1).map((message, index) => (
+          filteredMessages.slice(0, displayedMessageIndex + 1).map((message, index) => (
             <MessageBubble
               key={message.id || index}
               message={message}
@@ -600,6 +722,46 @@ export const AgentInteractions = ({
         )}
         <div ref={messagesEndRef} />
       </Box>
+
+      {/* Text input area, if interactive */}
+      {interactiveMode && (
+        <Box className="input-container">
+          <TextField
+            fullWidth
+            multiline
+            inputRef={textAreaRef}
+            rows={2}
+            variant="outlined"
+            placeholder="Type your message..."
+            value={userMessage}
+            onChange={handleMessageChange}
+            sx={{ 
+              '& .MuiInputBase-input': {
+                color: 'black',
+                height: textAreaHeight,
+                minHeight: '25px',
+                overflow: 'auto',
+              },
+              border: '1px solid #ccc',
+              borderRadius: '6px',
+            }}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSendMessage}
+            disabled={!userMessage.trim()}
+          >
+            Send
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 };
