@@ -1,12 +1,19 @@
-
-import { React, useState } from 'react';
-import { Box, CircularProgress, Alert } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, CircularProgress, Alert, Button, Grid } from '@mui/material';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
+import './WorkflowDashboard.css';
 
 export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
+  console.log('WorkflowDashboard props:', { selectedWorkflow, interactiveMode });
+  
+  const [isNextDisabled, setIsNextDisabled] = useState(false);
+  const [preservedMessages, setPreservedMessages] = useState([]);
+
   const {
     isConnected,
+    workflowStatus,
     currentPhase,
     currentIteration,
     messages,
@@ -14,7 +21,42 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     sendMessage,
   } = useWorkflowWebSocket(selectedWorkflow?.id);
 
-  const [isNextDisabled, setIsNextDisabled] = useState(false);
+  console.log('WebSocket state:', { 
+    isConnected, 
+    workflowStatus, 
+    currentPhase, 
+    currentIteration,
+    messageCount: messages?.length 
+  });
+
+  useEffect(() => {
+    if (workflowStatus === 'completed') {
+      console.log('Workflow completed. Preserving messages:', messages);
+      setPreservedMessages(messages);
+    }
+  }, [workflowStatus, messages]);
+
+  const triggerNextIteration = async () => {
+    if (selectedWorkflow?.id) {
+      setIsNextDisabled(true);
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/next/${selectedWorkflow.id}`, {
+          method: 'POST',
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log('Next iteration triggered successfully', data);
+      } catch (error) {
+        console.error('Error triggering next iteration:', error);
+      } finally {
+        setIsNextDisabled(false);
+      }
+    } else {
+      console.error('Workflow ID is not available');
+    }
+  };
 
   const handleUpdateActionInput = async (messageId, newInputData) => {
     const url = `http://localhost:8000/workflow/edit-message/${selectedWorkflow.id}`;
@@ -72,28 +114,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     }
   };
 
-  const triggerNextIteration = async () => {
-    if (selectedWorkflow?.id) {
-      setIsNextDisabled(true);
-      try {
-        const response = await fetch(`http://localhost:8000/workflow/next/${selectedWorkflow.id}`, {
-          method: 'POST',
-        });
-        const data = await response.json();
-        if (data.error) {
-          console.error('Error triggering next iteration:', data.error);
-        } else {
-          console.log('Next iteration triggered successfully');
-        }
-      } catch (error) {
-        console.error('Error triggering next iteration:', error);
-      } finally {
-        setIsNextDisabled(false);
-      }
-    } else {
-      console.error('Workflow ID is not available');
-    }
-  };
+  console.log('Rendering WorkflowDashboard with messages:', workflowStatus === 'completed' ? preservedMessages : messages);
 
   if (!isConnected) {
     return (
@@ -111,6 +132,8 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     );
   }
 
+  const displayMessages = workflowStatus === 'completed' ? preservedMessages : messages;
+
   return (
     <Box height="100%" overflow="auto">
       <AgentInteractions
@@ -118,7 +141,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
         currentPhase={currentPhase}
         currentIteration={currentIteration}
         isNextDisabled={isNextDisabled}
-        messages={messages}
+        messages={displayMessages}
         onSendMessage={sendMessage}
         onUpdateActionInput={handleUpdateActionInput}
         onRerunAction={handleRerunAction}
