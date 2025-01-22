@@ -55,7 +55,6 @@ class WebSocketManager:
             return
 
         print(f"Broadcasting message type '{message.get('message_type')}' to workflow {workflow_id}")
-        print(f"Full message content: {message}")
         failed_connections = []
 
         for connection in self.active_connections[workflow_id]:

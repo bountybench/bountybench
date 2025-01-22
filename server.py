@@ -227,7 +227,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 if data.get("message_type") == "user_message" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
-                        result = await workflow.set_message_input(data["content"])
+                        result = await workflow.add_user_message(data["content"])
                         await websocket_manager.broadcast(workflow_id, {
                             "message_type": "user_message_response",
                             "content": result
@@ -260,7 +260,6 @@ class MessageInputData(BaseModel):
 class MessageData(BaseModel):
     message_id: str
 
-@app.post("/workflow/next/{workflow_id}")
 async def next_iteration(workflow_id: str):
     if workflow_id not in active_workflows:
         return {"error": "Workflow not found"}
@@ -272,9 +271,8 @@ async def next_iteration(workflow_id: str):
     else:
         return {"error": "Workflow is not in interactive mode"}
 
-@app.post("/workflow/next-message/{workflow_id}")
+@app.post("/workflow/next/{workflow_id}")
 async def next_message(workflow_id: str):
-
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
@@ -283,8 +281,9 @@ async def next_message(workflow_id: str):
         result = await workflow.run_next_message()
         if not result:
             result = await next_iteration(workflow_id)
+            return result  # Return the dictionary directly
+            
         print(f"Received result : {result.id}")
-        
         return {"status": "updated", "result": result.id}
     except Exception as e:
         import traceback

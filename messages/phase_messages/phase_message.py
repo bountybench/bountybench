@@ -43,12 +43,12 @@ class PhaseMessage(Message):
         current_agents = []
         if len(self.agent_messages) > 0:
             current_message = self.agent_messages[0]
-            while current_message.version_next:
-                current_message = current_message.version_next
+            current_message = self.get_latest_version(current_message)
 
             current_agents.append(current_message)
-            while current_message.next:
+            while current_message.next and current_message.next.prev and current_message.next.prev.id == current_message.id:
                 current_message = current_message.next
+                current_message = self.get_latest_version(current_message)
                 current_agents.append(current_message)
             
         return current_agents
@@ -65,6 +65,11 @@ class PhaseMessage(Message):
     def add_agent_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
         agent_message.set_parent(self)
+        from messages.message_utils import broadcast_update
+        phase_dict = self.to_dict()
+        phase_dict["current_children"] = [agent_message.to_dict() for agent_message in self.current_agent_list]
+        broadcast_update(phase_dict)
+
 
     def to_dict(self) -> dict:
         phase_dict = {

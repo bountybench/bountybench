@@ -6,11 +6,10 @@ from messages.message import Message
 
 class AgentMessage(Message):
     
-    def __init__(self, agent_id: str, message: Optional[str] = "", prev: 'AgentMessage' = None, input_str: Optional[str] = None) -> None:
+    def __init__(self, agent_id: str, message: Optional[str] = "", prev: 'AgentMessage' = None) -> None:
         self._message = message
         self._agent_id = agent_id
         self._action_messages = []
-        self._input_str = input_str
 
         super().__init__(prev)
 
@@ -18,11 +17,6 @@ class AgentMessage(Message):
     @property
     def message(self) -> str:
         return self._message
-
-    
-    @property
-    def input_str(self) -> Optional[str]:
-        return self._input_str
     
     @property
     def message_type(self) -> str:
@@ -39,18 +33,18 @@ class AgentMessage(Message):
     @property
     def action_messages(self) -> List[ActionMessage]:
         return self._action_messages
-   
+
     @property 
     def current_actions_list(self) -> List[ActionMessage]:
         current_actions = []
         if len(self.action_messages) > 0:
             current_message = self.action_messages[0]
-            while current_message.version_next:
-                current_message = current_message.version_next
+            current_message = self.get_latest_version(current_message)
 
             current_actions.append(current_message)
-            while current_message.next:
+            while current_message.next and current_message.next.prev and current_message.next.prev.id == current_message.id:
                 current_message = current_message.next
+                current_message = self.get_latest_version(current_message)
                 current_actions.append(current_message)
             
         return current_actions
@@ -58,10 +52,10 @@ class AgentMessage(Message):
     def add_action_message(self, action_message: ActionMessage):
         self._action_messages.append(action_message)
         action_message.set_parent(self)
-        from messages.message_utils import broadcast_update
-        agent_dict = self.to_dict()
-        agent_dict["current_children"] = [action_message.to_dict() for action_message in self.current_actions_list]
-        broadcast_update(agent_dict)
+        #from messages.message_utils import broadcast_update
+        #agent_dict = self.to_dict()
+        #agent_dict["current_children"] = [action_message.to_dict() for action_message in self.current_actions_list]
+        #broadcast_update(agent_dict)
 
     def agent_dict(self) -> dict:
         agent_dict = {
@@ -69,9 +63,11 @@ class AgentMessage(Message):
             "action_messages": [action_message.to_dict() for action_message in self.action_messages if action_message is not None] if self.action_messages else None,
             "message": self.message
         }
-        if self.input_str is not None:
-            agent_dict["input"] = self.input_str
+        agent_dict["current_children"] = [action_message.to_dict() for action_message in self.current_actions_list]
 
+        #from messages.message_utils import broadcast_update
+        #broadcast_update(agent_dict)
+        
         return agent_dict
     
     def to_dict(self) -> dict:
