@@ -286,6 +286,8 @@ export default ActionCard;
 
 
 const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
+  console.log(`Rendering MessageBubble for message ID: ${message.current_id}`);
+
   const [contentExpanded, setContentExpanded] = useState(true);
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(
     message.agent_id === 'system' || message.agent_id === 'human'
@@ -616,6 +618,9 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
 
 };
 
+
+
+
 export const AgentInteractions = ({ 
   workflow, 
   interactiveMode, 
@@ -628,14 +633,7 @@ export const AgentInteractions = ({
 }) => {
   console.log('AgentInteractions render, messages:', messages);
 
-  // ---- ONLY show PhaseMessage or WorkflowMessage at the top level ----
-  const filteredMessages = messages.filter((msg) => {
-    return msg.message_type === 'PhaseMessage' || msg.message_type === 'WorkflowMessage';
-  });
-
-  const [displayedMessageIndex, setDisplayedMessageIndex] = useState(filteredMessages.length - 1);
   const messagesEndRef = useRef(null);
-
   const [userMessage, setUserMessage] = useState('');
   const [textAreaHeight, setTextAreaHeight] = useState('auto');
   const textAreaRef = useRef(null);
@@ -646,39 +644,91 @@ export const AgentInteractions = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [displayedMessageIndex, filteredMessages]);
-
-  useEffect(() => {
-    // Each time we get new filteredMessages, show the last one
-    setDisplayedMessageIndex(filteredMessages.length - 1);
-  }, [filteredMessages]);
-
-  // Example: if you want to prefill your userMessage from the last backend message
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.output?.content) {
-        setUserMessage(lastMessage.output.content);
-        adjustTextAreaHeight();
-      }
-    }
   }, [messages]);
 
-  if (!messages) {
-    return (
-      <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
-        <CircularProgress />
-      </Box>
-    );
-  }
+  useEffect(() => {
+    console.log('Messages updated:', messages);
+  }, [messages]);
 
-  const handleSendMessage = () => {
-    if (userMessage.trim()) {
-      onSendMessage({ type: 'user_message', content: userMessage });
-      setUserMessage('');
+  // Find the latest PhaseMessage
+  const latestPhaseMessage = messages.filter(msg => msg.message_type === 'PhaseMessage').pop();
+  console.log('Latest PhaseMessage:', latestPhaseMessage);
+
+  // Function to get the latest version of a message using version_next
+  const getLatestVersion = (msg, allAgentMessages) => {
+    let latest = msg;
+    let depth = 0;
+    const maxDepth = 10; // Prevent infinite loops
+    console.log(`Traversing versions for message ID: ${msg.current_id}`);
+    while (latest.version_next && depth < maxDepth) {
+      const versionNextStr = String(latest.version_next); // Ensure it's a string
+      console.log(`Looking for version_next ID: ${versionNextStr}`);
+      const nextVersion = allAgentMessages.find(child => {
+        console.log(`Checking child with current_id: ${child.current_id} (type: ${typeof child.current_id})`);
+        return child.current_id === versionNextStr;
+      });
+      if (!nextVersion) {
+        console.warn(`No message found with ID: ${versionNextStr}`);
+        break;
+      }
+      console.log(`Found next version: ${nextVersion.current_id}`);
+      latest = nextVersion;
+      depth += 1;
     }
+    if (depth === maxDepth) {
+      console.warn(`Max traversal depth reached for message ID: ${msg.current_id}`);
+    }
+    console.log(`Latest version found: ${latest.current_id}`);
+    return latest;
   };
 
+  // Function to render ActionMessage
+  const renderActionMessage = (actionMsg, index) => (
+    <ActionCard
+      key={`action-${actionMsg.current_id || index}`}
+      action={actionMsg}
+      onUpdateActionInput={onUpdateActionInput}
+      onRerunAction={onRerunAction}
+    />
+  );
+
+  // Function to render AgentMessage
+  const renderAgentMessage = (agentMsg, index, allAgentMessages) => {
+    const latestVersion = getLatestVersion(agentMsg, allAgentMessages);
+    console.log(`Rendering AgentMessage ID: ${latestVersion.current_id}`);
+    return (
+      <MessageBubble
+        key={`agent-${latestVersion.current_id}`}
+        message={latestVersion}
+        onUpdateActionInput={onUpdateActionInput}
+        onRerunAction={onRerunAction}
+      />
+    );
+  };
+
+  // Function to render PhaseMessage
+  const renderPhaseMessage = (phaseMessage) => {
+    if (!phaseMessage) return null;
+
+    const allAgentMessages = phaseMessage.agent_messages || [];
+    console.log('All Agent Messages:', allAgentMessages);
+
+    // Identify root messages (messages without version_prev)
+    const rootMessages = allAgentMessages.filter(msg => !msg.version_prev);
+    console.log('Root Agent Messages:', rootMessages);
+
+    return (
+      <Box className="phase-message">
+        <Typography variant="h6">Phase: {phaseMessage.phase_id}</Typography>
+        <Typography variant="body2">Summary: {phaseMessage.phase_summary}</Typography>
+        {rootMessages.map((agentMsg, index) => (
+          renderAgentMessage(agentMsg, index, allAgentMessages)
+        ))}
+      </Box>
+    );
+  };
+
+  // Adjust TextArea Height Function
   const adjustTextAreaHeight = () => {
     if (textAreaRef.current) {
       textAreaRef.current.style.height = 'auto';
@@ -688,9 +738,19 @@ export const AgentInteractions = ({
     }
   };
 
+  // Handle User Message Change
   const handleMessageChange = (e) => {
     setUserMessage(e.target.value);
     adjustTextAreaHeight();
+  };
+
+  // Handle Sending Message
+  const handleSendMessage = () => {
+    if (userMessage.trim()) {
+      onSendMessage({ type: 'user_message', content: userMessage });
+      setUserMessage('');
+      adjustTextAreaHeight();
+    }
   };
 
   return (
@@ -699,33 +759,24 @@ export const AgentInteractions = ({
         <Typography variant="h6">Agent Interactions</Typography>
         {currentPhase && (
           <Typography variant="subtitle2">
-            Phase: {currentPhase.phase_name} - Iteration: {currentIteration?.iteration_number}
+            Phase: {currentPhase.phase_id} - Iteration: {currentIteration?.iteration_number}
           </Typography>
         )}
       </Box>
 
-      {/* Render only PhaseMessage/WorkflowMessage */}
       <Box className="messages-container">
-        {filteredMessages.length === 0 ? (
+        {!latestPhaseMessage ? (
           <Typography variant="body2" color="text.secondary" align="center">
-            No Phase or Workflow messages yet
+            No Phase messages yet
           </Typography>
         ) : (
-          filteredMessages.slice(0, displayedMessageIndex + 1).map((message, index) => (
-            <MessageBubble
-              key={message.id || index}
-              message={message}
-              onUpdateActionInput={onUpdateActionInput}
-              onRerunAction={onRerunAction}
-            />
-          ))
+          renderPhaseMessage(latestPhaseMessage)
         )}
         <div ref={messagesEndRef} />
       </Box>
 
-      {/* Text input area, if interactive */}
       {interactiveMode && (
-        <Box className="input-container">
+        <Box className="input-container" display="flex" alignItems="center" mt={2}>
           <TextField
             fullWidth
             multiline
@@ -744,6 +795,7 @@ export const AgentInteractions = ({
               },
               border: '1px solid #ccc',
               borderRadius: '6px',
+              mr: 2, // Add margin to the right for spacing
             }}
             onKeyPress={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -757,6 +809,7 @@ export const AgentInteractions = ({
             color="primary"
             onClick={handleSendMessage}
             disabled={!userMessage.trim()}
+            startIcon={<SaveIcon />}
           >
             Send
           </Button>
