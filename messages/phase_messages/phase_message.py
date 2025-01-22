@@ -67,7 +67,6 @@ class PhaseMessage(Message):
         agent_message.set_parent(self)
         from messages.message_utils import broadcast_update
         phase_dict = self.to_dict()
-        phase_dict["current_children"] = [agent_message.to_dict() for agent_message in self.current_agent_list]
         broadcast_update(phase_dict)
 
 
@@ -76,8 +75,9 @@ class PhaseMessage(Message):
             "phase_id": self.phase_id,
             "phase_summary": self.summary,
             "agent_messages": [agent_message.to_dict() for agent_message in self.agent_messages if agent_message is not None] if self.agent_messages else None,
-            "phase_summary": self.phase_summary
+            "phase_summary": self.phase_summary,
         }
+        phase_dict["current_children"] = [agent_message.to_dict() for agent_message in self.current_agent_list]
         base_dict = super().to_dict()
         phase_dict.update(base_dict)
         return phase_dict

@@ -44,14 +44,14 @@ export const useWorkflowWebSocket = (workflowId) => {
           break;
 
         case 'WorkflowMessage':
-          setMessages((prev) => [...prev, data]);
+          // setMessages((prev) => [...prev, data]);
           setWorkflowStatus(data.workflow_metadata?.workflow_summary || 'Unknown');
           break;
 
         case 'PhaseMessage':
           setCurrentPhase(data);
           setMessages((prev) => {
-            const idx = prev.findIndex((msg) => msg.current_id === data.current_id);
+            const idx = prev.findIndex((msg) => msg.phase_id === data.phase_id);
             if (idx > -1) {
               const newArr = [...prev];
               newArr[idx] = data;
@@ -63,27 +63,27 @@ export const useWorkflowWebSocket = (workflowId) => {
           break;
 
         case 'AgentMessage':
-          handleUpdatedAgentMessage(data);
+          // handleUpdatedAgentMessage(data);
           break;
 
         case 'ActionMessage':
-          setMessages((prev) => [...prev, data]);
+          // setMessages((prev) => [...prev, data]);
           break;
 
         case 'first_message':
           console.log(`Received ${data.message_type}:`, data.content);
-          setMessages((prev) => [...prev, data]);
+          // setMessages((prev) => [...prev, data]);
           break;
 
         case 'workflow_completed':
           console.log('Workflow completed:', data);
           setWorkflowStatus('completed');
-          setMessages(prev => [...prev, data]);
+          // setMessages(prev => [...prev, data]);
           break;
 
         default:
           console.warn('Unknown message_type:', data.message_type);
-          setMessages((prev) => [...prev, data]);
+          // setMessages((prev) => [...prev, data]);
       }
     } catch (err) {
       console.error('Error processing WebSocket message:', err);
