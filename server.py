@@ -227,7 +227,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 if data.get("message_type") == "user_message" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
-                        result = await workflow.set_message_input(data["content"])
+                        result = await workflow.add_user_message(data["content"])
                         await websocket_manager.broadcast(workflow_id, {
                             "message_type": "user_message_response",
                             "content": result
