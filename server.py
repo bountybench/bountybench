@@ -139,7 +139,6 @@ async def execute_workflow(workflow_id: str):
         return {"error": str(e)}
 
 async def run_workflow(workflow_id: str):
-    print(f"Entering run_workflow for {workflow_id}")
     global should_exit
     
     if workflow_id not in active_workflows or should_exit:
@@ -157,9 +156,7 @@ async def run_workflow(workflow_id: str):
         })
         
         # Run the workflow
-        print(f"Starting workflow.run() for {workflow_id}...")
         await workflow.run()
-        print(f"Workflow.run() completed for {workflow_id}")
 
         if not should_exit:
             workflow_data["status"] = "completed"
@@ -169,7 +166,6 @@ async def run_workflow(workflow_id: str):
             })
         
     except Exception as e:
-        print(f"Error in run_workflow: {e}")
         if not should_exit:
             print(f"Workflow error: {e}")
             workflow_data["status"] = "error"
@@ -183,12 +179,10 @@ async def run_workflow(workflow_id: str):
 @app.websocket("/ws/{workflow_id}")
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     """WebSocket endpoint for real-time workflow updates"""
-    print(f"Entering websocket_endpoint for {workflow_id}")
     global should_exit
     
     try:
         await websocket_manager.connect(workflow_id, websocket)
-        print(f"WebSocket connected for workflow {workflow_id}")
         
         # Send initial workflow state
         if workflow_id in active_workflows:
@@ -197,7 +191,6 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 "message_type": "initial_state",
                 "status": workflow_data["status"]
             })
-            print(f"Sent initial state for workflow {workflow_id}: {workflow_data['status']}")
         
         # Handle incoming messages
         while not should_exit:
@@ -205,7 +198,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 data = await websocket.receive_json()
                 if should_exit:
                     break
-                
+
                 if data.get("message_type") == "user_message" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
