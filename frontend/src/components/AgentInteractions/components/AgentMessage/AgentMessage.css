@@ -64,8 +64,29 @@
   margin: 8px 0;
 }
 
+/* Edit mode text color fixes */
+.edit-mode-container .MuiInputBase-root {
+  color: #1f1f1f !important;
+}
+
+.edit-mode-container .MuiOutlinedInput-root {
+  color: #1f1f1f !important;
+}
+
+.edit-mode-container .MuiInputBase-input {
+  color: #1f1f1f !important;
+}
+
 .edit-textarea {
   background-color: #ffffff;
+  width: 100%;
+  min-height: 100px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 12px;
+  font-size: 0.75rem !important;
+  color: #1f1f1f !important;
+  resize: vertical;
 }
 
 .edit-button,
