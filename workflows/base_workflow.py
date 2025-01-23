@@ -241,6 +241,9 @@ class BaseWorkflow(ABC):
             if last_message.next:
                 last_message = await self.rerun_manager.run_edited(last_message)
                 return last_message
+            if last_message.parent and last_message.parent.next:
+                last_message = await self.rerun_manager.run_edited(last_message.parent)
+                return last_message
         return None
     
     async def edit_message(self, message: Message, new_message_data: str) -> Message:
