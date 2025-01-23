@@ -37,6 +37,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
   useEffect(() => {
     if (workflowStatus === 'completed') {
       console.log('Workflow completed. Preserving messages:', messages);
+      setIsNextDisabled(true);
       setPreservedMessages(messages);
     }
   }, [workflowStatus, messages]);

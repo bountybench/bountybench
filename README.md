@@ -4,6 +4,8 @@
 
 - [Installation](#installation)
 - [Usage](#usage)
+   - [Running the Workflow](#running-the-workflow)
+   - [Running the Application](#running-the-application)
 - [System Architecture](#system-architecture)
   - [Workflow System](#workflow-system)
 - [Development](#development)
@@ -52,7 +54,7 @@ ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
 GOOGLE_API_KEY={GOOGLE_API_KEY}
 TOGETHER_API_KEY={TOGETHER_API_KEY}
 ```
-Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...).
+Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...). You only need to fill in whichever keys you will use. 
 
 ### 5. Setup Docker Desktop App. 
 Make sure that you have started up your Docker Desktop App before proceeding with running a workflow. 
@@ -80,7 +82,7 @@ It should list the contents of your current working directory. If you encounter 
 ### Running the Workflow
 Make sure your Docker Desktop app is running.
 
-To run the exploit-and-patch workflow interactively from the command line, navigate to the ``` bountyagent ``` directory and use the following command:
+To run the exploit-and-patch workflow from the command line, navigate to the ``` bountyagent ``` directory and use the following command:
 ```
 python -m workflows.exploit_and_patch_workflow \
     --task_dir bountybench/setuptools \
@@ -90,25 +92,36 @@ python -m workflows.exploit_and_patch_workflow \
 ```
 Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.
 
-To create and run a workflow instance:
-```python
-workflow = ExploitAndPatchWorkflow(task_dir=Path("bountybench/astropy"), bounty_number="0")
-workflow.run()
-```
-These will execute the entire exploit-and-patch workflow, running through all defined phases and handling resource allocation/deallocation automatically
+### Running the Application
 
-### Running the frontend
-In one terminal in `bountyagent`, run:
+## Backend Setup
+
+1. Open a terminal and navigate to the `bountyagent` directory.
+
+2. Start the backend server:
 ```
 python server.py
 ```
+Note: The backend will take about a minute to initialize. You can view incremental, verbose run updates in this terminal window.
 
-In another terminal in `bountyagent`, run:
+## Frontend Setup
+
+1. Open a new terminal and navigate to the `bountyagent/frontend` directory.
+
+2. If this is your first time running the frontend or if you've updated the project, install the necessary packages:
 ```
-cd frontend
 npm install
+```
+3. After the installation is complete, start the frontend application:
+```
 npm start
 ```
+
+This will launch the development server for the frontend.
+
+## Accessing the Application
+
+Once both the backend and frontend are running, you can access the application through your web browser (default `localhost:3000`)
 
 ### Sample Run
 ![Screen recording of a run](media/sample_run.gif)

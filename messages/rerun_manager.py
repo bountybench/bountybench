@@ -115,9 +115,6 @@ class RerunManager:
                 # 2) broadcast from the Phase
                 if phase:
                     phase_dict = phase.to_dict()
-                    phase_dict["current_children"] = [
-                        msg.to_dict() for msg in phase.current_agent_list
-                    ]
                     from messages.message_utils import broadcast_update
                     broadcast_update(phase_dict)
 
