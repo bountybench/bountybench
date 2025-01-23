@@ -10,7 +10,6 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
   
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [preservedMessages, setPreservedMessages] = useState([]);
-  const [preservedMessages, setPreservedMessages] = useState([]);
 
   const {
     isConnected,
@@ -123,8 +122,6 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
 
   console.log('Rendering WorkflowDashboard with messages:', workflowStatus === 'completed' ? preservedMessages : messages);
 
-  console.log('Rendering WorkflowDashboard with messages:', workflowStatus === 'completed' ? preservedMessages : messages);
-
   if (!isConnected) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
@@ -140,8 +137,6 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
       </Box>
     );
   }
-
-  const displayMessages = workflowStatus === 'completed' ? preservedMessages : messages;
 
   const displayMessages = workflowStatus === 'completed' ? preservedMessages : messages;
 
