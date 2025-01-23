@@ -70,7 +70,6 @@ export const useWorkflowWebSocket = (workflowId) => {
           setMessages((prev) => [...prev, data]);
           break;
 
-        case 'user_message_response':
         case 'first_message':
           console.log(`Received ${data.message_type}:`, data.content);
           setMessages((prev) => [...prev, data]);

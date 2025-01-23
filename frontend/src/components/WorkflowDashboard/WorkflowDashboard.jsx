@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, CircularProgress, Alert, Button, Grid, IconButton } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, Button, Grid } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { AgentInteractions } from '../AgentInteractions/AgentInteractions';
+import AgentInteractions from '../AgentInteractions/AgentInteractions';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
-export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
-  console.log('WorkflowDashboard props:', { selectedWorkflow, interactiveMode }); // Debug log
+export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflowStateUpdate }) => {
+  console.log('WorkflowDashboard props:', { selectedWorkflow, interactiveMode });
   
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [preservedMessages, setPreservedMessages] = useState([]);
@@ -21,13 +21,18 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
     sendMessage,
   } = useWorkflowWebSocket(selectedWorkflow?.id);
 
+  // Update parent component with workflow state
+  useEffect(() => {
+    onWorkflowStateUpdate(workflowStatus, currentPhase);
+  }, [workflowStatus, currentPhase, onWorkflowStateUpdate]);
+
   console.log('WebSocket state:', { 
     isConnected, 
     workflowStatus, 
     currentPhase, 
     currentIteration,
     messageCount: messages?.length 
-  }); // Debug log
+  });
 
   useEffect(() => {
     if (workflowStatus === 'completed') {
@@ -57,7 +62,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
       console.error('Workflow ID is not available');
     }
   };
-  
+
   const handleUpdateActionInput = async (messageId, newInputData) => {
     const url = `http://localhost:8000/workflow/edit-message/${selectedWorkflow.id}`;
     const requestBody = { message_id: messageId, new_input_data: newInputData };
@@ -105,7 +110,6 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
           console.error('Error rerunning action:', data.error);
         } else {
           console.log('Action rerun successfully', data);
-          // You might want to update the UI or refetch messages here
         }
       } catch (error) {
         console.error('Error rerunning action:', error);
@@ -119,18 +123,15 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
 
   if (!isConnected) {
     return (
-      <Box className="dashboard-container" display="flex" justifyContent="center" alignItems="center">
-        <CircularProgress />
-        <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-          Connecting to workflow...
-        </Typography>
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        <CircularProgress size={24} />
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box className="dashboard-container">
+      <Box p={2}>
         <Alert severity="error">{error}</Alert>
       </Box>
     );
@@ -139,44 +140,18 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode }) => {
   const displayMessages = workflowStatus === 'completed' ? preservedMessages : messages;
 
   return (
-    <Box className="dashboard-container">
-      <Box className="dashboard-header">
-        <Typography variant="h5">
-          Workflow Status: {workflowStatus || 'Unknown'}
-        </Typography>
-        {currentPhase && (
-          <Typography variant="h6">
-            Current Phase: {currentPhase.phase_id}
-          </Typography>
-        )}
-        {interactiveMode && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={triggerNextIteration}
-            startIcon={<ArrowForwardIcon />}
-            disabled={isNextDisabled || workflowStatus === 'completed'}
-            sx={{ margin: 1 }}
-          >
-            Next Iteration
-          </Button>
-        )}
-      </Box>
-        
-      <Grid container spacing={2} className="dashboard-content">
-        <Grid item xs={12} md={12} className="main-content">
-          <AgentInteractions
-            workflow={selectedWorkflow}
-            interactiveMode={interactiveMode}
-            currentPhase={currentPhase}
-            currentIteration={currentIteration}
-            messages={displayMessages}
-            onSendMessage={sendMessage}
-            onUpdateActionInput={handleUpdateActionInput}
-            onRerunAction={handleRerunAction}
-          />
-        </Grid>
-      </Grid>
+    <Box height="100%" overflow="auto">
+      <AgentInteractions
+        interactiveMode={interactiveMode}
+        currentPhase={currentPhase}
+        currentIteration={currentIteration}
+        isNextDisabled={isNextDisabled}
+        messages={displayMessages}
+        onSendMessage={sendMessage}
+        onUpdateActionInput={handleUpdateActionInput}
+        onRerunAction={handleRerunAction}
+        onTriggerNextIteration={triggerNextIteration}
+      />
     </Box>
   );
 };
