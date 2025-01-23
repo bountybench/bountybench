@@ -1,4 +1,4 @@
-import { React, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
@@ -40,7 +40,7 @@ function App() {
         console.log("Backend updated with new interactive mode:", newInteractiveMode);
       } catch (error) {
         console.error("Error updating interactive mode:", error);
-        setInteractiveMode(!newInteractiveMode);
+        setInteractiveMode(!newInteractiveMode); // Revert state on error
       }
     }
   };
@@ -50,7 +50,6 @@ function App() {
     setCurrentPhase(phase);
   };
 
-  
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />

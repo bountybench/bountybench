@@ -1,7 +1,13 @@
 import React from 'react';
 import { Box, Typography, Switch } from '@mui/material';
 
-export const AppHeader = ({ onInteractiveModeToggle, interactiveMode, selectedWorkflow, workflowStatus, currentPhase }) => {
+export const AppHeader = ({
+  onInteractiveModeToggle,
+  interactiveMode,
+  selectedWorkflow,
+  workflowStatus,
+  currentPhase
+}) => {
   return (
     <Box 
       display="flex" 
@@ -20,12 +26,11 @@ export const AppHeader = ({ onInteractiveModeToggle, interactiveMode, selectedWo
             <Typography variant="body2" sx={{ mr: 2 }}>
               Status: <span style={{ fontWeight: 'bold' }}>{workflowStatus || 'Unknown'}</span>
             </Typography>
-            { currentPhase && (
-                <Typography variant="body2" sx={{ mr: 2 }}>
+            {currentPhase && (
+              <Typography variant="body2" sx={{ mr: 2 }}>
                 Phase: <span style={{ fontWeight: 'bold' }}>{currentPhase.phase_id || 'N/A'}</span>
-                </Typography>
-            )
-            }
+              </Typography>
+            )}
           </>
         )}
         <Box display="flex" alignItems="center" mr={2}>
@@ -35,6 +40,7 @@ export const AppHeader = ({ onInteractiveModeToggle, interactiveMode, selectedWo
             onChange={onInteractiveModeToggle}
             color="primary"
             size="small"
+            disabled={!interactiveMode} // Disable when not in interactive mode
           />
         </Box>
       </Box>
