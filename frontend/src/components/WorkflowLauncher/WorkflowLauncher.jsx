@@ -23,9 +23,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     bounty_number: "0",
     interactive: true,
     iterations: 10,
-    model: 'openai/o3-mini-2024-12-17'
+    model: 'openai/o3-mini-2024-12-17',
   });
-
   // Fetch available workflows
   useEffect(() => {
     const fetchWorkflows = async () => {
@@ -58,7 +57,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: formData.bounty_number,
           interactive: interactiveMode,
-          iterations: formData.iterations
+          iterations: formData.iterations,
+          model: formData.model
         }),
       });
 
