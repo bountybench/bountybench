@@ -44,12 +44,8 @@ const AgentInteractions = ({
 
   if (!messages) {
     return (
-      <Box className="phase-message">
-        <Typography variant="h6">Phase: {phaseMessage.phase_id}</Typography>
-        <Typography variant="body2">Summary: {phaseMessage.phase_summary}</Typography>
-        {rootMessages.map((agentMsg, index) => (
-          renderAgentMessage(agentMsg, index, allAgentMessages)
-        ))}
+      <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
+        <CircularProgress />
       </Box>
     );
   }
