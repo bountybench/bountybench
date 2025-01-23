@@ -8,7 +8,10 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css'
 
-const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+
+const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpdate }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
@@ -19,6 +22,12 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
   const handleToggleMetadata = (event) => {
     event.stopPropagation();
     setMetadataExpanded(!metadataExpanded);
+  };
+
+  const handleToggleVersion = (num) => {
+    if (onChildUpdate) {
+        onChildUpdate(num); // Notify parent of the update
+    }
   };
 
   const handleRerunClick = async () => {
@@ -33,11 +42,9 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
     }
   };
 
-  const originalMessageContent = formatData(action.message);
-
   const handleEditClick = () => {
     setEditing(true);
-    setEditedMessage(originalMessageContent);
+    setEditedMessage(formatData(action.message));
   };
 
   const handleSaveClick = async () => {
@@ -115,7 +122,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
           <>
             <Box className="action-message-content">
               <Typography className="action-message-text">
-                {originalMessageContent}
+                {formatData(action.version_chain[action.version_num])}
               </Typography>
             </Box>
             <Box className="action-message-buttons">
@@ -135,9 +142,42 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
               >
                 <ReplayIcon />
               </Button>
-            </Box>
-          </>
-        )}
+
+                  {/* Toggle Version Arrows */}
+                  {action.version_prev && (
+                  <>
+                    <Typography variant="caption" sx={{ mx: 1 }}>
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      {/* Arrow Buttons */}
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <IconButton
+                          onClick={() => handleToggleVersion(-1)}
+                          disabled={action.version_num === 0}
+                          sx={{ color: 'black' }}
+                          size="small"
+                        >
+                          <ArrowBackIcon />
+                        </IconButton>
+                        <IconButton
+                          onClick={() => handleToggleVersion(1)}
+                          disabled={action.version_num === action.version_chain.length - 1}
+                          sx={{ color: 'black' }}
+                          size="small"
+                        >
+                          <ArrowForwardIcon />
+                        </IconButton>
+                      </Box>
+
+                      {/* Version Number */}
+                      <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
+                        {action.version_num + 1}/{action.version_chain.length}
+                      </Typography>
+                    </Box>
+                  </>)}               
+                </Box>
+            </>
+          )}
 
         {/* Metadata section */}
         {action.additional_metadata && (

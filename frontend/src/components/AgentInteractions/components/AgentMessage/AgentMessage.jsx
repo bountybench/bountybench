@@ -12,6 +12,8 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message.message || '');
 
+  const [updatedChildren, setUpdatedChildren] = useState(0);
+  
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
 
   const handleEditClick = () => {
@@ -30,6 +32,13 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
     } catch (error) {
       console.error('Error updating message:', error);
     }
+  };
+
+  const handleChildUpdate = (num) => {
+      message.current_children = message.current_children.map((child) => {
+        return { ...child, version_num: child.version_num + num};
+      });
+      setUpdatedChildren((prev) => prev + 1);
   };
 
   return (
@@ -104,6 +113,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
                     action={actionMessage}
                     onUpdateActionInput={onUpdateActionInput}
                     onRerunAction={onRerunAction}
+                    onChildUpdate={handleChildUpdate}
                   />
                 ))}
               </Box>

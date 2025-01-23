@@ -14,6 +14,8 @@ from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
 from utils.websocket_manager import websocket_manager
 
+from resources.model_resource.model_mapping import TokenizerMapping
+
 app = FastAPI()
 
 # Enable CORS
@@ -95,6 +97,11 @@ async def list_workflows():
         ]
     }
 
+@app.get("/workflow/models")
+async def list_models():
+    """List available model types"""
+    return TokenizerMapping.mapping
+
 @app.post("/workflow/start")
 async def start_workflow(workflow_data: dict):
     """Start a new workflow instance"""
@@ -104,7 +111,8 @@ async def start_workflow(workflow_data: dict):
             task_dir=Path(workflow_data['task_dir']),
             bounty_number=workflow_data['bounty_number'],
             interactive=workflow_data.get('interactive', False),
-            phase_iterations=int(workflow_data['iterations'])
+            phase_iterations=int(workflow_data['iterations']),
+            model=workflow_data['model']
         )
         
         workflow_id = workflow.workflow_message.workflow_id

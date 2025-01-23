@@ -22,8 +22,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     task_dir: '',
     bounty_number: "0",
     interactive: true,
-    iterations: 10
+    iterations: 10,
+    model: '',
   });
+  const [allModels, setAllModels] = useState([]);
 
   // Fetch available workflows
   useEffect(() => {
@@ -42,6 +44,23 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     fetchWorkflows();
   }, []);
 
+  // Fetch available models
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/workflow/models');
+        const all_models = await response.json();
+        setAllModels(all_models);
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to fetch models. Make sure the backend server is running.');
+        setLoading(false);
+      }
+    };
+
+    fetchModels();
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -57,7 +76,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: formData.bounty_number,
           interactive: interactiveMode,
-          iterations: formData.iterations
+          iterations: formData.iterations,
+          model: formData.model
         }),
       });
 
@@ -160,6 +180,28 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           margin="normal"
           placeholder="e.g., 10"
         />
+
+        <TextField
+          select
+          fullWidth
+          label="Model Type"
+          name="model"
+          value={formData.model}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+        >
+          {Object.entries(allModels).map(([k, v]) => (
+            <MenuItem key={k} value={k}>
+              <Box display="flex" flexDirection="column">
+                <Typography>{k}</Typography>
+                <Typography variant="caption" color="textSecondary" className="workflow-description">
+                  {v}
+                </Typography>
+              </Box>
+            </MenuItem>
+          ))}
+        </TextField>
 
         <FormControlLabel
           control={
