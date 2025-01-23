@@ -13,6 +13,8 @@ from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
 from utils.websocket_manager import websocket_manager
+from utils.logger import get_main_logger
+
 
 app = FastAPI()
 
@@ -29,11 +31,20 @@ app.add_middleware(
 active_workflows: Dict[str, dict] = {}
 should_exit = False
 
+
+logger = get_main_logger(__name__)
+
 def signal_handler(signum, frame):
     """Handle shutdown signals"""
     global should_exit
     print("\nShutdown signal received. Cleaning up...")
     should_exit = True
+    # Initiate cleanup for all active workflows
+    for workflow_id in list(active_workflows.keys()):
+        try:
+            asyncio.create_task(cleanup_workflow(workflow_id))
+        except Exception as e:
+            logger.error(f"Error initiating cleanup for workflow {workflow_id}: {e}")
     # Close all WebSocket connections
     for workflow_id in list(websocket_manager.active_connections.keys()):
         for connection in list(websocket_manager.active_connections[workflow_id]):
@@ -52,6 +63,9 @@ async def shutdown_event():
     """Handle FastAPI shutdown event"""
     global should_exit
     should_exit = True
+    # Initiate cleanup for all active workflows
+    for workflow_id in list(active_workflows.keys()):
+        await cleanup_workflow(workflow_id)
     # Close all WebSocket connections
     for workflow_id in list(websocket_manager.active_connections.keys()):
         for connection in list(websocket_manager.active_connections[workflow_id]):
@@ -211,6 +225,12 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
 
                 elif data.get("message_type") == "start_execution":
                     asyncio.create_task(run_workflow(workflow_id))
+
+                elif data.get("message_type") == "terminate_workflow":
+                    print(f"Termination message received for workflow {workflow_id}")
+                    await cleanup_workflow(workflow_id)
+                    break  # Exit the loop after initiating cleanup
+
             except WebSocketDisconnect:
                 break
             except Exception as e:
@@ -224,6 +244,12 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     finally:
         websocket_manager.disconnect(workflow_id, websocket)
         print(f"Cleaned up connection for workflow {workflow_id}")
+        
+        # Check if there are no more active connections for this workflow
+        remaining_connections = websocket_manager.active_connections.get(workflow_id, [])
+        if not remaining_connections:
+            print(f"No remaining connections for workflow {workflow_id}. Initiating cleanup.")
+            await cleanup_workflow(workflow_id)
 
 class MessageInputData(BaseModel):
     message_id: str
@@ -329,6 +355,50 @@ async def get_workflow_resources(workflow_id: str):
     resources = workflow.resource_manager.resources
     
     return resources
+
+
+
+async def cleanup_workflow(workflow_id: str):
+    """Clean up workflow resources, connections, and workflow messages."""
+    if workflow_id in active_workflows:
+        workflow = active_workflows[workflow_id]["instance"]
+    
+
+        try:
+            # 1. Save and cleanup the WorkflowMessage
+            workflow.workflow_message.save()
+
+
+
+            # 2. Clean up agents
+            workflow.agent_manager.deallocate_all_agents()
+
+            # 3. Clean up resources
+            workflow.resource_manager.deallocate_all_resources()
+
+            # 4. Close websocket connections
+            for connection in list(websocket_manager.active_connections.get(workflow_id, [])):
+                try:
+                    await connection.close()
+                except Exception as e:
+                    logger.error(f"Error closing WebSocket connection: {e}")
+            if workflow_id in websocket_manager.active_connections:
+                websocket_manager.active_connections[workflow_id].clear()
+                del websocket_manager.active_connections[workflow_id]
+
+            # 5. Remove from active workflows
+            del active_workflows[workflow_id]
+            workflow.workflow_message.reset_instance()
+
+
+            logger.info(f"Workflow {workflow_id} cleaned up successfully.")
+
+        except Exception as e:
+            logger.error(f"Error during workflow cleanup for {workflow_id}: {str(e)}")
+            raise
+    else:
+        logger.warning(f"Attempted to clean up non-existent workflow {workflow_id}.")
+
     
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)

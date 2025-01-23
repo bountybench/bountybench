@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from utils.logger import get_main_logger
+import uuid
 
 logger = get_main_logger(__name__)
 
@@ -17,7 +18,16 @@ class WorkflowMessage(Message):
         if cls._instance is None:
             cls._instance = cls.__new__(cls)
             cls._instance._initialize(workflow_name, workflow_id, task, additional_metadata, logs_dir)
+        else:
+            # Reset the existing instance with new workflow details
+            cls._instance.reset(workflow_name, workflow_id, task, additional_metadata, logs_dir)
+
+
         return cls._instance
+    
+    @classmethod
+    def reset_instance(cls):
+        cls._instance = None
 
     @classmethod
     def get_instance(cls):
@@ -44,7 +54,7 @@ class WorkflowMessage(Message):
                 if value:
                     components.append(str(value.name if isinstance(value, Path) else value))
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        self.workflow_id = workflow_id if workflow_id else str(id(self))
+        self.workflow_id = workflow_id if workflow_id else str(uuid.uuid4()) #workflow_id if workflow_id else str(id(self))
 
         # Metadata
         self.workflow_name = workflow_name
@@ -123,3 +133,30 @@ class WorkflowMessage(Message):
             # For any other objects, we'll use their string representation
             return str(obj)
         raise TypeError(f'Object of type {obj.__class__.__name__} is not JSON serializable')
+    
+
+    def reset(self, workflow_name: str, workflow_id: Optional[str] = None, 
+              task: Optional[Dict[str, Any]] = None, additional_metadata: Optional[Dict[str, Any]] = None, 
+              logs_dir: str = "logs") -> None:
+        """Reset the WorkflowMessage singleton with new workflow details."""
+        # Reset all attributes to prepare for a new workflow
+        self._summary = "incomplete"
+        self._phase_messages = []
+        self.agents_used = {}
+        self.resources_used = {}
+        self._end_time = None
+        self._phase_status = {}
+
+        # Update workflow details
+        components = [workflow_name]
+        if task:
+            for _, value in task.items():
+                if value:
+                    components.append(str(value.name if isinstance(value, Path) else value))
+        self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        self.workflow_id = workflow_id if workflow_id else str(uuid.uuid4())  # Generate a new UUID
+
+        self.workflow_name = workflow_name
+        self.task = task
+        self.additional_metadata = additional_metadata
+        self._start_time = datetime.now().isoformat()
