@@ -99,6 +99,16 @@
 .edit-textarea .MuiInputBase-input {
   font-size: 0.75rem !important;
   padding: 12px !important;
+  color: #1f1f1f !important;
+}
+
+/* Force black text color for all input states */
+.edit-textarea .MuiInputBase-root {
+  color: #1f1f1f !important;
+}
+
+.edit-textarea .MuiOutlinedInput-root {
+  color: #1f1f1f !important;
 }
 
 /* Metadata styling */
