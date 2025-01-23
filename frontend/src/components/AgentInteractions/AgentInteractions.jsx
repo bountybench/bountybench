@@ -4,15 +4,19 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit'; 
 import SaveIcon from '@mui/icons-material/Save';
-import ReactMarkdown from 'react-markdown';
 import './AgentInteractions.css';
 import ReplayIcon from '@mui/icons-material/Replay';
 
-const ActionCard = ({ action, onUpdateActionInput, onRerunAction }) => {
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+
+const ActionCard = ({action, onUpdateActionInput, onRerunAction, onChildUpdate }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);            
   const [editedMessage, setEditedMessage] = useState(''); 
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+
+  const [versionChanged, setVersionChanged] = useState(action.version_chain.length > 1);
 
   if (!action) return null;
 
@@ -43,6 +47,12 @@ const ActionCard = ({ action, onUpdateActionInput, onRerunAction }) => {
     setMetadataExpanded(!metadataExpanded);
   };
 
+  const handleToggleVersion = (num) => {
+    if (onChildUpdate) {
+        onChildUpdate(num); // Notify parent of the update
+    }
+  };
+
   const handleRerunClick = async () => {
     if (!action.current_id) {
       console.error('Action id is undefined');
@@ -55,12 +65,8 @@ const ActionCard = ({ action, onUpdateActionInput, onRerunAction }) => {
     }
   };
 
-  // Original message content
-  const originalMessageContent = formatData(action.message);
-
-  const renderContent = (content, label) => {
-    if (!content) return null;
-    const formattedContent = formatData(content);
+  const renderContent = (version, label) => {
+    const formattedContent = formatData(action.version_chain[version]);
     if (!formattedContent) return null;
 
     return (
@@ -118,7 +124,7 @@ const ActionCard = ({ action, onUpdateActionInput, onRerunAction }) => {
 
   const handleEditClick = () => {
     setEditing(true);
-    setEditedMessage(originalMessageContent); // Populate with original message
+    setEditedMessage(formatData(action.version_chain[action.version_num])); // Populate with original message
   };
 
 
@@ -194,11 +200,12 @@ const ActionCard = ({ action, onUpdateActionInput, onRerunAction }) => {
                 >
                   <SaveIcon/>
                 </Button>
+                           
               </Box>
             </Box>
           ) : (
             <>
-              {renderContent(action.message, 'Message')}
+              {renderContent(action.version_num, 'Message')}
               <Box mt={1} display="flex" justifyContent="flex-end">
                 <Button
                   variant="outlined"
@@ -216,10 +223,42 @@ const ActionCard = ({ action, onUpdateActionInput, onRerunAction }) => {
                 >
                   <ReplayIcon />
                 </Button>
-              </Box>
+
+                {/* Toggle Version Arrows */}
+                {versionChanged && (
+                  <>
+                    <Typography variant="caption" sx={{ mx: 1 }}>
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+  {/* Arrow Buttons */}
+  <Box sx={{ display: 'flex', gap: 0.5 }}>
+    <IconButton
+      onClick={() => handleToggleVersion(-1)}
+      disabled={action.version_num === 0}
+      sx={{ color: 'black' }}
+      size="small"
+    >
+      <ArrowBackIcon />
+    </IconButton>
+    <IconButton
+      onClick={() => handleToggleVersion(1)}
+      disabled={action.version_num === action.version_chain.length - 1}
+      sx={{ color: 'black' }}
+      size="small"
+    >
+      <ArrowForwardIcon />
+    </IconButton>
+  </Box>
+
+  {/* Version Number */}
+  <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'text.secondary' }}>
+    {action.version_num + 1}/{action.version_chain.length}
+  </Typography>
+</Box>
+                  </>)}               
+                </Box>
             </>
           )}
-
 
           {/* Metadata section */}
           {action.additional_metadata && (
@@ -292,10 +331,12 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
   );  const [editing, setEditing] = useState(false); // Added missing state
   const [editedMessage, setEditedMessage] = useState(''); // Added missing state
 
-
+  const [updatedChildren, setUpdatedChildren] = useState(0);
 
   if (!message) return null;
 
+
+  
   const handleToggleContent = (event) => {
     event.stopPropagation();
     setContentExpanded(!contentExpanded);
@@ -324,13 +365,22 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
     }
   };
 
+  const handleChildUpdate = (num) => {
+      message.current_children = message.current_children.map((child) => {
+        return { ...child, version_num: child.version_num + num};
+      });
+      setUpdatedChildren((prev) => prev + 1);
+  };
 
-  const renderActionMessage = (actionMessage) => (
+  
+
+  const renderActionMessage = (actionMessage, onChildUpdate) => (
     <ActionCard
       key={actionMessage.current_id}
       action={actionMessage}
       onUpdateActionInput={onUpdateActionInput}
       onRerunAction={onRerunAction}
+      onChildUpdate={onChildUpdate}
     />
   );
 
@@ -375,7 +425,7 @@ const MessageBubble = ({ message, onUpdateActionInput, onRerunAction }) => {
               >
                 {message.current_children.map((actionMessage, index) => (
                   <Box key={index}>
-                    {renderActionMessage(actionMessage)}
+                    {renderActionMessage(actionMessage, handleChildUpdate)}
                   </Box>
                 ))}
               </Box>

@@ -23,7 +23,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     bounty_number: "0",
     interactive: true,
     iterations: 10,
-    model: 'openai/o3-mini-2024-12-17',
+    model: 'anthropic/claude-3-5-sonnet-20240620',
   });
   // Fetch available workflows
   useEffect(() => {

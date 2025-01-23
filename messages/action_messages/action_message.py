@@ -17,6 +17,12 @@ class ActionMessage(Message):
     def message(self) -> str:
         return self._message
     
+    def get_version_chain(self):
+        chain = [self.message]
+        if self.version_prev:
+            chain = self.version_prev.get_version_chain() + chain
+        return chain
+    
     @property
     def message_type(self) -> str:
         """
@@ -30,9 +36,13 @@ class ActionMessage(Message):
         return self._additional_metadata
 
     def action_dict(self) -> dict:
+     
         action_dict = {
             "resource_id": self.resource_id,
             "message": self.message,
+            "version_chain" : self.get_version_chain(),
+            'version_num' : len(self.get_version_chain()) - 1
+        
         }
         if self.additional_metadata:
             action_dict["additional_metadata"]=  self.additional_metadata
