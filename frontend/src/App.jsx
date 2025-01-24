@@ -1,4 +1,4 @@
-import { React, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
@@ -19,10 +19,29 @@ function App() {
     setInteractiveMode(isInteractive);
   };
 
-  const handleInteractiveModeToggle = () => {
-    setInteractiveMode(!interactiveMode);
+  const handleInteractiveModeToggle = async () => {
+    const newInteractiveMode = !interactiveMode;
+    setInteractiveMode(newInteractiveMode);
+    
     if (selectedWorkflow) {
-      console.log("Update backend with new interactive mode:", !interactiveMode);
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/${selectedWorkflow.id}/interactive`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ interactive: newInteractiveMode }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to update interactive mode');
+        }
+        
+        console.log("Backend updated with new interactive mode:", newInteractiveMode);
+      } catch (error) {
+        console.error("Error updating interactive mode:", error);
+        setInteractiveMode(!newInteractiveMode); // Revert state on error
+      }
     }
   };
 
