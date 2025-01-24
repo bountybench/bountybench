@@ -18,7 +18,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   // 1. Use the hook to poll for server availability
   const { isServerAvailable, isChecking } = useServerAvailability(() => {
     console.log('Server is available!');
-    // You can trigger any action you want once the server is verified.
   });
 
   const [workflows, setWorkflows] = useState([]);
@@ -126,7 +125,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     );
   }
 
-  // All good: show the form
   return (
     <Box className="launcher-container">
       <Typography variant="h5" gutterBottom>
