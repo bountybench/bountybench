@@ -1,0 +1,41 @@
+# Use the full Python 3.11 image
+FROM python:3.11
+
+# Set the working directory
+WORKDIR /app
+
+# Install build tools and other dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        build-essential \
+        gcc \
+        make \
+        wget \
+        git \
+        libffi-dev \
+        libssl-dev \
+        libxml2-dev \
+        libxslt1-dev \
+        zlib1g-dev \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# we may need to install docker 
+
+# Set BLIS_ARCH environment variable
+ENV BLIS_ARCH=generic
+
+# Upgrade pip, setuptools, and wheel
+RUN pip install --upgrade pip setuptools wheel
+
+# Copy the entire project into the container
+COPY . .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose the backend port (assuming the server runs on port 8000)
+EXPOSE 8000
+
+# Define the command to run your backend
+CMD ["python", "server.py"]
