@@ -1,4 +1,4 @@
-# cybountyagent
+# bountyagent
 
 ## Table of Contents
 
@@ -93,6 +93,19 @@ python -m workflows.exploit_and_patch_workflow \
 Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.
 
 ### Running the Application
+
+## Concurrent run
+1. In the root directory run:
+
+```
+npm install
+npm start
+```
+
+This will launch the development server for the frontend and start the backend. You may need to refresh as the backend takes a second to run.
+
+Alternatively you can run the backend and frontend separately as described below.
+
 
 ## Backend Setup
 
