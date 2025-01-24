@@ -179,6 +179,18 @@ class BasePhase(ABC):
                 else:
                     logger.warning("Interactive mode is set, but workflow doesn't have next_iteration_event")
 
+            """
+            # Check if interactive mode has changed
+            if self.phase_config.interactive != self.workflow.interactive:
+                self.phase_config.interactive = self.workflow.interactive
+                logger.info(f"Interactive mode updated to {self.phase_config.interactive}")
+                if not self.phase_config.interactive:
+                    # If switched to non-interactive, trigger next iteration immediately
+                    self.workflow.next_iteration_event.set()
+            """
+
+
+
             agent_id, agent_instance = self._get_current_agent()
             logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
 
@@ -220,6 +232,10 @@ class BasePhase(ABC):
         """Retrieve the next agent in a round-robin fashion."""
         agent = self.agents[(self.current_agent_index - 1) % len(self.agents)]
         return agent
+    
+    async def set_interactive_mode(self, interactive: bool):
+        self.phase_config.interactive = interactive
+        print(f"Interactive mode for phase {self.name} set to {interactive}")
     
     @abstractmethod
     async def run_one_iteration(
