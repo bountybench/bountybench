@@ -1,0 +1,14 @@
+{
+  "name": "bountyagent",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "scripts": {
+    "install-all": "npm install --prefix frontend",
+    "start": "concurrently \"npm:server\" \"npm:frontend\"",
+    "server": "python server.py",
+    "frontend": "npm start --prefix frontend"
+  }
+}

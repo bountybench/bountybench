@@ -295,6 +295,34 @@ async def edit_action_input(workflow_id: str, data: MessageInputData):
     except Exception as e:
         return {"error": str(e)}
     
+
+@app.post("/workflow/{workflow_id}/interactive")
+async def update_interactive_mode(workflow_id: str, data: dict):
+    print(f"Received request to update interactive mode for workflow {workflow_id}")
+    print(f"Data received: {data}")
+    
+    try:
+        if workflow_id not in active_workflows:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        
+        workflow = active_workflows[workflow_id]["instance"]
+        new_interactive_mode = data.get("interactive")
+        
+        if new_interactive_mode is None:
+            raise HTTPException(status_code=400, detail="Interactive mode not specified")
+        
+        print(f"Attempting to set interactive mode to {new_interactive_mode}")
+        await workflow.set_interactive_mode(new_interactive_mode)
+        print(f"Interactive mode successfully set to {new_interactive_mode}")
+        
+        return {"status": "success", "interactive": new_interactive_mode}
+    except Exception as e:
+        print(f"Error occurred: {str(e)}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.get("/workflow/last-message/{workflow_id}")
 async def last_message(workflow_id: str):
     if workflow_id not in active_workflows:

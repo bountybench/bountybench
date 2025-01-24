@@ -262,6 +262,36 @@ class BaseWorkflow(ABC):
         message = await self.edit_message(message, new_message_data)
         return message
     
+    """
+    async def set_interactive_mode(self, interactive: bool):
+        self.interactive = interactive
+        # Update the interactive mode for the current phase
+        if self._current_phase:
+            await self._current_phase.set_interactive_mode(interactive)
+        # Update the interactive mode for all remaining phases
+        for phase in self._phase_graph:
+            if phase != self._current_phase:
+                phase.phase_config.interactive = interactive
+        logger.info(f"Interactive mode set to {interactive}")
+    """
+
+    async def set_interactive_mode(self, interactive: bool):
+        if self.interactive != interactive:
+            self.interactive = interactive
+            logger.info(f"Workflow interactive mode set to {interactive}")
+            
+            # Update the interactive mode for the current phase
+            if self._current_phase:
+                await self._current_phase.set_interactive_mode(interactive)
+            
+            # Update the interactive mode for all remaining phases
+            for phase in self._phase_graph:
+                if phase != self._current_phase:
+                    phase.phase_config.interactive = interactive
+            
+            if not interactive:
+                # If switching to non-interactive, trigger next iteration
+                self.next_iteration_event.set()
     @property
     def name(self):
         return self.__class__.__name__
