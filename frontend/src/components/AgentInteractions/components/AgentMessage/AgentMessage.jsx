@@ -56,6 +56,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
                       multiline
                       fullWidth
                       minRows={3}
+                      maxRows={10}
                       value={editedMessage}
                       onChange={(e) => setEditedMessage(e.target.value)}
                       className="edit-textarea"
