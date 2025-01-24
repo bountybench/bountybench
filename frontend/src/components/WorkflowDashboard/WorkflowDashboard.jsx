@@ -42,6 +42,21 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
     }
   }, [workflowStatus, messages]);
 
+  // Next iteration via ctrl + enter
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault();
+        triggerNextIteration();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedWorkflow]);
+  
   const triggerNextIteration = async () => {
     if (selectedWorkflow?.id) {
       setIsNextDisabled(true);
