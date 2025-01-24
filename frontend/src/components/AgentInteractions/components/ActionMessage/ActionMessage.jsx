@@ -11,7 +11,7 @@ import './ActionMessage.css'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpdate }) => {
+const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpdate, multiVersion, displayedIndex, versionLength }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
@@ -122,7 +122,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
           <>
             <Box className="action-message-content">
               <Typography className="action-message-text">
-                {formatData(action.version_chain[action.version_num])}
+                {formatData(action.message)}
               </Typography>
             </Box>
             <Box className="action-message-buttons">
@@ -144,7 +144,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
               </Button>
 
                   {/* Toggle Version Arrows */}
-                  {action.version_prev && (
+                  {multiVersion && versionLength > 1 && (
                   <>
                     <Typography variant="caption" sx={{ mx: 1 }}>
                     </Typography>
@@ -153,7 +153,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <IconButton
                           onClick={() => handleToggleVersion(-1)}
-                          disabled={action.version_num === 0}
+                          disabled={displayedIndex === 1}
                           sx={{ color: 'black' }}
                           size="small"
                         >
@@ -161,7 +161,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
                         </IconButton>
                         <IconButton
                           onClick={() => handleToggleVersion(1)}
-                          disabled={action.version_num === action.version_chain.length - 1}
+                          disabled={displayedIndex === versionLength}
                           sx={{ color: 'black' }}
                           size="small"
                         >
@@ -171,7 +171,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
 
                       {/* Version Number */}
                       <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
-                        {action.version_num + 1}/{action.version_chain.length}
+                        {displayedIndex}/{versionLength}
                       </Typography>
                     </Box>
                   </>)}               

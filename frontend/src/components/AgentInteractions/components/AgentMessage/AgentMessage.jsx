@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -7,19 +7,43 @@ import SaveIcon from '@mui/icons-material/Save';
 import ActionMessage from '../ActionMessage/ActionMessage';
 import './AgentMessage.css'
 
-const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+
+const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChildUpdate, phaseMultiVersion, phaseDisplayedIndex, phaseVersionLength, phaseReset }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message.message || '');
 
-  const [updatedChildren, setUpdatedChildren] = useState(0);
-  
+  const [displayedIndex, setDisplayedIndex] = useState(1);
+  const [multiVersion, setMultiVersion] = useState(false);
+
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
 
   const handleEditClick = () => {
     setEditing(true);
     setEditedMessage(message.message || '');
   };
+
+  useEffect(() => {
+    if (message.action_messages){
+      const messageLength = message.action_messages.length;
+      // Make sure that both model and kali_env are received
+      if (messageLength % 2 !== 0 || messageLength <= 2) {
+        return;
+      }
+      setMultiVersion(true);
+      setDisplayedIndex(messageLength / 2);
+    }
+  }, [message.action_messages]);
+
+  const handleToggleVersion = (num) => {
+    if (onPhaseChildUpdate) {
+        onPhaseChildUpdate(num); // Notify parent of the update
+    }
+  };
+
+  const adjustedDisplayIndex = phaseReset ? 1: displayedIndex;
 
   const handleSaveClick = async () => {
     if (!message.current_id) {
@@ -35,10 +59,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
   };
 
   const handleChildUpdate = (num) => {
-      message.current_children = message.current_children.map((child) => {
-        return { ...child, version_num: child.version_num + num};
-      });
-      setUpdatedChildren((prev) => prev + 1);
+      setDisplayedIndex((prev) => prev + num);
   };
 
   return (
@@ -101,19 +122,56 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
                       >
                         <EditIcon />
                       </Button>
+
+                      {/* Toggle Version Arrows */}
+                    {phaseMultiVersion && (
+                    <>
+                    <Typography variant="caption" sx={{ mx: 1 }}>
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      {/* Arrow Buttons */}
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <IconButton
+                          onClick={() => handleToggleVersion(-1)}
+                          disabled={phaseDisplayedIndex === 1}
+                          sx={{ color: 'black' }}
+                          size="small"
+                        >
+                          <ArrowBackIcon />
+                        </IconButton>
+                        <IconButton
+                          onClick={() => handleToggleVersion(1)}
+                          disabled={phaseDisplayedIndex === phaseVersionLength}
+                          sx={{ color: 'black' }}
+                          size="small"
+                        >
+                          <ArrowForwardIcon />
+                        </IconButton>
+                      </Box>
+
+                      {/* Version Number */}
+                      <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
+                        {phaseDisplayedIndex}/{phaseVersionLength}
+                      </Typography>
+                    </Box>
+                    </>)}     
+
                     </Box>
                   </Box>
                 )}
               </Box>
             ) : (
               <Box className="action-messages-container">
-                {message.current_children.map((actionMessage, index) => (
+                {message.action_messages.slice(2*adjustedDisplayIndex-2, 2*adjustedDisplayIndex).map((actionMessage, index) => (
                   <ActionMessage
                     key={index}
                     action={actionMessage}
                     onUpdateActionInput={onUpdateActionInput}
                     onRerunAction={onRerunAction}
                     onChildUpdate={handleChildUpdate}
+                    multiVersion={multiVersion}
+                    displayedIndex={adjustedDisplayIndex}
+                    versionLength={message.action_messages.length / 2}
                   />
                 ))}
               </Box>

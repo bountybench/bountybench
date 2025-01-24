@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -11,6 +11,30 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
 
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
+
+  const [phaseDisplayedIndex, setPhaseDisplayedIndex] = useState(1);
+  const [phaseMultiVersion, setPhaseMultiVersion] = useState(false);
+  const [phaseReset, setPhaseReset] = useState(false);
+
+  useEffect(() => {
+    if (message.agent_messages){
+      const messageLength = message.agent_messages.length;
+      // Make sure that both system and agent are received
+      if (messageLength % 2 !== 0 || messageLength <= 2) {
+        return;
+      }
+      setPhaseMultiVersion(true);
+      setPhaseDisplayedIndex(messageLength / 2);
+      setPhaseReset(true);
+      
+    }
+  }, [message.agent_messages]);
+
+  const handleChildUpdate = (num) => {
+    setPhaseDisplayedIndex((prev) => prev + num);
+    // reset the index of all following displayed messages to 1
+    setPhaseReset(true);
+  };
 
   return (
     <Box className="message-container phase">
@@ -33,15 +57,20 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
               Summary: {message.phase_summary || '(no summary)'}
             </Typography>
             
-            {message.current_children && message.current_children.length > 0 && (
+            {message.agent_messages && message.agent_messages.length > 0 && (
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
-                {message.current_children.map((agentMessage, index) => (
+                {message.agent_messages.slice(2*phaseDisplayedIndex-2, 2*phaseDisplayedIndex).map((agentMessage, index) => (
                   <AgentMessage 
                     key={index} 
                     message={agentMessage} 
                     onUpdateActionInput={onUpdateActionInput}
                     onRerunAction={onRerunAction}
+                    onPhaseChildUpdate={handleChildUpdate}
+                    phaseMultiVersion={phaseMultiVersion}
+                    phaseDisplayedIndex={phaseDisplayedIndex}
+                    phaseVersionLength={message.agent_messages.length / 2}
+                    phaseReset={phaseReset}
                   />
                 ))}
               </Box>
