@@ -182,6 +182,9 @@ class BasePhase(ABC):
             agent_id, agent_instance = self._get_current_agent()
             logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
 
+            while self._last_agent_message.version_next:
+                self._last_agent_message = self._last_agent_message.version_next
+                
             message = await self.run_one_iteration(
                 phase_message=self._phase_message,
                 agent_instance=agent_instance,
@@ -207,24 +210,6 @@ class BasePhase(ABC):
 
         update_message(self._phase_message)
         return self._phase_message
-
-    async def add_user_message(self, user_input: str) -> str:
-        user_input_message = AgentMessage(agent_id="human", message=user_input)
-        print("Message created")
-        self._phase_message.add_agent_message(user_input_message)
-
-        # Update the last output
-        self._last_agent_message = user_input_message
-        
-        return user_input_message.message
-    
-    def get_phase_memory(self):
-        memory = ""
-        if self._phase_message:
-            for agent in self._phase_message.current_agent_list:
-                memory += agent.message
-        
-        return memory
 
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:
         """Retrieve the next agent in a round-robin fashion."""
