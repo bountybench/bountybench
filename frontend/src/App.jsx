@@ -9,6 +9,17 @@ import { darkTheme } from './theme';
 import './App.css';
 
 function App() {  
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+        e.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener('error', handler);
+    return () => window.removeEventListener('error', handler);
+  }, []);
+  
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [interactiveMode, setInteractiveMode] = useState(true);
   const [workflowStatus, setWorkflowStatus] = useState(null);
