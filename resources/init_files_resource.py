@@ -1,5 +1,4 @@
 import atexit
-import logging
 import os
 import subprocess
 import sys
@@ -63,20 +62,16 @@ class InitFilesResource(BaseResource):
         os.makedirs(self.tmp_dir)
         logger.info(f"Created {self.tmp_dir}")
 
-        self.tmp_exploits_dir = os.path.join(self.tmp_dir, "bounties", 
-                                    f"bounty_{self._resource_config.bounty_number}", "exploit_files")
-        os.makedirs(self.tmp_exploits_dir)
-        logger.info(f"Created {self.tmp_exploits_dir}")
-        
         # Handle exploit files if specified
-        self.exploit_files_dir = self.tmp_exploits_dir
+        self.exploit_files_dir = self.tmp_dir
         if self._resource_config.exploit_files_dir_name:
             self.exploit_files_dir = os.path.join(
                 self.task_dir, "bounties", 
                 f"bounty_{self._resource_config.bounty_number}",
                 self._resource_config.exploit_files_dir_name
             )
-            self.copy_files(self.exploit_files_dir, self.tmp_exploits_dir)
+            self.copy_files(self.exploit_files_dir, self.tmp_dir)
+            self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
             
         self.vulnerable_commit = self._resource_config.vulnerable_commit
         
@@ -262,6 +257,33 @@ class InitFilesResource(BaseResource):
         except Exception as e:
             logger.error(f"An error occurred while copying files: {e}")
 
+    def replace_codebase_path(self, directory_path, folder_to_ignore):
+        # Walk through the directory
+        for root, dirs, files in os.walk(directory_path):
+            # If the folder to ignore is in the current directories, remove it from traversal
+            if folder_to_ignore in dirs:
+                dirs.remove(folder_to_ignore)
+                print(f"Excluded folder: {os.path.join(root, folder_to_ignore)}")
+
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                try:
+                    # Read the file content
+                    with open(file_path, 'r', encoding='utf-8') as file:
+                        content = file.read()
+
+                    # Replace the target string
+                    new_content = content.replace('../../../codebase', './codebase')
+
+                    # Only write back if changes were made
+                    if new_content != content:
+                        with open(file_path, 'w', encoding='utf-8') as file:
+                            file.write(new_content)
+                        print(f"Updated file: {file_path}")
+                except (UnicodeDecodeError, PermissionError, IsADirectoryError) as e:
+                    # Skip files that cannot be read as text or have access issues
+                    print(f"Skipped file: {file_path} due to {e}")
+
     def to_dict(self) -> dict:
         """
         Serializes the InitFilesResource state to a dictionary.
@@ -270,7 +292,6 @@ class InitFilesResource(BaseResource):
             'task_dir': self.task_dir,
             'files_dir': self.files_dir,
             'tmp_dir': self.tmp_dir,
-            'tmp_exploits_dir': self.tmp_exploits_dir,
             'exploit_files_dir': self.exploit_files_dir,
             'vulnerable_commit': self.vulnerable_commit,
             'resource_id': self.resource_id,

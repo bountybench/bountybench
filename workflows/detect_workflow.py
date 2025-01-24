@@ -17,8 +17,11 @@ class DetectWorkflow(BountyWorkflow):
         phase_kwargs = {
             'model': self.params.get('model'),
             'helm': self.params.get('helm'),
+            'task_dir': self.task_dir,
             'bounty_number': self.bounty_number,
-            'initial_prompt': self.initial_prompt
+            'target_host': self.repo_metadata["target_host"],
+            'stop_token': STOP_TOKEN,
+            'initial_prompt': self.initial_prompt,
         }
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations
@@ -37,16 +40,7 @@ class DetectWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
-        if self.repo_metadata["target_host"]: 
-            prompt = TARGET_HOST_DETECT_PROMPT.format(
-                stop_token=STOP_TOKEN,
-                target_host=self.repo_metadata["target_host"]
-            )
-        else: 
-            prompt = DETECT_PROMPT.format(
-                stop_token=STOP_TOKEN
-            )
-        return prompt
+        return TARGET_HOST_DETECT_PROMPT if self.repo_metadata["target_host"] else DETECT_PROMPT
 
 async def main() -> None:
     """Main entry point"""
