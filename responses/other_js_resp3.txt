@@ -1,0 +1,724 @@
+**Walkthrough of `AgentPanel.jsx`:**
+
+The `AgentPanel` component is designed to display a list of active agents within the workflow. Here's a breakdown of the code:
+
+1. **Imports:**
+   - **React:** The base library for building the component.
+   - **Material UI Components:** Imports from `@mui/material`, including `Box`, `Typography`, `List`, `ListItem`, `ListItemIcon`, and `ListItemText`.
+   - **Icons:** Imports `PersonIcon` from `@mui/icons-material` for representing agents.
+   - **CSS Styles:** Imports custom styles from `AgentPanel.css`.
+
+2. **Component Definition:**
+   - The component is a functional component that accepts a `workflow` prop (currently unused).
+   - **State:**
+     - `activeAgents` is hardcoded as an empty array. This is a placeholder to be replaced with actual data from the backend.
+   - **Rendering:**
+     - The main container is a `Box` with the class `agents-container`.
+     - Displays a `Typography` component with the title "Agents".
+     - Conditional rendering based on the length of `activeAgents`:
+       - If there are no active agents, it displays a message indicating that there are no active agents at the moment.
+       - If there are active agents, it renders a list (`List`) of agents, each as a `ListItem` with an icon and text showing the agent's name and type.
+
+3. **Export:**
+   - The component is exported as `AgentPanel`.
+
+---
+
+**Design Feedback and Thoughts:**
+
+1. **Data Handling:**
+   - **Issue:** `activeAgents` is currently a hardcoded empty array.
+   - **Recommendation:** Fetch the list of active agents from the backend or via props.
+     - If the `workflow` prop contains agent information, use it to populate `activeAgents`.
+     - Consider using `useEffect` to fetch data if it needs to be retrieved asynchronously.
+
+2. **Props Utilization:**
+   - **Issue:** The `workflow` prop is not utilized.
+   - **Recommendation:** If `workflow` contains the necessary data, destructure it to extract agent information.
+
+3. **User Feedback:**
+   - The component provides user feedback when there are no active agents, which is good UX.
+
+4. **Styling:**
+   - The use of Material UI components ensures consistent styling.
+   - Ensure that `AgentPanel.css` styles are necessary and do not conflict with Material UI's theming.
+
+5. **Accessibility:**
+   - Consider adding `aria-labels` or other accessibility attributes to improve usability for screen readers.
+
+---
+
+**Lower-Level Feedback:**
+
+1. **Destructuring Props:**
+   - If you expect to receive agents as a prop, consider destructuring it directly:
+     ```jsx
+     export const AgentPanel = ({ activeAgents = [] }) => { /* ... */ };
+     ```
+     This provides a default empty array and makes it clear what props the component expects.
+
+2. **Unique Keys in Lists:**
+   - In the `map` function, you have:
+     ```jsx
+     key={agent.id || index}
+     ```
+     - **Issue:** Using `index` as a fallback key is not recommended as it can lead to performance issues.
+     - **Recommendation:** Ensure that each agent has a unique `id`. If not, consider generating a unique key, but avoid using the index.
+
+3. **Type Checking with PropTypes:**
+   - Consider adding `PropTypes` to define the expected prop types and provide runtime type checking.
+
+     ```jsx
+     import PropTypes from 'prop-types';
+
+     AgentPanel.propTypes = {
+       activeAgents: PropTypes.arrayOf(
+         PropTypes.shape({
+           id: PropTypes.string.isRequired,
+           name: PropTypes.string.isRequired,
+           type: PropTypes.string.isRequired,
+         })
+       ),
+     };
+     ```
+
+4. **Default Props:**
+   - Set default props to ensure the component doesn't break if no props are passed.
+
+     ```jsx
+     AgentPanel.defaultProps = {
+       activeAgents: [],
+     };
+     ```
+
+5. **Removal of Unused Imports:**
+   - If `workflow` is not used, consider removing it from the props to clean up the component.
+
+6. **Code Comments:**
+   - The comment about replacing `activeAgents` with actual data is helpful during development but can be removed once the data fetching is implemented.
+
+---
+
+**Unit Testing Guidance:**
+
+To ensure `AgentPanel` functions correctly, you can write unit tests covering various scenarios. Here's how:
+
+1. **Setup Testing Environment:**
+   - Ensure you have **Jest** and **React Testing Library** installed in your project.
+
+2. **Test Cases to Cover:**
+
+   - **Rendering Without Agents:**
+     - The component should display the message "No active agents at the moment."
+
+   - **Rendering With Agents:**
+     - The component should render a list of agents with their names and types.
+     - Each agent should display with a `PersonIcon`.
+
+   - **Prop Validation:**
+     - Test that the component handles invalid or unexpected props gracefully.
+
+3. **Example Unit Test for `AgentPanel`:**
+
+   ```jsx
+   // AgentPanel.test.jsx
+   import React from 'react';
+   import { render, screen } from '@testing-library/react';
+   import { AgentPanel } from './AgentPanel';
+
+   describe('AgentPanel Component', () => {
+     test('displays no agents message when activeAgents is empty', () => {
+       render(<AgentPanel activeAgents={[]} />);
+       expect(screen.getByText(/No active agents at the moment/i)).toBeInTheDocument();
+     });
+
+     test('renders a list of active agents', () => {
+       const agents = [
+         { id: '1', name: 'Agent Smith', type: 'Exploit' },
+         { id: '2', name: 'Agent Doe', type: 'Patch' },
+       ];
+       render(<AgentPanel activeAgents={agents} />);
+       expect(screen.queryByText(/No active agents at the moment/i)).not.toBeInTheDocument();
+       agents.forEach((agent) => {
+         expect(screen.getByText(agent.name)).toBeInTheDocument();
+         expect(screen.getByText(agent.type)).toBeInTheDocument();
+       });
+     });
+   });
+   ```
+
+4. **Mocking External Dependencies:**
+   - Since `AgentPanel` is a relatively simple component, mocking is not necessary unless it makes external calls.
+
+5. **Running the Tests:**
+   - Add a test script to your `package.json` if not already present:
+     ```json
+     "scripts": {
+       "test": "react-scripts test"
+     }
+     ```
+   - Run the tests:
+     ```bash
+     npm test
+     ```
+
+---
+
+**Walkthrough of `WorkflowDashboard.jsx`:**
+
+The `WorkflowDashboard` component manages the display and interaction of the workflow execution. Here's a breakdown:
+
+1. **Imports:**
+   - **React and Hooks:** Imports `useState`, `useEffect` for managing state and side effects.
+   - **Material UI Components:** Used for UI elements like `Box`, `CircularProgress`, `Alert`, etc.
+   - **Icons:** `ArrowForwardIcon` from Material UI icons (though not used in the code snippet).
+   - **Custom Components and Hooks:**
+     - `AgentInteractions` component is imported, which presumably handles the interaction UI.
+     - `useWorkflowWebSocket` custom hook is used to manage WebSocket connections.
+   - **Styles:** Imports custom CSS.
+
+2. **Component Props:**
+   - Receives `selectedWorkflow`, `interactiveMode`, and `onWorkflowStateUpdate` from the parent.
+
+3. **State Management:**
+   - `isNextDisabled`: Manages the disabled state of the "Next" button.
+   - `preservedMessages`: Stores messages after the workflow completes.
+
+4. **WebSocket Hook Integration:**
+   - The custom hook `useWorkflowWebSocket` is used to connect to the backend WebSocket server and retrieve workflow data, such as status, phase, iteration, and messages.
+
+5. **Effect Hooks:**
+   - **Updating Parent on State Change:**
+     - Uses `useEffect` to call `onWorkflowStateUpdate` whenever `workflowStatus` or `currentPhase` changes.
+   - **Preserving Messages on Completion:**
+     - When the workflow completes, messages are preserved to prevent loss if the WebSocket disconnects.
+   - **Keyboard Shortcut:**
+     - Adds an event listener for `Ctrl + Enter` to trigger the next iteration.
+
+6. **Event Handlers:**
+   - `triggerNextIteration`: Sends a POST request to the backend to trigger the next iteration.
+   - `handleUpdateActionInput`: Sends a POST request to update an action's input data.
+   - `handleRerunAction`: Sends a POST request to rerun a specific action.
+
+7. **Rendering Logic:**
+   - Displays a loading spinner if not connected.
+   - Shows an error message if there is a connection error.
+   - Renders the `AgentInteractions` component, passing down the necessary props.
+
+---
+
+**Design Feedback and Thoughts:**
+
+1. **Separation of Concerns:**
+   - The component effectively separates concerns by using a custom hook (`useWorkflowWebSocket`) for WebSocket communication.
+   - Event handlers are well-defined and handle asynchronous operations appropriately.
+
+2. **Error Handling:**
+   - Error handling in `triggerNextIteration`, `handleUpdateActionInput`, and `handleRerunAction` is good, with console logging for debugging.
+   - **Recommendation:** Consider displaying user-friendly error messages using UI elements like `Alert` components to inform the user of issues.
+
+3. **State Management:**
+   - Preserving messages on workflow completion ensures the user can still see the messages even if disconnected.
+   - **Question:** Is there a need to clean up `preservedMessages` if the user starts a new workflow?
+
+4. **Hardcoded Backend URL:**
+   - Similar to `App.jsx`, the backend URL is hardcoded.
+   - **Recommendation:** Use environment variables for the backend URL to enhance portability and ease deployment.
+
+5. **Repeated Logs:**
+   - There are duplicate console logs, e.g., `"Next iteration triggered successfully", data` is logged twice.
+   - **Recommendation:** Remove duplicate logs to clean up the console output.
+
+6. **Keyboard Event Listener:**
+   - The `Ctrl + Enter` shortcut is a nice feature for quickly triggering the next iteration.
+   - **Recommendation:** Ensure this doesn't conflict with other keyboard shortcuts and is intuitive for users.
+
+7. **Unnecessary Console Logs:**
+   - Several console logs are present for debugging purposes.
+   - **Recommendation:** Remove or conditionally include them (e.g., only in development mode) to avoid cluttering the console in production.
+
+8. **Code Reusability:**
+   - The fetch calls in `handleUpdateActionInput` and `handleRerunAction` share similar structures.
+   - **Recommendation:** Extract a helper function for making API calls to reduce code duplication.
+
+---
+
+**Lower-Level Feedback:**
+
+1. **Async/Await Error Handling:**
+   - In the `try...catch` blocks, after catching an error, you are logging it to the console but not displaying it to the user.
+   - **Recommendation:** Provide user feedback via UI components.
+
+2. **Dependency Arrays in `useEffect`:**
+   - In the `useEffect` hooks, ensure all dependencies are included in the dependency array to prevent stale closures or unintended re-renders.
+
+3. **Cleanup Functions:**
+   - The keyboard event listener added in `useEffect` is properly cleaned up in the return function, which is good practice.
+
+4. **Conditional Rendering Based on Workflow Status:**
+   - The logic for choosing between `messages` and `preservedMessages` ensures that messages are displayed after workflow completion.
+
+5. **Input Validation:**
+   - Before making API calls, especially in `handleUpdateActionInput` and `handleRerunAction`, ensure that input data is validated to prevent errors or security issues.
+
+6. **Error Details:**
+   - When logging errors, consider including more context, such as which action failed and why.
+
+---
+
+**Unit Testing Guidance:**
+
+Testing `WorkflowDashboard` requires simulating user interactions and mocking API calls. Here's how to approach it:
+
+1. **Mocking WebSocket Hook:**
+   - Since `useWorkflowWebSocket` is a custom hook, mock it to control its output during tests.
+     ```jsx
+     jest.mock('../../hooks/useWorkflowWebSocket', () => ({
+       useWorkflowWebSocket: jest.fn(),
+     }));
+     ```
+
+2. **Test Cases to Cover:**
+
+   - **Initial Loading State:**
+     - Renders a loading spinner when not connected.
+
+   - **Error State:**
+     - Displays an error message when there is a connection error.
+
+   - **Workflow Status Updates:**
+     - Calls `onWorkflowStateUpdate` when `workflowStatus` or `currentPhase` changes.
+
+   - **Triggering Next Iteration:**
+     - `triggerNextIteration` function makes the correct API call and handles success and error responses.
+
+   - **Message Preservation:**
+     - Messages are preserved correctly when the workflow completes.
+
+3. **Example Unit Test for `WorkflowDashboard`:**
+
+   ```jsx
+   // WorkflowDashboard.test.jsx
+   import React from 'react';
+   import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+   import { WorkflowDashboard } from './WorkflowDashboard';
+   import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
+
+   jest.mock('../../hooks/useWorkflowWebSocket');
+
+   describe('WorkflowDashboard Component', () => {
+     const mockOnWorkflowStateUpdate = jest.fn();
+
+     beforeEach(() => {
+       useWorkflowWebSocket.mockReturnValue({
+         isConnected: true,
+         workflowStatus: 'running',
+         currentPhase: 'phase1',
+         currentIteration: 1,
+         messages: [],
+         error: null,
+         sendMessage: jest.fn(),
+       });
+     });
+
+     test('renders AgentInteractions when connected', () => {
+       render(
+         <WorkflowDashboard
+           selectedWorkflow={{ id: 'workflow1' }}
+           interactiveMode={true}
+           onWorkflowStateUpdate={mockOnWorkflowStateUpdate}
+         />
+       );
+       expect(screen.getByText(/Agent Interactions/i)).toBeInTheDocument();
+     });
+
+     test('displays loading spinner when not connected', () => {
+       useWorkflowWebSocket.mockReturnValue({
+         isConnected: false,
+         error: null,
+       });
+       render(
+         <WorkflowDashboard
+           selectedWorkflow={{ id: 'workflow1' }}
+           interactiveMode={true}
+           onWorkflowStateUpdate={mockOnWorkflowStateUpdate}
+         />
+       );
+       expect(screen.getByRole('progressbar')).toBeInTheDocument();
+     });
+
+     test('displays error message when there is an error', () => {
+       useWorkflowWebSocket.mockReturnValue({
+         isConnected: true,
+         error: 'Connection Error',
+       });
+       render(
+         <WorkflowDashboard
+           selectedWorkflow={{ id: 'workflow1' }}
+           interactiveMode={true}
+           onWorkflowStateUpdate={mockOnWorkflowStateUpdate}
+         />
+       );
+       expect(screen.getByText(/Connection Error/i)).toBeInTheDocument();
+     });
+
+     test('calls onWorkflowStateUpdate when workflowStatus changes', () => {
+       useWorkflowWebSocket.mockReturnValue({
+         isConnected: true,
+         workflowStatus: 'completed',
+         currentPhase: 'phase2',
+         messages: [],
+       });
+       render(
+         <WorkflowDashboard
+           selectedWorkflow={{ id: 'workflow1' }}
+           interactiveMode={true}
+           onWorkflowStateUpdate={mockOnWorkflowStateUpdate}
+         />
+       );
+       expect(mockOnWorkflowStateUpdate).toHaveBeenCalledWith('completed', 'phase2');
+     });
+
+     test('triggerNextIteration makes API call', async () => {
+       global.fetch = jest.fn(() =>
+         Promise.resolve({
+           ok: true,
+           json: () => Promise.resolve({ success: true }),
+         })
+       );
+       render(
+         <WorkflowDashboard
+           selectedWorkflow={{ id: 'workflow1' }}
+           interactiveMode={true}
+           onWorkflowStateUpdate={mockOnWorkflowStateUpdate}
+         />
+       );
+       // Assuming there's a button to trigger next iteration
+       // You may need to adjust this based on the actual UI
+       // fireEvent.click(screen.getByText(/Next Iteration/i));
+       // Since the Next Iteration might be triggered via keyboard shortcut, you can simulate that:
+       fireEvent.keyDown(document, { key: 'Enter', ctrlKey: true });
+
+       await waitFor(() => {
+         expect(fetch).toHaveBeenCalledWith(
+           'http://localhost:8000/workflow/next/workflow1',
+           expect.objectContaining({
+             method: 'POST',
+           })
+         );
+       });
+     });
+   });
+   ```
+
+4. **Mocking Fetch Calls:**
+   - Use `jest.spyOn` or overwrite `global.fetch` to mock API calls within your tests.
+
+5. **Testing Keyboard Events:**
+   - Simulate keyboard events using `fireEvent` to test the `Ctrl + Enter` shortcut.
+
+6. **Cleanup:**
+   - Reset mocks after each test to avoid interference between tests.
+
+   ```jsx
+   afterEach(() => {
+     jest.clearAllMocks();
+   });
+   ```
+
+---
+
+**Walkthrough of `LogViewer.jsx`:**
+
+The `LogViewer` component is designed to display logs related to the workflow.
+
+1. **Imports:**
+   - **React:** Base library for the component.
+   - **Material UI Components:** Includes `Box`, `Typography`, and `Paper` for layout and styling.
+   - **Styles:** Imports custom styles from `LogViewer.css`.
+
+2. **Component Definition:**
+   - Accepts a `workflow` prop (currently unused).
+   - **Rendering:**
+     - Uses a `Box` with the class `log-container`.
+     - Displays a `Typography` component with the title "Workflow Logs".
+     - A `Paper` component with the class `log-content` contains static log messages for now.
+     - Log messages are hardcoded divs with the class `log-info`.
+
+3. **Export:**
+   - The component is exported as `LogViewer`.
+
+---
+
+**Design Feedback and Thoughts:**
+
+1. **Dynamic Log Content:**
+   - **Issue:** The log messages are hardcoded.
+   - **Recommendation:** Fetch or receive log data from the backend or via props to display actual workflow logs.
+
+2. **Styling and Formatting:**
+   - Using `Typography` and `Paper` components provides good structure.
+   - Consider using a monospace font for logs to enhance readability.
+
+3. **Scrollable Content:**
+   - **Recommendation:** Make the log content scrollable if it exceeds the viewport.
+     ```jsx
+     <Paper className="log-content" style={{ overflowY: 'auto', maxHeight: '400px' }}>
+       {/* Log entries */}
+     </Paper>
+     ```
+
+4. **Updating Logs in Real-Time:**
+   - Integrate with WebSocket or polling to update logs in real-time as the workflow progresses.
+
+5. **Handling Large Logs:**
+   - Implement log truncation or virtualized rendering to handle large logs efficiently.
+
+---
+
+**Lower-Level Feedback:**
+
+1. **Unused Props:**
+   - The `workflow` prop is not used. Either use it to fetch logs or remove it to clean up the component interface.
+
+2. **Class Names vs. Inline Styles:**
+   - Ensure that the classes used (`log-container`, `log-content`, `log-info`) are defined in `LogViewer.css` and follow BEM or another consistent naming convention.
+
+3. **Log Entry Component:**
+   - **Recommendation:** Create a separate `LogEntry` component to represent each log message. This enhances reusability and makes it easier to apply styles or formats conditionally based on log level (e.g., info, warning, error).
+
+   ```jsx
+   const LogEntry = ({ level, message }) => (
+     <div className={`log-entry log-${level}`}>{message}</div>
+   );
+   ```
+
+4. **Accessibility:**
+   - Ensure the logs are accessible, especially when using scrollable areas.
+
+---
+
+**Unit Testing Guidance:**
+
+Testing `LogViewer` involves checking that log messages are displayed correctly.
+
+1. **Test Cases to Cover:**
+
+   - **Rendering Without Logs:**
+     - When no logs are provided, it should display an appropriate message or an empty state.
+
+   - **Rendering With Logs:**
+     - Displays a list of log messages passed via props.
+
+   - **Log Levels:**
+     - If logs have levels (e.g., info, warning, error), ensure the styling reflects the level.
+
+2. **Example Unit Test for `LogViewer`:**
+
+   ```jsx
+   // LogViewer.test.jsx
+   import React from 'react';
+   import { render, screen } from '@testing-library/react';
+   import { LogViewer } from './LogViewer';
+
+   describe('LogViewer Component', () => {
+     test('renders without logs', () => {
+       render(<LogViewer logs={[]} />);
+       expect(screen.getByText(/Workflow Logs/i)).toBeInTheDocument();
+     });
+
+     test('renders logs correctly', () => {
+       const logs = [
+         { level: 'info', message: 'Initializing workflow...' },
+         { level: 'warning', message: 'Low disk space.' },
+         { level: 'error', message: 'Failed to load resources.' },
+       ];
+
+       render(<LogViewer logs={logs} />);
+
+       logs.forEach((log) => {
+         expect(screen.getByText(log.message)).toBeInTheDocument();
+       });
+     });
+   });
+   ```
+
+3. **Props Validation:**
+   - Ensure the component handles null or undefined `logs` props gracefully.
+
+---
+
+**Walkthrough of `Header.jsx`:**
+
+The `Header` component is the application's top navigation bar.
+
+1. **Imports:**
+   - **React:** Base library for the component.
+   - **Material UI Components:** Includes `AppBar`, `Toolbar`, `Typography`, `Switch`, `FormControlLabel`, and `Box`.
+
+2. **Component Props:**
+   - `onInteractiveModeToggle`: Function to handle the toggle of interactive mode.
+   - `interactiveMode`: Boolean indicating whether interactive mode is enabled.
+
+3. **Rendering:**
+   - Uses `AppBar` and `Toolbar` to create a standard application header.
+   - Displays the application title "BountyBench Workflow".
+   - Includes a `Switch` wrapped in a `FormControlLabel` to allow users to toggle the interactive mode.
+
+4. **Styles:**
+   - Imports custom styles from `Header.css`.
+
+---
+
+**Design Feedback and Thoughts:**
+
+1. **Consistency with Application State:**
+   - The header correctly receives `interactiveMode` and `onInteractiveModeToggle` to reflect and control the application's state.
+
+2. **Responsive Design:**
+   - Ensure the header components are responsive and display correctly on different screen sizes.
+
+3. **Accessibility:**
+   - The `Switch` component is wrapped with `FormControlLabel`, which aids accessibility by linking the label with the control.
+
+4. **Styling:**
+   - The class `header-title` is applied to the `Typography` component. Ensure that styles enhance readability and don't conflict with Material UI's default styles.
+
+5. **Additional Navigation:**
+   - If the application expands, consider adding navigation links or menus to the header.
+
+---
+
+**Lower-Level Feedback:**
+
+1. **Unused Box Component:**
+   - The `Box` component wraps the `FormControlLabel`. Since it's only wrapping a single element, you might consider if it's necessary unless it's being styled.
+
+2. **Props Validation:**
+   - As before, consider adding `PropTypes` to define expected props.
+
+3. **Event Handler Naming:**
+   - Ensure consistency in naming event handlers. For instance, `handleInteractiveModeToggle` might be a more descriptive name within the component.
+
+---
+
+**Unit Testing Guidance:**
+
+Testing the `Header` component focuses on ensuring that the interactive mode toggle works correctly.
+
+1. **Test Cases to Cover:**
+
+   - **Rendering:**
+     - The header displays the application title.
+     - The `Switch` reflects the `interactiveMode` prop state.
+
+   - **Interactive Mode Toggle:**
+     - When the `Switch` is toggled, `onInteractiveModeToggle` is called.
+
+2. **Example Unit Test for `Header`:**
+
+   ```jsx
+   // Header.test.jsx
+   import React from 'react';
+   import { render, screen, fireEvent } from '@testing-library/react';
+   import { Header } from './Header';
+
+   describe('Header Component', () => {
+     test('renders header with title and interactive mode switch', () => {
+       const mockToggle = jest.fn();
+       render(<Header interactiveMode={true} onInteractiveModeToggle={mockToggle} />);
+
+       expect(screen.getByText(/BountyBench Workflow/i)).toBeInTheDocument();
+       expect(screen.getByLabelText(/Interactive Mode/i)).toBeInTheDocument();
+       expect(screen.getByRole('checkbox')).toBeChecked();
+     });
+
+     test('calls onInteractiveModeToggle when switch is toggled', () => {
+       const mockToggle = jest.fn();
+       render(<Header interactiveMode={true} onInteractiveModeToggle={mockToggle} />);
+       const toggleSwitch = screen.getByRole('checkbox');
+
+       fireEvent.click(toggleSwitch);
+       expect(mockToggle).toHaveBeenCalledTimes(1);
+     });
+   });
+   ```
+
+3. **Accessibility Checks:**
+   - Use `@testing-library/jest-dom` to check for accessibility roles and labels.
+
+---
+
+**Commands to Execute:**
+
+To implement the recommendations and add unit tests for these components, you can execute the following commands:
+
+1. **Navigate to the Component Directory:**
+
+   ```bash
+   cd frontend/src/components
+   ```
+
+2. **Set Up Testing Libraries (if not already done):**
+
+   ```bash
+   npm install --save-dev @testing-library/react @testing-library/jest-dom
+   ```
+
+3. **Create Test Files for Each Component:**
+
+   ```bash
+   touch AgentPanel/AgentPanel.test.jsx
+   touch WorkflowDashboard/WorkflowDashboard.test.jsx
+   touch LogViewer/LogViewer.test.jsx
+   touch Header/Header.test.jsx
+   ```
+
+4. **Implement Unit Tests:**
+
+   - Open each test file and implement the tests as outlined above.
+
+5. **Update Components with Recommendations:**
+
+   - Open each component file and make the suggested changes, such as:
+
+     - Removing unnecessary console logs.
+     - Adding PropTypes and default props.
+     - Extracting repeated code into helper functions.
+     - Implementing error handling and user feedback.
+
+6. **Run Tests:**
+
+   ```bash
+   npm test
+   ```
+
+7. **Set Up Environment Variables:**
+
+   - If you haven't already, create a `.env` file in the `frontend` directory:
+
+     ```bash
+     touch .env
+     ```
+
+     - Add the backend URL:
+
+       ```
+       REACT_APP_BACKEND_URL=http://localhost:8000
+       ```
+
+   - Update all fetch calls to use the environment variable:
+
+     ```jsx
+     const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/workflow/next/${selectedWorkflow.id}`, { /*...*/ });
+     ```
+
+8. **Install PropTypes (if not already installed):**
+
+   ```bash
+   npm install prop-types
+   ```
+
+---
+
+By analyzing the provided components, we've identified areas for improvement and provided actionable recommendations. Implementing these changes and writing unit tests will enhance the application's robustness, maintainability, and user experience.

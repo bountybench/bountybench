@@ -1,0 +1,361 @@
+**Walkthrough of `AppHeader.jsx`:**
+
+The `AppHeader` component is a functional React component that renders the header section of the application. It includes:
+
+- **Imports:**
+  - React and necessary Material UI components such as `Box`, `Typography`, and `Switch`.
+
+- **Props:**
+  - `onInteractiveModeToggle`: Function to handle toggling interactive mode.
+  - `interactiveMode`: Boolean indicating if interactive mode is enabled.
+  - `selectedWorkflow`: Object representing the currently selected workflow.
+  - `workflowStatus`: Current status of the workflow.
+  - `currentPhase`: Information about the current phase of the workflow.
+
+- **Rendering:**
+  - A `Box` component that serves as a container with styling (background color, padding, border).
+  - Displays the app title using `Typography`.
+  - Shows workflow status and current phase if a workflow is selected.
+  - Includes a switch to toggle interactive mode.
+
+**Design Feedback and Thoughts on `AppHeader.jsx`:**
+
+1. **Accessibility:**
+   - Ensure that the `Switch` component has an accessible label. Currently, the `Switch` lacks an `aria-label` or `inputProps` for accessibility.
+
+2. **Interactive Mode Toggle:**
+   - The `disabled` prop is set to `!interactiveMode`, which means the switch is disabled when `interactiveMode` is `false`. This might prevent the user from toggling it back on.
+   - **Recommendation:** Review the logic to ensure the switch behaves as intended. Possibly remove the `disabled` prop or adjust the condition.
+
+3. **Styling Consistency:**
+   - The use of inline styles and class names (e.g., `sx={{ mr: 2 }}` and `className="phase-toggle-button"`).
+   - **Recommendation:** For consistency and maintainability, choose between inline styles using `sx` or external CSS classes, or adopt Material UI's styling solutions such as `makeStyles` or `styled` components.
+
+4. **Dynamic Content Rendering:**
+   - The component checks `selectedWorkflow` to conditionally render workflow status and phase information.
+   - **Recommendation:** Ensure that the displayed information updates correctly when `selectedWorkflow`, `workflowStatus`, or `currentPhase` change.
+
+5. **Code Organization:**
+   - Since the component is relatively simple, it is acceptable as a functional component.
+   - **Recommendation:** If additional logic is added in the future, consider refactoring into a more modular structure.
+
+**Lower-Level Feedback on `AppHeader.jsx`:**
+
+- **Missing PropTypes:**
+  - Adding `PropTypes` can help with type checking of props and improve code robustness.
+    ```jsx
+    import PropTypes from 'prop-types';
+    // ... component code ...
+    AppHeader.propTypes = {
+      onInteractiveModeToggle: PropTypes.func.isRequired,
+      interactiveMode: PropTypes.bool.isRequired,
+      selectedWorkflow: PropTypes.object,
+      workflowStatus: PropTypes.string,
+      currentPhase: PropTypes.object,
+    };
+    ```
+
+- **Default Props:**
+  - Set default values for optional props using `defaultProps`.
+
+- **Switch Disabled Logic:**
+  - Review the `disabled` condition. If the intention is to disable the switch when no workflow is selected, consider changing the condition to `disabled={!selectedWorkflow}`.
+
+---
+
+**Walkthrough of `messageFormatters.js`:**
+
+This utility function `formatData` is designed to format different types of data for display:
+
+- **Function Logic:**
+  - If `data` is `null` or `undefined`, return an empty string.
+  - If `data` is a string, return it as is.
+  - If `data` contains `stdout` or `stderr`, concatenate them.
+  - Attempts to parse string data as JSON and pretty-print it.
+  - If parsing fails, returns the string representation of `data`.
+
+**Design Feedback and Thoughts on `messageFormatters.js`:**
+
+1. **Function Robustness:**
+   - The function handles various data formats but could be simplified or made more robust.
+
+2. **JSON Parsing:**
+   - The function tries to parse `data` as JSON if it's a string, but this may not be appropriate in all cases.
+   - **Recommendation:** Clarify when JSON parsing is necessary and handle exceptions accordingly.
+
+3. **Redundant Checks:**
+   - The condition `if (typeof data === 'string')` appears twice.
+   - **Recommendation:** Since the string check is already done earlier, the second check inside the `try` block may be unnecessary.
+
+4. **Error Handling:**
+   - The `catch` block silently fails, returning `String(data)`.
+   - **Recommendation:** Consider logging the error or providing more context.
+
+**Lower-Level Feedback on `messageFormatters.js`:**
+
+- **Optimized Logic:**
+
+  ```javascript
+  export const formatData = (data) => {
+    if (!data) return '';
+    if (typeof data === 'string') {
+      try {
+        const parsed = JSON.parse(data);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return data;
+      }
+    } else if (data.stdout || data.stderr) {
+      return [data.stdout, data.stderr].filter(Boolean).join('\n').trim();
+    }
+    return JSON.stringify(data, null, 2);
+  };
+  ```
+
+- **Comments and Documentation:**
+  - Adding comments to explain the logic can enhance maintainability.
+
+---
+
+**Walkthrough of `PhaseMessage.jsx`:**
+
+`PhaseMessage` is a React component that displays messages related to a workflow phase, including agent messages.
+
+- **Imports:**
+  - React hooks (`useState`), Material UI components, icons, and custom components like `AgentMessage`.
+  - Imports CSS for styling.
+
+- **Component Structure:**
+  - Uses `Card` and `CardContent` to create a message bubble.
+  - Header includes the phase title and an expand/collapse icon.
+  - Shows phase summary and a list of agent messages.
+  - Includes a section to display additional metadata, which can also be expanded or collapsed.
+
+- **State Management:**
+  - `contentExpanded`: Controls the visibility of the main content.
+  - `metadataExpanded`: Controls the visibility of the metadata section.
+
+**Design Feedback and Thoughts on `PhaseMessage.jsx`:**
+
+1. **State Management:**
+   - State variables and their toggling functions are appropriately defined.
+
+2. **User Experience:**
+   - The expand/collapse functionality enhances usability by allowing users to focus on relevant information.
+   - **Recommendation:** Provide visual cues (e.g., changing icon direction) to make the expand/collapse more intuitive.
+
+3. **Styling and Responsiveness:**
+   - Ensure that the component's CSS classes (`"message-container phase"`, `"phase-bubble"`, etc.) are defined and responsive.
+   - **Recommendation:** Consider using Material UI's styling solutions for consistency.
+
+4. **Props Validation:**
+   - The component receives several props, including functions for actions (`onUpdateActionInput`, `onRerunAction`).
+   - **Recommendation:** Add `PropTypes` to validate props.
+
+5. **Performance Optimization:**
+   - If the list of agent messages (`message.current_children`) is large, consider memoizing the component or using `React.memo` to prevent unnecessary re-renders.
+
+**Lower-Level Feedback on `PhaseMessage.jsx`:**
+
+- **Key Props in Lists:**
+  - In the map function for `message.current_children`, ensure that `key` is unique and stable. Using `index` as `key` can lead to issues.
+    - **Recommendation:** If possible, use a unique identifier from `agentMessage`.
+
+- **Accessibility:**
+  - Ensure that interactive elements like `IconButton` have accessible labels (`aria-label`).
+
+- **Error Handling:**
+  - Check for `message.current_children` being `null` or undefined to prevent runtime errors.
+
+- **Coding Standards:**
+  - Ensure that all imported components and stylesheets are properly resolved.
+
+---
+
+**Unit Testing Guidance:**
+
+To write unit tests for these components, you can use **Jest** and **React Testing Library**.
+
+**1. Testing `AppHeader.jsx`:**
+
+- **Test Cases:**
+  - Renders app title correctly.
+  - Displays workflow status and phase when `selectedWorkflow` is provided.
+  - Toggles interactive mode switch and calls `onInteractiveModeToggle`.
+  - Switch is enabled or disabled based on conditions.
+
+- **Example Test:**
+
+  ```jsx
+  // AppHeader.test.jsx
+  import React from 'react';
+  import { render, screen, fireEvent } from '@testing-library/react';
+  import { AppHeader } from './AppHeader';
+
+  test('renders app title', () => {
+    render(<AppHeader />);
+    expect(screen.getByText(/Workflow Agent/i)).toBeInTheDocument();
+  });
+
+  test('displays workflow status and phase', () => {
+    render(
+      <AppHeader
+        selectedWorkflow={{ id: 1 }}
+        workflowStatus="Running"
+        currentPhase={{ phase_id: 'Phase 1' }}
+      />
+    );
+    expect(screen.getByText(/Status: Running/i)).toBeInTheDocument();
+    expect(screen.getByText(/Phase: Phase 1/i)).toBeInTheDocument();
+  });
+
+  test('interactive mode toggle works', () => {
+    const toggleMock = jest.fn();
+    render(
+      <AppHeader
+        onInteractiveModeToggle={toggleMock}
+        interactiveMode={true}
+        selectedWorkflow={{ id: 1 }}
+      />
+    );
+    const switchElement = screen.getByRole('checkbox');
+    fireEvent.click(switchElement);
+    expect(toggleMock).toHaveBeenCalled();
+  });
+  ```
+
+**2. Testing `messageFormatters.js`:**
+
+- **Test Cases:**
+  - Returns empty string when data is `null` or `undefined`.
+  - Returns the string as is when data is a string.
+  - Formats JSON strings properly.
+  - Handles objects with `stdout` and `stderr`.
+
+- **Example Test:**
+
+  ```javascript
+  // messageFormatters.test.js
+  import { formatData } from './messageFormatters';
+
+  test('returns empty string for null or undefined', () => {
+    expect(formatData(null)).toBe('');
+    expect(formatData(undefined)).toBe('');
+  });
+
+  test('returns string as is', () => {
+    expect(formatData('Test string')).toBe('Test string');
+  });
+
+  test('formats JSON string', () => {
+    const jsonString = '{"key":"value"}';
+    expect(formatData(jsonString)).toBe('{\n  "key": "value"\n}');
+  });
+
+  test('handles stdout and stderr', () => {
+    const data = { stdout: 'Output', stderr: 'Error' };
+    expect(formatData(data)).toBe('Output\nError');
+  });
+
+  test('returns stringified data for objects', () => {
+    const data = { key: 'value' };
+    expect(formatData(data)).toBe('{\n  "key": "value"\n}');
+  });
+  ```
+
+**3. Testing `PhaseMessage.jsx`:**
+
+- **Test Cases:**
+  - Renders phase title and summary.
+  - Toggles content and metadata sections.
+  - Renders agent messages when present.
+  - Handles expand/collapse interactions.
+
+- **Example Test:**
+
+  ```jsx
+  // PhaseMessage.test.jsx
+  import React from 'react';
+  import { render, screen, fireEvent } from '@testing-library/react';
+  import PhaseMessage from './PhaseMessage';
+
+  test('renders phase title and summary', () => {
+    const message = {
+      phase_name: 'Exploit Phase',
+      phase_summary: 'Testing phase summary.',
+      current_children: [],
+    };
+    render(<PhaseMessage message={message} />);
+    expect(screen.getByText(/Phase: Exploit Phase/i)).toBeInTheDocument();
+    expect(screen.getByText(/Summary: Testing phase summary./i)).toBeInTheDocument();
+  });
+
+  test('toggles content visibility', () => {
+    const message = {
+      phase_name: 'Exploit Phase',
+      current_children: [],
+    };
+    render(<PhaseMessage message={message} />);
+    const toggleButton = screen.getByRole('button', { name: /toggle content/i });
+    fireEvent.click(toggleButton);
+    // Check that content is collapsed (e.g., summary is not in the document)
+    expect(screen.queryByText(/Summary:/i)).toBeNull();
+  });
+
+  test('renders agent messages', () => {
+    const message = {
+      phase_name: 'Exploit Phase',
+      current_children: [{ content: 'Agent message content', /* other properties */ }],
+    };
+    render(<PhaseMessage message={message} />);
+    expect(screen.getByText(/Agent Messages:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Agent message content/i)).toBeInTheDocument();
+  });
+  ```
+
+**Commands to Execute:**
+
+1. **Navigate to the Frontend Directory:**
+
+   ```bash
+   cd frontend
+   ```
+
+2. **Install Dependencies (if not already installed):**
+
+   ```bash
+   npm install @mui/material @emotion/react @emotion/styled
+   npm install @testing-library/react @testing-library/jest-dom
+   ```
+
+3. **Create Test Files:**
+
+   ```bash
+   touch src/components/AppHeader/AppHeader.test.jsx
+   touch src/utils/messageFormatters.test.js
+   touch src/components/PhaseMessage/PhaseMessage.test.jsx
+   ```
+
+4. **Run Tests:**
+
+   ```bash
+   npm test
+   ```
+
+5. **Install PropTypes (if you choose to add them):**
+
+   ```bash
+   npm install prop-types
+   ```
+
+6. **Open Files to Implement Feedback:**
+
+   ```bash
+   code src/components/AppHeader/AppHeader.jsx
+   code src/utils/messageFormatters.js
+   code src/components/PhaseMessage/PhaseMessage.jsx
+   ```
+
+By reviewing and testing these components, you can improve the stability and maintainability of the front-end application. Writing unit tests will help catch bugs early and ensure that future changes do not break existing functionality.
+
+---
