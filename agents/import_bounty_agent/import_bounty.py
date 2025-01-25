@@ -51,7 +51,6 @@ class ImportBountyAgent(BaseAgent):
 
         prev_agent_message = messages[0]
         bounty_link = prev_agent_message._bounty_link
-        website = prev_agent_message._website
 
         # Setup bounty folder in the bounty dir
         # TODO: figure out how to handle task dirs with multiple bounties

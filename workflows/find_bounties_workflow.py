@@ -1,12 +1,12 @@
 import asyncio
 from pathlib import Path
 from utils.logger import get_main_logger
-from workflows.bounty_workflow import BountyWorkflow
+from workflows.base_workflow import BaseWorkflow
 from phases.save_data_phase import SaveDataPhase
 
 logger = get_main_logger(__name__)
 
-class FindBountiesWorkflow(BountyWorkflow):
+class FindBountiesWorkflow(BaseWorkflow):
     """Workflow for finding and importing bounties"""
     
     def _create_phases(self):

@@ -41,7 +41,7 @@ class WebscraperAgent(BaseAgent):
     
     async def _get_new_url(self, website) -> str:
         """
-        TODO: Get the new URL from the website.
+        TODO: Get the new URL from the message.
 
         Args:
             messages (List[AgentMessage])

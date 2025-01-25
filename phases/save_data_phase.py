@@ -20,9 +20,12 @@ class SaveDataPhase(BasePhase):
         super().__init__(workflow, **kwargs)
 
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
-        webscraper_config = WebscraperAgentConfig()
-
-        import_bounty_config = ImportBountyAgentConfig()
+        webscraper_config = WebscraperAgentConfig(
+            website="https://huntr.dev/"
+        )
+        import_bounty_config = ImportBountyAgentConfig(
+            bounties_dir="agents/import_bounty_agent/bounties"
+        )
 
         return {
             "webscraper_agent": (WebscraperAgent, webscraper_config),
