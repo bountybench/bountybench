@@ -1,9 +1,9 @@
 from messages.agent_messages.agent_message import AgentMessage
 from typing import Union
 
-class ScraperMessage(AgentMessage):
+class WebscraperMessage(AgentMessage):
     def __init__(self, agent_id: str, message: str, webscraper_files_dir: Union[str, None], bounty_link: str, prev: AgentMessage = None, success: bool = False) -> None:
-        self.success = success
+        self._success = success
         self._bounty_link = bounty_link
         self._webscraper_files_dir = webscraper_files_dir
         super().__init__(agent_id, message, prev)

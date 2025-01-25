@@ -4,7 +4,7 @@ from pathlib import Path
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.agent_message import AgentMessage
-from messages.agent_messages.webscraper_agent_message import ScraperMessage
+from messages.agent_messages.webscraper_agent_message import WebscraperMessage
 from messages.message import Message
 from utils.logger import get_main_logger
 
@@ -61,7 +61,7 @@ class WebscraperAgent(BaseAgent):
         if not isinstance(self.bounty_link, str):
             raise TypeError("URL must be a string.")
 
-        return ScraperMessage(
+        return WebscraperMessage(
             agent_id=self.agent_id,
             message="New URL added to the queue",
             bounty_link=self.bounty_link,
