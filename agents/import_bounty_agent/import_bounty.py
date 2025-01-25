@@ -17,47 +17,17 @@ logger = get_main_logger(__name__)
 
 @dataclass
 class ImportBountyAgentConfig(AgentConfig):
-    bounty_link: str
-    CWE: str
-    CVE: str
-    severity: str
-    disclosure_bounty: str
-    patch_bounty: str
-    detect_prompt_some_info: str
-    detect_prompt_less_info: str
-    exploit_prompt: str
-    patch: dict
-    vulnerable_commit: str
+    bounty_dir: str
 
     def to_dict(self):
         return {
-            "bounty_link": self.bounty_link,
-            "CWE": self.CWE,
-            "CVE": self.CVE,
-            "severity": self.severity,
-            "disclosure_bounty": self.disclosure_bounty,
-            "patch_bounty": self.patch_bounty,
-            "detect_prompt_some_info": self.detect_prompt_some_info,
-            "detect_prompt_less_info": self.detect_prompt_less_info,
-            "exploit_prompt": self.exploit_prompt,
-            "patch": self.patch,
-            "vulnerable_commit": self.vulnerable_commit
+            "bounties_dir": self.bounty_dir,
         }
 
     @classmethod
     def from_dict(cls, data: dict):
         return cls(
-            bounty_link=data["bounty_link"],
-            CWE=data["CWE"],
-            CVE=data["CVE"],
-            severity=data["severity"],
-            disclosure_bounty=data["disclosure_bounty"],
-            patch_bounty=data["patch_bounty"],
-            detect_prompt_some_info=data["detect_prompt_some_info"],
-            detect_prompt_less_info=data["detect_prompt_less_info"],
-            exploit_prompt=data["exploit_prompt"],
-            patch=data["patch"],
-            vulnerable_commit=data["vulnerable_commit"]
+            bounty_dir=data["bounty_dir"],
         )
 
 class ImportBountyAgent(BaseAgent):
@@ -70,19 +40,7 @@ class ImportBountyAgent(BaseAgent):
     """
 
     def __init__(self, agent_id, agent_config):
-
-        #self.bounty_link = Path(agent_config.bounty_link)
-        # self.CWE = Path(agent_config.CWE)
-        # self.CVE = Path(agent_config.CVE)
-        # self.severity = Path(agent_config.severity)
-        # self.disclosure_bounty = Path(agent_config.disclosure_bounty)
-        # self.patch_bounty = Path(agent_config.patch_bounty)
-        # self.detect_prompt_some_info = Path(agent_config.detect_prompt_some_info)
-        # self.detect_prompt_less_info = Path(agent_config.detect_prompt_less_info)
-        # self.exploit_prompt = Path(agent_config.exploit_prompt)
-        # self.patch = Path(agent_config.patch)
-        # self.vulnerable_commit = Path(agent_config.vulnerable_commit)
-
+        self.bounty_dir = Path(agent_config.bounty_dir)
         super().__init__(agent_id, agent_config)
 
     def run(self, messages: List[AgentMessage]) -> AgentMessage:
@@ -93,27 +51,25 @@ class ImportBountyAgent(BaseAgent):
 
         prev_agent_message = messages[0]
         bounty_link = prev_agent_message._bounty_link
-        webscraper_files_dir = prev_agent_message._webscraper_files_dir
+        website = prev_agent_message._website
 
-        # TODO: Replace with the actual message object
-        output_dir = "writeup"
+        # Setup bounty folder in the bounty dir
+        # TODO: figure out how to handle task dirs with multiple bounties
+        task_dir = self._setup_bounty_folder(self.bounty_dir)
+        task_dir = "agents/import_bounty_agent/test_task_dir"
 
-        # Download complete webpage from URL with Selenium
-        downloaded_webpage = self._download_webpage(bounty_link, output_dir)
-
-        # Setup bounty folder
-        webscraper_files_dir = self._setup_bounty_folder(webscraper_files_dir)
+        # Download complete webpage from URL with Selenium in the task dir
+        self._download_webpage(bounty_link, task_dir)
 
         # Extract metadata info and write a bounty metadata file in the task dir
-        # TODO: figure out how to handle task dirs with multiple bounties
-        writeup = self._read_writeup(webscraper_files_dir, "0")
+        writeup = self._read_writeup(task_dir, "0")
         metadata = self._extract_metadata(writeup)
         import_bounty_message = self._parse_metadata_extraction(metadata)
-        self._write_bounty_metadata(webscraper_files_dir, "0", import_bounty_message)
+        self._write_bounty_metadata(task_dir, "0", import_bounty_message)
 
         return import_bounty_message
 
-    def _download_webpage(self, bounty_link: str, output_dir: str) -> str:
+    def _download_webpage(self, bounty_link: str, bounty_dir: str) -> str:
         """
         TODO: Implement logic to download webpage from URL with Selenium
         """
@@ -121,9 +77,7 @@ class ImportBountyAgent(BaseAgent):
     
     def _setup_bounty_folder(self, output_dir: str) -> str:
         ## TODO: Run create_bounty.sh script to create folder. Task dir name?
-        ## TODO: Add complete webpages to writeup
-        # return "agents/import_bounty_agent/test_task_dir"
-        return output_dir
+        return NotImplemented
     
     def _read_writeup(self, task_dir: str, bounty_number: str) -> str:
         bounty_dir = os.path.join("bounties", f"bounty_{bounty_number}")
