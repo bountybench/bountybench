@@ -11,6 +11,7 @@ from resources.model_resource.model_provider import ModelProvider
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.model_resource.model_utils import get_model_provider
 from utils.logger import get_main_logger
+from utils.api_key_service import verify_and_auth_api_key
 
 logger = get_main_logger(__name__)
 
@@ -40,6 +41,7 @@ class ModelResourceConfig(BaseResourceConfig):
     def __post_init__(self):
         if 'openai/o3' not in self.model.lower():
             self.use_helm = True
+        self.validate()
 
     def validate(self) -> None:
         """Validate LLMResource configuration"""
@@ -49,6 +51,7 @@ class ModelResourceConfig(BaseResourceConfig):
             raise ValueError("max_input_tokens must be positive")
         if self.max_output_tokens <= 0:
             raise ValueError("max_output_tokens must be positive")
+        verify_and_auth_api_key(self.model, self.use_helm)
     
 
 class ModelResource(BaseResource):
