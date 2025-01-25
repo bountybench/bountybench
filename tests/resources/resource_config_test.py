@@ -1,16 +1,10 @@
-
-
 import os
-from pathlib import Path
 import unittest
+from pathlib import Path
 
-from resources.init_files_resource import InitFilesResourceConfig
-from resources.setup_resource import SetupResourceConfig
-
-
-from resources.init_files_resource import InitFilesResource
-from resources.setup_resource import SetupResource
-from resources.utils import read_repo_metadata, read_bounty_metadata
+from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
+from resources.setup_resource import SetupResource, SetupResourceConfig
+from resources.utils import read_bounty_metadata, read_repo_metadata
 from utils.workflow_logger import workflow_logger
 
 
@@ -26,23 +20,24 @@ class TestInitFilesResource(unittest.TestCase):
 
         # Read metadata
         cls.repo_metadata = read_repo_metadata(str(cls.task_repo_dir))
-        cls.bounty_metadata = read_bounty_metadata(str(cls.task_repo_dir), cls.bounty_number)
+        cls.bounty_metadata = read_bounty_metadata(
+            str(cls.task_repo_dir), cls.bounty_number
+        )
 
         cls.workflow_logger = workflow_logger
         cls.workflow_logger.initialize(
             workflow_name="test_workflow",
             logs_dir="logs",
             task_repo_dir=str(cls.task_repo_dir),
-            bounty_number=cls.bounty_number
+            bounty_number=cls.bounty_number,
         )
-    
-    
-    def test_init_files_resource(cls): 
+
+    def test_init_files_resource(cls):
         init_files_config = InitFilesResourceConfig(
             task_repo_dir=cls.task_repo_dir,
             files_dir_name=cls.files_dir,
             tmp_dir_name=cls.tmp_dir,
-            vulnerable_commit=cls.bounty_metadata['vulnerable_commit']
+            vulnerable_commit=cls.bounty_metadata["vulnerable_commit"],
         )
 
         resource = InitFilesResource("test-init", init_files_config)
@@ -50,14 +45,13 @@ class TestInitFilesResource(unittest.TestCase):
         assert resource.resource_id == "test-init"
         assert resource.task_repo_dir == os.path.abspath(cls.task_repo_dir)
         assert os.path.exists(resource.tmp_dir)
-    
 
-    def test_setup_resource(cls): 
+    def test_setup_resource(cls):
 
         setup_repo_config = SetupResourceConfig(
             task_level_setup=False,
             task_repo_dir=cls.task_repo_dir,
-            files_dir=cls.files_dir
+            files_dir=cls.files_dir,
         )
 
         setup_task_config = SetupResourceConfig(
@@ -65,11 +59,10 @@ class TestInitFilesResource(unittest.TestCase):
             task_repo_dir=cls.task_repo_dir,
             files_dir=cls.files_dir,
             bounty_number=cls.bounty_number,
-            server_address=cls.repo_metadata["target_host"]
+            server_address=cls.repo_metadata["target_host"],
         )
 
-
-        task_resource_id= cls.repo_metadata["target_host"]
+        task_resource_id = cls.repo_metadata["target_host"]
 
         repo_resource = SetupResource(cls.repo, setup_repo_config)
         task_resource = SetupResource(task_resource_id, setup_task_config)

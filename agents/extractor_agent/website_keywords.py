@@ -4,5 +4,5 @@ HUNTR = {
 }
 
 WEBSITE_KEYWORDS = {
-    "huntr" : HUNTR,
+    "huntr": HUNTR,
 }

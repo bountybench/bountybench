@@ -1,14 +1,14 @@
 import unittest
-from unittest.mock import Mock, patch
-from typing import Dict, List, Optional, Tuple, Type
-
-from workflows.base_workflow import BaseWorkflow
-from phases.base_phase import BasePhase
-from agents.base_agent import BaseAgent, AgentConfig
-from resources.base_resource import BaseResource, BaseResourceConfig
-from agents.agent_manager import AgentManager
-from resources.resource_manager import ResourceManager
 from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple, Type
+from unittest.mock import Mock, patch
+
+from agents.agent_manager import AgentManager
+from agents.base_agent import AgentConfig, BaseAgent
+from phases.base_phase import BasePhase
+from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.resource_manager import ResourceManager
+from workflows.base_workflow import BaseWorkflow
 
 # Create a mock for workflow_logger
 mock_workflow_logger = Mock()
@@ -16,6 +16,7 @@ mock_workflow_logger.add_resource = Mock()
 mock_workflow_logger.add_agent = Mock()
 mock_workflow_logger.phase = Mock()
 mock_workflow_logger.workflow_log = Mock()
+
 
 # Mock resources and agents for testing
 class MockResource(BaseResource):
@@ -26,14 +27,16 @@ class MockResource(BaseResource):
     def stop(self):
         self.initialized = False
 
-@dataclass 
+
+@dataclass
 class MockAgentConfig1:
     id: str
+
 
 class MockAgent1(BaseAgent):
     CONFIG_CLASS = MockAgentConfig1
 
-    REQUIRED_RESOURCES=[(MockResource, "resource1"), (MockResource, "resource2")]
+    REQUIRED_RESOURCES = [(MockResource, "resource1"), (MockResource, "resource2")]
 
     def __init__(self, agent_id: str, config: AgentConfig):
         super().__init__(agent_id, config)
@@ -42,14 +45,16 @@ class MockAgent1(BaseAgent):
     def run(self):
         pass
 
-@dataclass 
+
+@dataclass
 class MockAgentConfig2:
     id: str
 
+
 class MockAgent2(BaseAgent):
-    CONFIG_CLASS = MockAgentConfig2   
-    
-    REQUIRED_RESOURCES=[(MockResource, "resource2"), (MockResource, "resource3")]
+    CONFIG_CLASS = MockAgentConfig2
+
+    REQUIRED_RESOURCES = [(MockResource, "resource2"), (MockResource, "resource3")]
 
     def __init__(self, agent_id: str, config: AgentConfig):
         super().__init__(agent_id, config)
@@ -57,40 +62,41 @@ class MockAgent2(BaseAgent):
 
     def run(self):
         pass
+
 
 class MockPhase1(BasePhase):
     AGENT_CLASSES = [MockAgent1]
 
-    def define_resources(self) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
-        return {
-            "resource1": (MockResource, None),
-            "resource2": (MockResource, None)
-        }
+    def define_resources(
+        self,
+    ) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
+        return {"resource1": (MockResource, None), "resource2": (MockResource, None)}
 
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
-        return {"agent1": (MockAgent1, MockAgentConfig1('mock_agent_config1'))}
+        return {"agent1": (MockAgent1, MockAgentConfig1("mock_agent_config1"))}
 
     def run_one_iteration(self, phase_message, agent_instance, previous_output):
         pass
+
 
 class MockPhase2(BasePhase):
     AGENT_CLASSES = [MockAgent2]
 
-    def define_resources(self) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
-        return {
-            "resource2": (MockResource, None),
-            "resource3": (MockResource, None)
-        }
+    def define_resources(
+        self,
+    ) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
+        return {"resource2": (MockResource, None), "resource3": (MockResource, None)}
 
     def define_agents(self) -> List[Tuple[str, AgentConfig]]:
-        return {"agent2": (MockAgent2, MockAgentConfig2('mock_agent_config2'))}
+        return {"agent2": (MockAgent2, MockAgentConfig2("mock_agent_config2"))}
 
     def run_one_iteration(self, phase_message, agent_instance, previous_output):
         pass
 
-@patch('resources.resource_manager.workflow_logger', mock_workflow_logger)
-@patch('phases.base_phase.workflow_logger', mock_workflow_logger)
-@patch('agents.agent_manager.workflow_logger', mock_workflow_logger)
+
+@patch("resources.resource_manager.workflow_logger", mock_workflow_logger)
+@patch("phases.base_phase.workflow_logger", mock_workflow_logger)
+@patch("agents.agent_manager.workflow_logger", mock_workflow_logger)
 class TestPhaseResourceAndAgentHandling(unittest.TestCase):
 
     def setUp(self):
@@ -108,27 +114,41 @@ class TestPhaseResourceAndAgentHandling(unittest.TestCase):
 
         # Compute resource schedule
         self.workflow.resource_manager.compute_schedule(self.workflow.phases)
-        
+
         # Setup and run Phase 1
         phase1.setup()
         self.assertEqual(len(self.workflow.resource_manager.resources), 2)
-        self.assertTrue(self.workflow.resource_manager.resources["resource1"].initialized)
-        self.assertTrue(self.workflow.resource_manager.resources["resource2"].initialized)
+        self.assertTrue(
+            self.workflow.resource_manager.resources["resource1"].initialized
+        )
+        self.assertTrue(
+            self.workflow.resource_manager.resources["resource2"].initialized
+        )
         self.assertEqual(len(self.workflow.agent_manager._agents), 1)
         self.assertIn("agent1", self.workflow.agent_manager._agents)
 
         # Simulate end of Phase 1
         self.workflow.resource_manager.deallocate_phase_resources(0)
-        self.assertNotIn("resource1", self.workflow.resource_manager.resources) 
-        self.assertIn("resource2", self.workflow.resource_manager.resources)  
-        self.assertTrue(self.workflow.resource_manager.resources["resource2"].initialized)  
+        self.assertNotIn("resource1", self.workflow.resource_manager.resources)
+        self.assertIn("resource2", self.workflow.resource_manager.resources)
+        self.assertTrue(
+            self.workflow.resource_manager.resources["resource2"].initialized
+        )
 
         # Setup and run Phase 2
         phase2.setup()
-        self.assertEqual(len(self.workflow.resource_manager.resources), 2)  # Changed this line
-        self.assertNotIn("resource1", self.workflow.resource_manager.resources)  # Added this line
-        self.assertTrue(self.workflow.resource_manager.resources["resource2"].initialized)
-        self.assertTrue(self.workflow.resource_manager.resources["resource3"].initialized)
+        self.assertEqual(
+            len(self.workflow.resource_manager.resources), 2
+        )  # Changed this line
+        self.assertNotIn(
+            "resource1", self.workflow.resource_manager.resources
+        )  # Added this line
+        self.assertTrue(
+            self.workflow.resource_manager.resources["resource2"].initialized
+        )
+        self.assertTrue(
+            self.workflow.resource_manager.resources["resource3"].initialized
+        )
         self.assertEqual(len(self.workflow.agent_manager._agents), 2)
         self.assertIn("agent1", self.workflow.agent_manager._agents)
         self.assertIn("agent2", self.workflow.agent_manager._agents)
@@ -138,11 +158,14 @@ class TestPhaseResourceAndAgentHandling(unittest.TestCase):
         self.assertNotIn("resource1", self.workflow.resource_manager.resources)
         self.assertNotIn("resource2", self.workflow.resource_manager.resources)
         self.assertNotIn("resource3", self.workflow.resource_manager.resources)
-        self.assertEqual(len(self.workflow.resource_manager.resources), 0)  # Added this line
+        self.assertEqual(
+            len(self.workflow.resource_manager.resources), 0
+        )  # Added this line
 
         # Assert that the mocked workflow_logger methods were called
         mock_workflow_logger.add_resource.assert_called()
         mock_workflow_logger.add_agent.assert_called()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -1,21 +1,19 @@
 import unittest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # Importing the necessary classes from your project
 from agents.agent_manager import AgentManager
-from agents.base_agent import BaseAgent, AgentConfig
+from agents.base_agent import AgentConfig, BaseAgent
 from agents.dataclasses.agent_lm_spec import AgentLMConfig
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
-from resources.resource_manager import ResourceManager
-from phases.base_phase import BasePhase, PhaseConfig
 from messages.message import Message
+from phases.base_phase import BasePhase, PhaseConfig
 from resources.base_resource import BaseResource, BaseResourceConfig
-
-
+from resources.resource_manager import ResourceManager
 
 # Mock logger to prevent actual logging during tests
-with patch('utils.logger.get_main_logger') as mock_logger:
+with patch("utils.logger.get_main_logger") as mock_logger:
     mock_logger.return_value = MagicMock()
 
 
@@ -31,22 +29,24 @@ class TestAgentManager(unittest.TestCase):
             max_output_tokens=100,
             max_input_tokens=100,
             max_iterations_stored_in_memory=3,
-            use_helm=True
+            use_helm=True,
         )
 
         executor_config = ExecutorAgentConfig(
             id="executor_agent",
             lm_config=executor_agent_lm_config,
             # logger=self.workflow_logger,
-            target_host="localhost"
+            target_host="localhost",
         )
 
         # Mock the ExecutorAgent's run method
-        with patch.object(ExecutorAgent, 'run', return_value=Message("Executed successfully.")) as mock_run:
+        with patch.object(
+            ExecutorAgent, "run", return_value=Message("Executed successfully.")
+        ) as mock_run:
             agent = self.agent_manager.get_or_create_agent(
                 agent_id="executor_agent",
                 agent_class=ExecutorAgent,
-                config=executor_config
+                config=executor_config,
             )
             self.assertIsInstance(agent, ExecutorAgent)
             self.assertEqual(agent.agent_config.id, "executor_agent")
@@ -59,7 +59,7 @@ class TestAgentManager(unittest.TestCase):
             max_output_tokens=100,
             max_input_tokens=100,
             max_iterations_stored_in_memory=3,
-            use_helm=True
+            use_helm=True,
         )
 
         executor_agent_lm_config_2 = AgentLMConfig(
@@ -67,36 +67,36 @@ class TestAgentManager(unittest.TestCase):
             max_output_tokens=50,
             max_input_tokens=50,
             max_iterations_stored_in_memory=3,
-            use_helm=True
+            use_helm=True,
         )
-
 
         executor_config_1 = ExecutorAgentConfig(
             id="executor_agent",
             lm_config=executor_agent_lm_config_1,
             # logger=self.workflow_logger,
-            target_host="localhost"
+            target_host="localhost",
         )
 
         executor_config_2 = ExecutorAgentConfig(
             id="executor_agent",
             lm_config=executor_agent_lm_config_2,
             # logger=self.workflow_logger,
-            target_host="localhost"
+            target_host="localhost",
         )
 
-
         # Mock the ExecutorAgent's run method
-        with patch.object(ExecutorAgent, 'run', return_value=Message("Executed successfully.")) as mock_run:
+        with patch.object(
+            ExecutorAgent, "run", return_value=Message("Executed successfully.")
+        ) as mock_run:
             agent1 = self.agent_manager.get_or_create_agent(
                 agent_id="executor_agent",
                 agent_class=ExecutorAgent,
-                config=executor_config_1
+                config=executor_config_1,
             )
             agent2 = self.agent_manager.get_or_create_agent(
                 agent_id="executor_agent",
                 agent_class=ExecutorAgent,
-                config=executor_config_2
+                config=executor_config_2,
             )
 
             self.assertIs(agent1, agent2)
@@ -112,18 +112,21 @@ class TestAgentManager(unittest.TestCase):
             max_output_tokens=100,
             max_input_tokens=100,
             max_iterations_stored_in_memory=3,
-            use_helm=True
+            use_helm=True,
         )
 
         executor_config = ExecutorAgentConfig(
             id="executor_agent",
             lm_config=executor_agent_lm_config,
             # logger=self.workflow_logger,
-            target_host="localhost"
+            target_host="localhost",
         )
 
         # Create a mock agent instance
-        mock_agent = ExecutorAgent(agent_config=executor_config, resource_manager=self.agent_manager.resource_manager)
+        mock_agent = ExecutorAgent(
+            agent_config=executor_config,
+            resource_manager=self.agent_manager.resource_manager,
+        )
         mock_agent.run = MagicMock(return_value=Message("Executed successfully."))
 
         # Register the agent manually
@@ -140,27 +143,24 @@ class TestAgentManager(unittest.TestCase):
             max_output_tokens=100,
             max_input_tokens=100,
             max_iterations_stored_in_memory=3,
-            use_helm=True
+            use_helm=True,
         )
 
         executor_config = ExecutorAgentConfig(
             id="executor_agent",
             lm_config=executor_agent_lm_config,
             # logger=self.workflow_logger,
-            target_host="localhost"
+            target_host="localhost",
         )
         # Create and register an agent
         agent = self.agent_manager.get_or_create_agent(
-            agent_id="executor_agent",
-            agent_class=ExecutorAgent,
-            config=executor_config
+            agent_id="executor_agent", agent_class=ExecutorAgent, config=executor_config
         )
 
         # Remove the agent
         self.agent_manager.remove_agent("executor_agent")
         agent_after_removal = self.agent_manager.get_agent("executor_agent")
         self.assertIsNone(agent_after_removal)
-
 
 
 class TestResourceManager(unittest.TestCase):
@@ -174,18 +174,19 @@ class TestResourceManager(unittest.TestCase):
         self.MockConfig2 = MagicMock(spec=BaseResourceConfig)
 
         # Register mocked resources using string identifiers as resource_id
-        self.resource_manager.register_resource("MockResource1", self.MockResource1, self.MockConfig1)
-        self.resource_manager.register_resource("MockResource2", self.MockResource2, self.MockConfig2)
+        self.resource_manager.register_resource(
+            "MockResource1", self.MockResource1, self.MockConfig1
+        )
+        self.resource_manager.register_resource(
+            "MockResource2", self.MockResource2, self.MockConfig2
+        )
 
         # Set up `_phase_resources` and `_resource_lifecycle`
-        self.resource_manager._phase_resources = {
-            0: {"MockResource1", "MockResource2"}
-        }
+        self.resource_manager._phase_resources = {0: {"MockResource1", "MockResource2"}}
         self.resource_manager._resource_lifecycle = {
             "MockResource1": (0, 1),
             "MockResource2": (0, 1),
         }
-
 
     def test_register_resource(self):
         """Test that resources are registered correctly."""
@@ -194,11 +195,11 @@ class TestResourceManager(unittest.TestCase):
         self.assertIn("MockResource2", self.resource_manager._resource_registration)
         self.assertEqual(
             self.resource_manager._resource_registration["MockResource1"],
-            (self.MockResource1, self.MockConfig1)
+            (self.MockResource1, self.MockConfig1),
         )
         self.assertEqual(
             self.resource_manager._resource_registration["MockResource2"],
-            (self.MockResource2, self.MockConfig2)
+            (self.MockResource2, self.MockConfig2),
         )
 
     def test_initialize_phase_resources(self):
@@ -213,9 +214,12 @@ class TestResourceManager(unittest.TestCase):
         # Assert resources are initialized
         self.assertIn("MockResource1", self.resource_manager._resources)
         self.assertIn("MockResource2", self.resource_manager._resources)
-        self.assertEqual(self.resource_manager._resources["MockResource1"], self.MockResource1)
-        self.assertEqual(self.resource_manager._resources["MockResource2"], self.MockResource2)
-
+        self.assertEqual(
+            self.resource_manager._resources["MockResource1"], self.MockResource1
+        )
+        self.assertEqual(
+            self.resource_manager._resources["MockResource2"], self.MockResource2
+        )
 
     def test_deallocate_phase_resources(self):
         """Test resource deallocation for a specific phase."""
@@ -228,7 +232,9 @@ class TestResourceManager(unittest.TestCase):
         }
 
         # Set up `_phase_resources` and `_resource_lifecycle`
-        self.resource_manager._phase_resources = {1: {self.MockResource1, self.MockResource2}}
+        self.resource_manager._phase_resources = {
+            1: {self.MockResource1, self.MockResource2}
+        }
         self.resource_manager._resource_lifecycle = {
             self.MockResource1: (0, 1),
             self.MockResource2: (0, 1),
@@ -244,7 +250,6 @@ class TestResourceManager(unittest.TestCase):
         self.assertNotIn(self.MockResource2, self.resource_manager._resources)
 
 
-
 class TestBasePhase(unittest.TestCase):
     def setUp(self):
         # Initialize AgentManager with a mocked ResourceManager
@@ -258,8 +263,12 @@ class TestBasePhase(unittest.TestCase):
         self.MockConfig2 = MagicMock(spec=BaseResourceConfig)
 
         # Register mocked resources
-        self.agent_manager.resource_manager.register_resource("MockResource1", self.MockResource1, self.MockConfig1)
-        self.agent_manager.resource_manager.register_resource("MockResource2", self.MockResource2, self.MockConfig2)
+        self.agent_manager.resource_manager.register_resource(
+            "MockResource1", self.MockResource1, self.MockConfig1
+        )
+        self.agent_manager.resource_manager.register_resource(
+            "MockResource2", self.MockResource2, self.MockConfig2
+        )
 
     def test_phase_initialization_with_agents(self):
         """Test initialization of a phase with agents."""
@@ -273,9 +282,9 @@ class TestBasePhase(unittest.TestCase):
             max_iterations=1,
             agent_configs=[
                 ("mock_agent1", MockAgentConfig1),
-                ("mock_agent2", MockAgentConfig2)
+                ("mock_agent2", MockAgentConfig2),
             ],
-            interactive=False
+            interactive=False,
         )
 
         # Define a mock phase
@@ -301,9 +310,9 @@ class TestBasePhase(unittest.TestCase):
             max_iterations=1,
             agent_configs=[
                 ("mock_agent1", MockAgentConfig1),
-                ("mock_agent2", MockAgentConfig2)
+                ("mock_agent2", MockAgentConfig2),
             ],
-            interactive=False
+            interactive=False,
         )
 
         # Define a mock phase
@@ -334,11 +343,8 @@ class TestBasePhase(unittest.TestCase):
         phase_config = PhaseConfig(
             phase_idx=0,
             max_iterations=1,
-            agent_configs=[
-                ("mock_agent1", MockAgent1),
-                ("mock_agent2", MockAgent2)
-            ],
-            interactive=False
+            agent_configs=[("mock_agent1", MockAgent1), ("mock_agent2", MockAgent2)],
+            interactive=False,
         )
 
         # Define a mock phase
@@ -355,8 +361,6 @@ class TestBasePhase(unittest.TestCase):
         self.assertTrue(success)
 
 
-
-
 class TestResourceLifecycle(unittest.TestCase):
     def setUp(self):
         # Initialize ResourceManager
@@ -369,8 +373,12 @@ class TestResourceLifecycle(unittest.TestCase):
         self.MockConfig2 = MagicMock(spec=BaseResourceConfig)
 
         # Register mocked resources
-        self.resource_manager.register_resource("MockResource1", self.MockResource1, self.MockConfig1)
-        self.resource_manager.register_resource("MockResource2", self.MockResource2, self.MockConfig2)
+        self.resource_manager.register_resource(
+            "MockResource1", self.MockResource1, self.MockConfig1
+        )
+        self.resource_manager.register_resource(
+            "MockResource2", self.MockResource2, self.MockConfig2
+        )
 
     def test_resource_initialization_and_teardown(self):
         """Test initialization and teardown of resources across phases."""
@@ -383,8 +391,16 @@ class TestResourceLifecycle(unittest.TestCase):
             pass
 
         # Mock `get_required_resources`
-        with patch.object(Phase1, 'get_required_resources', return_value={"MockResource1", "MockResource2"}), \
-             patch.object(Phase2, 'get_required_resources', return_value={"MockResource2"}):
+        with (
+            patch.object(
+                Phase1,
+                "get_required_resources",
+                return_value={"MockResource1", "MockResource2"},
+            ),
+            patch.object(
+                Phase2, "get_required_resources", return_value={"MockResource2"}
+            ),
+        ):
 
             # Compute resource schedule
             self.resource_manager.compute_schedule([Phase1, Phase2])
@@ -420,22 +436,30 @@ class TestResourceLifecycle(unittest.TestCase):
 
         # Mock failing resource configuration
         failing_config = MagicMock(spec=BaseResourceConfig)
-        self.resource_manager.register_resource("FailingResource", FailingResource, failing_config)
+        self.resource_manager.register_resource(
+            "FailingResource", FailingResource, failing_config
+        )
 
         # Define a phase that requires the failing resource
         class PhaseWithFailingResource(BasePhase):
             pass
 
-        with patch.object(PhaseWithFailingResource, 'get_required_resources', return_value={"FailingResource"}):
+        with patch.object(
+            PhaseWithFailingResource,
+            "get_required_resources",
+            return_value={"FailingResource"},
+        ):
             self.resource_manager.compute_schedule([PhaseWithFailingResource])
 
             # Attempt to initialize resources for phase_idx=0
             with self.assertRaises(RuntimeError) as context:
                 self.resource_manager.initialize_phase_resources(0)
 
-            self.assertIn("Failed to initialize FailingResource", str(context.exception))
+            self.assertIn(
+                "Failed to initialize FailingResource", str(context.exception)
+            )
             self.assertNotIn("FailingResource", self.resource_manager._resources)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

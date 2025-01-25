@@ -1,18 +1,21 @@
+import logging
 import os
+import shutil
 import subprocess
 import unittest
-import logging
-import shutil
 
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
+
 class TestInitFilesResource(unittest.TestCase):
     def setUp(self):
         # Define directory paths
-        self.task_repo_dir = os.path.join(os.getcwd(), "tests", "resources", "test_files")
+        self.task_repo_dir = os.path.join(
+            os.getcwd(), "tests", "resources", "test_files"
+        )
         self.tmp_dir_name = "tmp_dir_for_testing"
         self.tmp_dir = os.path.join(self.task_repo_dir, self.tmp_dir_name)
         self.original_files_dir = os.path.join(self.task_repo_dir, "original_files")
@@ -29,7 +32,9 @@ class TestInitFilesResource(unittest.TestCase):
         # Initialize the original_files directory as a git repository and make an initial commit
         subprocess.run(["git", "init"], cwd=self.original_files_dir)
         subprocess.run(["git", "add", "."], cwd=self.original_files_dir)
-        subprocess.run(["git", "commit", "-m", "initial commit"], cwd=self.original_files_dir)
+        subprocess.run(
+            ["git", "commit", "-m", "initial commit"], cwd=self.original_files_dir
+        )
         subprocess.run(["git", "branch", "-m", "main"], cwd=self.original_files_dir)
 
         # Configuration for InitFilesResource
@@ -38,22 +43,34 @@ class TestInitFilesResource(unittest.TestCase):
             files_dir_name="original_files",
             tmp_dir_name=self.tmp_dir_name,
             bounty_number="1234",
-            vulnerable_commit="HEAD"
+            vulnerable_commit="HEAD",
         )
 
     def tearDown(self):
         # Clean up directories after testing
         if os.path.exists(self.task_repo_dir):
             shutil.rmtree(self.task_repo_dir)
-        
+
         # Remove 'dev' branch from any git repositories
         if os.path.exists(self.original_files_dir):
-            subprocess.run(["git", "checkout", "main"], cwd=self.original_files_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            subprocess.run(["git", "branch", "-D", "dev"], cwd=self.original_files_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(
+                ["git", "checkout", "main"],
+                cwd=self.original_files_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            subprocess.run(
+                ["git", "branch", "-D", "dev"],
+                cwd=self.original_files_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
 
     def test_setup_repo(self):
         # Set up InitFilesResource
-        self.resource = InitFilesResource(resource_id="test_resource", config=self.config)
+        self.resource = InitFilesResource(
+            resource_id="test_resource", config=self.config
+        )
 
         # Ensure the temporary repository is properly set up
         repo_path = os.path.join(self.tmp_dir, "original_files")
@@ -64,28 +81,46 @@ class TestInitFilesResource(unittest.TestCase):
 
         # Check if an initial commit was made
         result = subprocess.run(
-            ["git", "rev-list", "--count", "HEAD"], 
-            cwd=repo_path, stdout=subprocess.PIPE, text=True
+            ["git", "rev-list", "--count", "HEAD"],
+            cwd=repo_path,
+            stdout=subprocess.PIPE,
+            text=True,
         )
         self.assertEqual(result.stdout.strip(), "1", "Initial commit not found.")
 
     def test_setup_dev_branch(self):
         # Set up InitFilesResource
-        self.resource = InitFilesResource(resource_id="test_resource", config=self.config)
+        self.resource = InitFilesResource(
+            resource_id="test_resource", config=self.config
+        )
 
         # Invoke the setup_dev_branch method directly
         self.resource.setup_dev_branch(self.original_files_dir)
 
         # Verify that the branch was created and switched to 'dev'
-        result = subprocess.run(["git", "branch"], cwd=self.original_files_dir, stdout=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            ["git", "branch"],
+            cwd=self.original_files_dir,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
         self.assertIn("dev", result.stdout, "Branch 'dev' was not created.")
 
-        current_branch = subprocess.run(["git", "status"], cwd=self.original_files_dir, stdout=subprocess.PIPE, text=True)
-        self.assertIn("On branch dev", current_branch.stdout, "Repository is not on branch 'dev'")
+        current_branch = subprocess.run(
+            ["git", "status"],
+            cwd=self.original_files_dir,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        self.assertIn(
+            "On branch dev", current_branch.stdout, "Repository is not on branch 'dev'"
+        )
 
     def test_stop(self):
         # Set up InitFilesResource
-        self.resource = InitFilesResource(resource_id="test_resource", config=self.config)
+        self.resource = InitFilesResource(
+            resource_id="test_resource", config=self.config
+        )
 
         # Create a 'dev' branch
         repo_path = os.path.join(self.tmp_dir, "original_files")
@@ -98,7 +133,12 @@ class TestInitFilesResource(unittest.TestCase):
         self.assertFalse(os.path.exists(self.tmp_dir))
 
         # Verify 'dev' branch removal from the original repo
-        branch_result = subprocess.run(["git", "branch"], cwd=self.original_files_dir, stdout=subprocess.PIPE, text=True)
+        branch_result = subprocess.run(
+            ["git", "branch"],
+            cwd=self.original_files_dir,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
         self.assertNotIn("dev", branch_result.stdout, "Branch 'dev' was not removed.")
 
     def test_remove_tmp(self):
@@ -108,10 +148,14 @@ class TestInitFilesResource(unittest.TestCase):
             f.write("Temporary file")
 
         # Ensure files exist
-        self.assertTrue(os.path.exists(os.path.join(self.tmp_dir, "subdir", "tempfile.txt")))
+        self.assertTrue(
+            os.path.exists(os.path.join(self.tmp_dir, "subdir", "tempfile.txt"))
+        )
 
         # Remove temporary directory
-        self.resource = InitFilesResource(resource_id="test_resource", config=self.config)
+        self.resource = InitFilesResource(
+            resource_id="test_resource", config=self.config
+        )
         self.resource.remove_tmp()
 
         # Verify removal
@@ -124,7 +168,9 @@ class TestInitFilesResource(unittest.TestCase):
         with open(test_file_path, "w") as f:
             f.write("This is a test file")
 
-        self.resource = InitFilesResource(resource_id="test_resource", config=self.config)
+        self.resource = InitFilesResource(
+            resource_id="test_resource", config=self.config
+        )
         self.resource.safe_remove(test_file_path)
 
         # Verify removal
@@ -138,5 +184,6 @@ class TestInitFilesResource(unittest.TestCase):
         # Verify removal
         self.assertFalse(os.path.exists(test_dir_path))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

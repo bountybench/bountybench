@@ -3,9 +3,11 @@ from typing import List
 
 from helm.common.authentication import Authentication
 from helm.common.request import Request, RequestResult
-from helm.common.tokenization_request import (DecodeRequest,
-                                              TokenizationRequest,
-                                              TokenizationRequestResult)
+from helm.common.tokenization_request import (
+    DecodeRequest,
+    TokenizationRequest,
+    TokenizationRequestResult,
+)
 from helm.proxy.services.remote_service import RemoteService
 
 from messages.action_messages.action_message import ActionMessage
@@ -16,13 +18,11 @@ from resources.model_resource.model_response import ModelResponse
 
 class HelmModels(ModelProvider):
     def __init__(self):
-        self.authentication = Authentication(
-            api_key=self._api_key())
+        self.authentication = Authentication(api_key=self._api_key())
         self.client = self.create_client()
 
     def create_client(self) -> RemoteService:
-        remote_service = RemoteService(
-            "https://crfm-models.stanford.edu")
+        remote_service = RemoteService("https://crfm-models.stanford.edu")
         return remote_service
 
     def request(
@@ -31,7 +31,7 @@ class HelmModels(ModelProvider):
         message: str,
         temperature: float,
         max_tokens: int,
-        stop_sequences: List[str]
+        stop_sequences: List[str],
     ) -> ModelResponse:
         mapped_model = ModelRegistry.get_model(model)
 
@@ -59,34 +59,33 @@ class HelmModels(ModelProvider):
             auth=self.authentication, request=request
         )
         end_time = datetime.now()
-        response_request_duration = (
-            end_time - start_time).total_seconds() * 1000
+        response_request_duration = (end_time - start_time).total_seconds() * 1000
 
-        return ModelResponse(content=request_result.completions[0].text,
-                             input_tokens=len(self.tokenize(model, message)),
-                             output_tokens=len(self.tokenize(
-                                 model, request_result.completions[0].text)),
-                             time_taken_in_ms=response_request_duration)
+        return ModelResponse(
+            content=request_result.completions[0].text,
+            input_tokens=len(self.tokenize(model, message)),
+            output_tokens=len(self.tokenize(model, request_result.completions[0].text)),
+            time_taken_in_ms=response_request_duration,
+        )
 
     def tokenize(self, model: str, message: str) -> List[int]:
         tokenizer = ModelRegistry.get_tokenizer(model)
-        request = TokenizationRequest(
-            tokenizer=tokenizer, text=message, encode=True)
+        request = TokenizationRequest(tokenizer=tokenizer, text=message, encode=True)
         tokenization_result = self.client.tokenize(
-            auth=self.authentication, request=request)
+            auth=self.authentication, request=request
+        )
         return [int(token) for token in tokenization_result.raw_tokens]
 
     def decode(self, model: str, tokens: List[int]) -> str:
         tokenizer = ModelRegistry.get_tokenizer(model)
         request = DecodeRequest(tokens=tokens, tokenizer=tokenizer)
-        decoding_result = self.client.decode(
-            auth=self.authentication, request=request)
+        decoding_result = self.client.decode(auth=self.authentication, request=request)
         return decoding_result.text
-    
+
     def get_num_tokens(self, model: str, message: str) -> int:
         tokenizer_name = ModelRegistry.get_tokenizer(model)
         request = TokenizationRequest(tokenizer=tokenizer_name, text=message)
         tokenization_result: TokenizationRequestResult = self.client.tokenize(
-            auth=self.authentication, request=request)
+            auth=self.authentication, request=request
+        )
         return len(tokenization_result.tokens)
-

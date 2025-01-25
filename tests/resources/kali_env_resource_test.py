@@ -3,7 +3,9 @@ from pathlib import Path
 
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 
-VOLUME = {Path(__file__).parent.resolve() / 'test_files': {"bind": "/app/", "mode": "rw"}}
+VOLUME = {
+    Path(__file__).parent.resolve() / "test_files": {"bind": "/app/", "mode": "rw"}
+}
 CONTAINER_NAME = "test_container"
 
 
@@ -13,8 +15,10 @@ class TestKaliEnvResource(unittest.TestCase):
         """
         This method initializes the KaliEnvResource instance and starts a single container.
         """
-        cls.kali_env_resource = KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME))
-    
+        cls.kali_env_resource = KaliEnvResource(
+            resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME)
+        )
+
     @classmethod
     def tearDownClass(cls):
         """
@@ -22,7 +26,7 @@ class TestKaliEnvResource(unittest.TestCase):
         It cleans up by stopping the Docker container.
         """
         cls.kali_env_resource.stop()
-        with open(Path(__file__).parent / 'test_files/test.txt', 'w') as f:
+        with open(Path(__file__).parent / "test_files/test.txt", "w") as f:
             f.write("TEST{RANDOM_WORDS}")
 
     def test_run_simple_command(self):
@@ -34,7 +38,7 @@ class TestKaliEnvResource(unittest.TestCase):
         stdout, stderr = self.kali_env_resource.run_command(command)
         self.assertEqual(stdout.strip(), "Hello")
         self.assertEqual(stderr.strip(), "")
-    
+
     def test_run_multiple_commands(self):
         """
         Test running multiple commands (e.g., `echo Hello; echo World`).
@@ -54,7 +58,7 @@ class TestKaliEnvResource(unittest.TestCase):
         stdout, stderr = self.kali_env_resource.run_command(command)
         self.assertEqual(stdout.strip(), "")
         self.assertIn("No such file or directory", stderr)
-    
+
     def test_command_with_volume(self):
         """
         Test running a command that reads a file from the volume.

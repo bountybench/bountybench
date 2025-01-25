@@ -1,14 +1,16 @@
 from collections import defaultdict
+
 from resources.base_resource import BaseResource
+
 
 class ResourceDict(dict):
     def __init__(self):
         self.id_to_resource = dict()
         self.resource_type_to_resources = defaultdict(list)
 
-    def __len__(self): 
+    def __len__(self):
         return len(self.id_to_resource)
-    
+
     def __contains__(self, key):
         return key in self.id_to_resource
 
@@ -23,20 +25,20 @@ class ResourceDict(dict):
         if resource_name in self.resource_type_to_resources:
             return self.resource_type_to_resources[resource_name]
         return []
-    
+
     def delete_items_of_resource_type(self, resource_type):
         if resource_type in self.resource_type_to_resources:
             for resource in self.resource_type_to_resources[resource_type]:
                 resource_id = resource.resource_id
                 if resource_id in self.id_to_resource:
                     del self.id_to_resource[resource_id]
-                    
+
             del self.resource_type_to_resources[resource_type]
 
     def delete_items(self, id):
         if id in self.id_to_resource:
             resource = self.id_to_resource[id]
-            resource_type = type(resource).__name__ 
+            resource_type = type(resource).__name__
             del self.id_to_resource[id]
             if resource_type in self.resource_type_to_resources:
                 self.resource_type_to_resources[resource_type].remove(resource)

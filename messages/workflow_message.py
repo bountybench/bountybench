@@ -1,33 +1,50 @@
-from datetime import datetime
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-class WorkflowMessage(Message):    
+
+class WorkflowMessage(Message):
     _instance = None
 
     @classmethod
-    def initialize(cls, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, 
-                  additional_metadata: Optional[Dict[str, Any]] = None, logs_dir: str = "logs"):
+    def initialize(
+        cls,
+        workflow_name: str,
+        workflow_id: Optional[str] = None,
+        task: Optional[Dict[str, Any]] = None,
+        additional_metadata: Optional[Dict[str, Any]] = None,
+        logs_dir: str = "logs",
+    ):
         if cls._instance is None:
             cls._instance = cls.__new__(cls)
-            cls._instance._initialize(workflow_name, workflow_id, task, additional_metadata, logs_dir)
+            cls._instance._initialize(
+                workflow_name, workflow_id, task, additional_metadata, logs_dir
+            )
         return cls._instance
 
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
-            raise RuntimeError("WorkflowMessage has not been initialized. Call initialize() first.")
+            raise RuntimeError(
+                "WorkflowMessage has not been initialized. Call initialize() first."
+            )
         return cls._instance
-    
-    def _initialize(self, workflow_name: str, workflow_id: Optional[str] = None, 
-                   task: Optional[Dict[str, Any]] = None, additional_metadata: Optional[Dict[str, Any]] = None, 
-                   logs_dir: str = "logs") -> None:
+
+    def _initialize(
+        self,
+        workflow_name: str,
+        workflow_id: Optional[str] = None,
+        task: Optional[Dict[str, Any]] = None,
+        additional_metadata: Optional[Dict[str, Any]] = None,
+        logs_dir: str = "logs",
+    ) -> None:
         # Core
         self._summary = "incomplete"
         self._phase_messages = []
@@ -42,8 +59,13 @@ class WorkflowMessage(Message):
         if task:
             for _, value in task.items():
                 if value:
-                    components.append(str(value.name if isinstance(value, Path) else value))
-        self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                    components.append(
+                        str(value.name if isinstance(value, Path) else value)
+                    )
+        self.log_file = (
+            self.logs_dir
+            / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
         self.workflow_id = workflow_id if workflow_id else str(id(self))
 
         # Metadata
@@ -55,15 +77,17 @@ class WorkflowMessage(Message):
         self._phase_status = {}
 
         super().__init__()
-        
+
     def __init__(self):
         # This method should not be called directly
-        raise RuntimeError("WorkflowMessage should not be instantiated directly. Use initialize() or get_instance().")
+        raise RuntimeError(
+            "WorkflowMessage should not be instantiated directly. Use initialize() or get_instance()."
+        )
 
     @property
     def summary(self) -> str:
         return self._summary
-    
+
     @property
     def phase_messages(self) -> List[PhaseMessage]:
         return self._phase_messages
@@ -74,14 +98,14 @@ class WorkflowMessage(Message):
     def add_phase_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
 
-    def add_agent(self, agent_name: str, agent) -> None:        
-        if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
+    def add_agent(self, agent_name: str, agent) -> None:
+        if agent_name not in self.agents_used and hasattr(agent, "to_dict"):
             self.agents_used[agent_name] = agent.to_dict()
 
     def add_resource(self, resource_name: str, resource) -> None:
-        if resource_name not in self.resources_used and hasattr(resource, 'to_dict'):
+        if resource_name not in self.resources_used and hasattr(resource, "to_dict"):
             self.resources_used[resource_name] = resource.to_dict()
-    
+
     def metadata_dict(self) -> dict:
         return {
             "workflow_name": self.workflow_name,
@@ -92,34 +116,41 @@ class WorkflowMessage(Message):
     def to_dict(self) -> dict:
         return {
             "workflow_metadata": self.metadata_dict(),
-            "phase_messages": [phase_message.to_dict() for phase_message in self.phase_messages],
+            "phase_messages": [
+                phase_message.to_dict() for phase_message in self.phase_messages
+            ],
             "agents_used": self.agents_used,
             "resources_used": self.resources_used,
             "start_time": self._start_time,
             "end_time": self._end_time,
-            "additional_metadata": self.additional_metadata
+            "additional_metadata": self.additional_metadata,
         }
 
     def save(self):
         self._end_time = datetime.now().isoformat()
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(self.log_file, 'w') as f:
+        with open(self.log_file, "w") as f:
             json.dump(self.to_dict(), f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
-    
+
     def _json_serializable(self, obj: Any) -> Any:
         if isinstance(obj, Path):
             return str(obj)
-        elif hasattr(obj, '__dict__'):
+        elif hasattr(obj, "__dict__"):
             # For objects with a __dict__ attribute (like Message),
             # we'll convert them to a dictionary
-            return {key: self._json_serializable(value) for key, value in obj.__dict__.items()}
+            return {
+                key: self._json_serializable(value)
+                for key, value in obj.__dict__.items()
+            }
         elif isinstance(obj, (list, tuple)):
             return [self._json_serializable(item) for item in obj]
         elif isinstance(obj, dict):
             return {key: self._json_serializable(value) for key, value in obj.items()}
-        elif hasattr(obj, '__str__'):
+        elif hasattr(obj, "__str__"):
             # For any other objects, we'll use their string representation
             return str(obj)
-        raise TypeError(f'Object of type {obj.__class__.__name__} is not JSON serializable')
+        raise TypeError(
+            f"Object of type {obj.__class__.__name__} is not JSON serializable"
+        )

@@ -2,38 +2,44 @@ import os
 import stat
 import subprocess
 import time
-import pytest
-from pathlib import Path
 import unittest
+from pathlib import Path
 
-from messages.command_message import CommandMessage
-from messages.answer_message import AnswerMessage
-from messages.patch_message import PatchMessage
-from resources.init_files_resource import InitFilesResource
-from resources.docker_resource import DockerResource
+import pytest
+
 from agents.patch_agent.patch_agent import PatchAgent
+from messages.answer_message import AnswerMessage
+from messages.command_message import CommandMessage
+from messages.patch_message import PatchMessage
+from resources.docker_resource import DockerResource
+from resources.init_files_resource import InitFilesResource
+
 
 @pytest.fixture
 def init_files(tmp_path):
     # Setup directories used by PatchAgent
     (tmp_path / "codebase").mkdir()
     (tmp_path / "tmp").mkdir()
+
     class MockInitFiles:
         task_repo_dir = str(tmp_path)
         files_dir = str(tmp_path / "codebase")
         tmp_dir = str(tmp_path / "tmp")
+
     return MockInitFiles()
+
 
 @pytest.fixture
 def docker_resource():
     # Create the DockerResource
     dr = DockerResource("test_docker_resource")
-    
+
     # Provide the resource to the test
     yield dr
-    
+
     # Cleanup code after the test finishes
     dr.stop()
+
 
 @pytest.fixture
 def patch_agent(init_files, docker_resource, tmp_path):
@@ -54,12 +60,14 @@ def patch_agent(init_files, docker_resource, tmp_path):
         init_files=init_files,
         docker=docker_resource,
         task_server=MockTaskServer(),
-        repo_resource=MockRepoResource()
+        repo_resource=MockRepoResource(),
     )
     return agent
 
+
 def make_executable(script_path: Path):
     script_path.chmod(script_path.stat().st_mode | stat.S_IXUSR)
+
 
 @pytest.fixture
 def exploit_script(tmp_path):
@@ -71,6 +79,7 @@ def exploit_script(tmp_path):
     make_executable(script)
     return script
 
+
 @pytest.fixture
 def verify_script(tmp_path):
     """
@@ -80,9 +89,12 @@ def verify_script(tmp_path):
     # Default: check if input contains 'Success' → return 1 (success),
     # otherwise return 0 (fail).
     # Adjust logic as needed for your scenario.
-    script.write_text("#!/usr/bin/env bash\nINPUT=$1\nif echo \"$INPUT\" | grep -q 'Success'; then exit 1; else exit 0; fi\n")
+    script.write_text(
+        "#!/usr/bin/env bash\nINPUT=$1\nif echo \"$INPUT\" | grep -q 'Success'; then exit 1; else exit 0; fi\n"
+    )
     make_executable(script)
     return script
+
 
 def test_no_verify_sh_exploit_returns_1(patch_agent, exploit_script):
     """
@@ -92,13 +104,16 @@ def test_no_verify_sh_exploit_returns_1(patch_agent, exploit_script):
     patch_agent.use_verify_script = False
 
     # Modify exploit.sh to return exit code 1
-    exploit_script.write_text("#!/usr/bin/env bash\necho 'Exploit after patch'\nexit 1\n")
+    exploit_script.write_text(
+        "#!/usr/bin/env bash\necho 'Exploit after patch'\nexit 1\n"
+    )
     make_executable(exploit_script)
 
     cmd_message = CommandMessage("simulate patch command")
     result = patch_agent.execute(cmd_message)
     assert isinstance(result, AnswerMessage)
     assert "patch succeeded" in result.message.lower()
+
 
 def test_no_verify_sh_exploit_returns_0(patch_agent, exploit_script):
     """
@@ -111,6 +126,7 @@ def test_no_verify_sh_exploit_returns_0(patch_agent, exploit_script):
     result = patch_agent.execute(cmd_message)
     assert isinstance(result, PatchMessage)
     assert "patch failed" in result.message.lower()
+
 
 def test_no_verify_sh_exploit_invalid_exit_code(patch_agent, exploit_script):
     """
@@ -132,6 +148,7 @@ def test_no_verify_sh_exploit_invalid_exit_code(patch_agent, exploit_script):
     assert isinstance(result, PatchMessage)
     assert "patch failed" in result.message.lower()
 
+
 def test_with_verify_sh_success(patch_agent, exploit_script, verify_script):
     """
     Using verify.sh. Exploit can return any exit code or message.
@@ -141,13 +158,14 @@ def test_with_verify_sh_success(patch_agent, exploit_script, verify_script):
     patch_agent.use_verify_script = True
 
     # Let exploit.sh print 'Operation Success' so verify.sh returns 1 (success).
-    exploit_script.write_text("#!/usr/bin/env bash\necho 'Operation Success'\n") 
+    exploit_script.write_text("#!/usr/bin/env bash\necho 'Operation Success'\n")
     make_executable(exploit_script)
 
     cmd_message = CommandMessage("simulate patch command")
     result = patch_agent.execute(cmd_message)
     assert isinstance(result, AnswerMessage)
     assert "patch succeeded" in result.message.lower()
+
 
 def test_with_verify_sh_fail(patch_agent, exploit_script, verify_script):
     """
@@ -166,5 +184,5 @@ def test_with_verify_sh_fail(patch_agent, exploit_script, verify_script):
     assert "patch failed" in result.message.lower()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

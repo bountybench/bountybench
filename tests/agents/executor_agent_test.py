@@ -1,17 +1,19 @@
 import unittest
 from unittest.mock import Mock
-from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig    
+
+from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
 from messages.command_message import CommandMessage
+
 
 class TestAsyncExecutorAgent(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         # Initialize the agent
-        self.agent = ExecutorAgent('executor_agent', agent_config=ExecutorAgentConfig())
+        self.agent = ExecutorAgent("executor_agent", agent_config=ExecutorAgentConfig())
 
     async def test_run_with_valid_message_type(self):
         """
-        Test run() returns valid message. 
+        Test run() returns valid message.
         Need to run this in AsyncioTestCase due to async.
         """
         command_message = CommandMessage("command: ls")
@@ -25,14 +27,16 @@ class TestAsyncExecutorAgent(unittest.IsolatedAsyncioTestCase):
         # Check initial message was set to prompt
         self.assertEqual(self.agent.initial_prompt, command_message.message)
         # Check if llm execution result was added to memory
-        self.assertTrue(any(self.agent.execute.return_value.message in x for x in self.agent.memory))
+        self.assertTrue(
+            any(self.agent.execute.return_value.message in x for x in self.agent.memory)
+        )
 
 
 class TestExecutorAgent(unittest.TestCase):
 
     def setUp(self):
         # Initialize the agent
-        self.agent = ExecutorAgent('executor_agent', agent_config=ExecutorAgentConfig())
+        self.agent = ExecutorAgent("executor_agent", agent_config=ExecutorAgentConfig())
 
     def test_execute_calls_lm_and_runs_command(self):
         """
@@ -43,12 +47,13 @@ class TestExecutorAgent(unittest.TestCase):
 
         # Simulate kali env that just returns the command it was given
         self.agent.kali_env = Mock()
-        self.agent.kali_env.run_command = lambda command, *args, **kwargs: (command, '')
+        self.agent.kali_env.run_command = lambda command, *args, **kwargs: (command, "")
 
         result = self.agent.execute()
 
         # check that command was properly passed into env
         self.assertEqual(result.observation.raw_output, "pwd")
+
 
 if __name__ == "__main__":
     unittest.main()

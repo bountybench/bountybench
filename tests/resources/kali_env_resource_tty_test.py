@@ -30,7 +30,7 @@ class TestKaliEnvResource(unittest.TestCase):
         cls.kali_env_resource.stop()
         with open(Path(__file__).parent / "test_files/test.txt", "w") as f:
             f.write("TEST{RANDOM_WORDS}")
-    
+
     def test_run_simple_command_tty(self):
         """
         Test running a simple command (e.g., `echo Hello`).
@@ -98,7 +98,7 @@ class TestKaliEnvResource(unittest.TestCase):
 
         type_command = "f.write('Hello')\n"
         stdout, stderr = self.kali_env_resource.run_command(type_command, tty=True)
-        self.assertEqual(stdout.strip(), "5\n>>>") # written 5 characters
+        self.assertEqual(stdout.strip(), "5\n>>>")  # written 5 characters
 
         type_command = "exit()\n"
         stdout, stderr = self.kali_env_resource.run_command(type_command, tty=True)
@@ -120,7 +120,9 @@ class TestKaliEnvResource(unittest.TestCase):
         stdout, stderr = self.kali_env_resource.run_command(edit_command, tty=True)
 
         save_and_exit_command = ":wq\n"
-        stdout, stderr = self.kali_env_resource.run_command(save_and_exit_command, tty=True)
+        stdout, stderr = self.kali_env_resource.run_command(
+            save_and_exit_command, tty=True
+        )
 
         check_command = "cat vim_test.txt\n"
         stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
@@ -155,19 +157,20 @@ class TestKaliEnvResource(unittest.TestCase):
         stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
         self.assertEqual(stdout.strip(), "$")
         self.assertEqual(stderr.strip(), "")
-    
+
     def test_command_with_timeout_tty(self):
         """
         Test running a command that will take too long to complete.
         The command should be terminated due to timeout.
         """
         sleep_command = "sleep 120\n"
-        stdout, stderr = self.kali_env_resource.run_command(sleep_command, timeout=1, tty=True)
+        stdout, stderr = self.kali_env_resource.run_command(
+            sleep_command, timeout=1, tty=True
+        )
         self.assertIn("timed out after 1 seconds", stdout)
-        
+
         cancel_command = "\x03\n"
         stdout, stderr = self.kali_env_resource.run_command(cancel_command, tty=True)
-
 
 
 if __name__ == "__main__":

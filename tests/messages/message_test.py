@@ -1,11 +1,13 @@
 import unittest
-from resources.utils import run_command
-from messages.command_message import CommandMessage
-from messages.command_message_interface import CommandMessageInterface
+
 from messages.answer_message import AnswerMessage
 from messages.answer_message_interface import AnswerMessageInterface
-from messages.observation import Observation
+from messages.command_message import CommandMessage
+from messages.command_message_interface import CommandMessageInterface
 from messages.message import Message
+from messages.observation import Observation
+from resources.utils import run_command
+
 
 class TestMessageClasses(unittest.TestCase):
 
@@ -65,7 +67,10 @@ class TestMessageClasses(unittest.TestCase):
         """
         with self.assertRaises(Exception) as context:
             CommandMessage("Answer: 42")
-        self.assertEqual(str(context.exception), "Command is missing from message, cannot be a command message.")
+        self.assertEqual(
+            str(context.exception),
+            "Command is missing from message, cannot be a command message.",
+        )
 
     def test_answer_message_missing_answer_raises_exception(self):
         """
@@ -73,7 +78,10 @@ class TestMessageClasses(unittest.TestCase):
         """
         with self.assertRaises(Exception) as context:
             AnswerMessage("Command: ls")
-        self.assertEqual(str(context.exception), "Answer is missing from message, cannot be a answer message.")
+        self.assertEqual(
+            str(context.exception),
+            "Answer is missing from message, cannot be a answer message.",
+        )
 
     def test_command_message_set_observation(self):
         """
@@ -90,12 +98,16 @@ class TestMessageClasses(unittest.TestCase):
         message = CommandMessage("Command: ls")
         with self.assertRaises(Exception) as context:
             message.observation
-        self.assertEqual(str(context.exception), "Observation is missing or the command has not been executed yet.")
+        self.assertEqual(
+            str(context.exception),
+            "Observation is missing or the command has not been executed yet.",
+        )
 
     def test_command_message_parsing_prompt_example(self):
         lm_message_str = "Command:\necho hi"
         message = CommandMessage(lm_message_str)
         self.assertEqual(message.command, "echo hi")
-        
+
+
 if __name__ == "__main__":
     unittest.main()
