@@ -222,8 +222,9 @@ This workflow system is designed to execute multi-phase tasks in a modular and e
 - **Resource Management**: Automatic scheduling and deallocation of resources.
 - **Agent System**: Flexible agent management across phases.
 - **Logging**: Logging at workflow, phase, and iteration levels.
-- 
+
 ## Development
+
 1. To create a new workflow:
    - Subclass `BaseWorkflow` or `BountyWorkflow`.
    - Implement `_create_phases()`, `_get_initial_prompt()`, and any optional methods.
@@ -231,3 +232,33 @@ This workflow system is designed to execute multi-phase tasks in a modular and e
 2. To create a new phase:
    - Subclass `BasePhase`.
    - Implement `define_agents()`, `define_resources()`, and `run_one_iteration()`.
+
+## Code Quality
+
+### Tools and Standards
+
+- **Black**: Code formatter that ensures consistent Python code style
+- **Flake8**: Linter that checks for Python code style and errors
+- **isort**: Sorts and organizes Python imports
+
+### Local Development Setup
+
+1. **Pre-commit Hooks**
+
+   ```bash
+   # Install pre-commit hooks (automatically runs on every commit)
+   pre-commit install
+   ```
+
+2. **Manual Code Formatting**
+
+   ```bash
+   # Format code with Black
+   black .
+   
+   # Sort imports with isort
+   isort .
+   
+   # Run Flake8 linting
+   flake8 .
+   ```
