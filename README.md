@@ -3,12 +3,16 @@
 ## Table of Contents
 
 - [Installation](#installation)
+  - [Environment Setup](#environment-setup)
+  - [Docker Setup](#docker-setup)
 - [Usage](#usage)
-   - [Running the Workflow](#running-the-workflow)
-   - [Running the Application](#running-the-application)
-- [System Architecture](#system-architecture)
-  - [Workflow System](#workflow-system)
+  - [Running the Workflow](#running-the-workflow)
+  - [Running the Application](#running-the-application)
+  - [Concurrent run](#concurrent-run)
 - [Development](#development)
+- [Code Quality](#code-quality)
+  - [Tools and Standards](#tools-and-standards)
+  - [Local Development Setup](#local-development-setup)
 
 ## Installation
 ## Environment Setup
