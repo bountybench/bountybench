@@ -1,0 +1,61 @@
+name: Code Quality
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black==24.10.0 flake8==7.1.1 isort==5.13.2
+
+      - name: Check Black formatting
+        id: black-check
+        run: black --check .
+        continue-on-error: true
+
+      - name: Run Flake8
+        id: flake8
+        run: flake8 .
+        continue-on-error: true
+
+      - name: Check Import sorting
+        id: isort-check
+        run: isort --check-only --diff .
+        continue-on-error: true
+
+      - name: Auto-format code if checks fail
+        if: steps.black-check.outcome == 'failure' || steps.isort-check.outcome == 'failure'
+        run: |
+          black .
+          isort .
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git commit -am "style: auto-format code with black and isort" || echo "No changes to commit"
+          git push
+
+      - name: Fail if any checks failed and couldn't be auto-fixed
+        if: steps.flake8.outcome == 'failure' || (steps.black-check.outcome == 'failure' && steps.isort-check.outcome == 'failure')
+        run: |
+          echo "Code quality checks failed!"
+          echo "Black status: ${{ steps.black-check.outcome }}"
+          echo "Flake8 status: ${{ steps.flake8.outcome }}"
+          echo "isort status: ${{ steps.isort-check.outcome }}"
+          exit 1
