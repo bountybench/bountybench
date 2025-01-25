@@ -2,6 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
+import time
 
 from dotenv import load_dotenv
 
@@ -39,9 +40,13 @@ class ModelProvider(ABC):
         # Raise an error if the API key is not set in the environment or .env file.
         if not key:
             if env_path.is_file():
-                raise ValueError(
-                    f"{env_var} is not set in the .env file or environment variables"
-                )
+                # Ask the user to write the key to the .env file.
+                while not key:
+                    print(f"{env_var} key not detected. Please write your API key to the .env file.")
+                    time.sleep(5)
+                    load_dotenv(dotenv_path=env_path, override=True)
+                    key = os.getenv(env_var)
+                print(f"{env_var} Key found in .env file.")
             else:
                 raise ValueError(
                     f"{env_var} is not set in environment variables and .env file not found at {env_path}"

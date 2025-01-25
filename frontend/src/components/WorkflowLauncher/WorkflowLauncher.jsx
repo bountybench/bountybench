@@ -9,9 +9,14 @@ import {
   Typography,
   MenuItem,
   CircularProgress,
-  Alert
+  Alert,
+  Grid,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import './WorkflowLauncher.css';
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
@@ -29,13 +34,21 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     task_dir: '',
     bounty_number: '0',
     interactive: true,
-    iterations: 10
+    iterations: 10,
+    model: 'openai/o3-mini-2025-01-14',
+    api_key_name: 'HELM_API_KEY',
+    api_key_value: '',
   });
+
+  const [apiKeys, setApiKeys] = useState({});
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiStatusMessage, setApiStatusMessage] = useState("");
 
   // 2. Fetch workflows only once server is confirmed available
   useEffect(() => {
     if (!isChecking && isServerAvailable) {
       fetchWorkflows();
+      fetchApiKeys();
     }
   }, [isChecking, isServerAvailable]);
 
@@ -90,9 +103,62 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     const { name, value, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'interactive' ? checked : value
+      [name]: name === 'interactive' ? checked : value,
     }));
+
+    if (name === 'api_key_name') {
+      setFormData((prev) => ({
+        ...prev,
+        api_key_value: apiKeys[value] || '',
+      }));
+    }
   };
+
+  const fetchApiKeys = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api-keys');
+      const data = await response.json();
+      console.log(data);
+      setApiKeys(data);
+      setFormData((prev) => ({
+        ...prev,
+        api_key_value: data[formData.api_key_name] || '',
+      }));
+    } catch (err) {
+      console.error('Failed to fetch API keys:', err);
+    }
+  }
+
+  const handleApiKeyChange = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key_name: formData.api_key_name,
+          key_value: formData.api_key_value,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to update API key');
+      }
+
+      setApiStatusMessage(`${formData.api_key_name} updated successfully!`);
+      console.log(`${formData.api_key_name} updated successfully.`);
+      fetchApiKeys();
+    } catch (err) {
+      console.error(err.message || 'Failed to update API key');
+    } finally {
+      setTimeout(() => setApiStatusMessage(""), 2000);
+    }
+  };
+
+  const handleRevealToggle = () => {
+    setShowApiKey((prev) => !prev);
+  };
+
 
   // 3. Render different states
 
@@ -193,6 +259,85 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           margin="normal"
           placeholder="e.g., 10"
         />
+
+        {
+          /* TODO: Implement model selector */
+        }
+        {/* <TextField
+          fullWidth
+          label="Model Name"
+          name="model"
+          value={formData.model}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          placeholder="e.g., openai/o3-mini-2025-01-14"
+        /> */}
+
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={5}>
+            <TextField
+              select
+              fullWidth
+              label="API Key Name"
+              name="api_key_name"
+              value={formData.api_key_name}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+            >
+              {Object.keys(apiKeys).map((key) => (
+                <MenuItem key={key} value={key}>
+                  {key}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          <Grid item xs={5.5}>
+            <TextField
+              fullWidth
+              type={showApiKey ? 'text' : 'password'}
+              label="API Key Value"
+              name="api_key_value"
+              value={formData.api_key_value}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              placeholder="Enter API key"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={handleRevealToggle} size="large">
+                      {showApiKey ? <Visibility /> : <VisibilityOff />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+
+          <Grid item xs={1}>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleApiKeyChange}
+                size="small"
+              >
+                Update
+              </Button>
+            </Box>
+          </Grid>
+
+          <Grid item xs={5}>
+            {apiStatusMessage && (
+              <Alert severity="success" className="launcher-alert">
+                {apiStatusMessage}
+              </Alert>
+            )}
+          </Grid>
+        </Grid>
 
         <FormControlLabel
           control={

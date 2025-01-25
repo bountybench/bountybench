@@ -7,6 +7,8 @@ from pydantic import BaseModel
 import uvicorn
 import signal
 import sys
+import os
+from dotenv import load_dotenv, set_key
 
 from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
@@ -357,6 +359,37 @@ async def get_workflow_resources(workflow_id: str):
     resources = workflow.resource_manager.resources
     
     return resources
+
+
+class APIKeyRequest(BaseModel):
+    key_name: str
+    key_value: str
+
+@app.get("/api-keys")
+def get_api_keys():
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.is_file():
+        return {}
+    load_dotenv(dotenv_path=env_path, override=True) 
+    keys = [
+        "HELM_API_KEY",
+        "OPENAI_API_KEY",
+        "AZURE_OPENAI_API_KEY",
+        "AZURE_OPENAI_ENDPOINT",
+        "ANTHROPIC_API_KEY",
+        "GOOGLE_API_KEY",
+        "TOGETHER_API_KEY",
+    ]
+    return {key: os.getenv(key, "") for key in keys}
+
+@app.post("/api-keys")
+def update_api_key(request: APIKeyRequest):
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not request.key_name:
+        raise HTTPException(status_code=400, detail="key_name is required")
+
+    set_key(env_path, request.key_name, request.key_value, quote_mode='never')
+    return {"message": f"{request.key_name} updated successfully"}
     
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
