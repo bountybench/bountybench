@@ -12,29 +12,23 @@ logger = get_main_logger(__name__)
 
 @dataclass
 class WebscraperAgentConfig(AgentConfig):
-    webscraper_files_dir: str
-    bounty_link: str
+    website: str
 
     def to_dict(self):
         return {
-            "webscraper_files_dir": self.webscraper_files_dir,
-            "bounty_link": self.bounty_link
+            "website": self.website
         }
 
     @classmethod
     def from_dict(cls, data: dict):
         return cls(
-            webscraper_files_dir=data["webscraper_files_dir"],
-            bounty_link=data["bounty_link"],
+            website=data["website"]
         )
 
 class WebscraperAgent(BaseAgent):
 
     def __init__(self, agent_id, agent_config: WebscraperAgentConfig):
-
-        self.webscraper_files_dir = Path(agent_config.webscraper_files_dir)
-        self.bounty_link = Path(agent_config.bounty_link)
-
+        self.website = Path(agent_config.website)
         super().__init__(agent_id, agent_config)
 
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
@@ -42,30 +36,44 @@ class WebscraperAgent(BaseAgent):
         # TODO: Implement the agent logic here
         # Await the addition of a new URL to HUNTR / the queue
         prev_agent_message = messages[0]
-        return self._parse_url(prev_agent_message)
-
-    def _parse_url(self, prev_agent_message: AgentMessage) -> Message:
+        bounty_link = await self._get_new_url(self.website)
+        return self._parse_url(bounty_link, prev_agent_message)
+    
+    async def _get_new_url(self, website) -> str:
         """
-        Parses the extraction url into an ScraperMessage object.
+        TODO: Get the new URL from the website.
 
         Args:
-            prev_agent_message (AgentMessage)
+            messages (List[AgentMessage])
 
         Returns:
-            ScraperMessage: The scraper message.
+            str: The new URL.
+        """
+        return "https://huntr.com/bounties/f1e0fdce-00d7-4261-a466-923062800b12"
+
+    def _parse_url(self, bounty_link: str, prev_agent_message: AgentMessage) -> Message:
+        """
+        Parses the extraction url into a WebscraperMessage object.
+
+        Args:
+            bounty_link (str): The URL to be parsed.
+            prev_agent_message (AgentMessage): The previous agent message.
+
+        Returns:
+            WebscraperMessage: The webscraper message.
 
         Raises:
             TypeError: If url is not a string.
             ExtractionParsingError: If required fields are missing or invalid.
         """
-        if not isinstance(self.bounty_link, str):
+        if not isinstance(bounty_link, str):
             raise TypeError("URL must be a string.")
 
         return WebscraperMessage(
             agent_id=self.agent_id,
             message="New URL added to the queue",
-            bounty_link=self.bounty_link,
+            bounty_link=bounty_link,
             success=True,
-            webscraper_files_dir=self.webscraper_files_dir,
+            website=self.website,
             prev=prev_agent_message
         )
