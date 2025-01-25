@@ -6,6 +6,7 @@ class ImportBountyMessage(AgentMessage):
         self,
         agent_id: str,
         message: str,
+        success: str,
         bounty_link: str,
         cwe: str,
         cve: str,
@@ -19,6 +20,7 @@ class ImportBountyMessage(AgentMessage):
         vulnerable_commit: str,
         prev: AgentMessage = None,
     ) -> None:
+        self._success = success
         self._bounty_link = bounty_link
         self._CWE = cwe
         self._CVE = cve

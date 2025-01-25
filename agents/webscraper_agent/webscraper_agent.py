@@ -28,7 +28,7 @@ class WebscraperAgentConfig(AgentConfig):
 class WebscraperAgent(BaseAgent):
 
     def __init__(self, agent_id, agent_config: WebscraperAgentConfig):
-        self.website = Path(agent_config.website)
+        self.website = agent_config.website
         super().__init__(agent_id, agent_config)
 
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
