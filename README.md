@@ -256,6 +256,12 @@ This workflow system is designed to execute multi-phase tasks in a modular and e
 
 2. **Manual Code Formatting**
 
+   You can format your code manually by running
+   ```bash
+   pre-commit run --all-files
+   ```
+
+   If you have issues with formatting, you can run the individual tools separately:
    ```bash
    # Format code with Black
    black .
