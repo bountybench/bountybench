@@ -13,6 +13,7 @@ export const formatData = (data) => {
     }
     return JSON.stringify(data, null, 2);
   } catch (e) {
+    // Note: don't consume errors and fail silently, you should make it obvious to user and also log
     return String(data);
   }
 };
