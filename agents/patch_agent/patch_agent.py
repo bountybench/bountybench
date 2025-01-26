@@ -118,10 +118,13 @@ class PatchAgent(BaseAgent):
         bounty_resource_restarted = hasattr(self, "bounty_resource") and self._restart_resource(self.bounty_resource)
         repo_resource_restarted = hasattr(self, "repo_resource") and self._restart_resource(self.repo_resource)
 
-        if (hasattr(self, "bounty_resource") and not bounty_resource_restarted) or \
-            (hasattr(self, "repo_resource") and not repo_resource_restarted):
-            logger.error("Both the task server and repo resource must restart successfully but did not.")
-            return PatchAgentMessage(agent_id=self.agent_id, message="The task server and/or repo resource cannot restart after the changes.", prev=prev_agent_message)
+        if (hasattr(self, "bounty_resource") and not bounty_resource_restarted):
+            logger.error("The bounty resource must restart successfully but did not.")
+            return PatchAgentMessage(agent_id=self.agent_id, message="The bounty resource cannot restart after the changes.", prev=prev_agent_message)
+
+        if (hasattr(self, "repo_resource") and not repo_resource_restarted):
+            logger.error("The repo resource must restart successfully but did not.")
+            return PatchAgentMessage(agent_id=self.agent_id, message="The repo resource cannot restart after the changes.", prev=prev_agent_message)
 
         # Run exploit
         stdout, exit_code = self.run_exploit()

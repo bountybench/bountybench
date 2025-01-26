@@ -27,10 +27,12 @@ def mock_store_patch():
         return
     return patch.object(PatchAgent, "store_patch", mock_s_patch)
 
+def mock_restart_resource(return_value: bool = True):
+    return patch.object(PatchAgent, "_restart_resource", return_value=return_value)
+
 def write_to_file_and_make_executable(script_path: Path, file_text: str):
     script_path.write_text(file_text)
     script_path.chmod(script_path.stat().st_mode | stat.S_IXUSR)
-
 
 class TestPatchAgent(unittest.TestCase):
     @classmethod
@@ -105,7 +107,7 @@ class TestPatchAgent(unittest.TestCase):
         cls.exploit_script_text = cls.exploit_script_dir.read_text()
 
         # These mocks are enabled for every test in this file
-        cls.mocks = [mock_patch_agent_message(), mock_store_patch()]
+        cls.mocks = [mock_patch_agent_message(), mock_store_patch(), mock_restart_resource()]
         [mock.start() for mock in cls.mocks]
     
     def setUp(self):
@@ -127,7 +129,10 @@ class TestPatchAgent(unittest.TestCase):
         self.exploit_script_text = self.__class__.exploit_script_text
         subprocess.run(["cp", str(self.verify_script_dir), f"{str(self.verify_script_dir)}.bak"])
         subprocess.run(["cp", str(self.exploit_script_dir), f"{str(self.exploit_script_dir)}.bak"])
-
+        write_to_file_and_make_executable(
+            script_path=self.exploit_script_dir,
+            file_text="#!/usr/bin/env bash\nexit 0\n",
+        )
 
     def tearDown(self):
         # Clean up: remove the temporary exploit files from the Kali container
@@ -260,7 +265,6 @@ class TestPatchAgent(unittest.TestCase):
         )
         self.agent.use_verify_script = True
         result = self.agent.execute()
-        assert isinstance(result, PatchAgentMessage)
         self.assertIsInstance(result, PatchAgentMessage)
         self.assertIn("patch failed", result.message.lower())
 
