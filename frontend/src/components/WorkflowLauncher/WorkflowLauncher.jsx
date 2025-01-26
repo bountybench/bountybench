@@ -45,7 +45,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       const data = await response.json();
       setWorkflows(data.workflows);
     } catch (err) {
-      console.log('Failed to fetch workflows. Make sure the backend server is running.');
+      console.error('Failed to fetch workflows. Make sure the backend server is running.');
     } finally {
       setLoading(false);
     }
