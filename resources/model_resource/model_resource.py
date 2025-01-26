@@ -166,7 +166,7 @@ class ModelResource(BaseResource):
         model_input = self.generate_memory(input_message)
         model_provider: ModelProvider
         model_provider = self.helm_models if self.helm else self.openai_models
-        model_response = model_provider.request(
+        model_response = model_provider.make_request(
             model=self.model,
             message=model_input,
             temperature=self.temperature,
