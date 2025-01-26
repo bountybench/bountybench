@@ -57,14 +57,18 @@ async def test_broadcast_failed_connection(websocket_manager):
     websocket2 = AsyncMock(spec=WebSocket)
     
     websocket_manager.active_connections[workflow_id] = [websocket1, websocket2]
-    websocket1.send_json.side_effect = Exception("Test failure")
+    webhook1.send_json.side_effect = Exception("Test failure")
 
     message = {"type": "test", "message": "This is a test"}
-    await websocket_manager.broadcast(workflow_id, message)
     
-    websocket1.send_json.assert_called_once_with(message)
-    websocket2.send_json.assert_called_once_with(message)
-    assert websocket1 not in websocket_manager.active_connections[workflow_id]
+    with pytest.raises(Exception, match="Test failure"):
+        await websocket_manager.broadcast(workflow_id, message)
+    
+    webhook1.send_json.assert_called_once_with(message)
+    assert webhook1 not in websocket_manager.active_connections[workflow_id]
+
+    # Verifying the second websocket is not called due to immediate raising of exception.
+    webhook2.send_json.assert_not_called()
 
 @pytest.mark.asyncio
 async def test_close_all_connections(websocket_manager, websocket):
@@ -75,6 +79,24 @@ async def test_close_all_connections(websocket_manager, websocket):
     
     websocket.close.assert_called_once()
     assert websocket_manager.active_connections == {}
+
+@pytest.mark.asyncio
+async def test_close_all_connections_with_exceptions(websocket_manager):
+    websocket1 = AsyncMock(spec=WebSocket)
+    websocket2 = AsyncMock(spec=WebSocket)
+    
+    # Set exception on first close instead of second
+    websocket1.close.side_effect = Exception("Test Close Exception")
+    workflow_id = "test_workflow"
+
+    websocket_manager.active_connections[workflow_id] = [websocket1, websocket2]
+
+    with pytest.raises(Exception, match="Test Close Exception"):
+        await websocket_manager.close_all_connections()
+
+    websocket1.close.assert_called_once()
+    assert not websocket2.close.called
+
 
 @pytest.mark.asyncio
 async def test_connect_multiple(websocket_manager, websocket):
@@ -135,23 +157,10 @@ async def test_broadcast_failed_connection(websocket_manager):
         await websocket_manager.broadcast(workflow_id, message)
     
     websocket1.send_json.assert_called_once_with(message)
-    websocket2.send_json.assert_called_once_with(message)
     assert websocket1 not in websocket_manager.active_connections[workflow_id]
 
-@pytest.mark.asyncio
-async def test_close_all_connections_with_exceptions(websocket_manager):
-    websocket1 = AsyncMock(spec=WebSocket)
-    websocket2 = AsyncMock(spec=WebSocket)
-    websocket2.close.side_effect = Exception("Test Close Exception")
-    workflow_id = "test_workflow"
+    websocket2.send_json.assert_not_called()
 
-    websocket_manager.active_connections[workflow_id] = [websocket1, websocket2]
-
-    with pytest.raises(Exception, match="Test Close Exception"):
-        await websocket_manager.close_all_connections()
-
-    websocket1.close.assert_called_once()
-    websocket2.close.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_connect_disconnect_multiple(websocket_manager, websocket):

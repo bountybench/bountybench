@@ -4,12 +4,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from typing import Dict, List
-from fastapi import WebSocket
-import logging
-
-logger = logging.getLogger(__name__)
-
 class WebSocketManager:
     _instance = None
     _initialized = False
@@ -53,43 +47,35 @@ class WebSocketManager:
 
     async def broadcast(self, workflow_id: str, message: dict):
         """Broadcast a message to all connected clients for a workflow"""
-        try:
-            if workflow_id not in self.active_connections:
-                return
+        if workflow_id not in self.active_connections:
+            return
 
-            failed_connections = []
-
-            for connection in self.active_connections[workflow_id]:
-                try:
-                    await connection.send_json(message)
-                except Exception as e:
-                    failed_connections.append(connection)
-                    logger.error(f"Error broadcasting message to workflow {workflow_id} connection: {e}")
-            for connection in failed_connections:
-                logger.info(f"Removing failed connection from workflow {workflow_id}")
-                self.disconnect(workflow_id, connection)
-        except Exception as e:
-            logger.error(f"Error during WebSocket broadcast: {e}")
-            raise
+        for connection in self.active_connections[workflow_id]:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                logger.error(f"Error broadcasting message to workflow {workflow_id} connection: {e}")
+                self.disconnect(workflow_id, connection)  # Disconnect failed connection
+                raise  # Raise the exception immediately
 
     async def close_all_connections(self):
         """Close all active WebSocket connections"""
-        try:
-            logger.info("Closing all WebSocket connections")
-            for workflow_id in list(self.active_connections.keys()):
-                for connection in list(self.active_connections[workflow_id]):
-                    try:
-                        await connection.close()
-                    except Exception as e:
-                        logger.error(f"Error closing connection for workflow {workflow_id}: {e}")
-                        raise
-                self.active_connections[workflow_id] = []
-            self.active_connections.clear()
-            logger.info("All WebSocket connections closed")
-        except Exception as e:
-            logger.error(f"Error during WebSocket close all connections: {e}")
-            raise
+        workflows_to_close = list(self.active_connections.items())
 
+        for workflow_id, connections in workflows_to_close:
+            for connection in connections:
+                try:
+                    await connection.close()
+                except Exception as e:
+                    logger.error(f"Error closing connection for workflow {workflow_id}: {e}")
+                    raise  # Raise the exception immediately
+                finally:
+                    self.disconnect(workflow_id, connection)
         
+        self.active_connections.clear()
+        logger.info("All WebSocket connections closed")
+    
+    def get_active_connections(self):
+        return self.active_connections
 
 websocket_manager = WebSocketManager()
