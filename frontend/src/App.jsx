@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
+import { ToastContainer, toast, Slide } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
 import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
 import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
 import { AppHeader } from './components/AppHeader/AppHeader'; 
@@ -22,7 +24,6 @@ function App() {
   const handleInteractiveModeToggle = async () => {
     const newInteractiveMode = !interactiveMode;
     setInteractiveMode(newInteractiveMode);
-    
     if (selectedWorkflow) {
       try {
         const response = await fetch(`http://localhost:8000/workflow/${selectedWorkflow.id}/interactive`, {
@@ -50,10 +51,29 @@ function App() {
     setCurrentPhase(phase);
   };
 
+  useEffect(() => {
+    const originalConsoleError = console.error;
+
+    console.error = function(...args) {
+      const errorMessage = args.join(' ');
+      toast.error(errorMessage, {
+        position: "top-center",
+        autoClose: 5000,
+        transition: Slide
+      });
+      originalConsoleError.apply(console, args);
+    };
+
+    return () => {
+      console.error = originalConsoleError;
+    };
+  }, []);
+
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <Box className="app-container" display="flex" flexDirection="column" height="100vh">
+        <ToastContainer />
         <AppHeader 
           onInteractiveModeToggle={handleInteractiveModeToggle}
           interactiveMode={interactiveMode}

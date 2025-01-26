@@ -30,6 +30,7 @@ export const useServerAvailability = (onAvailable) => {
         }
       } catch (error) {
         // If fetch fails or response not OK, we assume server is still not available
+        console.error(error);
         setIsServerAvailable(false);
       }
       return false;
