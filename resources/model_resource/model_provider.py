@@ -116,10 +116,12 @@ class ModelProvider(ABC):
         request_thread = threading.Thread(target=run_request)
         request_thread.start()
 
+        time = 0
         # Periodically log heartbeat until request completes or fails
         while not done_flag[0]:
-            logger.info("Still waiting for LLM provider to respond...")
+            logger.info(f"{time}s has passed. Still waiting for LLM provider to respond...")
             sleep(logging_interval)
+            time += logging_interval
 
         # If the child thread encountered an error, re-raise it
         if error_holder[0] is not None:
