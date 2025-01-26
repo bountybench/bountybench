@@ -14,7 +14,7 @@ from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
 from utils.websocket_manager import websocket_manager
 
-from resources.model_resource.model_mapping import TokenizerMapping
+from resources.model_resource.model_mapping import TokenizerMapping, NonHELMMapping
 
 app = FastAPI()
 
@@ -97,10 +97,13 @@ async def list_workflows():
         ]
     }
 
-@app.get("/workflow/models")
+@app.get("/workflow/helmmodels")
 async def list_models():
     """List available model types"""
-    return TokenizerMapping.mapping
+    all_mapping = TokenizerMapping.mapping
+    nonhelm_mapping = NonHELMMapping.mapping
+    helm_mapping = {k: v for k, v in all_mapping.items() if k not in nonhelm_mapping}
+    return helm_mapping
 
 @app.post("/workflow/start")
 async def start_workflow(workflow_data: dict):
@@ -368,3 +371,4 @@ async def get_workflow_resources(workflow_id: str):
     
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
+

@@ -33,6 +33,18 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     model: '',
   });
   const [allModels, setAllModels] = useState([]);
+  const [topLevelSelection, setTopLevelSelection] = useState("");
+
+  const handleTopLevelChange = (event) => {
+    const { value } = event.target;
+    setTopLevelSelection(value);
+    // Set the model field based on top-level selection
+    if (value === "Non-HELM") {
+      handleInputChange({ target: { name: 'model', value: 'openai/o3-mini-2024-12-17' } }); // Set to default model for Non-HELM
+    } else {
+      handleInputChange({ target: { name: 'model', value: '' } }); // Reset model field for HELM
+    }
+  };
 
   // 2. Fetch workflows only once server is confirmed available
   useEffect(() => {
@@ -59,7 +71,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch('http://localhost:8000/workflow/models');
+        const response = await fetch('http://localhost:8000/workflow/helmmodels');
         const all_models = await response.json();
         setAllModels(all_models);
         setLoading(false);
@@ -218,35 +230,40 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           select
           fullWidth
           label="Model Type"
-          name="model"
-          value={formData.model}
-          onChange={handleInputChange}
+          name="type"
+          value={topLevelSelection}
+          onChange={handleTopLevelChange}
           required
           margin="normal"
         >
-          {Object.entries(allModels).map(([k, v]) => (
-            <MenuItem key={k} value={k}>
-              <Box display="flex" flexDirection="column">
-                <Typography>{k}</Typography>
-                <Typography variant="caption" color="textSecondary" className="workflow-description">
-                  {v}
-                </Typography>
-              </Box>
-            </MenuItem>
-          ))}
+          <MenuItem value="HELM">HELM</MenuItem>
+          <MenuItem value="Non-HELM">Non-HELM</MenuItem>
         </TextField>
 
-        <FormControlLabel
-          control={
-            <Switch
-              checked={interactiveMode}
-              onChange={(e) => setInteractiveMode(e.target.checked)}
-              name="interactive"
-              color="primary"
-            />
-          }
-          label="Interactive Mode"
-        />
+        {/* Conditionally render the second dropdown based on top-level selection */}
+        {topLevelSelection === "HELM" && (
+          <TextField
+            select
+            fullWidth
+            label="Model Name"
+            name="model"
+            value={formData.model}
+            onChange={handleInputChange}
+            required
+            margin="normal"
+          >
+            {Object.entries(allModels).map(([k, v]) => (
+              <MenuItem key={k} value={k}>
+                <Box display="flex" flexDirection="column">
+                  <Typography>{k}</Typography>
+                  <Typography variant="caption" color="textSecondary" className="workflow-description">
+                    {v}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))}
+          </TextField>
+          )}
 
         <Button
           type="submit"
