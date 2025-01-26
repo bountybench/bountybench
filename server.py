@@ -7,6 +7,9 @@ from pydantic import BaseModel
 import uvicorn
 import signal
 import sys
+import logging
+
+logger = logging.getLogger(__name__)
 
 from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
@@ -180,50 +183,85 @@ async def run_workflow(workflow_id: str):
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     """WebSocket endpoint for real-time workflow updates"""
     global should_exit
+    connection_task = None
     
     try:
-        await websocket_manager.connect(workflow_id, websocket)
+        # Connect and get the connection task
+        connection_task = await websocket_manager.connect(workflow_id, websocket)
         
         # Send initial workflow state
         if workflow_id in active_workflows:
             workflow_data = active_workflows[workflow_id]
-            await websocket.send_json({
-                "message_type": "initial_state",
-                "status": workflow_data["status"]
-            })
+            try:
+                await websocket.send_json({
+                    "message_type": "initial_state",
+                    "status": workflow_data["status"]
+                })
+            except Exception as e:
+                logger.error(f"Failed to send initial state: {e}")
+                return
         
         # Handle incoming messages
         while not should_exit:
             try:
-                data = await websocket.receive_json()
+                # Use a timeout to prevent blocking forever
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
+                
                 if should_exit:
                     break
 
                 if data.get("message_type") == "user_message" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
-                        result = await workflow.add_user_message(data["content"])
-                        await websocket_manager.broadcast(workflow_id, {
-                            "message_type": "user_message_response",
-                            "content": result
-                        })
-                        print(f"Broadcasted user_message_response for {workflow_id}")
+                        try:
+                            result = await workflow.add_user_message(data["content"])
+                            await websocket_manager.broadcast(workflow_id, {
+                                "message_type": "user_message_response",
+                                "content": result
+                            })
+                            logger.info(f"Broadcasted user_message_response for {workflow_id}")
+                        except Exception as e:
+                            logger.error(f"Error processing user message: {e}")
+                            await websocket_manager.broadcast(workflow_id, {
+                                "message_type": "error",
+                                "content": f"Error processing message: {str(e)}"
+                            })
 
                 elif data.get("message_type") == "start_execution":
                     asyncio.create_task(run_workflow(workflow_id))
+                    
+            except asyncio.TimeoutError:
+                # This is normal, just continue
+                continue
             except WebSocketDisconnect:
+                logger.info(f"Client disconnected normally for workflow {workflow_id}")
                 break
             except Exception as e:
-                if "disconnect" in str(e).lower():
+                if "disconnect" in str(e).lower() or "connection" in str(e).lower():
+                    logger.info(f"Connection closed for workflow {workflow_id}: {e}")
                     break
+                logger.error(f"Error in websocket loop for {workflow_id}: {e}")
+                try:
+                    await websocket_manager.broadcast(workflow_id, {
+                        "message_type": "error",
+                        "content": f"Server error: {str(e)}"
+                    })
+                except:
+                    pass
+                break
                     
     except WebSocketDisconnect:
-        print(f"WebSocket disconnected for workflow {workflow_id}")
+        logger.info(f"WebSocket disconnected for workflow {workflow_id}")
     except Exception as e:
-        print(f"WebSocket error for workflow {workflow_id}: {e}")
+        logger.error(f"WebSocket error for workflow {workflow_id}: {e}")
     finally:
-        websocket_manager.disconnect(workflow_id, websocket)
-        print(f"Cleaned up connection for workflow {workflow_id}")
+        try:
+            if connection_task and not connection_task.done():
+                connection_task.cancel()
+            await websocket_manager.disconnect(workflow_id, websocket)
+            logger.info(f"Cleaned up connection for workflow {workflow_id}")
+        except Exception as e:
+            logger.error(f"Error during cleanup for workflow {workflow_id}: {e}")
 
 class MessageInputData(BaseModel):
     message_id: str
