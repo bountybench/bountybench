@@ -26,44 +26,62 @@ class WebSocketConnection:
         self._closed = False
         self.lock = asyncio.Lock()
 
+    @property
+    def is_active(self):
+        """Check if the connection is active and can send messages"""
+        return (not self._closed and 
+                not self._closing and 
+                self.state == ConnectionState.CONNECTED)
+
     async def send_heartbeat(self) -> bool:
-        if self._closed or self._closing:
+        if not self.is_active:
             return False
 
         try:
             async with self.lock:
+                if not self.is_active:  # Double-check after acquiring lock
+                    return False
                 await self.websocket.send_json({"type": "heartbeat"})
                 self.last_heartbeat = datetime.now()
                 return True
         except Exception as e:
             logger.error(f"Failed to send heartbeat: {e}")
+            self.state = ConnectionState.ERROR
             return False
 
     async def send_json(self, data: dict) -> bool:
-        if self._closed or self._closing:
+        if not self.is_active:
             return False
 
         try:
             async with self.lock:
+                if not self.is_active:  # Double-check after acquiring lock
+                    return False
                 await self.websocket.send_json(data)
                 return True
         except Exception as e:
             logger.error(f"Failed to send message: {e}")
+            self.state = ConnectionState.ERROR
             return False
 
     async def close(self):
-        if self._closed or self._closing:
+        if self._closed:
             return
 
-        self._closing = True
-        try:
-            async with self.lock:
+        async with self.lock:
+            if self._closed:  # Double-check after acquiring lock
+                return
+            
+            self._closing = True
+            self.state = ConnectionState.DISCONNECTED
+            
+            try:
                 await self.websocket.close()
-        except Exception as e:
-            logger.error(f"Error closing websocket: {e}")
-        finally:
-            self._closed = True
-            self._closing = False
+            except Exception as e:
+                logger.error(f"Error closing websocket: {e}")
+            finally:
+                self._closed = True
+                self._closing = False
 
 
 class WebSocketManager:
