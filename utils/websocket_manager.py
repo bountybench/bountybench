@@ -4,6 +4,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from typing import Dict, List
+from fastapi import WebSocket
+import logging
+
+logger = logging.getLogger(__name__)
+
 class WebSocketManager:
     _instance = None
     _initialized = False
@@ -20,10 +26,14 @@ class WebSocketManager:
             logger.info("WebSocket Manager initialized")
 
     async def connect(self, workflow_id: str, websocket: WebSocket):
-        await websocket.accept()
-        if workflow_id not in self.active_connections:
-            self.active_connections[workflow_id] = []
-        self.active_connections[workflow_id].append(websocket)
+        try:
+            await websocket.accept()
+            if workflow_id not in self.active_connections:
+                self.active_connections[workflow_id] = []
+            self.active_connections[workflow_id].append(websocket)
+        except Exception as e:
+            logger.error(f"Error during WebSocket connection: {e}")
+            raise
 
     def disconnect(self, workflow_id: str, websocket: WebSocket):
         """Disconnect a WebSocket client"""
@@ -39,40 +49,46 @@ class WebSocketManager:
                     logger.info(f"Removed empty connection list for workflow {workflow_id}")
         except Exception as e:
             logger.error(f"Error during WebSocket disconnect: {e}")
+            raise
 
     async def broadcast(self, workflow_id: str, message: dict):
         """Broadcast a message to all connected clients for a workflow"""
+        try:
+            if workflow_id not in self.active_connections:
+                return
 
+            failed_connections = []
 
-        if workflow_id not in self.active_connections:
-            return
+            for connection in self.active_connections[workflow_id]:
+                try:
+                    await connection.send_json(message)
+                except Exception as e:
+                    failed_connections.append(connection)
+                    logger.error(f"Error broadcasting message to workflow {workflow_id} connection: {e}")
 
-        failed_connections = []
-
-        for connection in self.active_connections[workflow_id]:
-            try:
-                await connection.send_json(message)
-            except Exception as e:
-                failed_connections.append(connection)
-
-        # Clean up failed connections
-        for connection in failed_connections:
-            logger.info(f"Removing failed connection from workflow {workflow_id}")
-            self.disconnect(workflow_id, connection)
+            for connection in failed_connections:
+                logger.info(f"Removing failed connection from workflow {workflow_id}")
+                self.disconnect(workflow_id, connection)
+        except Exception as e:
+            logger.error(f"Error during WebSocket broadcast: {e}")
+            raise
 
     async def close_all_connections(self):
         """Close all active WebSocket connections"""
-        logger.info("Closing all WebSocket connections")
-        for workflow_id in list(self.active_connections.keys()):
-            for connection in list(self.active_connections[workflow_id]):
-                try:
-                    await connection.close()
-                except Exception as e:
-                    logger.error(f"Error closing connection for workflow {workflow_id}: {e}")
-            self.active_connections[workflow_id] = []
-        self.active_connections.clear()
-        logger.info("All WebSocket connections closed")
-
+        try:
+            logger.info("Closing all WebSocket connections")
+            for workflow_id in list(self.active_connections.keys()):
+                for connection in list(self.active_connections[workflow_id]):
+                    try:
+                        await connection.close()
+                    except Exception as e:
+                        logger.error(f"Error closing connection for workflow {workflow_id}: {e}")
+                self.active_connections[workflow_id] = []
+            self.active_connections.clear()
+            logger.info("All WebSocket connections closed")
+        except Exception as e:
+            logger.error(f"Error during WebSocket close all connections: {e}")
+            raise
 
         
 
