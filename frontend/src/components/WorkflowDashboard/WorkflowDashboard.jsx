@@ -31,6 +31,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
     workflowStatus, 
     currentPhase, 
     currentIteration,
+    error,
     messageCount: messages?.length 
   }); // Debug log
 
@@ -137,18 +138,18 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
 
   console.log('Rendering WorkflowDashboard with messages:', workflowStatus === 'completed' ? preservedMessages : messages);
 
-  if (!isConnected) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-        <CircularProgress size={24} />
-      </Box>
-    );
-  }
-
   if (error) {
     return (
       <Box p={2}>
         <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
+  if (!isConnected) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        <CircularProgress size={24} />
       </Box>
     );
   }
