@@ -19,9 +19,13 @@ class PatchWorkflow(BountyWorkflow):
         phase_kwargs = {
             'model': self.params.get('model'),
             'helm': self.params.get('helm'),
+            'task_dir': self.task_dir,
             'bounty_number': self.bounty_number,
             'max_iterations': 20,
             'use_agent_exploit': False,
+            'task_description': read_writeup(self.task_dir, self.bounty_number),
+            'stop_token': STOP_TOKEN,
+            'target_host': self.repo_metadata["target_host"],
             'initial_prompt': self.initial_prompt
         }
         if hasattr(self, "phase_iterations"):
@@ -40,19 +44,7 @@ class PatchWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
-        exploit_report = read_writeup(self.task_dir, self.bounty_number)
-        if self.repo_metadata["target_host"]: 
-            prompt = TARGET_HOST_PATCH_PROMPT.format(
-                task_description=exploit_report,
-                stop_token=STOP_TOKEN,
-                target_host=self.repo_metadata["target_host"],
-            )
-        else: 
-            prompt = PATCH_PROMPT.format(
-                task_description=exploit_report,
-                stop_token=STOP_TOKEN
-            )
-        return prompt
+        return TARGET_HOST_PATCH_PROMPT if self.repo_metadata["target_host"] else PATCH_PROMPT
 
 async def main() -> None:
     """Main entry point"""

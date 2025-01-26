@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useServerAvailability } from '../../hooks/useServerAvailability';
 import {
   Box,
   Button,
@@ -14,35 +15,45 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import './WorkflowLauncher.css';
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
+  // 1. Use the hook to poll for server availability
+  const { isServerAvailable, isChecking } = useServerAvailability(() => {
+    console.log('Server is available!');
+  });
+
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [formData, setFormData] = useState({
     workflow_name: '',
     task_dir: '',
-    bounty_number: "0",
+    bounty_number: '0',
     interactive: true,
     iterations: 10,
     model: '',
   });
   const [allModels, setAllModels] = useState([]);
 
-  // Fetch available workflows
+  // 2. Fetch workflows only once server is confirmed available
   useEffect(() => {
-    const fetchWorkflows = async () => {
-      try {
-        const response = await fetch('http://localhost:8000/workflow/list');
-        const data = await response.json();
-        setWorkflows(data.workflows);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to fetch workflows. Make sure the backend server is running.');
-        setLoading(false);
-      }
-    };
+    if (!isChecking && isServerAvailable) {
+      fetchWorkflows();
+    }
+  }, [isChecking, isServerAvailable]);
 
-    fetchWorkflows();
-  }, []);
+  const fetchWorkflows = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/workflow/list');
+      const data = await response.json();
+      setWorkflows(data.workflows);
+    } catch (err) {
+      setError('Failed to fetch workflows. Make sure the backend server is running.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch available models
   useEffect(() => {
@@ -68,9 +79,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflow_name: formData.workflow_name,
           task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
@@ -99,20 +108,44 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: name === 'interactive' ? checked : value
     }));
   };
 
-  if (loading) {
+  // 3. Render different states
+
+  // While still checking server
+  if (isChecking) {
     return (
       <Box className="launcher-loading">
         <CircularProgress />
+        <Typography>Checking server availability...</Typography>
       </Box>
     );
   }
 
+  // Server not available (will keep polling in background)
+  if (!isServerAvailable) {
+    return (
+      <Alert severity="error" className="launcher-alert">
+        Cannot reach server. Retrying...
+      </Alert>
+    );
+  }
+
+  // Server available but workflows still loading
+  if (loading) {
+    return (
+      <Box className="launcher-loading">
+        <CircularProgress />
+        <Typography>Loading workflows...</Typography>
+      </Box>
+    );
+  }
+
+  // All good: show the form
   return (
     <Box className="launcher-container">
       <Typography variant="h5" gutterBottom>
@@ -140,7 +173,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             <MenuItem key={workflow.name} value={workflow.name}>
               <Box display="flex" flexDirection="column">
                 <Typography>{workflow.name}</Typography>
-                <Typography variant="caption" color="textSecondary" className="workflow-description">
+                <Typography variant="caption" color="textSecondary">
                   {workflow.description}
                 </Typography>
               </Box>
@@ -213,7 +246,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             />
           }
           label="Interactive Mode"
-          className="launcher-switch"
         />
 
         <Button
@@ -221,7 +253,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           variant="contained"
           color="primary"
           startIcon={<PlayArrowIcon />}
-          className="launcher-button"
         >
           Start Workflow
         </Button>

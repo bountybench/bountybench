@@ -16,10 +16,7 @@ from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.setup_resource import SetupResource
-from messages.action_messages.answer_message import AnswerMessage
-from messages.message import Message
 from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
 
 
 logger = get_main_logger(__name__)
@@ -56,8 +53,7 @@ class PatchAgent(BaseAgent):
         self.exploits_dir_name = "agent_exploits"
         self.exploits_dir = Path(agent_config.task_dir) / self.bounty_dir / self.exploits_dir_name
         self.exploits_dir.mkdir(parents=True, exist_ok=True)
-        self.tmp_exploits_dir_name = "exploit_files"
-        self.tmp_exploits_dir = self.task_dir /"tmp" / self.bounty_dir / self.tmp_exploits_dir_name
+        self.tmp_exploits_dir = self.task_dir / "tmp"
         self.log_history = []
         
         self.codebase = None
@@ -168,12 +164,10 @@ class PatchAgent(BaseAgent):
         # Here we rely on self.init_files from (InitFilesResource, "init_files")
 
         volumes = {
-            os.path.abspath(os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)): {"bind": "/app/codebase", "mode": "rw"},
-            os.path.abspath(self.tmp_exploits_dir): {"bind": f"/app/{self.bounty_dir}/{self.tmp_exploits_dir_name}", "mode": "rw"},
+            os.path.abspath(self.init_files.tmp_dir): {"bind": "/app", "mode": "rw"},
         }
 
-        #/app/bounties/bounty_#/exploit_files
-        exploit_command = f"cd {self.bounty_dir / self.tmp_exploits_dir_name} && bash exploit.sh"
+        exploit_command = f"bash exploit.sh"
 
         logger.info("Running exploit...")
         try:
