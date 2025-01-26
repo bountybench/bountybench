@@ -137,15 +137,24 @@ class WebSocketManager:
 
         async with self.connection_locks[workflow_id]:
             try:
+                # Accept connection before any other operations
                 await websocket.accept()
+                logger.info(f"WebSocket connection accepted for workflow {workflow_id}")
+                
+                # Initialize connection object
                 connection = WebSocketConnection(websocket)
-                connection.state = ConnectionState.CONNECTED
-
+                
+                # Set up workflow data structures if they don't exist
                 if workflow_id not in self.active_connections:
                     self.active_connections[workflow_id] = []
                     self.message_queue[workflow_id] = []
 
+                # Add to active connections before setting state to CONNECTED
                 self.active_connections[workflow_id].append(connection)
+                
+                # Now set the state to CONNECTED
+                connection.state = ConnectionState.CONNECTED
+                logger.info(f"Connection state set to CONNECTED for workflow {workflow_id}")
 
                 # Start heartbeat task
                 heartbeat_task = asyncio.create_task(
@@ -154,19 +163,23 @@ class WebSocketManager:
                 self.heartbeat_tasks.add(heartbeat_task)
                 heartbeat_task.add_done_callback(self.heartbeat_tasks.discard)
 
-                logger.info(f"WebSocket connected for workflow {workflow_id}")
-
-                # Process any queued messages
-                if (
-                    workflow_id in self.message_queue
-                    and self.message_queue[workflow_id]
-                ):
-                    await self._process_queued_messages(workflow_id)
+                # Process any queued messages after connection is fully established
+                if workflow_id in self.message_queue and self.message_queue[workflow_id]:
+                    asyncio.create_task(self._process_queued_messages(workflow_id))
 
                 return heartbeat_task
 
             except Exception as e:
                 logger.error(f"Error during WebSocket connection: {e}")
+                # Attempt cleanup if connection failed
+                try:
+                    if workflow_id in self.active_connections:
+                        connections = self.active_connections[workflow_id]
+                        if connection in connections:
+                            connections.remove(connection)
+                            await connection.close()
+                except Exception as cleanup_error:
+                    logger.error(f"Error during connection cleanup: {cleanup_error}")
                 raise
 
     async def disconnect(self, workflow_id: str, websocket: WebSocket):
@@ -180,10 +193,13 @@ class WebSocketManager:
                     connections = self.active_connections[workflow_id]
                     for conn in connections[:]:  # Create a copy to iterate
                         if conn.websocket == websocket:
+                            # Set state before removing from active connections
                             conn.state = ConnectionState.DISCONNECTED
                             connections.remove(conn)
+                            # Close connection after removal
                             await conn.close()
 
+                    # Clean up workflow resources if no more connections
                     if not connections:
                         del self.active_connections[workflow_id]
                         if workflow_id in self.message_queue:
@@ -194,6 +210,7 @@ class WebSocketManager:
                     logger.info(f"WebSocket disconnected from workflow {workflow_id}")
             except Exception as e:
                 logger.error(f"Error during WebSocket disconnect: {e}")
+                # Don't re-raise the exception to ensure cleanup continues
 
     async def broadcast(self, workflow_id: str, message: dict):
         """Broadcast a message with retry logic and rate limiting"""

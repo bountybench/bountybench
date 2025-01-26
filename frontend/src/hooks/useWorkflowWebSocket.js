@@ -155,8 +155,15 @@ export const useWorkflowWebSocket = (workflowId) => {
 
     try {
       ws.current = new WebSocket(wsUrl);
+      let connectionTimeout = setTimeout(() => {
+        if (ws.current && ws.current.readyState !== WebSocket.OPEN) {
+          console.warn('WebSocket connection timeout');
+          ws.current.close();
+        }
+      }, 5000); // 5 second connection timeout
 
       ws.current.onopen = async () => {
+        clearTimeout(connectionTimeout);
         console.log('WebSocket connected for workflow:', workflowId);
         setIsConnected(true);
         setError(null);
@@ -164,22 +171,29 @@ export const useWorkflowWebSocket = (workflowId) => {
         reconnectAttempts.current = 0;
         clearReconnectTimeout();
 
-        try {
-          await executeWorkflow();
-        } catch (err) {
-          // Error already handled in executeWorkflow
+        // Only execute workflow if this is the first connection
+        if (!workflowExecuted.current) {
+          try {
+            await executeWorkflow();
+          } catch (err) {
+            // Error already handled in executeWorkflow
+          }
         }
       };
 
       ws.current.onclose = (event) => {
+        clearTimeout(connectionTimeout);
         console.log('WebSocket disconnected for workflow:', workflowId, 'Event:', event);
         setIsConnected(false);
         ws.current = null;
 
-        if (!event.wasClean && !isReconnecting) {
+        // Only attempt reconnect if not a clean close and not shutting down
+        if (!event.wasClean && !isReconnecting && !workflowExecuted.current) {
           setIsReconnecting(true);
           reconnectAttempts.current++;
           console.log(`Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+          
+          // Exponential backoff with max delay of 10 seconds
           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
           reconnectTimeoutRef.current = setTimeout(() => connect(), delay);
         }
@@ -188,6 +202,7 @@ export const useWorkflowWebSocket = (workflowId) => {
       ws.current.onerror = (event) => {
         console.error('WebSocket error for workflow:', workflowId, 'Event:', event);
         setError('WebSocket error: ' + (event.message || 'Unknown error'));
+        // Don't set ws.current to null here, let onclose handle it
       };
 
       ws.current.onmessage = handleWebSocketMessage;
