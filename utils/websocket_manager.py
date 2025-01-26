@@ -131,55 +131,56 @@ class WebSocketManager:
             await self.disconnect(workflow_id, connection.websocket)
 
     async def connect(self, workflow_id: str, websocket: WebSocket) -> asyncio.Task:
-        """Connect a new WebSocket client with improved error handling"""
+        """Connect a new WebSocket client with improved error handling and race condition prevention"""
         if workflow_id not in self.connection_locks:
             self.connection_locks[workflow_id] = asyncio.Lock()
 
+        connection = None
+        heartbeat_task = None
+
         async with self.connection_locks[workflow_id]:
             try:
-                # Accept connection before any other operations
-                await websocket.accept()
-                logger.info(f"WebSocket connection accepted for workflow {workflow_id}")
-                
-                # Initialize connection object
-                connection = WebSocketConnection(websocket)
-                
-                # Set up workflow data structures if they don't exist
+                # Initialize data structures before accepting connection
                 if workflow_id not in self.active_connections:
                     self.active_connections[workflow_id] = []
                     self.message_queue[workflow_id] = []
 
-                # Add to active connections before setting state to CONNECTED
-                self.active_connections[workflow_id].append(connection)
+                # Accept connection within the lock to prevent race conditions
+                await websocket.accept()
+                logger.info(f"WebSocket connection accepted for workflow {workflow_id}")
                 
-                # Now set the state to CONNECTED
+                # Initialize and configure connection object atomically
+                connection = WebSocketConnection(websocket)
+                self.active_connections[workflow_id].append(connection)
                 connection.state = ConnectionState.CONNECTED
-                logger.info(f"Connection state set to CONNECTED for workflow {workflow_id}")
-
-                # Start heartbeat task
+                
+                # Start heartbeat task while still holding the lock
                 heartbeat_task = asyncio.create_task(
                     self.start_heartbeat(workflow_id, connection)
                 )
                 self.heartbeat_tasks.add(heartbeat_task)
                 heartbeat_task.add_done_callback(self.heartbeat_tasks.discard)
 
-                # Process any queued messages after connection is fully established
-                if workflow_id in self.message_queue and self.message_queue[workflow_id]:
+                # Process queued messages if any exist
+                if self.message_queue[workflow_id]:
                     asyncio.create_task(self._process_queued_messages(workflow_id))
 
+                logger.info(f"Connection fully established for workflow {workflow_id}")
                 return heartbeat_task
 
             except Exception as e:
                 logger.error(f"Error during WebSocket connection: {e}")
-                # Attempt cleanup if connection failed
+                # Clean up any partially established resources
+                if connection and workflow_id in self.active_connections:
+                    if connection in self.active_connections[workflow_id]:
+                        self.active_connections[workflow_id].remove(connection)
+                if heartbeat_task:
+                    heartbeat_task.cancel()
+                    self.heartbeat_tasks.discard(heartbeat_task)
                 try:
-                    if workflow_id in self.active_connections:
-                        connections = self.active_connections[workflow_id]
-                        if connection in connections:
-                            connections.remove(connection)
-                            await connection.close()
-                except Exception as cleanup_error:
-                    logger.error(f"Error during connection cleanup: {cleanup_error}")
+                    await websocket.close()
+                except Exception as close_error:
+                    logger.error(f"Error closing websocket during cleanup: {close_error}")
                 raise
 
     async def disconnect(self, workflow_id: str, websocket: WebSocket):
