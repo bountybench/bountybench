@@ -50,7 +50,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setLoading(false);
     }
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -67,12 +66,27 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         }),
       });
 
+      if (!response) {
+        throw new Error('Failed to get response from server');
+      }
+      
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          throw new Error('Failed to parse error response');
+        }
         throw new Error(errorData.error || 'Failed to start workflow');
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error('Failed to parse response data');
+      }
+
       if (data.error) {
         console.error(data.error);
       } else {
