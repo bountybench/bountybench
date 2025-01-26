@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import uvicorn
 import signal
 import sys
+from contextlib import asynccontextmanager
 
 from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
@@ -14,6 +15,25 @@ from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
 from utils.websocket_manager import websocket_manager
 
+class ServerState:
+    def __init__(self):
+        self.active_workflows: Dict[str, dict] = {}
+        self.should_exit = False
+    
+    def signal_handler(self, signum, frame):
+        """Handle shutdown signals"""
+        print("\nShutdown signal received. Cleaning up...")
+        self.should_exit = True
+        # Close all WebSocket connections
+        for workflow_id in list(websocket_manager.active_connections.keys()):
+            for connection in list(websocket_manager.active_connections[workflow_id]):
+                try:
+                    connection.close()
+                except:
+                    pass
+        sys.exit(0)
+
+state = ServerState()
 app = FastAPI()
 
 # Enable CORS
@@ -25,33 +45,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Store active workflow instances and connections
-active_workflows: Dict[str, dict] = {}
-should_exit = False
-
-def signal_handler(signum, frame):
-    """Handle shutdown signals"""
-    global should_exit
-    print("\nShutdown signal received. Cleaning up...")
-    should_exit = True
-    # Close all WebSocket connections
-    for workflow_id in list(websocket_manager.active_connections.keys()):
-        for connection in list(websocket_manager.active_connections[workflow_id]):
-            try:
-                connection.close()
-            except:
-                pass
-    sys.exit(0)
-
 # Register signal handlers
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, state.signal_handler)
+signal.signal(signal.SIGTERM, state.signal_handler)
 
-@app.on_event("shutdown")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await shutdown_event()
+
 async def shutdown_event():
     """Handle FastAPI shutdown event"""
-    global should_exit
-    should_exit = True
+    state.should_exit = True
     # Close all WebSocket connections
     for workflow_id in list(websocket_manager.active_connections.keys()):
         for connection in list(websocket_manager.active_connections[workflow_id]):
@@ -59,6 +64,8 @@ async def shutdown_event():
                 await connection.close()
             except:
                 pass
+
+app.router.lifespan = lifespan
 
 id_to_workflow = {
     "Detect Workflow": DetectWorkflow,
@@ -109,7 +116,7 @@ async def start_workflow(workflow_data: dict):
         
         workflow_id = workflow.workflow_message.workflow_id
         # Store workflow instance
-        active_workflows[workflow_id] = {
+        state.active_workflows[workflow_id] = {
             "instance": workflow,
             "status": "initializing"
         }
@@ -128,7 +135,7 @@ async def start_workflow(workflow_data: dict):
 @app.post("/workflow/execute/{workflow_id}")
 async def execute_workflow(workflow_id: str):
     """Execute a workflow after WebSocket connection is established"""
-    if workflow_id not in active_workflows:
+    if workflow_id not in state.active_workflows:
         return {"error": "Workflow not found"}
     
     try:
@@ -139,13 +146,11 @@ async def execute_workflow(workflow_id: str):
         return {"error": str(e)}
 
 async def run_workflow(workflow_id: str):
-    global should_exit
-    
-    if workflow_id not in active_workflows or should_exit:
+    if workflow_id not in state.active_workflows or state.should_exit:
         print(f"Workflow {workflow_id} not found or should exit")
         return
     
-    workflow_data = active_workflows[workflow_id]
+    workflow_data = state.active_workflows[workflow_id]
     workflow = workflow_data["instance"]
     
     try:
@@ -158,7 +163,7 @@ async def run_workflow(workflow_id: str):
         # Run the workflow
         await workflow.run()
 
-        if not should_exit:
+        if not state.should_exit:
             workflow_data["status"] = "completed"
             await websocket_manager.broadcast(workflow_id, {
                 "message_type": "status_update",
@@ -166,7 +171,7 @@ async def run_workflow(workflow_id: str):
             })
         
     except Exception as e:
-        if not should_exit:
+        if not state.should_exit:
             print(f"Workflow error: {e}")
             workflow_data["status"] = "error"
             await websocket_manager.broadcast(workflow_id, {
@@ -175,32 +180,30 @@ async def run_workflow(workflow_id: str):
                 "error": str(e)
             })
             print(f"Broadcasted error status for {workflow_id}")
-            
+
 @app.websocket("/ws/{workflow_id}")
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     """WebSocket endpoint for real-time workflow updates"""
-    global should_exit
-    
     try:
         await websocket_manager.connect(workflow_id, websocket)
         
         # Send initial workflow state
-        if workflow_id in active_workflows:
-            workflow_data = active_workflows[workflow_id]
+        if workflow_id in state.active_workflows:
+            workflow_data = state.active_workflows[workflow_id]
             await websocket.send_json({
                 "message_type": "initial_state",
                 "status": workflow_data["status"]
             })
         
         # Handle incoming messages
-        while not should_exit:
+        while not state.should_exit:
             try:
                 data = await websocket.receive_json()
-                if should_exit:
+                if state.should_exit:
                     break
 
-                if data.get("message_type") == "user_message" and workflow_id in active_workflows:
-                    workflow = active_workflows[workflow_id]["instance"]
+                if data.get("message_type") == "user_message" and workflow_id in state.active_workflows:
+                    workflow = state.active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
                         result = await workflow.add_user_message(data["content"])
                         await websocket_manager.broadcast(workflow_id, {
@@ -233,10 +236,10 @@ class MessageData(BaseModel):
     message_id: str
 
 async def next_iteration(workflow_id: str):
-    if workflow_id not in active_workflows:
+    if workflow_id not in state.active_workflows:
         return {"error": "Workflow not found"}
     
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = state.active_workflows[workflow_id]["instance"]
     if hasattr(workflow, 'next_iteration_event'):
         workflow.next_iteration_event.set()
         return {"status": "next iteration triggered"}
@@ -245,10 +248,10 @@ async def next_iteration(workflow_id: str):
 
 @app.post("/workflow/next/{workflow_id}")
 async def next_message(workflow_id: str):
-    if workflow_id not in active_workflows:
+    if workflow_id not in state.active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = state.active_workflows[workflow_id]["instance"]
     try:
         result = await workflow.run_next_message()
         if not result:
@@ -266,10 +269,10 @@ async def next_message(workflow_id: str):
 @app.post("/workflow/rerun-message/{workflow_id}")
 async def next_message(workflow_id: str, data: MessageData):
     print(f"Rerunning message: {data.message_id}")
-    if workflow_id not in active_workflows:
+    if workflow_id not in state.active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = state.active_workflows[workflow_id]["instance"]
 
     try:
         result = await workflow.rerun_message(data.message_id)
@@ -283,10 +286,10 @@ async def next_message(workflow_id: str, data: MessageData):
 @app.post("/workflow/edit-message/{workflow_id}")
 async def edit_action_input(workflow_id: str, data: MessageInputData):
     print(f"Editing message: {data.message_id}")
-    if workflow_id not in active_workflows:
+    if workflow_id not in state.active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = state.active_workflows[workflow_id]["instance"]
 
     try:
         result = await workflow.edit_one_message(data.message_id, data.new_input_data)
@@ -294,7 +297,6 @@ async def edit_action_input(workflow_id: str, data: MessageInputData):
         return {"status": "updated", "result": result.id}
     except Exception as e:
         return {"error": str(e)}
-    
 
 @app.post("/workflow/{workflow_id}/interactive")
 async def update_interactive_mode(workflow_id: str, data: dict):
@@ -302,10 +304,10 @@ async def update_interactive_mode(workflow_id: str, data: dict):
     print(f"Data received: {data}")
     
     try:
-        if workflow_id not in active_workflows:
+        if workflow_id not in state.active_workflows:
             raise HTTPException(status_code=404, detail="Workflow not found")
         
-        workflow = active_workflows[workflow_id]["instance"]
+        workflow = state.active_workflows[workflow_id]["instance"]
         new_interactive_mode = data.get("interactive")
         
         if new_interactive_mode is None:
@@ -325,10 +327,10 @@ async def update_interactive_mode(workflow_id: str, data: dict):
     
 @app.get("/workflow/last-message/{workflow_id}")
 async def last_message(workflow_id: str):
-    if workflow_id not in active_workflows:
+    if workflow_id not in state.active_workflows:
         return {"error": "Workflow not found"}
     
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = state.active_workflows[workflow_id]["instance"]
     last_message_str = await workflow.get_last_message()
     return {
                 "message_type": "last_message",
@@ -337,10 +339,10 @@ async def last_message(workflow_id: str):
 
 @app.get("/workflow/first-message/{workflow_id}")
 async def first_message(workflow_id: str):
-    if workflow_id not in active_workflows:
+    if workflow_id not in state.active_workflows:
         return {"error": "Workflow not found"}
     
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = state.active_workflows[workflow_id]["instance"]
     first_message_str = workflow.initial_prompt
     return {
                 "message_type": "first_message",
@@ -349,9 +351,9 @@ async def first_message(workflow_id: str):
     
 @app.get("/workflow/{workflow_id}/resources")
 async def get_workflow_resources(workflow_id: str):
-    if workflow_id not in active_workflows:
+    if workflow_id not in state.active_workflows:
         raise HTTPException(status_code=404, detail="Workflow not found")
-    workflow = active_workflows[workflow_id]["instance"]
+    workflow = state.active_workflows[workflow_id]["instance"]
     
     # Implement a method in your workflow class to get the current resources
     resources = workflow.resource_manager.resources
