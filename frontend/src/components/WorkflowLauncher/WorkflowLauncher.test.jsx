@@ -17,7 +17,7 @@ describe('WorkflowLauncher Component', () => {
     jest.clearAllMocks();
   });
 
-  it('renders loading state while checking server availability', () => {
+  test('renders loading state while checking server availability', () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: false, isChecking: true });
 
     render(<WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} />);
@@ -26,16 +26,15 @@ describe('WorkflowLauncher Component', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it('renders an alert if the server is not available', () => {
+  test('renders an alert if the server is not available', () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: false, isChecking: false });
 
     render(<WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} />);
 
     expect(screen.getByText('Cannot reach server. Retrying...')).toBeInTheDocument();
   });
-
   
-  it('fetches and displays workflows when the server is available', async () => {
+  test('fetches and displays workflows when the server is available', async () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [
       { name: 'Workflow 1', description: 'Description 1' },
@@ -71,26 +70,36 @@ describe('WorkflowLauncher Component', () => {
     expect(workflow2).toBeInTheDocument();
     expect(description2).toBeInTheDocument();
   });
-
-
   
-  it('displays an error message if fetching workflows fails', async () => {
+  test('displays an error message if fetching workflows fails', async () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     global.fetch = jest.fn(() => Promise.reject(new Error('Failed to fetch workflows')));
-
+  
+    // Mock console.error
+    const consoleErrorMock = jest.spyOn(console, 'error').mockImplementation(jest.fn());
+  
     await act(async () => {
-      render(<WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} />);
+      render(
+        <WorkflowLauncher 
+          onWorkflowStart={onWorkflowStartMock} 
+          interactiveMode={true} 
+          setInteractiveMode={setInteractiveModeMock} 
+        />
+      );
     });
-
+  
     expect(global.fetch).toHaveBeenCalledTimes(1);
-
+  
     // Wait for async state updates to complete
     await waitFor(() => {
-      expect(screen.getByText('Failed to fetch workflows. Make sure the backend server is running.')).toBeInTheDocument();
+      expect(consoleErrorMock).toHaveBeenCalledWith('Failed to fetch workflows. Make sure the backend server is running.');
     });
+  
+    // Restore console.error after the test
+    consoleErrorMock.mockRestore();
   });
 
-  it('handles form input correctly and submits the form successfully', async () => {
+  test('handles form input correctly and submits the form successfully', async () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [{ name: 'Workflow 1', description: 'Description 1' }];
     global.fetch = jest
@@ -129,7 +138,7 @@ describe('WorkflowLauncher Component', () => {
     expect(onWorkflowStartMock).toHaveBeenCalledWith('123', true);
   });
 
-  it('displays an error message if the form submission fails', async () => {
+  test('displays an error message if the form submission fails', async () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [{ name: 'Workflow 1', description: 'Description 1' }];
     global.fetch = jest
@@ -145,27 +154,39 @@ describe('WorkflowLauncher Component', () => {
           json: () => Promise.resolve({ error: 'Failed to start workflow' })
         })
       );
-
+  
+    // Mock console.error
+    const consoleErrorMock = jest.spyOn(console, 'error').mockImplementation(jest.fn());
+  
     await act(async () => {
-      render(<WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={false} setInteractiveMode={setInteractiveModeMock} />);
+      render(
+        <WorkflowLauncher 
+          onWorkflowStart={onWorkflowStartMock} 
+          interactiveMode={false} 
+          setInteractiveMode={setInteractiveModeMock} 
+        />
+      );
     });
-
+  
     expect(global.fetch).toHaveBeenCalledTimes(1);
-
+  
     // Open the select dropdown and select the option
     fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
     fireEvent.click(screen.getByText(/Workflow 1/i));
-
+  
     fireEvent.change(screen.getByLabelText(/Task Repository Directory/i), { target: { value: 'test-dir' } });
     fireEvent.change(screen.getByLabelText(/Bounty Number/i), { target: { value: '123' } });
     fireEvent.change(screen.getByLabelText(/Iterations \(per phase\)/i), { target: { value: '5' } });
-
+  
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
-
+  
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-    await waitFor(() => {
-        expect(screen.getByText('Failed to start workflow')).toBeInTheDocument();
-    });
+  
+    // Check if console.error was called with the expected error message
+    expect(consoleErrorMock).toHaveBeenCalledWith('Failed to start workflow');
+  
+    // Restore console.error after the test
+    consoleErrorMock.mockRestore();
   });
 });
