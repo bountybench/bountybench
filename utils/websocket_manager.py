@@ -65,7 +65,6 @@ class WebSocketManager:
                 except Exception as e:
                     failed_connections.append(connection)
                     logger.error(f"Error broadcasting message to workflow {workflow_id} connection: {e}")
-                    raise
             for connection in failed_connections:
                 logger.info(f"Removing failed connection from workflow {workflow_id}")
                 self.disconnect(workflow_id, connection)

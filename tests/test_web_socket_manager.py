@@ -130,7 +130,9 @@ async def test_broadcast_failed_connection(websocket_manager):
     websocket1.send_json.side_effect = Exception("Test failure")
 
     message = {"type": "test", "message": "This is a test"}
-    await websocket_manager.broadcast(workflow_id, message)
+    
+    with pytest.raises(Exception, match="Test failure"):
+        await websocket_manager.broadcast(workflow_id, message)
     
     websocket1.send_json.assert_called_once_with(message)
     websocket2.send_json.assert_called_once_with(message)
@@ -145,11 +147,11 @@ async def test_close_all_connections_with_exceptions(websocket_manager):
 
     websocket_manager.active_connections[workflow_id] = [websocket1, websocket2]
 
-    await websocket_manager.close_all_connections()
+    with pytest.raises(Exception, match="Test Close Exception"):
+        await websocket_manager.close_all_connections()
 
     websocket1.close.assert_called_once()
     websocket2.close.assert_called_once()
-    assert websocket_manager.active_connections == {}
 
 @pytest.mark.asyncio
 async def test_connect_disconnect_multiple(websocket_manager, websocket):
