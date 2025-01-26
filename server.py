@@ -292,16 +292,18 @@ class Server:
 
 
 
-def create_app(ws_manager: WebSocketManager = None):
+def create_app(ws_manager: WebSocketManager = None, workflow_factory: Dict[str, Callable] = None):
     if ws_manager is None:
         ws_manager = websocket_manager
-    workflow_factory = {
-        "Detect Workflow": DetectWorkflow,
-        "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
-        "Patch Workflow": PatchWorkflow,
-        "Chat Workflow": ChatWorkflow
-    }
-    
+
+    if workflow_factory is None:
+        workflow_factory = {
+            "Detect Workflow": DetectWorkflow,
+            "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
+            "Patch Workflow": PatchWorkflow,
+            "Chat Workflow": ChatWorkflow
+        }
+
     server = Server(ws_manager, workflow_factory)
     return server.app
 
