@@ -22,7 +22,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   const [formData, setFormData] = useState({
     workflow_name: '',
@@ -40,14 +39,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   }, [isChecking, isServerAvailable]);
 
   const fetchWorkflows = async () => {
-    setError(null);
     setLoading(true);
     try {
       const response = await fetch('http://localhost:8000/workflow/list');
       const data = await response.json();
       setWorkflows(data.workflows);
     } catch (err) {
-      setError('Failed to fetch workflows. Make sure the backend server is running.');
+      console.log('Failed to fetch workflows. Make sure the backend server is running.');
     } finally {
       setLoading(false);
     }
@@ -55,7 +53,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
 
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
@@ -77,12 +74,12 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
       const data = await response.json();
       if (data.error) {
-        setError(data.error);
+        console.error(data.error);
       } else {
         onWorkflowStart(data.workflow_id, interactiveMode);
       }
     } catch (err) {
-      setError(err.message || 'Failed to start workflow. Make sure the backend server is running.');
+      console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
     }
   };
 
@@ -131,12 +128,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       <Typography variant="h5" gutterBottom>
         Start New Workflow
       </Typography>
-
-      {error && (
-        <Alert severity="error" className="launcher-alert">
-          {error}
-        </Alert>
-      )}
 
       <form onSubmit={handleSubmit} className="launcher-form">
         <TextField
