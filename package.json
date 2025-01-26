@@ -10,5 +10,8 @@
     "start": "concurrently \"npm:server\" \"npm:frontend\"",
     "server": "python server.py",
     "frontend": "npm start --prefix frontend"
+  },
+  "dependencies": {
+    "react-toastify": "^11.0.3"
   }
 }
