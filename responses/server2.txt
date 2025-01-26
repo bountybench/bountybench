@@ -1,0 +1,603 @@
+**Rewriting and Improving `server.py`**
+
+Below is the improved version of `server.py` based on the suggestions provided earlier. The improvements include:
+
+- **State Management**: Introduced a `WorkflowManager` class to handle workflows in a thread-safe manner.
+- **Error Handling**: Used specific exceptions and consistent error responses with appropriate HTTP status codes.
+- **WebSocket Management**: Improved connection handling and error management.
+- **Code Organization**: Modularized code by separating concerns.
+- **Security Enhancements**: Restricted CORS origins and validated inputs using Pydantic models.
+- **Type Annotations and Documentation**: Added type hints and docstrings for better readability and maintenance.
+
+---
+
+```python
+# server.py
+
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import asyncio
+from typing import Dict
+from pathlib import Path
+from pydantic import BaseModel
+import uvicorn
+import signal
+import sys
+import logging
+
+from workflows.detect_workflow import DetectWorkflow
+from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
+from workflows.patch_workflow import PatchWorkflow
+from workflows.chat_workflow import ChatWorkflow
+from utils.websocket_manager import WebSocketManager
+
+app = FastAPI()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Enable CORS (Restrict to frontend domain in production)
+origins = [
+    "http://localhost",  # Update with your frontend domain
+    "http://localhost:3000",
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Restrict to trusted domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize WebSocket manager
+websocket_manager = WebSocketManager()
+
+# Graceful shutdown flag
+should_exit = False
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    global should_exit
+    logger.info("Shutdown signal received. Cleaning up...")
+    should_exit = True
+    # Close all WebSocket connections
+    asyncio.create_task(websocket_manager.disconnect_all())
+    sys.exit(0)
+
+# Register signal handlers
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+class WorkflowData(BaseModel):
+    workflow_name: str
+    task_dir: str
+    bounty_number: int
+    interactive: bool = False
+    iterations: int = 1
+
+class MessageInputData(BaseModel):
+    message_id: str
+    new_input_data: str
+
+class MessageData(BaseModel):
+    message_id: str
+
+class InteractiveModeData(BaseModel):
+    interactive: bool
+
+# Map workflow names to classes
+WORKFLOW_CLASSES = {
+    "Detect Workflow": DetectWorkflow,
+    "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
+    "Patch Workflow": PatchWorkflow,
+    "Chat Workflow": ChatWorkflow
+}
+
+# Workflow Manager to handle active workflows
+class WorkflowManager:
+    def __init__(self):
+        self.active_workflows: Dict[str, dict] = {}
+        self.lock = asyncio.Lock()
+
+    async def add_workflow(self, workflow_id: str, workflow_instance):
+        async with self.lock:
+            self.active_workflows[workflow_id] = {
+                "instance": workflow_instance,
+                "status": "initializing"
+            }
+
+    async def get_workflow(self, workflow_id: str):
+        async with self.lock:
+            return self.active_workflows.get(workflow_id)
+
+    async def update_status(self, workflow_id: str, status: str):
+        async with self.lock:
+            if workflow_id in self.active_workflows:
+                self.active_workflows[workflow_id]["status"] = status
+
+    async def remove_workflow(self, workflow_id: str):
+        async with self.lock:
+            if workflow_id in self.active_workflows:
+                del self.active_workflows[workflow_id]
+
+workflow_manager = WorkflowManager()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Handle FastAPI shutdown event"""
+    global should_exit
+    should_exit = True
+    await websocket_manager.disconnect_all()
+
+@app.get("/workflow/list")
+async def list_workflows():
+    """List available workflow types"""
+    workflows = [
+        {
+            "id": key.lower().replace(" ", "_"),
+            "name": key,
+            "description": f"Workflow for {key.lower()}"
+        }
+        for key in WORKFLOW_CLASSES.keys()
+    ]
+    return {"workflows": workflows}
+
+@app.post("/workflow/start")
+async def start_workflow(workflow_data: WorkflowData):
+    """Start a new workflow instance"""
+    try:
+        workflow_class = WORKFLOW_CLASSES.get(workflow_data.workflow_name)
+        if not workflow_class:
+            raise HTTPException(status_code=400, detail="Invalid workflow name")
+
+        workflow = workflow_class(
+            task_dir=Path(workflow_data.task_dir),
+            bounty_number=workflow_data.bounty_number,
+            interactive=workflow_data.interactive,
+            phase_iterations=workflow_data.iterations
+        )
+
+        workflow_id = workflow.workflow_message.workflow_id
+        
+        # Store workflow instance
+        await workflow_manager.add_workflow(workflow_id, workflow)
+
+        return {
+            "workflow_id": workflow_id,
+            "status": "initializing"
+        }
+
+    except Exception as e:
+        logger.exception("Error starting workflow")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workflow/execute/{workflow_id}")
+async def execute_workflow(workflow_id: str):
+    """Execute a workflow"""
+    workflow_data = await workflow_manager.get_workflow(workflow_id)
+    if not workflow_data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    try:
+        # Start workflow execution in background
+        asyncio.create_task(run_workflow(workflow_id))
+        return {"status": "executing"}
+    except Exception as e:
+        logger.exception("Error executing workflow")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def run_workflow(workflow_id: str):
+    global should_exit
+    if should_exit:
+        logger.info(f"Server is shutting down. Aborting workflow {workflow_id}")
+        return
+
+    workflow_data = await workflow_manager.get_workflow(workflow_id)
+    if not workflow_data:
+        logger.warning(f"Workflow {workflow_id} not found")
+        return
+
+    workflow = workflow_data["instance"]
+    try:
+        await workflow_manager.update_status(workflow_id, "running")
+        await websocket_manager.broadcast(workflow_id, {
+            "message_type": "status_update",
+            "status": "running"
+        })
+
+        # Run the workflow
+        await workflow.run()
+
+        if not should_exit:
+            await workflow_manager.update_status(workflow_id, "completed")
+            await websocket_manager.broadcast(workflow_id, {
+                "message_type": "status_update",
+                "status": "completed"
+            })
+    except Exception as e:
+        if not should_exit:
+            logger.exception(f"Error in workflow {workflow_id}")
+            await workflow_manager.update_status(workflow_id, "error")
+            await websocket_manager.broadcast(workflow_id, {
+                "message_type": "status_update",
+                "status": "error",
+                "error": str(e)
+            })
+
+@app.websocket("/ws/{workflow_id}")
+async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
+    """WebSocket endpoint for real-time workflow updates"""
+    global should_exit
+    try:
+        await websocket_manager.connect(workflow_id, websocket)
+        # Send initial workflow state
+        workflow_data = await workflow_manager.get_workflow(workflow_id)
+        if workflow_data:
+            await websocket.send_json({
+                "message_type": "initial_state",
+                "status": workflow_data["status"]
+            })
+
+        # Receive and handle messages
+        while not should_exit:
+            try:
+                data = await websocket.receive_json()
+                if should_exit:
+                    break
+
+                if data.get("message_type") == "user_message":
+                    await handle_user_message(workflow_id, data)
+                elif data.get("message_type") == "start_execution":
+                    asyncio.create_task(run_workflow(workflow_id))
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logger.exception("Error in WebSocket communication")
+                break
+    finally:
+        await websocket_manager.disconnect(workflow_id, websocket)
+
+async def handle_user_message(workflow_id: str, data: dict):
+    workflow_data = await workflow_manager.get_workflow(workflow_id)
+    if not workflow_data:
+        await websocket_manager.broadcast(workflow_id, {
+            "message_type": "error",
+            "error": "Workflow not found"
+        })
+        return
+
+    workflow = workflow_data["instance"]
+    if workflow.interactive:
+        result = await workflow.add_user_message(data["content"])
+        await websocket_manager.broadcast(workflow_id, {
+            "message_type": "user_message_response",
+            "content": result
+        })
+
+@app.post("/workflow/next/{workflow_id}")
+async def next_iteration(workflow_id: str):
+    """Trigger the next iteration in an interactive workflow"""
+    workflow_data = await workflow_manager.get_workflow(workflow_id)
+    if not workflow_data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    workflow = workflow_data["instance"]
+    if hasattr(workflow, 'next_iteration_event'):
+        workflow.next_iteration_event.set()
+        return {"status": "next iteration triggered"}
+    else:
+        raise HTTPException(status_code=400, detail="Workflow is not in interactive mode")
+
+@app.post("/workflow/rerun-message/{workflow_id}")
+async def rerun_message(workflow_id: str, data: MessageData):
+    """Re-run a specific message in the workflow"""
+    workflow_data = await workflow_manager.get_workflow(workflow_id)
+    if not workflow_data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    workflow = workflow_data["instance"]
+    try:
+        result = await workflow.rerun_message(data.message_id)
+        return {"status": "updated", "result": result.id}
+    except Exception as e:
+        logger.exception("Error rerunning message")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workflow/edit-message/{workflow_id}")
+async def edit_message(workflow_id: str, data: MessageInputData):
+    """Edit the input data of a specific message"""
+    workflow_data = await workflow_manager.get_workflow(workflow_id)
+    if not workflow_data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    workflow = workflow_data["instance"]
+    try:
+        result = await workflow.edit_one_message(data.message_id, data.new_input_data)
+        return {"status": "updated", "result": result.id}
+    except Exception as e:
+        logger.exception("Error editing message")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workflow/{workflow_id}/interactive")
+async def update_interactive_mode(workflow_id: str, data: InteractiveModeData):
+    """Update interactive mode for a workflow"""
+    workflow_data = await workflow_manager.get_workflow(workflow_id)
+    if not workflow_data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    workflow = workflow_data["instance"]
+    try:
+        await workflow.set_interactive_mode(data.interactive)
+        return {"status": "success", "interactive": data.interactive}
+    except Exception as e:
+        logger.exception("Error updating interactive mode")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/workflow/last-message/{workflow_id}")
+async def last_message(workflow_id: str):
+    """Retrieve the last message of the workflow"""
+    workflow_data = await workflow_manager.get_workflow(workflow_id)
+    if not workflow_data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    workflow = workflow_data["instance"]
+    last_message_str = await workflow.get_last_message()
+    return {
+        "message_type": "last_message",
+        "content": last_message_str
+    }
+
+@app.get("/workflow/first-message/{workflow_id}")
+async def first_message(workflow_id: str):
+    """Retrieve the initial prompt of the workflow"""
+    workflow_data = await workflow_manager.get_workflow(workflow_id)
+    if not workflow_data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    workflow = workflow_data["instance"]
+    first_message_str = workflow.initial_prompt
+    return {
+        "message_type": "first_message",
+        "content": first_message_str
+    }
+
+@app.get("/workflow/{workflow_id}/resources")
+async def get_workflow_resources(workflow_id: str):
+    """Retrieve resources associated with the workflow"""
+    workflow_data = await workflow_manager.get_workflow(workflow_id)
+    if not workflow_data:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    workflow = workflow_data["instance"]
+    resources = workflow.resource_manager.resources
+    return resources
+
+if __name__ == "__main__":
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
+```
+
+---
+
+**Explanation of Improvements**
+
+1. **State Management with `WorkflowManager`**
+
+   - Replaced the global `active_workflows` dictionary with a `WorkflowManager` class that uses an asyncio `Lock` to ensure thread-safe operations.
+   - This encapsulates workflow management and prevents race conditions.
+
+2. **Improved Error Handling**
+
+   - Used specific exceptions like `HTTPException` with appropriate HTTP status codes.
+   - Included detailed error messages and consistent error responses.
+   - Added logging using the `logging` module to capture exceptions and events.
+
+3. **WebSocket Management**
+
+   - Improved the `websocket_endpoint` function by adding proper exception handling and ensuring connections are closed gracefully.
+   - Separated the handling of user messages into the `handle_user_message` function for better code organization.
+
+4. **Security Enhancements**
+
+   - Restricted CORS origins to specified trusted domains.
+   - Validated input data using Pydantic models (`WorkflowData`, `MessageInputData`, `MessageData`, `InteractiveModeData`).
+   - Inputs are now validated before processing, preventing invalid data from causing errors.
+
+5. **Code Organization and Readability**
+
+   - Added type hints and docstrings to functions to improve readability and maintenance.
+   - Organized code into logical sections and used consistent naming conventions.
+   - Simplified the `list_workflows` endpoint by generating the list dynamically from `WORKFLOW_CLASSES`.
+
+6. **Logging and Monitoring**
+
+   - Configured the `logging` module to capture and log important events and errors.
+   - This aids in debugging and monitoring the application in production.
+
+---
+
+**Writing Test Files**
+
+Now, let's write test files corresponding to the new implementation. We'll use **pytest** and **httpx's AsyncClient** to test the asynchronous FastAPI endpoints.
+
+**Testing `server.py` with pytest**
+
+First, install the necessary testing tools:
+
+```bash
+pip install pytest pytest-asyncio httpx
+```
+
+Create a new file `test_server.py` in your tests directory.
+
+---
+
+```python
+# tests/test_server.py
+
+import pytest
+from httpx import AsyncClient
+from fastapi import status
+from server import app  # Import your FastAPI app
+import asyncio
+
+@pytest.fixture
+def anyio_backend():
+    return 'asyncio'
+
+@pytest.mark.anyio
+async def test_list_workflows():
+    async with AsyncClient(app=app, base_url="http://testserver") as ac:
+        response = await ac.get("/workflow/list")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert "workflows" in data
+    assert len(data["workflows"]) > 0
+
+@pytest.mark.anyio
+async def test_start_invalid_workflow():
+    payload = {
+        "workflow_name": "Invalid Workflow",
+        "task_dir": "/path/to/task",
+        "bounty_number": 1,
+        "interactive": False,
+        "iterations": 1
+    }
+    async with AsyncClient(app=app, base_url="http://testserver") as ac:
+        response = await ac.post("/workflow/start", json=payload)
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "Invalid workflow name"
+
+@pytest.mark.anyio
+async def test_start_workflow():
+    payload = {
+        "workflow_name": "Chat Workflow",
+        "task_dir": "/path/to/task",
+        "bounty_number": 1,
+        "interactive": True,
+        "iterations": 1
+    }
+    async with AsyncClient(app=app, base_url="http://testserver") as ac:
+        response = await ac.post("/workflow/start", json=payload)
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert "workflow_id" in data
+    assert data["status"] == "initializing"
+    workflow_id = data["workflow_id"]
+
+    # Test executing the workflow
+    response = await ac.post(f"/workflow/execute/{workflow_id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["status"] == "executing"
+
+    # Since the workflow is running asynchronously, we might need to wait or check status
+    # In a real test, you would mock workflow.run() method
+
+@pytest.mark.anyio
+async def test_workflow_not_found():
+    invalid_workflow_id = "invalid-id"
+    async with AsyncClient(app=app, base_url="http://testserver") as ac:
+        response = await ac.post(f"/workflow/execute/{invalid_workflow_id}")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Workflow not found"
+
+# Additional tests would include testing WebSocket communication,
+# editing messages, rerunning messages, and other endpoints.
+```
+
+---
+
+**Explanation of Test Cases**
+
+1. **Test List Workflows**
+
+   - Ensures that the `/workflow/list` endpoint returns a list of available workflows.
+   - Checks that the response contains the "workflows" key and that the list is not empty.
+
+2. **Test Start Invalid Workflow**
+
+   - Attempts to start a workflow with an invalid name.
+   - Expects a `400 Bad Request` response with the detail "Invalid workflow name".
+
+3. **Test Start Workflow**
+
+   - Starts a valid workflow (e.g., "Chat Workflow") with test parameters.
+   - Verifies that the response includes a `workflow_id` and that the status is "initializing".
+   - Tests execution of the workflow by calling `/workflow/execute/{workflow_id}`.
+   - Note: Since the workflow runs asynchronously, in real unit tests, you should mock the actual workflow execution to control and test the behavior.
+
+4. **Test Workflow Not Found**
+
+   - Attempts to execute a workflow with an invalid ID.
+   - Expects a `404 Not Found` response with the detail "Workflow not found".
+
+---
+
+**Notes on Testing WebSocket Endpoints**
+
+Testing WebSocket endpoints requires a bit more setup, as we need to simulate WebSocket connections. We can use `websockets` Python library or `starlette.testclient` for this purpose.
+
+Here's an example of how to test the WebSocket endpoint:
+
+---
+
+```python
+# tests/test_websocket.py
+
+import pytest
+from starlette.websockets import WebSocketDisconnect
+from fastapi.testclient import TestClient
+from server import app
+import json
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
+
+def test_websocket_connection(client):
+    workflow_id = "test-workflow-id"
+    with client.websocket_connect(f"/ws/{workflow_id}") as websocket:
+        # Send a mock initial state request
+        data = websocket.receive_json()
+        assert "message_type" in data
+        assert data["message_type"] == "initial_state"
+
+        # Send a user message
+        websocket.send_json({"message_type": "user_message", "content": "Hello"})
+        # Receive a response
+        response = websocket.receive_json()
+        assert response["message_type"] == "user_message_response"
+        # Since the actual content depends on the workflow, you might need to mock or adjust expectations
+
+        # Close the connection
+        websocket.close()
+```
+
+---
+
+**Additional Testing Recommendations**
+
+- **Mocking External Dependencies**: Since the workflows may depend on external systems or complex logic, consider mocking these dependencies to isolate and test the API behavior.
+
+- **Asynchronous Operations**: Ensure that tests properly handle asynchronous operations, possibly by using fixtures or synchronization primitives.
+
+- **Error Conditions**: Test error paths extensively, including invalid inputs, exceptions thrown within workflows, and client disconnections.
+
+- **Security Tests**: Include tests to verify that CORS policies are enforced and that unauthorized access is properly handled.
+
+- **Resource Cleanup**: Test that resources are properly released after workflows complete or fail.
+
+---
+
+**Final Notes**
+
+The improved `server.py` now follows better practices in terms of state management, error handling, security, and code organization. The test files provided are a starting point for building a comprehensive test suite to ensure the reliability and stability of your application.
+
+Feel free to adjust the code and tests to fit the specific details and implementations of your workflows and utilities. Remember to update the imports and dependencies to match your project's structure.
+
+---
+
+**Command:** N/A (As per your request, the code has been rewritten and test files have been provided.)

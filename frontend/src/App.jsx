@@ -36,9 +36,9 @@ function App() {
         if (!response.ok) {
           throw new Error('Failed to update interactive mode');
         }
-        
         console.log("Backend updated with new interactive mode:", newInteractiveMode);
       } catch (error) {
+        // Don't just show on console, make it obvious to user in UI, e.g. SnackBar
         console.error("Error updating interactive mode:", error);
         setInteractiveMode(!newInteractiveMode); // Revert state on error
       }

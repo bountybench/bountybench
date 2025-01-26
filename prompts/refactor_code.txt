@@ -1,0 +1,616 @@
+I'm trying to refactor a codebase that uses fastapi for backend and React for frontend. It has the concept of workflows, which are run.
+
+There are various issues with the codebase, including lower-level issues such as failing to surface errors to the user and failing silently and being generally brittle.
+
+Additionally, it is severely lacking in functionality too. Most importantly, it is hosted on 
+
+http://localhost:3000/ and that is the only url a user interacts with. Upon refreshing, there is no persistence of state
+
+Instead we want it such that:
+1. Creating a new workflow creates a separate URL
+http://localhost:3000/workflow_id
+2. You can leave the page and return to http://localhost:3000/workflow_id which will maintain all the workflow state
+3. We can scale to support multiple workflows concurrently, e.g.
+http://localhost:3000/workflow_id1
+http://localhost:3000/workflow_id2
+
+Please refactor / rewrite the code as needed. Also please write unit tests corresponding to the files you write and explain your design decisions.
+
+This is the directory structure, please let me know what files you need access to
+
+.
+├── Dockerfile
+├── README.md
+├── agents
+│   ├── agent_manager.py
+│   ├── base_agent.py
+│   ├── chat_agent
+│   │   └── chat_agent.py
+│   ├── executor_agent
+│   │   └── executor_agent.py
+│   ├── exploit_agent
+│   │   └── exploit_agent.py
+│   ├── extractor_agent
+│   │   ├── extractor_agent.py
+│   │   ├── extractor_prompt.py
+│   │   └── website_keywords.py
+│   ├── patch_agent
+│   │   └── patch_agent.py
+│   └── prompts.py
+├── bounties
+│   └── bounty_0
+│       └── exploits
+├── bountybench
+│   ├── InvokeAI
+│   │   ├── Dockerfile
+│   │   ├── bounties
+│   │   ├── codebase
+│   │   ├── docker-compose.yml
+│   │   ├── metadata.json
+│   │   ├── pyproject.toml
+│   │   └── setup_repo_env.sh
+│   ├── README.md
+├── frontend
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── public
+│   │   ├── index.html
+│   │   └── manifest.json
+│   └── src
+│       ├── App.css
+│       ├── App.jsx
+│       ├── components
+│       ├── hooks
+│       ├── index.css
+│       ├── index.jsx
+│       └── theme
+├── media
+│   └── sample_run.gif
+├── messages
+│   ├── action_messages
+│   │   ├── action_message.py
+│   │   ├── answer_message.py
+│   │   ├── answer_message_interface.py
+│   │   ├── command_message.py
+│   │   └── command_message_interface.py
+│   ├── agent_messages
+│   │   ├── agent_message.py
+│   │   ├── executor_agent_message.py
+│   │   ├── exploit_agent_message.py
+│   │   └── patch_agent_message.py
+│   ├── config.py
+│   ├── error_message.py
+│   ├── failure_message.py
+│   ├── message.py
+│   ├── message_history.py
+│   ├── message_utils.py
+│   ├── parse_message.py
+│   ├── phase_messages
+│   │   └── phase_message.py
+│   ├── rerun_manager.py
+│   └── workflow_message.py
+├── models
+│   ├── helm_models
+│   └── openai_models
+├── nodes_thoughts.txt
+├── package-lock.json
+├── package.json
+├── packages.list
+├── phase_messages
+├── phase_responses
+├── phases
+│   ├── base_phase.py
+│   ├── chat_phase.py
+│   ├── exploit_phase.py
+│   └── patch_phase.py
+├── requirements.txt
+├── resources
+│   ├── base_resource.py
+│   ├── docker_resource.py
+│   ├── init_files_resource.py
+│   ├── kali_env_resource.py
+│   ├── model_resource
+│   │   ├── anthropic_models
+│   │   ├── google_models
+│   │   ├── helm_models
+│   │   ├── model_mapping.py
+│   │   ├── model_provider.py
+│   │   ├── model_resource.py
+│   │   ├── model_response.py
+│   │   ├── model_utils.py
+│   │   ├── openai_models
+│   │   └── together_models
+│   ├── resource_dict.py
+│   ├── resource_manager.py
+│   ├── setup_resource.py
+│   └── utils.py
+├── responses
+├── server.py
+├── setup.sh
+├── tools
+│   ├── build.sh
+│   ├── dockerd-entrypoint.sh
+│   └── dockerhub
+│       ├── Dockerfile.kali_linux_base
+│       └── Dockerfile.kali_linux_large
+├── utils
+│   ├── logger.py
+│   ├── progress_logger.py
+│   ├── simple_workflow_logger.py
+│   └── websocket_manager.py
+├── workflows
+│   ├── base_workflow.py
+│   ├── bounty_workflow.py
+│   ├── chat_workflow.py
+│   ├── detect_workflow.py
+│   ├── exploit_and_patch_workflow.py
+│   ├── patch_workflow.py
+│   └── utils.py
+
+======== server.py
+
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+from typing import Dict
+from pathlib import Path
+from pydantic import BaseModel
+import uvicorn
+import signal
+import sys
+
+from workflows.detect_workflow import DetectWorkflow
+from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
+from workflows.patch_workflow import PatchWorkflow
+from workflows.chat_workflow import ChatWorkflow
+from utils.websocket_manager import websocket_manager
+
+app = FastAPI()
+
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with your frontend domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Store active workflow instances and connections
+active_workflows: Dict[str, dict] = {}
+should_exit = False
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    global should_exit
+    print("\nShutdown signal received. Cleaning up...")
+    should_exit = True
+    # Close all WebSocket connections
+    for workflow_id in list(websocket_manager.active_connections.keys()):
+        for connection in list(websocket_manager.active_connections[workflow_id]):
+            try:
+                connection.close()
+            except:
+                pass
+    sys.exit(0)
+
+# Register signal handlers
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Handle FastAPI shutdown event"""
+    global should_exit
+    should_exit = True
+    # Close all WebSocket connections
+    for workflow_id in list(websocket_manager.active_connections.keys()):
+        for connection in list(websocket_manager.active_connections[workflow_id]):
+            try:
+                await connection.close()
+            except:
+                pass
+
+id_to_workflow = {
+    "Detect Workflow": DetectWorkflow,
+    "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
+    "Patch Workflow": PatchWorkflow,
+    "Chat Workflow": ChatWorkflow
+}
+
+@app.get("/workflow/list")
+async def list_workflows():
+    """List available workflow types"""
+    return {
+        "workflows": [
+            {
+                "id": "detect",
+                "name": "Detect Workflow",
+                "description": "Workflow for detecting and exploiting vulnerabilities"
+            },
+            {
+                "id": "exploit_and_patch",
+                "name": "Exploit and Patch Workflow",
+                "description": "Workflow for exploiting and patching vulnerabilities"
+            },
+            {
+                "id": "patch",
+                "name": "Patch Workflow",
+                "description": "Workflow for patching vulnerabilities"
+            },
+            {
+                "id": "chat",
+                "name": "Chat Workflow",
+                "description": "Workflow for chatting"
+            }
+        ]
+    }
+
+@app.post("/workflow/start")
+async def start_workflow(workflow_data: dict):
+    """Start a new workflow instance"""
+    try:
+        # Initialize workflow instance
+        workflow = id_to_workflow[workflow_data['workflow_name']](
+            task_dir=Path(workflow_data['task_dir']),
+            bounty_number=workflow_data['bounty_number'],
+            interactive=workflow_data.get('interactive', False),
+            phase_iterations=int(workflow_data['iterations'])
+        )
+        
+        workflow_id = workflow.workflow_message.workflow_id
+        # Store workflow instance
+        active_workflows[workflow_id] = {
+            "instance": workflow,
+            "status": "initializing"
+        }
+
+        # Return workflow ID immediately
+        return {
+            "workflow_id": workflow_id,
+            "status": "initializing"
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e)
+        }
+
+@app.post("/workflow/execute/{workflow_id}")
+async def execute_workflow(workflow_id: str):
+    """Execute a workflow after WebSocket connection is established"""
+    if workflow_id not in active_workflows:
+        return {"error": "Workflow not found"}
+    
+    try:
+        # Start workflow execution in background
+        asyncio.create_task(run_workflow(workflow_id))
+        return {"status": "executing"}
+    except Exception as e:
+        return {"error": str(e)}
+
+async def run_workflow(workflow_id: str):
+    global should_exit
+    
+    if workflow_id not in active_workflows or should_exit:
+        print(f"Workflow {workflow_id} not found or should exit")
+        return
+    
+    workflow_data = active_workflows[workflow_id]
+    workflow = workflow_data["instance"]
+    
+    try:
+        workflow_data["status"] = "running"
+        await websocket_manager.broadcast(workflow_id, {
+            "message_type": "status_update",
+            "status": "running"
+        })
+        
+        # Run the workflow
+        await workflow.run()
+
+        if not should_exit:
+            workflow_data["status"] = "completed"
+            await websocket_manager.broadcast(workflow_id, {
+                "message_type": "status_update",
+                "status": "completed"
+            })
+        
+    except Exception as e:
+        if not should_exit:
+            print(f"Workflow error: {e}")
+            workflow_data["status"] = "error"
+            await websocket_manager.broadcast(workflow_id, {
+                "message_type": "status_update",
+                "status": "error",
+                "error": str(e)
+            })
+            print(f"Broadcasted error status for {workflow_id}")
+            
+@app.websocket("/ws/{workflow_id}")
+async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
+    """WebSocket endpoint for real-time workflow updates"""
+    global should_exit
+    
+    try:
+        await websocket_manager.connect(workflow_id, websocket)
+        
+        # Send initial workflow state
+        if workflow_id in active_workflows:
+            workflow_data = active_workflows[workflow_id]
+            await websocket.send_json({
+                "message_type": "initial_state",
+                "status": workflow_data["status"]
+            })
+        
+        # Handle incoming messages
+        while not should_exit:
+            try:
+                data = await websocket.receive_json()
+                if should_exit:
+                    break
+
+                if data.get("message_type") == "user_message" and workflow_id in active_workflows:
+                    workflow = active_workflows[workflow_id]["instance"]
+                    if workflow.interactive:
+                        result = await workflow.add_user_message(data["content"])
+                        await websocket_manager.broadcast(workflow_id, {
+                            "message_type": "user_message_response",
+                            "content": result
+                        })
+                        print(f"Broadcasted user_message_response for {workflow_id}")
+
+                elif data.get("message_type") == "start_execution":
+                    asyncio.create_task(run_workflow(workflow_id))
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                if "disconnect" in str(e).lower():
+                    break
+                    
+    except WebSocketDisconnect:
+        print(f"WebSocket disconnected for workflow {workflow_id}")
+    except Exception as e:
+        print(f"WebSocket error for workflow {workflow_id}: {e}")
+    finally:
+        websocket_manager.disconnect(workflow_id, websocket)
+        print(f"Cleaned up connection for workflow {workflow_id}")
+
+class MessageInputData(BaseModel):
+    message_id: str
+    new_input_data: str
+    
+class MessageData(BaseModel):
+    message_id: str
+
+async def next_iteration(workflow_id: str):
+    if workflow_id not in active_workflows:
+        return {"error": "Workflow not found"}
+    
+    workflow = active_workflows[workflow_id]["instance"]
+    if hasattr(workflow, 'next_iteration_event'):
+        workflow.next_iteration_event.set()
+        return {"status": "next iteration triggered"}
+    else:
+        return {"error": "Workflow is not in interactive mode"}
+
+@app.post("/workflow/next/{workflow_id}")
+async def next_message(workflow_id: str):
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+    try:
+        result = await workflow.run_next_message()
+        if not result:
+            result = await next_iteration(workflow_id)
+            return result  # Return the dictionary directly
+            
+        print(f"Received result : {result.id}")
+        return {"status": "updated", "result": result.id}
+    except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error in next_message: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
+
+@app.post("/workflow/rerun-message/{workflow_id}")
+async def next_message(workflow_id: str, data: MessageData):
+    print(f"Rerunning message: {data.message_id}")
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+
+    try:
+        result = await workflow.rerun_message(data.message_id)
+
+        return {"status": "updated", "result": result.id}
+    except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
+        return {"error": str(e), "traceback": error_traceback}
+
+@app.post("/workflow/edit-message/{workflow_id}")
+async def edit_action_input(workflow_id: str, data: MessageInputData):
+    print(f"Editing message: {data.message_id}")
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+
+    try:
+        result = await workflow.edit_one_message(data.message_id, data.new_input_data)
+        
+        return {"status": "updated", "result": result.id}
+    except Exception as e:
+        return {"error": str(e)}
+    
+
+@app.post("/workflow/{workflow_id}/interactive")
+async def update_interactive_mode(workflow_id: str, data: dict):
+    print(f"Received request to update interactive mode for workflow {workflow_id}")
+    print(f"Data received: {data}")
+    
+    try:
+        if workflow_id not in active_workflows:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        
+        workflow = active_workflows[workflow_id]["instance"]
+        new_interactive_mode = data.get("interactive")
+        
+        if new_interactive_mode is None:
+            raise HTTPException(status_code=400, detail="Interactive mode not specified")
+        
+        print(f"Attempting to set interactive mode to {new_interactive_mode}")
+        await workflow.set_interactive_mode(new_interactive_mode)
+        print(f"Interactive mode successfully set to {new_interactive_mode}")
+        
+        return {"status": "success", "interactive": new_interactive_mode}
+    except Exception as e:
+        print(f"Error occurred: {str(e)}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/workflow/last-message/{workflow_id}")
+async def last_message(workflow_id: str):
+    if workflow_id not in active_workflows:
+        return {"error": "Workflow not found"}
+    
+    workflow = active_workflows[workflow_id]["instance"]
+    last_message_str = await workflow.get_last_message()
+    return {
+                "message_type": "last_message",
+                "content": last_message_str
+            }
+
+@app.get("/workflow/first-message/{workflow_id}")
+async def first_message(workflow_id: str):
+    if workflow_id not in active_workflows:
+        return {"error": "Workflow not found"}
+    
+    workflow = active_workflows[workflow_id]["instance"]
+    first_message_str = workflow.initial_prompt
+    return {
+                "message_type": "first_message",
+                "content": first_message_str
+            }
+    
+@app.get("/workflow/{workflow_id}/resources")
+async def get_workflow_resources(workflow_id: str):
+    if workflow_id not in active_workflows:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = active_workflows[workflow_id]["instance"]
+    
+    # Implement a method in your workflow class to get the current resources
+    resources = workflow.resource_manager.resources
+    
+    return resources
+    
+if __name__ == "__main__":
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
+
+=======
+
+import React, { useState, useEffect } from 'react';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import Box from '@mui/material/Box';
+import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
+import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
+import { AppHeader } from './components/AppHeader/AppHeader'; 
+import { darkTheme } from './theme';
+import './App.css';
+
+function App() {  
+  const [selectedWorkflow, setSelectedWorkflow] = useState(null);
+  const [interactiveMode, setInteractiveMode] = useState(true);
+  const [workflowStatus, setWorkflowStatus] = useState(null);
+  const [currentPhase, setCurrentPhase] = useState(null);
+  
+  const handleWorkflowStart = (workflowId, isInteractive) => {
+    setSelectedWorkflow({ id: workflowId });
+    setInteractiveMode(isInteractive);
+  };
+
+  const handleInteractiveModeToggle = async () => {
+    const newInteractiveMode = !interactiveMode;
+    setInteractiveMode(newInteractiveMode);
+    
+    if (selectedWorkflow) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/${selectedWorkflow.id}/interactive`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ interactive: newInteractiveMode }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to update interactive mode');
+        }
+        console.log("Backend updated with new interactive mode:", newInteractiveMode);
+      } catch (error) {
+        // Don't just show on console, make it obvious to user in UI, e.g. SnackBar
+        console.error("Error updating interactive mode:", error);
+        setInteractiveMode(!newInteractiveMode); // Revert state on error
+      }
+    }
+  };
+
+  const handleWorkflowStateUpdate = (status, phase) => {
+    setWorkflowStatus(status);
+    setCurrentPhase(phase);
+  };
+
+  return (
+    <ThemeProvider theme={darkTheme}>
+      <CssBaseline />
+      <Box className="app-container" display="flex" flexDirection="column" height="100vh">
+        <AppHeader 
+          onInteractiveModeToggle={handleInteractiveModeToggle}
+          interactiveMode={interactiveMode}
+          selectedWorkflow={selectedWorkflow}
+          workflowStatus={workflowStatus}
+          currentPhase={currentPhase}
+        />
+        <Box flexGrow={1} overflow="auto">
+          {selectedWorkflow ? (
+            <WorkflowDashboard 
+              selectedWorkflow={selectedWorkflow}
+              interactiveMode={interactiveMode}
+              onWorkflowStateUpdate={handleWorkflowStateUpdate}
+            />
+          ) : (
+            <WorkflowLauncher 
+              onWorkflowStart={handleWorkflowStart}
+              interactiveMode={interactiveMode}
+              setInteractiveMode={setInteractiveMode}
+            />
+          )}
+        </Box>
+      </Box>
+    </ThemeProvider>
+  );
+}
+
+export default App;
+
+========
+
+index.jsx
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
