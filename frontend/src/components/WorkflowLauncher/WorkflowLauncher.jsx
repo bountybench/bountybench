@@ -43,7 +43,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     try {
       const response = await fetch('http://localhost:8000/workflow/list');
       const data = await response.json();
-      setWorkflows(data.workflows);
+      setWorkflows(data.workflows || []);
     } catch (err) {
       console.error('Failed to fetch workflows. Make sure the backend server is running.');
     } finally {
@@ -140,16 +140,22 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
         >
-          {workflows.map((workflow) => (
-            <MenuItem key={workflow.name} value={workflow.name}>
-              <Box display="flex" flexDirection="column">
-                <Typography>{workflow.name}</Typography>
-                <Typography variant="caption" color="textSecondary">
-                  {workflow.description}
-                </Typography>
-              </Box>
+          {(workflows.length > 0) ? (
+            workflows.map((workflow) => (
+              <MenuItem key={workflow.name} value={workflow.name}>
+                <Box display="flex" flexDirection="column">
+                  <Typography>{workflow.name}</Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    {workflow.description}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))
+          ) : (
+            <MenuItem value="">
+              <Typography>No workflows available</Typography>
             </MenuItem>
-          ))}
+          )}
         </TextField>
 
         <TextField
