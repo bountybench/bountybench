@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, CircularProgress, Alert, Button, Grid } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, Button, Grid, IconButton } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
@@ -32,16 +32,30 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
     currentPhase, 
     currentIteration,
     messageCount: messages?.length 
-  });
+  }); // Debug log
 
   useEffect(() => {
     if (workflowStatus === 'completed') {
       console.log('Workflow completed. Preserving messages:', messages);
-      setIsNextDisabled(true);
       setPreservedMessages(messages);
     }
   }, [workflowStatus, messages]);
 
+  // Next iteration via ctrl + enter
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault();
+        triggerNextIteration();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedWorkflow]);
+  
   const triggerNextIteration = async () => {
     if (selectedWorkflow?.id) {
       setIsNextDisabled(true);
@@ -53,6 +67,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        console.log('Next iteration triggered successfully', data);
         console.log('Next iteration triggered successfully', data);
       } catch (error) {
         console.error('Error triggering next iteration:', error);
