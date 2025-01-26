@@ -12,7 +12,7 @@ from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
-from utils.websocket_manager import WebSocketManager
+from utils.websocket_manager import websocket_manager
 
 class MessageInputData(BaseModel):
     message_id: str
@@ -292,15 +292,17 @@ class Server:
 
 
 
-def create_app():
-    websocket_manager = WebSocketManager()
+def create_app(ws_manager: WebSocketManager = None):
+    if ws_manager is None:
+        ws_manager = websocket_manager
     workflow_factory = {
         "Detect Workflow": DetectWorkflow,
         "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
         "Patch Workflow": PatchWorkflow,
         "Chat Workflow": ChatWorkflow
     }
-    server = Server(websocket_manager, workflow_factory)
+    
+    server = Server(ws_manager, workflow_factory)
     return server.app
 
 app = create_app()
