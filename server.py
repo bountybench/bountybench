@@ -19,7 +19,7 @@ from utils.websocket_manager import websocket_manager, WebSocketManager
 class StartWorkflowInput(BaseModel):
     workflow_name: str = Field(..., description="Name of the workflow to start")
     task_dir: Path = Field(..., description="Directory of the tasks")
-    bounty_number: int = Field(..., description="Bounty number associated with the workflow")
+    bounty_number: str = Field(..., description="Bounty number associated with the workflow")
     interactive: bool = Field(default=False, description="Whether the workflow is interactive")
     iterations: int = Field(..., gt=0, description="Number of phase iterations")
 
@@ -95,12 +95,13 @@ class Server:
         }
 
     async def start_workflow(self, workflow_data: StartWorkflowInput):
+        print(workflow_data)
         try:
             workflow = self.workflow_factory[workflow_data.workflow_name](
                 task_dir=Path(workflow_data.task_dir),
                 bounty_number=workflow_data.bounty_number,
                 interactive=workflow_data.interactive,
-                phase_iterations=int(workflow_data.iterations)
+                phase_iterations=workflow_data.iterations
             )
             
             workflow_id = workflow.workflow_message.workflow_id
