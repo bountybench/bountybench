@@ -29,13 +29,13 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChil
     if (message.action_messages){
       const messageLength = message.action_messages.length;
       // Make sure that both model and kali_env are received
-      if (messageLength % 2 !== 0 || messageLength <= 2) {
+      if (messageLength % 2 !== 0) {
         return;
       }
       setMultiVersion(true);
       setDisplayedIndex(messageLength / 2);
     }
-  }, [message.action_messages]);
+  }, [message, message.action_messages]);
 
   const handleToggleVersion = (num) => {
     if (onPhaseChildUpdate) {

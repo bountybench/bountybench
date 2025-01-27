@@ -26,7 +26,7 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
       setPhaseDisplayedIndex(messageLength / 2);
       
     }
-  }, [message.agent_messages]);
+  }, [message, message.agent_messages]);
 
   const handleChildUpdate = (num) => {
     setPhaseDisplayedIndex((prev) => prev + num);
