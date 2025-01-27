@@ -1,10 +1,11 @@
 // components/StatusMessage/StatusMessage.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Box, Typography } from '@mui/material';
 import './StatusMessage.css'
 
 const StatusMessage = () => {
     const [logs, setLogs] = useState([]);
+    const logsEndRef = useRef(null);
 
     useEffect(() => {
         const ws = new WebSocket("ws://localhost:8000/ws/logs");
@@ -24,6 +25,12 @@ const StatusMessage = () => {
         return () => ws.close();
     }, []);
 
+    useEffect(() => {
+        if (logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [logs]);
+
     return (
         <>
             {logs.length > 0 && (
@@ -33,6 +40,7 @@ const StatusMessage = () => {
                             {log}
                         </Typography>
                     ))}
+                    <div ref={logsEndRef} />
                 </Box>
             )}
         </>
