@@ -22,7 +22,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   const [formData, setFormData] = useState({
     workflow_name: '',
@@ -54,14 +53,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   }, [isChecking, isServerAvailable]);
 
   const fetchWorkflows = async () => {
-    setError(null);
     setLoading(true);
     try {
       const response = await fetch('http://localhost:8000/workflow/list');
       const data = await response.json();
-      setWorkflows(data.workflows);
+      setWorkflows(data.workflows || []);
     } catch (err) {
-      setError('Failed to fetch workflows. Make sure the backend server is running.');
+      console.error('Failed to fetch workflows. Make sure the backend server is running.');
     } finally {
       setLoading(false);
     }
@@ -83,10 +81,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
     fetchModels();
   }, []);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
 
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
@@ -102,19 +98,34 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         }),
       });
 
+      if (!response) {
+        throw new Error('Failed to get response from server');
+      }
+      
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          throw new Error('Failed to parse error response');
+        }
         throw new Error(errorData.error || 'Failed to start workflow');
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error('Failed to parse response data');
+      }
+
       if (data.error) {
-        setError(data.error);
+        console.error(data.error);
       } else {
         onWorkflowStart(data.workflow_id, interactiveMode);
       }
     } catch (err) {
-      setError(err.message || 'Failed to start workflow. Make sure the backend server is running.');
+      console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
     }
   };
 
@@ -164,12 +175,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         Start New Workflow
       </Typography>
 
-      {error && (
-        <Alert severity="error" className="launcher-alert">
-          {error}
-        </Alert>
-      )}
-
       <form onSubmit={handleSubmit} className="launcher-form">
         <TextField
           select
@@ -181,16 +186,22 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
         >
-          {workflows.map((workflow) => (
-            <MenuItem key={workflow.name} value={workflow.name}>
-              <Box display="flex" flexDirection="column">
-                <Typography>{workflow.name}</Typography>
-                <Typography variant="caption" color="textSecondary">
-                  {workflow.description}
-                </Typography>
-              </Box>
+          {(workflows.length > 0) ? (
+            workflows.map((workflow) => (
+              <MenuItem key={workflow.name} value={workflow.name}>
+                <Box display="flex" flexDirection="column">
+                  <Typography>{workflow.name}</Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    {workflow.description}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))
+          ) : (
+            <MenuItem value="">
+              <Typography>No workflows available</Typography>
             </MenuItem>
-          ))}
+          )}
         </TextField>
 
         <TextField

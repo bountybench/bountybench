@@ -13,6 +13,7 @@ export const formatData = (data) => {
     }
     return JSON.stringify(data, null, 2);
   } catch (e) {
+    console.error(e);
     return String(data);
   }
 };

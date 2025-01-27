@@ -1,11 +1,16 @@
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
+import threading
+from time import sleep
 from typing import List
 
 from dotenv import load_dotenv
 
 from resources.model_resource.model_response import ModelResponse
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
 
 
 class ModelProvider(ABC):
@@ -75,6 +80,55 @@ class ModelProvider(ABC):
             stop_sequences (List[str]): Sequences that will stop the model's response.
         """
         pass
+
+    def make_request(
+        self,
+        model: str,
+        message: str,
+        temperature: float,
+        max_tokens: int,
+        stop_sequences: List[str],
+        logging_interval: float = 5.0,
+    ) -> ModelResponse:
+        """
+        A method that:
+            - Spawns a thread to run the request method.
+            - Logs a message while waiting for the request to finish.
+            - Returns the ModelResponse once the thread is done.
+        """
+
+        done_flag = [False]         # Shared boolean to signal completion
+        response_holder = [None]    # Holds the ModelResponse when done
+        error_holder = [None]       # Holds exception info if something goes wrong
+
+        def run_request():
+            try:
+                response = self.request(
+                    model, message, temperature, max_tokens, stop_sequences
+                )
+                response_holder[0] = response
+            except Exception as e:
+                error_holder[0] = e
+            finally:
+                done_flag[0] = True
+
+        # Start the child-class _request logic in a separate thread
+        request_thread = threading.Thread(target=run_request)
+        request_thread.start()
+
+        time = 0
+        # Periodically log heartbeat until request completes or fails
+        while not done_flag[0]:
+            logger.info(f"{time}s has passed. Still waiting for LLM provider to respond...")
+            sleep(logging_interval)
+            time += logging_interval
+
+        # If the child thread encountered an error, re-raise it
+        if error_holder[0] is not None:
+            raise error_holder[0]
+
+        # Otherwise, return the response from the child
+        return response_holder[0]
 
     @abstractmethod
     def tokenize(self, model: str, message: str) -> List[int]:

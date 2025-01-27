@@ -7,10 +7,13 @@ from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.message import Message
+from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.model_resource.model_utils import get_model_provider
+from resources.model_resource.openai_models.openai_models import OpenAIModels
 from utils.logger import get_main_logger
+from utils.api_key_service import verify_and_auth_api_key
 
 logger = get_main_logger(__name__)
 
@@ -40,6 +43,7 @@ class ModelResourceConfig(BaseResourceConfig):
     def __post_init__(self):
         if 'openai/o3' not in self.model.lower():
             self.use_helm = True
+        self.validate()
 
     def validate(self) -> None:
         """Validate LLMResource configuration"""
@@ -49,6 +53,7 @@ class ModelResourceConfig(BaseResourceConfig):
             raise ValueError("max_input_tokens must be positive")
         if self.max_output_tokens <= 0:
             raise ValueError("max_output_tokens must be positive")
+        verify_and_auth_api_key(self.model, self.use_helm)
     
 
 class ModelResource(BaseResource):
@@ -63,6 +68,9 @@ class ModelResource(BaseResource):
         self.helm = self._resource_config.use_helm
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
+
+        self.helm_models = HelmModels()
+        self.openai_models = OpenAIModels()
 
     def remove_hallucinations(self, response: str):
         response = response.replace("----------Message from agent----------", "")
@@ -160,8 +168,8 @@ class ModelResource(BaseResource):
             prev_action_message = input_message
         model_input = self.generate_memory(input_message)
         model_provider: ModelProvider
-        model_provider = get_model_provider(self.helm)
-        model_response = model_provider.request(
+        model_provider = self.helm_models if self.helm else self.openai_models
+        model_response = model_provider.make_request(
             model=self.model,
             message=model_input,
             temperature=self.temperature,
