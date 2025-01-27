@@ -1,7 +1,7 @@
 import requests
 import os
-from typing import Tuple
-from dotenv import load_dotenv, set_key
+from typing import Tuple, Optional, Callable    
+from dotenv import find_dotenv, load_dotenv, set_key
 from pathlib import Path
 
 
@@ -66,14 +66,17 @@ AUTH_SERVICE = {
 }
 
 
-def verify_and_auth_api_key(model_name: str, helm: bool):
+def verify_and_auth_api_key(model_name: str, helm: bool, auth_service: Optional[Callable] = None):
     requested_api_key: str = _model_provider_lookup(
         model_name, helm
     )  # Get the API key name
 
-    env_path = Path(__file__).resolve().parent / ".env"
+    env_path = Path(find_dotenv())
     if env_path.is_file():
+        f"[API Service] .env file found at {env_path}"
         load_dotenv(dotenv_path=env_path)
+    else:
+        raise FileNotFoundError("Could not find .env file in project directory.")
 
     _new_key_requested = False
 
@@ -88,16 +91,19 @@ def verify_and_auth_api_key(model_name: str, helm: bool):
         requested_api_value = os.environ[requested_api_key]
 
     # Authenticate the API key, keep prompting for input until a valid key is entered
-    auth_service = AUTH_SERVICE[requested_api_key]
+    auth_service = auth_service or AUTH_SERVICE[requested_api_key]
     _ok, _message = auth_service(requested_api_value)
+
     while not _ok:
         print("[API Service] API key authentication failed. Please double-check.")
         requested_api_value = input(
             f"[API Service] Please enter your {requested_api_key}: "
         )
+        print("[API Service] Received new API key.")
         _new_key_requested = True
         _ok, _message = auth_service(requested_api_value)
-
+    
+    print("[API Service] API key authentication successful.")
     # Ask user if they want to save the API key to the .env file
     if _new_key_requested:
         _save_ok = (
@@ -107,10 +113,12 @@ def verify_and_auth_api_key(model_name: str, helm: bool):
             == "y"
         )
         if _save_ok:
+            print("[API Service] Saving API key to .env file.")
             set_key(
                 env_path, requested_api_key, requested_api_value, quote_mode="never"
             )
             load_dotenv(dotenv_path=env_path, override=True)
         else:
+            print("[API Service] API key NOT saved to .env file.")
             os.environ[requested_api_key] = requested_api_value
     return

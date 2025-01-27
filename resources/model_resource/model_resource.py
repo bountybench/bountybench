@@ -69,7 +69,8 @@ class ModelResource(BaseResource):
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
 
-        self.helm_models = HelmModels()
+        if config.use_helm:
+            self.helm_models = HelmModels()
         self.openai_models = OpenAIModels()
 
     def remove_hallucinations(self, response: str):
