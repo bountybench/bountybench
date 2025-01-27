@@ -7,12 +7,21 @@ from pydantic import BaseModel
 import uvicorn
 import signal
 import sys
+from pydantic import BaseModel, Field
+
 
 from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
-from utils.websocket_manager import websocket_manager
+from utils.websocket_manager import websocket_manager, WebSocketManager
+
+class StartWorkflowInput(BaseModel):
+    workflow_name: str = Field(..., description="Name of the workflow to start")
+    task_dir: Path = Field(..., description="Directory of the tasks")
+    bounty_number: int = Field(..., description="Bounty number associated with the workflow")
+    interactive: bool = Field(default=False, description="Whether the workflow is interactive")
+    iterations: int = Field(..., gt=0, description="Number of phase iterations")
 
 class MessageInputData(BaseModel):
     message_id: str
@@ -20,6 +29,11 @@ class MessageInputData(BaseModel):
 
 class MessageData(BaseModel):
     message_id: str
+
+class UpdateInteractiveModeInput(BaseModel):
+    interactive: bool
+
+
 
 class Server:
     def __init__(self, websocket_manager: WebSocketManager, workflow_factory: Dict[str, Callable]):
@@ -80,13 +94,13 @@ class Server:
             ]
         }
 
-    async def start_workflow(self, workflow_data: dict):
+    async def start_workflow(self, workflow_data: StartWorkflowInput):
         try:
-            workflow = self.workflow_factory[workflow_data['workflow_name']](
-                task_dir=Path(workflow_data['task_dir']),
-                bounty_number=workflow_data['bounty_number'],
-                interactive=workflow_data.get('interactive', False),
-                phase_iterations=int(workflow_data['iterations'])
+            workflow = self.workflow_factory[workflow_data.workflow_name](
+                task_dir=Path(workflow_data.task_dir),
+                bounty_number=workflow_data.bounty_number,
+                interactive=workflow_data.interactive,
+                phase_iterations=int(workflow_data.iterations)
             )
             
             workflow_id = workflow.workflow_message.workflow_id
@@ -244,19 +258,17 @@ class Server:
         except Exception as e:
             return {"error": str(e)}
 
-    async def update_interactive_mode(self, workflow_id: str, data: dict):
+    async def update_interactive_mode(self, workflow_id: str, data: UpdateInteractiveModeInput):
+        if workflow_id not in self.active_workflows:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        
+        workflow = self.active_workflows[workflow_id]["instance"]
+        
         try:
-            if workflow_id not in self.active_workflows:
-                raise HTTPException(status_code=404, detail="Workflow not found")
-            
-            workflow = self.active_workflows[workflow_id]["instance"]
-            new_interactive_mode = data.get("interactive")
-            
-            if new_interactive_mode is None:
-                raise HTTPException(status_code=400, detail="Interactive mode not specified")
-            
-            await workflow.set_interactive_mode(new_interactive_mode)
-            return {"status": "success", "interactive": new_interactive_mode}
+            await workflow.set_interactive_mode(data.interactive)
+            return {"status": "success", "interactive": data.interactive}
+        except ValueError as ve:
+            raise HTTPException(status_code=422, detail=str(ve))
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
