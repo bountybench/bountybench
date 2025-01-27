@@ -1,13 +1,66 @@
-import React from 'react';
-import { Box, Typography, Switch } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, Typography, Switch, FormControl, Select, MenuItem } from '@mui/material';
 
 export const AppHeader = ({
   onInteractiveModeToggle,
   interactiveMode,
   selectedWorkflow,
   workflowStatus,
-  currentPhase
+  currentPhase,
+  onModelChange
 }) => {
+  // Example options
+  const [modelMapping, setModelMapping] = useState({});
+
+  // State for currently selected values
+  const [selectedModelType, setSelectedModelType] = useState('');
+  const [selectedModelName, setSelectedModelName] = useState('');
+  
+
+    // Fetch available models
+    useEffect(() => {
+      const fetchModels = async () => {
+        try {
+          const response = await fetch('http://localhost:8000/workflow/allmodels');
+          const models = await response.json();
+          setModelMapping(models);
+        } catch (err) {
+          console.log('Failed to fetch models. Make sure the backend server is running.');
+        }
+      };
+      fetchModels();
+    }, []);
+    
+    // Extracting modelTypes (prefixes) whenever modelMapping changes
+  const allModelTypes = [...new Set(Object.keys(modelMapping).map(value => value.split('/')[0]))];
+
+  // Determine modelNames based on selectedModelType
+  const allModelNames = selectedModelType ? Object.entries(modelMapping)
+    .filter(([key, value]) => key.startsWith(selectedModelType))
+    .map(([k]) => k.split('/')[1]) // Gets the model names, i.e., the second part after `/`
+    : [];
+
+  // Effect to set defaults based on selectedWorkflow
+  useEffect(() => {
+    if (selectedWorkflow) {
+      console.log("selectedworkflow", selectedWorkflow);
+      const model = selectedWorkflow.model.split('/');
+      setSelectedModelType(model[0]);
+      setSelectedModelName(model[1]);
+    }
+  }, [selectedWorkflow]);
+
+  const handleModelChange = async (name) => {
+    setSelectedModelName(name); 
+    const new_model_name = `${selectedModelType}/${name}`;
+    try {
+      await onModelChange(new_model_name);
+    } catch (error) {
+      console.log('Error updating action message:', error);
+    }
+
+  };
+
   return (
     <Box 
       display="flex" 
@@ -23,6 +76,38 @@ export const AppHeader = ({
       <Box display="flex" alignItems="center">
         {selectedWorkflow && (
           <>
+            {selectedWorkflow.model && (
+              <>
+                <FormControl variant="outlined" sx={{ mr: 2 }}>
+                  <Select
+                    value={selectedModelType}
+                    onChange={(e) => setSelectedModelType(e.target.value)}
+                    //displayEmpty
+                  >
+                    {allModelTypes.map((type) => (
+                      <MenuItem key={type} value={type}>
+                        {type}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl variant="outlined" sx={{ mr: 2 }}>
+                  <Select
+                    value={selectedModelName}
+                    onChange={(e) => handleModelChange(e.target.value)} 
+                    //displayEmpty
+                  >
+                    {allModelNames.map((name) => (
+                      <MenuItem key={name} value={name}>
+                        {name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </>
+            )}
+
             <Typography variant="body2" sx={{ mr: 2 }}>
               Status: <span style={{ fontWeight: 'bold' }}>{workflowStatus || 'Unknown'}</span>
             </Typography>

@@ -22,6 +22,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [formData, setFormData] = useState({
     workflow_name: '',
@@ -30,6 +31,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     interactive: true,
     iterations: 10,
     model: '',
+    use_helm: false
   });
   const [allModels, setAllModels] = useState([]);
   const [topLevelSelection, setTopLevelSelection] = useState("");
@@ -39,8 +41,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     setTopLevelSelection(value);
     // Set the model field based on top-level selection
     if (value === "Non-HELM") {
-      handleInputChange({ target: { name: 'model', value: 'openai/o3-mini-2024-12-17' } }); // Set to default model for Non-HELM
+      // handleInputChange({ target: { name: 'model', value: 'openai/o3-mini-2024-12-17' } }); // Set to default model for Non-HELM
+      handleInputChange({ target: { name: 'model', value: 'anthropic/claude-3-5-sonnet-20240620' } });
     } else {
+      handleInputChange({ target: { name: 'use_helm', value: true } });
       handleInputChange({ target: { name: 'model', value: '' } }); // Reset model field for HELM
     }
   };
@@ -53,13 +57,14 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   }, [isChecking, isServerAvailable]);
 
   const fetchWorkflows = async () => {
+    setError(null);
     setLoading(true);
     try {
       const response = await fetch('http://localhost:8000/workflow/list');
       const data = await response.json();
-      setWorkflows(data.workflows || []);
+      setWorkflows(data.workflows);
     } catch (err) {
-      console.error('Failed to fetch workflows. Make sure the backend server is running.');
+      setError('Failed to fetch workflows. Make sure the backend server is running.');
     } finally {
       setLoading(false);
     }
@@ -81,6 +86,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
     fetchModels();
   }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -94,7 +100,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           bounty_number: formData.bounty_number,
           interactive: interactiveMode,
           iterations: formData.iterations,
-          model: formData.model
+          model: formData.model,
+          use_helm: formData.use_helm
         }),
       });
 
@@ -122,12 +129,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       if (data.error) {
         console.error(data.error);
       } else {
-        onWorkflowStart(data.workflow_id, interactiveMode);
+        onWorkflowStart(data.workflow_id, data.model, interactiveMode);
       }
     } catch (err) {
       console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
     }
   };
+
 
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
@@ -186,22 +194,16 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
         >
-          {(workflows.length > 0) ? (
-            workflows.map((workflow) => (
-              <MenuItem key={workflow.name} value={workflow.name}>
-                <Box display="flex" flexDirection="column">
-                  <Typography>{workflow.name}</Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {workflow.description}
-                  </Typography>
-                </Box>
-              </MenuItem>
-            ))
-          ) : (
-            <MenuItem value="">
-              <Typography>No workflows available</Typography>
+          {workflows.map((workflow) => (
+            <MenuItem key={workflow.name} value={workflow.name}>
+              <Box display="flex" flexDirection="column">
+                <Typography>{workflow.name}</Typography>
+                <Typography variant="caption" color="textSecondary">
+                  {workflow.description}
+                </Typography>
+              </Box>
             </MenuItem>
-          )}
+          ))}
         </TextField>
 
         <TextField

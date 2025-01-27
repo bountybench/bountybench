@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
-import { ToastContainer, toast, Slide } from "react-toastify";
-import 'react-toastify/dist/ReactToastify.css';
 import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
 import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
 import { AppHeader } from './components/AppHeader/AppHeader'; 
@@ -16,8 +14,8 @@ function App() {
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
   
-  const handleWorkflowStart = (workflowId, isInteractive) => {
-    setSelectedWorkflow({ id: workflowId });
+  const handleWorkflowStart = (workflowId, model, isInteractive) => {
+    setSelectedWorkflow({ id: workflowId, model: model });
     setInteractiveMode(isInteractive);
   };
 
@@ -51,35 +49,37 @@ function App() {
     setCurrentPhase(phase);
   };
 
-  useEffect(() => {
-    const originalConsoleError = console.error;
+  const handleModelChange = async (name) => {
+    const url = `http://localhost:8000/workflow/model-change/${selectedWorkflow.id}`;
+    const requestBody = { new_model_name: name };
 
-    console.error = function(...args) {
-      const errorMessage = args.join(' ');
-      toast.error(errorMessage, {
-        position: "top-center",
-        autoClose: 5000,
-        transition: Slide
-      });
-      originalConsoleError.apply(console, args);
-    };
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-    return () => {
-      console.error = originalConsoleError;
-    };
-  }, []);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response body:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    } 
+  };
+
 
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <Box className="app-container" display="flex" flexDirection="column" height="100vh">
-        <ToastContainer />
         <AppHeader 
           onInteractiveModeToggle={handleInteractiveModeToggle}
           interactiveMode={interactiveMode}
           selectedWorkflow={selectedWorkflow}
           workflowStatus={workflowStatus}
           currentPhase={currentPhase}
+          onModelChange={handleModelChange}
         />
         <Box flexGrow={1} overflow="auto">
           {selectedWorkflow ? (

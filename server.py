@@ -97,6 +97,11 @@ async def list_workflows():
         ]
     }
 
+@app.get("/workflow/allmodels")
+async def list_models():
+    """List available model types"""
+    return TokenizerMapping.mapping
+
 @app.get("/workflow/helmmodels")
 async def list_models():
     """List available model types"""
@@ -115,7 +120,8 @@ async def start_workflow(workflow_data: dict):
             bounty_number=workflow_data['bounty_number'],
             interactive=workflow_data.get('interactive', False),
             phase_iterations=int(workflow_data['iterations']),
-            model=workflow_data['model']
+            model=workflow_data['model'],
+            use_helm=workflow_data['use_helm']
         )
         
         workflow_id = workflow.workflow_message.workflow_id
@@ -128,6 +134,7 @@ async def start_workflow(workflow_data: dict):
         # Return workflow ID immediately
         return {
             "workflow_id": workflow_id,
+            "model": workflow_data['model'],
             "status": "initializing"
         }
         
@@ -306,7 +313,18 @@ async def edit_action_input(workflow_id: str, data: MessageInputData):
     except Exception as e:
         return {"error": str(e)}
     
-
+@app.post("/workflow/model-change/{workflow_id}")
+async def change_model(workflow_id: str, data: dict):
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+    print(f"Changing Model for Workflow: {workflow_id}, New Name: {data}")
+    workflow = active_workflows[workflow_id]["instance"]
+    try:
+        result = await workflow.change_current_model(data['new_model_name'])
+        return {"status": "updated", "result": result.id}
+    except Exception as e:
+        return {"error": str(e)}
+    
 @app.post("/workflow/{workflow_id}/interactive")
 async def update_interactive_mode(workflow_id: str, data: dict):
     print(f"Received request to update interactive mode for workflow {workflow_id}")
