@@ -1,14 +1,15 @@
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
+import logging
 import asyncio
-from typing import Dict
-from pathlib import Path
-from pydantic import BaseModel
 import uvicorn
 import signal
 import sys
+from typing import Dict
+from pathlib import Path
+from pydantic import BaseModel
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
-from workflows.detect_workflow import DetectWorkflow
+from workflows.detect_workflow import DetectWorkflow, get_main_logger
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
@@ -25,12 +26,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Store active workflow instances and connections
+# Store active workflow instances and WebSocket connections
 active_workflows: Dict[str, dict] = {}
+log_connected_clients = []
 should_exit = False
 
+class WebSocketLogHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.loop = asyncio.get_event_loop()
+
+    async def emit_async(self, record):
+        log_message = self.format(record)
+        to_remove = []
+        for connection in log_connected_clients:
+            try:
+                await connection.send_text(log_message)
+            except:
+                to_remove.append(connection)
+
+        for connection in to_remove:
+            log_connected_clients.remove(connection)
+
+    def emit(self, record):
+        asyncio.run_coroutine_threadsafe(self.emit_async(record), self.loop)
+
+# Custom Logger Initialization
+logger = get_main_logger(__name__)
+logger.setLevel(logging.INFO)
+ws_handler = WebSocketLogHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ws_handler.setFormatter(formatter)
+logger.addHandler(ws_handler)
+
 def signal_handler(signum, frame):
-    """Handle shutdown signals"""
     global should_exit
     print("\nShutdown signal received. Cleaning up...")
     should_exit = True
@@ -49,7 +78,6 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Handle FastAPI shutdown event"""
     global should_exit
     should_exit = True
     # Close all WebSocket connections
@@ -59,6 +87,23 @@ async def shutdown_event():
                 await connection.close()
             except:
                 pass
+
+@app.websocket("/ws/logs")
+async def websocket_logs_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    log_connected_clients.append(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # Keep connection alive
+    except WebSocketDisconnect:
+        log_connected_clients.remove(websocket)
+    finally:
+        if websocket in log_connected_clients:
+            log_connected_clients.remove(websocket)
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Logging setup is complete and server is starting.")
 
 id_to_workflow = {
     "Detect Workflow": DetectWorkflow,
@@ -357,6 +402,6 @@ async def get_workflow_resources(workflow_id: str):
     resources = workflow.resource_manager.resources
     
     return resources
-    
+
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
