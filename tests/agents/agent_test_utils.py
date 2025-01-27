@@ -92,11 +92,17 @@ class EnvPathAssistant:
     def get_codebase_files_dir_name(self) -> str:
         return self.codebase_files_dir.name
     
-    def get_files_dir(self, as_path):
+    def get_files_dir(self, as_path=False):
         return self.get_codebase_files_dir(as_path)
 
-    def get_files_dir_name(self, as_path) -> str:
-        return self.get_codebase_files_dir_name(as_path)
+    def get_files_dir_name(self) -> str:
+        return self.get_codebase_files_dir_name()
+    
+    def get_tmp_codebase_files_dir(self, as_path=False):
+        return self._return_path(self.tmp_dir / self.codebase_files_dir.name, as_path)
+
+    def get_tmp_files_dir(self, as_path=False):
+        return self._return_path(self.tmp_dir / self.codebase_files_dir.name, as_path)
     
     def get_verify_script_dir(self, as_path=False):
         return self._return_path(self.verify_script_dir, as_path)
@@ -132,12 +138,13 @@ def bounty_setup(repo_name: str, bounty_number: int) -> EnvPathAssistant:
         bounty_number=bounty_number
     )
 
+    # The rest of the code assumes bounty_number is a str
+    bounty_number = str(bounty_number)
+
     setup_shared_network()
-    bounty_metadata = read_bounty_metadata(path_assistant.get_task_dir(as_path=True), bounty_number)
+    bounty_metadata = read_bounty_metadata(path_assistant.get_task_dir(), bounty_number)
     vulnerable_commit = bounty_metadata['vulnerable_commit']
 
-    # The resources take the bounty_number in as a str
-    bounty_number = str(bounty_number)
 
     # Configurations
     init_config = InitFilesResourceConfig(

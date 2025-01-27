@@ -4,17 +4,15 @@ import stat
 import subprocess
 import unittest
 from unittest.mock import patch
+import pytest
 
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.agent_manager import AgentManager
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
-from resources.resource_manager import ResourceManager
-from resources.docker_resource import DockerResource, DockerResourceConfig
-from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
-from resources.setup_resource import SetupResource, SetupResourceConfig
-from resources.utils import read_bounty_metadata
-from workflows.utils import setup_shared_network
 
+from tests.agents.agent_test_utils import lunary_bounty_0_setup, EnvPathAssistant
+
+TEST_FILE_NAME = "test_file.txt"
 
 def mock_patch_agent_message():
     def mock_init(self, agent_id, message, prev, success=None, patch_files_dir=None):
@@ -34,340 +32,327 @@ def write_to_file_and_make_executable(script_path: Path, file_text: str):
     script_path.write_text(file_text)
     script_path.chmod(script_path.stat().st_mode | stat.S_IXUSR)
 
-class TestPatchAgent(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        """
-        Set up the environment once for the entire class. 
-        This will run before any tests in the class.
-        """
-        # Set up the test environment - using lunary as an environment
-        repo = "lunary"
-        bounty_number = "0"
+@pytest.fixture(scope="module")
+def patch_agent(lunary_bounty_0_setup):
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    # Initialize agent
+    agent_manager = AgentManager()
+    patch_config = PatchAgentConfig(
+        bounty_dir=path_assistant.get_bounty_dir_from_task_dir(),
+        task_dir=path_assistant.get_task_dir(),
+        use_verify_script=True,
+    )
+    agent = agent_manager.create_agent("test_patch_agent", PatchAgent, patch_config)
+    verify_script_text = path_assistant.get_verify_script_dir(as_path=True).read_text()
+    exploit_script_text = path_assistant.get_exploit_script_dir(as_path=True).read_text()
 
-        files_dir_name = "codebase"
-        tmp_dir_name = "tmp"
-        exploit_files_dir_name = "exploit_files"
+    # agent's codebase parameter is initialized in the run function so we do it here
+    agent.codebase = path_assistant.get_tmp_files_dir()
 
-        task_dir = os.path.join("bountybench", repo)
-        bounty_dir = os.path.join("bounties", "bounty_0")
-        exploit_script_name, verify_script_name = "exploit.sh", "verify.sh"
+    mocks = [mock_patch_agent_message(), mock_restart_resource()]
+    store_patch_mock = mock_store_patch()
 
-        setup_shared_network()
-        bounty_metadata = read_bounty_metadata(str(task_dir), bounty_number)
-        vulnerable_commit = bounty_metadata['vulnerable_commit']
+    [mock.start() for mock in mocks]
+    store_patch_mock.start() # we don't want this to stop during testing so we don't stop
 
+    yield agent, verify_script_text, exploit_script_text
 
-        print(f"task_dir: {task_dir}")
-        print(f"files_dir_name: {files_dir_name}")
-        print(f"tmp_dir_name: {tmp_dir_name}")
+    [mock.stop() for mock in mocks]
 
-        task_dir = os.path.abspath(task_dir)
-        tmp_dir = os.path.join(task_dir, tmp_dir_name)
+@pytest.fixture()
+def execute_fixture(lunary_bounty_0_setup, patch_agent):
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    _, verify_script_text, exploit_script_text = patch_agent
 
-        # Configurations
-        init_config = InitFilesResourceConfig(
-            task_dir=task_dir,
-            files_dir_name=files_dir_name,
-            tmp_dir_name=tmp_dir_name,
-            bounty_number=bounty_number,
-            exploit_files_dir_name=exploit_files_dir_name,
-            vulnerable_commit=vulnerable_commit,
+    verify_script_dir = path_assistant.get_verify_script_dir()
+    verify_script_dir_path = Path(verify_script_dir)
+    exploit_script_dir = path_assistant.get_exploit_script_dir()
+    exploit_script_dir_path = Path(exploit_script_dir)
+
+    subprocess.run(["cp", verify_script_dir, f"{verify_script_dir}.bak"])
+    subprocess.run(["cp", exploit_script_dir, f"{exploit_script_dir}.bak"])
+    write_to_file_and_make_executable(
+        script_path=exploit_script_dir_path,
+        file_text="#!/usr/bin/env bash\nexit 0\n",
+    )
+    yield
+    subprocess.run(["mv", f"{verify_script_dir}.bak", verify_script_dir])
+    subprocess.run(["mv", f"{exploit_script_dir}.bak", exploit_script_dir])
+
+    # Check in case the copy/move operations failed in some manner
+    if verify_script_dir_path.read_text() != verify_script_text:
+        write_to_file_and_make_executable(
+            script_path=verify_script_dir_path,
+            file_text=verify_script_text
         )
-        setup_config = SetupResourceConfig(
-            bounty_level_setup=False,
-            task_dir=task_dir,
-            bounty_number=bounty_number
+    if exploit_script_dir_path.read_text() != exploit_script_text:
+        write_to_file_and_make_executable(
+            script_path=exploit_script_dir_path,
+            file_text=exploit_script_text,
         )
-        docker_config = DockerResourceConfig()
-        patch_config = PatchAgentConfig(
-            bounty_dir=bounty_dir,
-            task_dir=task_dir,
-            use_verify_script=True,
-        )
-        
-        # Initialize resources and agent
-        resource_manager = ResourceManager()
-        agent_manager = AgentManager()
 
-        resource_manager.register_resource("init_files", InitFilesResource, init_config)
-        resource_manager.register_resource("repo_resource", SetupResource, setup_config)
-        resource_manager.register_resource("docker", DockerResource, docker_config)
-        resource_manager.initialize_phase_resources(0, ["init_files", "repo_resource", "docker"])
-
-        # Make class variables for access later in setUp
-        cls.agent = agent_manager.create_agent("test_patch_agent", PatchAgent, patch_config)
-        cls.bounty_number = bounty_number
-        cls.task_dir = task_dir
-        cls.tmp_dir = tmp_dir
-        cls.verify_script_dir = Path(task_dir) / bounty_dir / verify_script_name
-        cls.exploit_script_dir = Path(tmp_dir) / exploit_script_name
-
-        cls.verify_script_text = cls.verify_script_dir.read_text()
-        cls.exploit_script_text = cls.exploit_script_dir.read_text()
-
-        # These mocks are enabled for every test in this file
-        cls.mocks = [mock_patch_agent_message(), mock_store_patch(), mock_restart_resource()]
-        [mock.start() for mock in cls.mocks]
+@pytest.fixture()
+def git_fixture(lunary_bounty_0_setup):
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    files_repo_test_file = path_assistant.get_files_dir(as_path=True) / TEST_FILE_NAME
+    yield
+    # delete test_file if it exists
+    if files_repo_test_file.exists():
+        files_repo_test_file.unlink()
     
-    def setUp(self):
-        # Assign class-level variables to instance variables (self)
-        self.agent: PatchAgent = self.__class__.agent
-        self.bounty_number = self.__class__.bounty_number
-        self.task_dir = self.__class__.task_dir
-        self.tmp_dir = self.__class__.tmp_dir
-        self.verify_script_dir = self.__class__.verify_script_dir
-        self.exploit_script_dir = self.__class__.exploit_script_dir
+# probably a temporary test but currently failing due to issues with initializing resources
+def test_check_repo_and_bounty_are_different(patch_agent):
+    agent, _, _ = patch_agent
+    if hasattr(patch_agent, "bounty_resource") and hasattr(agent, "repo_resource"):
+        assert agent.bounty_resource is not agent.repo_resource
 
-        self.test_file_name = "test_file.txt"
+def test_run_exploit(lunary_bounty_0_setup, patch_agent):
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    exploit_script_dir = path_assistant.get_exploit_script_dir(as_path=True)
+    write_to_file_and_make_executable(
+        script_path=exploit_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 1\n",
+    )
+    exploit_result = agent.run_exploit()
+    assert exploit_result[1] == 1
 
-        # codebase is initialized in the run function so we do it here
-        self.agent.codebase = os.path.join(self.agent.init_files.tmp_dir, self.agent.init_files.files_dir_name)
+    write_to_file_and_make_executable(
+        script_path=exploit_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 0\n",
+    )
+    exploit_result = agent.run_exploit()
+    assert exploit_result[1] == 0
 
-        # Create backup of verify and exploit script to restore after tests
-        self.verify_script_text = self.__class__.verify_script_text
-        self.exploit_script_text = self.__class__.exploit_script_text
-        subprocess.run(["cp", str(self.verify_script_dir), f"{str(self.verify_script_dir)}.bak"])
-        subprocess.run(["cp", str(self.exploit_script_dir), f"{str(self.exploit_script_dir)}.bak"])
-        write_to_file_and_make_executable(
-            script_path=self.exploit_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 0\n",
-        )
+    write_to_file_and_make_executable(
+        script_path=exploit_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 2\n",
+    )
+    exploit_result = agent.run_exploit()
+    assert exploit_result[1] == 2
 
-    def tearDown(self):
-        # Clean up: remove the temporary exploit files from the Kali container
-        subprocess.run(["mv", str(f"{str(self.verify_script_dir)}.bak"), str(self.verify_script_dir)])
-        subprocess.run(["mv", str(f"{str(self.exploit_script_dir)}.bak"), str(self.exploit_script_dir)])
+def test_restart_resource_check(lunary_bounty_0_setup, patch_agent):
+    """
+    If repo_resource fails to restart, error.
+    """
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    with patch.object(PatchAgent, "_restart_resource", return_value=False):
+        result = agent.execute()
+        assert isinstance(result, PatchAgentMessage)
+        assert "cannot restart" in result.message.lower()
 
-        # Check in case the copy/move operations failed in some manner
-        if self.verify_script_dir.read_text() != self.verify_script_text:
-            write_to_file_and_make_executable(
-                script_path=self.verify_script_dir,
-                file_text=self.verify_script_text
-            )
-        if self.exploit_script_dir.read_text() != self.exploit_script_text:
-            write_to_file_and_make_executable(
-                script_path=self.exploit_script_dir,
-                file_text=self.exploit_script_text,
-            )
+def test_no_verify_sh_exploit_returns_1(lunary_bounty_0_setup, patch_agent):
+    """
+    No verify.sh used. Exploit should return 0 or 1.
+    If exploit returns 1 → Patch succeeded.
+    """
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    exploit_script_dir = path_assistant.get_exploit_script_dir(as_path=True)
+    write_to_file_and_make_executable(
+        script_path=exploit_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 1\n",
+    )
+    agent.use_verify_script = False
+    result = agent.execute()
+    assert isinstance(result, PatchAgentMessage)
+    assert "patch succeeded" in result.message.lower()
 
-        # delete test_file if it exists
-        files_repo_test_file = Path(os.path.join(self.agent.init_files.files_dir)) / self.test_file_name
-        if files_repo_test_file.exists():
-            files_repo_test_file.unlink()
+def test_no_verify_sh_exploit_returns_0(lunary_bounty_0_setup, patch_agent):
+    """
+    No verify.sh used. Exploit returns 0 → patch failed.
+    """
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    exploit_script_dir = path_assistant.get_exploit_script_dir(as_path=True)
+    write_to_file_and_make_executable(
+        script_path=exploit_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 0\n",
+    )
+    agent.use_verify_script = False
+
+    # By default exploit_script returns exit 0 (from fixture)
+    result = agent.execute()
+    assert isinstance(result, PatchAgentMessage)
+    assert "patch failed" in result.message.lower()
+
+def test_no_verify_sh_exploit_invalid_exit_code(lunary_bounty_0_setup, patch_agent):
+    """
+    No verify.sh used. Exploit must return 0 or 1.
+    If it returns something else, we consider that patch failed.
+    """
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    exploit_script_dir = path_assistant.get_exploit_script_dir(as_path=True)
+    write_to_file_and_make_executable(
+        script_path=exploit_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 2\n",
+    )
+    agent.use_verify_script = False
+
+    # If exploit returns code != 0 or 1, we want patch failed scenario.
+    # Since code 2 is not what we want, we treat it as exploit succeeded scenario (which means patch failed)
+    # or we can assert patch fails. Let's assume we treat any non-(0 or 1) as exploit=0 scenario.
+    result = agent.execute()
+    # Should result in patch failed
+    assert isinstance(result, PatchAgentMessage)
+    assert "patch failed" in result.message.lower()
+
+def test_with_verify_sh_success(lunary_bounty_0_setup, patch_agent):
+    """
+    Using verify.sh. Exploit can return any exit code or message.
+    Success is determined by verify.sh returning 1.
+    By default, verify.sh checks if 'Success' in output → exit 1 (success).
+    """
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    verify_script_dir = path_assistant.get_verify_script_dir(as_path=True)
+    write_to_file_and_make_executable(
+        script_path=verify_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 1\n",
+    )
+    agent.use_verify_script = True
+    result = agent.execute()
+    assert isinstance(result, PatchAgentMessage)
+    assert "patch succeeded" in result.message.lower()
+
+def test_with_verify_sh_fail(lunary_bounty_0_setup, patch_agent):
+    """
+    Using verify.sh. If verify.sh returns 0, patch failed.
+    No 'Success' in output → verify.sh returns 0.
+    """
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    verify_script_dir = path_assistant.get_verify_script_dir(as_path=True)
+    write_to_file_and_make_executable(
+        script_path=verify_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 0\n",
+    )
+    agent.use_verify_script = True
+    result = agent.execute()
+    assert isinstance(result, PatchAgentMessage)
+    assert "patch failed" in result.message.lower()
+
+def test_verify_patch_works_success(lunary_bounty_0_setup, patch_agent):
+    # patch works by default but for consistency change it anyway
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    verify_script_dir = path_assistant.get_verify_script_dir(as_path=True)
+    write_to_file_and_make_executable(
+        script_path=verify_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 1\n",
+    )
+    result = agent.verify_patch_works("")
+    assert result
+
+def test_verify_patch_works_fail(lunary_bounty_0_setup, patch_agent):
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    verify_script_dir = path_assistant.get_verify_script_dir(as_path=True)
+    write_to_file_and_make_executable(
+        script_path=verify_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 0\n",
+    )
+    result = agent.verify_patch_works("")
+    assert not result
+
+def test_verify_patch_works_other(lunary_bounty_0_setup, patch_agent):
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    verify_script_dir = path_assistant.get_verify_script_dir(as_path=True)
+    write_to_file_and_make_executable(
+        script_path=verify_script_dir,
+        file_text="#!/usr/bin/env bash\nexit 2\n",
+    )
+    result = agent.verify_patch_works("")
+    assert not result
+
+def test_get_git_diff(lunary_bounty_0_setup, patch_agent, git_fixture):
+    """
+    Test the get_git_diff method.
+    """
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    tmp_repo_path = path_assistant.get_tmp_files_dir()
+
+    with open(os.path.join(tmp_repo_path, TEST_FILE_NAME), 'w') as f:
+        f.write("Modified content")
     
-    def test_check_repo_and_bounty_are_different(self):
-        if hasattr(self.agent, "bounty_resource") and hasattr(self.agent, "repo_resource"):
-            self.assertIsNot(self.agent.bounty_resource, self.agent.repo_resource)
+    diff = agent.get_git_diff(tmp_repo_path)
+    assert "Modified content" in diff, "Expected to see modified content in the git diff."
     
-    def test_run_exploit(self):
-        write_to_file_and_make_executable(
-            script_path=self.exploit_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 1\n",
-        )
-        exploit_result = self.agent.run_exploit()
-        self.assertEquals(exploit_result[1], 1)
 
-        write_to_file_and_make_executable(
-            script_path=self.exploit_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 0\n",
-        )
-        exploit_result = self.agent.run_exploit()
-        self.assertEquals(exploit_result[1], 0)
+def test_create_git_patch(lunary_bounty_0_setup, patch_agent, git_fixture):
+    """
+    Test the create_git_patch method, ensuring patch is created outside the task repo.
+    """
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    agent.patch_id = 1
+    tmp_dir = path_assistant.get_tmp_dir()
+    with open(os.path.join(tmp_dir, TEST_FILE_NAME), 'w') as f:
+        f.write("Another modification")
+    
+    diff = agent.get_git_diff(tmp_dir)
+    agent.create_git_patch(diff, agent.patch_dir)
+    
+    patch_file_path = os.path.join(agent.patch_dir, "patch_1.patch")
+    assert os.path.exists(patch_file_path)
+    
 
-        write_to_file_and_make_executable(
-            script_path=self.exploit_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 2\n",
-        )
-        exploit_result = self.agent.run_exploit()
-        self.assertEquals(exploit_result[1], 2)
+def test_create_git_commit(lunary_bounty_0_setup, patch_agent, git_fixture):
+    """
+    Test the create_git_commit method in the tmp repo.
+    """
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    agent.patch_id = 1
+    tmp_dir = path_assistant.get_tmp_dir()
 
-    def test_restart_resource_check(self):
-        """
-        If repo_resource fails to restart, error.
-        """
-        with patch.object(PatchAgent, "_restart_resource", return_value=False):
-            result = self.agent.execute()
-            self.assertIsInstance(result, PatchAgentMessage)
-            self.assertIn("cannot restart", result.message.lower())
+    with open(os.path.join(tmp_dir, TEST_FILE_NAME), 'w') as f:
+        f.write("New content for patch")
+    
+    diff = agent.get_git_diff(tmp_dir)
+    
+    agent.create_git_patch(diff, agent.patch_dir)
+    agent.create_git_commit(tmp_dir)
 
-    def test_no_verify_sh_exploit_returns_1(self):
-        """
-        No verify.sh used. Exploit should return 0 or 1.
-        If exploit returns 1 → Patch succeeded.
-        """
-        write_to_file_and_make_executable(
-            script_path=self.exploit_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 1\n",
-        )
-        self.agent.use_verify_script = False
-        result = self.agent.execute()
-        self.assertIsInstance(result, PatchAgentMessage)
-        self.assertIn("patch succeeded", result.message.lower())
+    log_output = subprocess.check_output(['git', 'log', '--oneline'], cwd=tmp_dir).decode('utf-8')
+    print(log_output)
+    assert "Commit 1" in log_output, "Expected the commit message to contain the patch id."
 
-    def test_no_verify_sh_exploit_returns_0(self):
-        """
-        No verify.sh used. Exploit returns 0 → patch failed.
-        """
-        write_to_file_and_make_executable(
-            script_path=self.exploit_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 0\n",
-        )
-        self.agent.use_verify_script = False
+    committed_files = subprocess.check_output(['git', 'ls-tree', '--name-only', '-r', 'HEAD'], cwd=tmp_dir).decode('utf-8')
+    
+    assert TEST_FILE_NAME in committed_files, f"Expected {TEST_FILE_NAME} to be part of the commit."
+    
+    patch_file_path = os.path.join(agent.patch_dir, f"patch_{agent.patch_id}.patch")
+    assert os.path.exists(patch_file_path)
 
-        # By default exploit_script returns exit 0 (from fixture)
-        result = self.agent.execute()
-        self.assertIsInstance(result, PatchAgentMessage)
-        self.assertIn("patch failed", result.message.lower())
+def test_apply_git_patch(lunary_bounty_0_setup, patch_agent, git_fixture):
+    """
+    Test the apply_git_patch method in the task repo.
+    """
+    path_assistant: EnvPathAssistant = lunary_bounty_0_setup
+    agent, _, _ = patch_agent
+    tmp_repo_path = path_assistant.get_tmp_files_dir()
+    files_repo_path = path_assistant.get_files_dir()
+    agent.patch_id = 1
 
-    def test_no_verify_sh_exploit_invalid_exit_code(self):
-        """
-        No verify.sh used. Exploit must return 0 or 1.
-        If it returns something else, we consider that patch failed.
-        """
-        write_to_file_and_make_executable(
-            script_path=self.exploit_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 2\n",
-        )
-        self.agent.use_verify_script = False
+    with open(os.path.join(tmp_repo_path, TEST_FILE_NAME), 'w') as f:
+        f.write("Patch content")
+    
+    diff = agent.get_git_diff(tmp_repo_path)
+    agent.create_git_patch(diff, agent.patch_dir)
+    agent.create_git_commit(tmp_repo_path)
 
-        # If exploit returns code != 0 or 1, we want patch failed scenario.
-        # Since code 2 is not what we want, we treat it as exploit succeeded scenario (which means patch failed)
-        # or we can assert patch fails. Let's assume we treat any non-(0 or 1) as exploit=0 scenario.
-        result = self.agent.execute()
-        # Should result in patch failed
-        self.assertIsInstance(result, PatchAgentMessage)
-        self.assertIn("patch failed", result.message.lower())
+    patch_file = Path(os.path.abspath(os.path.join(agent.patch_dir, f"patch_{agent.patch_id}.patch")))
+    subprocess.check_call(['git', 'checkout', 'dev'], cwd=files_repo_path)
 
-    def test_with_verify_sh_success(self):
-        """
-        Using verify.sh. Exploit can return any exit code or message.
-        Success is determined by verify.sh returning 1.
-        By default, verify.sh checks if 'Success' in output → exit 1 (success).
-        """
-        write_to_file_and_make_executable(
-            script_path=self.verify_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 1\n",
-        )
-        self.agent.use_verify_script = True
-        result = self.agent.execute()
-        self.assertIsInstance(result, PatchAgentMessage)
-        self.assertIn("patch succeeded", result.message.lower())
+    success, message = agent.apply_git_patch(patch_file, files_repo_path, 'dev')
 
-    def test_with_verify_sh_fail(self):
-        """
-        Using verify.sh. If verify.sh returns 0, patch failed.
-        No 'Success' in output → verify.sh returns 0.
-        """
-        write_to_file_and_make_executable(
-            script_path=self.verify_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 0\n",
-        )
-        self.agent.use_verify_script = True
-        result = self.agent.execute()
-        self.assertIsInstance(result, PatchAgentMessage)
-        self.assertIn("patch failed", result.message.lower())
-
-    def test_verify_patch_works_success(self):
-        # patch works by default but for consistency change it anyway
-        write_to_file_and_make_executable(
-            script_path=self.verify_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 1\n",
-        )
-        result = self.agent.verify_patch_works("")
-        self.assertTrue(result)
-
-    def test_verify_patch_works_fail(self):
-        write_to_file_and_make_executable(
-            script_path=self.verify_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 0\n",
-        )
-        result = self.agent.verify_patch_works("")
-        self.assertFalse(result)
-
-    def test_verify_patch_works_other(self):
-        write_to_file_and_make_executable(
-            script_path=self.verify_script_dir,
-            file_text="#!/usr/bin/env bash\nexit 2\n",
-        )
-        result = self.agent.verify_patch_works("")
-        self.assertFalse(result)
-
-    def test_get_git_diff(self):
-        """
-        Test the get_git_diff method.
-        """
-        tmp_repo_path = os.path.join(self.agent.init_files.tmp_dir, self.agent.init_files.files_dir_name)
-
-        with open(os.path.join(tmp_repo_path, self.test_file_name), 'w') as f:
-            f.write("Modified content")
-        
-        diff = self.agent.get_git_diff(tmp_repo_path)
-        self.assertIn("Modified content", diff, "Expected to see modified content in the git diff.")
-        
-
-    def test_create_git_patch(self):
-        """
-        Test the create_git_patch method, ensuring patch is created outside the task repo.
-        """
-        self.agent.patch_id = 1
-        with open(os.path.join(self.tmp_dir, self.test_file_name), 'w') as f:
-            f.write("Another modification")
-        
-        diff = self.agent.get_git_diff(self.tmp_dir)
-        self.agent.create_git_patch(diff, self.agent.patch_dir)
-        
-        patch_file_path = os.path.join(self.agent.patch_dir, "patch_1.patch")
-        self.assertTrue(os.path.exists(patch_file_path))
-        
-
-    def test_create_git_commit(self):
-        """
-        Test the create_git_commit method in the tmp repo.
-        """
-        self.agent.patch_id = 1
-
-        with open(os.path.join(self.tmp_dir, self.test_file_name), 'w') as f:
-            f.write("New content for patch")
-        
-        diff = self.agent.get_git_diff(self.tmp_dir)
-        
-        self.agent.create_git_patch(diff, self.agent.patch_dir)
-        self.agent.create_git_commit(self.tmp_dir)
-
-        log_output = subprocess.check_output(['git', 'log', '--oneline'], cwd=self.tmp_dir).decode('utf-8')
-        print(log_output)
-        self.assertIn("Commit 1", log_output, "Expected the commit message to contain the patch id.")
-
-        committed_files = subprocess.check_output(['git', 'ls-tree', '--name-only', '-r', 'HEAD'], cwd=self.tmp_dir).decode('utf-8')
-        
-        self.assertIn(self.test_file_name, committed_files, f"Expected {self.test_file_name} to be part of the commit.")
-        
-        patch_file_path = os.path.join(self.agent.patch_dir, f"patch_{self.agent.patch_id}.patch")
-        self.assertTrue(os.path.exists(patch_file_path))
-
-    def test_apply_git_patch(self):
-        """
-        Test the apply_git_patch method in the task repo.
-        """
-        tmp_repo_path = os.path.join(self.agent.init_files.tmp_dir, self.agent.init_files.files_dir_name)
-        files_repo_path = os.path.join(self.agent.init_files.files_dir)
-        self.agent.patch_id = 1
-
-        with open(os.path.join(tmp_repo_path, self.test_file_name), 'w') as f:
-            f.write("Patch content")
-        
-        diff = self.agent.get_git_diff(tmp_repo_path)
-        self.agent.create_git_patch(diff, self.agent.patch_dir)
-        self.agent.create_git_commit(tmp_repo_path)
-
-        patch_file = Path(os.path.abspath(os.path.join(self.agent.patch_dir, f"patch_{self.agent.patch_id}.patch")))
-        subprocess.check_call(['git', 'checkout', 'dev'], cwd=files_repo_path)
-
-        success, message = self.agent.apply_git_patch(patch_file, files_repo_path, 'dev')
-
-        self.assertTrue(success, message)
-        self.assertIn("Patch content", open(os.path.join(files_repo_path, self.test_file_name)).read())
+    assert success, message
+    assert "Patch content" in open(os.path.join(files_repo_path, TEST_FILE_NAME)).read()
 
 
 
