@@ -10,7 +10,7 @@ import './AgentMessage.css'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChildUpdate, phaseMultiVersion, phaseDisplayedIndex, phaseVersionLength, phaseReset }) => {
+const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChildUpdate, phaseMultiVersion, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message.message || '');
@@ -42,8 +42,6 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChil
         onPhaseChildUpdate(num); // Notify parent of the update
     }
   };
-
-  const adjustedDisplayIndex = phaseReset ? 1: displayedIndex;
 
   const handleSaveClick = async () => {
     if (!message.current_id) {
@@ -163,7 +161,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChil
               </Box>
             ) : (
               <Box className="action-messages-container">
-                {message.action_messages.slice(2*adjustedDisplayIndex-2, 2*adjustedDisplayIndex).map((actionMessage, index) => (
+                {message.action_messages.slice(2*displayedIndex-2, 2*displayedIndex).map((actionMessage, index) => (
                   <ActionMessage
                     key={index}
                     action={actionMessage}
@@ -171,7 +169,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChil
                     onRerunAction={onRerunAction}
                     onChildUpdate={handleChildUpdate}
                     multiVersion={multiVersion}
-                    displayedIndex={adjustedDisplayIndex}
+                    displayedIndex={displayedIndex}
                     versionLength={message.action_messages.length / 2}
                   />
                 ))}

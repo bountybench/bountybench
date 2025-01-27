@@ -14,7 +14,6 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
 
   const [phaseDisplayedIndex, setPhaseDisplayedIndex] = useState(1);
   const [phaseMultiVersion, setPhaseMultiVersion] = useState(false);
-  const [phaseReset, setPhaseReset] = useState(false);
 
   useEffect(() => {
     if (message.agent_messages){
@@ -25,15 +24,12 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
       }
       setPhaseMultiVersion(true);
       setPhaseDisplayedIndex(messageLength / 2);
-      setPhaseReset(true);
       
     }
   }, [message.agent_messages]);
 
   const handleChildUpdate = (num) => {
     setPhaseDisplayedIndex((prev) => prev + num);
-    // reset the index of all following displayed messages to 1
-    setPhaseReset(true);
   };
 
   return (
@@ -70,7 +66,6 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
                     phaseMultiVersion={phaseMultiVersion}
                     phaseDisplayedIndex={phaseDisplayedIndex}
                     phaseVersionLength={message.agent_messages.length / 2}
-                    phaseReset={phaseReset}
                   />
                 ))}
               </Box>
