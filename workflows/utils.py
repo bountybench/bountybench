@@ -1,9 +1,7 @@
 import logging
 from resources.utils import docker_network_exists, run_command
 
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 def setup_shared_network() -> None:
     """Setup Docker network if it does not exist."""

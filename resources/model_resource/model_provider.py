@@ -8,9 +8,7 @@ from typing import List
 from dotenv import load_dotenv
 
 from resources.model_resource.model_response import ModelResponse
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 
 class ModelProvider(ABC):

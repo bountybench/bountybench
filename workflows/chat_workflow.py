@@ -4,9 +4,7 @@ from pathlib import Path
 from phases.chat_phase import ChatPhase
 from workflows.base_workflow import BaseWorkflow
 
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 class ChatWorkflow(BaseWorkflow):
     """Workflow for chating vulnerabilities"""

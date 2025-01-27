@@ -7,10 +7,8 @@ from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
 from resources.model_resource.model_resource import ModelResource
 from messages.message import Message
-from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 MAX_RETRIES = 3
 RETRY_DELAY = 30

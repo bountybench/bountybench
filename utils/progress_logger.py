@@ -1,7 +1,7 @@
 import threading
 import time
 import sys
-from utils.logger import get_main_logger
+from utils.logger import logger
 
 CYAN = "\033[36m"
 RESET = "\033[0m"
@@ -12,7 +12,7 @@ class ProgressLogger:
         self.update_interval = update_interval
         self.is_running = False
         self.thread = None
-        self.logger = get_main_logger(__name__)
+        self.logger = logger
         self.lock = threading.Lock()
         self.last_message = None
 
@@ -73,5 +73,4 @@ def log_progress(message):
     if current_progress:
         current_progress.log(message)
     else:
-        logger = get_main_logger(__name__)
         logger.info(message)

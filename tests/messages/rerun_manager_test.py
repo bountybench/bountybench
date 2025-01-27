@@ -16,10 +16,8 @@ from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.resource_manager import ResourceManager
 from agents.agent_manager import AgentManager
 
-from utils.logger import get_main_logger
+from utils.logger import logger
 from workflows.base_workflow import BaseWorkflow
-
-logger = get_main_logger(__name__)
 
 class TestKaliAgent(BaseAgent):
     REQUIRED_RESOURCES = [

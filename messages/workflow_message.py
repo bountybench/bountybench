@@ -4,9 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 class WorkflowMessage(Message):    
     _instance = None

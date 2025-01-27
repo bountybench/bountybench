@@ -5,17 +5,13 @@ import sys
 import time
 
 from resources.base_resource import BaseResource
-from utils.logger import get_main_logger
+from utils.logger import logger
 import shutil
 
 from dataclasses import dataclass
 from typing import Optional
 import os
 from resources.base_resource import BaseResourceConfig
-
-
-# Configure logging
-logger = get_main_logger(__name__)
 
 
 

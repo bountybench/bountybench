@@ -7,11 +7,8 @@ from resources.model_resource.model_resource import ModelResource, ModelResource
 from messages.action_messages.answer_message_interface import AnswerMessageInterface
 from messages.message import Message
 from typing import Any, Dict, List, Optional, Tuple, Type
-from utils.logger import get_main_logger
+from utils.logger import logger
 from workflows.base_workflow import BaseWorkflow
-
-
-logger = get_main_logger(__name__)
 
 class ChatPhase(BasePhase):
     AGENT_CLASSES = [ChatAgent]

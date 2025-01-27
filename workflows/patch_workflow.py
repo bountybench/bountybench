@@ -6,9 +6,7 @@ from phases.patch_phase import PatchPhase
 from resources.utils import read_writeup
 from workflows.bounty_workflow import BountyWorkflow
 
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 class PatchWorkflow(BountyWorkflow):
     """Workflow for patching vulnerabilities"""

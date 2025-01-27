@@ -3,10 +3,8 @@ from pathlib import Path
 from agents.prompts import TARGET_HOST_DETECT_PROMPT, DETECT_PROMPT, STOP_TOKEN
 from phases.exploit_phase import ExploitPhase
 from resources.utils import read_writeup
-from utils.logger import get_main_logger
+from utils.logger import logger
 from workflows.bounty_workflow import BountyWorkflow
-
-logger = get_main_logger(__name__)
 
 class DetectWorkflow(BountyWorkflow):
     """Workflow for detecting vulnerabilities"""
