@@ -9,11 +9,12 @@ from pydantic import BaseModel
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from workflows.detect_workflow import DetectWorkflow, get_main_logger
+from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
 from utils.websocket_manager import websocket_manager
+from utils.logger import logger
 
 app = FastAPI()
 
@@ -52,7 +53,6 @@ class WebSocketLogHandler(logging.Handler):
         asyncio.run_coroutine_threadsafe(self.emit_async(record), self.loop)
 
 # Custom Logger Initialization
-logger = get_main_logger(__name__)
 logger.setLevel(logging.INFO)
 ws_handler = WebSocketLogHandler()
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')

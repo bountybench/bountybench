@@ -87,3 +87,5 @@ def get_separator_logger(level: int = logging.INFO) -> logging.Logger:
     logger.addHandler(separator_handler)
     logger.propagate = False
     return logger
+
+logger = get_main_logger(__name__)
