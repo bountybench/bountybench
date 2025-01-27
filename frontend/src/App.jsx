@@ -1,21 +1,23 @@
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
-import { ToastContainer, toast, Slide } from "react-toastify";
+import { ToastContainer, toast, Slide } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
 import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
-import { AppHeader } from './components/AppHeader/AppHeader'; 
+import { AppHeader } from './components/AppHeader/AppHeader';
 import { darkTheme } from './theme';
 import './App.css';
 
-function App() {  
+function App() {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [interactiveMode, setInteractiveMode] = useState(true);
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
-  
+
   const handleWorkflowStart = (workflowId, isInteractive) => {
     setSelectedWorkflow({ id: workflowId });
     setInteractiveMode(isInteractive);
@@ -33,14 +35,14 @@ function App() {
           },
           body: JSON.stringify({ interactive: newInteractiveMode }),
         });
-        
+
         if (!response.ok) {
           throw new Error('Failed to update interactive mode');
         }
-        
-        console.log("Backend updated with new interactive mode:", newInteractiveMode);
+
+        console.log('Backend updated with new interactive mode:', newInteractiveMode);
       } catch (error) {
-        console.error("Error updating interactive mode:", error);
+        console.error('Error updating interactive mode:', error);
         setInteractiveMode(!newInteractiveMode); // Revert state on error
       }
     }
@@ -57,9 +59,9 @@ function App() {
     console.error = function(...args) {
       const errorMessage = args.join(' ');
       toast.error(errorMessage, {
-        position: "top-center",
+        position: 'top-center',
         autoClose: 5000,
-        transition: Slide
+        transition: Slide,
       });
       originalConsoleError.apply(console, args);
     };
@@ -72,29 +74,21 @@ function App() {
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
-      <Box className="app-container" display="flex" flexDirection="column" height="100vh">
+      <Box className='app-container' display='flex' flexDirection='column' height='100vh'>
         <ToastContainer />
-        <AppHeader 
+        <AppHeader
           onInteractiveModeToggle={handleInteractiveModeToggle}
           interactiveMode={interactiveMode}
           selectedWorkflow={selectedWorkflow}
           workflowStatus={workflowStatus}
           currentPhase={currentPhase}
         />
-        <Box flexGrow={1} overflow="auto">
-          {selectedWorkflow ? (
-            <WorkflowDashboard 
-              selectedWorkflow={selectedWorkflow}
-              interactiveMode={interactiveMode}
-              onWorkflowStateUpdate={handleWorkflowStateUpdate}
-            />
-          ) : (
-            <WorkflowLauncher 
-              onWorkflowStart={handleWorkflowStart}
-              interactiveMode={interactiveMode}
-              setInteractiveMode={setInteractiveMode}
-            />
-          )}
+        <Box flexGrow={1} overflow='auto'>
+          <Routes>
+            <Route path='/' element={<Navigate to='/home' />} />
+            <Route path='/home' element={<WorkflowLauncher onWorkflowStart={handleWorkflowStart} interactiveMode={interactiveMode} setInteractiveMode={setInteractiveMode} />} />
+            <Route path='/workflow' element={<WorkflowDashboard selectedWorkflow={selectedWorkflow} interactiveMode={interactiveMode} onWorkflowStateUpdate={handleWorkflowStateUpdate} />} />
+          </Routes>
         </Box>
       </Box>
     </ThemeProvider>
