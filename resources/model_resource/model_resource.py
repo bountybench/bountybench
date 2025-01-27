@@ -13,7 +13,7 @@ from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.model_resource.model_utils import get_model_provider
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from utils.logger import get_main_logger
-from services.api_key_service import verify_and_auth_api_key
+from resources.model_resource.services.api_key_service import verify_and_auth_api_key
 
 logger = get_main_logger(__name__)
 
