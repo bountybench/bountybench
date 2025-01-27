@@ -11,6 +11,7 @@ import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher
 import { AppHeader } from './components/AppHeader/AppHeader';
 import { darkTheme } from './theme';
 import './App.css';
+import HomePage from './components/HomePage/HomePage';
 
 function App() {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
@@ -85,8 +86,8 @@ function App() {
         />
         <Box flexGrow={1} overflow='auto'>
           <Routes>
-            <Route path='/' element={<Navigate to='/home' />} />
-            <Route path='/home' element={<WorkflowLauncher onWorkflowStart={handleWorkflowStart} interactiveMode={interactiveMode} setInteractiveMode={setInteractiveMode} />} />
+            <Route path='/' element={<HomePage/>} />
+            <Route path='/create-workflow' element={<WorkflowLauncher onWorkflowStart={handleWorkflowStart} interactiveMode={interactiveMode} setInteractiveMode={setInteractiveMode} />} />
             <Route path='/workflow' element={<WorkflowDashboard selectedWorkflow={selectedWorkflow} interactiveMode={interactiveMode} onWorkflowStateUpdate={handleWorkflowStateUpdate} />} />
           </Routes>
         </Box>
