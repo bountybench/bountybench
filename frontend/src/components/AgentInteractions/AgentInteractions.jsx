@@ -5,6 +5,7 @@ import SendIcon from '@mui/icons-material/Send';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
 import InputContainer from './components/InputContainer/InputContainer';
 import './AgentInteractions.css';
+import StatusMessage from './StatusMessage/StatusMessage';
 
 const AgentInteractions = ({ 
   interactiveMode, 
@@ -65,8 +66,8 @@ const AgentInteractions = ({
           />
         )}
         <div ref={messagesEndRef} />
+        <StatusMessage/>
       </Box>
-
       <Box className="input-and-buttons-container" display="flex">
         <Box className="buttons-wrapper" display="flex" flexDirection="column" justifyContent="flex-end">
           {interactiveMode && (
