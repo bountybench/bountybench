@@ -44,7 +44,7 @@ class BaseWorkflow(ABC):
         
         self.initial_prompt=self._get_initial_prompt()
 
-        self.workflow_message = WorkflowMessage.initialize(
+        self.workflow_message = WorkflowMessage(
             workflow_name=self.name,
             task=self._get_task(),
             additional_metadata=self._get_metadata()

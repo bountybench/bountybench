@@ -14,6 +14,13 @@ class ActionMessage(Message):
         return self._resource_id
 
     @property
+    def workflow_id(self) -> str:
+        assert(self.parent)
+        assert(self.parent.parent)
+        assert(self.parent.parent.parent)
+        return self.parent.parent.parent
+    
+    @property
     def message(self) -> str:
         return self._message
     

@@ -9,23 +9,7 @@ from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 class WorkflowMessage(Message):    
-    _instance = None
-
-    @classmethod
-    def initialize(cls, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, 
-                  additional_metadata: Optional[Dict[str, Any]] = None, logs_dir: str = "logs"):
-        if cls._instance is None:
-            cls._instance = cls.__new__(cls)
-            cls._instance._initialize(workflow_name, workflow_id, task, additional_metadata, logs_dir)
-        return cls._instance
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            raise RuntimeError("WorkflowMessage has not been initialized. Call initialize() first.")
-        return cls._instance
-    
-    def _initialize(self, workflow_name: str, workflow_id: Optional[str] = None, 
+    def __init__(self, workflow_name: str, workflow_id: Optional[str] = None, 
                    task: Optional[Dict[str, Any]] = None, additional_metadata: Optional[Dict[str, Any]] = None, 
                    logs_dir: str = "logs") -> None:
         # Core
@@ -56,10 +40,6 @@ class WorkflowMessage(Message):
 
         super().__init__()
         
-    def __init__(self):
-        # This method should not be called directly
-        raise RuntimeError("WorkflowMessage should not be instantiated directly. Use initialize() or get_instance().")
-
     @property
     def summary(self) -> str:
         return self._summary

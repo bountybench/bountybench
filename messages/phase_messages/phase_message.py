@@ -19,6 +19,11 @@ class PhaseMessage(Message):
         return self._phase_id
     
     @property
+    def workflow_id(self) -> str:
+        assert(self.parent)
+        return self.parent
+    
+    @property
     def success(self) -> bool:
         return self._success
     
@@ -66,8 +71,7 @@ class PhaseMessage(Message):
         self._agent_messages.append(agent_message)
         agent_message.set_parent(self)
         from messages.message_utils import broadcast_update
-        phase_dict = self.to_dict()
-        broadcast_update(phase_dict)
+        broadcast_update(self)
 
 
     def to_dict(self) -> dict:
