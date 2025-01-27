@@ -34,7 +34,7 @@ def test_start_workflow_success(client_fixture):
     payload = {
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 123,
+        "bounty_number": "123",
         "interactive": True,
         "iterations": 5
     }
@@ -53,7 +53,7 @@ def test_start_workflow_invalid_name(client_fixture):
     payload = {
         "workflow_name": "Unknown Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 123,
+        "bounty_number": "123",
         "interactive": True,
         "iterations": 5
     }
@@ -73,7 +73,7 @@ def test_execute_workflow_success(client_fixture):
     start_payload = {
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 123,
+        "bounty_number": "123",
         "interactive": False,
         "iterations": 3
     }
@@ -109,7 +109,7 @@ def test_next_message_success(client_fixture):
     start_payload = {
         "workflow_name": "Chat Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 456,
+        "bounty_number": "456",
         "interactive": True,
         "iterations": 2
     }
@@ -146,7 +146,7 @@ def test_rerun_message_success(client_fixture):
     start_payload = {
         "workflow_name": "Patch Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 789,
+        "bounty_number": "789",
         "interactive": False,
         "iterations": 1
     }
@@ -185,7 +185,7 @@ def test_edit_action_input_success(client_fixture):
     start_payload = {
         "workflow_name": "Chat Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 321,
+        "bounty_number": "321",
         "interactive": True,
         "iterations": 4
     }
@@ -230,7 +230,7 @@ def test_update_interactive_mode_success(client_fixture):
     start_payload = {
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 654,
+        "bounty_number": "654",
         "interactive": False,
         "iterations": 2
     }
@@ -256,7 +256,7 @@ def test_update_interactive_mode_missing_field(client_fixture):
     start_payload = {
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 654,
+        "bounty_number": "654",
         "interactive": False,
         "iterations": 2
     }
@@ -284,7 +284,7 @@ def test_last_message_success(client_fixture):
     start_payload = {
         "workflow_name": "Chat Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 987,
+        "bounty_number": "987",
         "interactive": True,
         "iterations": 3
     }
@@ -320,7 +320,7 @@ def test_first_message_success(client_fixture):
     start_payload = {
         "workflow_name": "Patch Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 852,
+        "bounty_number": "852",
         "interactive": False,
         "iterations": 1
     }
@@ -355,7 +355,7 @@ def test_start_workflow_missing_fields(client_fixture):
     payload = {
         "workflow_name": "Detect Workflow",
         # "task_dir" is missing
-        "bounty_number": 123,
+        "bounty_number": "123",
         "interactive": True,
         "iterations": 5
     }
@@ -372,7 +372,7 @@ def test_edit_action_input_invalid_payload(client_fixture):
     start_payload = {
         "workflow_name": "Chat Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 321,
+        "bounty_number": "321",
         "interactive": True,
         "iterations": 4
     }
@@ -397,7 +397,7 @@ def test_update_interactive_mode_invalid_payload(client_fixture):
     start_payload = {
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
-        "bounty_number": 654,
+        "bounty_number": "654",
         "interactive": False,
         "iterations": 2
     }
