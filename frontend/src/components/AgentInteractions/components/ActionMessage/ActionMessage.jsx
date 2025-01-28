@@ -113,6 +113,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
                 color="primary"
                 onClick={handleSaveClick}
                 size="small"
+                aria-label="save"
               >
                 <SaveIcon/>
               </Button>
@@ -131,6 +132,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
                 color="primary"
                 onClick={handleEditClick}
                 size="small"
+                aria-label="edit"
               >
                 <EditIcon />
               </Button>
@@ -139,6 +141,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
                 color="secondary"
                 onClick={handleRerunClick}
                 size="small"
+                aria-label="rerun"
               >
                 <ReplayIcon />
               </Button>

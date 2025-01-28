@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
@@ -13,7 +13,8 @@ function App() {
   const [interactiveMode, setInteractiveMode] = useState(true);
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
-  
+  const toastIdRef = useRef({});
+
   const handleWorkflowStart = (workflowId, model, isInteractive) => {
     setSelectedWorkflow({ id: workflowId, model: model });
     setInteractiveMode(isInteractive);
@@ -44,11 +45,60 @@ function App() {
     }
   };
 
+  const handleModelChange = async (name) => {
+    const url = `http://localhost:8000/workflow/model-change/${selectedWorkflow.id}`;
+    const requestBody = { new_model_name: name };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response body:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    } 
+  };
+
   const handleWorkflowStateUpdate = (status, phase) => {
     setWorkflowStatus(status);
     setCurrentPhase(phase);
   };
 
+  useEffect(() => {
+    const originalConsoleError = console.error;
+
+    console.error = function(...args) {
+      const errorMessage = args.join(' ');
+
+      // Check if the toast already exists
+      if (toastIdRef.current[errorMessage]) {
+        // Update the existing toast with the same message
+        toast.update(toastIdRef.current[errorMessage], {
+          render: errorMessage,
+          autoClose: 5000,
+          transition: Slide,
+        });
+      } else {
+        // Create a new toast and store the ID
+        const id = toast.error(errorMessage, {
+          position: "top-center",
+          autoClose: 5000,
+          transition: Slide,
+        });
+        toastIdRef.current[errorMessage] = id;
+      }  
+      originalConsoleError.apply(console, args);
+    };
+
+    return () => {
+      console.error = originalConsoleError;
+    };
+  }, []);
   const handleModelChange = async (name) => {
     const url = `http://localhost:8000/workflow/model-change/${selectedWorkflow.id}`;
     const requestBody = { new_model_name: name };

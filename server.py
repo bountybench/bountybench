@@ -200,14 +200,43 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     global should_exit
     
     try:
+        # Connect and initialize the WebSocket
         await websocket_manager.connect(workflow_id, websocket)
+        print(f"WebSocket connected for workflow {workflow_id}")
         
-        # Send initial workflow state
+        # Send initial connection acknowledgment
+        await websocket.send_json({
+            "message_type": "connection_established",
+            "workflow_id": workflow_id,
+            "status": "connected"
+        })
+        
+        # Check if workflow can be executed and start it automatically
         if workflow_id in active_workflows:
             workflow_data = active_workflows[workflow_id]
+            current_status = workflow_data.get("status", "unknown")
+            if current_status not in ["running", "completed"]:
+                print(f"Auto-starting workflow {workflow_id}")
+                asyncio.create_task(run_workflow(workflow_id))
+                await websocket.send_json({
+                    "message_type": "workflow_status",
+                    "status": "starting",
+                    "can_execute": False
+                })
+            else:
+                await websocket.send_json({
+                    "message_type": "workflow_status",
+                    "status": current_status,
+                    "can_execute": False
+                })
+        else:
+            # If workflow doesn't exist yet, start it
+            print(f"Auto-starting new workflow {workflow_id}")
+            asyncio.create_task(run_workflow(workflow_id))
             await websocket.send_json({
-                "message_type": "initial_state",
-                "status": workflow_data["status"]
+                "message_type": "workflow_status",
+                "status": "starting",
+                "can_execute": False
             })
         
         # Handle incoming messages
@@ -217,6 +246,11 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 if should_exit:
                     break
 
+                if data.get("type") == "pong":
+                    # Update last heartbeat time in websocket manager
+                    websocket_manager.update_heartbeat(workflow_id, websocket)
+                    continue
+
                 if data.get("message_type") == "user_message" and workflow_id in active_workflows:
                     workflow = active_workflows[workflow_id]["instance"]
                     if workflow.interactive:
@@ -225,13 +259,11 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                             "message_type": "user_message_response",
                             "content": result
                         })
-                        print(f"Broadcasted user_message_response for {workflow_id}")
-
-                elif data.get("message_type") == "start_execution":
-                    asyncio.create_task(run_workflow(workflow_id))
+                    
             except WebSocketDisconnect:
                 break
             except Exception as e:
+                print(f"Error handling WebSocket message: {e}")
                 if "disconnect" in str(e).lower():
                     break
                     
