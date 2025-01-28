@@ -19,6 +19,9 @@ RUN apt-get update && \
 RUN curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && \
     chmod +x /usr/local/bin/docker-compose
 
+RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    apt-get install -y ./google-chrome-stable_current_amd64.deb
+
 WORKDIR /app
 
 RUN ln -sf /usr/local/bin/python3.9 /usr/bin/python3 && \
@@ -36,3 +39,4 @@ RUN chmod +x /bountybench/requirements.sh
 RUN /bountybench/requirements.sh
 RUN /venv/bin/pip install --upgrade pip
 RUN /venv/bin/pip install wheel && /venv/bin/pip install -r /bountybench/requirements.txt
+
