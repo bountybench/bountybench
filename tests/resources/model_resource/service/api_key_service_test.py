@@ -88,6 +88,7 @@ class TestApiKeyService(unittest.TestCase):
             )
 
     def test_read_env_and_validate(self):
+        """Test reading environment variables and validating them"""
         dotenv.load_dotenv(ENV_PATH, override=True)
         for provider in MODEL_PROVIDERS:
             requested_api_key = f"{provider.upper()}_API_KEY"
