@@ -5,7 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
+    types: [opened, edited]
+    
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -22,21 +23,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           
+      - name: Determine if all tests should run
+        id: should_run_all
+        run: |
+          if echo "${{ github.event.comment.body }}" | grep -q "run all tests"; then
+            echo "::set-output name=all_tests::true"
+          else
+            echo "::set-output name=all_tests::false"
+          fi
+
       - name: Run backend tests
         run: |
-          if [[ ${{ github.event_name == 'pull_request' && !inputs.run_all_tests }} ]]; then
+          if [[ "${{ steps.should_run_all.outputs.all_tests }}" == "true" ]]; then
+            python -m tests.runner
+          elif [[ ${{ github.event_name }} == 'pull_request' ]]; then
             git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} > changed_files.txt
-            changed_modules=$(grep "\.py$" changed_files.txt | grep -v "^tests/" | sed 's/\.py$//' | sed 's/\//./g')
-            test_files=$(for module in $changed_modules; do find tests -name "test_${module##*.}.py"; done)
-            if [ -n "$test_files" ]; then
-                python -m unittest $test_files
-            else
-                echo "No relevant test files found."
-            fi
+            python tests/runner.py $(cat changed_files.txt)
           else
             python -m tests.runner
           fi
-
+          
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
@@ -44,13 +50,14 @@ jobs:
       - name: Install frontend dependencies
         working-directory: ./frontend
         run: npm install
-  
       - name: Run frontend tests
         working-directory: ./frontend
         run: |
-          if [[ ${{ github.event_name == 'pull_request' && !inputs.run_all_tests }} ]]; then
+          if [[ "${{ steps.should_run_all.outputs.all_tests }}" == "true" ]]; then
+            npm test  # Run all tests
+          elif [[ ${{ github.event_name }} == 'pull_request' ]]; then
             git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} > changed_files.txt
             npm test -- --findRelatedTests $(cat changed_files.txt)
           else
-            npm test
+            npm test  # Run all tests
           fi
