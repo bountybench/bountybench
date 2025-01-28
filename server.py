@@ -74,19 +74,59 @@ class Server:
         )
 
     def setup_signal_handlers(self):
-        signal.signal(signal.SIGINT, self.signal_handler)
-        signal.signal(signal.SIGTERM, self.signal_handler)
+        def handle_signal(signum, frame):
+            print("\nShutdown signal received. Cleaning up...")
+            self.should_exit = True
+            
+            try:
+                # Try to get the existing event loop
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # If no loop is running, we don't create a new one
+                # This avoids issues with atexit handlers
+                return
+            
+            # Schedule the shutdown coroutine
+            try:
+                loop.create_task(self.shutdown())
+            except Exception as e:
+                print(f"Error scheduling shutdown: {e}")
 
-    def signal_handler(self, signum, frame):
-        print("\nShutdown signal received. Cleaning up...")
-        self.should_exit = True
+        signal.signal(signal.SIGINT, handle_signal)
+        signal.signal(signal.SIGTERM, handle_signal)
+
+    async def shutdown(self):
+        """Gracefully shutdown the server with proper cleanup"""
+        # Gather all cleanup tasks
+        cleanup_tasks = []
+        
+        # Clean up all websocket connections
         for workflow_id in list(self.websocket_manager.active_connections.keys()):
-            for connection in list(self.websocket_manager.active_connections[workflow_id]):
+            connections = list(self.websocket_manager.active_connections[workflow_id])
+            for connection in connections:
                 try:
-                    connection.close()
-                except:
-                    pass
-        sys.exit(0)
+                    cleanup_tasks.append(connection.close())
+                except Exception as e:
+                    print(f"Error closing connection: {e}")
+        
+        # Clean up heartbeat tasks
+        for task in self.websocket_manager.heartbeat_tasks:
+            task.cancel()
+            cleanup_tasks.append(task)
+        
+        # Wait for all cleanup tasks to complete
+        if cleanup_tasks:
+            try:
+                await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+            except Exception as e:
+                print(f"Error during cleanup: {e}")
+        
+        # Let the event loop complete any remaining tasks
+        try:
+            loop = asyncio.get_running_loop()
+            loop.stop()
+        except Exception as e:
+            print(f"Error stopping event loop: {e}")
 
     async def list_workflows(self):
         return {
@@ -170,7 +210,7 @@ class Server:
                 })
             
         except Exception as e:
-            if not state.should_exit:
+            if not self.should_exit:
                 print(f"Workflow error: {e}")
                 workflow_data["status"] = "error"
                 await websocket_manager.broadcast(workflow_id, {
@@ -230,8 +270,7 @@ class Server:
                         break
 
                     if data.get("type") == "pong":
-                        # Update last heartbeat time in websocket manager
-                        websocket_manager.update_heartbeat(workflow_id, websocket)
+                        # Heartbeat is handled internally by WebSocketManager
                         continue
 
                     if data.get("message_type") == "user_message" and workflow_id in self.active_workflows:
