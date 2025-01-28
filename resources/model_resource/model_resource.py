@@ -7,11 +7,12 @@ from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.message import Message
+from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
-from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.model_resource.model_utils import get_model_provider
 from resources.model_resource.openai_models.openai_models import OpenAIModels
+from resources.model_resource.services.api_key_service import verify_and_auth_api_key
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -24,10 +25,12 @@ HALLUCINATION_STRINGS = [
     "----------Message from agent",
 ]
 
+
 @dataclass
 class ModelResourceConfig(BaseResourceConfig):
     """Configuration for ModelResource"""
-    model: str = field(default='openai/o3-mini-2025-01-14')
+
+    model: str = field(default="openai/o3-mini-2025-01-14")
     max_output_tokens: int = field(default=4096)
     max_input_tokens: int = field(default=4096)
     max_iterations_stored_in_memory: int = field(default=3)
@@ -40,8 +43,9 @@ class ModelResourceConfig(BaseResourceConfig):
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
 
     def __post_init__(self):
-        if 'openai/o3' not in self.model.lower():
+        if "openai/o3" not in self.model.lower():
             self.use_helm = True
+        self.validate()
 
     def validate(self) -> None:
         """Validate LLMResource configuration"""
@@ -51,7 +55,8 @@ class ModelResourceConfig(BaseResourceConfig):
             raise ValueError("max_input_tokens must be positive")
         if self.max_output_tokens <= 0:
             raise ValueError("max_output_tokens must be positive")
-    
+        # verify_and_auth_api_key(self.model, self.use_helm)
+
 
 class ModelResource(BaseResource):
     """ModelResource"""
@@ -61,7 +66,9 @@ class ModelResource(BaseResource):
         self.model = self._resource_config.model
         self.max_output_tokens = self._resource_config.max_output_tokens
         self.max_input_tokens = self._resource_config.max_input_tokens
-        self.max_iterations_stored_in_memory = self._resource_config.max_iterations_stored_in_memory
+        self.max_iterations_stored_in_memory = (
+            self._resource_config.max_iterations_stored_in_memory
+        )
         self.helm = self._resource_config.use_helm
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
@@ -76,18 +83,28 @@ class ModelResource(BaseResource):
             if hallucination_index != -1:
                 response = response[:hallucination_index]
         return response.strip()
-    
-    def parse_response(self, response: str, metadata: Dict[str, Any], prev_message: Optional[ActionMessage] = None) -> CommandMessage:
+
+    def parse_response(
+        self,
+        response: str,
+        metadata: Dict[str, Any],
+        prev_message: Optional[ActionMessage] = None,
+    ) -> CommandMessage:
         """
         Attempts to parse the raw model string intoCommandMessage.
-        
+
         """
         try:
-            return CommandMessage(resource_id=self.resource_id, message=response, additional_metadata=metadata, prev=prev_message)
+            return CommandMessage(
+                resource_id=self.resource_id,
+                message=response,
+                additional_metadata=metadata,
+                prev=prev_message,
+            )
         except:
             logger.debug("Could not parse as CommandMessage.")
             raise Exception("Could not parse LM response as CommandMessage.")
-        
+
     def tokenize(self, message: str) -> List[int]:
         """
         Tokenize the given message using the specified model's tokenizer.
@@ -99,13 +116,10 @@ class ModelResource(BaseResource):
         model_provider: ModelProvider
         model_provider = get_model_provider(self.helm)
         try:
-            return model_provider.tokenize(
-                model=self.model, message=message
-            )
+            return model_provider.tokenize(model=self.model, message=message)
         except (NotImplementedError, KeyError):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.encode(message)
-
 
     def decode(self, tokens: List[int]) -> str:
         """
@@ -118,9 +132,7 @@ class ModelResource(BaseResource):
         model_provider: ModelProvider
         model_provider = self.get_model_provider(self.helm)
         try:
-            return model_provider.decode(
-                model=self.model, tokens=tokens
-            )
+            return model_provider.decode(model=self.model, tokens=tokens)
         except (NotImplementedError, KeyError):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.decode(tokens)
@@ -145,21 +157,18 @@ class ModelResource(BaseResource):
         memory = memory[1:]
         if len(memory) > 3:
             memory = memory[-3:]
-        
-        str_memory = initial_prompt + '\n' + '\n'.join(memory)
+
+        str_memory = initial_prompt + "\n" + "\n".join(memory)
         return str_memory
 
-    def run(
-        self,
-        input_message: Message
-    ) -> ActionMessage:
+    def run(self, input_message: Message) -> ActionMessage:
         """
         Send a query to the specified model and get a response.
         Args:
             input_message (ActionMessage): The input message to send to the model.
         Returns:
             ActionMessage: The response generated by the model.
-        """       
+        """
         prev_action_message = None
         if isinstance(input_message, ActionMessage):
             prev_action_message = input_message
@@ -171,38 +180,40 @@ class ModelResource(BaseResource):
             message=model_input,
             temperature=self.temperature,
             max_tokens=self.max_output_tokens,
-            stop_sequences=self.stop_sequences
+            stop_sequences=self.stop_sequences,
         )
 
         lm_response = self.remove_hallucinations(model_response.content)
         lm_response = lm_response + f"\n{STOP_TOKEN}"
-        metadata={
-            "input": model_input,
-            "model": self.model,
-            "temperature": self.temperature,
-            "max_input_tokens": self.max_input_tokens,
-            "stop_sequences": self.stop_sequences,
-            "input_tokens": model_response.input_tokens,
-            "output_tokens": model_response.output_tokens,
-            "time_taken_in_ms": model_response.time_taken_in_ms
-        },
+        metadata = (
+            {
+                "input": model_input,
+                "model": self.model,
+                "temperature": self.temperature,
+                "max_input_tokens": self.max_input_tokens,
+                "stop_sequences": self.stop_sequences,
+                "input_tokens": model_response.input_tokens,
+                "output_tokens": model_response.output_tokens,
+                "time_taken_in_ms": model_response.time_taken_in_ms,
+            },
+        )
 
         try:
-            model_response = self.parse_response(lm_response, metadata, prev_action_message)
+            model_response = self.parse_response(
+                lm_response, metadata, prev_action_message
+            )
             return model_response
         except Exception as e:
             logger.warning(f"Unable to parse response as CommandResponse.")
 
-
     def stop(self) -> None:
         """
         Stop/cleanup method for LLM resource.
-        
+
         LLM resources don't maintain persistent connections or state,
         so this is a no-op implementation to satisfy the BaseResource interface.
         """
         logger.debug(f"Stopping LLM resource {self.resource_id} (no cleanup required)")
-    
 
     def to_dict(self) -> dict:
         """
@@ -210,14 +221,14 @@ class ModelResource(BaseResource):
         Includes both instance state and configuration.
         """
         return {
-            'resource_id': self.resource_id,
-            'config': {
-                'model': self.model,
-                'max_output_tokens': self.max_output_tokens,
-                'max_input_tokens': self.max_input_tokens,
-                'max_iterations_stored_in_memory': self.max_iterations_stored_in_memory,
-                'helm': self.helm,
-                'temperature': self.temperature,
-                'stop_sequences': self.stop_sequences
-            }
+            "resource_id": self.resource_id,
+            "config": {
+                "model": self.model,
+                "max_output_tokens": self.max_output_tokens,
+                "max_input_tokens": self.max_input_tokens,
+                "max_iterations_stored_in_memory": self.max_iterations_stored_in_memory,
+                "helm": self.helm,
+                "temperature": self.temperature,
+                "stop_sequences": self.stop_sequences,
+            },
         }
