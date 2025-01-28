@@ -24,6 +24,7 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
               size="small" 
               onClick={handleToggleContent} 
               className="phase-toggle-button"
+              aria-label="toggle phase content"
             >
               {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </IconButton>
