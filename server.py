@@ -167,6 +167,7 @@ class Server:
     async def websocket_endpoint(self, websocket: WebSocket, workflow_id: str):
         try:
             await self.websocket_manager.connect(workflow_id, websocket)
+
             
             if workflow_id in self.active_workflows:
                 workflow_data = self.active_workflows[workflow_id]

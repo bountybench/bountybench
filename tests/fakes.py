@@ -8,19 +8,38 @@ class FakeWebSocketManager:
         self.active_connections: Dict[str, List[WebSocket]] = {}
 
     async def connect(self, workflow_id: str, websocket: WebSocket):
-        if workflow_id not in self.active_connections:
-            self.active_connections[workflow_id] = []
-        self.active_connections[workflow_id].append(websocket)
+        try:
+            await websocket.accept()
+            if workflow_id not in self.active_connections:
+                self.active_connections[workflow_id] = []
+            self.active_connections[workflow_id].append(websocket)
+        except Exception as e:
+            raise
 
     def disconnect(self, workflow_id: str, websocket: WebSocket):
-        if workflow_id in self.active_connections:
-            self.active_connections[workflow_id].remove(websocket)
-            if not self.active_connections[workflow_id]:
-                del self.active_connections[workflow_id]
+        """Disconnect a WebSocket client"""
+        try:
+            if workflow_id in self.active_connections:
+                if websocket in self.active_connections[workflow_id]:
+                    self.active_connections[workflow_id].remove(websocket)
+                
+                # Clean up empty workflow connections
+                if not self.active_connections[workflow_id]:
+                    del self.active_connections[workflow_id]
+        except Exception as e:
+            raise
 
     async def broadcast(self, workflow_id: str, message: dict):
-        for connection in self.active_connections.get(workflow_id, []):
-            await connection.send_json(message)
+        """Broadcast a message to all connected clients for a workflow"""
+        if workflow_id not in self.active_connections:
+            return
+
+        for connection in self.active_connections[workflow_id]:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                self.disconnect(workflow_id, connection)  # Disconnect failed connection
+                raise  # Raise the exception immediately
 
 
 class FakeWorkflow:
