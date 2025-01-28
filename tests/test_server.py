@@ -1,11 +1,7 @@
-import asyncio
-from unittest.mock import MagicMock
-from fastapi import WebSocketDisconnect
+import json
 import pytest
-from fastapi.testclient import TestClient
 
-from server import create_app
-from utils.websocket_manager import WebSocketManager
+
 
 
 def test_list_workflows(client_fixture):
@@ -414,8 +410,8 @@ def test_update_interactive_mode_invalid_payload(client_fixture):
     assert error['input'] == 'random', "Error should include the invalid input"
 
 
-def test_websocket_connection_success(client_fixture, fake_workflow_factory, fake_websocket_manager):
-    # Setup fake workflow instance
+@pytest.fixture
+def workflow_setup(client_fixture, fake_workflow_factory, fake_websocket_manager):
     workflow_id = "fake-123"
     fake_workflow_instance = fake_workflow_factory["Detect Workflow"](
         task_dir="/path/to/tasks",
@@ -425,11 +421,10 @@ def test_websocket_connection_success(client_fixture, fake_workflow_factory, fak
     )
     fake_workflow_instance.workflow_id = workflow_id
     fake_workflow_instance.status = "initializing"
+    fake_workflow_instance.interactive = True
     
-    # Configure the fake workflow factory to return the fake instance
     fake_workflow_factory["Detect Workflow"].return_value = fake_workflow_instance
 
-    # Start the workflow to ensure it's active
     start_payload = {
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
@@ -440,11 +435,10 @@ def test_websocket_connection_success(client_fixture, fake_workflow_factory, fak
     start_response = client_fixture.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200
     started_workflow_id = start_response.json()["workflow_id"]
-    assert started_workflow_id == workflow_id  # Ensure the workflow ID matches
+    assert started_workflow_id == workflow_id
 
-    # Update the server's active_workflows to include the fake workflow
     app = client_fixture.app
-    server = app.router.routes[0].app  # Adjust based on your app's structure
+    server = app.router.routes[0].app
     server.active_workflows = {
         workflow_id: {
             "instance": fake_workflow_instance,
@@ -452,17 +446,21 @@ def test_websocket_connection_success(client_fixture, fake_workflow_factory, fak
         }
     }
 
-    # Connect to the WebSocket
+    return workflow_id, fake_workflow_instance, client_fixture, fake_websocket_manager
+
+@pytest.mark.asyncio
+async def test_websocket_connection_success(workflow_setup):
+    workflow_id, _, client_fixture, fake_websocket_manager = workflow_setup
+
+    assert workflow_id not in fake_websocket_manager.active_connections
+
     with client_fixture.websocket_connect(f"/ws/{workflow_id}") as websocket:
-        # Receive the initial state
         initial_state = websocket.receive_json()
         assert initial_state["message_type"] == "initial_state"
         assert initial_state["status"] == "initializing"
 
-        # Instead of using mock assertions, check if the connection was made
-        # This assumes FakeWebSocketManager has a way to check connections
-        assert fake_websocket_manager.is_connected(workflow_id)
-        
-        # If FakeWebSocketManager keeps track of connected websockets, you could also check:
-        connected_socket = fake_websocket_manager.get_connection(workflow_id)
-        assert connected_socket == websocket
+        assert workflow_id in fake_websocket_manager.active_connections
+        assert len(fake_websocket_manager.active_connections[workflow_id]) > 0
+
+    assert workflow_id not in fake_websocket_manager.active_connections or \
+            len(fake_websocket_manager.active_connections[workflow_id]) == 0
