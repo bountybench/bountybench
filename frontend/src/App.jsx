@@ -99,26 +99,7 @@ function App() {
       console.error = originalConsoleError;
     };
   }, []);
-  const handleModelChange = async (name) => {
-    const url = `http://localhost:8000/workflow/model-change/${selectedWorkflow.id}`;
-    const requestBody = { new_model_name: name };
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response body:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    } 
-  };
-
-
+  
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
