@@ -122,7 +122,6 @@ class Server:
                 "error": str(e)
             }
 
-    @app.post("/workflow/execute/{workflow_id}")
     async def execute_workflow(self, workflow_id: str):
         """Execute a workflow after WebSocket connection is established"""
         if workflow_id not in self.active_workflows:
@@ -171,7 +170,6 @@ class Server:
                 })
                 print(f"Broadcasted error status for {workflow_id}")
 
-    @app.websocket("/ws/{workflow_id}")
     async def websocket_endpoint(self, websocket: WebSocket, workflow_id: str):
         """WebSocket endpoint for real-time workflow updates"""
         try:
@@ -268,7 +266,6 @@ class Server:
         else:
             return {"error": "Workflow is not in interactive mode"}
 
-    @app.post("/workflow/next/{workflow_id}")
     async def next_message(self, workflow_id: str):
         if workflow_id not in self.active_workflows:
             return {"error": f"Workflow {workflow_id} not found"}
@@ -288,7 +285,6 @@ class Server:
             print(f"Error in next_message: {str(e)}\n{error_traceback}")
             return {"error": str(e), "traceback": error_traceback}
 
-    @app.post("/workflow/rerun-message/{workflow_id}")
     async def next_message(self, workflow_id: str, data: MessageData):
         print(f"Rerunning message: {data.message_id}")
         if workflow_id not in self.active_workflows:
@@ -304,8 +300,21 @@ class Server:
             import traceback
             error_traceback = traceback.format_exc()
             return {"error": str(e), "traceback": error_traceback}
+    
+    async def rerun_message(self, workflow_id: str, data: MessageData):
+        if workflow_id not in self.active_workflows:
+            return {"error": f"Workflow {workflow_id} not found"}
 
-    @app.post("/workflow/edit-message/{workflow_id}")
+        workflow = self.active_workflows[workflow_id]["instance"]
+
+        try:
+            result = await workflow.rerun_message(data.message_id)
+            return {"status": "updated", "result": result.id}
+        except Exception as e:
+            import traceback
+            error_traceback = traceback.format_exc()
+            return {"error": str(e), "traceback": error_traceback}
+
     async def edit_action_input(self, workflow_id: str, data: MessageInputData):
         print(f"Editing message: {data.message_id}")
         if workflow_id not in self.active_workflows:
@@ -320,7 +329,6 @@ class Server:
         except Exception as e:
             return {"error": str(e)}
 
-    @app.post("/workflow/{workflow_id}/interactive")
     async def update_interactive_mode(self, workflow_id: str, data: dict):
         print(f"Received request to update interactive mode for workflow {workflow_id}")
         print(f"Data received: {data}")
@@ -347,7 +355,6 @@ class Server:
             print(f"Traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=str(e))
         
-    @app.get("/workflow/last-message/{workflow_id}")
     async def last_message(self, workflow_id: str):
         if workflow_id not in self.active_workflows:
             return {"error": "Workflow not found"}
@@ -359,7 +366,6 @@ class Server:
                     "content": last_message_str
                 }
 
-    @app.get("/workflow/first-message/{workflow_id}")
     async def first_message(self, workflow_id: str):
         if workflow_id not in self.active_workflows:
             return {"error": "Workflow not found"}
@@ -371,7 +377,6 @@ class Server:
                     "content": first_message_str
                 }
         
-    @app.get("/workflow/{workflow_id}/resources")
     async def get_workflow_resources(self, workflow_id: str):
         if workflow_id not in self.active_workflows:
             raise HTTPException(status_code=404, detail="Workflow not found")
