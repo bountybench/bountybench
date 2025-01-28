@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, CircularProgress, Alert, Button, Grid, IconButton } from '@mui/material';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { Box, CircularProgress, Alert } from '@mui/material';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
@@ -31,6 +30,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
     workflowStatus, 
     currentPhase, 
     currentIteration,
+    error,
     messageCount: messages?.length 
   }); // Debug log
 
@@ -137,18 +137,18 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
 
   console.log('Rendering WorkflowDashboard with messages:', workflowStatus === 'completed' ? preservedMessages : messages);
 
-  if (!isConnected) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-        <CircularProgress size={24} />
-      </Box>
-    );
-  }
-
   if (error) {
     return (
       <Box p={2}>
         <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
+  if (!isConnected) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        <CircularProgress size={24} />
       </Box>
     );
   }
