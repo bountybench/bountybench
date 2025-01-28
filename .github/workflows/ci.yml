@@ -36,7 +36,8 @@ jobs:
       - name: Determine if all tests should run
         id: should_run_all
         run: |
-          if echo "${{ github.event.comment.body }}" | grep -q "run all tests"; then
+          pr_comments=$(gh pr view ${{ github.event.pull_request.number }} --json comments --jq '.comments[].body')
+          if echo "$pr_comments" | grep -q "run all tests"; then
             echo "::set-output name=all_tests::true"
           else
             echo "::set-output name=all_tests::false"
@@ -48,7 +49,7 @@ jobs:
             python -m tests.runner
           elif [[ ${{ github.event_name }} == 'pull_request' ]]; then
             git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} > changed_files.txt
-            python tests/runner.py $(cat changed_files.txt)
+            python -m tests.runner $(cat changed_files.txt)
           else
             python -m tests.runner
           fi
