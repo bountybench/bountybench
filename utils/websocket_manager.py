@@ -74,7 +74,7 @@ class WebSocketManager:
                     logger.info(f"Removed empty connection list for workflow {workflow_id}")
         except Exception as e:
             logger.error(f"Error during WebSocket disconnect: {e}")
-            raise
+            raise e
 
     async def broadcast(self, workflow_id: str, message: dict):
         """Broadcast a message to all connected clients with retry mechanism"""
@@ -132,10 +132,12 @@ class WebSocketManager:
                     break
 
                 await asyncio.sleep(self.HEARTBEAT_INTERVAL)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
             logger.info(f"Heartbeat monitor cancelled for workflow {workflow_id}")
+            raise e 
         except Exception as e:
             logger.error(f"Error in heartbeat monitor: {e}")
+            raise e 
 
     async def _handle_connection_error(self, workflow_id: str, websocket: WebSocket):
         """Handle connection errors and cleanup"""
@@ -143,8 +145,8 @@ class WebSocketManager:
             if workflow_id in self.connection_status and websocket in self.connection_status[workflow_id]:
                 self.connection_status[workflow_id][websocket] = False
             await websocket.close()
-        except Exception:
-            pass
+        except Exception as e:
+            raise e
         finally:
             self.disconnect(workflow_id, websocket)
 
