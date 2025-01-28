@@ -1,5 +1,6 @@
-import json
 import pytest
+import asyncio
+
 
 
 
@@ -476,77 +477,3 @@ async def test_websocket_receive_status_update(workflow_setup):
         status_update = websocket.receive_json()
         assert status_update["message_type"] == "initial_state"
         assert status_update["status"] == "initializing"
-
-'''
-
-@pytest.mark.asyncio
-async def test_websocket_next_message(workflow_setup):
-    workflow_id, fake_workflow_instance, client_fixture, fake_websocket_manager = workflow_setup
-
-    with client_fixture.websocket_connect(f"/ws/{workflow_id}") as websocket:
-        # Receive initial state
-        initial_state = websocket.receive_json()
-        assert initial_state["message_type"] == "initial_state"
-        assert initial_state["status"] == "initializing"
-
-        # Trigger next message
-        next_response = client_fixture.post(f"/workflow/next/{workflow_id}")
-        assert next_response.status_code == 200
-        
-        # Check the response from the next message endpoint
-        response_data = next_response.json()
-        assert "status" in response_data
-        if response_data["status"] == "updated":
-            assert "result" in response_data
-            assert isinstance(response_data["result"], str)  # Assuming result is a message ID
-        elif response_data["status"] == "next iteration triggered":
-            pass  # This is also a valid response
-        else:
-            assert False, f"Unexpected response status: {response_data['status']}"
-
-        # Check for a broadcast message if your server sends one
-        try:
-            broadcast = websocket.receive_json()
-            print(broadcast)
-
-            assert broadcast["message_type"] == "message_update"
-            assert "message_id" in broadcast
-            assert "content" in broadcast
-            # Add more specific checks based on the expected content
-        except Exception as e:
-            print(f"No broadcast message received or error: {str(e)}")
-
-@pytest.mark.asyncio
-async def test_websocket_rerun_message(workflow_setup):
-    workflow_id, fake_workflow_instance, client_fixture, fake_websocket_manager = workflow_setup
-
-    with client_fixture.websocket_connect(f"/ws/{workflow_id}") as websocket:
-        # Receive initial state
-        initial_state = websocket.receive_json()
-        assert initial_state["message_type"] == "initial_state"
-        assert initial_state["status"] == "initializing"
-
-        # Rerun a message
-        rerun_response = client_fixture.post(f"/workflow/rerun-message/{workflow_id}", json={"message_id": "test_id"})
-        assert rerun_response.status_code == 200
-        
-        # Check the response from the rerun message endpoint
-        response_data = rerun_response.json()
-        assert "status" in response_data
-        if response_data["status"] == "updated":
-            assert "result" in response_data
-            assert isinstance(response_data["result"], str)  # Assuming result is a message ID
-        else:
-            assert False, f"Unexpected response status: {response_data['status']}"
-
-        # Check for a broadcast message if your server sends one
-        try:
-            broadcast = websocket.receive_json()
-            print(broadcast)
-            assert broadcast["message_type"] == "message_update"
-            assert "message_id" in broadcast
-            assert broadcast["message_id"] == "test_id"  # The ID we sent in the rerun request
-            assert "content" in broadcast
-        except Exception as e:
-            print(f"No broadcast message received or error: {str(e)}")
-'''
