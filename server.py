@@ -380,28 +380,5 @@ async def last_message(workflow_id: str):
                 "content": last_message_str
             }
 
-@app.get("/workflow/first-message/{workflow_id}")
-async def first_message(workflow_id: str):
-    if workflow_id not in active_workflows:
-        return {"error": "Workflow not found"}
-    
-    workflow = active_workflows[workflow_id]["instance"]
-    first_message_str = workflow.initial_prompt
-    return {
-                "message_type": "first_message",
-                "content": first_message_str
-            }
-    
-@app.get("/workflow/{workflow_id}/resources")
-async def get_workflow_resources(workflow_id: str):
-    if workflow_id not in active_workflows:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-    workflow = active_workflows[workflow_id]["instance"]
-    
-    # Implement a method in your workflow class to get the current resources
-    resources = workflow.resource_manager.resources
-    
-    return resources
-
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
