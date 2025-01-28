@@ -206,7 +206,7 @@ class WebSocketManager:
         if self.heartbeat_tasks:
             await asyncio.gather(*self.heartbeat_tasks, return_exceptions=True)
         
-                await self._handle_connection_error(workflow_id, connection)
+            await self._handle_connection_error(workflow_id, connection)
         
         # Cancel all heartbeat tasks
         for task in self.heartbeat_tasks:
