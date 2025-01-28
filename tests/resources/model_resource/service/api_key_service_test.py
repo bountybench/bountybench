@@ -14,23 +14,7 @@ from pathlib import Path
 ENV_PATH = Path(dotenv.find_dotenv())
 MODEL_PROVIDERS = ["helm", "openai", "anthropic"]
 
-# # Unit tests for API key authentication
-# def test_auth_helm_api_key(key: str):
-#     assert _auth_helm_api_key("obviously_invalid_api_key")[0] is False
-#     assert _auth_helm_api_key(key)[0] is True
 
-
-# def test_auth_openai_api_key(key: str):
-#     assert _auth_openai_api_key("obviously_invalid_api_key")[0] is False
-#     assert _auth_openai_api_key(key)[0] is True
-
-
-# def test_auth_anthropic_api_key(key: str):
-#     assert _auth_anthropic_api_key("obviously_invalid_api_key")[0] is False
-#     assert _auth_anthropic_api_key(key)[0] is True
-
-
-# Tests
 class TestApiKeyService(unittest.TestCase):
     def setUp(self):
         """Reset environment variables before each test."""
