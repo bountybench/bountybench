@@ -17,14 +17,18 @@ MODEL_PROVIDERS = ["helm", "openai", "anthropic"]
 
 class TestApiKeyService(unittest.TestCase):
     def setUp(self):
-        """Reset environment variables before each test."""
+        """
+        Reset environment variables before each test.
+        """
         self.mock_auth_service = self.create_mock_auth_service()
         os.environ.clear()
         print("\n")
 
     @staticmethod
     def create_mock_auth_service():
-        """Create a mock authentication service"""
+        """
+        Create a mock authentication service
+        """
 
         def mock_auth(api_key: str) -> Tuple[bool, str]:
             if api_key.startswith("sk-test-"):
@@ -36,7 +40,9 @@ class TestApiKeyService(unittest.TestCase):
         return mock_auth
 
     def test_valid_key_flow(self):
-        """Test the complete validation flow with a valid key"""
+        """
+        Test the complete validation flow with a valid key
+        """
 
         def input_args():
             yield "sk-test-valid123"
@@ -53,7 +59,9 @@ class TestApiKeyService(unittest.TestCase):
             mock_set_key.assert_not_called()
 
     def test_invalid_key_flow(self):
-        """Test the complete validation flow with an invalid key"""
+        """
+        Test the complete validation flow with an invalid key
+        """
 
         def input_args():
             yield "invalid-123"
@@ -72,7 +80,9 @@ class TestApiKeyService(unittest.TestCase):
 
     @patch("resources.model_resource.services.api_key_service.set_key")
     def test_valid_key_flow_save(self, mock_set_key):
-        """Test the complete validation flow with a valid key and saving to .env"""
+        """
+        Test the complete validation flow with a valid key and saving to .env
+        """
 
         def input_args():
             yield "sk-test-valid123"
@@ -88,7 +98,9 @@ class TestApiKeyService(unittest.TestCase):
             )
 
     def test_read_env_and_validate(self):
-        """Test reading environment variables and validating them"""
+        """
+        Test reading environment variables and validating them
+        """
         dotenv.load_dotenv(ENV_PATH, override=True)
         for provider in MODEL_PROVIDERS:
             requested_api_key = f"{provider.upper()}_API_KEY"
