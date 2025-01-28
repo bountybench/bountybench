@@ -42,7 +42,7 @@ jobs:
           fi
       - name: Run all backend tests
         if: github.event_name != 'pull_request'
-        run: python -m unittest discover tests
+        run: python -m tests.runner
 
       - name: Run relevant frontend tests
         if: github.event_name == 'pull_request'

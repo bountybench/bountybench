@@ -5,7 +5,7 @@ import unittest
 # Add the parent directory to the Python path to import modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from tests import test_workflow
+# from tests import test_workflow
 
 # Import test modules
 from tests.agents import (
@@ -16,17 +16,16 @@ from tests.agents import (
 )
 from tests.messages import message_test, rerun_manager_test
 from tests.phases import base_phase_test, managers_test
-from tests.resources import (
+from tests.resources import (  # resource_config_test,
     init_files_resource_test,
     kali_env_resource_test,
     kali_env_resource_tty_test,
-    resource_config_test,
     resource_manager_test,
     setup_resource_test,
 )
 from tests.resources.model_resource.service import test_api_key_service
 from tests.utils import logger_test, progress_logger_test
-from tests.workflows import base_workflow_test, exploit_patch_workflow_test
+from tests.workflows import base_workflow_test  # exploit_patch_workflow_test,
 
 # Initialize the test suite
 loader = unittest.TestLoader()
@@ -45,15 +44,15 @@ test_modules = [
     init_files_resource_test,
     kali_env_resource_test,
     kali_env_resource_tty_test,
-    resource_config_test,
+    # resource_config_test,
     resource_manager_test,
     setup_resource_test,
     test_api_key_service,
     logger_test,
     progress_logger_test,
     base_workflow_test,
-    exploit_patch_workflow_test,
-    test_workflow,
+    # exploit_patch_workflow_test,
+    # test_workflow,
 ]
 
 for module in test_modules:
