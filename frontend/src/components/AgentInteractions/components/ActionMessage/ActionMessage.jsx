@@ -8,7 +8,7 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css'
 
-const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
+const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
@@ -37,6 +37,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
 
   const handleEditClick = () => {
     setEditing(true);
+    onEditingChange(true);
     setEditedMessage(originalMessageContent);
   };
 
@@ -48,6 +49,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
     try {
       await onUpdateActionInput(action.current_id, editedMessage);
       setEditing(false);
+      onEditingChange(false);
     } catch (error) {
       console.error('Error updating action message:', error);
     }
@@ -124,6 +126,8 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
                 color="primary"
                 onClick={handleEditClick}
                 size="small"
+                className="edit-button"
+                disabled={isEditing && !editing}
               >
                 <EditIcon />
               </Button>

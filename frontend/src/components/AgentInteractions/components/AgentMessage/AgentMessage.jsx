@@ -7,7 +7,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import ActionMessage from '../ActionMessage/ActionMessage';
 import './AgentMessage.css'
 
-const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
+const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message.message || '');
@@ -16,6 +16,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
 
   const handleEditClick = () => {
     setEditing(true);
+    onEditingChange(true);
     setEditedMessage(message.message || '');
   };
 
@@ -27,6 +28,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
     try {
       await onUpdateActionInput(message.current_id, editedMessage);
       setEditing(false);
+      onEditingChange(false);
     } catch (error) {
       console.error('Error updating message:', error);
     }
@@ -90,6 +92,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
                         onClick={handleEditClick}
                         size="small"
                         className="edit-button"
+                        disabled={isEditing && !editing}
                       >
                         <EditIcon />
                       </Button>
@@ -99,12 +102,15 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
               </Box>
             ) : (
               <Box className="action-messages-container">
+                <Typography className="action-messages-title">Actions:</Typography>
                 {message.current_children.map((actionMessage, index) => (
-                  <ActionMessage
-                    key={index}
-                    action={actionMessage}
+                  <ActionMessage 
+                    key={index} 
+                    action={actionMessage} 
                     onUpdateActionInput={onUpdateActionInput}
                     onRerunAction={onRerunAction}
+                    onEditingChange={onEditingChange}
+                    isEditing={isEditing}
                   />
                 ))}
               </Box>
