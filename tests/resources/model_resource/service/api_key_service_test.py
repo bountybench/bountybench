@@ -1,7 +1,5 @@
 from resources.model_resource.services.api_key_service import (
-    _auth_helm_api_key,
-    _auth_openai_api_key,
-    _auth_anthropic_api_key,
+    AUTH_SERVICE,
     verify_and_auth_api_key,
 )
 from typing import Tuple
@@ -13,29 +11,23 @@ from unittest.mock import patch
 import dotenv
 from pathlib import Path
 
-env_path = Path(dotenv.find_dotenv())
+ENV_PATH = Path(dotenv.find_dotenv())
+MODEL_PROVIDERS = ["helm", "openai", "anthropic"]
+
+# # Unit tests for API key authentication
+# def test_auth_helm_api_key(key: str):
+#     assert _auth_helm_api_key("obviously_invalid_api_key")[0] is False
+#     assert _auth_helm_api_key(key)[0] is True
 
 
-# Unit tests for API key authentication
-def test_auth_helm_api_key():
-    assert _auth_helm_api_key("obviously_invalid_api_key", "")[0] is False
-
-    valid_api_key = input("Enter a valid HELM API key: ")
-    assert _auth_helm_api_key(valid_api_key)[0] is True
+# def test_auth_openai_api_key(key: str):
+#     assert _auth_openai_api_key("obviously_invalid_api_key")[0] is False
+#     assert _auth_openai_api_key(key)[0] is True
 
 
-def test_auth_openai_api_key():
-    assert _auth_openai_api_key("obviously_invalid_api_key")[0] is False
-
-    valid_api_key = input("Enter a valid OpenAI API key: ")
-    assert _auth_openai_api_key(valid_api_key)[0] is True
-
-
-def test_auth_anthropic_api_key():
-    assert _auth_anthropic_api_key("obviously_invalid_api_key")[0] is False
-
-    valid_api_key = input("Enter a valid Anthropic API key: ")
-    assert _auth_anthropic_api_key(valid_api_key)[0] is True
+# def test_auth_anthropic_api_key(key: str):
+#     assert _auth_anthropic_api_key("obviously_invalid_api_key")[0] is False
+#     assert _auth_anthropic_api_key(key)[0] is True
 
 
 # Tests
@@ -108,19 +100,27 @@ class TestApiKeyService(unittest.TestCase):
             )
 
             mock_set_key.assert_called_once_with(
-                env_path, "OPENAI_API_KEY", "sk-test-valid123", quote_mode="never"
+                ENV_PATH, "OPENAI_API_KEY", "sk-test-valid123", quote_mode="never"
             )
+
+    def test_read_env_and_validate(self):
+        dotenv.load_dotenv(ENV_PATH, override=True)
+        for provider in MODEL_PROVIDERS:
+            requested_api_key = f"{provider.upper()}_API_KEY"
+            if requested_api_key in os.environ and os.environ[requested_api_key]:
+                print(f"Found {requested_api_key} in environment, validating...")
+                auth_service = AUTH_SERVICE[requested_api_key]
+                # Test that invalid key will fail
+                _ok, _message = auth_service("invalid-key")
+                self.assertFalse(_ok)
+
+                # Test that stored/correct key will pass
+                _ok, _message = auth_service(os.environ[requested_api_key])
+                self.assertTrue(_ok)
+                print(f"{requested_api_key} validated.\n")
+            else:
+                print(f"{requested_api_key} not found in environment, skipping...\n")
 
 
 if __name__ == "__main__":
     unittest.main()
-
-    # Uncomment below to authenticate with actual model provider endpoints
-    # test_auth_helm_api_key()
-    # print(" - auth_helm_api_key passed")
-
-    # test_auth_openai_api_key()
-    # print(" - auth_openai_api_key passed")
-
-    # test_auth_anthropic_api_key()
-    # print(" - auth_anthropic_api_key passed")

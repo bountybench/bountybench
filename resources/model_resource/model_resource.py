@@ -57,6 +57,7 @@ class ModelResourceConfig(BaseResourceConfig):
             raise ValueError("max_output_tokens must be positive")
         verify_and_auth_api_key(self.model, self.use_helm)
 
+
 class ModelResource(BaseResource):
     """ModelResource"""
 
@@ -71,10 +72,7 @@ class ModelResource(BaseResource):
         self.helm = self._resource_config.use_helm
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
-
-        if config.use_helm:
-            self.helm_models = HelmModels()
-        self.openai_models = OpenAIModels()
+        self.model_provider: ModelProvider = get_model_provider(self.helm)
 
     def remove_hallucinations(self, response: str):
         response = response.replace("----------Message from agent----------", "")
@@ -113,10 +111,8 @@ class ModelResource(BaseResource):
         Returns:
             List[int]: A list of token IDs representing the tokenized message.
         """
-        model_provider: ModelProvider
-        model_provider = get_model_provider(self.helm)
         try:
-            return model_provider.tokenize(model=self.model, message=message)
+            return self.model_provider.tokenize(model=self.model, message=message)
         except (NotImplementedError, KeyError):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.encode(message)
@@ -129,10 +125,8 @@ class ModelResource(BaseResource):
         Returns:
             str: The decoded string representation of the tokens.
         """
-        model_provider: ModelProvider
-        model_provider = self.get_model_provider(self.helm)
         try:
-            return model_provider.decode(model=self.model, tokens=tokens)
+            return self.model_provider.decode(model=self.model, tokens=tokens)
         except (NotImplementedError, KeyError):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.decode(tokens)
@@ -173,9 +167,7 @@ class ModelResource(BaseResource):
         if isinstance(input_message, ActionMessage):
             prev_action_message = input_message
         model_input = self.generate_memory(input_message)
-        model_provider: ModelProvider
-        model_provider = self.helm_models if self.helm else self.openai_models
-        model_response = model_provider.make_request(
+        model_response = self.model_provider.make_request(
             model=self.model,
             message=model_input,
             temperature=self.temperature,
