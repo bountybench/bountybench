@@ -14,11 +14,20 @@ environment_fixtures_count = 0
 EXPLOIT_SCRIPT_NAME = "exploit.sh"
 VERIFY_SCRIPT_NAME = "verify.sh"
 
+def _subtract_paths(path1: Path, path2: Path):
+    # Convert both paths to absolute paths for reliable comparison
+    abs_path1 = path1.resolve()
+    abs_path2 = path2.resolve()
+
+    try:
+        remaining_path = abs_path1.relative_to(abs_path2)
+        return remaining_path
+    except ValueError:
+        raise ValueError(f"{path2} is not a subset of {path1}")
 @dataclass
-class EnvPathAssistant:
+class EnvPath():
     """
-    This class aims to reduce confusion and manual path joins while testing.
-    Assumes we are in bountyagent base folder.
+    Initialize the "enum" using the following params.
 
     Params:
         repo_name (str): Name of repo
@@ -40,124 +49,87 @@ class EnvPathAssistant:
     - 'dir_name' <-> 'tmp'
     - 'dir' <-> usually absolute path or relative path (from pwd) 
     """
-    repo_name: str
-    bounty_number: int
-    tmp_dir_name: str = "tmp"
-    codebase_files_dir_name: str = "codebase"
-    exploit_files_dir_name: str = "exploit_files"
+    TASK_DIR = ""
+    BOUNTY_DIR = ""
+    TMP_DIR = ""
+    CODEBASE_FILES_DIR = ""
+    TMP_CODEBASE_FILES_DIR = ""
+    VERIFY_SCRIPT_DIR = ""
+    EXPLOIT_SCRIPT_DIR = ""
+    EXPLOIT_FILES_DIR = ""
+    AGENT_PATCHES_DIR = ""
 
-    def __post_init__(self):
-        self.task_dir: Path = Path(os.path.abspath(os.path.join("bountybench", self.repo_name)))
-        self.bounty_dir: Path = self.task_dir / "bounties" / f"bounty_{self.bounty_number}"
-        self.tmp_dir = self.task_dir / self.tmp_dir_name
-        self.codebase_files_dir: Path = self.task_dir / self.codebase_files_dir_name
-        self.verify_script_dir: Path = self.bounty_dir / VERIFY_SCRIPT_NAME
-        self.exploit_script_dir: Path = self.tmp_dir / EXPLOIT_SCRIPT_NAME
-        self.exploit_files_dir: Path = self.bounty_dir / "exploit_files"
+    BOUNTY_DIR_FROM_TASK_DIR = ""
 
-    def _subtract_paths(self, path1: Path, path2: Path):
-        # Convert both paths to absolute paths for reliable comparison
-        abs_path1 = path1.resolve()
-        abs_path2 = path2.resolve()
+    TMP_DIR_NAME = ""
+    CODEBASE_FILES_DIR_NAME = ""
+    EXPLOIT_FILES_DIR_NAME = ""
 
-        try:
-            remaining_path = abs_path1.relative_to(abs_path2)
-            return remaining_path
-        except ValueError:
-            raise ValueError(f"{path2} is not a subset of {path1}")
-    
-    def _return_path(self, path: Path, as_path: bool):
-        return str(path) if not as_path else path
-
-    ###############################################
-    #                                             #
-    #               Regular Paths                 #
-    #                                             #
-    ###############################################
-    def get_task_dir(self, as_path=False):
-        return self._return_path(self.task_dir, as_path)
-
-    def get_bounty_dir(self, as_path=False):
-        return self._return_path(self.bounty_dir, as_path)
-    
-    def get_tmp_dir(self, as_path=False):
-        return self._return_path(self.tmp_dir, as_path)
-    
-    def get_tmp_dir_name(self) -> str:
-        return self.tmp_dir.name
-    
-    def get_codebase_files_dir(self, as_path=False):
-        return self._return_path(self.codebase_files_dir, as_path)
-
-    def get_codebase_files_dir_name(self) -> str:
-        return self.codebase_files_dir.name
-    
-    def get_files_dir(self, as_path=False):
-        return self.get_codebase_files_dir(as_path)
-
-    def get_files_dir_name(self) -> str:
-        return self.get_codebase_files_dir_name()
-    
-    def get_tmp_codebase_files_dir(self, as_path=False):
-        return self._return_path(self.tmp_dir / self.codebase_files_dir.name, as_path)
-
-    def get_tmp_files_dir(self, as_path=False):
-        return self._return_path(self.tmp_dir / self.codebase_files_dir.name, as_path)
-    
-    def get_verify_script_dir(self, as_path=False):
-        return self._return_path(self.verify_script_dir, as_path)
-
-    def get_exploit_script_dir(self, as_path=False):
+    def __init__(
+        cls,
+        repo_name: str,
+        bounty_number: int,
+        tmp_dir_name: str = "tmp",
+        codebase_files_dir_name: str = "codebase",
+        exploit_files_dir_name: str = "exploit_files",
+    ):
         """
-        Exploit script that the docker container runs (in tmp) 
+        Initializes all paths dynamically using the provided repo_name and bounty_number.
         """
-        return self._return_path(self.exploit_script_dir, as_path)
+        task_dir = Path(os.path.abspath(os.path.join("bountybench", repo_name)))
+        bounty_dir = task_dir / "bounties" / f"bounty_{bounty_number}"
+        tmp_dir = task_dir / tmp_dir_name
+        codebase_files_dir = task_dir / codebase_files_dir_name
+        tmp_codebase_files_dir = tmp_dir / codebase_files_dir_name
+        verify_script_dir = bounty_dir / VERIFY_SCRIPT_NAME
+        exploit_script_dir = tmp_dir / EXPLOIT_SCRIPT_NAME
+        exploit_files_dir = bounty_dir / exploit_files_dir_name
+        agent_patches_dir = bounty_dir / "agent-patches"
 
-    def get_exploit_files_dir(self, as_path=False):
-        """
-        Exploit files folder in the bounty folder
-        """
-        return self._return_path(self.exploit_files_dir, as_path)
-    
-    def get_exploit_files_dir_name(self) -> str:
-        return self.exploit_files_dir.name
-    
-    ###############################################
-    #                                             #
-    #               Compound Paths                #
-    #                                             #
-    ###############################################
-    def get_bounty_dir_from_task_dir(self, as_path=False):
-        path = self._subtract_paths(self.bounty_dir, self.task_dir)
-        return self._return_path(path, as_path)
+        bounty_dir_from_task_dir = _subtract_paths(bounty_dir, task_dir)
+
+        # Setting the actual value of each enum member
+        cls.TASK_DIR = str(task_dir)
+        cls.BOUNTY_DIR = str(bounty_dir)
+        cls.TMP_DIR = str(tmp_dir)
+        cls.CODEBASE_FILES_DIR = str(codebase_files_dir)
+        cls.TMP_CODEBASE_FILES_DIR = str(tmp_codebase_files_dir)
+        cls.VERIFY_SCRIPT_DIR = str(verify_script_dir)
+        cls.EXPLOIT_SCRIPT_DIR = str(exploit_script_dir)
+        cls.EXPLOIT_FILES_DIR = str(exploit_files_dir)
+        cls.AGENT_PATCHES_DIR = str(agent_patches_dir)
+
+        cls.BOUNTY_DIR_FROM_TASK_DIR = str(bounty_dir_from_task_dir)
+
+        cls.TMP_DIR_NAME = tmp_dir_name
+        cls.CODEBASE_FILES_DIR_NAME = codebase_files_dir_name
+        cls.EXPLOIT_FILES_DIR_NAME = exploit_files_dir_name
 
 # Setup bounties and initialize needed resources for all agent tests once
-def bounty_setup(repo_name: str, bounty_number: int) -> EnvPathAssistant:
-    path_assistant = EnvPathAssistant(
-        repo_name=repo_name,
-        bounty_number=bounty_number
-    )
+def bounty_setup(repo_name: str, bounty_number: int) -> EnvPath:
+    # Initialize EnvPath enum for use in tests
+    env_path = EnvPath(repo_name, bounty_number)
 
     # The rest of the code assumes bounty_number is a str
     bounty_number = str(bounty_number)
 
     setup_shared_network()
-    bounty_metadata = read_bounty_metadata(path_assistant.get_task_dir(), bounty_number)
+    bounty_metadata = read_bounty_metadata(env_path.TASK_DIR, bounty_number)
     vulnerable_commit = bounty_metadata['vulnerable_commit']
 
 
     # Configurations
     init_config = InitFilesResourceConfig(
-        task_dir=path_assistant.get_task_dir(),
-        files_dir_name=path_assistant.get_files_dir_name(),
-        tmp_dir_name=path_assistant.get_tmp_dir_name(),
+        task_dir=env_path.TASK_DIR,
+        files_dir_name=env_path.CODEBASE_FILES_DIR_NAME,
+        tmp_dir_name=env_path.TMP_DIR_NAME,
         bounty_number=bounty_number,
-        exploit_files_dir_name=path_assistant.get_exploit_files_dir_name(),
+        exploit_files_dir_name=env_path.EXPLOIT_FILES_DIR_NAME,
         vulnerable_commit=vulnerable_commit,
     )
     setup_config = SetupResourceConfig(
         bounty_level_setup=False,
-        task_dir=path_assistant.get_task_dir(),
+        task_dir=env_path.TASK_DIR,
         bounty_number=bounty_number
     )
     docker_config = DockerResourceConfig()
@@ -169,8 +141,7 @@ def bounty_setup(repo_name: str, bounty_number: int) -> EnvPathAssistant:
     resource_manager.register_resource("docker", DockerResource, docker_config)
     resource_manager.initialize_phase_resources(0, ["init_files", "repo_resource", "docker"])
 
-    return path_assistant
-
+    return env_path
 
 @pytest.fixture(scope="session")
 def lunary_bounty_0_setup():
