@@ -2,7 +2,8 @@ import unittest
 from unittest.mock import AsyncMock, Mock, patch
 from fastapi import WebSocket
 
-from utils.websocket_manager import websocket_manager
+from utils.websocket_manager import websocket_manager, logger
+from datetime import datetime
 
 
 class TestWebsocketManager(unittest.IsolatedAsyncioTestCase):
@@ -54,6 +55,7 @@ class TestWebsocketManager(unittest.IsolatedAsyncioTestCase):
         # Initialize the WebSocketManager and set up connections
         self.ws_manager.active_connections[workflow_id] = [websocket1, websocket2]
         self.ws_manager.connection_status[workflow_id] = {websocket1: True, websocket2: False}  # Mark websocket2 as inactive
+        self.ws_manager.last_heartbeat[workflow_id] = {websocket1: datetime.now(), websocket2: datetime.now()}
 
         # Simulate a failure on the first websocket
         websocket1.send_json.side_effect = Exception("Test failure")
@@ -97,14 +99,25 @@ class TestWebsocketManager(unittest.IsolatedAsyncioTestCase):
         websocket2 = AsyncMock(spec=WebSocket)
         workflow_id = "test_workflow"
         self.ws_manager.active_connections[workflow_id] = [websocket1, websocket2]
+        self.ws_manager.last_heartbeat[workflow_id] = {websocket1: datetime.now(), websocket2: datetime.now()}
+        self.ws_manager.connection_status[workflow_id] = {websocket1: True, websocket2: True}
 
         websocket1.close.side_effect = Exception("Test Close Exception")
 
-        with self.assertRaisesRegex(Exception, "Test Close Exception"):
+        with self.assertLogs(logger, level='ERROR') as log:
             await self.ws_manager.close_all_connections()
 
+        # Verify that the exception was logged
+        self.assertIn("Unexpected error closing websocket: Test Close Exception", log.output[0])
+
+        # Verify that close was called on both websockets
         websocket1.close.assert_called_once()
-        self.assertFalse(websocket2.close.called)
+        websocket2.close.assert_called_once()
+
+        # Verify that connections are cleared
+        self.assertNotIn(workflow_id, self.ws_manager.active_connections)
+        self.assertNotIn(workflow_id, self.ws_manager.last_heartbeat)
+        self.assertNotIn(workflow_id, self.ws_manager.connection_status)
 
     async def test_connect_multiple(self):
         workflow_id = "test_workflow"
