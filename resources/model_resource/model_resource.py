@@ -10,7 +10,6 @@ from messages.message import Message
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
-from resources.model_resource.model_utils import get_model_provider
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
 from utils.logger import get_main_logger
@@ -72,7 +71,20 @@ class ModelResource(BaseResource):
         self.helm = self._resource_config.use_helm
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
-        self.model_provider: ModelProvider = get_model_provider(self.helm)
+        self.model_provider: ModelProvider = self.get_model_provider()
+
+    def get_model_provider(self) -> ModelProvider:
+        """
+        Get the appropriate model provider based on the model type.
+        Returns:
+            ModelProvider: An instance of the appropriate model provider class.
+        """
+        # TODO: Support Different Model Providers (Also handle Azure case)
+        if self.helm:
+            model_provider = HelmModels()
+        else:
+            model_provider = OpenAIModels()
+        return model_provider
 
     def remove_hallucinations(self, response: str):
         response = response.replace("----------Message from agent----------", "")
