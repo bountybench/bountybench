@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run backend tests
+        run: python -m unittest discover tests
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm install
+
+      - name: Run relevant backend tests
+        if: github.event_name == 'pull_request'
+        run: |
+          git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} > changed_files.txt
+          changed_modules=$(grep "\.py$" changed_files.txt | grep -v "^tests/" | sed 's/\.py$//' | sed 's/\//./g')
+          test_files=$(for module in $changed_modules; do find tests -name "test_${module##*.}.py"; done)
+          if [ -n "$test_files" ]; then
+            python -m unittest $test_files
+          else
+            echo "No relevant test files found."
+          fi
+      - name: Run all backend tests
+        if: github.event_name != 'pull_request'
+        run: python -m unittest discover tests
+
+      - name: Run relevant frontend tests
+        if: github.event_name == 'pull_request'
+        working-directory: ./frontend
+        run: |
+          git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} > changed_files.txt
+          npm test -- --findRelatedTests $(cat changed_files.txt)
+      - name: Run all frontend tests
+        if: github.event_name != 'pull_request'
+        working-directory: ./frontend
+        run: npm test
