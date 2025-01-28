@@ -192,7 +192,6 @@ class WebSocketManager:
 
     async def close_all_connections(self):
         """Close all active WebSocket connections and cleanup"""
-        """Close all active WebSocket connections and cleanup"""
         logger.info("Closing all WebSocket connections")
         for workflow_id in list(self.active_connections.keys()):
             for connection in list(self.active_connections[workflow_id]):
