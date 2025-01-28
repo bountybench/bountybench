@@ -8,6 +8,8 @@ import uvicorn
 import signal
 import sys
 from pydantic import BaseModel, Field
+import traceback
+
 
 
 from workflows.detect_workflow import DetectWorkflow
@@ -280,12 +282,11 @@ class Server:
             print(f"Received result : {result.id}")
             return {"status": "updated", "result": result.id}
         except Exception as e:
-            import traceback
             error_traceback = traceback.format_exc()
             print(f"Error in next_message: {str(e)}\n{error_traceback}")
             return {"error": str(e), "traceback": error_traceback}
 
-    async def next_message(self, workflow_id: str, data: MessageData):
+    async def rerun_message(self, workflow_id: str, data: MessageData):
         print(f"Rerunning message: {data.message_id}")
         if workflow_id not in self.active_workflows:
             return {"error": f"Workflow {workflow_id} not found"}
@@ -297,23 +298,9 @@ class Server:
 
             return {"status": "updated", "result": result.id}
         except Exception as e:
-            import traceback
             error_traceback = traceback.format_exc()
             return {"error": str(e), "traceback": error_traceback}
-    
-    async def rerun_message(self, workflow_id: str, data: MessageData):
-        if workflow_id not in self.active_workflows:
-            return {"error": f"Workflow {workflow_id} not found"}
 
-        workflow = self.active_workflows[workflow_id]["instance"]
-
-        try:
-            result = await workflow.rerun_message(data.message_id)
-            return {"status": "updated", "result": result.id}
-        except Exception as e:
-            import traceback
-            error_traceback = traceback.format_exc()
-            return {"error": str(e), "traceback": error_traceback}
 
     async def edit_action_input(self, workflow_id: str, data: MessageInputData):
         print(f"Editing message: {data.message_id}")
@@ -329,7 +316,7 @@ class Server:
         except Exception as e:
             return {"error": str(e)}
 
-    async def update_interactive_mode(self, workflow_id: str, data: dict):
+    async def update_interactive_mode(self, workflow_id: str, data: UpdateInteractiveModeInput):
         print(f"Received request to update interactive mode for workflow {workflow_id}")
         print(f"Data received: {data}")
         
@@ -338,7 +325,7 @@ class Server:
                 raise HTTPException(status_code=404, detail="Workflow not found")
             
             workflow = self.active_workflows[workflow_id]["instance"]
-            new_interactive_mode = data.get("interactive")
+            new_interactive_mode = data.interactive
             
             if new_interactive_mode is None:
                 raise HTTPException(status_code=400, detail="Interactive mode not specified")
@@ -348,6 +335,7 @@ class Server:
             print(f"Interactive mode successfully set to {new_interactive_mode}")
             
             return {"status": "success", "interactive": new_interactive_mode}
+        
         except Exception as e:
             print(f"Error occurred: {str(e)}")
             print(f"Error type: {type(e)}")

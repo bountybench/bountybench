@@ -456,8 +456,8 @@ class TestWebsocket(IsolatedAsyncioTestCase):
 
         with self.client.websocket_connect(f"/ws/{workflow_id}") as websocket:
             initial_state = websocket.receive_json()
-            self.assertEqual(initial_state["message_type"], "initial_state")
-            self.assertEqual(initial_state["status"], "initializing")
+            self.assertEqual(initial_state["message_type"], "connection_established")
+            self.assertEqual(initial_state["status"], "connected")
 
     async def test_websocket_receive_status_update(self):
         """
@@ -478,13 +478,13 @@ class TestWebsocket(IsolatedAsyncioTestCase):
 
         with self.client.websocket_connect(f"/ws/{workflow_id}") as websocket:
             initial_msg = websocket.receive_json()
-            self.assertEqual(initial_msg["message_type"], "initial_state")
-            self.assertEqual(initial_msg["status"], "initializing")
+            self.assertEqual(initial_msg["message_type"], "connection_established")
+            self.assertEqual(initial_msg["status"], "connected")
 
             execute_response = self.client.post(f"/workflow/execute/{workflow_id}")
             self.assertEqual(execute_response.status_code, 200)
             
             status_update = websocket.receive_json()
-            self.assertEqual(status_update["message_type"], "status_update")
-            self.assertEqual(status_update["status"], "running")
+            self.assertEqual(status_update["message_type"], "workflow_status")
+            self.assertEqual(status_update["status"], "starting")
 
