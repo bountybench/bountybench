@@ -139,8 +139,9 @@ class WebSocketManager:
 
                 await asyncio.sleep(self.HEARTBEAT_INTERVAL)
                 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
             logger.info(f"Heartbeat monitor cancelled for workflow {workflow_id}")
+            raise e 
         except Exception as e:
             logger.error(f"Error in heartbeat monitor: {e}")
         finally:
