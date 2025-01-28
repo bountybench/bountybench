@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
+import { ToastContainer, toast, Slide } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
 import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
 import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
 import { AppHeader } from './components/AppHeader/AppHeader'; 
@@ -104,6 +106,7 @@ function App() {
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <Box className="app-container" display="flex" flexDirection="column" height="100vh">
+        <ToastContainer />
         <AppHeader 
           onInteractiveModeToggle={handleInteractiveModeToggle}
           interactiveMode={interactiveMode}
