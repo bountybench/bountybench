@@ -12,12 +12,13 @@ from tests.agents import (
 
 # from tests.messages import test_message, test_rerun_manager
 from tests.phases import test_base_phase, test_managers
-from tests.resources import test_setup_resource  # test_resource_config,
 from tests.resources import (
     test_init_files_resource,
     test_kali_env_resource,
     test_kali_env_resource_tty,
+    test_resource_config,
     test_resource_manager,
+    test_setup_resource,
 )
 from tests.resources.model_resource import test_config_default
 from tests.ui_backend import test_server
@@ -37,7 +38,8 @@ test_modules = [
     test_init_files_resource,
     test_kali_env_resource,
     test_kali_env_resource_tty,
-    test_config_default,  # test_resource_manager, test_setup_resource, test_resource_config,
+    test_config_default,
+    test_resource_config,  # test_resource_manager, test_setup_resource,
     test_logger,
     test_progress_logger,
     # test_base_workflow, test_exploit_patch_workflow,
