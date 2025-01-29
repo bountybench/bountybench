@@ -41,15 +41,27 @@ class BrowserResourceTest(unittest.TestCase):
         text_box.send_keys("Selenium")
         submit_button.click()
         content = browser_resource.GetPage()
-        print(content)
         self.assertTrue("Form submitted" in content, "Form not submitted")
         self.assertTrue("Received!" in content, "No received blurb")
 
-        heading_elem = browser_resource.GetElement(By.CSS_SELECTOR, "h1")
-        paragraph_elem = browser_resource.GetElement(By.CSS_SELECTOR, "p")
+        heading_elem = browser_resource.GetElementWithCSS("h1")
+        paragraph_elem = browser_resource.GetElementWithCSS("p")
         
         self.assertEqual(heading_elem.text, "Form submitted", "Incorrect heading text after form submission")
         self.assertEqual(paragraph_elem.text, "Received!", "Incorrect paragraph text after form submission")
+
+    def test_search(self):
+        config = BrowserResourceConfig(
+            search_result_count = 5,
+            browser = "chrome"
+        )
+
+        browser_resource = BrowserResource(resource_id="test_browser_resource", config=config)
+        search_results = browser_resource.search("wikipedia")    
+        self.assertEqual(len(search_results), 5, "Incorrect number of default search results")
+
+        search_results = browser_resource.search("wikipedia", 2)    
+        self.assertEqual(len(search_results), 2, "Incorrect number of custom search results")
 
 if __name__ == '__main__':
     unittest.main()
