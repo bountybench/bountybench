@@ -5,7 +5,10 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-    
+
+permissions:
+  actions: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -43,12 +46,12 @@ jobs:
             })
             for (const cache of caches.data.actions_caches) {
               if (cache.key !== '${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}') {
-                await github.rest.actions.deleteActionsCacheById({
+                await github.rest.actions.deleteActionsCacheByKey({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  cache_id: cache.id,
+                  key: cache.key,
                 })
-                console.log(`Deleted cache with ID ${cache.id}`)
+                console.log(`Deleted cache with key ${cache.key}`)
               }
             }
 
