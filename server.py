@@ -65,7 +65,7 @@ class Server:
         self.app.get("/workflow/{workflow_id}/resources")(self.get_workflow_resources)
         self.app.get("/workflow/allmodels")(self.list_all_models)
         self.app.get("/workflow/helmmodels")(self.list_helm_models)
-        self.app.get("/workflow/model-change/{workflow_id}")(self.change_model)
+        self.app.post("/workflow/model-change/{workflow_id}")(self.change_model)
 
     def setup_middleware(self):
         self.app.add_middleware(
