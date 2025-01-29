@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
+import CloseIcon from '@mui/icons-material/Close';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css'
@@ -13,6 +14,19 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && editing) {
+        handleCancelEdit();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [editing]);
 
   if (!action) return null;
 
@@ -53,6 +67,12 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
     } catch (error) {
       console.error('Error updating action message:', error);
     }
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    onEditingChange(false);
+    setEditedMessage(originalMessageContent);
   };
 
   const handleExpandClick = (e) => {
@@ -109,8 +129,18 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
                 onClick={handleSaveClick}
                 size="small"
                 aria-label="save"
+                sx={{ mr: 1 }}
               >
                 <SaveIcon/>
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleCancelEdit}
+                size="small"
+                aria-label="cancel"
+              >
+                <CloseIcon/>
               </Button>
             </Box>
           </Box>
