@@ -76,7 +76,7 @@ jobs:
       - name: Analyze Disk Usage
         run: |
           echo "Top 10 Largest Directories"
-          du -ah / | sort -rh | head -n 10
+          sudo du -ah / | sort -rh | head -n 10
 
       - name: Pull Docker Container
         if: env.changed_files_count != '0' || env.all_tests == 'true'
