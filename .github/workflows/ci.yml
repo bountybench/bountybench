@@ -8,22 +8,23 @@ on:
 
 permissions:
   actions: write
+  contents: read 
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Cache Python dependencies
-        uses: actions/cache@v2
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cache/pip
