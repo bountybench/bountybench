@@ -131,6 +131,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChil
                       {/* Arrow Buttons */}
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <IconButton
+                          aria-label="arrow back"
                           onClick={() => handleToggleVersion(-1)}
                           disabled={phaseDisplayedIndex === 1}
                           sx={{ color: 'black' }}
@@ -139,6 +140,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChil
                           <ArrowBackIcon />
                         </IconButton>
                         <IconButton
+                          aria-label="arrow forward"
                           onClick={() => handleToggleVersion(1)}
                           disabled={phaseDisplayedIndex === phaseVersionLength}
                           sx={{ color: 'black' }}
