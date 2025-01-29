@@ -108,6 +108,7 @@ jobs:
             python -m tests.runner $(cat changed_files.txt)
           else
             echo "No relevant tests to run."
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v2
