@@ -49,16 +49,17 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token  
 
-      - name: Run backend tests
-        run: |
-          if [[ "${{ steps.check_label.outputs.all_tests }}" == "true" ]]; then
-            python -m tests.runner
-          elif [[ ${{ github.event_name }} == 'pull_request' ]]; then
-            git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} > changed_files.txt
-            python -m tests.runner $(cat changed_files.txt)
-          else
-            python -m tests.runner
-          fi
+        - name: Run backend tests with coverage
+            run: |
+              if [[ "${{ steps.check_label.outputs.all_tests }}" == "true" ]]; then
+                coverage run -m tests.runner
+              elif [[ ${{ github.event_name }} == 'pull_request' ]]; then
+                git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} > changed_files.txt
+                coverage run -m tests.runner $(cat changed_files.txt)
+              else
+                coverage run -m tests.runner
+              fi
+              coverage report
 
       - name: Set up Node.js
         uses: actions/setup-node@v2
