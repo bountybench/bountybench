@@ -6,7 +6,7 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # List of test files (relative paths)
-test_files = ["test_calculator.py"
+test_files = ["tests/test_calculator.py"
     #"tests/agents/test_base_agent.py",  # "tests/agents/test_executor_agent.py",
     # "tests/agents/test_patch_agent_git.py", "tests/agents/test_patch_agent_run_exploit.py", "tests/agents/test_patch_agent_verify.py",
     # "tests/messages/test_message.py", "tests/messages/test_rerun_manager.py",
