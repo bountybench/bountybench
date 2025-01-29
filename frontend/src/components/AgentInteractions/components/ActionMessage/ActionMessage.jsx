@@ -45,7 +45,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
   const handleEditClick = () => {
     setEditing(true);
     onEditingChange(true);
-    setEditedMessage(originalMessageContent);
+    setEditedMessage(formatData(action.message));
   };
 
   const handleSaveClick = async () => {
