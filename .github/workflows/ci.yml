@@ -33,8 +33,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           
+      - name: Set up GitHub CLI
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
       - name: Determine if all tests should run
         id: should_run_all
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pr_comments=$(gh pr view ${{ github.event.pull_request.number }} --json comments --jq '.comments[].body')
           if echo "$pr_comments" | grep -q "run all tests"; then
@@ -53,7 +59,7 @@ jobs:
           else
             python -m tests.runner
           fi
-          
+
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
