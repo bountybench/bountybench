@@ -92,7 +92,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
                         onClick={handleEditClick}
                         size="small"
                         className="edit-button"
-                        disabled={isEditing && !editing}
+                        sx={{ display: isEditing && !editing ? 'none' : 'flex' }}
                       >
                         <EditIcon />
                       </Button>

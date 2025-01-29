@@ -121,7 +121,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
                 {originalMessageContent}
               </Typography>
             </Box>
-            <Box className="action-message-buttons">
+            <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
               <Button
                 variant="outlined"
                 color="primary"
@@ -129,7 +129,6 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
                 size="small"
                 aria-label="edit"
                 className="edit-button"
-                disabled={isEditing && !editing}
               >
                 <EditIcon />
               </Button>
