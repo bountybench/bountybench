@@ -9,8 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from tests.agents import (
     test_base_agent,  # test_patch_agent_git, test_patch_agent_run_exploit, test_patch_agent_verify, test_executor_agent,
 )
-
-# from tests.messages import test_message, test_rerun_manager
+from tests.messages import test_message  # test_rerun_manager
 from tests.phases import test_base_phase, test_managers
 from tests.resources import (
     test_init_files_resource,
@@ -33,7 +32,7 @@ suite = unittest.TestSuite()
 test_modules = [
     test_base_agent,  # test_executor_agent,
     # test_patch_agent_git, test_patch_agent_run_exploit, test_patch_agent_verify,
-    # test_message, test_rerun_manager,
+    test_message,  # test_rerun_manager,
     # test_managers, test_base_phase,
     test_init_files_resource,
     test_kali_env_resource,
