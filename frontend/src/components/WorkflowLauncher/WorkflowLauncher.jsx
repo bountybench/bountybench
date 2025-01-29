@@ -41,7 +41,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     setTopLevelSelection(value);
     // Set the model field based on top-level selection
     if (value === "Non-HELM") {
-      handleInputChange({ target: { name: 'model', value: 'openai/o3-mini-2024-12-17' } }); // Set to default model for Non-HELM     
+      handleInputChange({ target: { name: 'model', value: 'openai/o3-mini-2024-12-17' } }); // Set to default model for Non-HELM
     } else {
       handleInputChange({ target: { name: 'use_helm', value: true } });
       handleInputChange({ target: { name: 'model', value: '' } }); // Reset model field for HELM
@@ -268,9 +268,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             <MenuItem key={model.name} value={model.name}>
               <Box display="flex" flexDirection="column">
                 <Typography>{model.name}</Typography>
-                <Typography variant="caption" color="textSecondary">
-                  {model.description}
-                </Typography>
               </Box>
             </MenuItem>
           ))}
