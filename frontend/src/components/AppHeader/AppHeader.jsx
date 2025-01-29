@@ -10,7 +10,7 @@ export const AppHeader = ({
   onModelChange
 }) => {
   // Example options
-  const [modelMapping, setModelMapping] = useState({});
+  const [modelMapping, setModelMapping] = useState([]);
 
   // State for currently selected values
   const [selectedModelType, setSelectedModelType] = useState('');
@@ -23,7 +23,9 @@ export const AppHeader = ({
         try {
           const response = await fetch('http://localhost:8000/workflow/allmodels');
           const models = await response.json();
-          setModelMapping(models);
+
+          setModelMapping(models.allModels);
+          console.log(models.allModels)
         } catch (err) {
           console.log('Failed to fetch models. Make sure the backend server is running.');
         }
@@ -31,14 +33,14 @@ export const AppHeader = ({
       fetchModels();
     }, []);
     
-    // Extracting modelTypes (prefixes) whenever modelMapping changes
-  const allModelTypes = [...new Set(Object.keys(modelMapping).map(value => value.split('/')[0]))];
+  // Extracting modelTypes (prefixes) whenever modelMapping changes
+  const allModelTypes = [...new Set(modelMapping.map(model => model.name.split('/')[0]))];
 
   // Determine modelNames based on selectedModelType
-  const allModelNames = selectedModelType ? Object.entries(modelMapping)
-    .filter(([key, value]) => key.startsWith(selectedModelType))
-    .map(([k]) => k.split('/')[1]) // Gets the model names, i.e., the second part after `/`
-    : [];
+  const allModelNames = selectedModelType ? modelMapping
+  .filter(model => model.name.startsWith(selectedModelType))  // Filter by selected model type
+  .map(model => model.name.split('/')[1])  // Split the name and get the second part after "/"
+  : [];
 
   // Effect to set defaults based on selectedWorkflow
   useEffect(() => {

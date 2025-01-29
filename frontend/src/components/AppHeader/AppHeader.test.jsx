@@ -15,7 +15,7 @@ test('renders app title', () => {
 });
 
 test('displays workflow status, phase, and model name', async () => {
-  const allModels = { 'model1/name' : 'model1/name' };
+  const allModels = [{ 'name': "model1/name", 'description' : "model1/model_name" }];
   global.fetch = jest.fn(() =>
     Promise.resolve({
       json: () => Promise.resolve({ allModels })
@@ -44,7 +44,7 @@ test('displays workflow status, phase, and model name', async () => {
 });
 
 test('interactive mode toggle works', () => {
-  const all_models = { "model1/name" : "model1/model_name" };
+  const all_models = [{ 'name': "model1/name", 'description' : "model1/model_name" }];
   global.fetch = jest.fn(() =>
     Promise.resolve({
       json: () => Promise.resolve({ all_models })
@@ -64,7 +64,10 @@ test('interactive mode toggle works', () => {
 });
 
 test('model change', async () => {
-  const allModels = { 'model1/name' : 'model1/name', 'model1/name2' : 'model1/name2', 'model2/name1' : 'model2/name1'};
+  const allModels = [{ 'name': "model1/name", 'description' : "model1/name" }, 
+    { 'name': "model1/name2", 'description' : "model1/name2" },
+    { 'name': "model2/name1", 'description' : "model2/name1" },
+  ];
   global.fetch = jest.fn(() =>
     Promise.resolve({
       json: () => Promise.resolve({ allModels })

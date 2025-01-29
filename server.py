@@ -143,15 +143,15 @@ class Server:
 
     async def list_all_models(self):
         """List available model types"""
-        return {"allModels": TokenizerMapping.mapping}
+        all_models = [{'name': key, 'description': value} for key, value in TokenizerMapping.mapping.items()]
+        return {"allModels": all_models}
 
     async def list_helm_models(self):
         """List HELM model types"""
         all_mapping = TokenizerMapping.mapping
         nonhelm_mapping = NonHELMMapping.mapping
-        helm_mapping = {key:value for key, value in all_mapping.items() if key not in nonhelm_mapping}
+        helm_mapping = [{'name': key, 'description': value} for key, value in all_mapping.items() if key not in nonhelm_mapping]
         return {"helmModels": helm_mapping}
-
 
     async def start_workflow(self, workflow_data: StartWorkflowInput):
         print(workflow_data)

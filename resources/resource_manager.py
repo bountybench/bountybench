@@ -6,6 +6,7 @@ from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
 from resources.kali_env_resource import KaliEnvResource
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 
 logger = get_main_logger(__name__)
 
@@ -31,7 +32,7 @@ class ResourceManager:
             resource = resource_class("model", resource_config)
             self._resources["model"] = resource
             logger.info(f'New model specifics: {resource}')
-
+            
     def compute_schedule(self, phases: List['BasePhase']):
         """
         Compute the resource usage schedule across all phases.

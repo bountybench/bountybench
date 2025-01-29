@@ -11,7 +11,7 @@ jest.mock('../../hooks/useWorkflowWebSocket');
 window.HTMLElement.prototype.scrollIntoView = jest.fn();
 
 describe('WorkflowDashboard Component', () => {
-    const mockSelectedWorkflow = { id: 'test-workflow-id' };
+    const mockSelectedWorkflow = { id: 'test-workflow-id', model: 'test/model' };
     const mockInteractiveMode = true;
     const mockOnWorkflowStateUpdate = jest.fn();
 
@@ -74,6 +74,20 @@ describe('WorkflowDashboard Component', () => {
             [
               {
                   "phase_id": "ExploitPhase",
+                  "agent_messages": [
+                      {
+                          "agent_id": "1",
+                          "message": "Message 1",
+                          "current_children": [],
+                          "message_type": "AgentMessage",
+                      },
+                      {
+                          "agent_id": "2",
+                          "message": "Message 2",
+                          "current_children": [],
+                          "message_type": "AgentMessage",
+                      }
+                  ],
                   "current_children": [
                       {
                           "agent_id": "1",
@@ -193,6 +207,27 @@ describe('WorkflowDashboard Component', () => {
           messages: [
             {
               phase_id: 'ExploitPhase',
+              agent_messages: [
+                {
+                  agent_id: 'agent-1',
+                  message: 'Message 1',
+                  action_messages: [
+                    {
+                      current_id: 'test-message-id',
+                      resource_id: 'test-message-id',
+                      message: 'former'
+                    }
+                  ],
+                  current_children: [
+                    {
+                      current_id: 'test-message-id',
+                      resource_id: 'test-message-id',
+                      message: 'former'
+                    }
+                  ],
+                  message_type: 'AgentMessage',
+                }
+              ],
               current_children: [
                 {
                   agent_id: 'agent-1',
@@ -265,6 +300,27 @@ describe('WorkflowDashboard Component', () => {
           messages: [
             {
               phase_id: 'ExploitPhase',
+              agent_messages: [
+                {
+                  agent_id: 'agent-1',
+                  message: 'Message 1',
+                  action_messages: [
+                    {
+                      current_id: 'test-message-id',
+                      resource_id: 'test-message-id',
+                      message: 'former'
+                    }
+                  ],
+                  current_children: [
+                    {
+                      current_id: 'test-message-id',
+                      resource_id: 'test-message-id',
+                      message: 'former'
+                    }
+                  ],
+                  message_type: 'AgentMessage',
+                }
+              ],
               current_children: [
                 {
                   agent_id: 'agent-1',

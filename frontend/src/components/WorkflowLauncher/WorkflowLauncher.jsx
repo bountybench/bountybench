@@ -41,7 +41,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     setTopLevelSelection(value);
     // Set the model field based on top-level selection
     if (value === "Non-HELM") {
-      handleInputChange({ target: { name: 'model', value: 'openai/o3-mini-2024-12-17' } }); // Set to default model for Non-HELM
+      handleInputChange({ target: { name: 'model', value: 'openai/o3-mini-2024-12-17' } }); // Set to default model for Non-HELM     
     } else {
       handleInputChange({ target: { name: 'use_helm', value: true } });
       handleInputChange({ target: { name: 'model', value: '' } }); // Reset model field for HELM
@@ -52,6 +52,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   useEffect(() => {
     if (!isChecking && isServerAvailable) {
       fetchWorkflows();
+      fetchModels();
     }
   }, [isChecking, isServerAvailable]);
 
@@ -70,22 +71,20 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   };
 
 
-  // Fetch available models
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const response = await fetch('http://localhost:8000/workflow/helmmodels');
-        const all_models = await response.json();
-        setAllModels(all_models);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to fetch models. Make sure the backend server is running.');
-        setLoading(false);
-      }
-    };
+ 
+  const fetchModels = async () => {
+    setError(null);
+    try {
+      const response = await fetch('http://localhost:8000/workflow/helmmodels');
+      const helm_models = await response.json();
+      setAllModels(helm_models.helmModels);
+    } catch (err) {
+      setError('Failed to fetch models. Make sure the backend server is running.');
+      setLoading(false);
+    }
+  };
 
-    fetchModels();
-  }, []);
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -265,16 +264,16 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             required
             margin="normal"
           >
-            {Object.entries(allModels).map(([k, v]) => (
-              <MenuItem key={k} value={k}>
-                <Box display="flex" flexDirection="column">
-                  <Typography>{k}</Typography>
-                  <Typography variant="caption" color="textSecondary" className="workflow-description">
-                    {v}
-                  </Typography>
-                </Box>
-              </MenuItem>
-            ))}
+            {allModels.map((model) => (
+            <MenuItem key={model.name} value={model.name}>
+              <Box display="flex" flexDirection="column">
+                <Typography>{model.name}</Typography>
+                <Typography variant="caption" color="textSecondary">
+                  {model.description}
+                </Typography>
+              </Box>
+            </MenuItem>
+          ))}
           </TextField>
           )}
 

@@ -45,9 +45,10 @@ test('renders agent messages', () => {
   const message = {
     phase_name: 'Exploit Phase',
     phase_summary: 'Testing phase summary',
+    agent_messages: [{ message: 'Agent1 message content' }, { message: 'Agent2 message content' }],
     current_children: [{ message: 'Agent message content' }],
   };
   render(<PhaseMessage message={message} />);
   expect(screen.getByText(/Agent Messages:/i)).toBeInTheDocument();
-  expect(screen.getByText(/Agent message content/i)).toBeInTheDocument();
+  expect(screen.getByText(/Agent1 message content/i)).toBeInTheDocument();
 });
