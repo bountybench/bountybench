@@ -10,7 +10,6 @@ from messages.message import Message
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
-from resources.model_resource.model_utils import get_model_provider
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
 from utils.logger import get_main_logger
@@ -55,7 +54,7 @@ class ModelResourceConfig(BaseResourceConfig):
             raise ValueError("max_input_tokens must be positive")
         if self.max_output_tokens <= 0:
             raise ValueError("max_output_tokens must be positive")
-        # verify_and_auth_api_key(self.model, self.use_helm)
+        verify_and_auth_api_key(self.model, self.use_helm)
 
 
 class ModelResource(BaseResource):
@@ -72,9 +71,20 @@ class ModelResource(BaseResource):
         self.helm = self._resource_config.use_helm
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
+        self.model_provider: ModelProvider = self.get_model_provider()
 
-        self.helm_models = HelmModels()
-        self.openai_models = OpenAIModels()
+    def get_model_provider(self) -> ModelProvider:
+        """
+        Get the appropriate model provider based on the model type.
+        Returns:
+            ModelProvider: An instance of the appropriate model provider class.
+        """
+        # TODO: Support Different Model Providers (Also handle Azure case)
+        if self.helm:
+            model_provider = HelmModels()
+        else:
+            model_provider = OpenAIModels()
+        return model_provider
 
     def remove_hallucinations(self, response: str):
         response = response.replace("----------Message from agent----------", "")
@@ -113,10 +123,8 @@ class ModelResource(BaseResource):
         Returns:
             List[int]: A list of token IDs representing the tokenized message.
         """
-        model_provider: ModelProvider
-        model_provider = get_model_provider(self.helm)
         try:
-            return model_provider.tokenize(model=self.model, message=message)
+            return self.model_provider.tokenize(model=self.model, message=message)
         except (NotImplementedError, KeyError):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.encode(message)
@@ -129,10 +137,8 @@ class ModelResource(BaseResource):
         Returns:
             str: The decoded string representation of the tokens.
         """
-        model_provider: ModelProvider
-        model_provider = self.get_model_provider(self.helm)
         try:
-            return model_provider.decode(model=self.model, tokens=tokens)
+            return self.model_provider.decode(model=self.model, tokens=tokens)
         except (NotImplementedError, KeyError):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.decode(tokens)
@@ -173,9 +179,7 @@ class ModelResource(BaseResource):
         if isinstance(input_message, ActionMessage):
             prev_action_message = input_message
         model_input = self.generate_memory(input_message)
-        model_provider: ModelProvider
-        model_provider = self.helm_models if self.helm else self.openai_models
-        model_response = model_provider.make_request(
+        model_response = self.model_provider.make_request(
             model=self.model,
             message=model_input,
             temperature=self.temperature,
