@@ -14,6 +14,7 @@ const AgentInteractions = ({
   onTriggerNextIteration,
 }) => {
   const [userMessage, setUserMessage] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -48,6 +49,8 @@ const AgentInteractions = ({
             message={latestPhaseMessage}
             onUpdateActionInput={onUpdateActionInput}
             onRerunAction={onRerunAction}
+            onEditingChange={setIsEditing}
+            isEditing={isEditing}
           />
         )}
         <div ref={messagesEndRef} />
@@ -62,7 +65,7 @@ const AgentInteractions = ({
                 color="primary"
                 onClick={onTriggerNextIteration}
                 startIcon={<ArrowForwardIcon />}
-                disabled={isNextDisabled}
+                disabled={isNextDisabled || isEditing}
                 size="small"
                 sx={{ mb: 1 }}
               >
