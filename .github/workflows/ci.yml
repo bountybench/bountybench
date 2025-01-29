@@ -14,13 +14,37 @@ jobs:
         with:
           fetch-depth: 0 
       
-      - name: Cleanup Unused Python Versions
+      - name: Cleanup Unused Tools
         run: |
-          echo "Removing old Python versions to free space..."
-          sudo rm -rf /opt/hostedtoolcache/Python/*/x64
-          sudo rm -rf /opt/hostedtoolcache/Python/3.10*
-          sudo rm -rf /opt/hostedtoolcache/Python/3.9*
-          df -h  # Show disk usage after cleanup
+          echo "Removing unnecessary pre-installed tools and older Python versions..."
+
+          # Show initial usage
+          df -h
+
+          # Clean apt caches and remove unneeded packages
+          sudo apt-get clean
+          sudo apt-get autoremove -y
+          sudo rm -rf /var/lib/apt/lists/*
+
+          # Remove .NET if not needed
+          sudo rm -rf /usr/share/dotnet
+
+          # Remove Android SDK if you’re not building Android apps
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/local/lib/android/sdk
+
+          # Remove GHC (Haskell) if not needed
+          sudo rm -rf /opt/ghc
+
+          # Remove older Node if you only need Node 14
+          #sudo rm -rf /opt/hostedtoolcache/Node/16*
+          #sudo rm -rf /opt/hostedtoolcache/Node/18*
+
+          # Remove any Python versions besides 3.11
+          find /opt/hostedtoolcache/Python -mindepth 1 -maxdepth 1 ! -name "3.11.*" -exec sudo rm -rf {} \; || true
+
+          echo "Disk usage after removing unused tools:"
+          df -h
 
       - name: Set up Python
         uses: actions/setup-python@v2
