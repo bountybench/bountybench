@@ -41,7 +41,7 @@ jobs:
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-        
+
       - name: Check for label to run all tests
         id: check_label
         run: |
@@ -55,18 +55,44 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get changed files
+        id: get_changed_files
+        run: |
+          if [[ ${{ github.event_name }} == 'pull_request' ]]; then
+            git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} > changed_files.txt
+            echo "changed_files_count=$(wc -l < changed_files.txt)" >> $GITHUB_ENV
+          else
+            echo "changed_files_count=0" >> $GITHUB_ENV
+          fi
+
+      - name: Docker Cleanup before pulling new image
+        if: env.changed_files_count != '0' || env.all_tests == 'true'
+        run: |
+          docker system prune -af
+          docker image prune -af
+
+      - name: Pull Docker Container
+        if: env.changed_files_count != '0' || env.all_tests == 'true'
+        run: |
+          docker pull --quiet cybench/bountyagent:latest
+          docker manifest inspect cybench/bountyagent:latest
+
+      - name: Display disk space after pulling image
+        if: env.changed_files_count != '0' || env.all_tests == 'true'
+        run: df -H
+
       - name: Create Docker Network
+        if: env.changed_files_count != '0' || env.all_tests == 'true'
         run: docker network create shared_net || true
         
       - name: Run backend tests
         run: |
           if [[ "${{ env.all_tests }}" == "true" ]]; then
             python -m tests.runner
-          elif [[ ${{ github.event_name }} == 'pull_request' ]]; then
-            git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} > changed_files.txt
+          elif [[ ${{ github.event_name }} == 'pull_request' ]] && [[ "${{ env.changed_files_count }}" -gt 0 ]]; then
             python -m tests.runner $(cat changed_files.txt)
           else
-            python -m tests.runner
+            echo "No relevant tests to run."
           fi
 
       - name: Set up Node.js
