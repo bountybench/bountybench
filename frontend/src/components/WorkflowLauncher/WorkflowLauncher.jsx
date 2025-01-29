@@ -74,7 +74,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       if (!response) {
         throw new Error('Failed to get response from server');
       }
-      
+
       if (!response.ok) {
         let errorData;
         try {
