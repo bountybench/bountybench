@@ -145,7 +145,7 @@ class Server:
         """List available model types"""
         helm_models = list(set(TokenizerMapping.mapping.keys()))
         nonhelm_models = [value if '/' in value else key for key, value in NonHELMMapping.mapping.items()]
-        all_models = sorted(helm_models + nonhelm_models)
+        all_models = sorted(set(helm_models + nonhelm_models))
         all_models = [{'name': model} for model in all_models]
         return {"allModels": all_models}
 
