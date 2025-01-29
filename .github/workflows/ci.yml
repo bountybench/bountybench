@@ -13,6 +13,14 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0 
+      
+      - name: Cleanup Unused Python Versions
+        run: |
+          echo "Removing old Python versions to free space..."
+          sudo rm -rf /opt/hostedtoolcache/Python/*/x64
+          sudo rm -rf /opt/hostedtoolcache/Python/3.10*
+          sudo rm -rf /opt/hostedtoolcache/Python/3.9*
+          df -h  # Show disk usage after cleanup
 
       - name: Set up Python
         uses: actions/setup-python@v2
