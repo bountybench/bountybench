@@ -11,7 +11,7 @@ import './ActionMessage.css'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpdate, multiVersion, displayedIndex, versionLength }) => {
+const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onChildUpdate, multiVersion, displayedIndex, versionLength }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
@@ -44,7 +44,8 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
 
   const handleEditClick = () => {
     setEditing(true);
-    setEditedMessage(formatData(action.message));
+    onEditingChange(true);
+    setEditedMessage(originalMessageContent);
   };
 
   const handleSaveClick = async () => {

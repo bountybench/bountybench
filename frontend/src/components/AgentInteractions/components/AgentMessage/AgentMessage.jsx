@@ -10,7 +10,7 @@ import './AgentMessage.css'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChildUpdate, phaseMultiVersion, phaseDisplayedIndex, phaseVersionLength }) => {
+const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onPhaseChildUpdate, phaseMultiVersion, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message.message || '');
@@ -172,6 +172,8 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChil
                     action={actionMessage}
                     onUpdateActionInput={onUpdateActionInput}
                     onRerunAction={onRerunAction}
+                    onEditingChange={onEditingChange}
+                    isEditing={isEditing}
                     onChildUpdate={handleChildUpdate}
                     multiVersion={multiVersion}
                     displayedIndex={displayedIndex}
