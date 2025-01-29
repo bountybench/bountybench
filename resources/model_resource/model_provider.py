@@ -5,7 +5,7 @@ import threading
 from time import sleep
 from typing import List
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 from resources.model_resource.model_response import ModelResponse
 from utils.logger import get_main_logger
@@ -32,7 +32,7 @@ class ModelProvider(ABC):
             env_var = f"{cls.__name__.upper().replace('MODELS', '')}_API_KEY"
 
         # Define the path to the .env file, which is assumed to be in the root directory.
-        env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+        env_path = Path(find_dotenv())
 
         # If the .env file exists, load environment variables from it.
         if env_path.is_file():

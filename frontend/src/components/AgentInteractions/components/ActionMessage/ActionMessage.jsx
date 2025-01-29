@@ -108,6 +108,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
                 color="primary"
                 onClick={handleSaveClick}
                 size="small"
+                aria-label="save"
               >
                 <SaveIcon/>
               </Button>
@@ -126,6 +127,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
                 color="primary"
                 onClick={handleEditClick}
                 size="small"
+                aria-label="edit"
                 className="edit-button"
                 disabled={isEditing && !editing}
               >
@@ -136,6 +138,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
                 color="secondary"
                 onClick={handleRerunClick}
                 size="small"
+                aria-label="rerun"
               >
                 <ReplayIcon />
               </Button>

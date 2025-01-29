@@ -150,26 +150,38 @@ class KaliEnvResource(BaseResource):
                     sys.exit(1)
 
     def cleanup_tmp(self):
-        cleanup_command = "rm -rf * .*"
-        return self.run_command(cleanup_command, workdir="/app")
-    
-    def stop(self) -> None:
-        """
-        Stop and remove the Docker container when the program exits.
+        """Clean up temporary files"""
+        try:
+            logger.info("Cleaning up: removing tmp files.")
+            cleanup_command = "rm -rf * .*"
+            return self.run_command(cleanup_command, workdir="/app")
+        except Exception as e:
+            logger.error(f"Error cleaning up tmp files: {e}")
 
-        This function is automatically registered to run when the program terminates.
-        """
-        if self.container:
-            try:
-                logger.info("Cleaning up: removing tmp files.")
-                self.cleanup_tmp()
+    def stop(self):
+        """Stop and remove the Docker container"""
+        try:
+            if self.container:
+                try:
+                    self.cleanup_tmp()
+                except Exception as e:
+                    logger.error(f"Error during tmp cleanup: {e}")
+                
                 logger.info("Cleaning up: stopping and removing Docker container.")
-                self.container.stop()
-                self.container.remove()
+                try:
+                    self.container.stop(timeout=1)  # Short timeout for quicker shutdown
+                except Exception as e:
+                    logger.error(f"Error stopping container: {e}")
+                
+                try:
+                    self.container.remove(force=True)  # Force remove in case stop failed
+                except Exception as e:
+                    logger.error(f"Error removing container: {e}")
+                
                 self.container = None
                 logger.info("Docker container cleaned up successfully.")
-            except Exception as e:
-                logger.error(f"Error cleaning up Docker container: {e}")
+        except Exception as e:
+            logger.error(f"Error cleaning up Docker container: {e}")
 
     def run(self, command_message: CommandMessage) -> ActionMessage:
         command_str = command_message.command

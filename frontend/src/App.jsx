@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
@@ -15,7 +15,8 @@ function App() {
   const [interactiveMode, setInteractiveMode] = useState(true);
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
-  
+  const toastIdRef = useRef({});
+
   const handleWorkflowStart = (workflowId, isInteractive) => {
     setSelectedWorkflow({ id: workflowId });
     setInteractiveMode(isInteractive);
@@ -56,11 +57,24 @@ function App() {
 
     console.error = function(...args) {
       const errorMessage = args.join(' ');
-      toast.error(errorMessage, {
-        position: "top-center",
-        autoClose: 5000,
-        transition: Slide
-      });
+
+      // Check if the toast already exists
+      if (toastIdRef.current[errorMessage]) {
+        // Update the existing toast with the same message
+        toast.update(toastIdRef.current[errorMessage], {
+          render: errorMessage,
+          autoClose: 5000,
+          transition: Slide,
+        });
+      } else {
+        // Create a new toast and store the ID
+        const id = toast.error(errorMessage, {
+          position: "top-center",
+          autoClose: 5000,
+          transition: Slide,
+        });
+        toastIdRef.current[errorMessage] = id;
+      }  
       originalConsoleError.apply(console, args);
     };
 
