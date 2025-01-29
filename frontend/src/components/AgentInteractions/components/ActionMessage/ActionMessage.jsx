@@ -55,6 +55,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
     try {
       await onUpdateActionInput(action.current_id, editedMessage);
       setEditing(false);
+      onEditingChange(false);
     } catch (error) {
       console.error('Error updating action message:', error);
     }
@@ -126,13 +127,14 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onChildUpda
                 {formatData(action.message)}
               </Typography>
             </Box>
-            <Box className="action-message-buttons">
+            <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
               <Button
                 variant="outlined"
                 color="primary"
                 onClick={handleEditClick}
                 size="small"
                 aria-label="edit"
+                className="edit-button"
               >
                 <EditIcon />
               </Button>

@@ -22,6 +22,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChil
 
   const handleEditClick = () => {
     setEditing(true);
+    onEditingChange(true);
     setEditedMessage(message.message || '');
   };
 
@@ -51,6 +52,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChil
     try {
       await onUpdateActionInput(message.current_id, editedMessage);
       setEditing(false);
+      onEditingChange(false);
     } catch (error) {
       console.error('Error updating message:', error);
     }
@@ -118,6 +120,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChil
                         onClick={handleEditClick}
                         size="small"
                         className="edit-button"
+                        sx={{ display: isEditing && !editing ? 'none' : 'flex' }}
                       >
                         <EditIcon />
                       </Button>
