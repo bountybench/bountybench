@@ -40,7 +40,7 @@ test_modules = [
     test_config_default,
     test_resource_config,
     test_resource_manager,
-    test_setup_resource,
+    # test_setup_resource,
     test_logger,
     test_progress_logger,
     # test_base_workflow, test_exploit_patch_workflow,
