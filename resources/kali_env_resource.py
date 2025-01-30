@@ -191,10 +191,17 @@ class KaliEnvResource(BaseResource):
 
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, tty: bool = False) -> Tuple[str, str]:
         self.container.reload()  # Refresh container status
-        if self.container.status != "running":
-            logger.error(f"Container '{self.container.name}' is not running. Cannot execute command.")
-            raise RuntimeError(f"Cannot execute command: container '{self.container.name}' is not running.")
 
+        status_retries = 5
+        for _ in range(status_retries):
+            if self.container.status == "running":
+                break
+            time.sleep(1)
+        else:
+            # Only log the error if the container is still not running after retries
+            logger.error(f"Container '{self.container.name}' is not running. Cannot execute command.")
+            raise RuntimeError(f"Cannot execute command: container '{self.container.name}' is not running. Container: {self.container.status}.")
+        
         command_str = command.lstrip().lstrip("*").lstrip()
         if len(command) > 33:
             command_str = command_str[:30] + "..."
