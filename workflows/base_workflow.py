@@ -46,7 +46,7 @@ class BaseWorkflow(ABC):
 
         self.workflow_message = WorkflowMessage(
             workflow_name=self.name,
-            task=self._get_task(),
+            task=self.task,
             additional_metadata=self._get_metadata()
         )
         
@@ -82,6 +82,10 @@ class BaseWorkflow(ABC):
         """Create and register phases. To be implemented by subclasses."""
         pass
 
+    @property
+    def task(self):
+        return self._get_task()
+    
     def _create_phase(self, phase_class: Type[BasePhase], **kwargs: Any) -> None:
         """
         Create a phase instance and register it with the workflow.

@@ -101,7 +101,8 @@ function App() {
           <Routes>
             <Route path='/' element={<HomePage/>} />
             <Route path='/create-workflow' element={<WorkflowLauncher onWorkflowStart={handleWorkflowStart} interactiveMode={interactiveMode} setInteractiveMode={setInteractiveMode} />} />
-            <Route path='/workflow' element={<WorkflowDashboard selectedWorkflow={selectedWorkflow} interactiveMode={interactiveMode} onWorkflowStateUpdate={handleWorkflowStateUpdate} />} />
+            <Route path='/workflow' element={<Navigate to="/" />} />
+            <Route path='/workflow/:workflowId' element={<WorkflowDashboard interactiveMode={interactiveMode} onWorkflowStateUpdate={handleWorkflowStateUpdate} />} />
           </Routes>
         </Box>
       </Box>

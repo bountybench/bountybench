@@ -96,7 +96,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         console.error(data.error);
       } else {
         onWorkflowStart(data.workflow_id, interactiveMode);
-        navigate('/workflow'); // Navigate to workflow page after start
+        navigate(`/workflow/${data.workflow_id}`); // Navigate to workflow page after start
       }
     } catch (err) {
       console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');

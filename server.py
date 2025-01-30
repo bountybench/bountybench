@@ -51,6 +51,7 @@ class Server:
 
     def setup_routes(self):
         self.app.get("/workflow/list")(self.list_workflows)
+        self.app.get("/workflows/active")(self.list_active_workflows)
         self.app.post("/workflow/start")(self.start_workflow)
         self.app.post("/workflow/execute/{workflow_id}")(self.execute_workflow)
         self.app.websocket("/ws/{workflow_id}")(self.websocket_endpoint)
@@ -59,7 +60,6 @@ class Server:
         self.app.post("/workflow/edit-message/{workflow_id}")(self.edit_action_input)
         self.app.post("/workflow/{workflow_id}/interactive")(self.update_interactive_mode)
         self.app.get("/workflow/last-message/{workflow_id}")(self.last_message)
-        self.app.get("/workflow/{workflow_id}/resources")(self.get_workflow_resources)  
         self.app.get("/workflow/{workflow_id}/load-messages")(self.load_workflow_messages)
 
     def setup_middleware(self):
@@ -136,6 +136,17 @@ class Server:
             ]
         }
 
+    async def list_active_workflows(self):
+        active_workflows = []
+        for workflow_id, workflow_data in self.active_workflows.items():
+            active_workflows.append({
+                "id": workflow_id,
+                "status": workflow_data["status"],
+                "name": workflow_data["instance"].__class__.__name__,  
+                "task": workflow_data["instance"].task
+            })
+        return {"active_workflows": active_workflows}
+
     async def start_workflow(self, workflow_data: StartWorkflowInput):
         print(workflow_data)
         try:
@@ -199,10 +210,12 @@ class Server:
         try:
             workflow_data["status"] = "running"
             await websocket_manager.broadcast(workflow_id, {
-                "message_type": "status_update",
+                "message_type": "workflow_status",
                 "status": "running"
             })
+            print(f"Broadcasted running status for {workflow_id}")
             
+            print(f"Running workflow {workflow_id}")
             # Run the workflow
             await workflow.run()
 
@@ -210,8 +223,8 @@ class Server:
                 workflow_data["status"] = "completed"
                 workflow_data["workflow_message"] = workflow.workflow_message
                 await websocket_manager.broadcast(workflow_id, {
-                    "message_type": "status_update",
-                    "status": "completed"
+                    "message_type": "workflow_status",
+                    "status": "completed",
                 })
             
         except Exception as e:
@@ -219,7 +232,7 @@ class Server:
                 print(f"Workflow error: {e}")
                 workflow_data["status"] = "error"
                 await websocket_manager.broadcast(workflow_id, {
-                    "message_type": "status_update",
+                    "message_type": "workflow_status",
                     "status": "error",
                     "error": str(e)
                 })
