@@ -21,8 +21,6 @@ const AgentMessage = ({ index, message, onUpdateActionInput, onRerunAction, onEd
     
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
 
-  console.log("agent: ", message)
-  console.log("action version chain: ", versionChain, displayedIndex)
   const handleEditClick = () => {
     setEditing(true);
     onEditingChange(true);
@@ -44,16 +42,12 @@ const AgentMessage = ({ index, message, onUpdateActionInput, onRerunAction, onEd
         }
         // when current children is not equal to latest version
         const last_version_ids = getActionIds(versionChain[versionLength-1]);
-        console.log("last version ids ",last_version_ids)
-        console.log('filtered', curr_children_ids.filter(child => last_version_ids.includes(child)))
         if (!arraysEqual(last_version_ids,curr_children_ids)) {
           // if all of current children is new, we have a new version
           if (curr_children_ids.filter(child => last_version_ids.includes(child)).length === 0){
-            //setDisplayedIndex(versionChain.length + 1);
-            //setVersionChain((prev) => [...prev, curr_children]);
             setVersionChain((prev) => {
               const newVersionChain = [...prev, curr_children];
-              setDisplayedIndex(newVersionChain.length); // ✅ Uses the updated versionChain
+              setDisplayedIndex(newVersionChain.length); // Uses the updated versionChain
               return newVersionChain;
             });
           }
