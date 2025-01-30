@@ -24,6 +24,34 @@ from tests.ui_backend import test_server
 from tests.utils import test_logger, test_progress_logger
 from tests.workflows import test_base_workflow  # test_exploit_patch_workflow
 
+# ------------------------
+# Custom TestResult
+# ------------------------
+class PrintTestResult(unittest.TextTestResult):
+    """
+    Subclass of TextTestResult to print custom messages
+    before and after each test runs.
+    """
+    def startTest(self, test):
+        super().startTest(test)
+        # Print before test starts
+        print(f"\n=========================[BEFORE TEST] Starting: {test}=========================[")
+
+    def stopTest(self, test):
+        # Print after test completes
+        print(f"=========================[[AFTER TEST] Finished: {test}=========================\n")
+        super().stopTest(test)
+
+# ------------------------
+# Custom TestRunner
+# ------------------------
+class PrintTestRunner(unittest.TextTestRunner):
+    """
+    Subclass of TextTestRunner that uses our PrintTestResult
+    to capture the start/stop of each test.
+    """
+    resultclass = PrintTestResult
+
 # Initialize the test suite
 loader = unittest.TestLoader()
 suite = unittest.TestSuite()
@@ -67,8 +95,8 @@ if __name__ == "__main__":
         for module in test_modules:
             suite.addTests(loader.loadTestsFromModule(module))
 
-    # Initialize a runner, pass it your suite and run it
-    runner = unittest.TextTestRunner(verbosity=3)
+    # Use our custom runner so we can print custom messages.
+    runner = PrintTestRunner(verbosity=3)
     result = runner.run(suite)
 
     # Exit with non-zero code if there were failures
