@@ -117,7 +117,7 @@ class KaliEnvResource(BaseResource):
                 try:
                     container = self.client.containers.run(
                         image=DOCKER_IMAGE,
-                        cgroupns="host",
+                        #cgroupns="host",
                         network="shared_net",
                         volumes=volumes,
                         #entrypoint=ENTRYPOINT,
