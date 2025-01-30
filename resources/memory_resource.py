@@ -83,16 +83,21 @@ class MemoryTruncationFunctions:
      - memory_fn*: Takes a list of segments (ie list of lists), amd returns a globally truncated memory.
     """
     @staticmethod
+    def _is_pinned(msg: str, pinned_messages): 
+        remove_id = msg.split(']')[-1]
+        return pinned_messages is not None and remove_id in pinned_messages
+    
+    @staticmethod
     def segment_fn_last_n(segment, pinned_messages=None, n=3): 
         """Keep last n messages in each segment."""
-        trunc_token =  "...<TRUNCATED>..."
+        trunc_token =  "<TRUNC>"
 
         if len(segment) <= n: 
             return segment
 
         truncated = []
         for i in range(len(segment)): 
-            if pinned_messages and segment[i] in pinned_messages:
+            if MemoryTruncationFunctions._is_pinned(segment[i], pinned_messages):
                 if i < len(segment) - n - 1: 
                     truncated += [segment[i], trunc_token] 
                 elif i < len(segment) - n:
@@ -115,6 +120,39 @@ class MemoryTruncationFunctions:
         return segments
     
     @staticmethod
+    def memory_fn_by_token(segments, pinned_messages=None, max_input_tokens=4096): 
+        trunc_token =  "<TRUNC>"
+
+        max_tokens_per_segment = [max_input_tokens // len(segments)] * len(segments)
+        max_tokens_per_segment[-1] += max_input_tokens - sum(max_tokens_per_segment)
+
+        truncated = []
+
+        for i, segment in enumerate(segments):
+            cnt = 0
+
+            trunc_segment = [None for _ in range(len(segment))]
+            trunc_flag = False
+            
+            for j in range(len(segment) - 1, -1, -1):
+                tokens = segment[j].split()
+                cnt += len(tokens)
+
+                pinned = MemoryTruncationFunctions._is_pinned(segment[j], pinned_messages)
+                if not pinned and cnt >= max_tokens_per_segment[i]:
+                    if not trunc_flag:
+                        trunc = ' '.join(tokens[cnt - max_tokens_per_segment[i]:])
+                        trunc_segment[j] = trunc_token + trunc 
+                        trunc_flag = True
+                    continue 
+                
+                trunc_segment[j] = segment[j]
+                
+            truncated.append([x for x in trunc_segment if x is not None])
+        
+        return truncated
+    
+    @staticmethod
     def validate_segment_trunc_fn(fn): 
         assert type(fn(['msg1', 'msg2'])) == list, f"Segment truncation_fn should take list of messages and output truncated list."
         assert 'msg1' in fn(['msg1', 'msg2'], pinned_messages={'msg1'}), "Segment truncation_fn should respect pin."
@@ -134,9 +172,9 @@ class MemoryResourceConfig(BaseResourceConfig):
     scope: MemoryScope = field(default=MemoryScope.WORKFLOW)
     fmt: str = field(default=MemoryPrompts.DEFAULT_FMT_WORKFLOW)
     collate_fn: Callable[[List], str] = field(default=MemoryCollationFunctions.collate_ordered)
-    segment_trunc_fn: Callable[[List], List] = field(default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=3))
-    memory_trunc_fn: Callable[[List], List] = field(default=MemoryTruncationFunctions.memory_fn_noop)
-
+    segment_trunc_fn: Callable[[List], List] = field(default=MemoryTruncationFunctions.segment_fn_noop)
+    memory_trunc_fn: Callable[[List], List] = field(default=MemoryTruncationFunctions.memory_fn_by_token)
+    
     def validate(self) -> None:
         """Validate LLMResource configuration"""
         MemoryPrompts.validate_memory_prompt(self.fmt, self.scope)
@@ -194,6 +232,33 @@ class MemoryResource(BaseResource):
 
         def is_initial_prompt(msg_node): 
             return isinstance(msg_node, AgentMessage) and msg_node.agent_id == 'system'
+        
+        def extract_children(msg_node): 
+            if hasattr(msg_node, '_phase_messages'): 
+                return msg_node._phase_messages
+            elif hasattr(msg_node, '_agent_messages'):
+                return msg_node._agent_messages
+            elif hasattr(msg_node, '_action_messages'): 
+                return msg_node._action_messages
+            return []
+        
+        def extract_id(msg_node): 
+            if hasattr(msg_node, '_phase_messages'): 
+                return msg_node.workflow_id
+            elif hasattr(msg_node, '_agent_messages'):
+                return msg_node.phase_id
+            elif hasattr(msg_node, '_action_messages'): 
+                return msg_node.agent_id
+
+            assert isinstance(msg_node, ActionMessage)
+            return msg_node.parent.agent_id
+            
+        def add_to_segment(msg_node, segment):
+            id_ = extract_id(msg_node)
+            if not msg_node._message.strip(): 
+                return 
+
+            segment.append(f'[{id_}]{msg_node._message.strip()}')
 
         def go_up(msg_node, dst_cls): 
             while not isinstance(msg_node, dst_cls): 
@@ -202,66 +267,59 @@ class MemoryResource(BaseResource):
                 msg_node = msg_node.parent
             return msg_node
         
-        def go_down(msg_node, sys_messages, root_run=False): 
-            children = []
-            if hasattr(msg_node, '_phase_messages'): 
-                children = msg_node._phase_messages
-            elif hasattr(msg_node, '_agent_messages'):
-                children = msg_node._agent_messages
-            elif hasattr(msg_node, '_action_messages'): 
-                # exclude any system messages, ie initial prompts
-                if is_initial_prompt(msg_node):
-                    sys_messages.add(msg_node._message)
-                    return []
-                children = msg_node._action_messages
-            
-            if root_run:
-                children = children[:-1]
-            
+        def go_down(msg_node, sys_messages, root_run=False, id_=None): 
+            if is_initial_prompt(msg_node):
+                sys_messages.add(msg_node._message)
+                return []
+
+            children = extract_children(msg_node) 
+
             # pre-order traversal
-            messages = []
+            segment = []
             if hasattr(msg_node, '_message'): 
-                messages.append(msg_node._message)
+                add_to_segment(msg_node, segment)
 
-            for child in children: 
-                messages.extend(go_down(child, sys_messages))
+            if len(children) > 0: 
+                child = msg_node.get_latest_version(children[0])
+                while child.next: 
+                    segment.extend(go_down(child, sys_messages))
+                    child = child.next.get_latest_version(child.next)
+                
+                if not root_run:
+                    segment.extend(go_down(child, sys_messages))
 
-            return messages
+            return segment
 
         stop_cls = self.stop_cls
-
-        messages = [] 
+        segments = [] 
 
         # collect system messages (initial_prompts) separately
         system_messages = set()
         while not isinstance(message, stop_cls): 
             root = go_up(message, stop_cls)
-            messages.append(go_down(root, sys_messages=system_messages, root_run=True))
+            segments.append(go_down(root, sys_messages=system_messages, root_run=True))
             stop_cls = self.message_hierarchy[stop_cls]
 
         if is_initial_prompt(message): 
             system_messages.add(message._message)
         else:
             if hasattr(message, '_message') and message._message:
-                messages[-1].append(message._message.strip())
+                add_to_segment(message, segments[-1])
 
         # truncate each segment
-        trunc_messages = [self.segment_trunc_fn(x, self.pinned_messages) for x in messages]
-
+        trunc_segments = [self.segment_trunc_fn(x, self.pinned_messages) for x in segments]
         # truncate all memory
-        trunc_messages = self.memory_trunc_fn(trunc_messages, self.pinned_messages)
+        trunc_segments = self.memory_trunc_fn(trunc_segments, self.pinned_messages)
+        trunc_segments = [self.collate_fn(x) for x in trunc_segments]
 
-        messages = [list(filter(lambda x: x.strip() != '', msgs)) for msgs in trunc_messages]
-        messages = [self.collate_fn(x) for x in messages]
-
-        return messages, system_messages
+        return trunc_segments, system_messages
 
     def get_memory(self, message: ActionMessage | AgentMessage | PhaseMessage):
         messages, system_messages = self.parse_message(message)
 
         assert len(system_messages) == 1, \
             (f"Current memory implementation only supports single initial prompt.\n"
-             f"Found {len(system_message)} initial prompts (system messages)" +
+             f"Found {len(system_messages)} initial prompts (system messages)" +
              f":\n\t{[msg[:25] + '...' for msg in system_messages]}\n" if system_messages else ""
             )
         
@@ -280,8 +338,9 @@ class MemoryResource(BaseResource):
         memory_str = self.fmt.format(**kwargs)
 
         memory_str = f"{system_message}\n\n" + memory_str
-
-        return memory_str
+        
+        message.memory = memory_str
+        return message
         
 
     def pin(self, message_str: str):

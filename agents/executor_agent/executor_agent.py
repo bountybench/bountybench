@@ -37,7 +37,8 @@ class ExecutorAgent(BaseAgent):
        (InitFilesResource, "init_files"),
         (SetupResource, "repo_resource"),
         (SetupResource, "bounty_resource"),
-        (ModelResource, "model")]     
+        (ModelResource, "model"),
+        (MemoryResource, "executor_agent_memory")]     
     
 
     async def run(self, messages: List[Message]) -> Message:
@@ -95,8 +96,8 @@ class ExecutorAgent(BaseAgent):
             iterations = 0 
             while iterations < MAX_RETRIES:
                 try:
-                    memory = self.executor_agent_memory.get_memory(lm_input_message)
-                    model_response = self.model.run(input_message=None, input_memory=memory)
+                    lm_input_message = self.executor_agent_memory.get_memory(lm_input_message)
+                    model_response = self.model.run(input_message=lm_input_message)
                     return model_response
                 except Exception as e:
                     logger.warning(f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}")

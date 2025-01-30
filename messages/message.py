@@ -91,3 +91,12 @@ class Message(ABC):
             
         
             return result
+
+    @property
+    def memory(self): 
+        return self._memory
+
+    @memory.setter
+    def memory(self, x: str): 
+        """This should only be set by the MemoryResource."""
+        self._memory = x
