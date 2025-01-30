@@ -114,11 +114,23 @@ jobs:
       - name: Check Disk Space Before Docker Pull
         run: df -h
       
+      - name: Cache Docker Image
+        id: docker-cache
+        uses: actions/cache@v3
+        with:
+          path: /tmp/docker
+          key: docker-${{ runner.os }}-cybench-bountyagent-latest
+
+      - name: Load Cached Docker Image
+        if: steps.docker-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/docker/cybench-bountyagent-latest.tar
+
       - name: Pull Docker Container
-        if: env.changed_files_count != '0' || env.all_tests == 'true'
+        if: steps.docker-cache.outputs.cache-hit != 'true' && (env.changed_files_count != '0' || env.all_tests == 'true')
         run: |
           docker pull --quiet cybench/bountyagent:latest
-          docker manifest inspect cybench/bountyagent:latest
+          mkdir -p /tmp/docker
+          docker save cybench/bountyagent:latest > /tmp/docker/cybench-bountyagent-latest.tar
 
       - name: Display disk space after pulling image
         if: env.changed_files_count != '0' || env.all_tests == 'true'
