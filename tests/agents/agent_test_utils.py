@@ -10,7 +10,6 @@ from resources.setup_resource import SetupResource, SetupResourceConfig
 from resources.utils import read_bounty_metadata
 from workflows.utils import setup_shared_network
 
-environment_fixtures_count = 0
 EXPLOIT_SCRIPT_NAME = "exploit.sh"
 VERIFY_SCRIPT_NAME = "verify.sh"
 
@@ -145,9 +144,6 @@ def bounty_setup(repo_name: str, bounty_number: int) -> EnvPath:
 
 @pytest.fixture(scope="session")
 def lunary_bounty_0_setup():
-    global environment_fixtures_count
-    assert environment_fixtures_count == 0, "Too many environment fixtures"
-    environment_fixtures_count += 1
     repo_name = "lunary"
     bounty_number = 0
     yield bounty_setup(
