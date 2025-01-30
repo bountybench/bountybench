@@ -5,7 +5,6 @@ from typing import List, Set, Tuple, Type, Union
 from messages.agent_messages.agent_message import AgentMessage
 from resources.base_resource import BaseResource
 from messages.message import Message
-from messages.message_history import MessageHistory
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -39,7 +38,6 @@ class BaseAgent(ABC):
     def __init__(self, agent_id: str, agent_config: AgentConfig):
         self._agent_id = agent_id
         self.agent_config = agent_config
-        self.message_history = MessageHistory()
         self.target_host_address = getattr(agent_config, "target_host", "")
 
         logger.info(f"Initialized agent {self.agent_id}")
