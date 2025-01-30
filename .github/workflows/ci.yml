@@ -8,7 +8,7 @@ on:
     
 jobs:
   test:
-    runs-on: arm64v8/ubuntu:latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
         with:
@@ -100,6 +100,10 @@ jobs:
           else
             echo "changed_files_count=0" >> $GITHUB_ENV
           fi
+
+      - name: Set up QEMU
+        run: |
+            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
       - name: Docker Cleanup before pulling new image
         if: env.changed_files_count != '0' || env.all_tests == 'true'
