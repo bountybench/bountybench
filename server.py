@@ -9,7 +9,8 @@ import signal
 import sys
 from pydantic import BaseModel, Field
 import traceback
-
+from dotenv import find_dotenv, load_dotenv, set_key, dotenv_values
+import os
 
 
 from workflows.detect_workflow import DetectWorkflow
@@ -17,6 +18,7 @@ from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
 from utils.websocket_manager import websocket_manager, WebSocketManager
+from resources.model_resource.services.api_key_service import AUTH_SERVICE
 
 class StartWorkflowInput(BaseModel):
     workflow_name: str = Field(..., description="Name of the workflow to start")
@@ -34,6 +36,10 @@ class MessageData(BaseModel):
 
 class UpdateInteractiveModeInput(BaseModel):
     interactive: bool
+
+class ApiKeyInput(BaseModel):
+    api_key_name: str
+    api_key_value: str
 
 
 
@@ -61,6 +67,8 @@ class Server:
         self.app.get("/workflow/last-message/{workflow_id}")(self.last_message)
         self.app.get("/workflow/first-message/{workflow_id}")(self.first_message)
         self.app.get("/workflow/{workflow_id}/resources")(self.get_workflow_resources)
+        self.app.get("/service/api-service/get")(self.get_api_key)
+        self.app.post("/service/api-service/update")(self.update_api_key)
 
     def setup_middleware(self):
         self.app.add_middleware(
@@ -413,6 +421,38 @@ class Server:
         resources = workflow.resource_manager.resources
         
         return resources
+
+    async def get_api_key(self):
+        env_path = Path(find_dotenv())    
+        if not env_path.is_file():
+            raise HTTPException(status_code=400, detail="Could not find .env file in project directory.")
+        
+        load_dotenv(dotenv_path=env_path, override=True)
+        return {k: os.environ[k] for k in dotenv_values(env_path)}
+    
+    async def update_api_key(self, data: ApiKeyInput):
+        env_path = Path(find_dotenv())
+        if not env_path.is_file():
+            raise HTTPException(status_code=400, detail="Could not find .env file in project directory.")
+        
+        if not data.api_key_name or not data.api_key_value:
+            raise HTTPException(status_code=400, detail="Both API key name and value are required.")
+        
+        warning_msg = None
+        if data.api_key_name not in AUTH_SERVICE or AUTH_SERVICE[data.api_key_name] is None:
+            warning_msg = f"No auth service implemented for {data.api_key_name}."
+        else:
+            _ok, _message = AUTH_SERVICE[data.api_key_name](data.api_key_value)
+            if not _ok:
+                raise HTTPException(status_code=400, detail=_message)
+        set_key(env_path, data.api_key_name, data.api_key_value, quote_mode="never")
+        
+        return {
+            "message": f"{data.api_key_name} updated successfully",
+            "warning": warning_msg
+        }
+
+        
     
 def create_app(ws_manager: WebSocketManager = None, workflow_factory: Dict[str, Callable] = None):
     if ws_manager is None:
