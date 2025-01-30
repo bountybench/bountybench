@@ -79,6 +79,9 @@ class KaliEnvResource(BaseResource):
 
 
         # If the container isn't running, fail fast and print logs
+
+        time.sleep(10)  # Give `dockerd` time to start
+
         
         if self.container.status != "running":
             logs = self.container.logs().decode("utf-8")
@@ -149,7 +152,7 @@ class KaliEnvResource(BaseResource):
                         #cgroupns="host",
                         network="shared_net",
                         volumes=volumes,
-                        entrypoint="",  # Override the default entrypoint
+                        entrypoint=ENTRYPOINT,
                         command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Keeps it running
                         detach=True,
                         name=name,
