@@ -14,6 +14,10 @@ jobs:
         with:
           fetch-depth: 0 
       
+
+      - name: Check System Architecture
+        run: uname -m
+
       - name: Cleanup Unused Tools
         run: |
           echo "Removing unnecessary pre-installed tools and older Python versions..."
