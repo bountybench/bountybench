@@ -59,8 +59,8 @@ class Server:
         self.app.post("/workflow/edit-message/{workflow_id}")(self.edit_action_input)
         self.app.post("/workflow/{workflow_id}/interactive")(self.update_interactive_mode)
         self.app.get("/workflow/last-message/{workflow_id}")(self.last_message)
-        self.app.get("/workflow/first-message/{workflow_id}")(self.first_message)
-        self.app.get("/workflow/{workflow_id}/resources")(self.get_workflow_resources)
+        self.app.get("/workflow/{workflow_id}/resources")(self.get_workflow_resources)  
+        self.app.get("/workflow/{workflow_id}/load-messages")(self.load_workflow_messages)
 
     def setup_middleware(self):
         self.app.add_middleware(
@@ -136,8 +136,6 @@ class Server:
             ]
         }
 
-
-
     async def start_workflow(self, workflow_data: StartWorkflowInput):
         print(workflow_data)
         try:
@@ -151,7 +149,8 @@ class Server:
             workflow_id = workflow.workflow_message.workflow_id
             self.active_workflows[workflow_id] = {
                 "instance": workflow,
-                "status": "initializing"
+                "status": "initializing",
+                "workflow_message": workflow.workflow_message
             }
 
             return {
@@ -164,6 +163,19 @@ class Server:
                 "error": str(e)
             }
 
+    async def load_workflow_messages(self, workflow_id: str):
+        if workflow_id not in self.active_workflows:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        
+        workflow_data = self.active_workflows[workflow_id]
+        workflow_message = workflow_data["workflow_message"]
+        
+        messages = []
+        for phase_message in workflow_message.phase_messages:
+            messages.append(phase_message.to_dict())
+        
+        return {"messages": messages}
+    
     async def execute_workflow(self, workflow_id: str):
         """Execute a workflow after WebSocket connection is established"""
         if workflow_id not in self.active_workflows:
@@ -196,6 +208,7 @@ class Server:
 
             if not self.should_exit:
                 workflow_data["status"] = "completed"
+                workflow_data["workflow_message"] = workflow.workflow_message
                 await websocket_manager.broadcast(workflow_id, {
                     "message_type": "status_update",
                     "status": "completed"
@@ -230,6 +243,12 @@ class Server:
             if workflow_id in self.active_workflows:
                 workflow_data = self.active_workflows[workflow_id]
                 current_status = workflow_data.get("status", "unknown")
+                
+                # Send all existing phase messages
+                workflow_message = workflow_data["workflow_message"]
+                for phase_message in workflow_message.phase_messages:
+                    await websocket.send_json(phase_message.to_dict())
+                
                 if current_status not in ["running", "completed"]:
                     print(f"Auto-starting workflow {workflow_id}")
                     asyncio.create_task(self.run_workflow(workflow_id))
@@ -264,15 +283,6 @@ class Server:
                     if data.get("type") == "pong":
                         # Heartbeat is handled internally by WebSocketManager
                         continue
-
-                    if data.get("message_type") == "user_message" and workflow_id in self.active_workflows:
-                        workflow = self.active_workflows[workflow_id]["instance"]
-                        if workflow.interactive:
-                            result = await workflow.add_user_message(data["content"])
-                            await websocket_manager.broadcast(workflow_id, {
-                                "message_type": "user_message_response",
-                                "content": result
-                            })
                         
                 except WebSocketDisconnect:
                     break
@@ -288,7 +298,7 @@ class Server:
         finally:
             websocket_manager.disconnect(workflow_id, websocket)
             print(f"Cleaned up connection for workflow {workflow_id}")
-
+            
     class MessageInputData(BaseModel):
         message_id: str
         new_input_data: str
@@ -339,7 +349,6 @@ class Server:
         except Exception as e:
             error_traceback = traceback.format_exc()
             return {"error": str(e), "traceback": error_traceback}
-
 
     async def edit_action_input(self, workflow_id: str, data: MessageInputData):
         print(f"Editing message: {data.message_id}")
@@ -392,27 +401,6 @@ class Server:
                     "message_type": "last_message",
                     "content": last_message_str
                 }
-
-    async def first_message(self, workflow_id: str):
-        if workflow_id not in self.active_workflows:
-            return {"error": "Workflow not found"}
-        
-        workflow = self.active_workflows[workflow_id]["instance"]
-        first_message_str = workflow.initial_prompt
-        return {
-                    "message_type": "first_message",
-                    "content": first_message_str
-                }
-        
-    async def get_workflow_resources(self, workflow_id: str):
-        if workflow_id not in self.active_workflows:
-            raise HTTPException(status_code=404, detail="Workflow not found")
-        workflow = self.active_workflows[workflow_id]["instance"]
-        
-        # Implement a method in your workflow class to get the current resources
-        resources = workflow.resource_manager.resources
-        
-        return resources
     
 def create_app(ws_manager: WebSocketManager = None, workflow_factory: Dict[str, Callable] = None):
     if ws_manager is None:
