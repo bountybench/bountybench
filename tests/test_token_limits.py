@@ -1,5 +1,3 @@
-# tests/test_token_limits.py
-
 import unittest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
@@ -8,15 +6,17 @@ from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 
 class TestTokenLimits(unittest.TestCase):
 
-    @patch("workflows.bounty_workflow.read_repo_metadata") 
-    @patch("workflows.bounty_workflow.read_bounty_metadata")  
+    @patch("workflows.bounty_workflow.read_repo_metadata")
+    @patch("workflows.bounty_workflow.read_bounty_metadata")
     @patch("agents.executor_agent.executor_agent.ExecutorAgent", autospec=True)
-    def test_workflow_token_limits(self, mock_executor, mock_bounty_metadata, mock_repo_metadata):
+    @patch("resources.model_resource.model_resource.verify_and_auth_api_key")  # Add this mock
+    def test_workflow_token_limits(self, mock_verify_api, mock_executor, mock_bounty_metadata, mock_repo_metadata):
         """Test token limits are correctly passed through workflow"""
         # Mock metadata returns
         mock_repo_metadata.return_value = {"target_host": "localhost"}
         mock_bounty_metadata.return_value = {"files_dir": "codebase", "vulnerable_commit": "main"}
-
+        mock_verify_api.return_value = None  # Mock API key verification
+        
         # Create workflow with custom token limits
         workflow = ExploitAndPatchWorkflow(
             task_dir=Path("/tmp"),
