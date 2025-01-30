@@ -23,8 +23,8 @@ class TestDockerRunCommand(unittest.TestCase):
 
         # Start a simple container that keeps running by tailing /dev/null
         cls.container = cls.client.containers.run(
-            "ubuntu:22.04",
-            command="tail -f /dev/null",  # keeps container alive
+            "cybench/bountyagent:latest",
+            command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Keeps it running
             name=cls.container_name,
             detach=True,  # run in the background
         )
