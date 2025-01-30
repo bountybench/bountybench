@@ -8,7 +8,7 @@ on:
     
 jobs:
   test:
-    runs-on: image: arm64v8/ubuntu:latest
+    runs-on: arm64v8/ubuntu:latest
     steps:
       - uses: actions/checkout@v2
         with:
