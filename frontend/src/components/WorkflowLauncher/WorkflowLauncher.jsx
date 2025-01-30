@@ -28,7 +28,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     task_dir: '',
     bounty_number: '0',
     interactive: true,
-    iterations: 10
+    iterations: 10,
+    max_input_tokens: 4096,
+    max_output_tokens: 4096 
   });
 
   // 2. Fetch workflows only once server is confirmed available
@@ -63,7 +65,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: formData.bounty_number,
           interactive: interactiveMode,
-          iterations: formData.iterations
+          iterations: formData.iterations,
+          max_input_tokens: parseInt(formData.max_input_tokens),
+          max_output_tokens: parseInt(formData.max_output_tokens)
         }),
       });
 
@@ -91,7 +95,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       if (data.error) {
         console.error(data.error);
       } else {
-        onWorkflowStart(data.workflow_id, interactiveMode);
+        onWorkflowStart(data.workflow_id, interactiveMode, parseInt(data.max_input_tokens), parseInt(data.max_output_tokens));
       }
     } catch (err) {
       console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
@@ -204,6 +208,30 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
           placeholder="e.g., 10"
+        />
+
+        <TextField
+          fullWidth
+          label="Max Input Tokens"
+          name="max_input_tokens"
+          type="number"
+          value={formData.max_input_tokens}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          inputProps={{ min: 1 }}
+        />
+
+        <TextField
+          fullWidth
+          label="Max Output Tokens"
+          name="max_output_tokens"
+          type="number"
+          value={formData.max_output_tokens}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          inputProps={{ min: 1 }}
         />
 
         <FormControlLabel

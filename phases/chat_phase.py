@@ -39,7 +39,10 @@ class ChatPhase(BasePhase):
         resource_configs = {
             "model": (
                 ModelResource,
-                ModelResourceConfig.create(model=self.model)
+                                ModelResourceConfig.create(
+                    model=self.model, 
+                    max_input_tokens=self.workflow.params.get('max_input_tokens'), 
+                    max_output_tokens=self.workflow.params.get('max_output_tokens'))
             ),
         }
         return resource_configs

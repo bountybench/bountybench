@@ -104,14 +104,18 @@ async def start_workflow(workflow_data: dict):
             task_dir=Path(workflow_data['task_dir']),
             bounty_number=workflow_data['bounty_number'],
             interactive=workflow_data.get('interactive', False),
-            phase_iterations=int(workflow_data['iterations'])
+            phase_iterations=int(workflow_data['iterations']),
+            max_input_tokens=int(workflow_data.get('max_input_tokens', 4096)),
+            max_output_tokens=int(workflow_data.get('max_output_tokens', 4096))
         )
         
         workflow_id = workflow.workflow_message.workflow_id
         # Store workflow instance
         active_workflows[workflow_id] = {
             "instance": workflow,
-            "status": "initializing"
+            "status": "initializing",
+            "max_input_tokens": workflow_data.get('max_input_tokens', 4096),
+            "max_output_tokens": workflow_data.get('max_output_tokens', 4096)
         }
 
         # Return workflow ID immediately

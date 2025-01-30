@@ -40,6 +40,10 @@ class ModelResourceConfig(BaseResourceConfig):
 
     @classmethod
     def create(cls, **kwargs):
+        if 'max_input_tokens' in kwargs:
+            kwargs['max_input_tokens'] = int(kwargs['max_input_tokens'])
+        if 'max_output_tokens' in kwargs:
+            kwargs['max_output_tokens'] = int(kwargs['max_output_tokens'])
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
 
     def __post_init__(self):

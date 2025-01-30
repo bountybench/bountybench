@@ -46,9 +46,7 @@ describe('WorkflowLauncher Component', () => {
       })
     );
 
-    await act(async () => {
-      render(<WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} />);
-    });
+    render(<WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} />);
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
 
@@ -69,6 +67,62 @@ describe('WorkflowLauncher Component', () => {
     expect(description1).toBeInTheDocument();
     expect(workflow2).toBeInTheDocument();
     expect(description2).toBeInTheDocument();
+  });
+
+  test('handles token limits correctly', async () => {
+    // Setup
+    useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
+    global.fetch = jest.fn()
+      .mockImplementationOnce(() => Promise.resolve({
+        json: () => Promise.resolve({ workflows: [{ name: 'Workflow 1', description: 'Description 1' }] })
+      }))
+      .mockImplementationOnce(() => Promise.resolve({
+        ok: true, 
+        json: () => Promise.resolve({ workflow_id: '123' })
+      }));
+  
+    render(<WorkflowLauncher 
+      onWorkflowStart={onWorkflowStartMock} 
+      interactiveMode={true} 
+      setInteractiveMode={setInteractiveModeMock} 
+    />);
+  
+    // Wait for loading to complete and form to appear
+    await waitFor(() => {
+      expect(screen.getByText(/Start New Workflow/i)).toBeInTheDocument();
+    });
+  
+    // Now test token limits
+    expect(screen.getByLabelText(/Max Input Tokens/i)).toHaveValue(4096);
+    expect(screen.getByLabelText(/Max Output Tokens/i)).toHaveValue(4096);
+  
+    // Fill required fields for form submission
+    fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
+    fireEvent.click(screen.getByText('Workflow 1'));
+    fireEvent.change(screen.getByLabelText(/Task Repository Directory/i), { 
+      target: { value: 'test-dir' } 
+    });
+  
+    // Test custom token values
+    fireEvent.change(screen.getByLabelText(/Max Input Tokens/i), { 
+      target: { value: '2048' } 
+    });
+    fireEvent.change(screen.getByLabelText(/Max Output Tokens/i), { 
+      target: { value: '1024' } 
+    });
+  
+    fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
+  
+    // Verify the request
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:8000/workflow/start',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"max_input_tokens":2048')
+        })
+      );
+    });
   });
   
   test('displays an error message if fetching workflows fails', async () => {
@@ -106,13 +160,17 @@ describe('WorkflowLauncher Component', () => {
       .fn()
       .mockImplementationOnce(() =>
         Promise.resolve({
-          json: () => Promise.resolve({ workflows })
+          json: () => Promise.resolve({ workflows }) 
         })
       )
       .mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ workflow_id: '123' })
+          json: () => Promise.resolve({ 
+            workflow_id: '123',
+            max_input_tokens: 1000, 
+            max_output_tokens: 1000
+          })
         })
       );
 
@@ -135,7 +193,7 @@ describe('WorkflowLauncher Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-    expect(onWorkflowStartMock).toHaveBeenCalledWith('123', true);
+    expect(onWorkflowStartMock).toHaveBeenCalledWith('123', true, 1000, 1000);
   });
 
   test('displays an error message if the form submission fails', async () => {
