@@ -42,10 +42,12 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
     }
   };
 
+  const originalMessageContent = formatData(action.message);
+
   const handleEditClick = () => {
     setEditing(true);
     onEditingChange(true);
-    setEditedMessage(formatData(action.message));
+    setEditedMessage(originalMessageContent);
   };
 
   const handleSaveClick = async () => {
@@ -125,7 +127,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
           <>
             <Box className="action-message-content">
               <Typography className="action-message-text">
-                {formatData(action.message)}
+                {originalMessageContent}
               </Typography>
             </Box>
             <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>

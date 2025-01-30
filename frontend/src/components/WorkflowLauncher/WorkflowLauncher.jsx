@@ -274,6 +274,18 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           </TextField>
           )}
 
+          <FormControlLabel
+          control={
+            <Switch
+              checked={interactiveMode}
+              onChange={(e) => setInteractiveMode(e.target.checked)}
+              name="interactive"
+              color="primary"
+            />
+          }
+          label="Interactive Mode"
+          />
+
         <Button
           type="submit"
           variant="contained"
