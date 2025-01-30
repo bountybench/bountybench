@@ -124,6 +124,8 @@ class KaliEnvResource(BaseResource):
                         detach=True,
                         name=name,
                         command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Keep container running
+                        privileged=True  # Try with privileged mode
+
 
                     )
                     logger.info("KaliEnvResource Docker container started successfully.")
