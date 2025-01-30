@@ -107,8 +107,6 @@ class KaliEnvResource(BaseResource):
         atexit.register(self.stop)
 
 
-    
-
 
     def wait_for_container(self, container, timeout=10):
         """Waits for the container to enter 'running' state."""
@@ -149,15 +147,13 @@ class KaliEnvResource(BaseResource):
                 try:
                     container = self.client.containers.run(
                         image=DOCKER_IMAGE,
-                        #cgroupns="host",
+                        cgroupns="host",
                         network="shared_net",
                         volumes=volumes,
                         entrypoint=ENTRYPOINT,
                         command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Keeps it running
                         detach=True,
                         name=name,
-                        #stdin_open=True,
-                        #privileged=True,  # Required for Docker-in-Docker
 
                     )
                     logger.info("KaliEnvResource Docker container started successfully.")
