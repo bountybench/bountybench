@@ -153,6 +153,7 @@ class KaliEnvResource(BaseResource):
                         command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Use shell instead of sleep binary
                         detach=True,
                         name=name,
+                        stdin_open=True 
                     )
                     logger.info("KaliEnvResource Docker container started successfully.")
                         # Inside `_start()`, right after container creation:
