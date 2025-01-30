@@ -381,8 +381,6 @@ class KaliEnvResource(BaseResource):
 
         # Use regex to find the command and split the output after the match
         match = re.search(f"^{command_pattern}.*$", cleaned_output, re.MULTILINE)
-        # print("CLEANED_OUTPUT:", cleaned_output)
-        # print("COMMAND PATTERN:", command_pattern)
         if not match:
             # print("No match found.")
             return cleaned_output.strip()  # If no match, return the original stripped output
