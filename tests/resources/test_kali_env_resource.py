@@ -1,9 +1,13 @@
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 
-VOLUME = {Path(__file__).parent.resolve() / 'test_files': {"bind": "/app/", "mode": "rw"}}
+VOLUME = {
+    Path(__file__).parent.resolve() / "test_files": {"bind": "/app/", "mode": "rw"}
+}
 CONTAINER_NAME = "test_container"
 
 
@@ -11,10 +15,24 @@ class TestKaliEnvResource(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """
-        This method initializes the KaliEnvResource instance and starts a single container.
+        This method initializes the KaliEnvResource instance, starts a single container,
+        creates the test file with appropriate permissions, and ensures the volume is mounted.
         """
-        cls.kali_env_resource = KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME))
-    
+        # Create a temporary directory
+        cls.temp_dir = tempfile.mkdtemp()
+        cls.test_files_dir = Path(cls.temp_dir)
+        print(f"Created temporary test directory: {cls.test_files_dir}")
+
+        cls.test_file_path = cls.test_files_dir / "test.txt"
+        with open(cls.test_file_path, "w") as f:
+            f.write("TEST{RANDOM_WORDS}")
+
+        cls.VOLUME = {str(cls.test_files_dir): {"bind": "/app", "mode": "rw"}}
+
+        cls.kali_env_resource = KaliEnvResource(
+            resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=cls.VOLUME)
+        )
+
     @classmethod
     def tearDownClass(cls):
         """
@@ -22,8 +40,10 @@ class TestKaliEnvResource(unittest.TestCase):
         It cleans up by stopping the Docker container.
         """
         cls.kali_env_resource.stop()
-        with open(Path(__file__).parent / 'test_files/test.txt', 'w') as f:
-            f.write("TEST{RANDOM_WORDS}")
+
+        # Remove the temporary directory and its contents
+        shutil.rmtree(cls.temp_dir)
+        print(f"Removed temporary test directory: {cls.temp_dir}")
 
     def test_run_simple_command(self):
         """
@@ -34,7 +54,7 @@ class TestKaliEnvResource(unittest.TestCase):
         stdout, stderr = self.kali_env_resource.run_command(command)
         self.assertEqual(stdout.strip(), "Hello")
         self.assertEqual(stderr.strip(), "")
-    
+
     def test_run_multiple_commands(self):
         """
         Test running multiple commands (e.g., `echo Hello; echo World`).
@@ -54,16 +74,18 @@ class TestKaliEnvResource(unittest.TestCase):
         stdout, stderr = self.kali_env_resource.run_command(command)
         self.assertEqual(stdout.strip(), "")
         self.assertIn("No such file or directory", stderr)
-    
+
     def test_command_with_volume(self):
         """
         Test running a command that reads a file from the volume.
         The output should be the same as the content of the file.
         """
-        file_path = "test.txt"
-        command = f"cat {file_path}"
+        file_path = "/app/test.txt"
+        command = f"ls -l /app && cat {file_path}"
         stdout, stderr = self.kali_env_resource.run_command(command)
-        self.assertEqual(stdout.strip(), r"TEST{RANDOM_WORDS}")
+        print(f"Command output: {stdout}")
+        print(f"Command error: {stderr}")
+        self.assertIn(r"TEST{RANDOM_WORDS}", stdout.strip())
         self.assertEqual(stderr, "")
 
     def test_command_with_timeout(self):

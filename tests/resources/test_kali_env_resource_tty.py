@@ -1,5 +1,9 @@
 # Tests for KaliEnvResource in TTY (Pseudo-terminal mode)
 
+import os
+import shutil
+import stat
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -11,14 +15,26 @@ VOLUME = {
 CONTAINER_NAME = "test_container"
 
 
-class TestKaliEnvResource(unittest.TestCase):
+class TestKaliEnvResourceTTY(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """
-        This method initializes the KaliEnvResource instance and starts a single container.
+        This method initializes the KaliEnvResource instance, starts a single container,
+        creates the test file with appropriate permissions, and ensures the volume is mounted.
         """
+        # Create a temporary directory
+        cls.temp_dir = tempfile.mkdtemp()
+        cls.test_files_dir = Path(cls.temp_dir)
+        print(f"Created temporary test directory: {cls.test_files_dir}")
+
+        cls.test_file_path = cls.test_files_dir / "test.txt"
+        with open(cls.test_file_path, "w") as f:
+            f.write("TEST{RANDOM_WORDS}")
+
+        cls.VOLUME = {str(cls.test_files_dir): {"bind": "/app", "mode": "rw"}}
+
         cls.kali_env_resource = KaliEnvResource(
-            resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME)
+            resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=cls.VOLUME)
         )
 
     @classmethod
@@ -28,9 +44,11 @@ class TestKaliEnvResource(unittest.TestCase):
         It cleans up by stopping the Docker container.
         """
         cls.kali_env_resource.stop()
-        with open(Path(__file__).parent / "test_files/test.txt", "w") as f:
-            f.write("TEST{RANDOM_WORDS}")
-    
+
+        # Remove the temporary directory and its contents
+        shutil.rmtree(cls.temp_dir)
+        print(f"Removed temporary test directory: {cls.temp_dir}")
+
     def test_run_simple_command_tty(self):
         """
         Test running a simple command (e.g., `echo Hello`).
@@ -98,7 +116,7 @@ class TestKaliEnvResource(unittest.TestCase):
 
         type_command = "f.write('Hello')\n"
         stdout, stderr = self.kali_env_resource.run_command(type_command, tty=True)
-        self.assertEqual(stdout.strip(), "5\n>>>") # written 5 characters
+        self.assertEqual(stdout.strip(), "5\n>>>")  # written 5 characters
 
         type_command = "exit()\n"
         stdout, stderr = self.kali_env_resource.run_command(type_command, tty=True)
@@ -120,7 +138,9 @@ class TestKaliEnvResource(unittest.TestCase):
         stdout, stderr = self.kali_env_resource.run_command(edit_command, tty=True)
 
         save_and_exit_command = ":wq\n"
-        stdout, stderr = self.kali_env_resource.run_command(save_and_exit_command, tty=True)
+        stdout, stderr = self.kali_env_resource.run_command(
+            save_and_exit_command, tty=True
+        )
 
         check_command = "cat vim_test.txt\n"
         stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
@@ -155,19 +175,20 @@ class TestKaliEnvResource(unittest.TestCase):
         stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
         self.assertEqual(stdout.strip(), "$")
         self.assertEqual(stderr.strip(), "")
-    
+
     def test_command_with_timeout_tty(self):
         """
         Test running a command that will take too long to complete.
         The command should be terminated due to timeout.
         """
         sleep_command = "sleep 120\n"
-        stdout, stderr = self.kali_env_resource.run_command(sleep_command, timeout=1, tty=True)
+        stdout, stderr = self.kali_env_resource.run_command(
+            sleep_command, timeout=1, tty=True
+        )
         self.assertIn("timed out after 1 seconds", stdout)
-        
+
         cancel_command = "\x03\n"
         stdout, stderr = self.kali_env_resource.run_command(cancel_command, tty=True)
-
 
 
 if __name__ == "__main__":
