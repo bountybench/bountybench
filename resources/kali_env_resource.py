@@ -156,8 +156,8 @@ class KaliEnvResource(BaseResource):
                         command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Keeps it running
                         detach=True,
                         name=name,
-                        stdin_open=True,
-                        privileged=True,  # Required for Docker-in-Docker
+                        #stdin_open=True,
+                        #privileged=True,  # Required for Docker-in-Docker
 
                     )
                     logger.info("KaliEnvResource Docker container started successfully.")
