@@ -148,16 +148,16 @@ class Server:
                 bounty_number=workflow_data.bounty_number,
                 interactive=workflow_data.interactive,
                 phase_iterations=workflow_data.iterations,
-                max_input_tokens=int(workflow_data.get('max_input_tokens', 4096)),
-                max_output_tokens=int(workflow_data.get('max_output_tokens', 4096))
+                max_input_tokens=workflow_data.max_input_tokens,  
+                max_output_tokens=workflow_data.max_output_tokens
             )
             
             workflow_id = workflow.workflow_message.workflow_id
             self.active_workflows[workflow_id] = {
                 "instance": workflow,
-                "status": "initializing"
-                "max_input_tokens": workflow_data.get('max_input_tokens', 4096),
-                "max_output_tokens": workflow_data.get('max_output_tokens', 4096)
+                "status": "initializing",
+                "max_input_tokens": workflow_data.max_input_tokens,
+                "max_output_tokens": workflow_data.max_output_tokens
             }
 
             return {
@@ -428,10 +428,10 @@ def create_app(ws_manager: WebSocketManager = None, workflow_factory: Dict[str, 
 
     if workflow_factory is None:
         workflow_factory = {
-            "Detect Workflow": DetectWorkflow,
-            "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
-            "Patch Workflow": PatchWorkflow,
-            "Chat Workflow": ChatWorkflow
+            "Detect Workflow": lambda **kwargs: DetectWorkflow(**kwargs),
+            "Exploit and Patch Workflow": lambda **kwargs: ExploitAndPatchWorkflow(**kwargs),
+            "Patch Workflow": lambda **kwargs: PatchWorkflow(**kwargs),
+            "Chat Workflow": lambda **kwargs: ChatWorkflow(**kwargs)
         }
 
     server = Server(ws_manager, workflow_factory)
