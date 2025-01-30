@@ -123,6 +123,7 @@ class KaliEnvResource(BaseResource):
                         entrypoint=ENTRYPOINT,
                         detach=True,
                         name=name,
+                        command="tail -f /dev/null"
                     )
                     logger.info("KaliEnvResource Docker container started successfully.")
                 finally:
