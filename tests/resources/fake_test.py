@@ -24,7 +24,7 @@ class TestDockerRunCommand(unittest.TestCase):
         # Start a simple container that keeps running by tailing /dev/null
         cls.container = cls.client.containers.run(
             "ubuntu:22.04",
-            #command="tail -f /dev/null",  # keeps container alive
+            command="tail -f /dev/null",  # keeps container alive
             name=cls.container_name,
             detach=True,  # run in the background
         )
