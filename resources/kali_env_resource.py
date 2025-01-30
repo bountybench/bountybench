@@ -148,6 +148,7 @@ class KaliEnvResource(BaseResource):
                         image=DOCKER_IMAGE,
                         #cgroupns="host",
                         network="shared_net",
+                         platform="linux/amd64",
                         volumes=volumes,
                         #entrypoint=ENTRYPOINT,
                         command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Use shell instead of sleep binary
