@@ -21,17 +21,22 @@ class TestDockerRunCommand(unittest.TestCase):
         except docker.errors.NotFound:
             pass
 
-        # Start a simple container that keeps running by tailing /dev/null
         cls.container = cls.client.containers.run(
             "cybench/bountyagent:latest",
             command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Keeps it running
             name=cls.container_name,
-            detach=True,  # run in the background
+            detach=True,  # Run in the background
         )
 
-        # Optional small delay to ensure the container is fully up
-        time.sleep(2)
+        time.sleep(2)  # Give it time to fully start
 
+        # Print container status & logs immediately
+        cls.container.reload()
+        print(f"Container Status After Startup: {cls.container.status}")
+
+        logs = cls.container.logs().decode("utf-8")
+        print(f"Container Logs After Startup:\n{logs}")
+        
     @classmethod
     def tearDownClass(cls):
         """
@@ -46,6 +51,14 @@ class TestDockerRunCommand(unittest.TestCase):
         """
         Run a simple 'echo' command inside the container and verify its output.
         """
+        self.container.reload()  # Refresh container status
+        print(f"Container Status Before Running Test: {self.container.status}")
+
+        if self.container.status != "running":
+            logs = self.container.logs().decode("utf-8")
+            print(f"Container exited unexpectedly. Logs:\n{logs}")
+            self.fail("Container is not running!")
+
         # The docker-py 'exec_run' method returns (exit_code, output)
         exit_code, output = self.container.exec_run("echo HelloFromContainer")
 
