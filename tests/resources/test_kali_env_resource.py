@@ -20,7 +20,6 @@ class TestKaliEnvResource(unittest.TestCase):
         creates the test file with appropriate permissions, and ensures the volume is mounted.
         """
         # Create a temporary directory
-        time.sleep(30)  # Allow extra time for container initialization
 
         cls.temp_dir = tempfile.mkdtemp()
         cls.test_files_dir = Path(cls.temp_dir)

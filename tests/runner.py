@@ -79,7 +79,7 @@ test_modules = [
 
 
 test_modules = [
-    fake_test
+    test_kali_env_resource
 ]
 
 for module in test_modules:
