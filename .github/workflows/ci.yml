@@ -122,31 +122,10 @@ jobs:
         
       - name: Run backend tests
         run: |
-          # Add Docker debug logging before tests
-          docker ps -a  # Show all containers including stopped ones
-          docker info   # Show Docker system info
-          
           if [[ "${{ env.all_tests }}" == "true" ]]; then
-            # Run tests with extra logging
-            PYTHONUNBUFFERED=1 DOCKER_CLIENT_TIMEOUT=120 COMPOSE_HTTP_TIMEOUT=120 python -m tests.runner
-            
-            # If tests fail, capture container logs
-            if [ $? -ne 0 ]; then
-              echo "Tests failed - capturing container info:"
-              docker ps -a
-              docker logs test_container || true
-              docker inspect test_container || true
-            fi
+            python -m tests.runner
           elif [[ ${{ github.event_name }} == 'pull_request' ]] && [[ "${{ env.changed_files_count }}" -gt 0 ]]; then
-            # Same for changed files
-            PYTHONUNBUFFERED=1 DOCKER_CLIENT_TIMEOUT=120 COMPOSE_HTTP_TIMEOUT=120 python -m tests.runner $(cat changed_files.txt)
-            
-            if [ $? -ne 0 ]; then
-              echo "Tests failed - capturing container info:"
-              docker ps -a
-              docker logs test_container || true
-              docker inspect test_container || true
-            fi
+            python -m tests.runner $(cat changed_files.txt)
           else
             echo "No relevant tests to run."
           fi
