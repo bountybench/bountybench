@@ -150,7 +150,7 @@ class KaliEnvResource(BaseResource):
                         network="shared_net",
                         volumes=volumes,
                         #entrypoint=ENTRYPOINT,
-                        command="tail -f /dev/null",  # Keep container running
+                        command="sleep infinity",  # Keep container running
                         detach=True,
                         name=name,
                     )
