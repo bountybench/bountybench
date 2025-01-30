@@ -11,7 +11,7 @@ import './ActionMessage.css'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onChildUpdate, multiVersion, displayedIndex, versionLength }) => {
+const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onChildUpdate, displayedIndex, versionLength }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
@@ -152,7 +152,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
               </Button>
 
                   {/* Toggle Version Arrows */}
-                  {multiVersion && versionLength > 1 && (
+                  { versionLength > 1 && index === 0 && (
                   <>
                     <Typography variant="caption" sx={{ mx: 1 }}>
                     </Typography>

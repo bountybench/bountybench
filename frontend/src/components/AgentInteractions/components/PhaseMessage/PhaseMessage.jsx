@@ -13,18 +13,39 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
 
   const [phaseDisplayedIndex, setPhaseDisplayedIndex] = useState(1);
-  const [phaseMultiVersion, setPhaseMultiVersion] = useState(false);
+  const [versionChain, setVersionChain] = useState([message.current_children]);
+
+  const getAgentIds = (agents) => agents.length === 0 ? [] : agents.map(agent => agent.current_id);
+  const arraysEqual = (arr1, arr2) => JSON.stringify(arr1) === JSON.stringify(arr2);
 
   useEffect(() => {
     if (message.agent_messages){
-      const messageLength = message.agent_messages.length;
-      // Make sure that both system and agent are received
-      if (messageLength % 2 !== 0 || messageLength <= 2) {
+      const curr_children = message.current_children;
+      const versionLength = versionChain.length;
+      const curr_children_ids = getAgentIds(curr_children);
+      const all_agent_ids = getAgentIds(message.agent_messages);
+      if (arraysEqual(all_agent_ids,curr_children_ids)){
+        setVersionChain([curr_children]);
         return;
       }
-      setPhaseMultiVersion(true);
-      setPhaseDisplayedIndex(messageLength / 2);
-      
+      // when current children is not equal to latest version
+      const last_version_ids = getAgentIds(versionChain[versionLength-1]);
+      if (!arraysEqual(last_version_ids,curr_children_ids)) {
+        // if all of current children is new, we have a new version
+        if (curr_children_ids.filter(child => last_version_ids.includes(child)).length === 0){
+          setVersionChain((prev) => {
+            const newVersionChain = [...prev, curr_children];
+            setPhaseDisplayedIndex(newVersionChain.length); // Uses the updated versionChain
+            return newVersionChain;
+          });
+        }
+        else{
+          const newChildren = curr_children.filter(child => !last_version_ids.includes(child.current_id));
+          setVersionChain(prev => prev.map((innerList, index) => 
+              index === phaseDisplayedIndex - 1 ? [...innerList, ...newChildren] : innerList
+            ));
+        }
+      }
     }
   }, [message, message.agent_messages]);
 
@@ -54,21 +75,21 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
               Summary: {message.phase_summary || '(no summary)'}
             </Typography>
             
-            {message.agent_messages && message.agent_messages.length > 0 && (
+            {message.agent_messages && message.current_children.length > 0 && (
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
-                {message.agent_messages.slice(2*phaseDisplayedIndex-2, 2*phaseDisplayedIndex).map((agentMessage, index) => (
+                {versionChain[phaseDisplayedIndex - 1].map((agentMessage, index) => (
                   <AgentMessage 
                     key={index} 
+                    index={index}
                     message={agentMessage} 
                     onUpdateActionInput={onUpdateActionInput}
                     onRerunAction={onRerunAction}
                     onEditingChange={onEditingChange}
                     isEditing={isEditing}
                     onPhaseChildUpdate={handleChildUpdate}
-                    phaseMultiVersion={phaseMultiVersion}
                     phaseDisplayedIndex={phaseDisplayedIndex}
-                    phaseVersionLength={message.agent_messages.length / 2}
+                    phaseVersionLength={versionChain.length}
                   />
                 ))}
               </Box>
