@@ -32,9 +32,9 @@ class AgentMessage(Message):
     
     @property
     def workflow_id(self) -> str:
-        assert(self.parent)
-        assert(self.parent.parent)
-        return self.parent.parent
+        if self.parent:
+            return self.parent.workflow_id
+        return None
     
     @property
     def action_messages(self) -> List[ActionMessage]:

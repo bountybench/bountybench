@@ -15,10 +15,9 @@ class ActionMessage(Message):
 
     @property
     def workflow_id(self) -> str:
-        assert(self.parent)
-        assert(self.parent.parent)
-        assert(self.parent.parent.parent)
-        return self.parent.parent.parent
+        if self.parent:
+            return self.parent.workflow_id
+        return None
     
     @property
     def message(self) -> str:

@@ -28,7 +28,7 @@ class WorkflowMessage(Message):
                 if value:
                     components.append(str(value.name if isinstance(value, Path) else value))
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        self.workflow_id = workflow_id if workflow_id else str(id(self))
+        self._workflow_id = workflow_id if workflow_id else str(id(self))
 
         # Metadata
         self.workflow_name = workflow_name
@@ -44,6 +44,10 @@ class WorkflowMessage(Message):
     def summary(self) -> str:
         return self._summary
     
+    @property 
+    def workflow_id(self) -> str:
+        return self._workflow_id
+    
     @property
     def phase_messages(self) -> List[PhaseMessage]:
         return self._phase_messages
@@ -52,7 +56,8 @@ class WorkflowMessage(Message):
         self._summary = summary
 
     def add_phase_message(self, phase_message: PhaseMessage):
-        self._phase_messages.append(phase_message)
+        self._phase_messages.append(phase_message)  
+        phase_message.set_parent(self)
 
     def add_agent(self, agent_name: str, agent) -> None:        
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
@@ -77,6 +82,7 @@ class WorkflowMessage(Message):
             "resources_used": self.resources_used,
             "start_time": self._start_time,
             "end_time": self._end_time,
+            "workflow_id": self.workflow_id,
             "additional_metadata": self.additional_metadata
         }
 

@@ -11,8 +11,6 @@ class PhaseMessage(Message):
         self._agent_messages = agent_messages
         self._phase_summary = None
         super().__init__(prev)
-        from messages.message_utils import update_message
-        update_message(self)
 
     @property
     def phase_id(self) -> str:
@@ -20,8 +18,9 @@ class PhaseMessage(Message):
     
     @property
     def workflow_id(self) -> str:
-        assert(self.parent)
-        return self.parent
+        if self.parent:
+            return self.parent.workflow_id
+        return None
     
     @property
     def success(self) -> bool:
