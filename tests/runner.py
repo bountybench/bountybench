@@ -35,7 +35,7 @@ class PrintTestResult(unittest.TextTestResult):
     def startTest(self, test):
         super().startTest(test)
         # Print before test starts
-        print(f"\n=========================[BEFORE TEST] Starting: {test}=========================[")
+        print(f"\n=========================[BEFORE TEST] Starting: {test}=========================")
 
     def stopTest(self, test):
         # Print after test completes

@@ -62,7 +62,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --cache-dir  ~/.cache/pip -r requirements.txt
+          # pip install -r requirements.txt
           
       - name: Set up GitHub CLI
         run: |
