@@ -28,23 +28,22 @@ def broadcast_update(message: Message):
             task = asyncio.create_task(_broadcast_update_async(workflow_id, data))
             return task
     except Exception as e:
-        pass
+        logger.error(f"Exception: {e}")
 
 async def _broadcast_update_async(workflow_id: str, data: dict):
     try:
         await websocket_manager.broadcast(workflow_id, data)
     except Exception as e:
-        pass
+        logger.error(f"Exception: {e}")
 
 def log_message(message: Message):
     message_dict[message.id] = message
 
+    if not message.workflow_id:
+        logger.info(f"No associated workflow for {type(message)} message {message.id}, skipping logging")
+        return
+    
     broadcast_update(message)
-
     if should_log(message):  
         workflow_id = message.workflow_id
         message_dict[workflow_id].save()
-
-def update_message(message: Message):
-    broadcast_update(message)
-    log_message(message)
