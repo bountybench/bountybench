@@ -153,7 +153,7 @@ class KaliEnvResource(BaseResource):
                         command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Keeps it running
                         detach=True,
                         name=name,
-                        stdin_open=True 
+                        stdin_open=True,
                         privileged=True,  # Required for Docker-in-Docker
 
                     )
