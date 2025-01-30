@@ -148,16 +148,16 @@ class Server:
                 bounty_number=workflow_data.bounty_number,
                 interactive=workflow_data.interactive,
                 phase_iterations=workflow_data.iterations,
-                max_input_tokens=workflow_data.max_input_tokens,
-                max_output_tokens=workflow_data.max_output_tokens
+                max_input_tokens=int(workflow_data.get('max_input_tokens', 4096)),
+                max_output_tokens=int(workflow_data.get('max_output_tokens', 4096))
             )
             
             workflow_id = workflow.workflow_message.workflow_id
             self.active_workflows[workflow_id] = {
                 "instance": workflow,
-                "status": "initializing",
-                "max_input_tokens": workflow_data.max_input_tokens,
-                "max_output_tokens": workflow_data.max_output_tokens
+                "status": "initializing"
+                "max_input_tokens": workflow_data.get('max_input_tokens', 4096),
+                "max_output_tokens": workflow_data.get('max_output_tokens', 4096)
             }
 
             return {
