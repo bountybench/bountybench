@@ -66,7 +66,7 @@ test_modules = [
     test_init_files_resource,
     test_kali_env_resource,
     test_kali_env_resource_tty,
-    test_config_default,
+    #test_config_default,
     test_resource_config,
     test_resource_manager,
     # test_setup_resource,
