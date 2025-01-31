@@ -12,8 +12,20 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          fetch-depth: 0 
+          fetch-depth: 1
+
+      - name: Initialize and update submodules
+        run: |
+          git submodule update --init
       
+      - name: Checkout main branch in submodule
+        run: |
+          # Change directory to the bountybench submodule
+          cd bountybench
+          
+          # Checkout the main branch in the submodule
+          git checkout main
+
 
       - name: Check System Architecture
         run: uname -m

@@ -5,6 +5,7 @@ import sys
 import time
 
 from resources.base_resource import BaseResource
+from resources.utils import read_bounty_metadata
 from utils.logger import get_main_logger
 import shutil
 
@@ -72,8 +73,11 @@ class InitFilesResource(BaseResource):
             )
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
             self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
-            
-        self.vulnerable_commit = self._resource_config.vulnerable_commit
+        
+        if self._resource_config.vulnerable_commit:
+            self.vulnerable_commit = self._resource_config.vulnerable_commit
+        else: 
+            self.vulnerable_commit = read_bounty_metadata(self.task_dir, self._resource_config.bounty_number)["vulnerable_commit"]
         
         # Initialize resource
         self._start()
@@ -84,11 +88,10 @@ class InitFilesResource(BaseResource):
         Run the initialization script for the task.
         """
         try:
-
             if not os.listdir(self.files_dir):  # If the directory is empty
                 logger.info("Codebase is empty. Initializing Git submodules.")
                 subprocess.run(
-                    ["git", "submodule", "update", "--init", "--recursive"],
+                    ["git", "submodule", "update", "--init", "."],
                     cwd=self.files_dir,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
