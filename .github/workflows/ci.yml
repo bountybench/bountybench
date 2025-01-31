@@ -18,11 +18,11 @@ jobs:
       - name: Pre-configure Git
         run: |
           git config --global credential.helper store
-          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/".insteadOf "https://github.com/"
           git config --global --add safe.directory '*'
           
           # Create auth file
-          echo "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com" > ~/.git-credentials
+          echo "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
           chmod 600 ~/.git-credentials
           
           # Enable verbose Git output
@@ -35,7 +35,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Manual submodule checkout
         run: |
@@ -47,7 +47,7 @@ jobs:
           git submodule init
           
           echo "\nUpdating submodule URLs..."
-          git submodule foreach --recursive 'git config --local url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"'
+          git submodule foreach --recursive 'git config --local url."https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/".insteadOf "https://github.com/"'
           
           echo "\nAttempting submodule update..."
           git submodule update --init --recursive --force || {
@@ -57,7 +57,7 @@ jobs:
             echo "\n.gitmodules content:"
             cat .gitmodules
             echo "\nTrying direct clone..."
-            git clone --depth 1 "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/cybench/bountybench.git" bountybench_test
+            git clone --depth 1 "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/cybench/bountybench.git" bountybench_test
             exit 1
           }
 
@@ -117,7 +117,7 @@ jobs:
           
       - name: Set up GitHub CLI
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+          echo "${{ secrets.GH_TOKEN }}" | gh auth login --with-token
         
       - name: Set up Git user information
         run: |
@@ -136,7 +136,7 @@ jobs:
             echo "all_tests=false" >> $GITHUB_ENV
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Get changed files
         id: get_changed_files
