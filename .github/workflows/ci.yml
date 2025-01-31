@@ -10,17 +10,65 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Set up GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh auth login --with-token <<< "$GITHUB_TOKEN"
+          echo "Testing repository access:"
+          gh repo view cybench/bountybench --json name,visibility || echo "Cannot access bountybench repo"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0 
-          submodules: true  # Disable automatic submodule fetching
+          fetch-depth: 0
+          submodules: false
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Disable Git ownership check
-        run: git config --global --add safe.directory '*'
-        
-      - name: Fetch main branch
-        run: git fetch origin main:refs/remotes/origin/main
+      - name: Configure Git for submodules
+        run: |
+          # Set credential helper
+          git config --global credential.helper store
+          echo "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com" > ~/.git-credentials
+          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          
+          # Print current .gitmodules content
+          echo "Current .gitmodules content:"
+          cat .gitmodules
+
+          # Verify submodule configuration
+          echo "Submodule configuration:"
+          git config --list | grep submodule
+
+      - name: Initialize and update submodules
+        run: |
+          # Initialize submodules
+          echo "Initializing submodules..."
+          git submodule init
+          
+          # Verify submodule status before update
+          echo "Submodule status before update:"
+          git submodule status
+          
+          # Update submodules with debug output
+          echo "Updating submodules..."
+          git submodule update --init --recursive --force --verbose || {
+            echo "Detailed error information:"
+            echo "Git remote configuration:"
+            git remote -v
+            echo "Git credentials:"
+            git config --list | grep -i credential
+            echo "Submodule paths:"
+            git config --list | grep -i submodule
+            exit 1
+          }
+
+      - name: Verify submodule content
+        run: |
+          echo "Final submodule status:"
+          git submodule status
+          echo "Bountybench directory content:"
+          ls -la bountybench || echo "Bountybench directory not found"
           
       - name: Check System Architecture
         run: uname -m
