@@ -56,7 +56,7 @@ describe('WorkflowLauncher Component', () => {
       render(<Router><WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} /></Router>);
     });
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
 
     // Wait for async state updates to complete
     await waitFor(() => {
@@ -96,7 +96,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
   
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   
     // Wait for async state updates to complete
     await waitFor(() => {
@@ -110,12 +110,17 @@ describe('WorkflowLauncher Component', () => {
   test('handles form input correctly, submits the form successfully, and navigates to new page', async () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [{ name: 'Workflow 1', description: 'Description 1' }];
-    
+    const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     global.fetch = jest
       .fn()
       .mockImplementationOnce(() =>
         Promise.resolve({
-          json: () => Promise.resolve({ workflows })
+          json: () => Promise.resolve({ workflows }) // First fetch API call (fetchWorkflows)
+        })
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          json: () => Promise.resolve(apiKeys) // Second fetch API call (fetchApiKeys)
         })
       )
       .mockImplementationOnce(() =>
@@ -137,7 +142,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
 
     // Ensure form is updated and submitted correctly
     fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
@@ -150,18 +155,24 @@ describe('WorkflowLauncher Component', () => {
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
     expect(onWorkflowStartMock).toHaveBeenCalledWith('123', true);
   });
 
   test('displays an error message if the form submission fails', async () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [{ name: 'Workflow 1', description: 'Description 1' }];
+    const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     global.fetch = jest
       .fn()
       .mockImplementationOnce(() =>
         Promise.resolve({
-          json: () => Promise.resolve({ workflows })
+          json: () => Promise.resolve({ workflows }) // First fetch API call (fetchWorkflows)
+        })
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          json: () => Promise.resolve(apiKeys) // Second fetch API call (fetchApiKeys)
         })
       )
       .mockImplementationOnce(() =>
@@ -186,7 +197,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
   
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   
     // Open the select dropdown and select the option
     fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
@@ -199,7 +210,7 @@ describe('WorkflowLauncher Component', () => {
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
   
     // Check if console.error was called with the expected error message
     expect(consoleErrorMock).toHaveBeenCalledWith('Failed to start workflow');

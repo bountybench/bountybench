@@ -9,7 +9,8 @@ import signal
 import sys
 from pydantic import BaseModel, Field
 import traceback
-
+from dotenv import find_dotenv, load_dotenv, set_key, dotenv_values
+import os
 
 
 from workflows.detect_workflow import DetectWorkflow
@@ -17,6 +18,7 @@ from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.chat_workflow import ChatWorkflow
 from utils.websocket_manager import websocket_manager, WebSocketManager
+from resources.model_resource.services.api_key_service import AUTH_SERVICE
 
 class StartWorkflowInput(BaseModel):
     workflow_name: str = Field(..., description="Name of the workflow to start")
@@ -34,6 +36,10 @@ class MessageData(BaseModel):
 
 class UpdateInteractiveModeInput(BaseModel):
     interactive: bool
+
+class ApiKeyInput(BaseModel):
+    api_key_name: str
+    api_key_value: str
 
 
 
@@ -61,6 +67,8 @@ class Server:
         self.app.post("/workflow/{workflow_id}/interactive")(self.update_interactive_mode)
         self.app.get("/workflow/last-message/{workflow_id}")(self.last_message)
         self.app.get("/workflow/{workflow_id}/load-messages")(self.load_workflow_messages)
+        self.app.get("/service/api-service/get")(self.get_api_key)
+        self.app.post("/service/api-service/update")(self.update_api_key)
 
     def setup_middleware(self):
         self.app.add_middleware(
@@ -242,7 +250,7 @@ class Server:
         """WebSocket endpoint for real-time workflow updates"""
         try:
             # Connect and initialize the WebSocket
-            await websocket_manager.connect(workflow_id, websocket)
+            await self.websocket_manager.connect(workflow_id, websocket)
             print(f"WebSocket connected for workflow {workflow_id}")
             
             # Send initial connection acknowledgment
@@ -309,7 +317,7 @@ class Server:
         except Exception as e:
             print(f"WebSocket error for workflow {workflow_id}: {e}")
         finally:
-            websocket_manager.disconnect(workflow_id, websocket)
+            await self.websocket_manager.disconnect(workflow_id, websocket)
             print(f"Cleaned up connection for workflow {workflow_id}")
             
     class MessageInputData(BaseModel):

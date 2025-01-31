@@ -11,9 +11,16 @@ import {
   Typography,
   MenuItem,
   CircularProgress,
-  Alert
+  Alert,
+  Grid,
+  InputAdornment,
+  IconButton,
+  Divider,
 } from '@mui/material';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import ListIcon from '@mui/icons-material/List';
 import './WorkflowLauncher.css';
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
@@ -32,13 +39,21 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     task_dir: '',
     bounty_number: '0',
     interactive: true,
-    iterations: 10
+    iterations: 10,
+    api_key_name: 'HELM_API_KEY',
+    api_key_value: '',
   });
+
+  const [apiKeys, setApiKeys] = useState({"HELM_API_KEY": ""});
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
+  const [isCustomApiKey, setIsCustomApiKey] = useState(false);
 
   // 2. Fetch workflows only once server is confirmed available
   useEffect(() => {
     if (!isChecking && isServerAvailable) {
       fetchWorkflows();
+      fetchApiKeys();
     }
   }, [isChecking, isServerAvailable]);
 
@@ -54,6 +69,21 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setLoading(false);
     }
   };
+
+  const fetchApiKeys = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/service/api-service/get');
+      const data = await response.json();
+      console.log(data);
+      setApiKeys(data);
+      setFormData((prev) => ({
+        ...prev,
+        api_key_value: data[formData.api_key_name] || '',
+      }));
+    } catch (err) {
+      console.error('Failed to fetch API keys:', err);
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -109,6 +139,58 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       ...prev,
       [name]: name === 'interactive' ? checked : value
     }));
+
+
+    if (name === 'api_key_name') {
+      setFormData((prev) => ({
+        ...prev,
+        api_key_value: apiKeys[value] || '',
+      }));
+    }
+  };
+
+  const handleRevealToggle = () => {
+    setShowApiKey((prev) => !prev);
+  };
+
+  const handleApiKeyChange = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/service/api-service/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key_name: formData.api_key_name || "",
+          api_key_value: formData.api_key_value || "",
+        }),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        setApiStatus({ 
+          type: "error", 
+          message: `Failed to update API key. Please double-check your entry. Here's the full log:\n${responseData.detail || "Failed to update API key"}` 
+        });
+        
+      } else {
+        let successMessage = `${formData.api_key_name} updated successfully!`;
+
+        if (responseData.warning) {
+          setApiStatus({
+            type: "warning",
+            message: `${successMessage}\n\n Warning: ${responseData.warning}`,
+          });
+        } else {
+          setApiStatus({ type: "success", message: successMessage });
+          setTimeout(() => setApiStatus({ type: "", message: "" }), 3000);
+        }
+      }
+
+      console.log(`${formData.api_key_name} updated successfully.`);
+      fetchApiKeys();
+    } catch (err) {
+      console.log(err.message);
+    }
   };
 
   // 3. Render different states
@@ -210,6 +292,102 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           margin="normal"
           placeholder="e.g., 10"
         />
+
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={5}>
+            <TextField
+              select={!isCustomApiKey} // Turns into input when "Enter new key" is selected
+              fullWidth
+              label="API Key Name"
+              name="api_key_name"
+              value={formData.api_key_name || ""}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              InputProps={{
+                endAdornment: (
+                  <IconButton onClick={() => {
+                    if (isCustomApiKey) {
+                      setIsCustomApiKey(!isCustomApiKey);
+
+                      handleInputChange({ // Reset to default
+                        target: {
+                          name: "api_key_name",
+                          value: "HELM_API_KEY",
+                        },
+                      });
+                    }
+                  }}>
+                    {isCustomApiKey ? <ListIcon /> : null}
+                  </IconButton>
+                )
+              }}
+            >
+              {Object.keys(apiKeys).map((key) => (
+                <MenuItem key={key} value={key}>
+                  {key}
+                </MenuItem>
+              ))}
+              <Divider />
+              <MenuItem onClick={() => {
+                setIsCustomApiKey(true);
+                setFormData((prev) => ({
+                  ...prev,
+                  api_key_name: "my_custom_key",
+                }));
+                
+              }}>
+                Enter a New API Key:
+              </MenuItem>
+            </TextField>
+          </Grid>
+
+          <Grid item xs={5.5}>
+            <TextField
+              fullWidth
+              type={showApiKey ? 'text' : 'password'}
+              label="API Key Value"
+              name="api_key_value"
+              value={formData.api_key_value}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              placeholder="Enter API key"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={handleRevealToggle} size="large">
+                      {showApiKey ? <Visibility /> : <VisibilityOff />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+
+          <Grid item xs={1}>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleApiKeyChange}
+                size="small"
+              >
+                Update
+              </Button>
+            </Box>
+          </Grid>
+
+          <Grid item xs={10}>
+            {apiStatus.message && (
+              <Alert severity={apiStatus.type} className="launcher-alert" sx={{ whiteSpace: "pre-line" }}>
+                {apiStatus.message}
+              </Alert>
+            )}
+          </Grid>
+
+
+        </Grid>
 
         <FormControlLabel
           control={
