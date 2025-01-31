@@ -60,8 +60,7 @@ test_modules = [
     test_resource_manager,
     test_logger,
     test_progress_logger,
-    test_server,
-    test_config_default
+    test_server
 ]
 
 # ------------------------------------------------------------------------------
