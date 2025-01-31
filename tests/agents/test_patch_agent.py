@@ -44,7 +44,7 @@ def patch_agent(bounty_setup):
     )
     agent = agent_manager.create_agent("test_patch_agent", PatchAgent, patch_config)
     verify_script_text = Path(env_path.VERIFY_SCRIPT_DIR).read_text()
-    exploit_script_text = Path(env_path.EXPLOIT_SCRIPT_DIR).read_text()
+    exploit_script_text = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR).read_text()
 
     # agent's codebase parameter is initialized in the run function so we do it here
     agent.codebase = env_path.TMP_DIR
@@ -69,7 +69,7 @@ def patch_agent(bounty_setup):
 def execute_fixture(bounty_setup, patch_agent):
     env_path: EnvPath = bounty_setup
 
-    exploit_script_dir = env_path.EXPLOIT_SCRIPT_DIR
+    exploit_script_dir = env_path.TMP_EXPLOIT_SCRIPT_DIR
     exploit_script_dir_path = Path(exploit_script_dir)
 
     write_to_file_and_make_executable(
@@ -101,7 +101,7 @@ def test_check_repo_and_bounty_are_different(patch_agent):
 def test_run_exploit(bounty_setup, patch_agent):
     env_path: EnvPath = bounty_setup
     agent = patch_agent
-    exploit_script_dir = Path(env_path.EXPLOIT_SCRIPT_DIR)
+    exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         file_text="#!/usr/bin/env bash\nexit 1\n",
@@ -140,7 +140,7 @@ def test_no_verify_sh_exploit_returns_1(bounty_setup, patch_agent, execute_fixtu
     """
     env_path: EnvPath = bounty_setup
     agent = patch_agent
-    exploit_script_dir = Path(env_path.EXPLOIT_SCRIPT_DIR)
+    exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         file_text="#!/usr/bin/env bash\nexit 1\n",
@@ -156,7 +156,7 @@ def test_no_verify_sh_exploit_returns_0(bounty_setup, patch_agent, execute_fixtu
     """
     env_path: EnvPath = bounty_setup
     agent = patch_agent
-    exploit_script_dir = Path(env_path.EXPLOIT_SCRIPT_DIR)
+    exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         file_text="#!/usr/bin/env bash\nexit 0\n",
@@ -175,7 +175,7 @@ def test_no_verify_sh_exploit_invalid_exit_code(bounty_setup, patch_agent, execu
     """
     env_path: EnvPath = bounty_setup
     agent = patch_agent
-    exploit_script_dir = Path(env_path.EXPLOIT_SCRIPT_DIR)
+    exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         file_text="#!/usr/bin/env bash\nexit 2\n",

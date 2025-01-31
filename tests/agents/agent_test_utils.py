@@ -54,7 +54,7 @@ class EnvPath():
     CODEBASE_FILES_DIR = ""
     TMP_CODEBASE_FILES_DIR = ""
     VERIFY_SCRIPT_DIR = ""
-    EXPLOIT_SCRIPT_DIR = ""
+    TMP_EXPLOIT_SCRIPT_DIR = ""
     EXPLOIT_FILES_DIR = ""
     AGENT_PATCHES_DIR = ""
 
@@ -81,7 +81,7 @@ class EnvPath():
         codebase_files_dir = task_dir / codebase_files_dir_name
         tmp_codebase_files_dir = tmp_dir / codebase_files_dir_name
         verify_script_dir = bounty_dir / VERIFY_SCRIPT_NAME
-        exploit_script_dir = tmp_dir / EXPLOIT_SCRIPT_NAME
+        tmp_exploit_script_dir = tmp_dir / EXPLOIT_SCRIPT_NAME
         exploit_files_dir = bounty_dir / exploit_files_dir_name
         agent_patches_dir = bounty_dir / "agent-patches"
 
@@ -94,7 +94,7 @@ class EnvPath():
         cls.CODEBASE_FILES_DIR = str(codebase_files_dir)
         cls.TMP_CODEBASE_FILES_DIR = str(tmp_codebase_files_dir)
         cls.VERIFY_SCRIPT_DIR = str(verify_script_dir)
-        cls.EXPLOIT_SCRIPT_DIR = str(exploit_script_dir)
+        cls.TMP_EXPLOIT_SCRIPT_DIR = str(tmp_exploit_script_dir)
         cls.EXPLOIT_FILES_DIR = str(exploit_files_dir)
         cls.AGENT_PATCHES_DIR = str(agent_patches_dir)
 
@@ -133,7 +133,7 @@ def bounty_setup(repo_name: str, bounty_number: int) -> EnvPath:
     )
     docker_config = DockerResourceConfig()
     
-    # Initialize resources and agent
+    # Initialize resources 
     resource_manager = ResourceManager()
     resource_manager.register_resource("init_files", InitFilesResource, init_config)
     resource_manager.register_resource("repo_resource", SetupResource, setup_config)
