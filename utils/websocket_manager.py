@@ -1,5 +1,6 @@
 from typing import Dict, List, Set
 from fastapi import WebSocket
+from fastapi.websockets import WebSocketDisconnect
 import logging
 import asyncio
 from datetime import datetime, timedelta
@@ -122,24 +123,20 @@ class WebSocketManager:
             while self.connection_status[workflow_id].get(websocket, False):
                 await asyncio.sleep(self.HEARTBEAT_INTERVAL)
                 
-                # Send ping and wait for pong with timeout
-                try:
-                    await asyncio.wait_for(
-                        websocket.send_json({"message_type": "ping"}),
-                        timeout=5
-                    )
-                    pong = await asyncio.wait_for(
-                        websocket.receive_json(),
-                        timeout=10
-                    )
-                    if pong.get("message_type") != "pong":
-                        raise Exception("Invalid heartbeat response")
-                    self.last_heartbeat[workflow_id][websocket] = datetime.now()
-                
-                except (asyncio.TimeoutError, ConnectionClosedError) as e:
-                    logger.warning(f"Heartbeat failed: {str(e)}")
+                # Check connection timeout based on last activity
+                last_active = self.last_heartbeat[workflow_id].get(websocket)
+                if not last_active or (datetime.now() - last_active) > timedelta(seconds=self.CONNECTION_TIMEOUT):
+                    logger.warning("Connection timeout, disconnecting...")
                     await self.disconnect(workflow_id, websocket)
                     return
+
+                # Send ping without blocking on response
+                try:
+                    await websocket.send_json({"message_type": "ping"})
+                except (WebSocketDisconnect, RuntimeError):
+                    await self.disconnect(workflow_id, websocket)
+                    return
+
         except asyncio.CancelledError as e:
             logger.info(f"Heartbeat monitor cancelled for workflow {workflow_id}")
             raise e 
