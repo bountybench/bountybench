@@ -84,6 +84,17 @@ class InitFilesResource(BaseResource):
         Run the initialization script for the task.
         """
         try:
+
+            if not os.listdir(self.files_dir):  # If the directory is empty
+                logger.info("Codebase is empty. Initializing Git submodules.")
+                subprocess.run(
+                    ["git", "submodule", "update", "--init", "--recursive"],
+                    cwd=self.files_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=True,
+                    text=True
+                )
             logger.info(
                 f"Checking out {self.vulnerable_commit}")
             subprocess.run(

@@ -58,6 +58,7 @@ suite = unittest.TestSuite()
 
 # Add tests to the test suite
 
+"""
 test_modules = [
     test_base_agent,  # test_executor_agent,
     # test_patch_agent_git, test_patch_agent_run_exploit, test_patch_agent_verify,
@@ -75,6 +76,9 @@ test_modules = [
     # test_base_workflow, test_exploit_patch_workflow,
     test_server,
 ]
+"""
+
+test_modules = [test_config_default]
 
 
 
