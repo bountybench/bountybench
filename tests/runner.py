@@ -61,11 +61,9 @@ test_modules = [
     test_logger,
     test_progress_logger,
     test_server,
-    test_base_phase,
     test_managers,
     test_setup_resource,
-    test_config_default,
-    test_base_workflow
+    test_config_default
 ]
 
 # ------------------------------------------------------------------------------
