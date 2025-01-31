@@ -9,22 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 1
-
-      - name: Initialize and update submodules
-        run: |
-          git submodule update --init
-      
-      - name: Checkout main branch in submodule
-        run: |
-          # Change directory to the bountybench submodule
-          cd bountybench
-          
-          # Checkout the main branch in the submodule
-          git checkout main
 
 
       - name: Check System Architecture
@@ -89,6 +73,18 @@ jobs:
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
+      
+            - name: Initialize and update submodules
+        run: |
+          git submodule update --init
+      
+      - name: Checkout main branch in submodule
+        run: |
+          # Change directory to the bountybench submodule
+          cd bountybench
+          
+          # Checkout the main branch in the submodule
+          git checkout main
 
       - name: Check for label to run all tests
         id: check_label
