@@ -14,7 +14,7 @@ jobs:
         with:
           fetch-depth: 0 
           submodules: false  # Disable automatic submodule fetching
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Manually Initialize Only Required Submodules
         run: |
