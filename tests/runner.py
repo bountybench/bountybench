@@ -17,7 +17,7 @@ from tests.resources import (
     test_kali_env_resource_tty,
     test_resource_config,
     test_resource_manager,
-    test_setup_resource, fake_test
+    test_setup_resource
 )
 from tests.resources.model_resource import test_config_default
 from tests.ui_backend import test_server
