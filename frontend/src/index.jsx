@@ -1,7 +1,7 @@
 // src/index.jsx
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter as Router } from 'react-router-dom';
+import { BrowserRouter as Router } from 'react-router';
 import 'react-toastify/dist/ReactToastify.css';
 import App from './App';
 import './index.css';

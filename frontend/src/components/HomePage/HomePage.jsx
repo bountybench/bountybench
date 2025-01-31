@@ -1,6 +1,6 @@
 // src/components/HomePage/HomePage.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Box, Button, Typography, CircularProgress } from '@mui/material';
 import './HomePage.css';
 

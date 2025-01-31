@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
@@ -25,7 +25,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     };
 
     checkIfWorkflowExists();
-  }, [workflowId, showInvalidWorkflowToast]);
+  }, [workflowId, navigate, showInvalidWorkflowToast]);
 
   const {
     isConnected,
@@ -95,7 +95,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       console.error('Workflow ID is not available');
     }
   };
-
+  
   const handleUpdateActionInput = async (messageId, newInputData) => {
     const url = `http://localhost:8000/workflow/edit-message/${workflowId}`;
     const requestBody = { message_id: messageId, new_input_data: newInputData };
