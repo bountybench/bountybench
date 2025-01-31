@@ -41,7 +41,7 @@ from tests.resources.model_resource import test_config_default
 from tests.ui_backend import test_server
 
 # Utils
-from tests.utils import test_logger, test_progress_logger
+from tests.utils import test_logger, test_progress_logger, fake_test
 
 # Workflows
 from tests.workflows import test_base_workflow  
@@ -51,6 +51,7 @@ from tests.workflows import test_base_workflow
 # List of test modules you want to run. Comment out anything you don't want.
 # ------------------------------------------------------------------------------
 test_modules = [
+    fake_test,
     test_base_agent,
     test_message,
     test_init_files_resource,
@@ -132,8 +133,7 @@ def build_test_suite(changed_files=None):
 # Main entry point
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
-    # If files are passed via command-line arguments, use them to filter tests
-    changed_files = sys.argv[1:]  # e.g. python runner.py file1 file2 ...
+    changed_files = sys.argv[1:]
     if changed_files:
         print(f"Detected changed files: {changed_files}")
     else:
@@ -143,30 +143,34 @@ if __name__ == "__main__":
     runner = PrintTestRunner(verbosity=3)
     result = runner.run(suite)
 
-    # Print a final summary of skipped, failures, and errors
+    # ----- Check if zero tests were actually run -----
+    if result.testsRun == 0:
+        print("\n==================== TEST RUN SUMMARY ====================")
+        print("No tests were found or run!")
+        sys.exit(0) 
+
+    # ----- Otherwise, proceed with the standard summary -----
     print("\n==================== TEST RUN SUMMARY ====================")
-    # Skipped
+
     if result.skipped:
         print("SKIPPED TESTS:")
         for (test_case, reason) in result.skipped:
             print(f"  - {test_case}: {reason}")
         print("")
 
-    # Failures
     if result.failures:
         print("FAILED TESTS:")
-        for (test_case, traceback) in result.failures:
+        for (test_case, _) in result.failures:
             print(f"  - {test_case}")
         print("")
 
-    # Errors
     if result.errors:
         print("ERRORS:")
-        for (test_case, traceback) in result.errors:
+        for (test_case, _) in result.errors:
             print(f"  - {test_case}")
         print("")
 
-    # You could print "OK" only if everything passed:
+    # If we have no failures or errors, we can say all tests passed:
     if not (result.failures or result.errors):
         print("All tests passed successfully!")
 
