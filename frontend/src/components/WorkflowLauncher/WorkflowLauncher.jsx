@@ -40,7 +40,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     api_key_value: '',
   });
 
-  const [apiKeys, setApiKeys] = useState({});
+  const [apiKeys, setApiKeys] = useState({"HELM_API_KEY": ""});
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
   const [isCustomApiKey, setIsCustomApiKey] = useState(false);
