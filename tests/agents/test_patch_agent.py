@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-import stat
 import subprocess
 import unittest
 from unittest.mock import patch
@@ -10,7 +9,7 @@ from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.agent_manager import AgentManager
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 
-from tests.agents.agent_test_utils import lunary_bounty_0_setup as bounty_setup, EnvPath
+from tests.agents.agent_test_utils import lunary_bounty_0_setup as bounty_setup, EnvPath, write_to_file_and_make_executable
 
 TEST_FILE_NAME = "test_file.txt"
 
@@ -27,10 +26,6 @@ def mock_store_patch():
 
 def mock_restart_resource(return_value: bool = True):
     return patch.object(PatchAgent, "_restart_resource", return_value=return_value)
-
-def write_to_file_and_make_executable(script_path: Path, file_text: str):
-    script_path.write_text(file_text)
-    script_path.chmod(script_path.stat().st_mode | stat.S_IXUSR)
 
 @pytest.fixture(scope="module")
 def patch_agent(bounty_setup):
@@ -74,7 +69,7 @@ def execute_fixture(bounty_setup, patch_agent):
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir_path,
-        file_text="#!/usr/bin/env bash\nexit 0\n",
+        exit_code=0,
     )
     yield
 
@@ -104,21 +99,21 @@ def test_run_exploit(bounty_setup, patch_agent):
     exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 1\n",
+        exit_code=1,
     )
     exploit_result = agent.run_exploit()
     assert exploit_result[1] == 1
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 0\n",
+        exit_code=0,
     )
     exploit_result = agent.run_exploit()
     assert exploit_result[1] == 0
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 2\n",
+        exit_code=2,
     )
     exploit_result = agent.run_exploit()
     assert exploit_result[1] == 2
@@ -143,7 +138,7 @@ def test_no_verify_sh_exploit_returns_1(bounty_setup, patch_agent, execute_fixtu
     exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 1\n",
+        exit_code=1,
     )
     agent.use_verify_script = False
     result = agent.execute()
@@ -159,7 +154,7 @@ def test_no_verify_sh_exploit_returns_0(bounty_setup, patch_agent, execute_fixtu
     exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 0\n",
+        exit_code=0,
     )
     agent.use_verify_script = False
 
@@ -178,7 +173,7 @@ def test_no_verify_sh_exploit_invalid_exit_code(bounty_setup, patch_agent, execu
     exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 2\n",
+        exit_code=2,
     )
     agent.use_verify_script = False
 
@@ -201,7 +196,7 @@ def test_with_verify_sh_success(bounty_setup, patch_agent, execute_fixture):
     verify_script_dir = Path(env_path.VERIFY_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=verify_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 1\n",
+        exit_code=1,
     )
     agent.use_verify_script = True
     result = agent.execute()
@@ -218,7 +213,7 @@ def test_with_verify_sh_fail(bounty_setup, patch_agent):
     verify_script_dir = Path(env_path.VERIFY_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=verify_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 0\n",
+        exit_code=0,
     )
     agent.use_verify_script = True
     result = agent.execute()
@@ -232,7 +227,7 @@ def test_verify_patch_works_success(bounty_setup, patch_agent):
     verify_script_dir = Path(env_path.VERIFY_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=verify_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 1\n",
+        exit_code=1,
     )
     result = agent.verify_patch_works("")
     assert result
@@ -243,7 +238,7 @@ def test_verify_patch_works_fail(bounty_setup, patch_agent):
     verify_script_dir = Path(env_path.VERIFY_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=verify_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 0\n",
+        exit_code=0,
     )
     result = agent.verify_patch_works("")
     assert not result
@@ -254,7 +249,7 @@ def test_verify_patch_works_other(bounty_setup, patch_agent):
     verify_script_dir = Path(env_path.VERIFY_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=verify_script_dir,
-        file_text="#!/usr/bin/env bash\nexit 2\n",
+        exit_code=2,
     )
     result = agent.verify_patch_works("")
     assert not result

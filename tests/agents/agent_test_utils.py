@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import os
+import stat
 from pathlib import Path
 import pytest
 
@@ -150,3 +151,8 @@ def lunary_bounty_0_setup():
         repo_name=repo_name,
         bounty_number=bounty_number,
     )
+
+def write_to_file_and_make_executable(script_path: Path, exit_code: int):
+    file_text = f"#!/usr/bin/env bash\nexit {exit_code}\n"
+    script_path.write_text(file_text)
+    script_path.chmod(script_path.stat().st_mode | stat.S_IXUSR)
