@@ -4,6 +4,8 @@ import sys
 import time
 import select
 from typing import Dict, Optional, Tuple
+import time
+
 
 import docker
 from docker.models.containers import Container
@@ -73,6 +75,13 @@ class KaliEnvResource(BaseResource):
         
         self.client = docker.from_env()
         self.container = self._start(self.resource_id, self._resource_config.volumes)
+        
+        if self.container.status != "running":
+            logs = self.container.logs().decode("utf-8")
+            print(f"Container exited unexpectedly. Logs:\n{logs}")
+            raise RuntimeError("Container exited unexpectedly after creation.")
+
+
 
         self.target_host = self._resource_config.target_host
         self.socket = None # Socket for writing to the pseudo-terminal
@@ -89,6 +98,20 @@ class KaliEnvResource(BaseResource):
             self.connect_to_target_hosts_check(self.target_host)
 
         atexit.register(self.stop)
+
+
+
+    def wait_for_container(self, container, timeout=10):
+        """Waits for the container to enter 'running' state."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            container.reload()  # Refresh container status
+            if container.status == "running":
+                return True
+            time.sleep(0.5)
+        return False
+
+
     
     def _start(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]) -> Container:
         """
@@ -123,8 +146,14 @@ class KaliEnvResource(BaseResource):
                         entrypoint=ENTRYPOINT,
                         detach=True,
                         name=name,
+
                     )
                     logger.info("KaliEnvResource Docker container started successfully.")
+                        # Inside `_start()`, right after container creation:
+                    if not self.wait_for_container(container):
+                        logs = container.logs().decode("utf-8")
+                        print(f"Container failed to start. Logs:\n{logs}")
+                        raise RuntimeError("Container failed to reach running state.")
                 finally:
                     stop_progress()
 
@@ -150,26 +179,38 @@ class KaliEnvResource(BaseResource):
                     sys.exit(1)
 
     def cleanup_tmp(self):
-        cleanup_command = "rm -rf * .*"
-        return self.run_command(cleanup_command, workdir="/app")
-    
-    def stop(self) -> None:
-        """
-        Stop and remove the Docker container when the program exits.
+        """Clean up temporary files"""
+        try:
+            logger.info("Cleaning up: removing tmp files.")
+            cleanup_command = "rm -rf * .*"
+            return self.run_command(cleanup_command, workdir="/app")
+        except Exception as e:
+            logger.error(f"Error cleaning up tmp files: {e}")
 
-        This function is automatically registered to run when the program terminates.
-        """
-        if self.container:
-            try:
-                logger.info("Cleaning up: removing tmp files.")
-                self.cleanup_tmp()
+    def stop(self):
+        """Stop and remove the Docker container"""
+        try:
+            if self.container:
+                try:
+                    self.cleanup_tmp()
+                except Exception as e:
+                    logger.error(f"Error during tmp cleanup: {e}")
+                
                 logger.info("Cleaning up: stopping and removing Docker container.")
-                self.container.stop()
-                self.container.remove()
+                try:
+                    self.container.stop(timeout=1)  # Short timeout for quicker shutdown
+                except Exception as e:
+                    logger.error(f"Error stopping container: {e}")
+                
+                try:
+                    self.container.remove(force=True)  # Force remove in case stop failed
+                except Exception as e:
+                    logger.error(f"Error removing container: {e}")
+                
                 self.container = None
                 logger.info("Docker container cleaned up successfully.")
-            except Exception as e:
-                logger.error(f"Error cleaning up Docker container: {e}")
+        except Exception as e:
+            logger.error(f"Error cleaning up Docker container: {e}")
 
     def run(self, command_message: CommandMessage) -> ActionMessage:
         command_str = command_message.command
@@ -182,6 +223,7 @@ class KaliEnvResource(BaseResource):
         if len(command) > 33:
             command_str = command_str[:30] + "..."
         start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
+
         try:
             if not tty:
                 with timeout_context(timeout):

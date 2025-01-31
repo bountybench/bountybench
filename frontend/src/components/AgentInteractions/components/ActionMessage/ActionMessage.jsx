@@ -8,7 +8,7 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css'
 
-const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
+const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
@@ -37,6 +37,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
 
   const handleEditClick = () => {
     setEditing(true);
+    onEditingChange(true);
     setEditedMessage(originalMessageContent);
   };
 
@@ -48,6 +49,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
     try {
       await onUpdateActionInput(action.current_id, editedMessage);
       setEditing(false);
+      onEditingChange(false);
     } catch (error) {
       console.error('Error updating action message:', error);
     }
@@ -106,6 +108,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
                 color="primary"
                 onClick={handleSaveClick}
                 size="small"
+                aria-label="save"
               >
                 <SaveIcon/>
               </Button>
@@ -118,12 +121,14 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
                 {originalMessageContent}
               </Typography>
             </Box>
-            <Box className="action-message-buttons">
+            <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
               <Button
                 variant="outlined"
                 color="primary"
                 onClick={handleEditClick}
                 size="small"
+                aria-label="edit"
+                className="edit-button"
               >
                 <EditIcon />
               </Button>
@@ -132,6 +137,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction }) => {
                 color="secondary"
                 onClick={handleRerunClick}
                 size="small"
+                aria-label="rerun"
               >
                 <ReplayIcon />
               </Button>

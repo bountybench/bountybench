@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
+import { ToastContainer, toast, Slide } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
 import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
 import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
 import { AppHeader } from './components/AppHeader/AppHeader'; 
@@ -13,7 +15,8 @@ function App() {
   const [interactiveMode, setInteractiveMode] = useState(true);
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
-  
+  const toastIdRef = useRef({});
+
   const handleWorkflowStart = (workflowId, isInteractive) => {
     setSelectedWorkflow({ id: workflowId });
     setInteractiveMode(isInteractive);
@@ -22,7 +25,6 @@ function App() {
   const handleInteractiveModeToggle = async () => {
     const newInteractiveMode = !interactiveMode;
     setInteractiveMode(newInteractiveMode);
-    
     if (selectedWorkflow) {
       try {
         const response = await fetch(`http://localhost:8000/workflow/${selectedWorkflow.id}/interactive`, {
@@ -50,10 +52,42 @@ function App() {
     setCurrentPhase(phase);
   };
 
+  useEffect(() => {
+    const originalConsoleError = console.error;
+
+    console.error = function(...args) {
+      const errorMessage = args.join(' ');
+
+      // Check if the toast already exists
+      if (toastIdRef.current[errorMessage]) {
+        // Update the existing toast with the same message
+        toast.update(toastIdRef.current[errorMessage], {
+          render: errorMessage,
+          autoClose: 5000,
+          transition: Slide,
+        });
+      } else {
+        // Create a new toast and store the ID
+        const id = toast.error(errorMessage, {
+          position: "top-center",
+          autoClose: 5000,
+          transition: Slide,
+        });
+        toastIdRef.current[errorMessage] = id;
+      }  
+      originalConsoleError.apply(console, args);
+    };
+
+    return () => {
+      console.error = originalConsoleError;
+    };
+  }, []);
+
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <Box className="app-container" display="flex" flexDirection="column" height="100vh">
+        <ToastContainer />
         <AppHeader 
           onInteractiveModeToggle={handleInteractiveModeToggle}
           interactiveMode={interactiveMode}
