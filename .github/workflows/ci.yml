@@ -54,7 +54,7 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.11'
-
+        
       - name: Cache Python dependencies
         uses: actions/cache@v2
         with:
@@ -62,6 +62,12 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+      
+      - name: List Python packages
+        run: pip list
+      
+      - name: Show cache contents
+        run: ls -la ~/.cache/pip
 
       - name: Install dependencies
         run: |
