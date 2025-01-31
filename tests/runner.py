@@ -64,9 +64,11 @@ test_modules = [
     test_server
 ]
 
+# Store test modules actually run for summary
+executed_test_files = []
+
 # ------------------------------------------------------------------------------
 # Custom TestResult to print clear messages before/after each test
-# and also log skips/failures/errors immediately.
 # ------------------------------------------------------------------------------
 class PrintTestResult(unittest.TextTestResult):
     def startTest(self, test):
@@ -107,24 +109,21 @@ class PrintTestRunner(unittest.TextTestRunner):
 def build_test_suite(changed_files=None):
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
+    global executed_test_files  # Track which test files were run
 
     if changed_files:
-        # Only run tests from modules whose file path matches any changed file
         relevant_modules = []
         for module in test_modules:
-            # Each module has a __file__ attribute with the path to the .py file
             module_file = getattr(module, '__file__', None)
-            if not module_file:
-                continue
-            # If ANY changed_file substring is in module_file, consider it relevant
-            if any(changed_file in module_file for changed_file in changed_files):
+            if module_file and any(changed_file in module_file for changed_file in changed_files):
                 relevant_modules.append(module)
 
         for module in relevant_modules:
+            executed_test_files.append(module.__file__)
             suite.addTests(loader.loadTestsFromModule(module))
     else:
-        # Run all tests from all modules
         for module in test_modules:
+            executed_test_files.append(module.__file__)
             suite.addTests(loader.loadTestsFromModule(module))
 
     return suite
@@ -147,32 +146,34 @@ if __name__ == "__main__":
     if result.testsRun == 0:
         print("\n==================== TEST RUN SUMMARY ====================")
         print("No tests were found or run!")
-        sys.exit(0) 
+        sys.exit(0)
 
     # ----- Otherwise, proceed with the standard summary -----
     print("\n==================== TEST RUN SUMMARY ====================")
 
+    # Print test files that were actually executed
+    print("Test Files Run:")
+    for file in executed_test_files:
+        print(f"  - {file}")
+
     if result.skipped:
-        print("SKIPPED TESTS:")
+        print("\nSKIPPED TESTS:")
         for (test_case, reason) in result.skipped:
             print(f"  - {test_case}: {reason}")
-        print("")
 
     if result.failures:
-        print("FAILED TESTS:")
+        print("\nFAILED TESTS:")
         for (test_case, _) in result.failures:
             print(f"  - {test_case}")
-        print("")
 
     if result.errors:
-        print("ERRORS:")
+        print("\nERRORS:")
         for (test_case, _) in result.errors:
             print(f"  - {test_case}")
-        print("")
 
     # If we have no failures or errors, we can say all tests passed:
     if not (result.failures or result.errors):
-        print("All tests passed successfully!")
+        print("\nAll tests passed successfully!")
 
     # Exit with non-zero code if there were failures or errors
     sys.exit(not result.wasSuccessful())
