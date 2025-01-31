@@ -6,60 +6,29 @@ on:
   pull_request:
     branches: [ main ]
     
-permissions:
-  contents: write
-  packages: read
-  pull-requests: read
-    
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Pre-configure Git
-        run: |
-          git config --global credential.helper store
-          git config --global url."https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/".insteadOf "https://github.com/"
-          git config --global --add safe.directory '*'
-          
-          # Create auth file
-          echo "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
-          chmod 600 ~/.git-credentials
-          
-          # Enable verbose Git output
-          export GIT_TRACE=2
-          export GIT_CURL_VERBOSE=2
-          export GIT_TRACE_PACKET=2
-
-      - name: Checkout main repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v2
         with:
-          fetch-depth: 0
-          submodules: false
-          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0 
+          submodules: false  # Disable automatic submodule fetching
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
 
-      - name: Manual submodule checkout
+      - name: Manually Initialize Only Required Submodules
         run: |
-          # Show current state
-          echo "Current directory content:"
-          ls -la
+          git submodule update --init bountybench  
+      
+
+      - name: Checkout main branch in submodule
+        run: |
+          # Change directory to the bountybench submodule
+          cd bountybench
           
-          echo "\nInitializing submodules..."
-          git submodule init
-          
-          echo "\nUpdating submodule URLs..."
-          git submodule foreach --recursive 'git config --local url."https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/".insteadOf "https://github.com/"'
-          
-          echo "\nAttempting submodule update..."
-          git submodule update --init --recursive --force || {
-            echo "\nUpdate failed. Debug information:"
-            echo "Git config:"
-            git config --list
-            echo "\n.gitmodules content:"
-            cat .gitmodules
-            echo "\nTrying direct clone..."
-            git clone --depth 1 "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/cybench/bountybench.git" bountybench_test
-            exit 1
-          }
+          # Checkout the main branch in the submodule
+          git checkout main
 
       - name: Check System Architecture
         run: uname -m
@@ -123,7 +92,6 @@ jobs:
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-            
 
       - name: Check for label to run all tests
         id: check_label
