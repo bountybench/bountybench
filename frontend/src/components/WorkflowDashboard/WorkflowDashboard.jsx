@@ -9,6 +9,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [preservedMessages, setPreservedMessages] = useState([]);
+  const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
 
   const navigate = useNavigate();
   
@@ -17,15 +18,18 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     const checkIfWorkflowExists = async () => {
       const response = await fetch('http://localhost:8000/workflows/active');
       const data = await response.json();
-      
+
       if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
         showInvalidWorkflowToast();
         navigate(`/`); 
       }
     };
 
-    checkIfWorkflowExists();
-  }, [workflowId, navigate, showInvalidWorkflowToast]);
+    if (!hasCheckedValidity) { // Check if validity has already been checked
+      checkIfWorkflowExists();
+      setHasCheckedValidity(true);
+    }
+  }, [workflowId, navigate, showInvalidWorkflowToast, hasCheckedValidity]);
 
   const {
     isConnected,
