@@ -65,6 +65,7 @@ test_modules = [
 
 # ------------------------------------------------------------------------------
 # Custom TestResult to print clear messages before/after each test
+# and also log skips/failures/errors immediately.
 # ------------------------------------------------------------------------------
 class PrintTestResult(unittest.TextTestResult):
     def startTest(self, test):
@@ -80,6 +81,18 @@ class PrintTestResult(unittest.TextTestResult):
         print(f"Finished Test: {test_name}")
         print("------------------------------------------------------------\n")
         super().stopTest(test)
+
+    def addSkip(self, test, reason):
+        super().addSkip(test, reason)
+        print(f"[SKIPPED] {self.getDescription(test)}: {reason}")
+
+    def addFailure(self, test, err):
+        super().addFailure(test, err)
+        print(f"[FAILED] {self.getDescription(test)}")
+
+    def addError(self, test, err):
+        super().addError(test, err)
+        print(f"[ERROR] {self.getDescription(test)}")
 
 # ------------------------------------------------------------------------------
 # Custom TestRunner using our PrintTestResult
@@ -102,12 +115,10 @@ def build_test_suite(changed_files=None):
             module_file = getattr(module, '__file__', None)
             if not module_file:
                 continue
-
             # If ANY changed_file substring is in module_file, consider it relevant
             if any(changed_file in module_file for changed_file in changed_files):
                 relevant_modules.append(module)
 
-        # Add tests from relevant modules
         for module in relevant_modules:
             suite.addTests(loader.loadTestsFromModule(module))
     else:
@@ -131,5 +142,33 @@ if __name__ == "__main__":
     suite = build_test_suite(changed_files if changed_files else None)
     runner = PrintTestRunner(verbosity=3)
     result = runner.run(suite)
-    # Exit with non-zero code if there were failures
+
+    # Print a final summary of skipped, failures, and errors
+    print("\n==================== TEST RUN SUMMARY ====================")
+    # Skipped
+    if result.skipped:
+        print("SKIPPED TESTS:")
+        for (test_case, reason) in result.skipped:
+            print(f"  - {test_case}: {reason}")
+        print("")
+
+    # Failures
+    if result.failures:
+        print("FAILED TESTS:")
+        for (test_case, traceback) in result.failures:
+            print(f"  - {test_case}")
+        print("")
+
+    # Errors
+    if result.errors:
+        print("ERRORS:")
+        for (test_case, traceback) in result.errors:
+            print(f"  - {test_case}")
+        print("")
+
+    # You could print "OK" only if everything passed:
+    if not (result.failures or result.errors):
+        print("All tests passed successfully!")
+
+    # Exit with non-zero code if there were failures or errors
     sys.exit(not result.wasSuccessful())
