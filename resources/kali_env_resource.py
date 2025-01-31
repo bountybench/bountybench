@@ -75,12 +75,12 @@ class KaliEnvResource(BaseResource):
         
         self.client = docker.from_env()
         self.container = self._start(self.resource_id, self._resource_config.volumes)
-        print(f"KaliEnvResource started container {self.container.id} with status: {self.container.status}")
+        #print(f"KaliEnvResource started container {self.container.id} with status: {self.container.status}")
 
 
         # If the container isn't running, fail fast and print logs
 
-        time.sleep(10)  # Give `dockerd` time to start
+        #time.sleep(10)  # Give `dockerd` time to start
 
         
         if self.container.status != "running":
@@ -151,7 +151,7 @@ class KaliEnvResource(BaseResource):
                         network="shared_net",
                         volumes=volumes,
                         entrypoint=ENTRYPOINT,
-                        command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Keeps it running
+                        #command=["/bin/sh", "-c", "while true; do sleep 1; done"],  # Keeps it running
                         detach=True,
                         name=name,
 
@@ -231,14 +231,14 @@ class KaliEnvResource(BaseResource):
         if len(command) > 33:
             command_str = command_str[:30] + "..."
         start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
-        print(f"Running command inside container {self.container.id}. Status: {self.container.status}")
+        #print(f"Running command inside container {self.container.id}. Status: {self.container.status}")
 
-
+        '''
         if self.container.status != "running":
             logs = self.container.logs().decode("utf-8")
             print(f"Cannot exec into container, it's not running. Logs:\n{logs}")
             raise RuntimeError("Cannot execute command: container is not running.")
-
+        '''
 
         try:
             if not tty:
