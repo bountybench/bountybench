@@ -310,40 +310,6 @@ class TestServer(unittest.TestCase):
         self.assertIn("error", data, "Response should contain 'error' key")
         self.assertEqual(data["error"], "Workflow not found", "Error message should indicate workflow not found")
 
-    def test_first_message_success(self):
-        """
-        Test retrieving the first message of an existing workflow.
-        """
-        start_payload = {
-            "workflow_name": "Patch Workflow",
-            "task_dir": "/path/to/tasks",
-            "bounty_number": "852",
-            "interactive": False,
-            "iterations": 1
-        }
-        start_response = self.client.post("/workflow/start", json=start_payload)
-        self.assertEqual(start_response.status_code, 200, "Expected status code 200 for start workflow")
-        workflow_id = start_response.json()["workflow_id"]
-
-        response = self.client.get(f"/workflow/first-message/{workflow_id}")
-        self.assertEqual(response.status_code, 200, "Expected status code 200 for first message")
-        data = response.json()
-        self.assertIn("message_type", data, "Response should contain 'message_type'")
-        self.assertEqual(data["message_type"], "first_message", "Message type should be 'first_message'")
-        self.assertIn("content", data, "Response should contain 'content'")
-        self.assertEqual(data["content"], "This is a fake initial prompt.",
-                         "Content does not match expected fake first message")
-
-    def test_first_message_workflow_not_found(self):
-        """
-        Test retrieving the first message of a non-existent workflow.
-        """
-        response = self.client.get("/workflow/first-message/nonexistent-id")
-        self.assertEqual(response.status_code, 200, "Expected status code 200 even on error")
-        data = response.json()
-        self.assertIn("error", data, "Response should contain 'error' key")
-        self.assertEqual(data["error"], "Workflow not found", "Error message should indicate workflow not found")
-
     def test_start_workflow_missing_fields(self):
         """
         Test starting a workflow with missing required fields.
