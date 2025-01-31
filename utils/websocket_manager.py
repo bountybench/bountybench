@@ -125,14 +125,7 @@ class WebSocketManager:
             while self.connection_status[workflow_id].get(websocket, False):
                 await asyncio.sleep(self.HEARTBEAT_INTERVAL)
                 
-                # Check connection timeout based on last activity
-                last_active = self.last_heartbeat[workflow_id].get(websocket)
-                if not last_active or (datetime.now() - last_active) > timedelta(seconds=self.CONNECTION_TIMEOUT):
-                    logger.warning("Connection timeout, disconnecting...")
-                    await self.disconnect(workflow_id, websocket)
-                    return
-
-                # Send ping without blocking on response
+                # Only send ping without timeout checks
                 try:
                     await websocket.send_json({"message_type": "ping"})
                 except (WebSocketDisconnect, RuntimeError):
