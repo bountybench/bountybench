@@ -95,7 +95,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install --cache-dir  ~/.cache/pip -r requirements.txt
           # pip install -r requirements.txt
-          
+      
+      - name: Set up Git user information
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
 
       - name: Check for label to run all tests
         id: check_label
