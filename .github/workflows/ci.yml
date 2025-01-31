@@ -18,7 +18,12 @@ jobs:
 
       - name: Manually Initialize Only Required Submodules
         run: |
-          git submodule update --init --depth=1 bountybench  
+          # Configure Git to use the GITHUB_TOKEN for authentication
+          git config --global url."https://x-access-token:$TOKEN@github.com/".insteadOf "https://github.com/"
+          git submodule update --init --depth=1 bountybench
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
           
       - name: Check System Architecture
         run: uname -m
