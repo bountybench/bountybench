@@ -25,6 +25,7 @@ class WebSocketManager:
             self.last_heartbeat: Dict[str, Dict[WebSocket, datetime]] = {}
             self.heartbeat_tasks: Set[asyncio.Task] = set()
             self.connection_status: Dict[str, Dict[WebSocket, bool]] = {}
+            self.lock = asyncio.Lock()
             WebSocketManager._initialized = True
             logger.info("WebSocket Manager initialized")
 
@@ -57,33 +58,34 @@ class WebSocketManager:
             await self._handle_connection_error(workflow_id, websocket)
             raise
 
-    def disconnect(self, workflow_id: str, websocket: WebSocket):
-        """Disconnect a WebSocket client and cleanup resources"""
+    async def disconnect(self, workflow_id: str, websocket: WebSocket):
+        # Check if connection exists before cleanup
+        if not websocket or workflow_id not in self.active_connections:
+            return
+
         try:
-            if workflow_id in self.active_connections:
-                if websocket in self.active_connections[workflow_id]:
-                    self.active_connections[workflow_id].remove(websocket)
+            # Check connection state before closing
+            if websocket.client_state != 2:  # 2 = ConnectionState.DISCONNECTED
+                await websocket.close()
+        except Exception as e:
+            logger.debug(f"Error closing connection: {str(e)}")
+        finally:
+            # Atomic cleanup operation
+            async with self.lock:
+                if workflow_id in self.active_connections:
+                    self.active_connections[workflow_id] = [
+                        conn for conn in self.active_connections[workflow_id]
+                        if conn != websocket
+                    ]
                     
-                    # Clean up connection tracking dictionaries
-                    for tracking_dict in [self.last_heartbeat, self.connection_status]:
-                        if workflow_id in tracking_dict and websocket in tracking_dict[workflow_id]:
-                            del tracking_dict[workflow_id][websocket]
-                    
-                    # Remove workflow if no connections remain
+                    # Remove empty workflow entries
                     if not self.active_connections[workflow_id]:
                         del self.active_connections[workflow_id]
-                        for tracking_dict in [self.last_heartbeat, self.connection_status]:
-                            if workflow_id in tracking_dict:
-                                del tracking_dict[workflow_id]
-                        
-                        logger.info(f"Removed empty connection list for workflow {workflow_id}")
+                        del self.last_heartbeat[workflow_id]
+                        del self.connection_status[workflow_id]
                     
                     logger.info(f"WebSocket disconnected from workflow {workflow_id}")
                     
-        except Exception as e:
-            logger.error(f"Error during WebSocket disconnect: {e}")
-            raise
-
     async def broadcast(self, workflow_id: str, message: dict):
         """Broadcast a message to all connected clients with retry mechanism"""
         if workflow_id not in self.active_connections:
@@ -160,7 +162,7 @@ class WebSocketManager:
                 logger.error(f"Unexpected error closing websocket: {e}")
                 
         finally:
-            self.disconnect(workflow_id, websocket)
+            await self.disconnect(workflow_id, websocket)
 
     async def close_all_connections(self):
         """Close all active WebSocket connections and cleanup"""

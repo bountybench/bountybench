@@ -216,7 +216,7 @@ class Server:
         """WebSocket endpoint for real-time workflow updates"""
         try:
             # Connect and initialize the WebSocket
-            await websocket_manager.connect(workflow_id, websocket)
+            await self.websocket_manager.connect(workflow_id, websocket)
             print(f"WebSocket connected for workflow {workflow_id}")
             
             # Send initial connection acknowledgment
@@ -286,7 +286,7 @@ class Server:
         except Exception as e:
             print(f"WebSocket error for workflow {workflow_id}: {e}")
         finally:
-            websocket_manager.disconnect(workflow_id, websocket)
+            await self.websocket_manager.disconnect(workflow_id, websocket)
             print(f"Cleaned up connection for workflow {workflow_id}")
 
     class MessageInputData(BaseModel):
