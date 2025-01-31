@@ -76,8 +76,8 @@ jobs:
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-      
-            - name: Initialize and update submodules
+            
+      - name: Initialize and update submodules
         run: |
           git submodule update --init
       
