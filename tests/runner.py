@@ -78,7 +78,7 @@ test_modules = [
 ]
 """
 
-test_modules = [test_config_default]
+test_modules = [test_resource_manager]
 
 
 
