@@ -54,16 +54,6 @@ function App() {
     setCurrentPhase(phase);
   };
 
-  
-  // Error Toast for invalid workflows
-  const showInvalidWorkflowToast = () => {
-    toast.error("Workflow ID not found, returning to main.", {
-      position: "top-center",
-      autoClose: 2000,
-      transition: Slide,
-    });
-  };
-
   useEffect(() => {
     const originalConsoleError = console.error;
 
@@ -94,7 +84,11 @@ function App() {
       console.error = originalConsoleError;
     };
   }, []);
-
+  
+  // Error Toast for invalid workflows
+  const showInvalidWorkflowToast = () => {
+    console.error("Workflow ID not found, returning to main.");
+  };
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
