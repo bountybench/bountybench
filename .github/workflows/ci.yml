@@ -6,41 +6,61 @@ on:
   pull_request:
     branches: [ main ]
     
+permissions:
+  contents: write
+  packages: read
+  pull-requests: read
+    
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Configure Git
+      - name: Pre-configure Git
         run: |
-          # Enable debug logging for Git
-          export GIT_TRACE=1
-          export GIT_CURL_VERBOSE=1
-          
-          # Configure Git
+          git config --global credential.helper store
           git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
           git config --global --add safe.directory '*'
+          
+          # Create auth file
+          echo "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com" > ~/.git-credentials
+          chmod 600 ~/.git-credentials
+          
+          # Enable verbose Git output
+          export GIT_TRACE=2
+          export GIT_CURL_VERBOSE=2
+          export GIT_TRACE_PACKET=2
 
-      - name: Checkout repository
+      - name: Checkout main repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: true  # Try with submodules enabled
+          submodules: false
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Debug submodule status
+      - name: Manual submodule checkout
         run: |
-          echo "Git configuration:"
-          git config --list
+          # Show current state
+          echo "Current directory content:"
+          ls -la
           
-          echo "\nSubmodule status:"
-          git submodule status
+          echo "\nInitializing submodules..."
+          git submodule init
           
-          echo "\n.gitmodules content:"
-          cat .gitmodules
+          echo "\nUpdating submodule URLs..."
+          git submodule foreach --recursive 'git config --local url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"'
           
-          echo "\nTesting direct clone:"
-          git clone --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/cybench/bountybench.git test_clone || echo "Direct clone failed"
-          
+          echo "\nAttempting submodule update..."
+          git submodule update --init --recursive --force || {
+            echo "\nUpdate failed. Debug information:"
+            echo "Git config:"
+            git config --list
+            echo "\n.gitmodules content:"
+            cat .gitmodules
+            echo "\nTrying direct clone..."
+            git clone --depth 1 "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/cybench/bountybench.git" bountybench_test
+            exit 1
+          }
+
       - name: Check System Architecture
         run: uname -m
 
