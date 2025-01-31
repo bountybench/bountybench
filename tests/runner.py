@@ -41,7 +41,7 @@ from tests.resources.model_resource import test_config_default
 from tests.ui_backend import test_server
 
 # Utils
-from tests.utils import test_fake, test_logger, test_progress_logger
+from tests.utils import test_logger, test_progress_logger
 
 # Workflows
 from tests.workflows import test_base_workflow  
@@ -51,7 +51,6 @@ from tests.workflows import test_base_workflow
 # List of test modules you want to run. Comment out anything you don't want.
 # ------------------------------------------------------------------------------
 test_modules = [
-    test_fake,
     test_base_agent,
     test_message,
     test_init_files_resource,
