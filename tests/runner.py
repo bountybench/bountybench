@@ -133,9 +133,9 @@ def build_test_suite(changed_files=None):
 if __name__ == "__main__":
     changed_files = sys.argv[1:]
     if changed_files:
-        print(f"Detected changed files: {changed_files}")
+        print(f"Detected changed files: {changed_files}", flush=True)
     else:
-        print("No changed files specified. Running *all* tests.")
+        print("No changed files specified. Running *all* tests.", flush=True)
 
     suite = build_test_suite(changed_files if changed_files else None)
     runner = PrintTestRunner(verbosity=3)
