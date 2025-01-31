@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { BrowserRouter as Router } from 'react-router';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import App from './App';
 import '@testing-library/jest-dom/extend-expect';
 import { useServerAvailability } from './hooks/useServerAvailability';
@@ -21,28 +22,31 @@ describe('App Component', () => {
     });
 
     console.error = jest.fn((...args) => {
-        const toastError = require('react-toastify').toast.error;
-        toastError(args.join(' '));
-        originalConsoleError(...args);
-      });
+      const toastError = require('react-toastify').toast.error;
+      toastError(args.join(' '));
+      originalConsoleError(...args);
+    });
   });
 
   afterEach(() => {
     console.error = originalConsoleError;
+    jest.clearAllMocks();
   });
 
   test('shows a toast notification on console.error', async () => {
     await act(async () => {
-        render(
-          <React.StrictMode>
-              <App />
-          </React.StrictMode>
-        );
-  
-        // Triggering a console error message
-        console.error('Test error message');
-      });
-    
+      render(
+        <React.StrictMode>
+          <Router>
+            <App />
+          </Router>
+        </React.StrictMode>
+      );
+
+      // Triggering a console error message
+      console.error('Test error message');
+    });
+
     await waitFor(() => {
       const toasts = screen.getAllByText('Test error message');
       expect(toasts.length).toBeGreaterThan(0);
@@ -50,25 +54,19 @@ describe('App Component', () => {
     });
   });
 
-  test('shows a proper toast notification when fetch fails', async () => {
-    await act(async () => {
-        render(
-          <React.StrictMode>
-              <App />
-          </React.StrictMode>
-        );
-    });
+  test('renders homepage on non-existent route', async () => {
+    render(
+      <React.StrictMode>
+        <Router>
+          <App />
+        </Router>
+      </React.StrictMode>
+    );
 
-    const startWorkflowButton = await screen.findByText(/Start Workflow/i);
-    await act(async () => {
-        // Trigger the start workflow button click
-        fireEvent.click(startWorkflowButton);
-    });
+    // Navigate to a non-existent route
+    window.history.pushState({}, 'Test page', '/non-existent-route');
 
-    await waitFor(() => {
-      const toasts = screen.getAllByText(/Failed to get response from server/i);
-      expect(toasts.length).toBeGreaterThan(0);
-      expect(toasts[0]).toBeInTheDocument();
-    });
+    // Check that the homepage is rendered
+    expect(await screen.findByText('New Workflow')).toBeInTheDocument(); 
   });
 });

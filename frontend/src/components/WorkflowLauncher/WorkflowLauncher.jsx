@@ -1,4 +1,6 @@
+// src/components/WorkflowLauncher/WorkflowLauncher.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { useServerAvailability } from '../../hooks/useServerAvailability';
 import {
   Box,
@@ -26,6 +28,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const { isServerAvailable, isChecking } = useServerAvailability(() => {
     console.log('Server is available!');
   });
+
+  const navigate = useNavigate();
 
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +126,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         console.error(data.error);
       } else {
         onWorkflowStart(data.workflow_id, interactiveMode);
+        navigate(`/workflow/${data.workflow_id}`); // Navigate to workflow page after start
       }
     } catch (err) {
       console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
@@ -237,8 +242,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
         >
-          {(workflows.length > 0) ? (
-            workflows.map((workflow) => (
+        {(workflows.length > 0) ? (
+          workflows.map((workflow) => (
               <MenuItem key={workflow.name} value={workflow.name}>
                 <Box display="flex" flexDirection="column">
                   <Typography>{workflow.name}</Typography>
