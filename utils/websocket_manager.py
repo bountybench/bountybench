@@ -118,27 +118,28 @@ class WebSocketManager:
                 logger.error(f"Error handling failed connection: {e}")
 
     async def _monitor_connection(self, workflow_id: str, websocket: WebSocket):
-        """Monitor connection health with heartbeat"""
         try:
-            while self.connection_status.get(workflow_id, {}).get(websocket, False):
-                try:
-                    # Check for connection timeout
-                    last_beat = self.last_heartbeat.get(workflow_id, {}).get(websocket)
-                    if last_beat and (datetime.now() - last_beat > timedelta(seconds=self.CONNECTION_TIMEOUT)):
-                        logger.warning(f"Connection timeout for workflow {workflow_id}")
-                        break
-
-                    # Send heartbeat ping
-                    await websocket.send_json({"type": "ping"})
-                    if workflow_id in self.last_heartbeat:
-                        self.last_heartbeat[workflow_id][websocket] = datetime.now()
-                        
-                except Exception as e:
-                    logger.error(f"Heartbeat failed for workflow {workflow_id}: {e}")
-                    break
-
+            while self.connection_status[workflow_id].get(websocket, False):
                 await asyncio.sleep(self.HEARTBEAT_INTERVAL)
                 
+                # Send ping and wait for pong with timeout
+                try:
+                    await asyncio.wait_for(
+                        websocket.send_json({"message_type": "ping"}),
+                        timeout=5
+                    )
+                    pong = await asyncio.wait_for(
+                        websocket.receive_json(),
+                        timeout=10
+                    )
+                    if pong.get("message_type") != "pong":
+                        raise Exception("Invalid heartbeat response")
+                    self.last_heartbeat[workflow_id][websocket] = datetime.now()
+                
+                except (asyncio.TimeoutError, ConnectionClosedError) as e:
+                    logger.warning(f"Heartbeat failed: {str(e)}")
+                    await self.disconnect(workflow_id, websocket)
+                    return
         except asyncio.CancelledError as e:
             logger.info(f"Heartbeat monitor cancelled for workflow {workflow_id}")
             raise e 
