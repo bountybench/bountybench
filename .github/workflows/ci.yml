@@ -6,10 +6,7 @@ on:
   pull_request:
     branches: [ main ]
     
-permissions:
-  contents: write
-  packages: read
-  pull-requests: read
+
     
 jobs:
   test:
