@@ -54,6 +54,16 @@ function App() {
     setCurrentPhase(phase);
   };
 
+  
+  // Error Toast for invalid workflows
+  const showInvalidWorkflowToast = () => {
+    toast.error("Workflow ID not found, returning to main.", {
+      position: "top-center",
+      autoClose: 2000,
+      transition: Slide,
+    });
+  };
+
   useEffect(() => {
     const originalConsoleError = console.error;
 
@@ -65,14 +75,14 @@ function App() {
         // Update the existing toast with the same message
         toast.update(toastIdRef.current[errorMessage], {
           render: errorMessage,
-          autoClose: 5000,
+          autoClose: 3000,
           transition: Slide,
         });
       } else {
         // Create a new toast and store the ID
         const id = toast.error(errorMessage, {
           position: "top-center",
-          autoClose: 5000,
+          autoClose: 3000,
           transition: Slide,
         });
         toastIdRef.current[errorMessage] = id;
@@ -102,7 +112,16 @@ function App() {
             <Route path='/' element={<HomePage/>} />
             <Route path='/create-workflow' element={<WorkflowLauncher onWorkflowStart={handleWorkflowStart} interactiveMode={interactiveMode} setInteractiveMode={setInteractiveMode} />} />
             <Route path='/workflow' element={<Navigate to="/" />} />
-            <Route path='/workflow/:workflowId' element={<WorkflowDashboard interactiveMode={interactiveMode} onWorkflowStateUpdate={handleWorkflowStateUpdate} />} />
+            <Route path='/workflow/:workflowId' 
+              element={
+                <WorkflowDashboard 
+                  interactiveMode={interactiveMode} 
+                  onWorkflowStateUpdate={handleWorkflowStateUpdate} 
+                  showInvalidWorkflowToast={showInvalidWorkflowToast}
+                />} 
+            />
+            {/* Fallback route */}
+            <Route path='*' element={<Navigate to="/" />} />
           </Routes>
         </Box>
       </Box>

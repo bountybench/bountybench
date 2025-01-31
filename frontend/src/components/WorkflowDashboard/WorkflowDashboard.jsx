@@ -1,14 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
-export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate }) => {
+export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast }) => {
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [preservedMessages, setPreservedMessages] = useState([]);
+
+  const navigate = useNavigate();
+  
+  // Fetch active workflows to check if given workflowId exists
+  useEffect(() => {
+    const checkIfWorkflowExists = async () => {
+      const response = await fetch('http://localhost:8000/workflows/active');
+      const data = await response.json();
+      
+      if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
+        showInvalidWorkflowToast();
+        navigate(`/`); 
+      }
+    };
+
+    checkIfWorkflowExists();
+  }, [workflowId, showInvalidWorkflowToast]);
 
   const {
     isConnected,
