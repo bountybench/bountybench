@@ -5,15 +5,42 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-    
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Pre-configure Git
+        run: |
+          git config --global credential.helper store
+          git config --global url."https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global --add safe.directory '*'
+          
+          # Create auth file
+          echo "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
+          chmod 600 ~/.git-credentials
+          
+          # Enable verbose Git output
+          export GIT_TRACE=2
+          export GIT_CURL_VERBOSE=2
+          export GIT_TRACE_PACKET=2
+
+      - name: Checkout main repository
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0 
-      
+          fetch-depth: 0
+          submodules: false
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Manual submodule checkout
+        run: |
+          # Show current state
+          echo "Current directory content:"
+          ls -la
+          
+          echo "\nInitializing submodules..."
+          git submodule update --init bountybench
+          
 
       - name: Check System Architecture
         run: uname -m
@@ -51,12 +78,12 @@ jobs:
           df -h
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
       - name: Cache Python dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
@@ -68,11 +95,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install --cache-dir  ~/.cache/pip -r requirements.txt
           # pip install -r requirements.txt
-          
-      - name: Set up GitHub CLI
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
-        
+      
       - name: Set up Git user information
         run: |
           git config --global user.email "action@github.com"
@@ -89,7 +112,7 @@ jobs:
             echo "all_tests=false" >> $GITHUB_ENV
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Get changed files
         id: get_changed_files
@@ -139,12 +162,12 @@ jobs:
           fi
 
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: '14'
 
       - name: Cache Node.js modules
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
