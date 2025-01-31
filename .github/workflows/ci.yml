@@ -5,9 +5,6 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-    
-
-    
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -101,6 +98,8 @@ jobs:
       - name: Set up GitHub CLI
         run: |
           echo "${{ secrets.GH_TOKEN }}" | gh auth login --with-token
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         
       - name: Set up Git user information
         run: |
