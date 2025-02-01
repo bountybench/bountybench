@@ -117,7 +117,7 @@ Alternatively you can run the backend and frontend separately as described below
 
 2. Start the backend server:
 ```
-python server.py
+python -m backend.main
 ```
 Note: The backend will take about a minute to initialize. You can view incremental, verbose run updates in this terminal window.
 
