@@ -5,20 +5,24 @@ from messages.phase_messages.phase_message import PhaseMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.action_messages.action_message import ActionMessage
 from resources.memory_resource import MemoryResourceConfig, MemoryResource, MemoryTruncationFunctions
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 class TestMemoryResource(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         """Stop saving for workflow messages."""
-        cls.patcher = patch("messages.workflow_message.WorkflowMessage.save", lambda *args, **kwargs: None)
-        cls.patcher.start()
+        cls.logger_patcher = patch("utils.logger.get_main_logger", return_value=Mock())
+        cls.workflow_patcher = patch.object(WorkflowMessage, "save", return_value=None)
+
+        cls.logger_patcher.start()
+        cls.workflow_patcher.start()
 
     @classmethod
     def tearDownClass(cls):
-        cls.patcher.stop()
-
+        cls.logger_patcher.stop()
+        cls.workflow_patcher.stop()
+    
     def setUp(self):
         """
         Set up a basic message tree. 
@@ -28,7 +32,7 @@ class TestMemoryResource(unittest.TestCase):
                 - Agent [0, 1]: 
                     - Action 
         """
-        workflow_message = WorkflowMessage.initialize("test")
+        workflow_message = WorkflowMessage('')
 
         prev_phase = None 
         for i in range(2):

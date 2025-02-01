@@ -179,7 +179,6 @@ class ModelResource(BaseResource):
         prev_action_message = None
         if isinstance(input_message, ActionMessage):
             prev_action_message = input_message
-        # model_input = self.generate_memory(input_message)
 
         assert input_message.memory is not None, "Message to model.run() should contain memory."
         model_input = input_message.memory
