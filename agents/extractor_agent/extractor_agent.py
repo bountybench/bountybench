@@ -7,9 +7,7 @@ from models.model_response import ModelResponse
 from models.query import query
 from messages.extraction_message import ExtractionMessage
 from messages.message import Message
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 MAX_RETRIES = 3
 TEMPERATURE = 0.5

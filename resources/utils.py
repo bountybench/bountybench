@@ -6,10 +6,7 @@ from typing import List, Union
 from bs4 import BeautifulSoup
 import html
 
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
-
+from utils.logger import logger
 
 def run_command(command, work_dir=None):
     """

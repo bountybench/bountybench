@@ -8,14 +8,11 @@ import json
 import sys
 
 from resources.base_resource import BaseResource
-from utils.logger import get_main_logger
+from utils.logger import logger
 from utils.progress_logger import start_progress, stop_progress
 from dataclasses import dataclass
 from typing import Optional
 from resources.base_resource import BaseResourceConfig
-
-
-logger = get_main_logger(__name__)
 
 # Constants
 ENTRYPOINT = "/bin/bash"

@@ -1,9 +1,7 @@
 from typing import Dict, List, Optional, Tuple, Type, Union
 from agents.base_agent import BaseAgent, AgentConfig
 from resources.resource_manager import resource_dict
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 class AgentManager:
     def __init__(self):

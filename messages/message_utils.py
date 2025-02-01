@@ -5,8 +5,7 @@ from messages.message import Message
 from messages.config import MessageType, set_logging_level, should_log
 from utils.websocket_manager import websocket_manager
 
-from utils.logger import get_main_logger
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 # Set the logging level
 set_logging_level(MessageType.AGENT)

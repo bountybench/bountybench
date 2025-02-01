@@ -6,10 +6,7 @@ from phases.base_phase import BasePhase, PhaseConfig
 from agents.base_agent import BaseAgent
 from messages.message import Message
 from messages.action_messages.answer_message import AnswerMessage, AnswerMessageInterface
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
-
+from utils.logger import logger
 
 class SampleAgent(BaseAgent):
     def __init__(self, name: str, magic_iteration: int = -1):

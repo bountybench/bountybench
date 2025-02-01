@@ -12,9 +12,7 @@ from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 HALLUCINATION_STRINGS = [
     "----------Message from assistant----------",

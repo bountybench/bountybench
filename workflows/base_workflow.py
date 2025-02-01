@@ -13,9 +13,7 @@ from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from agents.agent_manager import AgentManager
 
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 class WorkflowStatus(Enum):
     """Status of workflow execution"""

@@ -7,17 +7,13 @@ from typing import List, Optional
 
 from resources.base_resource import BaseResource
 from resources.utils import run_command
-from utils.logger import get_main_logger
+from utils.logger import logger
 from utils.progress_logger import start_progress, stop_progress
 
 from dataclasses import dataclass
 from typing import Optional
 import os
 from resources.base_resource import BaseResourceConfig
-
-
-logger = get_main_logger(__name__)
-
 
 @dataclass
 class SetupResourceConfig(BaseResourceConfig):

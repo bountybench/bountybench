@@ -12,14 +12,11 @@ from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResource, BaseResourceConfig
 from messages.message import Message
-from utils.logger import get_main_logger
+from utils.logger import logger
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple, Type
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.base_resource import BaseResource, BaseResourceConfig
-
-logger = get_main_logger(__name__)
-
 
 if TYPE_CHECKING:
     from workflows.base_workflow import BaseWorkflow

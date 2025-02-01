@@ -3,11 +3,8 @@ from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.init_files_resource import InitFilesResource
 from resources.resource_dict import resource_dict
-from utils.logger import get_main_logger
+from utils.logger import logger
 from resources.kali_env_resource import KaliEnvResource
-
-
-logger = get_main_logger(__name__)
 
 class ResourceManager:
     def __init__(self):

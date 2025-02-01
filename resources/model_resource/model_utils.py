@@ -4,14 +4,10 @@ from requests.exceptions import ConnectionError, HTTPError, Timeout
 from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
                       wait_exponential)
 
-from utils.logger import get_main_logger
+from utils.logger import logger
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.openai_models.openai_models import OpenAIModels
-
-
-logger = get_main_logger(__name__)
-
 
 
 def get_model_provider(use_helm: bool = False) -> ModelProvider:

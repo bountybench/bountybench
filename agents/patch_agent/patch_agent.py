@@ -16,10 +16,7 @@ from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.setup_resource import SetupResource
-from utils.logger import get_main_logger
-
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 @dataclass
 class PatchAgentConfig(AgentConfig):

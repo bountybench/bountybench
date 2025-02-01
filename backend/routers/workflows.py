@@ -1,9 +1,10 @@
 from pathlib import Path
 
 from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
 
 from backend.schema import StartWorkflowInput
-
+from backend.utils.sse_logging_handler import log_queue
 workflows_router = APIRouter()
 
 
@@ -73,3 +74,12 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
         return {"workflow_id": workflow_id, "status": "initializing"}
     except Exception as e:
         return {"error": str(e)}
+    
+@workflows_router.get("/logs/stream")
+async def log_stream():
+    return StreamingResponse(log_streamer(), media_type="text/event-stream")
+
+async def log_streamer():
+    while True:
+        log_entry = await log_queue.get()
+        yield f"data: {log_entry}\n\n"

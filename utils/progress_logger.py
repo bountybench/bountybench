@@ -1,7 +1,7 @@
 import threading
 import time
 import sys
-from utils.logger import get_main_logger
+from utils.logger import logger
 
 CYAN = "\033[36m"
 RESET = "\033[0m"
@@ -12,7 +12,7 @@ class ProgressLogger:
         self.update_interval = update_interval
         self.is_running = False
         self.thread = None
-        self.logger = get_main_logger(__name__)
+        self.logger = logger
         self.lock = threading.Lock()
         self.last_message = None
 
@@ -31,6 +31,7 @@ class ProgressLogger:
         self.is_running = True
         self.thread = threading.Thread(target=self._progress_indicator)
         self.thread.start()
+        self.logger.info(f"Started: {self.description}")  # Log to SSE
 
     def stop(self):
         self.is_running = False
@@ -39,6 +40,7 @@ class ProgressLogger:
         with self.lock:
             sys.stdout.write(f"\r{CYAN}{self.description} (completed){RESET}{'  '*10}\n")
             sys.stdout.flush()
+        self.logger.info(f"Completed: {self.description}")  # Log to SSE
 
     def log(self, message):
         with self.lock:
@@ -73,5 +75,4 @@ def log_progress(message):
     if current_progress:
         current_progress.log(message)
     else:
-        logger = get_main_logger(__name__)
         logger.info(message)

@@ -6,19 +6,13 @@ import time
 
 from resources.base_resource import BaseResource
 from resources.utils import read_bounty_metadata
-from utils.logger import get_main_logger
+from utils.logger import logger
 import shutil
 
 from dataclasses import dataclass
 from typing import Optional
 import os
 from resources.base_resource import BaseResourceConfig
-
-
-# Configure logging
-logger = get_main_logger(__name__)
-
-
 
 @dataclass
 class InitFilesResourceConfig(BaseResourceConfig):

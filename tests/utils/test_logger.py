@@ -1,8 +1,6 @@
-from utils.logger import get_main_logger
+from utils.logger import logger
 
 def test_logger():
-    logger = get_main_logger(__name__)
-
     logger.info("These are INFO messages")
     logger.info("These are INFO messages")
     logger.status("This is a general STATUS message")

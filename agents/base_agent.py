@@ -5,9 +5,7 @@ from typing import List, Set, Tuple, Type, Union
 from messages.agent_messages.agent_message import AgentMessage
 from resources.base_resource import BaseResource
 from messages.message import Message
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
+from utils.logger import logger
 
 class ResourceNotInitializedError(Exception):
     """Raised when a resource is accessed before initialization."""

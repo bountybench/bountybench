@@ -14,16 +14,12 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from resources.base_resource import BaseResource
 from resources.utils import get_stdout_text
-from utils.logger import get_main_logger
+from utils.logger import logger
 from utils.progress_logger import start_progress, stop_progress
 from dataclasses import dataclass
 from typing import Dict, Optional
 import os
 from resources.base_resource import BaseResourceConfig
-
-
-# Configure logging
-logger = get_main_logger(__name__)
 
 import signal
 from contextlib import contextmanager
