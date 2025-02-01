@@ -42,7 +42,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     interactive: true,
     iterations: 10,
     api_key_name: 'HELM_API_KEY',
-    api_key_value: '',,
+    api_key_value: '',
     model: '',
     use_helm: false
   });
@@ -70,8 +70,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   useEffect(() => {
     if (!isChecking && isServerAvailable) {
       fetchWorkflows();
-      fetchModels();
       fetchApiKeys();
+      fetchModels();
     }
   }, [isChecking, isServerAvailable]);
 

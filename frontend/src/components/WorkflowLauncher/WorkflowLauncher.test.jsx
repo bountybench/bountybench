@@ -57,8 +57,7 @@ describe('WorkflowLauncher Component', () => {
     });
 
     // Fetches both workflows and models
-    expect(global.fetch).toHaveBeenCalledTimes(2);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
 
     // Wait for async state updates to complete
     await waitFor(() => {
@@ -98,8 +97,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
   
-    expect(global.fetch).toHaveBeenCalledTimes(2);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
   
     // Wait for async state updates to complete
     await waitFor(() => {
@@ -151,8 +149,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
 
-    expect(global.fetch).toHaveBeenCalledTimes(2);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
 
     // Ensure form is updated and submitted correctly
     fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
@@ -172,7 +169,7 @@ describe('WorkflowLauncher Component', () => {
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
     expect(onWorkflowStartMock).toHaveBeenCalledWith('123', "test_model", true);
   });
 
@@ -220,8 +217,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
   
-    expect(global.fetch).toHaveBeenCalledTimes(2);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
   
     // Open the select dropdown and select the option
     fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
@@ -237,7 +233,7 @@ describe('WorkflowLauncher Component', () => {
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
   
     // Check if console.error was called with the expected error message
     expect(consoleErrorMock).toHaveBeenCalledWith('Failed to start workflow');

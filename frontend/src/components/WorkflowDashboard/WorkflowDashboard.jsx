@@ -89,7 +89,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         }
         const data = await response.json();
         console.log('Next iteration triggered successfully', data);
-        console.log('Next iteration triggered successfully', data);
       } catch (error) {
         console.error('Error triggering next iteration:', error);
       } finally {
