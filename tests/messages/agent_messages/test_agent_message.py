@@ -2,10 +2,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from messages.agent_messages.agent_message import AgentMessage
-from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
-from messages.agent_messages.exploit_agent_message import ExploitAgentMessage
-from messages.agent_messages.patch_agent_message import PatchAgentMessage
-
 from messages.action_messages.action_message import ActionMessage
 from messages.message import Message
 
@@ -48,22 +44,22 @@ class TestAgentMessageClasses(unittest.TestCase):
         """
         Ensure CommandMessage is a subclass of Message.
         """
-        message = AgentMessage("test_id", "test_msg")
-        self.assertIsInstance(message, Message)
+        agent_message = AgentMessage("test_id", "test_msg")
+        self.assertIsInstance(agent_message, Message)
 
     def test_initialization(self):
         """
         Test AgentMessage Initialization.
         """
-        prev_message = self.mock_message
-        msg = AgentMessage("test_id", "test_msg", prev=prev_message)
+        prev_message = MagicMock(spec=Message)
+        agent_message = AgentMessage("test_id", "test_msg", prev_message)
 
         # Assertions
-        self.assertEqual(msg.agent_id, "test_id")
-        self.assertEqual(msg.message, "test_msg")
-        self.assertEqual(msg.message_type, "AgentMessage")
-        self.assertIs(msg.prev, prev_message)
-        self.assertListEqual(msg.action_messages, [])
+        self.assertEqual(agent_message.agent_id, "test_id")
+        self.assertEqual(agent_message.message, "test_msg")
+        self.assertEqual(agent_message.message_type, "AgentMessage")
+        self.assertIs(agent_message.prev, prev_message)
+        self.assertListEqual(agent_message.action_messages, [])
 
     @patch('messages.message.Message.get_latest_version')
     def test_current_actions_list(self, mock_get_latest_version):
@@ -132,6 +128,3 @@ class TestAgentMessageClasses(unittest.TestCase):
         self.assertEqual(agent_dict["agent_key"], "agent_data")
         agent_msg.agent_dict.assert_called_once()
         mock_super_to_dict.assert_called_once()
-
-if __name__ == "__main__":
-    unittest.main()
