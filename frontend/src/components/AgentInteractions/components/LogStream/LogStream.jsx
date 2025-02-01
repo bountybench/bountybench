@@ -7,11 +7,17 @@ const LogStream = () => {
 
     useEffect(() => {
         const eventSource = new EventSource("http://localhost:8000/logs/stream");
-
+        
         eventSource.onmessage = (event) => {
-            setLogs((prevLogs) => [...prevLogs, event.data]);
-        };
+            console.log("Got message")
+            const logEntry = event.data;
 
+            if (logEntry.startsWith("error: ")) {
+                const errorMessage = logEntry.substring(7); // Remove "error: " prefix
+                console.error(errorMessage); // Log the error message to the console
+            } 
+            setLogs((prevLogs) => [...prevLogs, logEntry]);
+        };
         return () => {
             eventSource.close();
         };

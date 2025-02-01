@@ -11,6 +11,8 @@ class SSELoggingHandler(logging.Handler):
 
     def emit(self, record):
         log_entry = self.format(record)
+        if record.levelname == "ERROR":
+            log_entry = f"error: {log_entry}"
         asyncio.create_task(self.log_queue.put(log_entry))
 
 

@@ -65,14 +65,14 @@ function App() {
         // Update the existing toast with the same message
         toast.update(toastIdRef.current[errorMessage], {
           render: errorMessage,
-          autoClose: 3000,
+          autoClose: 5000,
           transition: Slide,
         });
       } else {
         // Create a new toast and store the ID
         const id = toast.error(errorMessage, {
           position: "top-center",
-          autoClose: 3000,
+          autoClose: 5000,
           transition: Slide,
         });
         toastIdRef.current[errorMessage] = id;
