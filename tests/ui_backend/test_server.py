@@ -90,7 +90,9 @@ class TestServer(unittest.TestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "456",
             "interactive": True,
-            "iterations": 2
+            "iterations": 2,
+            "model": 'test/model',
+            "use_helm": True
         }
         start_response = self.client.post("/workflow/start", json=start_payload)
         self.assertEqual(start_response.status_code, 200, "Expected status code 200 for start workflow")
@@ -124,7 +126,9 @@ class TestServer(unittest.TestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "789",
             "interactive": False,
-            "iterations": 1
+            "iterations": 1,
+            "model": 'test/model',
+            "use_helm": True
         }
         start_response = self.client.post("/workflow/start", json=start_payload)
         self.assertEqual(start_response.status_code, 200, "Expected status code 200 for start workflow")
@@ -161,7 +165,9 @@ class TestServer(unittest.TestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "321",
             "interactive": True,
-            "iterations": 4
+            "iterations": 4,
+            "model": 'test/model',
+            "use_helm": True
         }
         start_response = self.client.post("/workflow/start", json=start_payload)
         self.assertEqual(start_response.status_code, 200, "Expected status code 200 for start workflow")
@@ -204,7 +210,9 @@ class TestServer(unittest.TestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "654",
             "interactive": False,
-            "iterations": 2
+            "iterations": 2,
+            "model": 'test/model',
+            "use_helm": True
         }
         start_response = self.client.post("/workflow/start", json=start_payload)
         self.assertEqual(start_response.status_code, 200, "Expected status code 200 for start workflow")
@@ -228,7 +236,9 @@ class TestServer(unittest.TestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "654",
             "interactive": False,
-            "iterations": 2
+            "iterations": 2,
+            "model": 'test/model',
+            "use_helm": True
         }
         start_response = self.client.post("/workflow/start", json=start_payload)
         self.assertEqual(start_response.status_code, 200, "Expected status code 200 for start workflow")
@@ -253,7 +263,9 @@ class TestServer(unittest.TestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "987",
             "interactive": True,
-            "iterations": 3
+            "iterations": 3,
+            "model": 'test/model',
+            "use_helm": True
         }
         start_response = self.client.post("/workflow/start", json=start_payload)
         self.assertEqual(start_response.status_code, 200, "Expected status code 200 for start workflow")
@@ -303,7 +315,9 @@ class TestServer(unittest.TestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "321",
             "interactive": True,
-            "iterations": 4
+            "iterations": 4,
+            "model": 'test/model',
+            "use_helm": True
         }
         start_response = self.client.post("/workflow/start", json=start_payload)
         workflow_id = start_response.json()["workflow_id"]
@@ -326,7 +340,9 @@ class TestServer(unittest.TestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "654",
             "interactive": False,
-            "iterations": 2
+            "iterations": 2,
+            "model": 'test/model',
+            "use_helm": True
         }
         start_response = self.client.post("/workflow/start", json=start_payload)
         workflow_id = start_response.json()["workflow_id"]
@@ -381,7 +397,9 @@ class TestWebsocket(IsolatedAsyncioTestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "123",
             "interactive": True,
-            "iterations": 5
+            "iterations": 5,
+            "model": 'test/model',
+            "use_helm": True
         }
         start_response = self.client.post("/workflow/start", json=start_payload)
         self.assertEqual(start_response.status_code, 200)
@@ -403,7 +421,9 @@ class TestWebsocket(IsolatedAsyncioTestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "123",
             "interactive": True,
-            "iterations": 5
+            "iterations": 5,
+            "model": 'test/model',
+            "use_helm": True
         }
         start_response = self.client.post("/workflow/start", json=start_payload)
         self.assertEqual(start_response.status_code, 200)
