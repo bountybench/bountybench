@@ -1,0 +1,21 @@
+.log-content {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-radius: 7px;
+    padding: 7px;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+    max-height: 75px;
+    min-height: 75px; /* TODO allow resize */
+    overflow-y: auto;             /* Scrollable vertically */
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.log-text {
+    color:#3498db !important;
+    font-size: 14px !important;
+}

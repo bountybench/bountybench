@@ -3,6 +3,7 @@ import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
 import './AgentInteractions.css';
+import LogStream from './components/LogStream/LogStream';
 
 const AgentInteractions = ({ 
   interactiveMode, 
@@ -54,6 +55,7 @@ const AgentInteractions = ({
           />
         )}
         <div ref={messagesEndRef} />
+        <LogStream/>
       </Box>
 
       <Box className="input-and-buttons-container" display="flex">
