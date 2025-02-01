@@ -1,6 +1,6 @@
 import unittest
 from fastapi.testclient import TestClient
-from server import create_app
+from backend.main import create_app
 from unittest import IsolatedAsyncioTestCase
 
 
