@@ -213,7 +213,6 @@ class ModelResource(BaseResource):
             return model_response
         except Exception as e:
             logger.warning(f"Unable to parse response as CommandResponse.")
-            logger.critical(model_response)
 
     def stop(self) -> None:
         """
