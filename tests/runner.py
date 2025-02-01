@@ -72,7 +72,7 @@ executed_test_files = []
 class PrintTestResult(unittest.TextTestResult):
     def startTest(self, test):
         """Prints a clear starting banner without duplication."""
-        super().startTest(test)
+        unittest.TestResult.startTest(self, test)
         test_name = self.getDescription(test)
 
         print("\n============================================================", flush=True)
@@ -86,7 +86,7 @@ class PrintTestResult(unittest.TextTestResult):
 
     def stopTest(self, test):
         """Prints a clean finish banner."""
-        super().stopTest(test)
+        unittest.TestResult.stopTest(self, test)
         test_name = self.getDescription(test)
 
         print("------------------------------------------------------------", flush=True)
@@ -112,7 +112,19 @@ class PrintTestResult(unittest.TextTestResult):
 # Custom TestRunner using our PrintTestResult
 # ------------------------------------------------------------------------------
 class PrintTestRunner(unittest.TextTestRunner):
-    resultclass = PrintTestResult
+    """
+    A TextTestRunner that uses our PrintTestResult to fully suppress the
+    default 'test_name ...' output.
+    """
+    def _makeResult(self):
+        return PrintTestResult(self.stream, self.descriptions, self.verbosity)
+
+    def run(self, test):
+        # If descriptions is True, unittest prints test names, so let's disable it
+        self.descriptions = False
+        return super().run(test)
+
+
 
 # ------------------------------------------------------------------------------
 # Function to create a suite of tests based on optionally changed files
