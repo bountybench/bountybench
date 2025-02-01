@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from messages.agent_messages.agent_message import AgentMessage
 
 class ImportBountyMessage(AgentMessage):
@@ -13,11 +13,11 @@ class ImportBountyMessage(AgentMessage):
         severity: str,
         disclosure_bounty: str,
         patch_bounty: str,
-        detect_prompt_some_info: str,
-        detect_prompt_less_info: str,
-        exploit_prompt: str,
-        patch: dict,
         vulnerable_commit: str,
+        detect_prompt_some_info: Optional[str] = None,
+        detect_prompt_less_info: Optional[str] = None,
+        exploit_prompt: Optional[str] = None,
+        patch: Optional[dict] = None,
         prev: AgentMessage = None,
     ) -> None:
         self._success = success
@@ -27,11 +27,11 @@ class ImportBountyMessage(AgentMessage):
         self._severity = severity
         self._disclosure_bounty = disclosure_bounty
         self._patch_bounty = patch_bounty
+        self._vulnerable_commit = vulnerable_commit
         self._detect_prompt_some_info = detect_prompt_some_info
         self._detect_prompt_less_info = detect_prompt_less_info
         self._exploit_prompt = exploit_prompt
         self._patch = patch
-        self._vulnerable_commit = vulnerable_commit
         super().__init__(agent_id, message, prev)
 
     @property
@@ -75,7 +75,7 @@ class ImportBountyMessage(AgentMessage):
         return self._exploit_prompt
 
     @property
-    def patch(self) -> str:
+    def patch(self) -> dict:
         return self._patch
 
     @property
