@@ -71,30 +71,40 @@ executed_test_files = []
 # ------------------------------------------------------------------------------
 class PrintTestResult(unittest.TextTestResult):
     def startTest(self, test):
+        """Prints a clear starting banner with the test name and description (if available)."""
         super().startTest(test)
         test_name = self.getDescription(test)
-        print("\n============================================================", flush=True)
-        print(f"Starting Test: {test_name}", flush=True)
-        print("============================================================", flush=True)
+
+        print("\n============================================================")
+        print(f"🚀 Starting Test: {test_name}")
+        doc = test.shortDescription()
+        if doc:
+            print(f"ℹ️  {doc}")  # Print test description if provided
+        print("============================================================")
 
     def stopTest(self, test):
-        test_name = self.getDescription(test)
-        print("------------------------------------------------------------", flush=True)
-        print(f"Finished Test: {test_name}", flush=True)
-        print("------------------------------------------------------------\n", flush=True)
+        """Prints a clean finish banner."""
         super().stopTest(test)
+        test_name = self.getDescription(test)
+
+        print("------------------------------------------------------------")
+        print(f"✅ Finished Test: {test_name}")
+        print("------------------------------------------------------------\n")
 
     def addSkip(self, test, reason):
+        """Logs skipped tests clearly."""
         super().addSkip(test, reason)
-        print(f"[SKIPPED] {self.getDescription(test)}: {reason}", flush=True)
+        print(f"⚠️  [SKIPPED] {self.getDescription(test)}: {reason}")
 
     def addFailure(self, test, err):
+        """Logs failed tests."""
         super().addFailure(test, err)
-        print(f"[FAILED] {self.getDescription(test)}", flush=True)
+        print(f"❌ [FAILED] {self.getDescription(test)}")
 
     def addError(self, test, err):
+        """Logs errors in tests."""
         super().addError(test, err)
-        print(f"[ERROR] {self.getDescription(test)}", flush=True)
+        print(f"🔥 [ERROR] {self.getDescription(test)}")
 
 # ------------------------------------------------------------------------------
 # Custom TestRunner using our PrintTestResult
