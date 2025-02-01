@@ -9,22 +9,6 @@ from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeI
 workflow_service_router = APIRouter()
 
 
-@workflow_service_router.get("/workflow/{workflow_id}/load-messages")
-async def load_workflow_messages(workflow_id: str, request: Request):
-    active_workflows = request.app.state.active_workflows
-    if workflow_id not in active_workflows:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-
-    workflow_data = active_workflows[workflow_id]
-    workflow_message = workflow_data["workflow_message"]
-
-    messages = []
-    for phase_message in workflow_message.phase_messages:
-        messages.append(phase_message.to_dict())
-
-    return {"messages": messages}
-
-
 @workflow_service_router.post("/workflow/next/{workflow_id}")
 async def next_message(workflow_id: str, request: Request):
     active_workflows = request.app.state.active_workflows
