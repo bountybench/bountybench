@@ -73,28 +73,28 @@ class PrintTestResult(unittest.TextTestResult):
     def startTest(self, test):
         super().startTest(test)
         test_name = self.getDescription(test)
-        print("\n============================================================")
-        print(f"Starting Test: {test_name}")
-        print("============================================================")
+        print("\n============================================================", flush=True)
+        print(f"Starting Test: {test_name}", flush=True)
+        print("============================================================", flush=True)
 
     def stopTest(self, test):
         test_name = self.getDescription(test)
-        print("------------------------------------------------------------")
-        print(f"Finished Test: {test_name}")
-        print("------------------------------------------------------------\n")
+        print("------------------------------------------------------------", flush=True)
+        print(f"Finished Test: {test_name}", flush=True)
+        print("------------------------------------------------------------\n", flush=True)
         super().stopTest(test)
 
     def addSkip(self, test, reason):
         super().addSkip(test, reason)
-        print(f"[SKIPPED] {self.getDescription(test)}: {reason}")
+        print(f"[SKIPPED] {self.getDescription(test)}: {reason}", flush=True)
 
     def addFailure(self, test, err):
         super().addFailure(test, err)
-        print(f"[FAILED] {self.getDescription(test)}")
+        print(f"[FAILED] {self.getDescription(test)}", flush=True)
 
     def addError(self, test, err):
         super().addError(test, err)
-        print(f"[ERROR] {self.getDescription(test)}")
+        print(f"[ERROR] {self.getDescription(test)}", flush=True)
 
 # ------------------------------------------------------------------------------
 # Custom TestRunner using our PrintTestResult
@@ -143,36 +143,36 @@ if __name__ == "__main__":
 
     # ----- Check if zero tests were actually run -----
     if result.testsRun == 0:
-        print("\n==================== TEST RUN SUMMARY ====================")
-        print("No tests were found or run!")
+        print("\n==================== TEST RUN SUMMARY ====================", flush=True)
+        print("No tests were found or run!", flush=True)
         sys.exit(0)
 
     # ----- Otherwise, proceed with the standard summary -----
-    print("\n==================== TEST RUN SUMMARY ====================")
+    print("\n==================== TEST RUN SUMMARY ====================", flush=True)
 
     # Print test files that were actually executed
-    print("Test Files Run:")
+    print("Test Files Run:", flush=True)
     for file in executed_test_files:
-        print(f"  - {file}")
+        print(f"  - {file}", flush=True)
 
     if result.skipped:
-        print("\nSKIPPED TESTS:")
+        print("\nSKIPPED TESTS:", flush=True)
         for (test_case, reason) in result.skipped:
-            print(f"  - {test_case}: {reason}")
+            print(f"  - {test_case}: {reason}", flush=True)
 
     if result.failures:
-        print("\nFAILED TESTS:")
+        print("\nFAILED TESTS:", flush=True)
         for (test_case, _) in result.failures:
-            print(f"  - {test_case}")
+            print(f"  - {test_case}", flush=True)
 
     if result.errors:
-        print("\nERRORS:")
+        print("\nERRORS:", flush=True)
         for (test_case, _) in result.errors:
-            print(f"  - {test_case}")
+            print(f"  - {test_case}", flush=True)
 
     # If we have no failures or errors, we can say all tests passed:
     if not (result.failures or result.errors):
-        print("\nAll tests passed successfully!")
+        print("\nAll tests passed successfully!", flush=True)
 
     # Exit with non-zero code if there were failures or errors
     sys.exit(not result.wasSuccessful())
