@@ -50,7 +50,6 @@ async def rerun_message(workflow_id: str, data: MessageData, request: Request):
 @workflow_service_router.post("/workflow/edit-message/{workflow_id}")
 async def edit_action_input(workflow_id: str, data: MessageInputData, request: Request):
     active_workflows = request.app.state.active_workflows
-    print(f"Editing message: {data.message_id}")
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 

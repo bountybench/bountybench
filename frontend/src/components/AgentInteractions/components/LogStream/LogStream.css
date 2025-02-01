@@ -12,7 +12,7 @@
     min-height: 75px; /* TODO allow resize */
     overflow-y: auto;             /* Scrollable vertically */
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
 }
 
 .log-text {

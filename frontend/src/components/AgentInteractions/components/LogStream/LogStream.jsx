@@ -21,6 +21,9 @@ const LogStream = () => {
         logEndRef.current?.scrollIntoView({ behavior: "smooth" }); // Scroll to the bottom whenever logs updates
     }, [logs]);
 
+    if (!logs || logs.length === 0) {
+        return <></>;
+    }
     return (
         <div>
             <div className="log-content" style={{ whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
