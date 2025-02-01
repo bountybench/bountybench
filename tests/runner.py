@@ -2,74 +2,142 @@ import os
 import sys
 import unittest
 
-# Add the parent directory to the Python path to import modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# ------------------------------------------------------------------------------
+# Setup paths
+# ------------------------------------------------------------------------------
+# Determine the absolute path of the "tests" directory
+TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+# Determine the project root (one level up from "tests")
+PROJECT_ROOT = os.path.abspath(os.path.join(TESTS_DIR, ".."))
 
-# Import test modules
-from tests.agents import (
-    test_base_agent,  # test_patch_agent_git, test_patch_agent_run_exploit, test_patch_agent_verify, test_executor_agent,
-)
-from tests.messages import test_message  # test_rerun_manager
-from tests.phases import test_base_phase, test_managers
-from tests.resources import (
-    test_init_files_resource,
-    test_kali_env_resource,
-    test_kali_env_resource_tty,
-    test_resource_config,
-    test_resource_manager,
-    test_setup_resource,
-)
-from tests.resources.model_resource import test_config_default
-from tests.ui_backend import test_server
-from tests.utils import test_logger, test_progress_logger
-from tests.workflows import test_base_workflow  # test_exploit_patch_workflow
+# Ensure the project root is in sys.path for correct imports
+sys.path.insert(0, PROJECT_ROOT)
 
-# Initialize the test suite
-loader = unittest.TestLoader()
-suite = unittest.TestSuite()
+# ------------------------------------------------------------------------------
+# Custom TestResult to print clear banners before/after tests
+# ------------------------------------------------------------------------------
+class PrintTestResult(unittest.TextTestResult):
+    def startTest(self, test):
+        """Prints a banner before each test."""
+        unittest.TestResult.startTest(self, test)
+        test_name = self.getDescription(test)
+        print("\n============================================================", flush=True)
+        print(f"🚀 Starting Test: {test_name}", flush=True)
+        doc = test.shortDescription()
+        if doc:
+            print(f"ℹ️  {doc}", flush=True)
+        print("============================================================", flush=True)
 
-# Add tests to the test suite
-test_modules = [
-    test_base_agent,  # test_executor_agent,
-    # test_patch_agent_git, test_patch_agent_run_exploit, test_patch_agent_verify,
-    test_message,  # test_rerun_manager,
-    # test_managers, test_base_phase,
-    test_init_files_resource,
-    test_kali_env_resource,
-    test_kali_env_resource_tty,
-    test_config_default,
-    test_resource_config,
-    test_resource_manager,
-    # test_setup_resource,
-    test_logger,
-    test_progress_logger,
-    # test_base_workflow, test_exploit_patch_workflow,
-    test_server,
-]
+    def addSuccess(self, test):
+        super().addSuccess(test)
+        self.stream.write("ok\n")
+        self.stream.flush()
 
-for module in test_modules:
-    suite.addTests(loader.loadTestsFromModule(module))
+    def stopTest(self, test):
+        """Prints a banner after each test."""
+        unittest.TestResult.stopTest(self, test)
+        test_name = self.getDescription(test)
+        print("------------------------------------------------------------", flush=True)
+        print(f"✅ Finished Test: {test_name}", flush=True)
+        print("------------------------------------------------------------\n", flush=True)
 
+    def addSkip(self, test, reason):
+        super().addSkip(test, reason)
+        print(f"⚠️  [SKIPPED] {self.getDescription(test)}: {reason}", flush=True)
+
+    def addFailure(self, test, err):
+        super().addFailure(test, err)
+        print(f"❌ [FAILED] {self.getDescription(test)}", flush=True)
+
+    def addError(self, test, err):
+        super().addError(test, err)
+        print(f"🔥 [ERROR] {self.getDescription(test)}", flush=True)
+
+# ------------------------------------------------------------------------------
+# Custom TestRunner using our PrintTestResult
+# ------------------------------------------------------------------------------
+class PrintTestRunner(unittest.TextTestRunner):
+    def _makeResult(self):
+        return PrintTestResult(self.stream, self.descriptions, self.verbosity)
+
+    def run(self, test):
+        self.descriptions = False
+        return super().run(test)
+
+# ------------------------------------------------------------------------------
+# Custom TestLoader to filter out `.git`, `.github`, `wip_tests`
+# ------------------------------------------------------------------------------
+class CustomTestLoader(unittest.TestLoader):
+    def _match_path(self, path, full_path, pattern):
+        """Exclude unwanted directories during test discovery."""
+        path_parts = full_path.split(os.sep)
+        if any(part in {".git", ".github", "wip_tests"} for part in path_parts):
+            return False
+        return super()._match_path(path, full_path, pattern)
+
+# ------------------------------------------------------------------------------
+# Discover tests **ONLY** in `tests` directory
+# ------------------------------------------------------------------------------
+loader = CustomTestLoader()
+# IMPORTANT: Set `start_dir=TESTS_DIR` instead of `"."` to limit discovery.
+suite = loader.discover(start_dir=TESTS_DIR, pattern="test*.py", top_level_dir=PROJECT_ROOT)
+
+# ------------------------------------------------------------------------------
+# Helper: Get the list of test files executed
+# ------------------------------------------------------------------------------
+def get_executed_test_files(suite):
+    test_files = set()
+    for test in suite:
+        if isinstance(test, unittest.TestSuite):
+            test_files.update(get_executed_test_files(test))
+        else:
+            module_name = test.__class__.__module__
+            module = sys.modules.get(module_name)
+            if module is not None:
+                file = getattr(module, '__file__', None)
+                if file and file.startswith(TESTS_DIR):
+                    test_files.add(os.path.abspath(file))
+    return test_files
+
+executed_test_files = sorted(get_executed_test_files(suite))
+
+# ------------------------------------------------------------------------------
+# Main entry point
+# ------------------------------------------------------------------------------
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        # If files are specified, only run tests for those files
-        changed_files = sys.argv[1:]
-        relevant_modules = []
-        for module in test_modules:
-            module_file = module.__file__
-            if any(changed_file in module_file for changed_file in changed_files):
-                relevant_modules.append(module)
+    print("\n📌 **Test Execution Started**", flush=True)
+    print("🟢 Running **all tests** in the tests directory.\n", flush=True)
 
-        for module in relevant_modules:
-            suite.addTests(loader.loadTestsFromModule(module))
-    else:
-        # If no files specified, run all tests
-        for module in test_modules:
-            suite.addTests(loader.loadTestsFromModule(module))
-
-    # Initialize a runner, pass it your suite and run it
-    runner = unittest.TextTestRunner(verbosity=3)
+    runner = PrintTestRunner(verbosity=2)
     result = runner.run(suite)
 
-    # Exit with non-zero code if there were failures
+    if result.testsRun == 0:
+        print("\n===================== 🛑 TEST RUN SUMMARY =====================", flush=True)
+        print("⚠️  **No tests were found or executed!**", flush=True)
+        sys.exit(0)
+
+    print("\n===================== 📊 TEST RUN SUMMARY =====================", flush=True)
+    print("\n📂 **Test Files Run:**", flush=True)
+    for file in executed_test_files:
+        print(f"   - 📄 `{file}`", flush=True)
+
+    if result.skipped:
+        print("\n⚠️  **Skipped Tests:**", flush=True)
+        for (test_case, reason) in result.skipped:
+            print(f"   - ❕ {test_case}: `{reason}`", flush=True)
+
+    if result.failures:
+        print("\n❌ **Failed Tests:**", flush=True)
+        for (test_case, _) in result.failures:
+            print(f"   - 🔴 {test_case}", flush=True)
+
+    if result.errors:
+        print("\n🔥 **Tests with Errors:**", flush=True)
+        for (test_case, _) in result.errors:
+            print(f"   - 🚨 {test_case}", flush=True)
+
+    if not (result.failures or result.errors):
+        print("\n✅ **All tests passed successfully!** 🎉", flush=True)
+
+    print("\n============================================================\n", flush=True)
     sys.exit(not result.wasSuccessful())

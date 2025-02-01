@@ -4,6 +4,8 @@ import sys
 import time
 import select
 from typing import Dict, Optional, Tuple
+import time
+
 
 import docker
 from docker.models.containers import Container
@@ -73,6 +75,13 @@ class KaliEnvResource(BaseResource):
         
         self.client = docker.from_env()
         self.container = self._start(self.resource_id, self._resource_config.volumes)
+        
+        if self.container.status != "running":
+            logs = self.container.logs().decode("utf-8")
+            print(f"Container exited unexpectedly. Logs:\n{logs}")
+            raise RuntimeError("Container exited unexpectedly after creation.")
+
+
 
         self.target_host = self._resource_config.target_host
         self.socket = None # Socket for writing to the pseudo-terminal
@@ -89,6 +98,20 @@ class KaliEnvResource(BaseResource):
             self.connect_to_target_hosts_check(self.target_host)
 
         atexit.register(self.stop)
+
+
+
+    def wait_for_container(self, container, timeout=10):
+        """Waits for the container to enter 'running' state."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            container.reload()  # Refresh container status
+            if container.status == "running":
+                return True
+            time.sleep(0.5)
+        return False
+
+
     
     def _start(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]) -> Container:
         """
@@ -123,8 +146,14 @@ class KaliEnvResource(BaseResource):
                         entrypoint=ENTRYPOINT,
                         detach=True,
                         name=name,
+
                     )
                     logger.info("KaliEnvResource Docker container started successfully.")
+                        # Inside `_start()`, right after container creation:
+                    if not self.wait_for_container(container):
+                        logs = container.logs().decode("utf-8")
+                        print(f"Container failed to start. Logs:\n{logs}")
+                        raise RuntimeError("Container failed to reach running state.")
                 finally:
                     stop_progress()
 
@@ -194,6 +223,7 @@ class KaliEnvResource(BaseResource):
         if len(command) > 33:
             command_str = command_str[:30] + "..."
         start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
+
         try:
             if not tty:
                 with timeout_context(timeout):

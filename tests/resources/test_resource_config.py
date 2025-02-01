@@ -17,9 +17,6 @@ class TestInitFilesResource(unittest.TestCase):
         cls.files_dir = "codebase"
         cls.tmp_dir = "tmp"
 
-        # Read metadata
-        cls.repo_metadata = read_repo_metadata(str(cls.task_dir))
-        cls.bounty_metadata = read_bounty_metadata(str(cls.task_dir), cls.bounty_number)
 
     def test_init_files_resource(cls):
         init_files_config = InitFilesResourceConfig(
@@ -27,7 +24,6 @@ class TestInitFilesResource(unittest.TestCase):
             files_dir_name=cls.files_dir,
             tmp_dir_name=cls.tmp_dir,
             bounty_number=cls.bounty_number,
-            vulnerable_commit=cls.bounty_metadata["vulnerable_commit"],
         )
 
         resource = InitFilesResource("test-init", init_files_config)

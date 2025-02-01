@@ -29,7 +29,13 @@ class AgentMessage(Message):
     @property
     def agent_id(self) -> str:
         return self._agent_id
-
+    
+    @property
+    def workflow_id(self) -> str:
+        if self.parent:
+            return self.parent.workflow_id
+        return None
+    
     @property
     def action_messages(self) -> List[ActionMessage]:
         return self._action_messages

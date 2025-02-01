@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
+import CloseIcon from '@mui/icons-material/Close';
 import ActionMessage from '../ActionMessage/ActionMessage';
 import './AgentMessage.css'
 
@@ -85,6 +87,25 @@ const AgentMessage = ({ index, message, onUpdateActionInput, onRerunAction, onEd
     }
   };
 
+  const handleCancelEdit = () => {
+    setEditing(false);
+    onEditingChange(false);
+    setEditedMessage(message.message || '');
+  };
+
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && editing) {
+        handleCancelEdit();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [editing]);
+
   const handleChildUpdate = (num) => {
       setDisplayedIndex((prev) => prev + num);
   };
@@ -125,8 +146,18 @@ const AgentMessage = ({ index, message, onUpdateActionInput, onRerunAction, onEd
                         onClick={handleSaveClick}
                         size="small"
                         className="save-button"
+                        sx={{ mr: 1 }}
                       >
                         <SaveIcon/>
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        onClick={handleCancelEdit}
+                        size="small"
+                        className="cancel-button"
+                      >
+                        <CloseIcon/>
                       </Button>
                     </Box>
                   </Box>
