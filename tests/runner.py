@@ -75,36 +75,36 @@ class PrintTestResult(unittest.TextTestResult):
         super().startTest(test)
         test_name = self.getDescription(test)
 
-        print("\n============================================================")
-        print(f"🚀 Starting Test: {test_name}")
+        print("\n============================================================", flush=True)
+        print(f"🚀 Starting Test: {test_name}", flush=True)
         doc = test.shortDescription()
         if doc:
-            print(f"ℹ️  {doc}")  # Print test description if provided
-        print("============================================================")
+            print(f"ℹ️  {doc}", flush=True)  # Print test description if provided
+        print("============================================================", flush=True)
 
     def stopTest(self, test):
         """Prints a clean finish banner."""
         super().stopTest(test)
         test_name = self.getDescription(test)
 
-        print("------------------------------------------------------------")
-        print(f"✅ Finished Test: {test_name}")
-        print("------------------------------------------------------------\n")
+        print("------------------------------------------------------------", flush=True)
+        print(f"✅ Finished Test: {test_name}", flush=True)
+        print("------------------------------------------------------------\n", flush=True)
 
     def addSkip(self, test, reason):
         """Logs skipped tests clearly."""
         super().addSkip(test, reason)
-        print(f"⚠️  [SKIPPED] {self.getDescription(test)}: {reason}")
+        print(f"⚠️  [SKIPPED] {self.getDescription(test)}: {reason}", flush=True)
 
     def addFailure(self, test, err):
         """Logs failed tests."""
         super().addFailure(test, err)
-        print(f"❌ [FAILED] {self.getDescription(test)}")
+        print(f"❌ [FAILED] {self.getDescription(test)}", flush=True)
 
     def addError(self, test, err):
         """Logs errors in tests."""
         super().addError(test, err)
-        print(f"🔥 [ERROR] {self.getDescription(test)}")
+        print(f"🔥 [ERROR] {self.getDescription(test)}", flush=True)
 
 # ------------------------------------------------------------------------------
 # Custom TestRunner using our PrintTestResult
@@ -142,10 +142,12 @@ def build_test_suite(changed_files=None):
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
     changed_files = sys.argv[1:]
+    
+    print("\n📌 **Test Execution Started**", flush=True)
     if changed_files:
-        print(f"Detected changed files: {changed_files}", flush=True)
+        print(f"🔍 Detected changed files: {', '.join(changed_files)}\n", flush=True)
     else:
-        print("No changed files specified. Running *all* tests.", flush=True)
+        print("🟢 No specific changed files. Running **all tests**.\n", flush=True)
 
     suite = build_test_suite(changed_files if changed_files else None)
     runner = PrintTestRunner(verbosity=3)
@@ -153,36 +155,42 @@ if __name__ == "__main__":
 
     # ----- Check if zero tests were actually run -----
     if result.testsRun == 0:
-        print("\n==================== TEST RUN SUMMARY ====================", flush=True)
-        print("No tests were found or run!", flush=True)
+        print("\n===================== 🛑 TEST RUN SUMMARY =====================", flush=True)
+        print("⚠️  **No tests were found or executed!**", flush=True)
+        print("Make sure the changed files contain valid test cases.\n", flush=True)
         sys.exit(0)
 
-    # ----- Otherwise, proceed with the standard summary -----
-    print("\n==================== TEST RUN SUMMARY ====================", flush=True)
+    # ----- Otherwise, print the structured summary -----
+    print("\n===================== 📊 TEST RUN SUMMARY =====================", flush=True)
 
     # Print test files that were actually executed
-    print("Test Files Run:", flush=True)
+    print("\n📂 **Test Files Run:**", flush=True)
     for file in executed_test_files:
-        print(f"  - {file}", flush=True)
+        print(f"   - 📄 `{file}`", flush=True)
 
+    # Print skipped tests
     if result.skipped:
-        print("\nSKIPPED TESTS:", flush=True)
+        print("\n⚠️  **Skipped Tests:**", flush=True)
         for (test_case, reason) in result.skipped:
-            print(f"  - {test_case}: {reason}", flush=True)
+            print(f"   - ❕ {test_case}: `{reason}`", flush=True)
 
+    # Print failed tests
     if result.failures:
-        print("\nFAILED TESTS:", flush=True)
+        print("\n❌ **Failed Tests:**", flush=True)
         for (test_case, _) in result.failures:
-            print(f"  - {test_case}", flush=True)
+            print(f"   - 🔴 {test_case}", flush=True)
 
+    # Print errored tests
     if result.errors:
-        print("\nERRORS:", flush=True)
+        print("\n🔥 **Tests with Errors:**", flush=True)
         for (test_case, _) in result.errors:
-            print(f"  - {test_case}", flush=True)
+            print(f"   - 🚨 {test_case}", flush=True)
 
-    # If we have no failures or errors, we can say all tests passed:
+    # If no failures or errors, show success message
     if not (result.failures or result.errors):
-        print("\nAll tests passed successfully!", flush=True)
+        print("\n✅ **All tests passed successfully!** 🎉", flush=True)
+
+    print("\n============================================================\n", flush=True)
 
     # Exit with non-zero code if there were failures or errors
     sys.exit(not result.wasSuccessful())
