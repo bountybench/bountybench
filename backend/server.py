@@ -16,6 +16,7 @@ class Server:
         self.app.state.active_workflows = self.active_workflows
         self.app.state.workflow_factory = self.workflow_factory
         self.app.state.websocket_manager = self.websocket_manager
+        self.app.state.should_exit = self.should_exit
 
         self.setup_middleware()
         self.setup_routes()

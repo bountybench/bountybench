@@ -112,6 +112,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     request = websocket.scope["app"]
     active_workflows = request.state.active_workflows
     websocket_manager = request.state.websocket_manager
+    should_exit = request.state.should_exit
     try:
         await websocket_manager.connect(workflow_id, websocket)
         print(f"WebSocket connected for workflow {workflow_id}")
@@ -136,7 +137,9 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
             if current_status not in ["running", "completed"]:
                 print(f"Auto-starting workflow {workflow_id}")
                 asyncio.create_task(
-                    run_workflow(workflow_id, active_workflows, websocket_manager)
+                    run_workflow(
+                        workflow_id, active_workflows, websocket_manager, should_exit
+                    )
                 )
                 await websocket.send_json(
                     {
@@ -157,7 +160,9 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
             # If workflow doesn't exist yet, start it
             print(f"Auto-starting new workflow {workflow_id}")
             asyncio.create_task(
-                run_workflow(workflow_id, active_workflows, websocket_manager)
+                run_workflow(
+                    workflow_id, active_workflows, websocket_manager, should_exit
+                )
             )
             await websocket.send_json(
                 {
@@ -168,9 +173,12 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
             )
 
         # Handle incoming messages
-        while True:
+        while not should_exit:
             try:
                 data = await websocket.receive_json()
+                if should_exit:
+                    break
+
                 if data.get("type") == "pong":
                     # Heartbeat is handled internally by WebSocketManager
                     continue
@@ -191,9 +199,11 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
         print(f"Cleaned up connection for workflow {workflow_id}")
 
 
-async def run_workflow(workflow_id: str, active_workflows, websocket_manager):
-    if workflow_id not in active_workflows:
-        print(f"Workflow {workflow_id} not found")
+async def run_workflow(
+    workflow_id: str, active_workflows, websocket_manager, should_exit
+):
+    if workflow_id not in active_workflows or should_exit:
+        print(f"Workflow {workflow_id} not found or should exit")
         return
 
     workflow_data = active_workflows[workflow_id]
@@ -212,23 +222,26 @@ async def run_workflow(workflow_id: str, active_workflows, websocket_manager):
         await workflow.run()
 
         # Handle successful completion
-        workflow_data["status"] = "completed"
-        await websocket_manager.broadcast(
-            workflow_id,
-            {
-                "message_type": "workflow_status",
-                "status": "completed",
-            },
-        )
+        if not should_exit:
+            workflow_data["status"] = "completed"
+            await websocket_manager.broadcast(
+                workflow_id,
+                {
+                    "message_type": "workflow_status",
+                    "status": "completed",
+                },
+            )
 
     except Exception as e:
-        print(f"Workflow error: {e}")
-        workflow_data["status"] = "error"
-        await websocket_manager.broadcast(
-            workflow_id,
-            {"message_type": "workflow_status", "status": "error", "error": str(e)},
-        )
-        print(f"Broadcasted error status for {workflow_id}")
+        # Handle errors
+        if not should_exit:
+            print(f"Workflow error: {e}")
+            workflow_data["status"] = "error"
+            await websocket_manager.broadcast(
+                workflow_id,
+                {"message_type": "workflow_status", "status": "error", "error": str(e)},
+            )
+            print(f"Broadcasted error status for {workflow_id}")
 
 
 async def next_iteration(workflow_id: str, active_workflows):
