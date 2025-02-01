@@ -2,24 +2,16 @@ import os
 from pathlib import Path
 
 from dotenv import dotenv_values, find_dotenv, load_dotenv, set_key
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from backend.schema import ApiKeyInput
 from resources.model_resource.services.api_key_service import AUTH_SERVICE
 
-router = APIRouter()
+api_service_router = APIRouter()
 
 
-def setup_routes(app):
-    router.add_api_route("/service/api-service/get", get_api_key, methods=["GET"])
-    router.add_api_route(
-        "/service/api-service/update", update_api_key, methods=["POST"]
-    )
-
-    app.include_router(router)
-
-
-async def get_api_key():
+@api_service_router.get("/service/api-service/get")
+async def get_api_key(request: Request):
     env_path = Path(find_dotenv())
     if not env_path.is_file():
         raise HTTPException(
@@ -30,7 +22,8 @@ async def get_api_key():
     return {k: os.environ[k] for k in dotenv_values(env_path)}
 
 
-async def update_api_key(data: ApiKeyInput):
+@api_service_router.post("/service/api-service/update")
+async def update_api_key(data: ApiKeyInput, request: Request):
     env_path = Path(find_dotenv())
     if not env_path.is_file():
         raise HTTPException(

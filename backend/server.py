@@ -1,33 +1,25 @@
 import asyncio
 import signal
 
-from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
-
-from backend.routers import api_service, workflow_service, workflows
 
 
 class Server:
-    def __init__(self, app: FastAPI, websocket_manager, workflow_factory):
+    def __init__(self, app, websocket_manager, workflow_factory: dict):
         self.app = app
-        self.websocket_manager = websocket_manager
         self.workflow_factory = workflow_factory
         self.active_workflows = {}
+        self.websocket_manager = websocket_manager
         self.should_exit = False
 
-        self.setup_middleware()
-        self.setup_signal_handlers()
+        # Store shared state in app instance
+        self.app.state.active_workflows = self.active_workflows
+        self.app.state.workflow_factory = self.workflow_factory
+        self.app.state.websocket_manager = self.websocket_manager
 
-        workflows.setup_routes(
-            self.app,
-            self.workflow_factory,
-            self.active_workflows,
-            self.websocket_manager,
-        )
-        workflow_service.setup_routes(
-            self.app, self.active_workflows, self.websocket_manager
-        )
-        api_service.setup_routes(self.app)
+        self.setup_middleware()
+        self.setup_routes()
+        self.setup_signal_handlers()
 
     def setup_middleware(self):
         self.app.add_middleware(
@@ -37,6 +29,15 @@ class Server:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+    def setup_routes(self):
+        from backend.routers.api_service import api_service_router
+        from backend.routers.workflow_service import workflow_service_router
+        from backend.routers.workflows import workflows_router
+
+        self.app.include_router(api_service_router)
+        self.app.include_router(workflows_router)
+        self.app.include_router(workflow_service_router)
 
     def setup_signal_handlers(self):
         def handle_signal(signum, frame):
