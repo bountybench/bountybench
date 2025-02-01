@@ -1,6 +1,6 @@
-import unittest
 from typing import Any, Dict, List, Tuple, Union
 from unittest.mock import MagicMock, patch
+import pytest
 
 from agents.base_agent import BaseAgent
 from phases.base_phase import BasePhase, PhaseConfig
@@ -77,106 +77,73 @@ class MockPhase2(BasePhase):
         return {"resource1", "resource2", "resource3"}
 
 
+@pytest.fixture
+def resource_manager():
+    return ResourceManager()
+
+
+@pytest.fixture
+def mock_workflow():
+    workflow = MagicMock()
+    workflow.resource_manger = MagicMock()
+    workflow.agent_manager = MagicMock()
+    return workflow
+
+
 @patch("utils.logger.get_main_logger")
-class TestResourceManager(unittest.TestCase):
-    def setUp(self):
-        self.resource_manager = ResourceManager()
-
-    def test_resource_lifecycle(self, mock_logger):
-        # Register resources
-        for i in range(1, 4):
-            self.resource_manager.register_resource(
-                f"resource{i}", MockResource, MockResourceConfig()
-            )
-
-        workflow = MagicMock()
-        workflow.resource_manger = MagicMock()
-        workflow.agent_manager = MagicMock()
-
-        phases = [MockPhase1(workflow), MockPhase2(workflow)]
-        # Compute schedule
-        self.resource_manager.compute_schedule(phases)
-
-        # Check resource lifecycle
-        self.assertEqual(self.resource_manager._resource_lifecycle["resource1"], (0, 1))
-        self.assertEqual(self.resource_manager._resource_lifecycle["resource2"], (0, 1))
-        self.assertEqual(self.resource_manager._resource_lifecycle["resource3"], (1, 1))
-
-        # Initialize resources for Phase1
-        self.resource_manager.initialize_phase_resources(
-            0, MockPhase1.get_required_resources()
-        )
-        self.assertIn("resource1", self.resource_manager._resources)
-        self.assertIn("resource2", self.resource_manager._resources)
-        self.assertNotIn("resource3", self.resource_manager._resources)
-
-        # Deallocate resources after Phase1
-        self.resource_manager.deallocate_phase_resources(0)
-        self.assertIn("resource1", self.resource_manager._resources)
-        self.assertIn("resource2", self.resource_manager._resources)
-
-        # Initialize resources for Phase2
-        self.resource_manager.initialize_phase_resources(
-            1, MockPhase2.get_required_resources()
-        )
-        self.assertIn("resource1", self.resource_manager._resources)
-        self.assertIn("resource2", self.resource_manager._resources)
-        self.assertIn("resource3", self.resource_manager._resources)
-
-        # Deallocate resources after Phase2
-        self.resource_manager.deallocate_phase_resources(1)
-        self.assertNotIn("resource1", self.resource_manager._resources)
-        self.assertNotIn("resource2", self.resource_manager._resources)
-        self.assertNotIn("resource3", self.resource_manager._resources)
-
-    def test_get_resource(self, mock_logger):
-        workflow = MagicMock()
-        workflow.resource_manger = MagicMock()
-        workflow.agent_manager = MagicMock()
-
-        self.resource_manager.register_resource(
-            "resource1", MockResource, MockResourceConfig()
-        )
-        self.resource_manager.register_resource(
-            "resource2", MockResource, MockResourceConfig()
-        )
-        self.resource_manager.compute_schedule([MockPhase1(workflow)])
-        self.resource_manager.initialize_phase_resources(
-            0, MockPhase1.get_required_resources()
+def test_resource_lifecycle(mock_logger, resource_manager, mock_workflow):
+    # Register resources
+    for i in range(1, 4):
+        resource_manager.register_resource(
+            f"resource{i}", MockResource, MockResourceConfig()
         )
 
-        resource = self.resource_manager.get_resource("resource1")
-        self.assertIsInstance(resource, MockResource)
+    phases = [MockPhase1(mock_workflow), MockPhase2(mock_workflow)]
+    
+    # Compute schedule
+    resource_manager.compute_schedule(phases)
 
-        resource = self.resource_manager.get_resource("resource2")
-        self.assertIsInstance(resource, MockResource)
+    # Check resource lifecycle
+    assert resource_manager._resource_lifecycle["resource1"] == (0, 1)
+    assert resource_manager._resource_lifecycle["resource2"] == (0, 1)
+    assert resource_manager._resource_lifecycle["resource3"] == (1, 1)
 
-        with self.assertRaises(KeyError):
-            self.resource_manager.get_resource("non_existent_resource")
+    # Initialize resources for Phase1
+    resource_manager.initialize_phase_resources(0, MockPhase1.get_required_resources())
+    assert "resource1" in resource_manager._resources
+    assert "resource2" in resource_manager._resources
+    assert "resource3" not in resource_manager._resources
 
-    def test_error_handling(self, mock_logger):
-        workflow = MagicMock()
-        workflow.resource_manger = MagicMock()
-        workflow.agent_manager = MagicMock()
+    # Deallocate resources after Phase1
+    resource_manager.deallocate_phase_resources(0)
+    assert "resource1" in resource_manager._resources
+    assert "resource2" in resource_manager._resources
 
-        # Register resource and compute schedule
-        self.resource_manager.register_resource(
-            "resource1", MockResource, MockResourceConfig()
-        )
-        self.resource_manager.register_resource(
-            "resource2", MockResource, MockResourceConfig()
-        )
-        self.resource_manager.compute_schedule([MockPhase1(workflow)])
+    # Initialize resources for Phase2
+    resource_manager.initialize_phase_resources(1, MockPhase2.get_required_resources())
+    assert "resource1" in resource_manager._resources
+    assert "resource2" in resource_manager._resources
+    assert "resource3" in resource_manager._resources
 
-        # Test with a mocked resource that raises an exception during initialization
-        with patch.object(
-            MockResource, "__init__", side_effect=Exception("Initialization error")
-        ):
-            with self.assertRaises(Exception):
-                self.resource_manager.initialize_phase_resources(
-                    0, MockPhase1.get_required_resources()
-                )
+    # Deallocate resources after Phase2
+    resource_manager.deallocate_phase_resources(1)
+    assert "resource1" not in resource_manager._resources
+    assert "resource2" not in resource_manager._resources
+    assert "resource3" not in resource_manager._resources
 
 
-if __name__ == "__main__":
-    unittest.main()
+@patch("utils.logger.get_main_logger")
+def test_get_resource(mock_logger, resource_manager, mock_workflow):
+    resource_manager.register_resource("resource1", MockResource, MockResourceConfig())
+    resource_manager.register_resource("resource2", MockResource, MockResourceConfig())
+    resource_manager.compute_schedule([MockPhase1(mock_workflow)])
+    resource_manager.initialize_phase_resources(0, MockPhase1.get_required_resources())
+
+    resource = resource_manager.get_resource("resource1")
+    assert isinstance(resource, MockResource)
+
+    resource = resource_manager.get_resource("resource2")
+    assert isinstance(resource, MockResource)
+
+    with pytest.raises(KeyError):
+        resource_manager.get_resource("non_existent_resource")

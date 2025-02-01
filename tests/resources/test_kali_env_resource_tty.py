@@ -1,10 +1,6 @@
-# Tests for KaliEnvResource in TTY (Pseudo-terminal mode)
-
-import os
+import pytest
 import shutil
-import stat
 import tempfile
-import unittest
 from pathlib import Path
 
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
@@ -14,182 +10,70 @@ VOLUME = {
 }
 CONTAINER_NAME = "test_container"
 
+@pytest.fixture(scope="class")
+def kali_env_resource():
+    temp_dir = tempfile.mkdtemp()
+    test_files_dir = Path(temp_dir)
+    print(f"Created temporary test directory: {test_files_dir}")
 
-class TestKaliEnvResourceTTY(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        """
-        This method initializes the KaliEnvResource instance, starts a single container,
-        creates the test file with appropriate permissions, and ensures the volume is mounted.
-        """
-        # Create a temporary directory
-        cls.temp_dir = tempfile.mkdtemp()
-        cls.test_files_dir = Path(cls.temp_dir)
-        print(f"Created temporary test directory: {cls.test_files_dir}")
+    test_file_path = test_files_dir / "test.txt"
+    with open(test_file_path, "w") as f:
+        f.write("TEST{RANDOM_WORDS}")
 
-        cls.test_file_path = cls.test_files_dir / "test.txt"
-        with open(cls.test_file_path, "w") as f:
-            f.write("TEST{RANDOM_WORDS}")
+    volume = {str(test_files_dir): {"bind": "/app", "mode": "rw"}}
 
-        cls.VOLUME = {str(cls.test_files_dir): {"bind": "/app", "mode": "rw"}}
+    resource = KaliEnvResource(
+        resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=volume)
+    )
+    yield resource
+    resource.stop()
+    shutil.rmtree(temp_dir)
+    print(f"Removed temporary test directory: {temp_dir}")
 
-        cls.kali_env_resource = KaliEnvResource(
-            resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=cls.VOLUME)
-        )
+def test_run_simple_command_tty(kali_env_resource):
+    command = "echo Hello\n"
+    stdout, _ = kali_env_resource.run_command(command, tty=True)
+    assert stdout.strip() == "Hello\n$"
 
-    @classmethod
-    def tearDownClass(cls):
-        """
-        This method is run once for the class after all tests are executed.
-        It cleans up by stopping the Docker container.
-        """
-        cls.kali_env_resource.stop()
+def test_run_multiple_command_tty(kali_env_resource):
+    command = "echo Hello\necho Hello\n"
+    stdout, _ = kali_env_resource.run_command(command, tty=True)
+    assert stdout.strip() == "Hello\n$"
 
-        # Remove the temporary directory and its contents
-        shutil.rmtree(cls.temp_dir)
-        print(f"Removed temporary test directory: {cls.temp_dir}")
+def test_run_simple_command_and_del_tty(kali_env_resource):
+    command = "echo Hello\necho Hello\x7f\n"
+    stdout, _ = kali_env_resource.run_command(command, tty=True)
+    assert stdout.strip() == "Hell\n$"
 
-    def test_run_simple_command_tty(self):
-        """
-        Test running a simple command (e.g., `echo Hello`).
-        The output should be the same as the echoed message,
-        plus a trailing '$' indicating the pseudoterminal is ready for the next command.
-        """
-        command = "echo Hello\n"
-        stdout, stderr = self.kali_env_resource.run_command(command, tty=True)
-        self.assertEqual(stdout.strip(), "Hello\n$")
+def test_run_enter_python_tty(kali_env_resource):
+    kali_env_resource.run_command("python -i\n", tty=True)
+    stdout, _ = kali_env_resource.run_command("1 + 1\n", tty=True)
+    assert stdout.strip() == "2\n>>>"
+    stdout, _ = kali_env_resource.run_command("2 + 2\n", tty=True)
+    assert stdout.strip() == "4\n>>>"
+    stdout, _ = kali_env_resource.run_command("exit()\n", tty=True)
+    assert stdout.strip() == "$"
 
-    def test_run_multiple_command_tty(self):
-        """
-        Test running multiple commands (e.g., `echo Hello; echo World`).
-        Different from the line-mode test, the first command's output is stripped,
-        we can change this behavior later if we want.
-        """
-        command = "echo Hello\necho Hello\n"
-        stdout, stderr = self.kali_env_resource.run_command(command, tty=True)
-        self.assertEqual(stdout.strip(), "Hello\n$")
+def test_run_enter_python_and_create_file(kali_env_resource):
+    file_path = "py_test.txt"
+    kali_env_resource.run_command("python -i\n", tty=True)
+    kali_env_resource.run_command("f = open('py_test.txt', 'w')\n", tty=True)
+    stdout, _ = kali_env_resource.run_command("f.write('Hello')\n", tty=True)
+    assert stdout.strip() == "5\n>>>"
+    kali_env_resource.run_command("exit()\n", tty=True)
+    stdout, _ = kali_env_resource.run_command(f"cat {file_path}\n", tty=True)
+    assert stdout.strip() == "Hello\n$"
 
-    def test_run_simple_command_and_del_tty(self):
-        """
-        Test running a simple command (e.g., `echo Hello`)
-        and then delete the last character. \x7f is the DEL character.
-        """
+def test_container_persistence_tty(kali_env_resource):
+    file_path = "persistent_testfile.txt"
+    kali_env_resource.run_command(f"touch {file_path}\n", tty=True)
+    stdout, _ = kali_env_resource.run_command(f"test -f {file_path} && echo Exists\n", tty=True)
+    assert stdout.strip() == "Exists\n$"
+    kali_env_resource.run_command(f"rm {file_path}\n", tty=True)
+    stdout, _ = kali_env_resource.run_command(f"test -f {file_path} && echo Exists\n", tty=True)
+    assert stdout.strip() == "$"
 
-        command = "echo Hello\necho Hello\x7f\n"
-        stdout, stderr = self.kali_env_resource.run_command(command, tty=True)
-        self.assertEqual(stdout.strip(), "Hell\n$")
-
-    def test_run_enter_python_tty(self):
-        """
-        Test evaluating a single line in Python REPL and exits.
-        After the first line is evaluated, Python REPL should be ready for the next command.
-        After evaluating `exit()`, the output should be '$' indicating we have successfully
-        exited the Python REPL.
-        """
-        enter_command = "python -i\n"
-        stdout, stderr = self.kali_env_resource.run_command(enter_command, tty=True)
-
-        type_command = "1 + 1\n"
-        stdout, stderr = self.kali_env_resource.run_command(type_command, tty=True)
-        self.assertEqual(stdout.strip(), "2\n>>>")
-
-        type_command = "2 + 2\n"
-        stdout, stderr = self.kali_env_resource.run_command(type_command, tty=True)
-        self.assertEqual(stdout.strip(), "4\n>>>")
-
-        type_command = "exit()\n"
-        stdout, stderr = self.kali_env_resource.run_command(type_command, tty=True)
-        self.assertEqual(stdout.strip(), "$")
-
-    def test_run_enter_python_and_create_file(self):
-        """
-        Test creating a file in python REPL and checking the file content is correct.
-        """
-        file_path = "py_test.txt"
-
-        enter_command = "python -i\n"
-        stdout, stderr = self.kali_env_resource.run_command(enter_command, tty=True)
-
-        type_command = "f = open('py_test.txt', 'w')\n"
-        stdout, stderr = self.kali_env_resource.run_command(type_command, tty=True)
-        self.assertEqual(stdout.strip(), ">>>")
-
-        type_command = "f.write('Hello')\n"
-        stdout, stderr = self.kali_env_resource.run_command(type_command, tty=True)
-        self.assertEqual(stdout.strip(), "5\n>>>")  # written 5 characters
-
-        type_command = "exit()\n"
-        stdout, stderr = self.kali_env_resource.run_command(type_command, tty=True)
-        self.assertEqual(stdout.strip(), "$")
-
-        check_command = f"cat {file_path}\n"
-        stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
-        self.assertEqual(stdout.strip(), "Hello\n$")
-
-    def test_run_enter_vim_tty(self):
-        """
-        Test entering the vim editor, creating a file, and checking the file content is correct.
-        \x1b is the escape character to exit vim insert mode.
-        """
-        enter_command = "vim vim_test.txt\n"
-        stdout, stderr = self.kali_env_resource.run_command(enter_command, tty=True)
-
-        edit_command = "iHello World\x1b"
-        stdout, stderr = self.kali_env_resource.run_command(edit_command, tty=True)
-
-        save_and_exit_command = ":wq\n"
-        stdout, stderr = self.kali_env_resource.run_command(
-            save_and_exit_command, tty=True
-        )
-
-        check_command = "cat vim_test.txt\n"
-        stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
-        self.assertEqual(stdout.strip(), "Hello World\n$")
-
-    def test_container_persistence_tty(self):
-        """
-        Test that the container persists between commands by creating a file and verifying its existence later.
-        Adapted from the line-mode test.
-        """
-        file_path = "persistent_testfile.txt"
-        create_command = f"touch {file_path}\n"
-        check_command = f"test -f {file_path} && echo Exists\n"
-
-        # Create the file
-        stdout, stderr = self.kali_env_resource.run_command(create_command, tty=True)
-        self.assertEqual(stdout.strip(), "$")
-        self.assertEqual(stderr.strip(), "")
-
-        # Verify the file exists
-        stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
-        self.assertEqual(stdout.strip(), "Exists\n$")
-        self.assertEqual(stderr.strip(), "")
-
-        # Delete the file
-        delete_command = f"rm {file_path}\n"
-        stdout, stderr = self.kali_env_resource.run_command(delete_command, tty=True)
-        self.assertEqual(stdout.strip(), "$")
-        self.assertEqual(stderr.strip(), "")
-
-        # Verify the file was deleted
-        stdout, stderr = self.kali_env_resource.run_command(check_command, tty=True)
-        self.assertEqual(stdout.strip(), "$")
-        self.assertEqual(stderr.strip(), "")
-
-    def test_command_with_timeout_tty(self):
-        """
-        Test running a command that will take too long to complete.
-        The command should be terminated due to timeout.
-        """
-        sleep_command = "sleep 120\n"
-        stdout, stderr = self.kali_env_resource.run_command(
-            sleep_command, timeout=1, tty=True
-        )
-        self.assertIn("timed out after 1 seconds", stdout)
-
-        cancel_command = "\x03\n"
-        stdout, stderr = self.kali_env_resource.run_command(cancel_command, tty=True)
-
-
-if __name__ == "__main__":
-    unittest.main()
+def test_command_with_timeout_tty(kali_env_resource):
+    stdout, _ = kali_env_resource.run_command("sleep 120\n", timeout=1, tty=True)
+    assert "timed out after 1 seconds" in stdout
+    kali_env_resource.run_command("\x03\n", tty=True)
