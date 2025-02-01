@@ -71,15 +71,17 @@ executed_test_files = []
 # ------------------------------------------------------------------------------
 class PrintTestResult(unittest.TextTestResult):
     def startTest(self, test):
-        """Prints a clear starting banner with the test name and description (if available)."""
+        """Prints a clear starting banner without duplication."""
         super().startTest(test)
         test_name = self.getDescription(test)
 
         print("\n============================================================", flush=True)
         print(f"🚀 Starting Test: {test_name}", flush=True)
+
         doc = test.shortDescription()
         if doc:
             print(f"ℹ️  {doc}", flush=True)  # Print test description if provided
+        
         print("============================================================", flush=True)
 
     def stopTest(self, test):
