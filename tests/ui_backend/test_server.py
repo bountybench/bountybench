@@ -53,7 +53,9 @@ class TestServer(unittest.TestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "123",
             "interactive": True,
-            "iterations": 5
+            "iterations": 5,
+            "model": 'test/model',
+            "use_helm": True
         }
         response = self.client.post("/workflow/start", json=payload)
         self.assertEqual(response.status_code, 200, "Expected status code 200")
@@ -72,7 +74,9 @@ class TestServer(unittest.TestCase):
             "task_dir": "/path/to/tasks",
             "bounty_number": "123",
             "interactive": True,
-            "iterations": 5
+            "iterations": 5,
+            "model": 'test/model',
+            "use_helm": True
         }
         response = self.client.post("/workflow/start", json=payload)
         # As per server.py, it returns 200 even on error
@@ -299,7 +303,9 @@ class TestServer(unittest.TestCase):
             # "task_dir" is missing
             "bounty_number": "123",
             "interactive": True,
-            "iterations": 5
+            "iterations": 5,
+            "model": 'test/model',
+            "use_helm": True
         }
         response = self.client.post("/workflow/start", json=payload)
         self.assertEqual(response.status_code, 422, "Expected status code 422 for validation error")
