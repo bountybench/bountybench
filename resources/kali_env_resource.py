@@ -265,7 +265,6 @@ class KaliEnvResource(BaseResource):
                         )
                         self.socket = sock
                         self._send_to_bash('export PS1="$"\n')
-                        self._send_to_bash('clear\n')
                         time.sleep(1)
 
                     self._clear_bash_output_buffer()
