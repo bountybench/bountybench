@@ -16,13 +16,14 @@ test('renders agent type and message', () => {
   expect(screen.getByText(/custom message/i)).toBeInTheDocument();
 });
 
-/*
+
 test('checks multiple version', () => {
   const message = {
+    agent_id: "agent1",
     message: "custom message",
     current_children: [],
   };
-  render(<AgentMessage message={message} phaseMultiVersion={true} phaseDisplayedIndex={1} phaseVersionLength={2}/>);
+  render(<AgentMessage message={message} phaseDisplayedIndex={1} phaseVersionLength={2}/>);
   // Verify the version text
   const versionText = screen.getByText(`${1}/${2}`);
   expect(versionText).toBeInTheDocument();
@@ -37,10 +38,11 @@ test('checks multiple version', () => {
   expect(forwardButton).toBeInTheDocument();
   expect(forwardButton).not.toBeDisabled();
 });
-*/
+
 
 test('triggers version change', () => {
   const message = {
+    agent_id: "agent1",
     message: "custom message",
     current_children: [],
   };
@@ -48,5 +50,5 @@ test('triggers version change', () => {
   render(<AgentMessage index={0} message={message} onPhaseChildUpdate={mockPhaseChildUpdate} phaseDisplayedIndex={1} phaseVersionLength={2}/>);
   fireEvent.click(screen.getByRole('button', { name: /arrow forward/i }));
   // Version index is incremented by 1
-  expect(mockPhaseChildUpdate).toHaveBeenCalledWith(1);
+  expect(mockPhaseChildUpdate).toHaveBeenCalledWith('agent1', 1);
 });

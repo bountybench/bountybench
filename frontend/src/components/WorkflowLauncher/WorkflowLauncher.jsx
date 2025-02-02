@@ -83,6 +83,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       const data = await response.json();
       setWorkflows(data.workflows);
     } catch (err) {
+      console.error('Failed to fetch workflows. Make sure the backend server is running.');
       setError('Failed to fetch workflows. Make sure the backend server is running.');
     } finally {
       setLoading(false);
@@ -93,7 +94,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     try {
       const response = await fetch('http://localhost:8000/service/api-service/get');
       const data = await response.json();
-      console.log(data);
       setApiKeys(data);
       setFormData((prev) => ({
         ...prev,
@@ -107,14 +107,12 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
  
   const fetchModels = async () => {
-    setError(null);
     try {
       const response = await fetch('http://localhost:8000/workflow/helmmodels');
       const helm_models = await response.json();
       setAllModels(helm_models.helmModels);
     } catch (err) {
-      setError('Failed to fetch models. Make sure the backend server is running.');
-      setLoading(false);
+      console.error('Failed to fetch models. Make sure the backend server is running.');
     }
   };
 
@@ -122,7 +120,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
         method: 'POST',
@@ -145,7 +142,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       if (!response.ok) {
         let errorData;
         try {
-          errorData = await response.json();
+          errorData = await response.json();        
         } catch {
           throw new Error('Failed to parse error response');
         }

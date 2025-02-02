@@ -127,7 +127,7 @@ describe('WorkflowLauncher Component', () => {
       )
       .mockImplementationOnce(() =>
         Promise.resolve({
-          json: () => Promise.resolve({ helmModels })
+          json: () => Promise.resolve({ helmModels }) // Third fetch API call (fetchModels)
         })
       )
       .mockImplementationOnce(() =>
@@ -192,7 +192,7 @@ describe('WorkflowLauncher Component', () => {
       )
       .mockImplementationOnce(() =>
         Promise.resolve({
-          json: () => Promise.resolve({ helmModels })
+          json: () => Promise.resolve({ helmModels }) // Third fetch API call (fetchModels)
         })
       )
       .mockImplementationOnce(() =>
