@@ -228,7 +228,8 @@ class BaseWorkflow(ABC):
         return result.message if result else ""
 
     async def rerun_message(self, message_id: str):
-        message = message_dict[message_id]
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        message = workflow_messages.get(message_id)
         message = await self.rerun_manager.rerun(message)        
         if message.next:
             message = await self.rerun_manager.run_edited(message)
@@ -240,8 +241,9 @@ class BaseWorkflow(ABC):
         return message
     
     async def run_next_message(self):
-        if len(message_dict) > 0:
-            _, last_message = list(message_dict.items())[-1]
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        if len(workflow_messages) > 0:
+            _, last_message = list(workflow_messages.items())[-1]
             if last_message.next:
                 last_message = await self.rerun_manager.run_edited(last_message)
                 return last_message
@@ -262,7 +264,8 @@ class BaseWorkflow(ABC):
         return message
     
     async def edit_one_message(self, message_id: str, new_message_data: str) -> Message:
-        message = message_dict[message_id]
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        message = workflow_messages.get(message_id)
         message = await self.edit_message(message, new_message_data)
         return message
     
@@ -304,6 +307,10 @@ class BaseWorkflow(ABC):
         # Deallocate agents and resources
         self.agent_manager.deallocate_all_agents()
         self.resource_manager.deallocate_all_resources()
+
+        if hasattr(self, "next_iteration_event"):
+            self.next_iteration_event.clear()
+        
 
         self._finalize_workflow()
 
