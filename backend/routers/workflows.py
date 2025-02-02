@@ -4,6 +4,8 @@ from fastapi import APIRouter, Request
 
 from backend.schema import StartWorkflowInput
 
+from resources.model_resource.model_mapping import TokenizerMapping, NonHELMMapping
+
 workflows_router = APIRouter()
 
 
@@ -62,14 +64,31 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
             bounty_number=workflow_data.bounty_number,
             interactive=workflow_data.interactive,
             phase_iterations=workflow_data.iterations,
+            model=workflow_data.model,
+            use_helm=workflow_data.use_helm
         )
-
         workflow_id = workflow.workflow_message.workflow_id
         active_workflows[workflow_id] = {
             "instance": workflow,
             "status": "initializing",
             "workflow_message": workflow.workflow_message,
         }
-        return {"workflow_id": workflow_id, "status": "initializing"}
+        return {"workflow_id": workflow_id, "model": workflow_data.model, "status": "initializing"}
     except Exception as e:
         return {"error": str(e)}
+
+@workflows_router.get("/workflow/allmodels")
+async def list_all_models():
+    """List available model types"""
+    helm_models = list(set(TokenizerMapping.mapping.keys()))
+    nonhelm_models = [value if '/' in value else key for key, value in NonHELMMapping.mapping.items()]
+    all_models = sorted(set(helm_models + nonhelm_models))
+    all_models = [{'name': model} for model in all_models]
+    return {"allModels": all_models}
+
+@workflows_router.get("/workflow/helmmodels")
+async def list_helm_models():
+    """List HELM model types"""
+    helm_models = sorted(set(TokenizerMapping.mapping.keys()))
+    helm_mapping = [{'name': model} for model in helm_models]
+    return {"helmModels": helm_mapping}
