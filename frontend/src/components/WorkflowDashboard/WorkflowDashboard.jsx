@@ -1,14 +1,35 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
-export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflowStateUpdate }) => {
-  console.log('WorkflowDashboard props:', { selectedWorkflow, interactiveMode });
-  
+export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast }) => {
+  const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [preservedMessages, setPreservedMessages] = useState([]);
+  const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
+
+  const navigate = useNavigate();
+  
+  // Fetch active workflows to check if given workflowId exists
+  useEffect(() => {
+    const checkIfWorkflowExists = async () => {
+      const response = await fetch('http://localhost:8000/workflows/active');
+      const data = await response.json();
+
+      if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
+        showInvalidWorkflowToast();
+        navigate(`/`); 
+      }
+    };
+
+    if (!hasCheckedValidity) { // Check if validity has already been checked
+      checkIfWorkflowExists();
+      setHasCheckedValidity(true);
+    }
+  }, [workflowId, navigate, showInvalidWorkflowToast, hasCheckedValidity]);
 
   const {
     isConnected,
@@ -18,7 +39,7 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
     messages,
     error,
     sendMessage,
-  } = useWorkflowWebSocket(selectedWorkflow?.id);
+  } = useWorkflowWebSocket(workflowId);
 
   // Update parent component with workflow state
   useEffect(() => {
@@ -54,13 +75,13 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedWorkflow]);
+  }, [workflowId]);
   
   const triggerNextIteration = async () => {
-    if (selectedWorkflow?.id) {
+    if (workflowId) {
       setIsNextDisabled(true);
       try {
-        const response = await fetch(`http://localhost:8000/workflow/next/${selectedWorkflow.id}`, {
+        const response = await fetch(`http://localhost:8000/workflow/next/${workflowId}`, {
           method: 'POST',
         });
         if (!response.ok) {
@@ -78,9 +99,9 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
       console.error('Workflow ID is not available');
     }
   };
-
+  
   const handleUpdateActionInput = async (messageId, newInputData) => {
-    const url = `http://localhost:8000/workflow/edit-message/${selectedWorkflow.id}`;
+    const url = `http://localhost:8000/workflow/edit-message/${workflowId}`;
     const requestBody = { message_id: messageId, new_input_data: newInputData };
     
     console.log('Sending request to:', url);
@@ -112,9 +133,9 @@ export const WorkflowDashboard = ({ selectedWorkflow, interactiveMode, onWorkflo
   };
 
   const handleRerunAction = async (messageId) => {
-    if (selectedWorkflow?.id) {
+    if (workflowId) {
       try {
-        const response = await fetch(`http://localhost:8000/workflow/rerun-message/${selectedWorkflow.id}`, {
+        const response = await fetch(`http://localhost:8000/workflow/rerun-message/${workflowId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.agent_message import AgentMessage
-from messages.message_utils import update_message
+from messages.message_utils import log_message
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResource, BaseResourceConfig
@@ -156,6 +156,7 @@ class BasePhase(ABC):
         logger.debug(f"Running phase {self.name}")
         
         self._phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
+        workflow_message.add_phase_message(self._phase_message)
 
         if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
             self._last_agent_message = prev_phase_message.agent_messages[-1]
@@ -169,7 +170,6 @@ class BasePhase(ABC):
                 message=self.params.get("initial_prompt").format(**self.params),
             )
             self._phase_message.add_agent_message(self._last_agent_message)
-        workflow_message.add_phase_message(self._phase_message)
 
         for iteration_num in range(1, self.phase_config.max_iterations + 1):
             if self._phase_message.complete:
@@ -182,18 +182,6 @@ class BasePhase(ABC):
                     await self.workflow.next_iteration_event.wait()
                 else:
                     logger.warning("Interactive mode is set, but workflow doesn't have next_iteration_event")
-
-            """
-            # Check if interactive mode has changed
-            if self.phase_config.interactive != self.workflow.interactive:
-                self.phase_config.interactive = self.workflow.interactive
-                logger.info(f"Interactive mode updated to {self.phase_config.interactive}")
-                if not self.phase_config.interactive:
-                    # If switched to non-interactive, trigger next iteration immediately
-                    self.workflow.next_iteration_event.set()
-            """
-
-
 
             agent_id, agent_instance = self._get_current_agent()
             logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
@@ -224,7 +212,7 @@ class BasePhase(ABC):
         # Deallocate resources after completing iterations
         self.deallocate_resources()
 
-        update_message(self._phase_message)
+        log_message(self._phase_message)
         return self._phase_message
 
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:

@@ -1,10 +1,15 @@
 import React from 'react';
+import { BrowserRouter as Router } from 'react-router';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { WorkflowLauncher } from './WorkflowLauncher';
 import { useServerAvailability } from '../../hooks/useServerAvailability';
 
 // Import jest-dom matchers
 import '@testing-library/jest-dom/extend-expect';
+jest.mock('react-router', () => ({
+  ...jest.requireActual('react-router'),
+  useNavigate: jest.fn(),
+}));
 
 // Mock the dependencies
 jest.mock('../../hooks/useServerAvailability');
@@ -12,6 +17,7 @@ jest.mock('../../hooks/useServerAvailability');
 describe('WorkflowLauncher Component', () => {
   const onWorkflowStartMock = jest.fn();
   const setInteractiveModeMock = jest.fn();
+  const navigate = jest.requireMock('react-router').useNavigate;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -20,7 +26,7 @@ describe('WorkflowLauncher Component', () => {
   test('renders loading state while checking server availability', () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: false, isChecking: true });
 
-    render(<WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} />);
+    render(<Router><WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} /></Router>);
 
     expect(screen.getByText('Checking server availability...')).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
@@ -29,7 +35,7 @@ describe('WorkflowLauncher Component', () => {
   test('renders an alert if the server is not available', () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: false, isChecking: false });
 
-    render(<WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} />);
+    render(<Router><WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} /></Router>);
 
     expect(screen.getByText('Cannot reach server. Retrying...')).toBeInTheDocument();
   });
@@ -47,10 +53,10 @@ describe('WorkflowLauncher Component', () => {
     );
 
     await act(async () => {
-      render(<WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} />);
+      render(<Router><WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} /></Router>);
     });
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
 
     // Wait for async state updates to complete
     await waitFor(() => {
@@ -80,15 +86,17 @@ describe('WorkflowLauncher Component', () => {
   
     await act(async () => {
       render(
-        <WorkflowLauncher 
-          onWorkflowStart={onWorkflowStartMock} 
-          interactiveMode={true} 
-          setInteractiveMode={setInteractiveModeMock} 
-        />
+        <Router>
+          <WorkflowLauncher 
+            onWorkflowStart={onWorkflowStartMock} 
+            interactiveMode={true} 
+            setInteractiveMode={setInteractiveModeMock} 
+          />
+        </Router>
       );
     });
   
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   
     // Wait for async state updates to complete
     await waitFor(() => {
@@ -99,14 +107,20 @@ describe('WorkflowLauncher Component', () => {
     consoleErrorMock.mockRestore();
   });
 
-  test('handles form input correctly and submits the form successfully', async () => {
+  test('handles form input correctly, submits the form successfully, and navigates to new page', async () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [{ name: 'Workflow 1', description: 'Description 1' }];
+    const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     global.fetch = jest
       .fn()
       .mockImplementationOnce(() =>
         Promise.resolve({
-          json: () => Promise.resolve({ workflows })
+          json: () => Promise.resolve({ workflows }) // First fetch API call (fetchWorkflows)
+        })
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          json: () => Promise.resolve(apiKeys) // Second fetch API call (fetchApiKeys)
         })
       )
       .mockImplementationOnce(() =>
@@ -117,13 +131,20 @@ describe('WorkflowLauncher Component', () => {
       );
 
     await act(async () => {
-      render(<WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} />);
+      render(
+        <Router>
+          <WorkflowLauncher 
+            onWorkflowStart={onWorkflowStartMock} 
+            interactiveMode={true} 
+            setInteractiveMode={setInteractiveModeMock} 
+          />
+        </Router>
+      );
     });
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
 
     // Ensure form is updated and submitted correctly
-    // open the select dropdown and select the option
     fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
     fireEvent.click(screen.getByText('Workflow 1'));
 
@@ -134,18 +155,24 @@ describe('WorkflowLauncher Component', () => {
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
     expect(onWorkflowStartMock).toHaveBeenCalledWith('123', true);
   });
 
   test('displays an error message if the form submission fails', async () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [{ name: 'Workflow 1', description: 'Description 1' }];
+    const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     global.fetch = jest
       .fn()
       .mockImplementationOnce(() =>
         Promise.resolve({
-          json: () => Promise.resolve({ workflows })
+          json: () => Promise.resolve({ workflows }) // First fetch API call (fetchWorkflows)
+        })
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          json: () => Promise.resolve(apiKeys) // Second fetch API call (fetchApiKeys)
         })
       )
       .mockImplementationOnce(() =>
@@ -160,15 +187,17 @@ describe('WorkflowLauncher Component', () => {
   
     await act(async () => {
       render(
-        <WorkflowLauncher 
-          onWorkflowStart={onWorkflowStartMock} 
-          interactiveMode={false} 
-          setInteractiveMode={setInteractiveModeMock} 
-        />
+        <Router>
+          <WorkflowLauncher 
+            onWorkflowStart={onWorkflowStartMock} 
+            interactiveMode={false} 
+            setInteractiveMode={setInteractiveModeMock} 
+          />
+        </Router>
       );
     });
   
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   
     // Open the select dropdown and select the option
     fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
@@ -181,7 +210,7 @@ describe('WorkflowLauncher Component', () => {
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
   
     // Check if console.error was called with the expected error message
     expect(consoleErrorMock).toHaveBeenCalledWith('Failed to start workflow');

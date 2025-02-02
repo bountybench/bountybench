@@ -14,6 +14,12 @@ class ActionMessage(Message):
         return self._resource_id
 
     @property
+    def workflow_id(self) -> str:
+        if self.parent:
+            return self.parent.workflow_id
+        return None
+    
+    @property
     def message(self) -> str:
         return self._message
     
