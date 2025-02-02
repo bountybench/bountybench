@@ -72,6 +72,8 @@ class AgentManager:
             resource = None
             if attr_name in self.resource_dict:
                 resource = self.resource_dict[attr_name]
+            else:
+                raise KeyError(f"Resource with attribute name '{attr_name}' not found.")
 
             if resource:
                 setattr(agent, attr_name, resource)
