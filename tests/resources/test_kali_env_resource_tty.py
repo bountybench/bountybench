@@ -62,7 +62,7 @@ def test_run_enter_python_and_create_file(kali_env_resource):
     assert stdout.strip() == "5\n>>>"
     kali_env_resource.run_command("exit()\n", tty=True)
     stdout, _ = kali_env_resource.run_command(f"cat {file_path}\n", tty=True)
-    assert stdout.strip() == "Hello$"
+    assert stdout.strip() == "Hello\n$"
 
 def test_container_persistence_tty(kali_env_resource):
     file_path = "persistent_testfile.txt"
