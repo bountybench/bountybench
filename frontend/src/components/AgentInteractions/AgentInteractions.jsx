@@ -17,6 +17,7 @@ const AgentInteractions = ({
 }) => {
   const [userMessage, setUserMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isStopped, setIsStopped] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -27,9 +28,13 @@ const AgentInteractions = ({
     console.log('Messages updated:', messages);
   }, [messages]);
 
-  // Find the latest PhaseMessage
   const latestPhaseMessage = messages.filter(msg => msg.message_type === 'PhaseMessage').pop();
   console.log('Latest PhaseMessage:', latestPhaseMessage);
+
+  const handleStopClick = async () => {
+    await onStopWorkflow();
+    setIsStopped(true);
+  };
 
   if (!messages) {
     return (
@@ -58,33 +63,30 @@ const AgentInteractions = ({
         <div ref={messagesEndRef} />
       </Box>
 
-      <Box className="input-and-buttons-container" display="flex">
-        <Box className="buttons-wrapper" display="flex" flexDirection="column" justifyContent="flex-end">
-          {interactiveMode && (
-            <>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={onTriggerNextIteration}
-                startIcon={<ArrowForwardIcon />}
-                disabled={isNextDisabled || isEditing}
-                size="small"
-                sx={{ mb: 1 }}
-              >
-                Next Iteration 
-              </Button>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={onStopWorkflow}
-                startIcon={<StopIcon />}
-                size="small"
-              >
-                Stop Workflow
-              </Button>
-            </>
-          )}
-        </Box>
+      <Box className="input-and-buttons-container" display="flex" justifyContent="center" gap={1}>
+        {interactiveMode && !isStopped && (
+          <>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={onTriggerNextIteration}
+              startIcon={<ArrowForwardIcon />}
+              disabled={isNextDisabled || isEditing}
+              size="small"
+            >
+              Next
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={handleStopClick}
+              startIcon={<StopIcon />}
+              size="small"
+            >
+              Stop
+            </Button>
+          </>
+        )}
       </Box>
     </Box>
   );

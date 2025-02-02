@@ -296,6 +296,19 @@ class BaseWorkflow(ABC):
             if not interactive:
                 # If switching to non-interactive, trigger next iteration
                 self.next_iteration_event.set()
+    
+    async def stop(self): 
+        # Set the status to stopped
+        self.status = WorkflowStatus.INCOMPLETE
+
+        # Deallocate agents and resources
+        self.agent_manager.deallocate_all_agents()
+        self.resource_manager.deallocate_all_resources()
+
+        self._finalize_workflow()
+
+        
+
     @property
     def name(self):
         return self.__class__.__name__

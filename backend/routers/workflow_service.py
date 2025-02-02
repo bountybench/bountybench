@@ -30,6 +30,82 @@ async def next_message(workflow_id: str, request: Request):
         return {"error": str(e), "traceback": error_traceback}
 
 
+
+@workflow_service_router.post("/workflow/stop/{workflow_id}")
+async def stop_workflow(workflow_id: str, request: Request):
+    """
+    Stops the execution of a running workflow and removes it from active workflows.
+    """
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+    
+    try:
+        print(f"BEFORE STOP - Active workflows: {list(active_workflows.keys())}")  # Debugging
+
+        await workflow.stop()
+        
+        # Ensure workflow is removed from active_workflows
+        if workflow_id in active_workflows:
+            del active_workflows[workflow_id]
+            print(f"Workflow {workflow_id} removed from active workflows.")
+
+        print(f"AFTER STOP - Active workflows: {list(active_workflows.keys())}")  # Debugging
+
+        # Notify WebSocket clients about the stop
+        websocket_manager = request.app.state.websocket_manager
+        await websocket_manager.broadcast(
+            workflow_id,
+            {"message_type": "workflow_status", "status": "stopped"}
+        )
+
+        print(f"Workflow {workflow_id} has been stopped and removed.")
+        return {"status": "stopped", "workflow_id": workflow_id}
+
+    except Exception as e:
+        error_traceback = traceback.format_exc()
+        print(f"Error stopping workflow {workflow_id}: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
+
+@workflow_service_router.post("/workflow/stop/{workflow_id}")
+async def stop_workflow(workflow_id: str, request: Request):
+    """
+    Stops the execution of a running workflow.
+    """
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+    
+    try:
+        print(f"Active workflows before stopping: {list(active_workflows.keys())}")  # Debugging
+        
+        await workflow.stop()
+        
+        # Remove from active workflows
+        del active_workflows[workflow_id]
+
+        print(f"Active workflows after stopping: {list(active_workflows.keys())}")  # Debugging
+
+        # Notify WebSocket clients about the stop
+        websocket_manager = request.app.state.websocket_manager
+        await websocket_manager.broadcast(
+            workflow_id,
+            {"message_type": "workflow_status", "status": "stopped"}
+        )
+
+        print(f"Workflow {workflow_id} has been stopped.")
+        return {"status": "stopped", "workflow_id": workflow_id}
+
+    except Exception as e:
+        error_traceback = traceback.format_exc()
+        print(f"Error stopping workflow {workflow_id}: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
+
+
 @workflow_service_router.post("/workflow/rerun-message/{workflow_id}")
 async def rerun_message(workflow_id: str, data: MessageData, request: Request):
     active_workflows = request.app.state.active_workflows
