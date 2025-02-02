@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import uvicorn
 import signal
 import sys
+from fastapi.responses import JSONResponse, FileResponse
 
 from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
@@ -357,6 +358,35 @@ async def get_workflow_resources(workflow_id: str):
     resources = workflow.resource_manager.resources
     
     return resources
-    
+
+BASE_DIR = Path(__file__).parent
+LOG_DIR = BASE_DIR / "logs"
+
+@app.get("/logs")
+async def list_logs():
+    """
+    List all JSON log files in the directory.
+    """
+    try:
+        if not LOG_DIR.exists():
+            raise HTTPException(status_code=404, detail="Log directory not found")
+        files = [f.name for f in LOG_DIR.glob("*.json")]
+        return JSONResponse(content=files)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/logs/{filename}")
+async def get_log(filename: str):
+    """
+    Retrieve the content of a specific JSON log file.
+    """
+    file_path = LOG_DIR / filename
+    if not file_path.exists() or not file_path.suffix == ".json":
+        raise HTTPException(status_code=404, detail="Log file not found")
+    try:
+        return FileResponse(file_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
