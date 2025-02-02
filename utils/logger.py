@@ -1,8 +1,10 @@
-import logging
 import os
-
 import sys
 import colorlog
+import queue
+import threading
+import logging
+from logging.handlers import QueueHandler, QueueListener
 
 STATUS = 25  # between INFO and WARNING
 SUCCESS_STATUS = 26  # just above STATUS
@@ -29,27 +31,29 @@ class CustomColoredFormatter(colorlog.ColoredFormatter):
     def __init__(self, fmt, datefmt=None, log_colors=None, reset=True, style='%'):
         super().__init__(fmt, datefmt=datefmt, log_colors=log_colors, reset=reset, style=style)
         # Define the base directory relative to which paths will be made relative
-        self.base_dir = os.getcwd()  # You can set this to your project's root directory
+        self.base_dir = os.getcwd() 
 
     def format(self, record):
         # Compute the relative path
         try:
             record.relative_path = os.path.relpath(record.pathname, self.base_dir)
         except ValueError:
-            # If relpath fails, fallback to pathname
+            # If relpath fails, fallback to pathname            
+            logging.warning(f"Failed to compute relative path for: {record.pathname}")
             record.relative_path = record.pathname
         
         # Add line number to the record
         # Ensure lineno is set
         if not hasattr(record, 'lineno'):
-            record.lineno = 0  # or some default value
+            record.lineno = 0  
             
         return super().format(record)
 
-def get_main_logger(name: str, level: int = logging.INFO) -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    # Define color scheme
+# Create a shared logging queue
+log_queue = queue.Queue()
+
+# Function to configure the logging thread
+def configure_logging_thread():
     log_colors = {
         'DEBUG': 'white',
         'INFO': 'cyan',
@@ -73,7 +77,20 @@ def get_main_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
 
-    logger.addHandler(handler)
+    queue_listener = QueueListener(log_queue, handler, respect_handler_level=True)
+    queue_listener.start()
+    return queue_listener
+
+queue_listener = configure_logging_thread()
+
+def get_main_logger(name: str, level: int = logging.INFO) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    if not any(isinstance(h, QueueHandler) for h in logger.handlers):
+        queue_handler = QueueHandler(log_queue)
+        logger.addHandler(queue_handler)
+
     logger.propagate = False
     return logger
 
