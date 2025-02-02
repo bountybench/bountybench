@@ -265,6 +265,7 @@ class KaliEnvResource(BaseResource):
                         )
                         self.socket = sock
                         self._send_to_bash('export PS1="$"\n')
+                        time.sleep(1)
 
                     self._clear_bash_output_buffer()
                     num_new_lines = self._count_trailing_new_lines(command)
