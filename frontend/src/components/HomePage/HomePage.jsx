@@ -55,7 +55,7 @@ const HomePage = () => {
           <Typography variant="h5" gutterBottom>
             Active Workflows
           </Typography>
-          {activeWorkflows.length === 0 ? (
+          {activeWorkflows && activeWorkflows.length === 0 ? (
             <Typography>No active workflows</Typography>
           ) : (
             activeWorkflows.map((workflow) => (
