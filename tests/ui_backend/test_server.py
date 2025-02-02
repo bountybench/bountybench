@@ -46,7 +46,9 @@ def test_start_workflow_success(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
         "interactive": True,
-        "iterations": 5
+        "iterations": 5,
+        "model": 'test/model',
+        "use_helm": False
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200, "Expected status code 200"
@@ -63,7 +65,9 @@ def test_start_workflow_invalid_name(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
         "interactive": True,
-        "iterations": 5
+        "iterations": 5,
+        "model": 'test/model',
+        "use_helm": False
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200, "Expected status code 200 even on error"
@@ -79,7 +83,9 @@ def started_chat_workflow(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "456",
         "interactive": True,
-        "iterations": 2
+        "iterations": 2,
+        "model": 'test/model',
+        "use_helm": False
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
