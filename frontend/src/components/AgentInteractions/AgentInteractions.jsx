@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
@@ -8,15 +8,20 @@ const AgentInteractions = ({
   interactiveMode, 
   isNextDisabled,
   messages = [],
-  onSendMessage,
   onUpdateActionInput,
   onRerunAction,
   onTriggerNextIteration,
 }) => {
-  const [userMessage, setUserMessage] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
   const messagesEndRef = useRef(null);
+  const cellRefs = useRef({});
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedCellId, setSelectedCellId] = useState(null);
+  const [cellIds, setCellIds] = useState([]);
 
+  // Find the latest PhaseMessage
+  const latestPhaseMessage = messages.filter(msg => msg.message_type === 'PhaseMessage').pop();
+  
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -25,11 +30,71 @@ const AgentInteractions = ({
     console.log('Messages updated:', messages);
   }, [messages]);
 
-  // Find the latest PhaseMessage
-  const latestPhaseMessage = messages.filter(msg => msg.message_type === 'PhaseMessage').pop();
-  console.log('Latest PhaseMessage:', latestPhaseMessage);
+  // Generate ordered list of cell IDs
+  useEffect(() => {
+    if (latestPhaseMessage) {
+      const ids = [];
+      // Add Agent Messages and their Actions
+      latestPhaseMessage.current_children?.forEach(agentMsg => {
+        if (agentMsg.current_id && agentMsg.current_children?.length == 0) ids.push(agentMsg.current_id);
+        agentMsg.current_children?.forEach(actionMsg => {
+          if (actionMsg.current_id) ids.push(actionMsg.current_id);
+        });
+      });
 
-  if (!messages) {
+      setCellIds(ids);
+      if (ids.length > 0 && !selectedCellId) setSelectedCellId(ids[0]);
+    } else {
+      setCellIds([]);
+      setSelectedCellId(null);
+    }
+  }, [latestPhaseMessage]);
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const key = e.key.toLowerCase();
+      if (['arrowdown', 'j'].includes(key)) {
+        e.preventDefault();        
+        setSelectedCellId(prev => {
+          const newId = getNextId(prev);
+          scrollToCell(newId); // Scroll to new cell
+          return newId;
+        });
+      } else if (['arrowup', 'k'].includes(key)) {
+        e.preventDefault();
+        setSelectedCellId(prev => {
+          const newId = getPrevId(prev);
+          scrollToCell(newId); // Scroll to new cell
+          return newId;
+        });
+      }
+    };
+
+    const getNextId = (currentId) => {
+      if (!currentId) return cellIds[0];
+      const index = cellIds.indexOf(currentId);
+      return cellIds[Math.min(index + 1, cellIds.length - 1)];
+    };
+
+    const getPrevId = (currentId) => {
+      if (!currentId) return cellIds[0];
+      const index = cellIds.indexOf(currentId);
+      return cellIds[Math.max(index - 1, 0)];
+    };
+
+    const scrollToCell = (cellId) => {
+      const cellElement = cellRefs.current[cellId];
+      if (cellElement) {
+        cellElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [cellIds]);
+
+  if (!messages || messages.length === 0) {  // Handle empty messages here
     return (
       <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
         <CircularProgress />
@@ -51,6 +116,9 @@ const AgentInteractions = ({
             onRerunAction={onRerunAction}
             onEditingChange={setIsEditing}
             isEditing={isEditing}
+            selectedCellId={selectedCellId}
+            onCellSelect={setSelectedCellId}
+            cellRefs={cellRefs}
           />
         )}
         <div ref={messagesEndRef} />

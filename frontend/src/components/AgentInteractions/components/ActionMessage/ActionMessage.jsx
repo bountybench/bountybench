@@ -9,7 +9,7 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css'
 
-const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing }) => {
+const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
@@ -49,7 +49,8 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
 
   const originalMessageContent = formatData(action.message);
 
-  const handleEditClick = () => {
+  const handleEditClick = (e) => {
+    e.stopPropagation();
     setEditing(true);
     onEditingChange(true);
     setEditedMessage(originalMessageContent);
@@ -82,8 +83,12 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
 
   return (
     <Card 
-      className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''}`} 
+      className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''} ${selectedCellId === action.current_id ? 'selected' : ''}`}
       variant="outlined"
+      onClick={(e) => {
+        e.stopPropagation();
+        onCellSelect(action.current_id);
+      }}
     >
     <CardContent>
       <Box className="action-message-header">

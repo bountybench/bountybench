@@ -8,14 +8,15 @@ import CloseIcon from '@mui/icons-material/Close';
 import ActionMessage from '../ActionMessage/ActionMessage';
 import './AgentMessage.css'
 
-const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing }) => {
+const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message.message || '');
 
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
 
-  const handleEditClick = () => {
+  const handleEditClick = (e) => {
+    e.stopPropagation();
     setEditing(true);
     onEditingChange(true);
     setEditedMessage(message.message || '');
@@ -41,6 +42,18 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     setEditedMessage(message.message || '');
   };
 
+  const handleAgentClick = (e) => {
+    e.stopPropagation();
+    if (message.current_children && message.current_children.length > 0) {
+      // If there are action messages, select the first action message instead
+      const firstActionMessageId = message.current_children[0].current_id;
+      onCellSelect(firstActionMessageId);
+    } else {
+      // If no action messages, allow selecting the agent message
+      onCellSelect(message.current_id);
+    }
+  };
+
   useEffect(() => {
     const handleEscKey = (event) => {
       if (event.key === 'Escape' && editing) {
@@ -55,7 +68,10 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
   }, [editing]);
 
   return (
-    <Box className="agent-message-container">
+    <Box 
+      className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
+      onClick={handleAgentClick}
+    >
       <Card className="message-bubble agent-bubble">
         <CardContent>
           <Box className="agent-message-header">
@@ -134,14 +150,18 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
               <Box className="action-messages-container">
                 <Typography className="action-messages-title">Actions:</Typography>
                 {message.current_children.map((actionMessage, index) => (
-                  <ActionMessage 
-                    key={index} 
+                  <div ref={(el) => (cellRefs.current[actionMessage.current_id] = el)} key={actionMessage.current_id}>
+                    <ActionMessage 
+                    key={actionMessage.current_id}
                     action={actionMessage} 
                     onUpdateActionInput={onUpdateActionInput}
                     onRerunAction={onRerunAction}
                     onEditingChange={onEditingChange}
                     isEditing={isEditing}
-                  />
+                    selectedCellId={selectedCellId}
+                    onCellSelect={onCellSelect}
+                    />
+                  </div>
                 ))}
               </Box>
             )}

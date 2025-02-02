@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AgentMessage from '../AgentMessage/AgentMessage';
 import './PhaseMessage.css'
 
-const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing }) => {
+const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
@@ -38,14 +38,19 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
                 {message.current_children.map((agentMessage, index) => (
-                  <AgentMessage 
-                    key={index} 
-                    message={agentMessage} 
-                    onUpdateActionInput={onUpdateActionInput}
-                    onRerunAction={onRerunAction}
-                    onEditingChange={onEditingChange}
-                    isEditing={isEditing}
-                  />
+                  <div ref={(el) => (cellRefs.current[agentMessage.current_id] = el)} key={agentMessage.current_id}>                  
+                    <AgentMessage 
+                      key={agentMessage.current_id}
+                      message={agentMessage} 
+                      onUpdateActionInput={onUpdateActionInput}
+                      onRerunAction={onRerunAction}
+                      onEditingChange={onEditingChange}
+                      isEditing={isEditing}
+                      selectedCellId={selectedCellId}
+                      onCellSelect={onCellSelect}
+                      cellRefs={cellRefs}
+                    />
+                  </div>
                 ))}
               </Box>
             )}
