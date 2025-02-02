@@ -52,3 +52,40 @@ test('triggers version change', () => {
   // Version index is incremented by 1
   expect(mockPhaseChildUpdate).toHaveBeenCalledWith('agent1', 1);
 });
+
+
+test('multiple versions of action messages', () => {
+  const message = {
+    agent_id: 'agent-1',
+    current_id: 'agent-1',
+    message: 'agent message',
+    action_messages: [{current_id: 'action-11', message: 'former1'},{current_id: 'action-21', message: 'former2'}, {current_id: 'action-12', message: 'current1'},{current_id: 'action-22', message: 'current2'}],
+    current_children: [{current_id: 'action-12', message: 'current1'},{current_id: 'action-22', message: 'current2'}],
+    message_type: 'AgentMessage',
+  };
+
+  render(<AgentMessage index={0} message={message}/>);
+  
+  expect(screen.getByText(/former1/i)).toBeInTheDocument();
+  expect(screen.getByText(/former2/i)).toBeInTheDocument();
+
+  // Verify the version text (1/2)
+  const versionText = screen.getByText(`${1}/${2}`);
+  expect(versionText).toBeInTheDocument();
+
+  // Verify the version toggling buttons are present
+  const backButton = screen.getByRole('button', { name: /arrow back/i }); 
+  const forwardButton = screen.getByRole('button', { name: /arrow forward/i }); 
+  expect(forwardButton).toBeInTheDocument();
+  expect(forwardButton).not.toBeDisabled();
+  expect(backButton).toBeInTheDocument();
+  expect(backButton).toBeDisabled();
+
+  // Select previous version and verify that the display is changed
+  fireEvent.click(forwardButton);
+  expect(screen.getByText(/current1/i)).toBeInTheDocument();
+  expect(screen.getByText(/current2/i)).toBeInTheDocument();
+  const newVersionText = screen.getByText(`${2}/${2}`);
+  expect(newVersionText).toBeInTheDocument();
+
+});

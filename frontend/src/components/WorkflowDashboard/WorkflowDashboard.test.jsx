@@ -103,12 +103,14 @@ describe('WorkflowDashboard Component', () => {
                       {
                           "agent_id": "1",
                           "message": "Message 1",
+                          "action_messages": [],
                           "current_children": [],
                           "message_type": "AgentMessage",
                       },
                       {
                           "agent_id": "2",
                           "message": "Message 2",
+                          "action_messages": [],
                           "current_children": [],
                           "message_type": "AgentMessage",
                       }
@@ -117,12 +119,14 @@ describe('WorkflowDashboard Component', () => {
                       {
                           "agent_id": "1",
                           "message": "Message 1",
+                          "action_messages": [],
                           "current_children": [],
                           "message_type": "AgentMessage",
                       },
                       {
                           "agent_id": "2",
                           "message": "Message 2",
+                          "action_messages": [],
                           "current_children": [],
                           "message_type": "AgentMessage",
                       }
@@ -268,6 +272,13 @@ describe('WorkflowDashboard Component', () => {
                 {
                   agent_id: 'agent-1',
                   message: 'Message 1',
+                  action_messages: [
+                    {
+                      current_id: 'test-message-id',
+                      resource_id: 'test-message-id',
+                      message: 'former'
+                    }
+                  ],
                   current_children: [
                     {
                       current_id: 'test-message-id',
@@ -362,6 +373,13 @@ describe('WorkflowDashboard Component', () => {
                 {
                   agent_id: 'agent-1',
                   message: 'Message 1',
+                  action_messages: [
+                    {
+                      current_id: 'test-message-id',
+                      resource_id: 'test-message-id',
+                      message: 'former'
+                    }
+                  ],
                   current_children: [
                     {
                       current_id: 'test-message-id',

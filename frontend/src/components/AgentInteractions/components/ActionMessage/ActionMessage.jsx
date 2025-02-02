@@ -190,6 +190,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
                       {/* Arrow Buttons */}
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <IconButton
+                          aria-label="arrow back"
                           onClick={() => handleToggleVersion(-1)}
                           disabled={displayedIndex === 1}
                           sx={{ color: 'black' }}
@@ -198,6 +199,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
                           <ArrowBackIcon />
                         </IconButton>
                         <IconButton
+                          aria-label="arrow forward"
                           onClick={() => handleToggleVersion(1)}
                           disabled={displayedIndex === versionLength}
                           sx={{ color: 'black' }}
