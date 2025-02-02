@@ -21,6 +21,11 @@ logger = get_main_logger(__name__)
 MAX_RETRIES = 3
 RETRY_DELAY = 30
 
+@dataclass
+class ExecutorAgentConfig(AgentConfig):
+    """Configuration for ExecutorAgent"""
+    # TODO: Add any executor-specific config fields here
+
 
 class ExecutorAgent(BaseAgent):
 
@@ -28,7 +33,6 @@ class ExecutorAgent(BaseAgent):
        (InitFilesResource, "init_files"),
         (KaliEnvResource, "kali_env"),
         (ModelResource, "model")
-
     ]
     OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "bounty_resource")]
     ACCESSIBLE_RESOURCES = [
@@ -36,7 +40,8 @@ class ExecutorAgent(BaseAgent):
        (InitFilesResource, "init_files"),
         (SetupResource, "repo_resource"),
         (SetupResource, "bounty_resource"),
-        (ModelResource, "model")]     
+        (ModelResource, "model")
+    ]     
     
 
     async def run(self, messages: List[Message]) -> Message:
@@ -48,17 +53,8 @@ class ExecutorAgent(BaseAgent):
             prev_agent_message = messages[0]
             while prev_agent_message.version_next:
                 prev_agent_message = prev_agent_message.version_next
-
-
-
         agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
-        
-        #print("************IN EXECUTOR AGENT RUN*****************************")
-        #print("AGENT MESSAGE", agent_message.to_dict())
-        #print("PREVIOUS AGENT MESSAGE", prev_agent_message.to_dict())
-        #print("***************************************************************")
         self.execute(agent_message, prev_agent_message)
-        #self.model.update_memory(executor_message)
 
         return agent_message
 
@@ -67,10 +63,8 @@ class ExecutorAgent(BaseAgent):
         if not model_action_message:
             return
         
-
+        # Add result of the LM call, if any, to the agent message
         agent_message.add_action_message(model_action_message)
-
-    
 
         # If the model decides to output a command, we run it in the environment
         logger.info(f"LM Response:\n{model_action_message.message}")
