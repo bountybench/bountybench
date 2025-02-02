@@ -5,7 +5,7 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.action_messages.action_message import ActionMessage
 from messages.message import Message
 
-class TestAgentMessageClasses(unittest.TestCase):
+class TestAgentMessage(unittest.TestCase):
 
     def setUp(self):
         """
@@ -18,7 +18,7 @@ class TestAgentMessageClasses(unittest.TestCase):
 
     def test_agent_message_is_message(self):
         """
-        Ensure CommandMessage is a subclass of Message.
+        Ensure AgentMessage is a subclass of Message.
         """
         agent_message = AgentMessage("test_id", "test_msg")
         self.assertIsInstance(agent_message, Message)
@@ -111,6 +111,9 @@ class TestAgentMessageClasses(unittest.TestCase):
             self.assertEqual(agent_dict["agent_id"], "test_id")
             self.assertEqual(agent_dict["action_messages"], [{"action": "msg"}])
             self.assertEqual(agent_dict["message"], "test_msg")
+            mock_action_messages.assert_called()
+            mock_current_actions_list.assert_called_once()
+            action_message.to_dict.assert_called()
             self.assertIn("current_children", agent_dict)
 
     def test_to_dict(self):
@@ -121,13 +124,13 @@ class TestAgentMessageClasses(unittest.TestCase):
              patch.object(AgentMessage, 'agent_dict') as mock_agent_dict:
             
             mock_super_to_dict.return_value = {"super_key": "super_value"}
-            mock_agent_dict.return_value={"agent_key": "agent_data"}
+            mock_agent_dict.return_value = {"agent_key": "agent_value"}
             
             agent_message = AgentMessage("test_id", "test_msg")
             agent_dict = agent_message.to_dict()
 
             # Assertions
             self.assertEqual(agent_dict["super_key"], "super_value")
-            self.assertEqual(agent_dict["agent_key"], "agent_data")
+            self.assertEqual(agent_dict["agent_key"], "agent_value")
             mock_super_to_dict.assert_called_once()
             mock_agent_dict.assert_called_once()
