@@ -17,8 +17,6 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
   const [editedMessage, setEditedMessage] = useState(message.message || '');
 
   const [displayedIndex, setDisplayedIndex] = useState(1);
-  // const [multiVersion, setMultiVersion] = useState(false);
-  const [versionChain, setVersionChain] = useState([message.current_children]);
     
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
 
@@ -28,43 +26,20 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     setEditedMessage(message.message || '');
   };
 
-  const getActionIds = (actions) => actions.length === 0 ? [] : actions.map(action => action.current_id);
-  const arraysEqual = (arr1, arr2) => JSON.stringify(arr1) === JSON.stringify(arr2);
+  useEffect(() => {
+    if (message.action_messages){
+      const messageLength = message.action_messages.length;
+      // Make sure that both model and kali_env are received
+      if (messageLength % 2 !== 0) {
+        return;
+      }
+      setDisplayedIndex(messageLength / 2);
+    }
+  }, [message.action_messages]);
 
   useEffect(() => {
-      if (message.action_messages){
-        const curr_children = message.current_children;
-        const versionLength = versionChain.length;
-        const curr_children_ids = getActionIds(curr_children);
-        const all_action_ids = getActionIds(message.action_messages);
-        if (arraysEqual(all_action_ids,curr_children_ids)){
-          setVersionChain([curr_children]);
-          return;
-        }
-        // when current children is not equal to latest version
-        const last_version_ids = getActionIds(versionChain[versionLength-1]);
-        if (!arraysEqual(last_version_ids,curr_children_ids)) {
-          // if all of current children is new, we have a new version
-          if (curr_children_ids.filter(child => last_version_ids.includes(child)).length === 0){
-            setVersionChain((prev) => {
-              const newVersionChain = [...prev, curr_children];
-              setDisplayedIndex(newVersionChain.length); // Uses the updated versionChain
-              return newVersionChain;
-            });
-          }
-          else{
-            const newChildren = curr_children.filter(child => !last_version_ids.includes(child.current_id));
-            setVersionChain(prev => prev.map((innerList, index) => 
-                index === displayedIndex - 1 ? [...innerList, ...newChildren] : innerList
-              ));
-          }
-        }
-      }
-    }, [message, message.action_messages]);
-
-    useEffect(() => {
-      setDisplayedIndex(1);
-    }, [phaseDisplayedIndex]);
+    setDisplayedIndex(1);
+  }, [phaseDisplayedIndex]);
 
   const handleToggleVersion = (num) => {
     if (onPhaseChildUpdate) {
@@ -223,7 +198,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
               </Box>
             ) : (
               <Box className="action-messages-container">
-                {versionChain[displayedIndex - 1].map((actionMessage, index) => (
+                {message.action_messages.slice(2*displayedIndex-2, 2*displayedIndex).map((actionMessage, index) => (
                   <ActionMessage
                     key={index}
                     index={index}
@@ -234,7 +209,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
                     isEditing={isEditing}
                     onChildUpdate={handleChildUpdate}
                     displayedIndex={displayedIndex}
-                    versionLength={versionChain.length}
+                    versionLength={message.action_messages.length / 2}
                   />
                 ))}
               </Box>
