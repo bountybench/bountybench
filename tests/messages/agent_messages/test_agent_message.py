@@ -53,13 +53,10 @@ class TestAgentMessage(unittest.TestCase):
         action_msg2.version_prev = action_msg1
         action_msg2.version_next = action_msg3
         action_msg3.version_prev = action_msg2
-        action_msg3.version_next = None  # Last version
         action_msg4.version_next = action_msg5
         action_msg5.version_prev = action_msg4
-        action_msg5.version_next = None  # Last version
         action_msg3.next = action_msg4
         action_msg4.prev = action_msg3
-        action_msg4.next = None  # Last action
 
         def side_effect_func(msg):
             if msg == action_msg1:
