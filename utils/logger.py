@@ -95,6 +95,10 @@ class LoggerConfig:
         queue_listener.start()
         return queue_listener
 
+    def shutdown(self):
+        """Shutdown the queue listener."""
+        self.queue_listener.stop()
+
     def get_main_logger(self, name: str, level: int = logging.INFO) -> logging.Logger:
         """Get a logger instance with a QueueHandler."""
         logger = logging.getLogger(name)
