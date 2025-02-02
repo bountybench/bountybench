@@ -11,7 +11,7 @@ import './AgentMessage.css'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const AgentMessage = ({ index, message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
+const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message.message || '');
@@ -68,7 +68,7 @@ const AgentMessage = ({ index, message, onUpdateActionInput, onRerunAction, onEd
 
   const handleToggleVersion = (num) => {
     if (onPhaseChildUpdate) {
-        onPhaseChildUpdate(num); // Notify parent of the update
+        onPhaseChildUpdate(message.agent_id, num); // Notify parent of the update
     }
   };
 
@@ -183,7 +183,7 @@ const AgentMessage = ({ index, message, onUpdateActionInput, onRerunAction, onEd
                       </Button>
 
                       {/* Toggle Version Arrows */}
-                    {phaseVersionLength > 1 && index === 0 && (
+                    {phaseVersionLength > 1 && (
                     <>
                     <Typography variant="caption" sx={{ mx: 1 }}>
                     </Typography>
