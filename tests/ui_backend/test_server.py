@@ -111,7 +111,9 @@ def started_patch_workflow(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "789",
         "interactive": False,
-        "iterations": 1
+        "iterations": 1,
+        "model": 'test/model',
+        "use_helm": False
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -145,7 +147,9 @@ def started_detect_workflow(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "654",
         "interactive": False,
-        "iterations": 2
+        "iterations": 2,
+        "model": 'test/model',
+        "use_helm": False
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -199,7 +203,9 @@ def test_start_workflow_missing_fields(client):
         # "task_dir" is missing
         "bounty_number": "123",
         "interactive": True,
-        "iterations": 5
+        "iterations": 5,
+        "model": 'test/model',
+        "use_helm": False
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 422, "Expected status code 422 for validation error"
@@ -231,7 +237,9 @@ async def test_websocket_connection_success(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
         "interactive": True,
-        "iterations": 5
+        "iterations": 5,
+        "model": 'test/model',
+        "use_helm": False
     }
     start_response = client.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200
@@ -250,7 +258,9 @@ async def test_websocket_receive_status_update(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
         "interactive": True,
-        "iterations": 5
+        "iterations": 5,
+        "model": 'test/model',
+        "use_helm": False
     }
     start_response = client.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200
