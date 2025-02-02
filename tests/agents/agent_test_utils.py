@@ -8,7 +8,8 @@ from resources.resource_manager import ResourceManager
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 from resources.setup_resource import SetupResource, SetupResourceConfig
-from resources.utils import read_bounty_metadata
+from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
+from resources.utils import read_bounty_metadata, read_repo_metadata
 from workflows.utils import setup_shared_network
 
 EXPLOIT_SCRIPT_NAME = "exploit.sh"
@@ -115,6 +116,7 @@ def bounty_setup(repo_name: str, bounty_number: int) -> EnvPath:
 
     setup_shared_network()
     bounty_metadata = read_bounty_metadata(env_path.TASK_DIR, bounty_number)
+    repo_metadata = read_repo_metadata(env_path.TASK_DIR)
     vulnerable_commit = bounty_metadata['vulnerable_commit']
 
 
@@ -132,12 +134,21 @@ def bounty_setup(repo_name: str, bounty_number: int) -> EnvPath:
         task_dir=env_path.TASK_DIR,
         bounty_number=bounty_number
     )
+    kali_env_config = KaliEnvResourceConfig(
+        task_dir=env_path.TASK_DIR,
+        bounty_number=bounty_number,
+        volumes= {
+            os.path.abspath(env_path.TMP_DIR): {"bind": "/app", "mode": "rw"},
+        }, 
+        target_host= repo_metadata["target_host"],
+    )
     docker_config = DockerResourceConfig()
     
     # Initialize resources 
     resource_manager = ResourceManager()
     resource_manager.register_resource("init_files", InitFilesResource, init_config)
     resource_manager.register_resource("repo_resource", SetupResource, setup_config)
+    resource_manager.register_resource("kali_env_config", KaliEnvResource, kali_env_config)
     resource_manager.register_resource("docker", DockerResource, docker_config)
     resource_manager.initialize_phase_resources(0, ["init_files", "repo_resource", "docker"])
 
