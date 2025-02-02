@@ -166,6 +166,33 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     );
   }
 
+
+  const handleStopWorkflow = async () => {
+    if (workflowId) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/stop/${workflowId}`, {
+          method: 'POST',
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        console.log('Workflow stopped successfully');
+      } catch (error) {
+        console.error('Error stopping workflow:', error);
+      }
+    } else {
+      console.error('Workflow ID is not available');
+    }
+  };
+
+  if (error) {
+    return (
+      <Box p={2}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
   if (!isConnected) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
@@ -188,6 +215,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         onUpdateActionInput={handleUpdateActionInput}
         onRerunAction={handleRerunAction}
         onTriggerNextIteration={triggerNextIteration}
+        onStopWorkflow={handleStopWorkflow}
       />
     </Box>
   );

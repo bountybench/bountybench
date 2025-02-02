@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import StopIcon from '@mui/icons-material/Stop';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
 import './AgentInteractions.css';
 
@@ -12,6 +13,7 @@ const AgentInteractions = ({
   onUpdateActionInput,
   onRerunAction,
   onTriggerNextIteration,
+  onStopWorkflow
 }) => {
   const [userMessage, setUserMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -69,7 +71,16 @@ const AgentInteractions = ({
                 size="small"
                 sx={{ mb: 1 }}
               >
-                Next
+                Next Iteration 
+              </Button>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={onStopWorkflow}
+                startIcon={<StopIcon />}
+                size="small"
+              >
+                Stop Workflow
               </Button>
             </>
           )}
