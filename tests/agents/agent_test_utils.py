@@ -150,7 +150,7 @@ def bounty_setup(repo_name: str, bounty_number: int) -> EnvPath:
     resource_manager.register_resource("repo_resource", SetupResource, setup_config)
     resource_manager.register_resource("kali_env_config", KaliEnvResource, kali_env_config)
     resource_manager.register_resource("docker", DockerResource, docker_config)
-    resource_manager.initialize_phase_resources(0, ["init_files", "repo_resource", "docker"])
+    resource_manager.initialize_phase_resources(0, ["init_files", "repo_resource", "kali_env_config", "docker"])
 
     return env_path
 
