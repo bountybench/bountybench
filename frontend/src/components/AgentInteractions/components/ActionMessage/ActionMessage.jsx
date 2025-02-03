@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -11,23 +11,24 @@ import './ActionMessage.css'
 
 const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
   const [expanded, setExpanded] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [editedMessage, setEditedMessage] = useState('');
+  const [editedMessage, setEditedMessage] = useState(action.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+  const textFieldRef = useRef(null);
 
+  
+  // Synchronize state when entering editing mode
   useEffect(() => {
-    const handleEscKey = (event) => {
-      if (event.key === 'Escape' && editing) {
-        handleCancelEdit();
+    if (isEditing && selectedCellId === action.current_id) {
+      setEditedMessage(action.message || '');
+      if (textFieldRef.current) {
+        setTimeout(() => {
+          textFieldRef.current.focus();   // Focus the text field when editing starts
+          textFieldRef.current.setSelectionRange(0, 0); // Set cursor at the start
+        }, 0);
       }
-    };
-
-    document.addEventListener('keydown', handleEscKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }, [editing]);
-
+    }
+  }, [isEditing, selectedCellId]);
+  
   if (!action) return null;
 
   const handleToggleMetadata = (event) => {
@@ -51,7 +52,6 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
 
   const handleEditClick = (e) => {
     e.stopPropagation();
-    setEditing(true);
     onEditingChange(true);
     setEditedMessage(originalMessageContent);
   };
@@ -63,7 +63,6 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
     }
     try {
       await onUpdateActionInput(action.current_id, editedMessage);
-      setEditing(false);
       onEditingChange(false);
     } catch (error) {
       console.error('Error updating action message:', error);
@@ -71,7 +70,6 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
   };
 
   const handleCancelEdit = () => {
-    setEditing(false);
     onEditingChange(false);
     setEditedMessage(originalMessageContent);
   };
@@ -80,15 +78,25 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
     e.stopPropagation();
     setExpanded(!expanded);
   };
+  
+  const handleContainerClick = (e) => {
+    e.stopPropagation();
+    onCellSelect(action.current_id);
+    // setEditing(false);
+    // onEditingChange(false);
+    
+    // // Enter edit mode if clicking text content
+    // if (e.target.closest('.action-message-text')) {
+    //   setEditing(true);
+    //   onEditingChange(true);
+    // }
+  };
 
   return (
     <Card 
       className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''} ${selectedCellId === action.current_id ? 'selected' : ''}`}
       variant="outlined"
-      onClick={(e) => {
-        e.stopPropagation();
-        onCellSelect(action.current_id);
-      }}
+      onClick={handleContainerClick}
     >
     <CardContent>
       <Box className="action-message-header">
@@ -113,12 +121,13 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
       </Box>
 
       <Collapse in={expanded}>
-        {editing ? (
+        {isEditing && selectedCellId === action.current_id ? (
           <Box className="edit-mode-container">
             <Typography variant="caption" color="text.secondary">
               Editing Message:
             </Typography>
             <TextField
+              inputRef={textFieldRef}
               multiline
               minRows={3}
               maxRows={10}
@@ -156,7 +165,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
                 {originalMessageContent}
               </Typography>
             </Box>
-            <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+            <Box className="action-message-buttons" sx={{ display: isEditing && selectedCellId !== action.current_id ? 'none' : 'flex' }}>
               <Button
                 variant="outlined"
                 color="primary"

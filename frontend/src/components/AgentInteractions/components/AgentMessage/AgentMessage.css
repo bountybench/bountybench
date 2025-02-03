@@ -80,7 +80,6 @@
 .edit-textarea {
   background-color: #ffffff;
   width: 100%;
-  min-height: 100px;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   padding: 12px;
@@ -129,6 +128,5 @@
 .selected {
   border: 2px solid #ffd23d !important;
   background-color: #f0f8ff;
-  margin: 2px;
   border-radius: 4px;
 }

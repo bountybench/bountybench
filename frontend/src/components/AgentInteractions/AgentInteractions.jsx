@@ -13,8 +13,8 @@ const AgentInteractions = ({
   onTriggerNextIteration,
 }) => {
   const messagesEndRef = useRef(null);
-  const cellRefs = useRef({});
-  
+  const cellRefs = useRef({}); 
+
   const [isEditing, setIsEditing] = useState(false);
   const [selectedCellId, setSelectedCellId] = useState(null);
   const [cellIds, setCellIds] = useState([]);
@@ -24,10 +24,6 @@ const AgentInteractions = ({
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  useEffect(() => {
-    console.log('Messages updated:', messages);
   }, [messages]);
 
   // Generate ordered list of cell IDs
@@ -54,14 +50,30 @@ const AgentInteractions = ({
   useEffect(() => {
     const handleKeyDown = (e) => {
       const key = e.key.toLowerCase();
-      if (['arrowdown', 'j'].includes(key)) {
-        e.preventDefault();        
+
+      if (isEditing) {
+        if (key === 'escape') {
+          e.preventDefault();
+          setIsEditing(false); // Exit edit mode on Escape
+        }
+        return; // Prevent navigation while editing
+      }
+
+      if (key === 'enter') {
+        e.preventDefault();
+        setIsEditing(true); // Enter edit mode on Enter
+        return;
+      }
+
+      // Navigation
+      if (key === 'arrowdown' || key === 'j') {
+        e.preventDefault();
         setSelectedCellId(prev => {
           const newId = getNextId(prev);
           scrollToCell(newId); // Scroll to new cell
           return newId;
         });
-      } else if (['arrowup', 'k'].includes(key)) {
+      } else if (key === 'arrowup' || key === 'k') {
         e.preventDefault();
         setSelectedCellId(prev => {
           const newId = getPrevId(prev);
@@ -92,7 +104,7 @@ const AgentInteractions = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [cellIds]);
+  }, [cellIds, isEditing]);
 
   if (!messages || messages.length === 0) {  // Handle empty messages here
     return (

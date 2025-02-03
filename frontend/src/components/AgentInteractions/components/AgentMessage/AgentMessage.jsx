@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -10,14 +10,13 @@ import './AgentMessage.css'
 
 const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
-  const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message.message || '');
+  const textFieldRef = useRef(null);
 
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
 
   const handleEditClick = (e) => {
     e.stopPropagation();
-    setEditing(true);
     onEditingChange(true);
     setEditedMessage(message.message || '');
   };
@@ -29,7 +28,6 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     }
     try {
       await onUpdateActionInput(message.current_id, editedMessage);
-      setEditing(false);
       onEditingChange(false);
     } catch (error) {
       console.error('Error updating message:', error);
@@ -37,12 +35,11 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
   };
 
   const handleCancelEdit = () => {
-    setEditing(false);
     onEditingChange(false);
     setEditedMessage(message.message || '');
   };
 
-  const handleAgentClick = (e) => {
+  const handleContainerClick = (e) => {
     e.stopPropagation();
     if (message.current_children && message.current_children.length > 0) {
       // If there are action messages, select the first action message instead
@@ -52,25 +49,33 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
       // If no action messages, allow selecting the agent message
       onCellSelect(message.current_id);
     }
+    // setEditing(false);
+    // onEditingChange(false);
+    
+    // // Enter edit mode if clicking text content
+    // if (e.target.closest('.agent-message-text-card')) {
+    //   setEditing(true);
+    //   onEditingChange(false);
+    // }
   };
 
+  // Synchronize state when entering editing mode
   useEffect(() => {
-    const handleEscKey = (event) => {
-      if (event.key === 'Escape' && editing) {
-        handleCancelEdit();
+    if (isEditing && selectedCellId === message.current_id) {
+      setEditedMessage(message.message || '');
+      if (textFieldRef.current) {
+        setTimeout(() => {
+          textFieldRef.current.focus();   // Focus the text field when editing starts
+          textFieldRef.current.setSelectionRange(0, 0); // Set cursor at the start
+        }, 0);
       }
-    };
-
-    document.addEventListener('keydown', handleEscKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }, [editing]);
-
+    }
+  }, [isEditing, selectedCellId]);
+  
   return (
     <Box 
       className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
-      onClick={handleAgentClick}
+      onClick={handleContainerClick}
     >
       <Card className="message-bubble agent-bubble">
         <CardContent>
@@ -88,9 +93,10 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
           <Collapse in={agentMessageExpanded}>
             {!message.current_children || message.current_children.length === 0 ? (
               <Box className="agent-message-content">
-                {editing ? (
+                {isEditing && selectedCellId === message.current_id ? (
                   <Box className="edit-mode-container">
                     <TextField
+                      inputRef={textFieldRef}
                       multiline
                       fullWidth
                       minRows={3}
@@ -138,7 +144,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
                         onClick={handleEditClick}
                         size="small"
                         className="edit-button"
-                        sx={{ display: isEditing && !editing ? 'none' : 'flex' }}
+                        sx={{ display: isEditing && selectedCellId !== message.current_id ? 'none' : 'flex' }}
                       >
                         <EditIcon />
                       </Button>
