@@ -8,7 +8,7 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ActionMessage from '../ActionMessage/ActionMessage';
 import './AgentMessage.css'
 
-const AgentMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
+const AgentMessage = ({ message, onUpdateActionInput, isNextDisabled, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editedMessage, setEditedMessage] = useState(message.message || '');
   const textFieldRef = useRef(null);
@@ -131,6 +131,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing
                         onClick={handleCancelEdit}
                         size="small"
                         className="cancel-button"
+                        sx={{ display: isNextDisabled ? 'none' : 'flex' }}
                       >
                         <CloseIcon/>
                       </Button>
@@ -140,7 +141,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing
                         onClick={handleSaveClick}
                         size="small"
                         className="save-button"
-                        sx={{ mr: 1 }}
+                      sx={{ display: isNextDisabled ? 'none' : 'flex' }}
                       >
                         <KeyboardArrowRightIcon/>
                       </Button>
@@ -164,7 +165,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing
                             onClick={handleEditClick}
                             size="small"
                             className="edit-button"
-                            sx={{ display: isEditing && selectedCellId !== message.current_id ? 'none' : 'flex' }}
+                            sx={{ display: isNextDisabled ? 'none' : 'flex' }}
                           >
                             <EditIcon />
                           </Button>
@@ -173,7 +174,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing
                             onClick={handleSaveClick}
                             size="small"
                             className="save-button hovering"
-                            sx={{ mr: 1 }}
+                            sx={{ display: isNextDisabled ? 'none' : 'flex' }}
                           >
                             <KeyboardArrowRightIcon/>
                           </Button>
@@ -192,6 +193,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing
                     key={actionMessage.current_id}
                     action={actionMessage} 
                     onUpdateActionInput={onUpdateActionInput}
+                    isNextDisabled={isNextDisabled}
                     onEditingChange={onEditingChange}
                     isEditing={isEditing}
                     selectedCellId={selectedCellId}

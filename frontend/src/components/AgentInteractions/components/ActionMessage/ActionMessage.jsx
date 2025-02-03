@@ -8,7 +8,7 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css'
 
-const ActionMessage = ({ action, onUpdateActionInput, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
+const ActionMessage = ({ action, onUpdateActionInput, isNextDisabled, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
   const [expanded, setExpanded] = useState(true);
   const [editedMessage, setEditedMessage] = useState(action.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
@@ -152,6 +152,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onEditingChange, isEditing
                   onClick={handleCancelEdit}
                   size="small"
                   className="cancel-button"
+                  sx={{  display: isNextDisabled ? 'none' : 'flex' }}
                 >
                   <CloseIcon/>
                 </Button>
@@ -161,7 +162,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onEditingChange, isEditing
                   onClick={handleSaveClick}
                   size="small"
                   className="save-button"
-                  sx={{ mr: 1 }}
+                  sx={{  display: isNextDisabled ? 'none' : 'flex' }}
                 >
                   <KeyboardArrowRightIcon/>
               </Button>
@@ -183,7 +184,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onEditingChange, isEditing
                       onClick={handleEditClick}
                       size="small"
                       className="edit-button"
-                      sx={{ display: isEditing && selectedCellId !== action.current_id ? 'none' : 'flex' }}
+                      sx={{ display: isNextDisabled || (isEditing && selectedCellId !== action.current_id) ? 'none' : 'flex' }}
                     >
                       <EditIcon />
                     </Button>
@@ -192,7 +193,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onEditingChange, isEditing
                       onClick={handleSaveClick}
                       size="small"
                       className="save-button hovering"
-                      sx={{ display: isEditing && selectedCellId !== action.current_id ? 'none' : 'flex' }}
+                      sx={{ display: isNextDisabled || (isEditing && selectedCellId !== action.current_id) ? 'none' : 'flex' }}
                     >
                       <KeyboardArrowRightIcon/>
                     </Button>

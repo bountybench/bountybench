@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AgentMessage from '../AgentMessage/AgentMessage';
 import './PhaseMessage.css'
 
-const PhaseMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
+const PhaseMessage = ({ message, onUpdateActionInput, isNextDisabled, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
@@ -43,6 +43,7 @@ const PhaseMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing
                       key={agentMessage.current_id}
                       message={agentMessage} 
                       onUpdateActionInput={onUpdateActionInput}
+                      isNextDisabled={isNextDisabled}
                       onEditingChange={onEditingChange}
                       isEditing={isEditing}
                       selectedCellId={selectedCellId}

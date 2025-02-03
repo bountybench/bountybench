@@ -141,6 +141,7 @@ const AgentInteractions = ({
           <PhaseMessage
             message={latestPhaseMessage}
             onUpdateActionInput={onUpdateActionInput}
+            isNextDisabled={isNextDisabled}
             onEditingChange={setIsEditing}
             isEditing={isEditing}
             selectedCellId={selectedCellId}
