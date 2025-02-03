@@ -30,17 +30,20 @@ async def next_message(workflow_id: str, request: Request):
         return {"error": str(e), "traceback": error_traceback}
 
 
-@workflow_service_router.post("/workflow/rerun-message/{workflow_id}")
-async def rerun_message(workflow_id: str, data: MessageData, request: Request):
+@workflow_service_router.post("/workflow/run-from-message/{workflow_id}")
+async def run_from_message(workflow_id: str, data: MessageData, request: Request):
     active_workflows = request.app.state.active_workflows
-    print(f"Rerunning message: {data.message_id}")
+    print(f"Running from message: {data.message_id}")
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
-        result = await workflow.rerun_message(data.message_id)
+        result = await workflow.run_from_message(data.message_id)
+        if not result:
+            result = await next_iteration(workflow_id, active_workflows)
+            return result
         return {"status": "updated", "result": result.id}
     except Exception as e:
         error_traceback = traceback.format_exc()

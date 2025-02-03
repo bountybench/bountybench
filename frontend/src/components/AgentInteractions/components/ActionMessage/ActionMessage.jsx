@@ -3,9 +3,8 @@ import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Coll
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
-import ReplayIcon from '@mui/icons-material/Replay';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css'
 
@@ -128,43 +127,46 @@ const ActionMessage = ({ action, onUpdateActionInput, onEditingChange, isEditing
 
       <Collapse in={expanded}>
         {isEditing && selectedCellId === action.current_id ? (
-          <Box className="edit-mode-container">
-            <Typography variant="caption" color="text.secondary">
-              Editing Message:
-            </Typography>
-            <TextField
-              inputRef={textFieldRef}
-              multiline
-              minRows={3}
-              maxRows={10}
-              value={editedMessage}
-              onChange={(e) => setEditedMessage(e.target.value)}
-              className="edit-textarea"
-              fullWidth
-              onKeyDown={handleKeyDown}
-            />
-            <Box className="action-message-buttons">
+          <>
+            <Box className="edit-action-mode-container">
+              {/* <Typography className="action-message-text">
+                {originalMessageContent}
+              </Typography>
+               */}
+              <TextField
+                inputRef={textFieldRef}
+                multiline
+                fullWidth
+                minRows={3}
+                maxRows={10}
+                value={editedMessage}
+                onChange={(e) => setEditedMessage(e.target.value)}
+                className="edit-action-textarea"
+                onKeyDown={handleKeyDown}
+              />
+            </Box>
+            <Box className="message-actions">
               <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSaveClick}
-                size="small"
-                aria-label="save"
-                sx={{ mr: 1 }}
-              >
-                <SaveIcon/>
-              </Button>
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleCancelEdit}
-                size="small"
-                aria-label="cancel"
-              >
-                <CloseIcon/>
+                  variant="contained"
+                  color="primary"
+                  onClick={handleCancelEdit}
+                  size="small"
+                  className="cancel-button"
+                >
+                  <CloseIcon/>
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={handleSaveClick}
+                  size="small"
+                  className="save-button"
+                  sx={{ mr: 1 }}
+                >
+                  <KeyboardArrowRightIcon/>
               </Button>
             </Box>
-          </Box>
+          </>
         ) : (
           <>
             <Box className="action-message-content">
@@ -172,18 +174,31 @@ const ActionMessage = ({ action, onUpdateActionInput, onEditingChange, isEditing
                 {originalMessageContent}
               </Typography>
             </Box>
-            <Box className="action-message-buttons" sx={{ display: isEditing && selectedCellId !== action.current_id ? 'none' : 'flex' }}>
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={handleEditClick}
-                size="small"
-                aria-label="edit"
-                className="edit-button"
-              >
-                <EditIcon />
-              </Button>
-            </Box>
+            
+            {selectedCellId === action.current_id && (
+                <Box className="message-actions">
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={handleEditClick}
+                      size="small"
+                      className="edit-button"
+                      sx={{ display: isEditing && selectedCellId !== action.current_id ? 'none' : 'flex' }}
+                    >
+                      <EditIcon />
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={handleSaveClick}
+                      size="small"
+                      className="save-button hovering"
+                      sx={{ display: isEditing && selectedCellId !== action.current_id ? 'none' : 'flex' }}
+                    >
+                      <KeyboardArrowRightIcon/>
+                    </Button>
+                </Box>
+                )
+              }
           </>
         )}
 

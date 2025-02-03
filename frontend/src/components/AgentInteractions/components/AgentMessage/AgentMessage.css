@@ -50,7 +50,7 @@
   margin: 8px 0;
 }
 
-.agent-message-actions {
+.message-actions {
   display: flex;
   justify-content: flex-end;
   padding: 8px 16px;
@@ -58,8 +58,8 @@
 }
 
 .edit-mode-container {
-  padding: 16px;
-  background-color: #f8f9fa;
+  /* padding: 16px; */
+  /* background-color: #f8f9fa; */
   border-radius: 4px;
   margin: 8px 0;
 }
@@ -86,6 +86,11 @@
   font-size: 0.75rem !important;
   color: #1f1f1f !important;
 }
+.edit-textarea .MuiInputBase-input {
+  font-size: 0.75rem !important;
+  /* padding: 12px !important; */
+  color: #1f1f1f !important;
+}
 
 .edit-button,
 .save-button {
@@ -93,11 +98,20 @@
 }
 
 .edit-button {
-  color: #666 !important;
-  border-color: #e0e0e0 !important;
+  color: #2196f3 !important;
 }
 
 .save-button {
+  background-color: #2196f3 !important;
+  color: #ffffff !important;
+}
+
+.save-button.hovering {
+  background-color: white !important;
+  color: #2196f3 !important;
+}
+
+.cancel-button {
   background-color: #2196f3 !important;
   color: #ffffff !important;
 }

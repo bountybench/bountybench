@@ -52,6 +52,15 @@
   background-color: rgba(0, 0, 0, 0.04);
 }
 
+.edit-action-mode-container {
+  background-color: #ffffff;
+  margin: 12px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 .action-message-content {
   background-color: #ffffff;
   margin: 12px 16px;
@@ -70,45 +79,36 @@
   line-height: 1.5;
 }
 
-.action-message-buttons {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 16px;
-  background-color: #ffffff;
-  border-top: 1px solid #e0e0e0;
-  margin-top: 8px;
-}
-
 .action-message-buttons button {
   margin-left: 8px !important;
 }
 
-.edit-mode-container {
-  padding: 16px;
-  background-color: #f8f9fa;
-  margin: 12px 16px;
-  border-radius: 4px;
-  border: 1px solid #e0e0e0;
-}
-
-.edit-textarea {
+.edit-action-textarea {
+  font-size: 0.75rem !important;
+  color: #333 !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  /* width: 100%;
   background-color: #ffffff !important;
   font-size: 0.75rem !important;
+  margin: 12px 16px !important; */
 }
 
-.edit-textarea .MuiInputBase-input {
+.edit-action-textarea .MuiInputBase-input {
   font-size: 0.75rem !important;
-  padding: 12px !important;
+  /* padding: 12px !important; */
   color: #1f1f1f !important;
 }
 
 /* Force black text color for all input states */
-.edit-textarea .MuiInputBase-root {
+.edit-action-textarea .MuiInputBase-root {
   color: #1f1f1f !important;
 }
 
-.edit-textarea .MuiOutlinedInput-root {
+.edit-action-textarea .MuiOutlinedInput-root {
   color: #1f1f1f !important;
+  margin: 0px !important;
 }
 
 /* Metadata styling */
@@ -145,4 +145,23 @@
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   font-family: monospace;
+}
+
+.selected {
+  border: 2px solid #ffd23d !important;
+  border-radius: 4px;
+}
+
+
+.selected.action-message.MODEL {
+  border-left: 4px solid #966200 !important;
+}
+
+.selected.action-message.KALI_ENV {
+  border-left: 4px solid #966200 !important;
+}
+
+.edit-mode-action-container {
+  /* background-color: #f8f9fa; */
+  border-radius: 4px;
 }

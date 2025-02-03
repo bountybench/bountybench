@@ -3,8 +3,8 @@ import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Coll
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ActionMessage from '../ActionMessage/ActionMessage';
 import './AgentMessage.css'
 
@@ -124,25 +124,25 @@ const AgentMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing
                       className="edit-textarea"
                       onKeyDown={handleKeyDown}
                     />
-                    <Box className="agent-message-actions">
+                    <Box className="message-actions">
                       <Button
                         variant="contained"
                         color="primary"
-                        onClick={handleSaveClick}
-                        size="small"
-                        className="save-button"
-                        sx={{ mr: 1 }}
-                      >
-                        <SaveIcon/>
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="secondary"
                         onClick={handleCancelEdit}
                         size="small"
                         className="cancel-button"
                       >
                         <CloseIcon/>
+                      </Button>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        onClick={handleSaveClick}
+                        size="small"
+                        className="save-button"
+                        sx={{ mr: 1 }}
+                      >
+                        <KeyboardArrowRightIcon/>
                       </Button>
                     </Box>
                   </Box>
@@ -156,18 +156,30 @@ const AgentMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing
                         {message.message || ''}
                       </Typography>
                     </Card>
-                    <Box className="agent-message-actions">
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        onClick={handleEditClick}
-                        size="small"
-                        className="edit-button"
-                        sx={{ display: isEditing && selectedCellId !== message.current_id ? 'none' : 'flex' }}
-                      >
-                        <EditIcon />
-                      </Button>
-                    </Box>
+                    {selectedCellId === message.current_id && (
+                      <Box className="message-actions">
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            onClick={handleEditClick}
+                            size="small"
+                            className="edit-button"
+                            sx={{ display: isEditing && selectedCellId !== message.current_id ? 'none' : 'flex' }}
+                          >
+                            <EditIcon />
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            onClick={handleSaveClick}
+                            size="small"
+                            className="save-button hovering"
+                            sx={{ mr: 1 }}
+                          >
+                            <KeyboardArrowRightIcon/>
+                          </Button>
+                      </Box>
+                      )
+                    }
                   </Box>
                 )}
               </Box>

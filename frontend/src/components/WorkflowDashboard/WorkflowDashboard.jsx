@@ -38,7 +38,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     currentIteration,
     messages,
     error,
-    sendMessage,
   } = useWorkflowWebSocket(workflowId);
 
   // Update parent component with workflow state
@@ -132,6 +131,30 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   };
 
+  const handleRunFrom = async (messageId) => {
+    if (workflowId) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/run-from-message/${workflowId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message_id: messageId }),
+        });
+        const data = await response.json();
+        if (data.error) {
+          console.error('Error rerunning action:', data.error);
+        } else {
+          console.log('Action rerun successfully', data);
+        }
+      } catch (error) {
+        console.error('Error rerunning action:', error);
+      }
+    } else {
+      console.error('Workflow ID is not available');
+    }
+  };
+
   console.log('Rendering WorkflowDashboard with messages:', workflowStatus === 'completed' ? preservedMessages : messages);
 
   if (error) {
@@ -162,6 +185,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         messages={displayMessages}
         onUpdateActionInput={handleUpdateActionInput}
         onTriggerNextIteration={triggerNextIteration}
+        onRunFrom={handleRunFrom}
       />
     </Box>
   );

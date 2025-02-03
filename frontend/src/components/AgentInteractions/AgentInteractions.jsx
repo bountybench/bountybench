@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Box, Typography, CircularProgress, Button } from '@mui/material';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
 import './AgentInteractions.css';
 
@@ -10,6 +10,7 @@ const AgentInteractions = ({
   messages = [],
   onUpdateActionInput,
   onTriggerNextIteration,
+  onRunFrom
 }) => {
   const messagesEndRef = useRef(null);
   const cellRefs = useRef({}); 
@@ -31,7 +32,7 @@ const AgentInteractions = ({
       const ids = [];
       // Add Agent Messages and their Actions
       latestPhaseMessage.current_children?.forEach(agentMsg => {
-        if (agentMsg.current_id && agentMsg.current_children?.length == 0) ids.push(agentMsg.current_id);
+        if (agentMsg.current_id && agentMsg.current_children?.length === 0) ids.push(agentMsg.current_id);
         agentMsg.current_children?.forEach(actionMsg => {
           if (actionMsg.current_id) ids.push(actionMsg.current_id);
         });
@@ -60,11 +61,20 @@ const AgentInteractions = ({
 
       if (key === 'enter') {
         e.preventDefault();
+        if (isNextDisabled) {
+          console.error("Cannot modify state while a message is being generated");
+        }
         // Check for Shift or Ctrl/Cmd modifiers
         if (e.shiftKey || (e.ctrlKey || e.metaKey)) {
-          // Trigger rerun action for current cell
-          console.log("Triggering next iteration");
-          onTriggerNextIteration(selectedCellId); 
+          // Trigger run from current cell
+          console.log("Running from");
+          onRunFrom(selectedCellId); 
+          return; // Prevent other default behavior
+        }
+        if (e.altKey) {
+          // Trigger next iteration
+          console.log("Running next iteration");
+          onTriggerNextIteration(); 
           return; // Prevent other default behavior
         }
         setIsEditing(true); // Enter edit mode on normal Enter
@@ -149,12 +159,12 @@ const AgentInteractions = ({
                 variant="contained"
                 color="primary"
                 onClick={onTriggerNextIteration}
-                startIcon={<ArrowForwardIcon />}
+                startIcon={<KeyboardDoubleArrowRightIcon />}
                 disabled={isNextDisabled || isEditing}
                 size="small"
                 sx={{ mb: 1 }}
               >
-                Next
+                Continue
               </Button>
             </>
           )}
