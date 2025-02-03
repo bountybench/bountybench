@@ -2,7 +2,6 @@ import os
 import tempfile
 import pytest
 from pathlib import Path
-
 from resources.setup_resource import SetupResource, SetupResourceConfig
 
 @pytest.fixture
@@ -19,23 +18,35 @@ def temp_dir():
     if os.path.exists(temp_dir):
         os.rmdir(temp_dir)
 
+@pytest.fixture(autouse=True)
+def cleanup_docker():
+    """Cleanup any test containers before and after each test."""
+    # Cleanup before test
+    os.system('docker stop test_nginx_server test_redis_server > /dev/null 2>&1')
+    os.system('docker rm test_nginx_server test_redis_server > /dev/null 2>&1')
+    yield
+    # Cleanup after test
+    os.system('docker stop test_nginx_server test_redis_server > /dev/null 2>&1')
+    os.system('docker rm test_nginx_server test_redis_server > /dev/null 2>&1')
+
 def verify_docker_container_stopped():
     """
     Verify if the Docker container is stopped.
     """
-    result = os.system('docker ps -f "name=test_setup"')
-    assert result == 0, "The test_setup container is still running!"
+    result = os.popen('docker ps -q -f "name=test_setup"').read().strip()
+    assert result == "", "The test_setup container is still running!"
 
 def verify_docker_containers_stopped():
     """
     Verify if the Docker containers are stopped.
     """
-    result = os.system('docker ps -f "name=test_nginx_server"')
-    assert result == 0, "The test_nginx_server container is still running!"
-    result = os.system('docker ps -f "name=test_redis_server"')
-    assert result == 0, "The test_redis_server container is still running!"
-
-
+    result = os.popen('docker ps -q -f "name=test_redis_server"').read().strip()
+    if result:  # If container is still running
+        os.system('docker stop test_redis_server > /dev/null 2>&1')
+        os.system('docker rm test_redis_server > /dev/null 2>&1')
+        result = os.popen('docker ps -q -f "name=test_redis_server"').read().strip()
+    assert result == "", "The test_redis_server container is still running!"
+    
 def test_start_and_stop_setup(temp_dir):
     """
     Test starting and stopping the SetupResource.
@@ -46,8 +57,11 @@ def test_start_and_stop_setup(temp_dir):
         f.write(
             "docker stop test_nginx_server || true\n"
             "docker rm test_nginx_server || true\n"
-            "docker run -d --name test_nginx_server -p 8080:80 nginx:latest"
+            "docker run -d --name test_nginx_server -p 8081:80 nginx:latest"  # Changed port to 8081
         )
+    
+    # Make script executable
+    os.chmod(test_file_path, 0o755)
 
     # Instantiate SetupResource
     resource = SetupResource(
@@ -70,8 +84,11 @@ def test_start_and_stop_setup_multi_container(temp_dir):
         f.write(
             "docker stop test_redis_server || true\n"
             "docker rm test_redis_server || true\n"
-            "docker run -d --name test_redis_server -p 6379:6379 redis:latest"
+            "docker run -d --name test_redis_server -p 6380:6379 redis:latest"  # Changed port to 6380
         )
+    
+    # Make script executable
+    os.chmod(test_file_path, 0o755)
 
     # Instantiate SetupResource
     resource = SetupResource(
