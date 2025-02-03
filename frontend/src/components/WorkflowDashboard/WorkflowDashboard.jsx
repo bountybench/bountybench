@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { Box, CircularProgress, Alert } from '@mui/material';
+import { Box, CircularProgress, Alert, Typography } from '@mui/material';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
@@ -10,6 +10,8 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [preservedMessages, setPreservedMessages] = useState([]);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Loading workflow instance..."); // Initial loading message
+  const [isLoading, setIsLoading] = useState(true); // State to manage loading visibility
 
   const navigate = useNavigate();
   
@@ -44,8 +46,16 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   // Update parent component with workflow state
   useEffect(() => {
     onWorkflowStateUpdate(workflowStatus, currentPhase);
-  }, [workflowStatus, currentPhase, onWorkflowStateUpdate]);
 
+    // Update loading messages based on workflow status
+    if (workflowStatus === 'starting') {
+      setLoadingMessage('Starting workflow, setting up first phase...');
+    } else if (workflowStatus && workflowStatus !== 'starting') {
+      setIsLoading(false);
+    }
+
+  }, [workflowStatus, currentPhase, onWorkflowStateUpdate]);
+  
   console.log('WebSocket state:', { 
     isConnected, 
     workflowStatus, 
@@ -61,7 +71,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       setPreservedMessages(messages);
     }
   }, [workflowStatus, messages]);
-
+  
   // Next iteration via ctrl + enter
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -89,7 +99,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         }
         const data = await response.json();
         console.log('Next iteration triggered successfully', data);
-        console.log('Next iteration triggered successfully', data);
       } catch (error) {
         console.error('Error triggering next iteration:', error);
       } finally {
@@ -99,7 +108,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       console.error('Workflow ID is not available');
     }
   };
-  
+
   const handleUpdateActionInput = async (messageId, newInputData) => {
     const url = `http://localhost:8000/workflow/edit-message/${workflowId}`;
     const requestBody = { message_id: messageId, new_input_data: newInputData };
@@ -115,9 +124,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         },
         body: JSON.stringify(requestBody),
       });
-  
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
   
       if (!response.ok) {
         const errorText = await response.text();
@@ -155,7 +161,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       console.error('Workflow ID is not available');
     }
   };
-
+  
   console.log('Rendering WorkflowDashboard with messages:', workflowStatus === 'completed' ? preservedMessages : messages);
 
   if (error) {
@@ -166,10 +172,13 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     );
   }
 
-  if (!isConnected) {
+  if (!isConnected || isLoading) { // Show loading state
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-        <CircularProgress size={24} />
+        <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+          <CircularProgress />
+          <Typography>{loadingMessage}</Typography>
+        </Box>
       </Box>
     );
   }
