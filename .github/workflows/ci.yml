@@ -102,7 +102,7 @@ jobs:
       - name: Run backend tests
         run: |
           set -e  # Stop execution if any command fails
-          python -m tests.runner
+          pytest -s
 
       - name: Set up Node.js
         uses: actions/setup-node@v3

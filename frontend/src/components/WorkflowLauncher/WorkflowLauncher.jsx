@@ -30,7 +30,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   });
 
   const navigate = useNavigate();
-
+  
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,6 +48,27 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
   const [isCustomApiKey, setIsCustomApiKey] = useState(false);
+  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(() => {
+    // Initialize state from sessionStorage if exists
+    return sessionStorage.getItem('isCreatingWorkflow') === 'true';
+  });
+
+  // Reset state when navigating away and when there is an active server
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Clear out isCreatingWorkflow in session storage when navigating away
+      sessionStorage.removeItem('isCreatingWorkflow');
+      setIsCreatingWorkflow(false);
+    };
+
+    // Add beforeunload listener
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      // Cleanup function to remove listener on unmount
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   // 2. Fetch workflows only once server is confirmed available
   useEffect(() => {
@@ -83,10 +104,12 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     } catch (err) {
       console.error('Failed to fetch API keys:', err);
     }
-  }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsCreatingWorkflow(true); // Set loading state
+    sessionStorage.setItem('isCreatingWorkflow', 'true');
 
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
@@ -100,7 +123,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           iterations: formData.iterations
         }),
       });
-
+      
       if (!response) {
         throw new Error('Failed to get response from server');
       }
@@ -121,14 +144,18 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       } catch {
         throw new Error('Failed to parse response data');
       }
-
+      
       if (data.error) {
         console.error(data.error);
       } else {
         onWorkflowStart(data.workflow_id, interactiveMode);
         navigate(`/workflow/${data.workflow_id}`); // Navigate to workflow page after start
+        // setIsCreatingWorkflow(false); // Reset loading state
       }
     } catch (err) {
+      // Handle error
+      setIsCreatingWorkflow(false); // Reset loading state on error   
+      sessionStorage.removeItem('isCreatingWorkflow'); 
       console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
     }
   };
@@ -198,11 +225,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   // While still checking server
   if (isChecking) {
     return (
-      <Box className="launcher-loading">
-        <CircularProgress />
-        <Typography>Checking server availability...</Typography>
-      </Box>
-    );
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+          <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+            <CircularProgress />
+            <Typography>Checking server availability...</Typography>
+          </Box>
+        </Box>
+      );
   }
 
   // Server not available (will keep polling in background)
@@ -217,9 +246,23 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   // Server available but workflows still loading
   if (loading) {
     return (
-      <Box className="launcher-loading">
-        <CircularProgress />
-        <Typography>Loading workflows...</Typography>
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+          <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+            <CircularProgress />
+            <Typography>Loading workflows...</Typography>
+          </Box>
+        </Box>
+      );
+  }
+
+  // Show loading message while creating workflow
+  if (isCreatingWorkflow) {
+  return (
+    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+          <CircularProgress />
+          <Typography>Creating workflow instance...</Typography>
+        </Box>
       </Box>
     );
   }

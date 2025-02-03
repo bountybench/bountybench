@@ -1,11 +1,11 @@
 import asyncio
 from typing import Dict
 
-from messages.message import Message
 from messages.config import MessageType, set_logging_level, should_log
+from messages.message import Message
+from utils.logger import get_main_logger
 from utils.websocket_manager import websocket_manager
 
-from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 # Set the logging level
@@ -13,6 +13,7 @@ set_logging_level(MessageType.AGENT)
 
 # Dict of workflow_id -> Dict of message_id -> Message
 message_dict: Dict[str, Dict[str, Message]] = {}
+
 
 def broadcast_update(message: Message):
     """Send an update over WebSocket. This can be disabled or customized as desired."""
@@ -31,11 +32,13 @@ def broadcast_update(message: Message):
     except Exception as e:
         logger.error(f"Exception: {e}")
 
+
 async def _broadcast_update_async(workflow_id: str, data: dict):
     try:
         await websocket_manager.broadcast(workflow_id, data)
     except Exception as e:
         logger.error(f"Exception: {e}")
+
 
 def log_message(message: Message):
     if not message.workflow_id:
