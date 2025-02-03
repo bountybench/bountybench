@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import unittest
 from fastapi.testclient import TestClient
 from backend.main import create_app
@@ -9,6 +13,7 @@ from tests.ui_backend.fake_workflows import (FakeDetectWorkflow, FakeExploitAndP
                                     FakePatchWorkflow,
                                     FakeChatWorkflow
 )
+
 
 
 class TestServer(unittest.TestCase):
@@ -343,6 +348,167 @@ class TestServer(unittest.TestCase):
         self.assertIn("Input should be a valid boolean", error['msg'], "Error message should indicate invalid boolean")
         self.assertEqual(error['input'], 'random', "Error should include the invalid input")
 
+    def test_workflow_restart_creates_new_workflow(self):
+        """
+        Test that stopping a workflow does not remove it from active workflows, 
+        and starting a new workflow creates a new instance with a different ID.
+        """
+        start_payload = {
+            "workflow_name": "Exploit and Patch Workflow",
+            "task_dir": "/path/to/tasks",
+            "bounty_number": "999",
+            "interactive": True,
+            "iterations": 3
+        }
+
+        new_payload = {
+            "workflow_name": "Exploit and Patch Workflow",
+            "task_dir": "/path/to/tasks",
+            "bounty_number": "100",
+            "interactive": True,
+            "iterations": 3
+        }
+
+        # Step 1: Start the first workflow
+        start_response_1 = self.client.post("/workflow/start", json=start_payload)
+        self.assertEqual(start_response_1.status_code, 200, "Expected status code 200 for first workflow start")
+        workflow_id_1 = start_response_1.json()["workflow_id"]
+
+        # Step 2: Stop the first workflow
+        stop_response = self.client.post(f"/workflow/stop/{workflow_id_1}")
+        self.assertEqual(stop_response.status_code, 200, "Expected status code 200 for stopping workflow")
+        self.assertIn("status", stop_response.json(), "Response should contain 'status'")
+        self.assertEqual(stop_response.json()["status"], "stopped", "Workflow should be marked as stopped")
+
+        # Step 3: Verify that the stopped workflow still exists in active workflows
+        active_workflows_before_restart = self.client.get("/workflows/active").json()
+        found_workflow = next((w for w in active_workflows_before_restart["active_workflows"] if w["id"] == workflow_id_1), None)
+        self.assertIsNotNone(found_workflow, "Stopped workflow should still be in active workflows")
+        self.assertEqual(found_workflow["status"], "stopped", "Stopped workflow should have status 'stopped'")
+
+        # Step 4: Start a new workflow
+        start_response_2 = self.client.post("/workflow/start", json=new_payload)
+        self.assertEqual(start_response_2.status_code, 200, "Expected status code 200 for second workflow start")
+        workflow_id_2 = start_response_2.json()["workflow_id"]
+
+        # Step 5: Ensure the new workflow ID is different
+        self.assertNotEqual(workflow_id_1, workflow_id_2, "New workflow should have a different ID")
+
+        # Step 6: Ensure both workflows exist in active workflows
+        active_workflows_after_restart = self.client.get("/workflows/active").json()
+        workflow_ids = {w["id"] for w in active_workflows_after_restart["active_workflows"]}
+
+        self.assertIn(workflow_id_1, workflow_ids, "Old workflow should still exist")
+        self.assertIn(workflow_id_2, workflow_ids, "New workflow should be added")
+        
+        # Step 7: Ensure the old workflow is still stopped and the new workflow is initializing
+        old_workflow = next((w for w in active_workflows_after_restart["active_workflows"] if w["id"] == workflow_id_1), None)
+        new_workflow = next((w for w in active_workflows_after_restart["active_workflows"] if w["id"] == workflow_id_2), None)
+
+        self.assertEqual(old_workflow["status"], "stopped", "Old workflow should remain stopped")
+        self.assertEqual(new_workflow["status"], "initializing", "New workflow should be in 'initializing' state")
+
+
+    def test_stopping_multiple_workflows(self):
+        """
+        Test that stopping multiple workflows correctly updates their statuses to 'stopped'
+        while keeping them in active workflows.
+        """
+        start_payload_1 = {
+            "workflow_name": "Exploit and Patch Workflow",
+            "task_dir": "/path/to/tasks",
+            "bounty_number": "101",
+            "interactive": True,
+            "iterations": 3
+        }
+
+        start_payload_2 = {
+            "workflow_name": "Detect Workflow",
+            "task_dir": "/path/to/tasks",
+            "bounty_number": "102",
+            "interactive": True,
+            "iterations": 3
+        }
+
+        # Start two workflows
+        start_response_1 = self.client.post("/workflow/start", json=start_payload_1)
+        workflow_id_1 = start_response_1.json()["workflow_id"]
+
+        start_response_2 = self.client.post("/workflow/start", json=start_payload_2)
+        workflow_id_2 = start_response_2.json()["workflow_id"]
+
+        # Stop both workflows
+        stop_response_1 = self.client.post(f"/workflow/stop/{workflow_id_1}")
+        stop_response_2 = self.client.post(f"/workflow/stop/{workflow_id_2}")
+
+        self.assertEqual(stop_response_1.status_code, 200, "Expected status code 200 for stopping first workflow")
+        self.assertEqual(stop_response_2.status_code, 200, "Expected status code 200 for stopping second workflow")
+
+        # Verify that both workflows still exist but are marked as 'stopped'
+        active_workflows = self.client.get("/workflows/active").json()
+        workflow_1_status = next(w["status"] for w in active_workflows["active_workflows"] if w["id"] == workflow_id_1)
+        workflow_2_status = next(w["status"] for w in active_workflows["active_workflows"] if w["id"] == workflow_id_2)
+
+        self.assertEqual(workflow_1_status, "stopped", "First workflow should be marked as stopped")
+        self.assertEqual(workflow_2_status, "stopped", "Second workflow should be marked as stopped")
+
+    def test_restarting_workflow_with_same_bounty_number(self):
+        """
+        Test that stopping a workflow and restarting it with the same bounty number does not overwrite the original workflow.
+        """
+        start_payload = {
+            "workflow_name": "Exploit and Patch Workflow",
+            "task_dir": "/path/to/tasks",
+            "bounty_number": "999",
+            "interactive": True,
+            "iterations": 3
+        }
+
+        # Start the first workflow
+        start_response_1 = self.client.post("/workflow/start", json=start_payload)
+        workflow_id_1 = start_response_1.json()["workflow_id"]
+
+        # Stop the first workflow
+        stop_response = self.client.post(f"/workflow/stop/{workflow_id_1}")
+        self.assertEqual(stop_response.status_code, 200, "Expected status code 200 for stopping workflow")
+
+        # Restart with the same bounty number
+        start_response_2 = self.client.post("/workflow/start", json=start_payload)
+        workflow_id_2 = start_response_2.json()["workflow_id"]
+
+        self.assertEqual(workflow_id_1, workflow_id_2, "New workflow should have same ID  with the same bounty number")
+
+    def test_stopping_workflow_twice(self):
+        """
+        Test that stopping a workflow twice does not cause errors and does not change its status after the first stop.
+        """
+        start_payload = {
+            "workflow_name": "Patch Workflow",
+            "task_dir": "/path/to/tasks",
+            "bounty_number": "777",
+            "interactive": True,
+            "iterations": 3
+        }
+
+        # Start the workflow
+        start_response = self.client.post("/workflow/start", json=start_payload)
+        workflow_id = start_response.json()["workflow_id"]
+
+        # Stop the workflow once
+        stop_response_1 = self.client.post(f"/workflow/stop/{workflow_id}")
+        self.assertEqual(stop_response_1.status_code, 200, "Expected status code 200 for stopping workflow the first time")
+        
+        # Stop the workflow again
+        stop_response_2 = self.client.post(f"/workflow/stop/{workflow_id}")
+        self.assertEqual(stop_response_2.status_code, 200, "Expected status code 200 even for repeated stop")
+
+        # Verify that the workflow is still present in active workflows with 'stopped' status
+        active_workflows = self.client.get("/workflows/active").json()
+        workflow_status = next(w["status"] for w in active_workflows["active_workflows"] if w["id"] == workflow_id)
+
+        self.assertEqual(workflow_status, "stopped", "Workflow should still be in 'stopped' status")
+
+
 
 ###############################################################################
 # ASYNC TESTS
@@ -419,7 +585,7 @@ class TestWebsocket(IsolatedAsyncioTestCase):
             # Verify initial status
             status_msg = websocket.receive_json()
             self.assertEqual(status_msg["message_type"], "workflow_status")
-            self.assertEqual(status_msg["status"], "starting")
+            self.assertEqual(status_msg["status"], "initializing")
 
             # Verify progression to running state
             running_msg = websocket.receive_json()
