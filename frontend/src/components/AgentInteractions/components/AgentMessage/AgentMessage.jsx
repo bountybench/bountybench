@@ -14,20 +14,25 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editedMessage, setEditedMessage] = useState(message.message || '');
+  const [editedMessage, setEditedMessage] = useState(message ? message.message || '' : '');
 
   const [displayedIndex, setDisplayedIndex] = useState(1);
-    
-  const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
+  
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && editing) {
+        handleCancelEdit();
+      }
+    };
 
-  const handleEditClick = () => {
-    setEditing(true);
-    onEditingChange(true);
-    setEditedMessage(message.message || '');
-  };
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [editing]);
 
   useEffect(() => {
-    if (message.action_messages){
+    if (message && message.action_messages){
       const messageLength = message.action_messages.length;
       // Make sure that both model and kali_env are received
       if (messageLength % 2 !== 0) {
@@ -35,11 +40,21 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
       }
       setDisplayedIndex(messageLength / 2);
     }
-  }, [message.action_messages]);
+  }, [message]);
 
   useEffect(() => {
     setDisplayedIndex(1);
   }, [phaseDisplayedIndex]);
+
+  if (!message) return null;
+
+  const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
+
+  const handleEditClick = () => {
+    setEditing(true);
+    onEditingChange(true);
+    setEditedMessage(message.message || '');
+  };
 
   const handleToggleVersion = (num) => {
     if (onPhaseChildUpdate) {
@@ -67,18 +82,6 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     setEditedMessage(message.message || '');
   };
 
-  useEffect(() => {
-    const handleEscKey = (event) => {
-      if (event.key === 'Escape' && editing) {
-        handleCancelEdit();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }, [editing]);
 
   const handleChildUpdate = (num) => {
       setDisplayedIndex((prev) => prev + num);
