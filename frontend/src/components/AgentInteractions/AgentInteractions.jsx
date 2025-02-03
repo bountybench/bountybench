@@ -9,7 +9,6 @@ const AgentInteractions = ({
   isNextDisabled,
   messages = [],
   onUpdateActionInput,
-  onRerunAction,
   onTriggerNextIteration,
 }) => {
   const messagesEndRef = useRef(null);
@@ -61,7 +60,14 @@ const AgentInteractions = ({
 
       if (key === 'enter') {
         e.preventDefault();
-        setIsEditing(true); // Enter edit mode on Enter
+        // Check for Shift or Ctrl/Cmd modifiers
+        if (e.shiftKey || (e.ctrlKey || e.metaKey)) {
+          // Trigger rerun action for current cell
+          console.log("Triggering next iteration");
+          onTriggerNextIteration(selectedCellId); 
+          return; // Prevent other default behavior
+        }
+        setIsEditing(true); // Enter edit mode on normal Enter
         return;
       }
 
@@ -125,7 +131,6 @@ const AgentInteractions = ({
           <PhaseMessage
             message={latestPhaseMessage}
             onUpdateActionInput={onUpdateActionInput}
-            onRerunAction={onRerunAction}
             onEditingChange={setIsEditing}
             isEditing={isEditing}
             selectedCellId={selectedCellId}

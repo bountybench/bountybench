@@ -9,7 +9,7 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css'
 
-const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
+const ActionMessage = ({ action, onUpdateActionInput, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
   const [expanded, setExpanded] = useState(true);
   const [editedMessage, setEditedMessage] = useState(action.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
@@ -31,21 +31,27 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
   
   if (!action) return null;
 
+  const handleKeyDown = (e) => {
+    if (!isEditing) return;  // Prevent handling if not editing
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Prevent the default behavior of Enter key
+      if (e.shiftKey || (e.ctrlKey || e.metaKey)) {
+        console.log("Saving message");
+        handleSaveClick();  // Save on Shift + Enter or Ctrl/Cmd + Enter
+      }
+    }
+  };
+  
   const handleToggleMetadata = (event) => {
     event.stopPropagation();
     setMetadataExpanded(!metadataExpanded);
-  };
-
-  const handleRerunClick = async () => {
-    if (!action.current_id) {
-      console.error('Action id is undefined');
-      return;
-    }
-    try {
-      await onRerunAction(action.current_id);
-    } catch (error) {
-      console.error('Error rerunning action:', error);
-    }
   };
 
   const originalMessageContent = formatData(action.message);
@@ -135,6 +141,7 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
               onChange={(e) => setEditedMessage(e.target.value)}
               className="edit-textarea"
               fullWidth
+              onKeyDown={handleKeyDown}
             />
             <Box className="action-message-buttons">
               <Button
@@ -175,15 +182,6 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
                 className="edit-button"
               >
                 <EditIcon />
-              </Button>
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleRerunClick}
-                size="small"
-                aria-label="rerun"
-              >
-                <ReplayIcon />
               </Button>
             </Box>
           </>

@@ -8,7 +8,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import ActionMessage from '../ActionMessage/ActionMessage';
 import './AgentMessage.css'
 
-const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
+const AgentMessage = ({ message, onUpdateActionInput, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editedMessage, setEditedMessage] = useState(message.message || '');
   const textFieldRef = useRef(null);
@@ -19,6 +19,24 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     e.stopPropagation();
     onEditingChange(true);
     setEditedMessage(message.message || '');
+  };
+
+  const handleKeyDown = (e) => {
+    if (!isEditing) return;  // Prevent handling if not editing
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Prevent the default behavior of Enter key
+      if (e.shiftKey || (e.ctrlKey || e.metaKey)) {
+        console.log("Saving message");
+        handleSaveClick();  // Save on Shift + Enter or Ctrl/Cmd + Enter
+      }
+    }
   };
 
   const handleSaveClick = async () => {
@@ -104,6 +122,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
                       value={editedMessage}
                       onChange={(e) => setEditedMessage(e.target.value)}
                       className="edit-textarea"
+                      onKeyDown={handleKeyDown}
                     />
                     <Box className="agent-message-actions">
                       <Button
@@ -161,7 +180,6 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
                     key={actionMessage.current_id}
                     action={actionMessage} 
                     onUpdateActionInput={onUpdateActionInput}
-                    onRerunAction={onRerunAction}
                     onEditingChange={onEditingChange}
                     isEditing={isEditing}
                     selectedCellId={selectedCellId}
