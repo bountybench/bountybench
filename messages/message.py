@@ -18,6 +18,10 @@ class Message(ABC):
         from messages.message_utils import log_message
         log_message(self)
 
+    @property 
+    def workflow_id(self) -> str:
+        return None
+    
     @property
     def prev(self) -> str:
         return self._prev

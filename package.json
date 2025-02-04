@@ -1,0 +1,18 @@
+{
+  "name": "bountyagent",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "scripts": {
+    "postinstall": "npm install --prefix frontend",
+    "start": "concurrently \"npm:server\" \"npm:frontend\"",
+    "server": "python -m backend.main",
+    "frontend": "npm start --prefix frontend"
+  },
+  "dependencies": {
+    "react-toastify": "^11.0.3"
+  }
+}
+

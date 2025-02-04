@@ -1,14 +1,20 @@
-# cybountyagent
+# bountyagent
 
 ## Table of Contents
 
 - [Installation](#installation)
+  - [Environment Setup](#environment-setup)
+  - [Docker Setup](#docker-setup)
 - [Usage](#usage)
-   - [Running the Workflow](#running-the-workflow)
-   - [Running the Application](#running-the-application)
-- [System Architecture](#system-architecture)
-  - [Workflow System](#workflow-system)
+  - [Running the Workflow](#running-the-workflow)
+  - [Running the Application](#running-the-application)
+  - [Concurrent run](#concurrent-run)
 - [Development](#development)
+- [Code Quality](#code-quality)
+  - [Tools and Standards](#tools-and-standards)
+  - [Local Development Setup](#local-development-setup)
+  - [Running Tests with Coverage](#running-tests-with-coverage)
+
 
 ## Installation
 ## Environment Setup
@@ -94,13 +100,26 @@ Please be aware that there may be a brief delay between initiating the workflow 
 
 ### Running the Application
 
+## Concurrent run
+1. In the root directory run:
+
+```
+npm install
+npm start
+```
+
+This will launch the development server for the frontend and start the backend. You may need to refresh as the backend takes a second to run.
+
+Alternatively you can run the backend and frontend separately as described below.
+
+
 ## Backend Setup
 
 1. Open a terminal and navigate to the `bountyagent` directory.
 
 2. Start the backend server:
 ```
-python server.py
+python -m backend.main
 ```
 Note: The backend will take about a minute to initialize. You can view incremental, verbose run updates in this terminal window.
 
@@ -209,8 +228,9 @@ This workflow system is designed to execute multi-phase tasks in a modular and e
 - **Resource Management**: Automatic scheduling and deallocation of resources.
 - **Agent System**: Flexible agent management across phases.
 - **Logging**: Logging at workflow, phase, and iteration levels.
-- 
+
 ## Development
+
 1. To create a new workflow:
    - Subclass `BaseWorkflow` or `BountyWorkflow`.
    - Implement `_create_phases()`, `_get_initial_prompt()`, and any optional methods.
@@ -218,3 +238,90 @@ This workflow system is designed to execute multi-phase tasks in a modular and e
 2. To create a new phase:
    - Subclass `BasePhase`.
    - Implement `define_agents()`, `define_resources()`, and `run_one_iteration()`.
+
+## Code Quality
+
+### Tools and Standards
+
+- **Black**: Code formatter that ensures consistent Python code style
+- **Flake8**: Linter that checks for Python code style and errors
+- **isort**: Sorts and organizes Python imports
+
+### Local Development Setup
+
+1. **Pre-commit Hooks**
+
+   ```bash
+   # Install pre-commit hooks (automatically runs on every commit)
+   pre-commit install
+   ```
+
+2. **Manual Code Formatting**
+
+   You can format your code manually by running
+   ```bash
+   pre-commit run --all-files
+   ```
+
+   If you have issues with formatting, you can run the individual tools separately:
+   ```bash
+   # Format code with Black
+   black .
+   
+   # Sort imports with isort
+   isort .
+   
+   # Run Flake8 linting
+   flake8 .
+   ```
+
+### Running Tests with Coverage
+
+This project uses `coverage.py` to measure test coverage for the codebase.
+
+#### **Prerequisites**
+Ensure you have `coverage` and `pytest` installed. If not, manually install them using or run `pip install -r requirements.txt` in your virtual environment:
+
+```sh
+pip install coverage pytest
+```
+
+#### **Running Tests with Coverage**
+To run tests located in the `tests/` folder while tracking coverage, run the following in the `bountyagent/` folder:
+
+```sh
+coverage run --rcfile=.coveragerc -m pytest tests/
+```
+
+#### **Generating Coverage Reports**
+After running the tests, generate coverage reports using the following commands:
+
+##### 1. **View Coverage Summary in the Terminal**
+```sh
+coverage report
+```
+
+##### 2. **Generate an HTML Coverage Report**
+For a visual representation, run:
+
+```sh
+coverage html
+```
+
+Then, open `htmlcov/index.html` in your browser to view the detailed coverage report by doing the following: 
+```sh
+open htmlcov/index.html
+```
+
+#### **Enforcing Minimum Coverage**
+To enforce a minimum test coverage percentage (e.g., 80%), use:
+
+```sh
+coverage report --fail-under=80
+```
+
+This command will cause the process to fail if the coverage is below 80%.
+
+---
+
+For further details on `coverage.py`, refer to the official documentation: [Coverage.py](https://coverage.readthedocs.io/)

@@ -12,18 +12,6 @@ class ResourceDict(dict):
     def __contains__(self, key):
         return key in self.id_to_resource
 
-    def get_item_of_resource_type(self, resource_type):
-        items = self.get_items_of_resource_type(resource_type)
-        if items:
-            return items[0]
-        return None
-
-    def get_items_of_resource_type(self, resource_type):
-        resource_name = resource_type.__name__
-        if resource_name in self.resource_type_to_resources:
-            return self.resource_type_to_resources[resource_name]
-        return []
-    
     def delete_items_of_resource_type(self, resource_type):
         if resource_type in self.resource_type_to_resources:
             for resource in self.resource_type_to_resources[resource_type]:

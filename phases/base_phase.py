@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import wraps
+import os
+import subprocess
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.agent_message import AgentMessage
-from messages.message_utils import update_message
+from messages.message_utils import log_message
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResource, BaseResourceConfig
@@ -29,7 +31,6 @@ class PhaseConfig:
     max_iterations: int = field(default=10)
     interactive: bool = False
     phase_idx: Optional[int] = None
-    initial_prompt: Optional[str] = None
 
     @classmethod
     def from_phase(cls, phase_instance: 'BasePhase', **kwargs):
@@ -53,7 +54,7 @@ class BasePhase(ABC):
         self.agent_manager = self.workflow.agent_manager
         self.resource_manager = self.workflow.resource_manager
         self.agents: List[Tuple[str, BaseAgent]] = []
-        self.initial_message = kwargs.get("initial_prompt", None)
+        self.params = kwargs
         self._done = False
         self.iteration_count = 0
         self.current_agent_index = 0
@@ -155,17 +156,20 @@ class BasePhase(ABC):
         logger.debug(f"Running phase {self.name}")
         
         self._phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
+        workflow_message.add_phase_message(self._phase_message)
 
         if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
             self._last_agent_message = prev_phase_message.agent_messages[-1]
         else:
             logger.info(f"Adding initial prompt to phase")
+            if self.params.get("task_dir"):
+                codebase_structure = subprocess.run(["tree", "-L", "4"], cwd=os.path.join(self.params.get("task_dir"), "tmp"), capture_output=True, text=True).stdout
+                self.params["codebase"] = "$ tree -L 4\n" + codebase_structure
             self._last_agent_message = AgentMessage(
                 agent_id="system",
-                message=self.initial_message,
+                message=self.params.get("initial_prompt").format(**self.params),
             )
             self._phase_message.add_agent_message(self._last_agent_message)
-        workflow_message.add_phase_message(self._phase_message)
 
         for iteration_num in range(1, self.phase_config.max_iterations + 1):
             if self._phase_message.complete:
@@ -182,6 +186,9 @@ class BasePhase(ABC):
             agent_id, agent_instance = self._get_current_agent()
             logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
 
+            while self._last_agent_message.version_next:
+                self._last_agent_message = self._last_agent_message.version_next
+                
             message = await self.run_one_iteration(
                 phase_message=self._phase_message,
                 agent_instance=agent_instance,
@@ -205,26 +212,8 @@ class BasePhase(ABC):
         # Deallocate resources after completing iterations
         self.deallocate_resources()
 
-        update_message(self._phase_message)
+        log_message(self._phase_message)
         return self._phase_message
-
-    async def add_user_message(self, user_input: str) -> str:
-        user_input_message = AgentMessage(agent_id="human", message=user_input)
-        print("Message created")
-        self._phase_message.add_agent_message(user_input_message)
-
-        # Update the last output
-        self._last_agent_message = user_input_message
-        
-        return user_input_message.message
-    
-    def get_phase_memory(self):
-        memory = ""
-        if self._phase_message:
-            for agent in self._phase_message.current_agent_list:
-                memory += agent.message
-        
-        return memory
 
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:
         """Retrieve the next agent in a round-robin fashion."""
@@ -235,6 +224,10 @@ class BasePhase(ABC):
         """Retrieve the next agent in a round-robin fashion."""
         agent = self.agents[(self.current_agent_index - 1) % len(self.agents)]
         return agent
+    
+    async def set_interactive_mode(self, interactive: bool):
+        self.phase_config.interactive = interactive
+        print(f"Interactive mode for phase {self.name} set to {interactive}")
     
     @abstractmethod
     async def run_one_iteration(

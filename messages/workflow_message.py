@@ -9,23 +9,7 @@ from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 class WorkflowMessage(Message):    
-    _instance = None
-
-    @classmethod
-    def initialize(cls, workflow_name: str, workflow_id: Optional[str] = None, task: Optional[Dict[str, Any]] = None, 
-                  additional_metadata: Optional[Dict[str, Any]] = None, logs_dir: str = "logs"):
-        if cls._instance is None:
-            cls._instance = cls.__new__(cls)
-            cls._instance._initialize(workflow_name, workflow_id, task, additional_metadata, logs_dir)
-        return cls._instance
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            raise RuntimeError("WorkflowMessage has not been initialized. Call initialize() first.")
-        return cls._instance
-    
-    def _initialize(self, workflow_name: str, workflow_id: Optional[str] = None, 
+    def __init__(self, workflow_name: str, workflow_id: Optional[str] = None, 
                    task: Optional[Dict[str, Any]] = None, additional_metadata: Optional[Dict[str, Any]] = None, 
                    logs_dir: str = "logs") -> None:
         # Core
@@ -44,7 +28,7 @@ class WorkflowMessage(Message):
                 if value:
                     components.append(str(value.name if isinstance(value, Path) else value))
         self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        self.workflow_id = workflow_id if workflow_id else str(id(self))
+        self._workflow_id = workflow_id if workflow_id else str(id(self))
 
         # Metadata
         self.workflow_name = workflow_name
@@ -56,13 +40,13 @@ class WorkflowMessage(Message):
 
         super().__init__()
         
-    def __init__(self):
-        # This method should not be called directly
-        raise RuntimeError("WorkflowMessage should not be instantiated directly. Use initialize() or get_instance().")
-
     @property
     def summary(self) -> str:
         return self._summary
+    
+    @property 
+    def workflow_id(self) -> str:
+        return self._workflow_id
     
     @property
     def phase_messages(self) -> List[PhaseMessage]:
@@ -72,7 +56,8 @@ class WorkflowMessage(Message):
         self._summary = summary
 
     def add_phase_message(self, phase_message: PhaseMessage):
-        self._phase_messages.append(phase_message)
+        self._phase_messages.append(phase_message)  
+        phase_message.set_parent(self)
 
     def add_agent(self, agent_name: str, agent) -> None:        
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
@@ -97,6 +82,7 @@ class WorkflowMessage(Message):
             "resources_used": self.resources_used,
             "start_time": self._start_time,
             "end_time": self._end_time,
+            "workflow_id": self.workflow_id,
             "additional_metadata": self.additional_metadata
         }
 

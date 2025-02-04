@@ -16,10 +16,7 @@ from agents.base_agent import AgentConfig, BaseAgent
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.setup_resource import SetupResource
-from messages.action_messages.answer_message import AnswerMessage
-from messages.message import Message
 from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
 
 
 logger = get_main_logger(__name__)
@@ -56,8 +53,7 @@ class PatchAgent(BaseAgent):
         self.exploits_dir_name = "agent_exploits"
         self.exploits_dir = Path(agent_config.task_dir) / self.bounty_dir / self.exploits_dir_name
         self.exploits_dir.mkdir(parents=True, exist_ok=True)
-        self.tmp_exploits_dir_name = "exploit_files"
-        self.tmp_exploits_dir = self.task_dir /"tmp" / self.bounty_dir / self.tmp_exploits_dir_name
+        self.tmp_exploits_dir = self.task_dir / "tmp"
         self.log_history = []
         
         self.codebase = None
@@ -87,15 +83,11 @@ class PatchAgent(BaseAgent):
             logger.info(log_message)
             self.log_history.append(log_message)
             agent_message = self.execute(prev_agent_message)
-            from messages.message_utils import update_message
-            update_message(agent_message)
             return agent_message
         else: 
             logger_message = "No git diff detected, skipping patching."
             logger.info(logger_message)
             agent_message =  AgentMessage(agent_id=self.agent_id, message=logger_message, prev=prev_agent_message)
-            from messages.message_utils import update_message
-            update_message(agent_message)
             return agent_message
 
     def execute(self, prev_agent_message: Optional[AgentMessage] = None) -> AgentMessage:
@@ -122,9 +114,13 @@ class PatchAgent(BaseAgent):
         bounty_resource_restarted = hasattr(self, "bounty_resource") and self._restart_resource(self.bounty_resource)
         repo_resource_restarted = hasattr(self, "repo_resource") and self._restart_resource(self.repo_resource)
 
-        if hasattr(self, "bounty_resource") and hasattr(self, "repo_resource") and not (bounty_resource_restarted and repo_resource_restarted):
-            logger.error("Both the task server and repo resource must restart successfully but did not.")
-            return PatchAgentMessage(agent_id=self.agent_id, message="The task server and/or repo resource cannot restart after the changes.", prev=prev_agent_message)
+        if (hasattr(self, "bounty_resource") and not bounty_resource_restarted):
+            logger.error("The bounty resource must restart successfully but did not.")
+            return PatchAgentMessage(agent_id=self.agent_id, message="The bounty resource cannot restart after the changes.", prev=prev_agent_message)
+
+        if (hasattr(self, "repo_resource") and not repo_resource_restarted):
+            logger.error("The repo resource must restart successfully but did not.")
+            return PatchAgentMessage(agent_id=self.agent_id, message="The repo resource cannot restart after the changes.", prev=prev_agent_message)
 
         # Run exploit
         stdout, exit_code = self.run_exploit()
@@ -168,12 +164,10 @@ class PatchAgent(BaseAgent):
         # Here we rely on self.init_files from (InitFilesResource, "init_files")
 
         volumes = {
-            os.path.abspath(os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)): {"bind": "/app/codebase", "mode": "rw"},
-            os.path.abspath(self.tmp_exploits_dir): {"bind": f"/app/{self.bounty_dir}/{self.tmp_exploits_dir_name}", "mode": "rw"},
+            os.path.abspath(self.init_files.tmp_dir): {"bind": "/app", "mode": "rw"},
         }
 
-        #/app/bounties/bounty_#/exploit_files
-        exploit_command = f"cd {self.bounty_dir / self.tmp_exploits_dir_name} && bash exploit.sh"
+        exploit_command = f"bash exploit.sh"
 
         logger.info("Running exploit...")
         try:
