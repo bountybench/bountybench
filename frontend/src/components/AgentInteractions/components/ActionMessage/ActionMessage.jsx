@@ -133,23 +133,25 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
             />
             <Box className="action-message-buttons">
               <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSaveClick}
-                size="small"
-                aria-label="save"
-                sx={{ mr: 1 }}
-              >
-                <SaveIcon/>
-              </Button>
-              <Button
                 variant="outlined"
                 color="secondary"
                 onClick={handleCancelEdit}
                 size="small"
                 aria-label="cancel"
+                className="cancel-button"
               >
                 <CloseIcon/>
+              </Button>
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={handleSaveClick}
+                size="small"
+                aria-label="save"
+                className="save-button"
+                sx={{ mr: 1 }}
+              >
+                <KeyboardArrowRightIcon/>
               </Button>
             </Box>
           </Box>
@@ -177,6 +179,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
                 onClick={handleRerunClick}
                 size="small"
                 aria-label="rerun"
+                className="rerun-button"
               >
                 <KeyboardArrowRightIcon />
               </Button>
