@@ -11,7 +11,7 @@ import './AgentMessage.css'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
+const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message ? message.message || '' : '');
@@ -69,7 +69,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
       return;
     }
     try {
-      await onRerunAction(message.current_id);
+      await onRerunMessage(message.current_id);
     } catch (error) {
       console.error('Error rerunning action:', error);
     }
@@ -93,7 +93,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
       return;
     }
     try {
-      await onUpdateActionInput(message.current_id, editedMessage);
+      await onUpdateMessageInput(message.current_id, editedMessage);
       setEditing(false);
       onEditingChange(false);
     } catch (error) {
@@ -243,8 +243,8 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
                     key={index}
                     index={index}
                     action={actionMessage}
-                    onUpdateActionInput={onUpdateActionInput}
-                    onRerunAction={onRerunAction}
+                    onUpdateMessageInput={onUpdateMessageInput}
+                    onRerunMessage={onRerunMessage}
                     onEditingChange={onEditingChange}
                     isEditing={isEditing}
                     onChildUpdate={handleChildUpdate}

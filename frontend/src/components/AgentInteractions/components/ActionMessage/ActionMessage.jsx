@@ -11,7 +11,7 @@ import './ActionMessage.css'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onChildUpdate, displayedIndex, versionLength }) => {
+const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, onChildUpdate, displayedIndex, versionLength }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(action.message || '');
@@ -62,7 +62,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
       return;
     }
     try {
-      await onRerunAction(action.current_id);
+      await onRerunMessage(action.current_id);
     } catch (error) {
       console.error('Error rerunning action:', error);
     }
@@ -82,7 +82,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
       return;
     }
     try {
-      await onUpdateActionInput(action.current_id, editedMessage);
+      await onUpdateMessageInput(action.current_id, editedMessage);
       setEditing(false);
       onEditingChange(false);
     } catch (error) {
