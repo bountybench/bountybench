@@ -5,7 +5,8 @@ from resources.init_files_resource import InitFilesResource
 from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
 from resources.kali_env_resource import KaliEnvResource
-
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 
 logger = get_main_logger(__name__)
 
@@ -24,6 +25,14 @@ class ResourceManager:
         self._resource_registration[resource_id] = (resource_class, resource_config)
         logger.debug(f"Registered resource '{resource_id}' with {getattr(resource_class, '__name__', str(resource_class))}.")
 
+    def update_model(self, new_model_name: str):
+        if "model" in self._resource_registration:
+            resource_class, resource_config = ModelResource, ModelResourceConfig.create(model=new_model_name)
+            self._resource_registration["model"] = (resource_class, resource_config)
+            resource = resource_class("model", resource_config)
+            self._resources["model"] = resource
+            logger.info(f'New model specifics: {resource}')
+            
     def compute_schedule(self, phases: List['BasePhase']):
         """
         Compute the resource usage schedule across all phases.
@@ -107,21 +116,22 @@ class ResourceManager:
     def _initialize_single_resource(self, resource_id: str, phase_index: int):
         """Initialize a single resource."""
         if resource_id in self._resources.id_to_resource:
-            logger.debug(f"Resource '{resource_id}' already initialized. Skipping.")
+            logger.info(f"Resource '{resource_id}' already initialized. Skipping.")
             return
 
-        logger.debug(f"Attempting to initialize resource '{resource_id}'")
+        logger.info(f"Attempting to initialize resource '{resource_id}'")
         if resource_id not in self._resource_registration:
-            logger.debug(f"Resource '{resource_id}' not registered. Skipping.")
+            logger.info(f"Resource '{resource_id}' not registered. Skipping.")
             return
         
         resource_class, resource_config = self._resource_registration[resource_id]
+        logger.info(f"resource_class, resource_config: {resource_class}, {resource_config}")
         try:
             resource = resource_class(resource_id, resource_config)
             self._resources[resource_id] = resource
-            logger.debug(f"Successfully initialized resource '{resource_id}'")
+            logger.info(f"Successfully initialized resource '{resource_id}'")
         except Exception as e:
-            logger.debug(f"Failed to initialize resource '{resource_id}': {str(e)}")
+            logger.info(f"Failed to initialize resource '{resource_id}': {str(e)}")
             raise
 
     def deallocate_phase_resources(self, phase_index: int):

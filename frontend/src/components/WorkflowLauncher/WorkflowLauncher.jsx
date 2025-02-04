@@ -33,6 +33,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [formData, setFormData] = useState({
     workflow_name: '',
@@ -42,7 +43,24 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     iterations: 10,
     api_key_name: 'HELM_API_KEY',
     api_key_value: '',
+    model: '',
+    use_helm: false
   });
+  const [allModels, setAllModels] = useState({});
+  const [selectedModels, setSelectedModels] = useState([]);
+  const [topLevelSelection, setTopLevelSelection] = useState("");
+
+  const handleTopLevelChange = (event) => {
+    const { value } = event.target;
+    setTopLevelSelection(value);
+    // Set the model field based on top-level selection
+    if (value === "Non-HELM") {
+      setSelectedModels(allModels.nonHelmModels);
+    } else {
+      handleInputChange({ target: { name: 'use_helm', value: true } });
+      setSelectedModels(allModels.helmModels);
+    }
+  };
 
   const [apiKeys, setApiKeys] = useState({"HELM_API_KEY": ""});
   const [showApiKey, setShowApiKey] = useState(false);
@@ -75,17 +93,20 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     if (!isChecking && isServerAvailable) {
       fetchWorkflows();
       fetchApiKeys();
+      fetchModels();
     }
   }, [isChecking, isServerAvailable]);
 
   const fetchWorkflows = async () => {
+    setError(null);
     setLoading(true);
     try {
       const response = await fetch('http://localhost:8000/workflow/list');
       const data = await response.json();
-      setWorkflows(data.workflows || []);
+      setWorkflows(data.workflows);
     } catch (err) {
       console.error('Failed to fetch workflows. Make sure the backend server is running.');
+      setError('Failed to fetch workflows. Make sure the backend server is running.');
     } finally {
       setLoading(false);
     }
@@ -95,7 +116,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     try {
       const response = await fetch('http://localhost:8000/service/api-service/get');
       const data = await response.json();
-      console.log(data);
       setApiKeys(data);
       setFormData((prev) => ({
         ...prev,
@@ -105,6 +125,20 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       console.error('Failed to fetch API keys:', err);
     }
   };
+
+
+ 
+  const fetchModels = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/workflow/models');
+      const models = await response.json();
+      setAllModels(models);
+    } catch (err) {
+      console.error('Failed to fetch models. Make sure the backend server is running.');
+    }
+  };
+
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -120,7 +154,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: formData.bounty_number,
           interactive: interactiveMode,
-          iterations: formData.iterations
+          iterations: formData.iterations,
+          model: formData.model,
+          use_helm: formData.use_helm
         }),
       });
       
@@ -131,7 +167,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       if (!response.ok) {
         let errorData;
         try {
-          errorData = await response.json();
+          errorData = await response.json();        
         } catch {
           throw new Error('Failed to parse error response');
         }
@@ -148,7 +184,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       if (data.error) {
         console.error(data.error);
       } else {
-        onWorkflowStart(data.workflow_id, interactiveMode);
+        onWorkflowStart(data.workflow_id, data.model, interactiveMode);
         navigate(`/workflow/${data.workflow_id}`); // Navigate to workflow page after start
         // setIsCreatingWorkflow(false); // Reset loading state
       }
@@ -159,6 +195,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
     }
   };
+
 
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
@@ -336,6 +373,42 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           placeholder="e.g., 10"
         />
 
+        <TextField
+          select
+          fullWidth
+          label="Model Type"
+          name="type"
+          value={topLevelSelection}
+          onChange={handleTopLevelChange}
+          required
+          margin="normal"
+        >
+          <MenuItem value="HELM">HELM</MenuItem>
+          <MenuItem value="Non-HELM">Non-HELM</MenuItem>
+        </TextField>
+
+        {/* Conditionally render the second dropdown based on top-level selection */}
+        {topLevelSelection && (
+          <TextField
+            select
+            fullWidth
+            label="Model Name"
+            name="model"
+            value={formData.model}
+            onChange={handleInputChange}
+            required
+            margin="normal"
+          >
+            {selectedModels.map((model) => (
+            <MenuItem key={model.name} value={model.name}>
+              <Box display="flex" flexDirection="column">
+                <Typography>{model.name}</Typography>
+              </Box>
+            </MenuItem>
+          ))}
+          </TextField>
+          )}
+
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={5}>
             <TextField
@@ -432,7 +505,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
         </Grid>
 
-        <FormControlLabel
+          <FormControlLabel
           control={
             <Switch
               checked={interactiveMode}
@@ -442,7 +515,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             />
           }
           label="Interactive Mode"
-        />
+          />
 
         <Button
           type="submit"

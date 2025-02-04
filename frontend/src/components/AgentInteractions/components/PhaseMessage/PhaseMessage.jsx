@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -11,6 +11,53 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
 
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
+
+  const [agentsVersionChain, setAgentsVersionChain] = useState([]);
+
+  const getAgentIds = (agents) => agents.length === 0 ? [] : agents.map(agent => agent.current_id);
+
+  useEffect(() => {
+    if (message.current_children){
+      const children_length = message.current_children.length;
+      if (children_length === 0){
+        return;
+      }
+      const chain_copy = [...agentsVersionChain]; 
+      const num_agents = agentsVersionChain.length;
+      for (let i = 0; i < children_length; i++) {
+        const curr_child = message.current_children[i];
+        const agent_id = curr_child.agent_id;
+        if (i >= num_agents){
+          chain_copy.push({'agent': agent_id, 'versionChain': [curr_child], 'index': 1});
+        }
+        else{
+          const found_index = getAgentIds(chain_copy[i]['versionChain']).indexOf(curr_child.current_id);
+          if (found_index !== -1){
+            chain_copy[i]['versionChain'][found_index] = curr_child
+          }
+          else{
+            chain_copy[i]['versionChain'].push(curr_child);
+            chain_copy[i]['index'] = chain_copy[i]['versionChain'].length;
+          }
+        }
+        }
+        setAgentsVersionChain(chain_copy);      
+      }
+      
+  }, [message.current_children]);
+
+  const handleChildUpdate = (id, num) => {
+    if (id !== 'executor_agent'){
+      const chain_copy = [...agentsVersionChain]; 
+      const agent_index = chain_copy.findIndex(item => item.agent === id);
+      chain_copy[agent_index]['index'] += num;
+      // If followed by executor agent, also change the displayed index of the executor's output
+      if (agent_index + 1 < chain_copy.length){
+        chain_copy[agent_index+1]['index'] += num;
+      }
+      setAgentsVersionChain(chain_copy);
+    }
+  };
 
   return (
     <Box className="message-container phase">
@@ -34,17 +81,20 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
               Summary: {message.phase_summary || '(no summary)'}
             </Typography>
             
-            {message.current_children && message.current_children.length > 0 && (
+            {agentsVersionChain && agentsVersionChain.length > 0 && (
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
-                {message.current_children.map((agentMessage, index) => (
+                {agentsVersionChain.map((messages, index) => (
                   <AgentMessage 
                     key={index} 
-                    message={agentMessage} 
+                    message={messages['versionChain'][messages['index'] - 1]} 
                     onUpdateActionInput={onUpdateActionInput}
                     onRerunAction={onRerunAction}
                     onEditingChange={onEditingChange}
                     isEditing={isEditing}
+                    onPhaseChildUpdate={handleChildUpdate}
+                    phaseDisplayedIndex={messages['index']}
+                    phaseVersionLength={messages['versionChain'].length}
                   />
                 ))}
               </Box>
