@@ -97,7 +97,9 @@ class AgentManager:
         for resource_entry in agent.REQUIRED_RESOURCES + agent.OPTIONAL_RESOURCES:
             resource_type, attr_name = self._parse_resource_entry(resource_entry)
 
-            resource = self.resource_dict.get_item_of_resource_type(resource_type)
+            resource = None
+            if attr_name in self.resource_dict:
+                resource = self.resource_dict[attr_name]
 
             if resource:
                 setattr(agent, attr_name, resource)

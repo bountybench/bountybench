@@ -7,7 +7,7 @@ class ExecutorAgentMessage(AgentMessage):
         self._message = ""
         current_action_messages = self.current_actions_list
         for action_message in current_action_messages:
-            if action_message:
+            if action_message and action_message.message:
                 self._message += action_message.message
 
         return self._message
