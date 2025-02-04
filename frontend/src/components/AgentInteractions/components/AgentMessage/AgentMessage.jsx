@@ -63,6 +63,13 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
 
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
 
+  const handleKeyDown = (event) => {
+    if (event.shiftKey && event.key === 'Enter') {
+      event.preventDefault(); // Prevent the default action 
+      handleSaveClick();      // Call the save function
+    }
+  };
+  
   const handleRerunClick = async () => {
     if (!message.current_id) {
       console.error('Action id is undefined');
@@ -140,6 +147,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                       maxRows={10}
                       value={editedMessage}
                       onChange={(e) => setEditedMessage(e.target.value)}
+                      onKeyDown={handleKeyDown}
                     />
                     <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
                       <Button

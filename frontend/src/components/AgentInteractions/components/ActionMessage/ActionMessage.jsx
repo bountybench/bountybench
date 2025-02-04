@@ -45,6 +45,13 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
 
   if (!action) return null;
 
+  const handleKeyDown = (event) => {
+    if (event.shiftKey && event.key === 'Enter') {
+      event.preventDefault(); // Prevent the default action 
+      handleSaveClick();      // Call the save function
+    }
+  };
+  
   const handleToggleMetadata = (event) => {
     event.stopPropagation();
     setMetadataExpanded(!metadataExpanded);
@@ -140,6 +147,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
               value={editedMessage}
               onChange={(e) => setEditedMessage(e.target.value)}
               fullWidth
+              onKeyDown={handleKeyDown}
             />
           </Box>
           <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
