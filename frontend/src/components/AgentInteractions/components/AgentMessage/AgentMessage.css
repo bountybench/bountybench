@@ -59,9 +59,9 @@
 
 .edit-mode-container {
   padding: 16px;
-  background-color: #f8f9fa;
-  border-radius: 4px;
-  margin: 8px 0;
+  background-color: #ffffff;
+  border: none;
+  margin: 0;
 }
 
 /* Edit mode text color fixes */
@@ -121,4 +121,11 @@
 
 .toggle-button:hover {
   color: #313131;
+}
+
+/* Edit mode text color fixes */
+.message-edit-field .MuiInputBase-root {
+  padding: 12px;
+  font-size: 0.75rem !important;
+  color: #1f1f1f !important;
 }

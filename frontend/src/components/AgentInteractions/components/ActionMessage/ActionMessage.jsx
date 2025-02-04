@@ -15,7 +15,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onChildUpdate, displayedIndex, versionLength }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editedMessage, setEditedMessage] = useState('');
+  const [editedMessage, setEditedMessage] = useState(action.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   useEffect(() => {
@@ -118,43 +118,41 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
 
       <Collapse in={expanded}>
         {editing ? (
-          <Box className="edit-mode-container">
-            <Typography variant="caption" color="text.secondary">
-              Editing Message:
-            </Typography>
-            <TextField
+          <>
+          <Box className="editing-message-content">
+            <TextField className="action-message-text message-edit-field"
               multiline
               minRows={3}
               maxRows={10}
               value={editedMessage}
               onChange={(e) => setEditedMessage(e.target.value)}
-              className="edit-textarea"
               fullWidth
             />
-            <Box className="action-message-buttons">
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleCancelEdit}
-                size="small"
-                aria-label="cancel"
-                className="cancel-button"
-              >
-                <CloseIcon/>
-              </Button>
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={handleSaveClick}
-                size="small"
-                aria-label="save"
-                className="save-button"
-                sx={{ mr: 1 }}
-              >
-                <KeyboardArrowRightIcon/>
-              </Button>
-            </Box>
           </Box>
+          <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleCancelEdit}
+              size="small"
+              aria-label="cancel"
+              className="cancel-button"
+            >
+              <CloseIcon/>
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={handleSaveClick}
+              size="small"
+              aria-label="save"
+              className="save-button"
+              sx={{ mr: 1 }}
+            >
+              <KeyboardArrowRightIcon/>
+            </Button>           
+          </Box>
+        </>
         ) : (
           <>
             <Box className="action-message-content">
@@ -218,8 +216,8 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
                       </Typography>
                     </Box>
                   </>)}               
-                </Box>
-            </>
+            </Box>
+          </>
           )}
 
         {/* Metadata section */}

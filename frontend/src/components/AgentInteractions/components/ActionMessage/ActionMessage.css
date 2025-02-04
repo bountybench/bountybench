@@ -62,6 +62,17 @@
   overflow-y: auto;
 }
 
+.editing-message-content {
+  padding: 0px !important;
+  background-color: #ffffff;
+  margin: 12px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 .action-message-text {
   font-size: 0.75rem !important;
   color: #333 !important;
