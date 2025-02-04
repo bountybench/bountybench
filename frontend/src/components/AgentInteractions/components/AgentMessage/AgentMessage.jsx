@@ -103,7 +103,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
           </Box>
 
           <Collapse in={agentMessageExpanded}>
-            {!message.current_children || message.current_children.length === 0 ? (
+            {!message.current_children || message.current_children.length === 0 || message.action_messages.length % 2 !== 0 ? (
               <Box className="agent-message-content">
                 {editing ? (
                   <Box className="edit-mode-container">
