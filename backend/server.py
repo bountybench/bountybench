@@ -86,7 +86,12 @@ class Server:
                 await asyncio.gather(*cleanup_tasks, return_exceptions=True)
             except Exception as e:
                 print(f"Error during cleanup: {e}")
+                raise e
 
-        # Stop the event loop. This forces an immediate shutdown.
-        loop = asyncio.get_running_loop()
-        loop.stop()
+        # Stop the event loop safely
+        try:
+            loop = asyncio.get_running_loop()
+            loop.stop()
+        except RuntimeError as e:
+            print(f"Error stopping event loop: {e}")
+            raise
