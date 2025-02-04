@@ -9,7 +9,10 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css'
 
-const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing }) => {
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+
+const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onChildUpdate, displayedIndex, versionLength }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
@@ -33,6 +36,12 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
   const handleToggleMetadata = (event) => {
     event.stopPropagation();
     setMetadataExpanded(!metadataExpanded);
+  };
+
+  const handleToggleVersion = (num) => {
+    if (onChildUpdate) {
+        onChildUpdate(num); // Notify parent of the update
+    }
   };
 
   const handleRerunClick = async () => {
@@ -171,9 +180,44 @@ const ActionMessage = ({ action, onUpdateActionInput, onRerunAction, onEditingCh
               >
                 <ReplayIcon />
               </Button>
-            </Box>
-          </>
-        )}
+
+                  {/* Toggle Version Arrows */}
+                  { versionLength > 1 && index === 0 && (
+                  <>
+                    <Typography variant="caption" sx={{ mx: 1 }}>
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      {/* Arrow Buttons */}
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <IconButton
+                          aria-label="arrow back"
+                          onClick={() => handleToggleVersion(-1)}
+                          disabled={displayedIndex === 1}
+                          sx={{ color: 'black' }}
+                          size="small"
+                        >
+                          <ArrowBackIcon />
+                        </IconButton>
+                        <IconButton
+                          aria-label="arrow forward"
+                          onClick={() => handleToggleVersion(1)}
+                          disabled={displayedIndex === versionLength}
+                          sx={{ color: 'black' }}
+                          size="small"
+                        >
+                          <ArrowForwardIcon />
+                        </IconButton>
+                      </Box>
+
+                      {/* Version Number */}
+                      <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
+                        {displayedIndex}/{versionLength}
+                      </Typography>
+                    </Box>
+                  </>)}               
+                </Box>
+            </>
+          )}
 
         {/* Metadata section */}
         {action.additional_metadata && (

@@ -266,6 +266,12 @@ class BaseWorkflow(ABC):
         message = await self.edit_message(message, new_message_data)
         return message
     
+
+    async def change_current_model(self, new_model_name: str):
+        self.params['model'] = new_model_name
+        self.resource_manager.update_model(new_model_name)
+        self.agent_manager.update_phase_agents_models(new_model_name)
+        
     """
     async def set_interactive_mode(self, interactive: bool):
         self.interactive = interactive
