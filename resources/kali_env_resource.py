@@ -45,7 +45,7 @@ ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 
 TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
-RETRY_DELAY = 10
+RETRY_DELAY = 5
 
 class DockerContainerStartError(Exception):
     """Custom exception for Docker container start failures."""
