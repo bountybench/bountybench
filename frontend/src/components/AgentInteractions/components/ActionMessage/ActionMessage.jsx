@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -17,6 +17,19 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(action.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+  const textFieldRef = useRef(null);
+
+  useEffect(() => {
+    if (editing) {
+      setEditedMessage(action.message || '');
+      if (textFieldRef.current) {
+        setTimeout(() => {
+          textFieldRef.current.focus();   // Focus the text field when editing starts
+          textFieldRef.current.setSelectionRange(0, 0); // Set cursor at the start
+        }, 0);
+      }
+    }
+  }, [editing]);
 
   useEffect(() => {
     const handleEscKey = (event) => {
@@ -121,6 +134,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
           <>
           <Box className="editing-message-content">
             <TextField className="action-message-text message-edit-field"
+              inputRef={textFieldRef}
               multiline
               minRows={3}
               maxRows={10}
