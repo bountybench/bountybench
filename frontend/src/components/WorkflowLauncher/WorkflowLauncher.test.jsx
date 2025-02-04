@@ -112,6 +112,7 @@ describe('WorkflowLauncher Component', () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [{ name: 'Workflow 1', description: 'Description 1' }];
     const helmModels = [{ name: 'model1', description: 'Description 1' }];
+    const nonHelmModels = [{ name: 'model2', description: 'Description 2' }];
     const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     global.fetch = jest
       .fn()
@@ -127,7 +128,7 @@ describe('WorkflowLauncher Component', () => {
       )
       .mockImplementationOnce(() =>
         Promise.resolve({
-          json: () => Promise.resolve({ helmModels }) // Third fetch API call (fetchModels)
+          json: () => Promise.resolve({ helmModels , nonHelmModels}) // Third fetch API call (fetchModels)
         })
       )
       .mockImplementationOnce(() =>
@@ -177,6 +178,7 @@ describe('WorkflowLauncher Component', () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [{ name: 'Workflow 1', description: 'Description 1' }];
     const helmModels = [{ name: 'model1', description: 'Description 1' }];
+    const nonHelmModels = [{ name: 'model2', description: 'Description 2' }];
     const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     global.fetch = jest
       .fn()
@@ -192,7 +194,7 @@ describe('WorkflowLauncher Component', () => {
       )
       .mockImplementationOnce(() =>
         Promise.resolve({
-          json: () => Promise.resolve({ helmModels }) // Third fetch API call (fetchModels)
+          json: () => Promise.resolve({ helmModels, nonHelmModels }) // Third fetch API call (fetchModels)
         })
       )
       .mockImplementationOnce(() =>
@@ -229,6 +231,9 @@ describe('WorkflowLauncher Component', () => {
     
     fireEvent.mouseDown(screen.getByLabelText(/Model Type/i));
     fireEvent.click(screen.getByText('Non-HELM'));
+    fireEvent.mouseDown(screen.getByLabelText(/Model Name/i));
+    fireEvent.click(screen.getByText('model2'));
+
 
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
