@@ -8,12 +8,10 @@ const AgentInteractions = ({
   interactiveMode, 
   isNextDisabled,
   messages = [],
-  onSendMessage,
   onUpdateActionInput,
   onRerunAction,
   onTriggerNextIteration,
 }) => {
-  const [userMessage, setUserMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const messagesEndRef = useRef(null);
 
