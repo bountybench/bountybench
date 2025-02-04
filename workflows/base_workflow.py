@@ -228,37 +228,33 @@ class BaseWorkflow(ABC):
         return result.message if result else ""
 
     async def rerun_message(self, message_id: str):
-        message = message_dict[message_id]
-        message = await self.rerun_manager.rerun(message)        
+        message = message_dict[message_id]  
         if message.next:
-            message = await self.rerun_manager.run_edited(message)
-            message = message.next
-        if isinstance(message, ActionMessage):
-            while message.next:
-                message = await self.rerun_manager.run_edited(message)
-                message = message.next
-        return message
+            message = await self.rerun_manager.rerun(message)
+            if isinstance(message, ActionMessage):
+                while message.next:
+                    message = await self.rerun_manager.rerun(message)
+            return message
+        return None
     
     async def run_next_message(self):
         if len(message_dict) > 0:
             _, last_message = list(message_dict.items())[-1]
             if last_message.next:
-                last_message = await self.rerun_manager.run_edited(last_message)
+                last_message = await self.rerun_manager.rerun(last_message)
                 return last_message
             if last_message.parent and last_message.parent.next:
-                last_message = await self.rerun_manager.run_edited(last_message.parent)
+                last_message = await self.rerun_manager.rerun(last_message.parent)
                 return last_message
         return None
     
     async def edit_message(self, message: Message, new_message_data: str) -> Message:
         message = await self.rerun_manager.edit_message(message, new_message_data)
         if message.next:
-            message = await self.rerun_manager.run_edited(message)
-            message = message.next
+            message = await self.rerun_manager.rerun(message)
         if isinstance(message, ActionMessage):
             while message.next:
-                message = await self.rerun_manager.run_edited(message)
-                message = message.next
+                message = await self.rerun_manager.rerun(message)
         return message
     
     async def edit_one_message(self, message_id: str, new_message_data: str) -> Message:
@@ -266,25 +262,11 @@ class BaseWorkflow(ABC):
         message = await self.edit_message(message, new_message_data)
         return message
     
-
     async def change_current_model(self, new_model_name: str):
         self.params['model'] = new_model_name
         self.resource_manager.update_model(new_model_name)
         self.agent_manager.update_phase_agents_models(new_model_name)
         
-    """
-    async def set_interactive_mode(self, interactive: bool):
-        self.interactive = interactive
-        # Update the interactive mode for the current phase
-        if self._current_phase:
-            await self._current_phase.set_interactive_mode(interactive)
-        # Update the interactive mode for all remaining phases
-        for phase in self._phase_graph:
-            if phase != self._current_phase:
-                phase.phase_config.interactive = interactive
-        logger.info(f"Interactive mode set to {interactive}")
-    """
-
     async def set_interactive_mode(self, interactive: bool):
         if self.interactive != interactive:
             self.interactive = interactive
