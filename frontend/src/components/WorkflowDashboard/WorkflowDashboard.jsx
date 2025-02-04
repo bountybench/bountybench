@@ -40,7 +40,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     currentIteration,
     messages,
     error,
-    sendMessage,
   } = useWorkflowWebSocket(workflowId);
 
   // Update parent component with workflow state
@@ -193,7 +192,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         currentIteration={currentIteration}
         isNextDisabled={isNextDisabled}
         messages={displayMessages}
-        onSendMessage={sendMessage}
         onUpdateActionInput={handleUpdateActionInput}
         onRerunAction={handleRerunAction}
         onTriggerNextIteration={triggerNextIteration}

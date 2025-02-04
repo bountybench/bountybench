@@ -89,18 +89,15 @@
 }
 
 .edit-button,
-.save-button {
-  margin-left: 8px !important;
+.cancel-button {
+  color: #c200bf !important;
+  border-color: #c200bf !important;
 }
 
-.edit-button {
-  color: #666 !important;
-  border-color: #e0e0e0 !important;
-}
-
+.rerun-button,
 .save-button {
-  background-color: #2196f3 !important;
-  color: #ffffff !important;
+  color: #2196f3 !important;
+  border-color: #2196f3 !important;
 }
 
 .action-messages-container {
