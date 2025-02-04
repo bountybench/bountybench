@@ -47,6 +47,9 @@ TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
 RETRY_DELAY = 10
 
+class DockerContainerStartError(Exception):
+    """Custom exception for Docker container start failures."""
+    pass
 
 @dataclass
 class KaliEnvResourceConfig(BaseResourceConfig):
@@ -172,15 +175,15 @@ class KaliEnvResource(BaseResource):
                     time.sleep(RETRY_DELAY)
                 else:
                     logger.critical("Failed to start Docker container after maximum retries.")
-                    sys.exit(1)
+                    raise DockerContainerStartError(f"Docker API error: {str(e)}") from e
             except Exception as e:
                 logger.error(f"Unexpected error while starting container: {e}")
                 if attempt < MAX_RETRIES - 1:
                     logger.info(f"Retrying in {RETRY_DELAY} seconds...")
                     time.sleep(RETRY_DELAY)
                 else:
-                    logger.error("Failed to start Docker container after maximum retries.")
-                    sys.exit(1)
+                    logger.critical("Failed to start Docker container after maximum retries.")
+                    raise DockerContainerStartError(f"Unexpected error: {str(e)}") from e
 
     def cleanup_tmp(self):
         """Clean up temporary files"""
