@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -44,7 +44,7 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
         setAgentsVersionChain(chain_copy);      
       }
       
-  }, [message.current_children]);
+  }, [message.current_children, agentsVersionChain]);
 
   const handleChildUpdate = (id, num) => {
     if (id !== 'executor_agent'){

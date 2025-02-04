@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -6,7 +6,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import ActionMessage from '../ActionMessage/ActionMessage';
-import './AgentMessage.css'
+import './AgentMessage.css';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -18,6 +18,12 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
 
   const [displayedIndex, setDisplayedIndex] = useState(1);
   
+  const handleCancelEdit = useCallback(() => {
+    setEditing(false);
+    onEditingChange(false);
+    setEditedMessage(message.message || '');
+  }, [message, onEditingChange]);
+
   useEffect(() => {
     const handleEscKey = (event) => {
       if (event.key === 'Escape' && editing) {
@@ -29,10 +35,10 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     return () => {
       document.removeEventListener('keydown', handleEscKey);
     };
-  }, [editing]);
+  }, [editing, handleCancelEdit]);
 
   useEffect(() => {
-    if (message && message.action_messages){
+    if (message && message.action_messages) {
       const messageLength = message.action_messages.length;
       // Make sure that both model and kali_env are received
       if (messageLength % 2 !== 0) {
@@ -58,7 +64,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
 
   const handleToggleVersion = (num) => {
     if (onPhaseChildUpdate) {
-        onPhaseChildUpdate(message.agent_id, num); // Notify parent of the update
+      onPhaseChildUpdate(message.agent_id, num); // Notify parent of the update
     }
   };
 
@@ -76,15 +82,8 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditing(false);
-    onEditingChange(false);
-    setEditedMessage(message.message || '');
-  };
-
-
   const handleChildUpdate = (num) => {
-      setDisplayedIndex((prev) => prev + num);
+    setDisplayedIndex((prev) => prev + num);
   };
 
   return (
@@ -161,47 +160,47 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
                       </Button>
 
                       {/* Toggle Version Arrows */}
-                    {phaseVersionLength > 1 && (
-                    <>
-                    <Typography variant="caption" sx={{ mx: 1 }}>
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      {/* Arrow Buttons */}
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <IconButton
-                          aria-label="arrow back"
-                          onClick={() => handleToggleVersion(-1)}
-                          disabled={phaseDisplayedIndex === 1}
-                          sx={{ color: 'black' }}
-                          size="small"
-                        >
-                          <ArrowBackIcon />
-                        </IconButton>
-                        <IconButton
-                          aria-label="arrow forward"
-                          onClick={() => handleToggleVersion(1)}
-                          disabled={phaseDisplayedIndex === phaseVersionLength}
-                          sx={{ color: 'black' }}
-                          size="small"
-                        >
-                          <ArrowForwardIcon />
-                        </IconButton>
-                      </Box>
+                      {phaseVersionLength > 1 && (
+                        <>
+                          <Typography variant="caption" sx={{ mx: 1 }}>
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            {/* Arrow Buttons */}
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              <IconButton
+                                aria-label="arrow back"
+                                onClick={() => handleToggleVersion(-1)}
+                                disabled={phaseDisplayedIndex === 1}
+                                sx={{ color: 'black' }}
+                                size="small"
+                              >
+                                <ArrowBackIcon />
+                              </IconButton>
+                              <IconButton
+                                aria-label="arrow forward"
+                                onClick={() => handleToggleVersion(1)}
+                                disabled={phaseDisplayedIndex === phaseVersionLength}
+                                sx={{ color: 'black' }}
+                                size="small"
+                              >
+                                <ArrowForwardIcon />
+                              </IconButton>
+                            </Box>
 
-                      {/* Version Number */}
-                      <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
-                        {phaseDisplayedIndex}/{phaseVersionLength}
-                      </Typography>
-                    </Box>
-                    </>)}     
-
+                            {/* Version Number */}
+                            <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
+                              {phaseDisplayedIndex}/{phaseVersionLength}
+                            </Typography>
+                          </Box>
+                        </>
+                      )}     
                     </Box>
                   </Box>
                 )}
               </Box>
             ) : (
               <Box className="action-messages-container">
-                {message.action_messages.slice(2*displayedIndex-2, 2*displayedIndex).map((actionMessage, index) => (
+                {message.action_messages.slice(2 * displayedIndex - 2, 2 * displayedIndex).map((actionMessage, index) => (
                   <ActionMessage
                     key={index}
                     index={index}

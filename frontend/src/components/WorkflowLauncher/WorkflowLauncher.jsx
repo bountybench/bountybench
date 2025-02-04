@@ -33,8 +33,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
+  
   const [formData, setFormData] = useState({
     workflow_name: '',
     task_dir: '',
@@ -98,7 +97,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   }, [isChecking, isServerAvailable]);
 
   const fetchWorkflows = async () => {
-    setError(null);
     setLoading(true);
     try {
       const response = await fetch('http://localhost:8000/workflow/list');
@@ -106,7 +104,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setWorkflows(data.workflows);
     } catch (err) {
       console.error('Failed to fetch workflows. Make sure the backend server is running.');
-      setError('Failed to fetch workflows. Make sure the backend server is running.');
     } finally {
       setLoading(false);
     }
