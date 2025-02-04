@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ActionMessage from '../ActionMessage/ActionMessage';
 import './AgentMessage.css'
 
@@ -15,8 +15,21 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message ? message.message || '' : '');
+  const textFieldRef = useRef(null);
 
   const [displayedIndex, setDisplayedIndex] = useState(1);
+  
+  useEffect(() => {
+    if (editing) {
+      setEditedMessage(message.message || '');
+      if (textFieldRef.current) {
+        setTimeout(() => {
+          textFieldRef.current.focus();   // Focus the text field when editing starts
+          textFieldRef.current.setSelectionRange(0, 0); // Set cursor at the start
+        }, 0);
+      }
+    }
+  }, [editing]);
   
   useEffect(() => {
     const handleEscKey = (event) => {
@@ -49,6 +62,18 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
   if (!message) return null;
 
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
+
+  const handleRerunClick = async () => {
+    if (!message.current_id) {
+      console.error('Action id is undefined');
+      return;
+    }
+    try {
+      await onRerunAction(message.current_id);
+    } catch (error) {
+      console.error('Error rerunning action:', error);
+    }
+  };
 
   const handleEditClick = () => {
     setEditing(true);
@@ -107,35 +132,37 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
               <Box className="agent-message-content">
                 {editing ? (
                   <Box className="edit-mode-container">
-                    <TextField
+                    <TextField className="agent-message-text message-edit-field"
+                      inputRef={textFieldRef}
                       multiline
                       fullWidth
                       minRows={3}
                       maxRows={10}
                       value={editedMessage}
                       onChange={(e) => setEditedMessage(e.target.value)}
-                      className="edit-textarea"
                     />
-                    <Box className="agent-message-actions">
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleSaveClick}
-                        size="small"
-                        className="save-button"
-                        sx={{ mr: 1 }}
-                      >
-                        <SaveIcon/>
-                      </Button>
+                    <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
                       <Button
                         variant="outlined"
                         color="secondary"
                         onClick={handleCancelEdit}
                         size="small"
+                        aria-label="cancel"
                         className="cancel-button"
                       >
                         <CloseIcon/>
                       </Button>
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        onClick={handleSaveClick}
+                        size="small"
+                        aria-label="save"
+                        className="save-button"
+                        sx={{ mr: 1 }}
+                      >
+                        <KeyboardArrowRightIcon/>
+                      </Button>     
                     </Box>
                   </Box>
                 ) : (
@@ -148,16 +175,26 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
                         {message.message || ''}
                       </Typography>
                     </Card>
-                    <Box className="agent-message-actions">
+                    <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
                       <Button
                         variant="outlined"
                         color="primary"
                         onClick={handleEditClick}
                         size="small"
+                        aria-label="edit"
                         className="edit-button"
-                        sx={{ display: isEditing && !editing ? 'none' : 'flex' }}
                       >
                         <EditIcon />
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        onClick={handleRerunClick}
+                        size="small"
+                        aria-label="rerun"
+                        className="rerun-button"
+                      >
+                        <KeyboardArrowRightIcon />
                       </Button>
 
                       {/* Toggle Version Arrows */}

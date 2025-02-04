@@ -3,7 +3,6 @@ import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Coll
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
@@ -143,7 +142,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
               fullWidth
             />
           </Box>
-          <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+          <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
             <Button
               variant="outlined"
               color="secondary"
@@ -174,7 +173,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
                 {originalMessageContent}
               </Typography>
             </Box>
-            <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+            <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
               <Button
                 variant="outlined"
                 color="primary"
