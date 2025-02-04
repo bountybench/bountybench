@@ -46,7 +46,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     model: '',
     use_helm: false
   });
-  const [allModels, setAllModels] = useState([]);
+  const [allModels, setAllModels] = useState({});
+  const [selectedModels, setSelectedModels] = useState([]);
   const [topLevelSelection, setTopLevelSelection] = useState("");
 
   const handleTopLevelChange = (event) => {
@@ -54,10 +55,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     setTopLevelSelection(value);
     // Set the model field based on top-level selection
     if (value === "Non-HELM") {
-      handleInputChange({ target: { name: 'model', value: 'openai/o3-mini-2024-12-17' } }); // Set to default model for Non-HELM
+      setSelectedModels(allModels.nonHelmModels);
     } else {
       handleInputChange({ target: { name: 'use_helm', value: true } });
-      handleInputChange({ target: { name: 'model', value: '' } }); // Reset model field for HELM
+      setSelectedModels(allModels.helmModels);
     }
   };
 
@@ -129,9 +130,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
  
   const fetchModels = async () => {
     try {
-      const response = await fetch('http://localhost:8000/workflow/helmmodels');
-      const helm_models = await response.json();
-      setAllModels(helm_models.helmModels);
+      const response = await fetch('http://localhost:8000/workflow/models');
+      const models = await response.json();
+      setAllModels(models);
     } catch (err) {
       console.error('Failed to fetch models. Make sure the backend server is running.');
     }
@@ -387,7 +388,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         </TextField>
 
         {/* Conditionally render the second dropdown based on top-level selection */}
-        {topLevelSelection === "HELM" && (
+        {topLevelSelection && (
           <TextField
             select
             fullWidth
@@ -398,7 +399,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             required
             margin="normal"
           >
-            {allModels.map((model) => (
+            {selectedModels.map((model) => (
             <MenuItem key={model.name} value={model.name}>
               <Box display="flex" flexDirection="column">
                 <Typography>{model.name}</Typography>

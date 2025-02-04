@@ -86,9 +86,11 @@ async def list_all_models():
     all_models = [{'name': model} for model in all_models]
     return {"allModels": all_models}
 
-@workflows_router.get("/workflow/helmmodels")
+@workflows_router.get("/workflow/models")
 async def list_helm_models():
-    """List HELM model types"""
+    """List HELM and NONHELM model types separately"""
     helm_models = sorted(set(TokenizerMapping.mapping.keys()))
     helm_mapping = [{'name': model} for model in helm_models]
-    return {"helmModels": helm_mapping}
+    nonhelm_models = sorted([value if '/' in value else key for key, value in NonHELMMapping.mapping.items()])
+    nonhelm_mapping = [{'name': model} for model in nonhelm_models]
+    return {"helmModels": helm_mapping, "nonHelmModels": nonhelm_mapping}
