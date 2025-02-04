@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
-import ReplayIcon from '@mui/icons-material/Replay';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css';
 
@@ -178,11 +178,11 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
                   size="small"
                   aria-label="rerun"
                 >
-                  <ReplayIcon />
-                </Button>
+                <KeyboardArrowRightIcon />
+              </Button>
 
-                {/* Toggle Version Arrows */}
-                { versionLength > 1 && index === 0 && (
+                  {/* Toggle Version Arrows */}
+                  { versionLength > 1 && index === 0 && (
                   <>
                     <Typography variant="caption" sx={{ mx: 1 }}>
                     </Typography>

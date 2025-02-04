@@ -41,6 +41,9 @@ async def rerun_message(workflow_id: str, data: MessageData, request: Request):
 
     try:
         result = await workflow.rerun_message(data.message_id)
+        if not result:
+            result = await next_iteration(workflow_id, active_workflows)
+            return result
         return {"status": "updated", "result": result.id}
     except Exception as e:
         error_traceback = traceback.format_exc()
