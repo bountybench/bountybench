@@ -125,3 +125,9 @@
 .toggle-button:hover {
   color: #313131;
 }
+
+.selected {
+  border: 2px solid #ffd23d !important;
+  background-color: #f0f8ff;
+  border-radius: 4px;
+}

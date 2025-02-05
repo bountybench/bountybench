@@ -12,22 +12,25 @@ import './ActionMessage.css'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onChildUpdate, displayedIndex, versionLength }) => {
+const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, selectedCellId, onCellSelect, onChildUpdate, displayedIndex, versionLength }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   useEffect(() => {
-    const handleEscKey = (event) => {
+    const handleKeyDown = (event) => {
       if (event.key === 'Escape' && editing) {
         handleCancelEdit();
       }
+      if (event.key === 'Enter' && selectedCellId === action.current_id) {
+        handleEditClick();
+      }
     };
 
-    document.addEventListener('keydown', handleEscKey);
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleEscKey);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [editing]);
 
@@ -89,9 +92,15 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
     setExpanded(!expanded);
   };
 
+  const handleContainerClick = (e) => {
+    e.stopPropagation();
+    onCellSelect(action.current_id);
+  };
+
   return (
     <Card 
-      className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''}`} 
+      className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''} ${selectedCellId === action.current_id ? 'selected' : ''}`}
+      onClick={handleContainerClick}
       variant="outlined"
     >
     <CardContent>

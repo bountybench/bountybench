@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AgentMessage from '../AgentMessage/AgentMessage';
 import './PhaseMessage.css'
 
-const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing }) => {
+const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
@@ -13,8 +13,60 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
 
   const [agentsVersionChain, setAgentsVersionChain] = useState([]);
+  const cellIds = useRef([]); // store cell IDs
 
   const getAgentIds = (agents) => agents.length === 0 ? [] : agents.map(agent => agent.current_id);
+
+  // Collect cell IDs whenever agents version chain is updated
+  useEffect(() => {
+    cellIds.current = agentsVersionChain.map(messages => messages['versionChain'][messages['index'] - 1].current_id);
+  }, [agentsVersionChain]);
+
+  // Navigation functions
+  const getNextId = (currentId) => {
+    if (!currentId) return cellIds.current[0];
+    const index = cellIds.current.indexOf(currentId);
+    return cellIds.current[Math.min(index + 1, cellIds.current.length - 1)];
+  };
+
+  const getPrevId = (currentId) => {
+    if (!currentId) return cellIds.current[0];
+    const index = cellIds.current.indexOf(currentId);
+    return cellIds.current[Math.max(index - 1, 0)];
+  };
+
+  const scrollToCell = (cellId) => {
+    const cellElement = cellRefs.current[cellId];
+    if (cellElement) {
+      cellElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  };
+
+  // Keydown listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        e.preventDefault();
+        onCellSelect(prev => {
+          const newId = getNextId(prev);
+          scrollToCell(newId); // Scroll to new cell
+          return newId;
+        });
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        e.preventDefault();
+        onCellSelect(prev => {
+          const newId = getPrevId(prev);
+          scrollToCell(newId); // Scroll to new cell
+          return newId;
+        });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onCellSelect]);
 
   useEffect(() => {
     if (message.current_children){
@@ -85,17 +137,22 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
                 {agentsVersionChain.map((messages, index) => (
-                  <AgentMessage 
-                    key={index} 
-                    message={messages['versionChain'][messages['index'] - 1]} 
-                    onUpdateActionInput={onUpdateActionInput}
-                    onRerunAction={onRerunAction}
-                    onEditingChange={onEditingChange}
-                    isEditing={isEditing}
-                    onPhaseChildUpdate={handleChildUpdate}
-                    phaseDisplayedIndex={messages['index']}
-                    phaseVersionLength={messages['versionChain'].length}
-                  />
+                  <div ref={(el) => (cellRefs.current[messages['versionChain'][messages['index'] - 1].current_id] = el)} key={messages['versionChain'][messages['index'] - 1].current_id}>
+                    <AgentMessage 
+                      key={index} 
+                      message={messages['versionChain'][messages['index'] - 1]} 
+                      onUpdateActionInput={onUpdateActionInput}
+                      onRerunAction={onRerunAction}
+                      onEditingChange={onEditingChange}
+                      isEditing={isEditing}                      
+                      selectedCellId={selectedCellId}
+                      onCellSelect={onCellSelect}
+                      cellRefs={cellRefs}
+                      onPhaseChildUpdate={handleChildUpdate}
+                      phaseDisplayedIndex={messages['index']}
+                      phaseVersionLength={messages['versionChain'].length}
+                    />
+                  </div>
                 ))}
               </Box>
             )}

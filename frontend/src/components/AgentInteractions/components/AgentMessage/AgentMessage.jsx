@@ -11,7 +11,7 @@ import './AgentMessage.css'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
+const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message ? message.message || '' : '');
@@ -19,15 +19,20 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
   const [displayedIndex, setDisplayedIndex] = useState(1);
   
   useEffect(() => {
-    const handleEscKey = (event) => {
+    const handleKeyDown = (event) => {
       if (event.key === 'Escape' && editing) {
         handleCancelEdit();
       }
+      if (selectedCellId === message.current_id) {
+        if (event.key === 'Enter') {
+          handleEditClick();
+        }
+      }
     };
 
-    document.addEventListener('keydown', handleEscKey);
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleEscKey);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [editing]);
 
@@ -82,13 +87,19 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     setEditedMessage(message.message || '');
   };
 
+  const handleContainerClick = (e) => {
+    e.stopPropagation();
+    onCellSelect(message.current_id);
+  };
 
   const handleChildUpdate = (num) => {
       setDisplayedIndex((prev) => prev + num);
   };
 
   return (
-    <Box className="agent-message-container">
+    <Box className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
+      onClick={handleContainerClick}
+    >
       <Card className="message-bubble agent-bubble">
         <CardContent>
           <Box className="agent-message-header">
@@ -202,18 +213,22 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
             ) : (
               <Box className="action-messages-container">
                 {message.action_messages.slice(2*displayedIndex-2, 2*displayedIndex).map((actionMessage, index) => (
-                  <ActionMessage
-                    key={index}
-                    index={index}
-                    action={actionMessage}
-                    onUpdateActionInput={onUpdateActionInput}
-                    onRerunAction={onRerunAction}
-                    onEditingChange={onEditingChange}
-                    isEditing={isEditing}
-                    onChildUpdate={handleChildUpdate}
-                    displayedIndex={displayedIndex}
-                    versionLength={message.action_messages.length / 2}
-                  />
+                  <div ref={(el) => (cellRefs.current[actionMessage.current_id] = el)} key={actionMessage.current_id}>
+                    <ActionMessage
+                      key={index}
+                      index={index}
+                      action={actionMessage}
+                      onUpdateActionInput={onUpdateActionInput}
+                      onRerunAction={onRerunAction}
+                      onEditingChange={onEditingChange}
+                      isEditing={isEditing}                    
+                      selectedCellId={selectedCellId}
+                      onCellSelect={onCellSelect}
+                      onChildUpdate={handleChildUpdate}
+                      displayedIndex={displayedIndex}
+                      versionLength={message.action_messages.length / 2}
+                    />
+                  </div>
                 ))}
               </Box>
             )}

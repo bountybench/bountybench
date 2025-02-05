@@ -16,6 +16,13 @@ const AgentInteractions = ({
   const [userMessage, setUserMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const messagesEndRef = useRef(null);
+  const cellRefs = useRef({}); 
+
+  const [selectedCellId, setSelectedCellId] = useState(null);
+
+  // Find the latest PhaseMessage
+  const latestPhaseMessage = messages.filter(msg => msg.message_type === 'PhaseMessage').pop();
+  console.log('Latest PhaseMessage:', latestPhaseMessage);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -24,10 +31,6 @@ const AgentInteractions = ({
   useEffect(() => {
     console.log('Messages updated:', messages);
   }, [messages]);
-
-  // Find the latest PhaseMessage
-  const latestPhaseMessage = messages.filter(msg => msg.message_type === 'PhaseMessage').pop();
-  console.log('Latest PhaseMessage:', latestPhaseMessage);
 
   if (!messages) {
     return (
@@ -50,7 +53,10 @@ const AgentInteractions = ({
             onUpdateActionInput={onUpdateActionInput}
             onRerunAction={onRerunAction}
             onEditingChange={setIsEditing}
-            isEditing={isEditing}
+            isEditing={isEditing}            
+            selectedCellId={selectedCellId}
+            onCellSelect={setSelectedCellId}
+            cellRefs={cellRefs}
           />
         )}
         <div ref={messagesEndRef} />
