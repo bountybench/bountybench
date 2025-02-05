@@ -8,8 +8,8 @@ const AgentInteractions = ({
   interactiveMode, 
   isNextDisabled,
   messages = [],
-  onUpdateActionInput,
-  onRerunAction,
+  onUpdateMessageInput,
+  onRerunMessage,
   onTriggerNextIteration,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -45,8 +45,8 @@ const AgentInteractions = ({
         ) : (
           <PhaseMessage
             message={latestPhaseMessage}
-            onUpdateActionInput={onUpdateActionInput}
-            onRerunAction={onRerunAction}
+            onUpdateMessageInput={onUpdateMessageInput}
+            onRerunMessage={onRerunMessage}
             onEditingChange={setIsEditing}
             isEditing={isEditing}
           />
