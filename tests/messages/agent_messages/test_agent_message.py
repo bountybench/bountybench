@@ -41,40 +41,27 @@ class TestAgentMessage(unittest.TestCase):
         """
         Test that current_actions_list correctly retrieves the latest versions of actions.
         """
-        # Mock ActionMessage instances
-        action_msg1 = MagicMock(spec=ActionMessage)
-        action_msg2 = MagicMock(spec=ActionMessage)
-        action_msg3 = MagicMock(spec=ActionMessage)
-        action_msg4 = MagicMock(spec=ActionMessage)
-        action_msg5 = MagicMock(spec=ActionMessage)
+        action_msg1 = ActionMessage("test_id1", "test_msg1")
+        action_msg2 = ActionMessage("test_id2", "test_msg2")
+        action_msg3 = ActionMessage("test_id3", "test_msg3")
+        action_msg4 = ActionMessage("test_id4", "test_msg4")
+        action_msg5 = ActionMessage("test_id5", "test_msg5")
 
-        # Link actions and versions
-        action_msg1.version_next = action_msg2
-        action_msg2.version_prev = action_msg1
-        action_msg2.version_next = action_msg3
-        action_msg3.version_prev = action_msg2
-        action_msg4.version_next = action_msg5
-        action_msg5.version_prev = action_msg4
-        action_msg3.next = action_msg4
-        action_msg4.prev = action_msg3
+        action_msg2.set_version_prev(action_msg1)
+        action_msg3.set_version_prev(action_msg2)
+        action_msg5.set_version_prev(action_msg4)
+        action_msg3.set_next(action_msg4)
+        action_msg4.set_prev(action_msg3)
 
-        def side_effect_func(msg):
-            if msg == action_msg1:
-                return action_msg3  # Latest version of action_msg1
-            elif msg == action_msg4:
-                return action_msg5  # Latest version of action_msg4
-            
-        with patch.object(Message, 'get_latest_version') as mock_get_latest_version:
-            mock_get_latest_version.side_effect = side_effect_func
-            agent_message = AgentMessage("test_id")
-            agent_message._action_messages = [action_msg1]
+        agent_message = AgentMessage("test_id")
+        agent_message._action_messages = [action_msg1]
+        action_msg1._parent = agent_message
+        current_actions = agent_message.current_actions_list
 
-            current_actions = agent_message.current_actions_list
-
-            # Assertions
-            self.assertEqual(len(current_actions), 2)  # Should retrieve all actions
-            self.assertEqual(current_actions[0], action_msg3)
-            self.assertEqual(current_actions[1], action_msg5)
+        # Assertions
+        self.assertEqual(len(current_actions), 2)
+        self.assertEqual(current_actions[0], action_msg3)
+        self.assertEqual(current_actions[1], action_msg5)
 
     def test_add_action_message(self):
         """
