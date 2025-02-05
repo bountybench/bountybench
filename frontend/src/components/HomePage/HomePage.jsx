@@ -51,26 +51,50 @@ const HomePage = () => {
       {loading ? (
         <CircularProgress />
       ) : (
-        <Box>
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+        >
           <Typography variant="h5" gutterBottom>
             Active Workflows
           </Typography>
           {activeWorkflows && activeWorkflows.length === 0 ? (
             <Typography>No active workflows</Typography>
           ) : (
-            activeWorkflows.map((workflow) => (
-              <Button
-                key={workflow.id}
-                variant="outlined"
-                onClick={() => handleWorkflowClick(workflow.id)}
-                style={{ margin: '5px' }}
-              >
-                {workflow.name} - {workflow.bounty_number} ({workflow.status})
-              </Button>
-            ))
+            activeWorkflows.map((workflow) => {
+              // Set button color based on the status
+              let buttonColor;
+
+              switch (workflow.status) {
+                case 'error':
+                  buttonColor = 'error';
+                  break;
+                case 'running':
+                  buttonColor = 'success'; 
+                  break;
+                default:
+                  buttonColor = 'secondary'; // Default color
+              }
+
+              return (
+                <Button
+                  key={workflow.id}
+                  variant="outlined"
+                  color={buttonColor} // Set the color dynamically based on the status
+                  onClick={() => handleWorkflowClick(workflow.id)}
+                  style={{ 
+                    margin: '5px', 
+                    width: '100%',   
+                  }}
+                >
+                  {workflow.task?.task_dir} {workflow.task?.bounty_number} - {workflow.name} ({workflow.status})
+                </Button>
+              );
+            })
           )}
         </Box>
-      )}
+       )}
     </Box>
   );
 };
