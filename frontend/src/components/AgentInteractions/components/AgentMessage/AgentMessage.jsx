@@ -90,7 +90,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
             handleRerunClick();
           }
         }
-        else if (event.key === 'Enter' && !event.altKey) {
+        else if (event.key === 'Enter' && !event.altKey && !editing) {
           handleEditClick();
         }
       }

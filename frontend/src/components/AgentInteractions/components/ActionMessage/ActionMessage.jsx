@@ -90,7 +90,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
             handleRerunClick();
           }
         }
-        else if (event.key === 'Enter' && !event.altKey) {
+        else if (event.key === 'Enter' && !event.altKey && !editing) {
           handleEditClick();
         }
       }
