@@ -204,7 +204,7 @@ def test_error_handling(temp_dir):
         f.write("exit 1")  # Always failing script
     os.chmod(invalid_script_path, 0o755)
 
-    with pytest.raises(subprocess.CalledProcessError):
+    with pytest.raises(RuntimeError, match="Setup script failed with return code 1"):
         SetupResource(
             "test_invalid_script", SetupResourceConfig(False, str(temp_dir))
         )
