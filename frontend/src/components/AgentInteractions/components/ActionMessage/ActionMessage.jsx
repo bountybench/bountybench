@@ -171,7 +171,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
                 {originalMessageContent}
               </Typography>
             </Box>
-            <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+            <Box className="action-message-buttons">
               <Button
                 variant="outlined"
                 color="primary"
