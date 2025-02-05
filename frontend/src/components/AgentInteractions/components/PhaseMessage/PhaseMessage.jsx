@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AgentMessage from '../AgentMessage/AgentMessage';
 import './PhaseMessage.css'
 
-const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing }) => {
+const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
@@ -86,8 +86,8 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
                   <AgentMessage 
                     key={index} 
                     message={messages['versionChain'][messages['index'] - 1]} 
-                    onUpdateActionInput={onUpdateActionInput}
-                    onRerunAction={onRerunAction}
+                    onUpdateMessageInput={onUpdateMessageInput}
+                    onRerunMessage={onRerunMessage}
                     onEditingChange={onEditingChange}
                     isEditing={isEditing}
                     onPhaseChildUpdate={handleChildUpdate}

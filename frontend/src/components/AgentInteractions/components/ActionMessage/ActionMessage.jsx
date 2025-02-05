@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
@@ -12,10 +11,10 @@ import './ActionMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onChildUpdate, displayedIndex, versionLength }) => {
+const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, onChildUpdate, displayedIndex, versionLength }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editedMessage, setEditedMessage] = useState('');
+  const [editedMessage, setEditedMessage] = useState(action.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   const originalMessageContent = formatData(action.message);
@@ -25,6 +24,19 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
     onEditingChange(false);
     setEditedMessage(originalMessageContent);
   }, [originalMessageContent, onEditingChange]);
+  const textFieldRef = useRef(null);
+
+  useEffect(() => {
+    if (editing) {
+      setEditedMessage(action.message || '');
+      if (textFieldRef.current) {
+        setTimeout(() => {
+          textFieldRef.current.focus();   // Focus the text field when editing starts
+          textFieldRef.current.setSelectionRange(0, 0); // Set cursor at the start
+        }, 0);
+      }
+    }
+  }, [editing]);
 
   useEffect(() => {
     const handleEscKey = (event) => {
@@ -41,6 +53,13 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
 
   if (!action) return null;
 
+  const handleKeyDown = (event) => {
+    if (event.shiftKey && event.key === 'Enter') {
+      event.preventDefault(); // Prevent the default action 
+      handleSaveClick();      // Call the save function
+    }
+  };
+  
   const handleToggleMetadata = (event) => {
     event.stopPropagation();
     setMetadataExpanded(!metadataExpanded);
@@ -58,7 +77,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
       return;
     }
     try {
-      await onRerunAction(action.current_id);
+      await onRerunMessage(action.current_id);
     } catch (error) {
       console.error('Error rerunning action:', error);
     }
@@ -76,7 +95,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
       return;
     }
     try {
-      await onUpdateActionInput(action.current_id, editedMessage);
+      await onUpdateMessageInput(action.current_id, editedMessage);
       setEditing(false);
       onEditingChange(false);
     } catch (error) {
@@ -116,68 +135,71 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
           </IconButton>
         </Box>
 
-        <Collapse in={expanded}>
-          {editing ? (
-            <Box className="edit-mode-container">
-              <Typography variant="caption" color="text.secondary">
-                Editing Message:
+      <Collapse in={expanded}>
+        {editing ? (
+          <>
+          <Box className="editing-message-content">
+            <TextField className="action-message-text message-edit-field"
+              inputRef={textFieldRef}
+              multiline
+              minRows={3}
+              maxRows={10}
+              value={editedMessage}
+              onChange={(e) => setEditedMessage(e.target.value)}
+              fullWidth
+              onKeyDown={handleKeyDown}
+            />
+          </Box>
+          <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleCancelEdit}
+              size="small"
+              aria-label="cancel"
+              className="cancel-button"
+            >
+              <CloseIcon/>
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={handleSaveClick}
+              size="small"
+              aria-label="save"
+              className="save-button"
+              sx={{ mr: 1 }}
+            >
+              <KeyboardArrowRightIcon/>
+            </Button>           
+          </Box>
+        </>
+        ) : (
+          <>
+            <Box className="action-message-content">
+              <Typography className="action-message-text">
+                {originalMessageContent}
               </Typography>
-              <TextField
-                multiline
-                minRows={3}
-                maxRows={10}
-                value={editedMessage}
-                onChange={(e) => setEditedMessage(e.target.value)}
-                className="edit-textarea"
-                fullWidth
-              />
-              <Box className="action-message-buttons">
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSaveClick}
-                  size="small"
-                  aria-label="save"
-                  sx={{ mr: 1 }}
-                >
-                  <SaveIcon/>
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={handleCancelEdit}
-                  size="small"
-                  aria-label="cancel"
-                >
-                  <CloseIcon/>
-                </Button>
-              </Box>
             </Box>
-          ) : (
-            <>
-              <Box className="action-message-content">
-                <Typography className="action-message-text">
-                  {originalMessageContent}
-                </Typography>
-              </Box>
-              <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  onClick={handleEditClick}
-                  size="small"
-                  aria-label="edit"
-                  className="edit-button"
-                >
-                  <EditIcon />
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={handleRerunClick}
-                  size="small"
-                  aria-label="rerun"
-                >
+            <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={handleEditClick}
+                size="small"
+                aria-label="edit"
+                className="edit-button"
+              >
+                <EditIcon />
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleRerunClick}
+                size="small"
+                aria-label="rerun"
+                className="rerun-button"
+              >
                 <KeyboardArrowRightIcon />
               </Button>
 
