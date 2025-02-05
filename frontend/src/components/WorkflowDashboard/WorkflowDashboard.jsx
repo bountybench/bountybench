@@ -40,7 +40,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     currentIteration,
     messages,
     error,
-    sendMessage,
   } = useWorkflowWebSocket(workflowId);
 
   // Update parent component with workflow state
@@ -109,7 +108,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   };
 
-  const handleUpdateActionInput = async (messageId, newInputData) => {
+  const handleUpdateMessageInput = async (messageId, newInputData) => {
     const url = `http://localhost:8000/workflow/edit-message/${workflowId}`;
     const requestBody = { message_id: messageId, new_input_data: newInputData };
     
@@ -138,7 +137,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   };
 
-  const handleRerunAction = async (messageId) => {
+  const handleRerunMessage = async (messageId) => {
     if (workflowId) {
       try {
         const response = await fetch(`http://localhost:8000/workflow/rerun-message/${workflowId}`, {
@@ -220,9 +219,8 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         currentIteration={currentIteration}
         isNextDisabled={isNextDisabled}
         messages={displayMessages}
-        onSendMessage={sendMessage}
-        onUpdateActionInput={handleUpdateActionInput}
-        onRerunAction={handleRerunAction}
+        onUpdateMessageInput={handleUpdateMessageInput}
+        onRerunMessage={handleRerunMessage}
         onTriggerNextIteration={triggerNextIteration}
         onStopWorkflow={handleStopWorkflow}
       />

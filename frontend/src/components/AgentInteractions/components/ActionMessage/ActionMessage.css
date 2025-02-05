@@ -62,25 +62,22 @@
   overflow-y: auto;
 }
 
+.editing-message-content {
+  padding: 0px !important;
+  background-color: #ffffff;
+  margin: 12px 16px;
+  border-radius: 4px;
+  padding: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 .action-message-text {
   font-size: 0.75rem !important;
   color: #333 !important;
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.5;
-}
-
-.action-message-buttons {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 16px;
-  background-color: #ffffff;
-  border-top: 1px solid #e0e0e0;
-  margin-top: 8px;
-}
-
-.action-message-buttons button {
-  margin-left: 8px !important;
 }
 
 .edit-mode-container {

@@ -9,13 +9,11 @@ const AgentInteractions = ({
   interactiveMode, 
   isNextDisabled,
   messages = [],
-  onSendMessage,
-  onUpdateActionInput,
-  onRerunAction,
+  onUpdateMessageInput,
+  onRerunMessage,
   onTriggerNextIteration,
   onStopWorkflow
 }) => {
-  const [userMessage, setUserMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isStopped, setIsStopped] = useState(false);
   const messagesEndRef = useRef(null);
@@ -54,8 +52,8 @@ const AgentInteractions = ({
         ) : (
           <PhaseMessage
             message={latestPhaseMessage}
-            onUpdateActionInput={onUpdateActionInput}
-            onRerunAction={onRerunAction}
+            onUpdateMessageInput={onUpdateMessageInput}
+            onRerunMessage={onRerunMessage}
             onEditingChange={setIsEditing}
             isEditing={isEditing}
           />
