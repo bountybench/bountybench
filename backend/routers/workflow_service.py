@@ -180,21 +180,27 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 for phase_message in workflow_message.phase_messages:
                     await websocket.send_json(phase_message.to_dict())
 
-            # Send the current status without restarting stopped workflows
-            await websocket.send_json(
-                {
-                    "message_type": "workflow_status",
-                    "status": current_status,
-                    "can_execute": current_status not in ["running", "completed"],
-                }
-            )
-
-            # If the workflow is initializing or running, ensure it's actually running
-            if current_status in ["initializing", "running"]:
+            if current_status not in ["running", "completed", "stopped"]:
+                print(f"Auto-starting workflow {workflow_id}")
                 asyncio.create_task(
                     run_workflow(
                         workflow_id, active_workflows, websocket_manager, should_exit
                     )
+                )
+                await websocket.send_json(
+                    {
+                        "message_type": "workflow_status",
+                        "status": "starting",
+                        "can_execute": False,
+                    }
+                )
+            else:
+                await websocket.send_json(
+                    {
+                        "message_type": "workflow_status",
+                        "status": current_status,
+                        "can_execute": False,
+                    }
                 )
         else:
             # If workflow doesn't exist yet, start it
