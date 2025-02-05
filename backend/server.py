@@ -40,7 +40,6 @@ class Server:
         self.app.include_router(workflows_router)
         self.app.include_router(workflow_service_router)
 
-
     async def shutdown(self):
         """Gracefully shutdown the server with proper cleanup"""
         # Close all active websocket connections
@@ -55,10 +54,10 @@ class Server:
         # Cancel heartbeat tasks
         for task in self.websocket_manager.heartbeat_tasks:
             task.cancel()
+            await task
             try:
                 await task
             except asyncio.CancelledError:
                 pass #intentionally passing when shutting down, you intentionally cancel tasks (task.cancel()). This means asyncio.CancelledError is a natural consequence, not an error that needs escalation.
             except Exception as e:
-                print(f"Error awaiting cancelled task: {e}")   
-                raise e 
+                raise e
