@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -6,7 +6,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
-import './ActionMessage.css'
+import './ActionMessage.css';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -16,6 +16,14 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(action.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+
+  const originalMessageContent = formatData(action.message);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditing(false);
+    onEditingChange(false);
+    setEditedMessage(originalMessageContent);
+  }, [originalMessageContent, onEditingChange]);
   const textFieldRef = useRef(null);
 
   useEffect(() => {
@@ -41,7 +49,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     return () => {
       document.removeEventListener('keydown', handleEscKey);
     };
-  }, [editing]);
+  }, [editing, handleCancelEdit]);
 
   if (!action) return null;
 
@@ -59,7 +67,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
 
   const handleToggleVersion = (num) => {
     if (onChildUpdate) {
-        onChildUpdate(num); // Notify parent of the update
+      onChildUpdate(num); // Notify parent of the update
     }
   };
 
@@ -74,8 +82,6 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
       console.error('Error rerunning action:', error);
     }
   };
-
-  const originalMessageContent = formatData(action.message);
 
   const handleEditClick = () => {
     setEditing(true);
@@ -97,12 +103,6 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditing(false);
-    onEditingChange(false);
-    setEditedMessage(originalMessageContent);
-  };
-
   const handleExpandClick = (e) => {
     e.stopPropagation();
     setExpanded(!expanded);
@@ -113,27 +113,27 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
       className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''}`} 
       variant="outlined"
     >
-    <CardContent>
-      <Box className="action-message-header">
-        <Box>
-          <Typography className="action-message-title">
-            {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
-          </Typography>
-          {action.timestamp && (
-            <Typography className="action-message-timestamp">
-              {new Date(action.timestamp).toLocaleTimeString()}
+      <CardContent>
+        <Box className="action-message-header">
+          <Box>
+            <Typography className="action-message-title">
+              {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
             </Typography>
-          )}
+            {action.timestamp && (
+              <Typography className="action-message-timestamp">
+                {new Date(action.timestamp).toLocaleTimeString()}
+              </Typography>
+            )}
+          </Box>
+          <IconButton
+            onClick={handleExpandClick}
+            aria-expanded={expanded}
+            aria-label="show more"
+            className="action-toggle-button"
+          >
+            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </IconButton>
         </Box>
-        <IconButton
-          onClick={handleExpandClick}
-          aria-expanded={expanded}
-          aria-label="show more"
-          className="action-toggle-button"
-        >
-          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-        </IconButton>
-      </Box>
 
       <Collapse in={expanded}>
         {editing ? (
@@ -236,37 +236,38 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
                         {displayedIndex}/{versionLength}
                       </Typography>
                     </Box>
-                  </>)}               
-            </Box>
-          </>
+                  </>
+                )}               
+              </Box>
+            </>
           )}
 
-        {/* Metadata section */}
-        {action.additional_metadata && (
-          <Box className="metadata-section">
-            <Box 
-              className="metadata-toggle"
-              onClick={handleToggleMetadata}
-            >
-              <Typography className="metadata-label">
-                Metadata
-                <IconButton size="small" className="action-toggle-button">
-                  {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                </IconButton>
-              </Typography>
-            </Box>
-            
-            <Collapse in={metadataExpanded}>
-              <Box className="metadata-content">
-                <Typography className="metadata-text">
-                  {JSON.stringify(action.additional_metadata, null, 2)}
+          {/* Metadata section */}
+          {action.additional_metadata && (
+            <Box className="metadata-section">
+              <Box 
+                className="metadata-toggle"
+                onClick={handleToggleMetadata}
+              >
+                <Typography className="metadata-label">
+                  Metadata
+                  <IconButton size="small" className="action-toggle-button">
+                    {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </IconButton>
                 </Typography>
               </Box>
-            </Collapse>
-          </Box>
-        )}
-      </Collapse>
-    </CardContent>
+              
+              <Collapse in={metadataExpanded}>
+                <Box className="metadata-content">
+                  <Typography className="metadata-text">
+                    {JSON.stringify(action.additional_metadata, null, 2)}
+                  </Typography>
+                </Box>
+              </Collapse>
+            </Box>
+          )}
+        </Collapse>
+      </CardContent>
     </Card>
   );
 };
