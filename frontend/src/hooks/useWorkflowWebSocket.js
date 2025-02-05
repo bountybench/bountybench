@@ -49,8 +49,10 @@ export const useWorkflowWebSocket = (workflowId) => {
           break;
 
         case 'workflow_status':
+          console.log(`Received workflow status update: ${data.status}`);
           setWorkflowStatus(data.status);
           if (data.error) {
+            console.error(`Workflow error: ${data.error}`);
             setError(data.error);
           }
           break;

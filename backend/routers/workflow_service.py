@@ -36,14 +36,16 @@ async def stop_workflow(workflow_id: str, request: Request):
     """
     Stops the execution of a running workflow and removes it from active workflows.
     """
+    print(f"Attempting to stop workflow {workflow_id}")
     active_workflows = request.app.state.active_workflows
     if workflow_id not in active_workflows:
+        print(f"Workflow {workflow_id} not found in active workflows")
         return {"error": f"Workflow {workflow_id} not found"}
 
     workflow = active_workflows[workflow_id]["instance"]
     
     try:
-        print(f"BEFORE STOP - Active workflows: {list(active_workflows.keys())}")  # Debugging
+        print(f"BEFORE STOP - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}")
 
         await workflow.stop()
         
@@ -51,7 +53,7 @@ async def stop_workflow(workflow_id: str, request: Request):
         active_workflows[workflow_id]["status"] = "stopped"
 
 
-        print(f"AFTER STOP - Active workflows: {list(active_workflows.keys())}")  # Debugging
+        print(f"AFTER STOP - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}")
 
 
         # Notify WebSocket clients about the stop
@@ -66,7 +68,6 @@ async def stop_workflow(workflow_id: str, request: Request):
             {"message_type": "workflow_status", "status": "stopped"}
         )
 
-        print(f"Workflow {workflow_id} has been stopped and removed.")
         return {"status": "stopped", "workflow_id": workflow_id}
 
     except Exception as e:
@@ -158,6 +159,8 @@ async def last_message(workflow_id: str, request: Request):
 
 @workflow_service_router.websocket("/ws/{workflow_id}")
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
+    print("==== WEBSOCKET_ENDPOINT TOP-LEVEL REACHED! ====")
+    print("workflow_id =", workflow_id)
     request = websocket.scope["app"]
     active_workflows = request.state.active_workflows
     websocket_manager = request.state.websocket_manager
