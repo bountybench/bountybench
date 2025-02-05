@@ -29,13 +29,28 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     setEditing(true);
     onEditingChange(true);
     setEditedMessage(originalMessageContent);
-  });
+  }, [originalMessageContent, onEditingChange]);
+
+  const handleSaveClick = useCallback(async () => {
+    if (!action.current_id) {
+      console.error('Action id is undefined');
+      return;
+    }
+    try {
+      setOriginalMessageContent(editedMessage);
+      setEditing(false);
+      onEditingChange(false);
+      await onUpdateMessageInput(action.current_id, editedMessage);
+    } catch (error) {
+      console.error('Error updating action message:', error);
+    }
+  }, [action, editedMessage, onEditingChange, onUpdateMessageInput]);
 
   const textFieldRef = useRef(null);
 
   useEffect(() => {
     if (editing) {
-      setEditedMessage(action.message || '');
+      setEditedMessage(originalMessageContent);
       if (textFieldRef.current) {
         setTimeout(() => {
           textFieldRef.current.focus();   // Focus the text field when editing starts
@@ -43,7 +58,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
         }, 0);
       }
     }
-  }, [editing]);
+  }, [editing, originalMessageContent]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -65,7 +80,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing, handleCancelEdit, handleEditClick, selectedCellId]);
+  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, onUpdateMessageInput, selectedCellId]);
 
   if (!action) return null;
   
@@ -89,21 +104,6 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
       await onRerunMessage(action.current_id);
     } catch (error) {
       console.error('Error rerunning action:', error);
-    }
-  };
-
-  const handleSaveClick = async () => {
-    if (!action.current_id) {
-      console.error('Action id is undefined');
-      return;
-    }
-    try {
-      setOriginalMessageContent(editedMessage);
-      setEditing(false);
-      onEditingChange(false);
-      await onUpdateMessageInput(action.current_id, editedMessage);
-    } catch (error) {
-      console.error('Error updating action message:', error);
     }
   };
 
