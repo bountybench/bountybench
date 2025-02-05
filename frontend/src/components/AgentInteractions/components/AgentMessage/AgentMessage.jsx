@@ -20,10 +20,10 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
   
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape' && editing) {
-        handleCancelEdit();
-      }
       if (selectedCellId === message.current_id) {
+        if (event.key === 'Escape' && editing) {
+          handleCancelEdit();
+        }
         if (event.key === 'Enter') {
           handleEditClick();
         }
@@ -34,7 +34,7 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing]);
+  }, [editing, selectedCellId]);
 
   useEffect(() => {
     if (message && message.action_messages){

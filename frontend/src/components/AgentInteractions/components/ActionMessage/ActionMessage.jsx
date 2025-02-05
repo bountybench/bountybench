@@ -20,11 +20,13 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape' && editing) {
-        handleCancelEdit();
-      }
-      if (event.key === 'Enter' && selectedCellId === action.current_id) {
-        handleEditClick();
+      if (selectedCellId === action.current_id) {
+        if (event.key === 'Escape' && editing) {
+          handleCancelEdit();
+        }
+        if (event.key === 'Enter') {
+          handleEditClick();
+        }
       }
     };
 
@@ -32,7 +34,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing]);
+  }, [editing, selectedCellId]);
 
   if (!action) return null;
 
