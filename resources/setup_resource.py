@@ -130,7 +130,7 @@ class SetupResource(BaseResource):
                     
             except Exception as e:
                 logger.error(f"Unable to successfully execute {setup_script} at {self.resource_id}: {e}")
-                raise
+                raise RuntimeError(f"Unable to successfully execute {setup_script} at {self.resource_id}: {e}")
             finally:
                 stop_progress()
                 
