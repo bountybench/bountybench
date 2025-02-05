@@ -139,7 +139,10 @@ class SetupResource(BaseResource):
                 self.container_names = self.extract_container_names(result.stdout, result.stderr)
 
                 if self.container_names:
-                    self.wait_until_all_containers_healthy()
+                    try:
+                        self.wait_until_all_containers_healthy()
+                    except Exception as e:
+                        raise RuntimeError(f"Failed to wait until all containers healthy: {e}")
             else:
                 raise RuntimeError(f"No output from setup script {setup_script}")
 
@@ -201,7 +204,7 @@ class SetupResource(BaseResource):
                     logger.info(f"Container '{container}' is healthy.")
                     container_queue.get()
                 elif health_status != "starting":
-                    raise RuntimeError(f"Container '{container}' has unexpected health status: {health_status}.")
+                    logger.warning(f"Container '{container}' has unexpected health status: {health_status}.")
 
                 if time.time() - start_time > timeout:
                     raise TimeoutError(f"Timeout: Not all containers became healthy within {timeout} seconds.")
@@ -210,6 +213,8 @@ class SetupResource(BaseResource):
 
             logger.info("All containers are healthy.")
             return True
+        except Exception as e:
+            raise RuntimeError(f"Failed to confirm container health: {e}")
 
         finally:
             stop_progress()
