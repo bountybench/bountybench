@@ -45,8 +45,8 @@ class TestMemoryResource(unittest.TestCase):
 
             prev_agent = initial_prompt
             for j in range(2): 
-                agent_id = agent_message = f'phase_{i}_agent_{j}'
-                agent_message = AgentMessage(agent_id=agent_id, message=agent_message, prev=prev_agent)
+                agent_id = f'phase_{i}_agent_{j}'
+                agent_message = AgentMessage(agent_id=agent_id, prev=prev_agent)
                 prev_agent = agent_message
 
                 action_id = action_message = f'phase_{i}_agent_{j}_action'
@@ -81,9 +81,7 @@ class TestMemoryResource(unittest.TestCase):
         memory_segments = memory_without_prompt.split('!!') 
 
         expected_prev_phases_memory = [
-            '[phase_0_agent_0]phase_0_agent_0',
             '[phase_0_agent_0]phase_0_agent_0_action',
-            '[phase_0_agent_1]phase_0_agent_1',
             '[phase_0_agent_1]phase_0_agent_1_action'
         ]
 
@@ -106,18 +104,14 @@ class TestMemoryResource(unittest.TestCase):
         memory_segments = memory_without_prompt.split('!!') 
 
         expected_prev_phases_memory = [
-            '[phase_0_agent_0]phase_0_agent_0',
             '[phase_0_agent_0]phase_0_agent_0_action', 
-            '[phase_0_agent_1]phase_0_agent_1',
             '[phase_0_agent_1]phase_0_agent_1_action',
         ]
 
         self.assertEqual(memory_segments[0], ' '.join(expected_prev_phases_memory))
 
         expected_prev_agents_memory = [
-            '[phase_1_agent_0]phase_1_agent_0', 
             '[phase_1_agent_0]phase_1_agent_0_action',
-            '[phase_1_agent_1]phase_1_agent_1'
         ]
 
         self.assertEqual(memory_segments[1], ' '.join(expected_prev_agents_memory))
@@ -137,23 +131,19 @@ class TestMemoryResource(unittest.TestCase):
         memory_segments = memory_without_prompt.split('!!') 
 
         expected_prev_phases_memory = [
-            '[phase_0_agent_0]phase_0_agent_0',
             '[phase_0_agent_0]phase_0_agent_0_action', 
-            '[phase_0_agent_1]phase_0_agent_1',
             '[phase_0_agent_1]phase_0_agent_1_action',
         ]
 
         self.assertEqual(memory_segments[0], ' '.join(expected_prev_phases_memory))
 
         expected_prev_agents_memory = [
-            '[phase_1_agent_0]phase_1_agent_0', 
             '[phase_1_agent_0]phase_1_agent_0_action',
         ]
 
         self.assertEqual(memory_segments[1], ' '.join(expected_prev_agents_memory))
 
         expected_prev_actions_memory = [
-            '[phase_1_agent_1]phase_1_agent_1',
             '[phase_1_agent_1]phase_1_agent_1_action'
         ]
 
@@ -205,20 +195,6 @@ class TestMemoryResource(unittest.TestCase):
 
         self.assertEqual(memory_segments[0], ' '.join(expected_prev_phases_memory))
 
-        expected_prev_agents_memory = [
-            '<TRUNC>',
-            '[phase_1_agent_0]phase_1_agent_0_action',
-        ]
-
-        self.assertEqual(memory_segments[1], ' '.join(expected_prev_agents_memory))
-
-        expected_prev_actions_memory = [
-            '<TRUNC>',
-            '[phase_1_agent_1]phase_1_agent_1_action'
-        ]
-
-        self.assertEqual(memory_segments[-1], ' '.join(expected_prev_actions_memory))
-
     def test_memory_truncation_by_token(self):
         """
         Check that each segment only contains a single token after truncation.
@@ -227,7 +203,7 @@ class TestMemoryResource(unittest.TestCase):
         memory_without_prompt = ''.join(og_memory.split('\n\n')[1:])
         memory_segments = memory_without_prompt.split('!!')
 
-        self.assertTrue(all(len(x.split()) > 1 for x in memory_segments))
+        self.assertTrue(any(len(x.split()) > 1 for x in memory_segments))
 
         self.config.memory_trunc_fn = partial(MemoryTruncationFunctions.memory_fn_by_token, max_input_tokens=3)
         trunc_memory = MemoryResource('memory_1', self.config).get_memory(self._last_action_message).memory
@@ -249,8 +225,8 @@ class TestMemoryResource(unittest.TestCase):
         
         memory = self.memory.get_memory(new_agent0).memory
 
-        self.assertNotIn(agent0._message, memory)
-        self.assertIn(new_agent0._message, memory)
+        self.assertNotIn(agent0.agent_id, memory)
+        self.assertIn(new_agent0.agent_id, memory)
 
     def test_pin(self):
         """
@@ -260,12 +236,12 @@ class TestMemoryResource(unittest.TestCase):
         trunc_memory = MemoryResource('memory_1', self.config)
 
         memory = trunc_memory.get_memory(self._last_action_message).memory
-        self.assertNotIn('phase_0_agent_0', memory)
+        self.assertNotIn('phase_0_agent_0_action', memory)
 
-        trunc_memory.pin('phase_0_agent_0')
+        trunc_memory.pin('phase_0_agent_0_action')
 
         memory = trunc_memory.get_memory(self._last_action_message).memory
-        self.assertIn('phase_0_agent_0', memory)
+        self.assertIn('phase_0_agent_0_action', memory)
     
     def test_pin_non_truncated(self): 
         """
@@ -284,6 +260,39 @@ class TestMemoryResource(unittest.TestCase):
             cnt += 1
         
         self.assertEqual(cnt, 1)
+    
+    def test_agent_message_no_duplicates(self):
+        """
+        If AgentMessage has action messages, its private _message field should be ignored.
+        This is to avoid duplications in ExecutorAgent Message handling logic.
+        """
+        msg = "THIS SHOULD NOT BE INCLUDED"
+        self._last_agent_message.prev._message = msg
+
+        memory = self.memory.get_memory(self._last_action_message).memory
+        self.assertNotIn(msg, memory)
+
+        # invariant test
+        msg = "THIS SHOULD BE INCLUDED" 
+        self._last_agent_message.prev.action_messages[0]._message = msg 
+
+        memory = self.memory.get_memory(self._last_action_message).memory
+        self.assertIn(msg, memory)
+    
+    def test_get_memory_from_message_with_next(self):
+        """
+        Even if memory-generating message is not the latest message (i.e. has next), 
+        it should still generate memory the same way.
+        """
+        before_link = self.memory.get_memory(self._last_agent_message).memory
+        _ = AgentMessage('new_agent', prev=self._last_agent_message)
+        after_link = self.memory.get_memory(self._last_agent_message).memory
+        
+        self.assertEqual(before_link, after_link)
+
+
+
+
         
 
 

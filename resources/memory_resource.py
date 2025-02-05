@@ -260,14 +260,19 @@ class MemoryResource(BaseResource):
 
             segment.append(f'[{id_}]{msg_node._message.strip()}')
 
-        def go_up(msg_node, dst_cls): 
+        def go_up(msg_node, dst_cls):
+            down_stop = None
             while not isinstance(msg_node, dst_cls): 
-                while msg_node.prev: 
-                    msg_node = msg_node.prev
+                down_stop = msg_node
                 msg_node = msg_node.parent
-            return msg_node
+            return msg_node, down_stop
+            #     stops.append(msg_node)
+            #     while msg_node.prev: 
+            #         msg_node = msg_node.prev
+            #     msg_node = msg_node.parent
+            # return msg_node, stops
         
-        def go_down(msg_node, sys_messages, root_run=False, id_=None): 
+        def go_down(msg_node, sys_messages, stop_instance): 
             if is_initial_prompt(msg_node):
                 sys_messages.add(msg_node._message)
                 return []
@@ -277,16 +282,22 @@ class MemoryResource(BaseResource):
             # pre-order traversal
             segment = []
             if hasattr(msg_node, '_message'): 
-                add_to_segment(msg_node, segment)
+                # if AgentMessage has action messages, don't add agent._message
+                # this is to avoid duplicates, as agent._message will include 
+                # all action messages otherwise
+                if not isinstance(msg_node, AgentMessage) or len(children) == 0:
+                    add_to_segment(msg_node, segment)
 
             if len(children) > 0: 
                 child = msg_node.get_latest_version(children[0])
                 while child.next: 
-                    segment.extend(go_down(child, sys_messages))
+                    if child is stop_instance: 
+                        break
+                    segment.extend(go_down(child, sys_messages, stop_instance))
                     child = child.next.get_latest_version(child.next)
                 
-                if not root_run:
-                    segment.extend(go_down(child, sys_messages))
+                if child is not stop_instance:
+                    segment.extend(go_down(child, sys_messages, stop_instance))
 
             return segment
 
@@ -296,8 +307,8 @@ class MemoryResource(BaseResource):
         # collect system messages (initial_prompts) separately
         system_messages = set()
         while not isinstance(message, stop_cls): 
-            root = go_up(message, stop_cls)
-            segments.append(go_down(root, sys_messages=system_messages, root_run=True))
+            root, down_stop = go_up(message, stop_cls)
+            segments.append(go_down(root, sys_messages=system_messages, stop_instance=down_stop))
             stop_cls = self.message_hierarchy[stop_cls]
 
         if is_initial_prompt(message): 
