@@ -41,6 +41,9 @@ async def rerun_message(workflow_id: str, data: MessageData, request: Request):
 
     try:
         result = await workflow.rerun_message(data.message_id)
+        if not result:
+            result = await next_iteration(workflow_id, active_workflows)
+            return result
         return {"status": "updated", "result": result.id}
     except Exception as e:
         error_traceback = traceback.format_exc()
@@ -254,3 +257,17 @@ async def next_iteration(workflow_id: str, active_workflows):
         return {"status": "next iteration triggered"}
     else:
         return {"error": "Workflow is not in interactive mode"}
+
+
+@workflow_service_router.post("/workflow/model-change/{workflow_id}")
+async def change_model(workflow_id: str, data: dict, request: Request):
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+    print(f"Changing Model for Workflow: {workflow_id}, New Name: {data}")
+    workflow = active_workflows[workflow_id]["instance"]
+    try:
+        result = await workflow.change_current_model(data['new_model_name'])
+        return {"status": "updated", "result": result.id}
+    except Exception as e:
+        return {"error": str(e)}

@@ -1,5 +1,5 @@
 // src/components/WorkflowLauncher/WorkflowLauncher.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useServerAvailability } from '../../hooks/useServerAvailability';
 import {
@@ -30,10 +30,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   });
 
   const navigate = useNavigate();
-
+  
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  
   const [formData, setFormData] = useState({
     workflow_name: '',
     task_dir: '',
@@ -42,39 +42,48 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     iterations: 10,
     api_key_name: 'HELM_API_KEY',
     api_key_value: '',
+    model: '',
+    use_helm: false
   });
+  const [allModels, setAllModels] = useState({});
+  const [selectedModels, setSelectedModels] = useState([]);
+  const [topLevelSelection, setTopLevelSelection] = useState("");
+
+  const handleTopLevelChange = (event) => {
+    const { value } = event.target;
+    setTopLevelSelection(value);
+    // Set the model field based on top-level selection
+    if (value === "Non-HELM") {
+      setSelectedModels(allModels.nonHelmModels);
+    } else {
+      handleInputChange({ target: { name: 'use_helm', value: true } });
+      setSelectedModels(allModels.helmModels);
+    }
+  };
 
   const [apiKeys, setApiKeys] = useState({"HELM_API_KEY": ""});
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
   const [isCustomApiKey, setIsCustomApiKey] = useState(false);
-
-  // 2. Fetch workflows only once server is confirmed available
-  useEffect(() => {
-    if (!isChecking && isServerAvailable) {
-      fetchWorkflows();
-      fetchApiKeys();
-    }
-  }, [isChecking, isServerAvailable]);
+  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
 
   const fetchWorkflows = async () => {
     setLoading(true);
     try {
       const response = await fetch('http://localhost:8000/workflow/list');
       const data = await response.json();
-      setWorkflows(data.workflows || []);
+      setWorkflows(data.workflows);
     } catch (err) {
       console.error('Failed to fetch workflows. Make sure the backend server is running.');
     } finally {
       setLoading(false);
     }
   };
-
-  const fetchApiKeys = async () => {
+  
+  const fetchApiKeys = useCallback(async () => { 
     try {
       const response = await fetch('http://localhost:8000/service/api-service/get');
       const data = await response.json();
-      console.log(data);
       setApiKeys(data);
       setFormData((prev) => ({
         ...prev,
@@ -83,10 +92,21 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     } catch (err) {
       console.error('Failed to fetch API keys:', err);
     }
-  }
+  }, [formData.api_key_name]);
+ 
+  const fetchModels = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/workflow/models');
+      const models = await response.json();
+      setAllModels(models);
+    } catch (err) {
+      console.error('Failed to fetch models. Make sure the backend server is running.');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsCreatingWorkflow(true); // Set loading state
 
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
@@ -97,10 +117,12 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: formData.bounty_number,
           interactive: interactiveMode,
-          iterations: formData.iterations
+          iterations: formData.iterations,
+          model: formData.model,
+          use_helm: formData.use_helm
         }),
       });
-
+      
       if (!response) {
         throw new Error('Failed to get response from server');
       }
@@ -108,7 +130,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       if (!response.ok) {
         let errorData;
         try {
-          errorData = await response.json();
+          errorData = await response.json();        
         } catch {
           throw new Error('Failed to parse error response');
         }
@@ -121,14 +143,17 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       } catch {
         throw new Error('Failed to parse response data');
       }
-
+      
       if (data.error) {
         console.error(data.error);
       } else {
-        onWorkflowStart(data.workflow_id, interactiveMode);
+        onWorkflowStart(data.workflow_id, data.model, interactiveMode);
         navigate(`/workflow/${data.workflow_id}`); // Navigate to workflow page after start
+        setIsCreatingWorkflow(false); // Reset loading state
       }
     } catch (err) {
+      // Handle error
+      setIsCreatingWorkflow(false); // Reset loading state on error   
       console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
     }
   };
@@ -193,16 +218,25 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   };
 
-  // 3. Render different states
+  // 2. Fetch workflows only once server is confirmed available
+  useEffect(() => {
+    if (!isChecking && isServerAvailable) {
+      fetchWorkflows();
+      fetchApiKeys(); 
+      fetchModels();
+    }
+  }, [isChecking, isServerAvailable, fetchApiKeys])
 
   // While still checking server
   if (isChecking) {
     return (
-      <Box className="launcher-loading">
-        <CircularProgress />
-        <Typography>Checking server availability...</Typography>
-      </Box>
-    );
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+          <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+            <CircularProgress />
+            <Typography>Checking server availability...</Typography>
+          </Box>
+        </Box>
+      );
   }
 
   // Server not available (will keep polling in background)
@@ -217,9 +251,23 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   // Server available but workflows still loading
   if (loading) {
     return (
-      <Box className="launcher-loading">
-        <CircularProgress />
-        <Typography>Loading workflows...</Typography>
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+          <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+            <CircularProgress />
+            <Typography>Loading workflows...</Typography>
+          </Box>
+        </Box>
+      );
+  }
+
+  // Show loading message while creating workflow
+  if (isCreatingWorkflow) {
+  return (
+    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+          <CircularProgress />
+          <Typography>Creating workflow instance...</Typography>
+        </Box>
       </Box>
     );
   }
@@ -292,6 +340,42 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           margin="normal"
           placeholder="e.g., 10"
         />
+
+        <TextField
+          select
+          fullWidth
+          label="Model Type"
+          name="type"
+          value={topLevelSelection}
+          onChange={handleTopLevelChange}
+          required
+          margin="normal"
+        >
+          <MenuItem value="HELM">HELM</MenuItem>
+          <MenuItem value="Non-HELM">Non-HELM</MenuItem>
+        </TextField>
+
+        {/* Conditionally render the second dropdown based on top-level selection */}
+        {topLevelSelection && (
+          <TextField
+            select
+            fullWidth
+            label="Model Name"
+            name="model"
+            value={formData.model}
+            onChange={handleInputChange}
+            required
+            margin="normal"
+          >
+            {selectedModels.map((model) => (
+            <MenuItem key={model.name} value={model.name}>
+              <Box display="flex" flexDirection="column">
+                <Typography>{model.name}</Typography>
+              </Box>
+            </MenuItem>
+          ))}
+          </TextField>
+          )}
 
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={5}>
@@ -389,7 +473,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
         </Grid>
 
-        <FormControlLabel
+          <FormControlLabel
           control={
             <Switch
               checked={interactiveMode}
@@ -399,7 +483,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             />
           }
           label="Interactive Mode"
-        />
+          />
 
         <Button
           type="submit"

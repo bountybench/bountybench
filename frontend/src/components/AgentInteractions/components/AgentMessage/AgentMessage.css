@@ -58,22 +58,16 @@
 }
 
 .edit-mode-container {
-  padding: 16px;
-  background-color: #f8f9fa;
+  padding: 0px !important;
+  background-color: #ffffff;
+  border: none;
   border-radius: 4px;
-  margin: 8px 0;
+  margin: 8px 0px;
+  padding: 12px;
 }
 
 /* Edit mode text color fixes */
 .edit-mode-container .MuiInputBase-root {
-  color: #1f1f1f !important;
-}
-
-.edit-mode-container .MuiOutlinedInput-root {
-  color: #1f1f1f !important;
-}
-
-.edit-mode-container .MuiInputBase-input {
   color: #1f1f1f !important;
 }
 
@@ -89,18 +83,15 @@
 }
 
 .edit-button,
-.save-button {
-  margin-left: 8px !important;
+.cancel-button {
+  color: #c200bf !important;
+  border-color: #c200bf !important;
 }
 
-.edit-button {
-  color: #666 !important;
-  border-color: #e0e0e0 !important;
-}
-
+.rerun-button,
 .save-button {
-  background-color: #2196f3 !important;
-  color: #ffffff !important;
+  color: #2196f3 !important;
+  border-color: #2196f3 !important;
 }
 
 .action-messages-container {
@@ -124,4 +115,24 @@
 
 .toggle-button:hover {
   color: #313131;
+}
+
+.message-buttons {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border-top: 1px solid #e0e0e0;
+  margin-top: 8px;
+}
+
+.message-buttons button {
+  margin-left: 8px !important;
+}
+
+/* Edit mode text color fixes */
+.message-edit-field .MuiInputBase-root {
+  padding: 12px;
+  font-size: 0.75rem !important;
+  color: #1f1f1f !important;
 }

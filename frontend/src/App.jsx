@@ -19,8 +19,8 @@ function App() {
   const [currentPhase, setCurrentPhase] = useState(null);
   const toastIdRef = useRef({});
 
-  const handleWorkflowStart = (workflowId, isInteractive) => {
-    setSelectedWorkflow({ id: workflowId });
+  const handleWorkflowStart = (workflowId, model, isInteractive) => {
+    setSelectedWorkflow({ id: workflowId, model: model });
     setInteractiveMode(isInteractive);
   };
 
@@ -47,6 +47,25 @@ function App() {
         setInteractiveMode(!newInteractiveMode); // Revert state on error
       }
     }
+  };
+
+  const handleModelChange = async (name) => {
+    const url = `http://localhost:8000/workflow/model-change/${selectedWorkflow.id}`;
+    const requestBody = { new_model_name: name };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response body:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    } 
   };
 
   const handleWorkflowStateUpdate = (status, phase) => {
@@ -100,6 +119,7 @@ function App() {
           selectedWorkflow={selectedWorkflow}
           workflowStatus={workflowStatus}
           currentPhase={currentPhase}
+          onModelChange={handleModelChange}
         />
         <Box flexGrow={1} overflow='auto'>
           <Routes>

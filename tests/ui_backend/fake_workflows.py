@@ -4,7 +4,7 @@ from pathlib import Path
 import asyncio
 
 class FakeWorkflow:
-    def __init__(self, task_dir: Path, bounty_number: int, interactive: bool, phase_iterations: int):
+    def __init__(self, task_dir: Path, bounty_number: int, interactive: bool, phase_iterations: int, model: str, use_helm: bool):
         self.workflow_message = type('obj', (object,), {'workflow_id': f'fake-{bounty_number}'})
         self.interactive = interactive
         self.phase_iterations = phase_iterations
