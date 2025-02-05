@@ -61,6 +61,10 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
   const textFieldRef = useRef(null);
 
   useEffect(() => {
+    setOriginalMessageContent(action.message);
+  }, [action]);
+
+  useEffect(() => {
     if (editing) {
       setEditedMessage(originalMessageContent);
       if (textFieldRef.current) {

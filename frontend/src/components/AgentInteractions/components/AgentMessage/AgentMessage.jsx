@@ -61,6 +61,10 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
   }, [message, onRerunMessage]);
 
   useEffect(() => {
+    setOriginalMessageContent(message.message);
+  }, [message]);
+
+  useEffect(() => {
     if (editing) {
       setEditedMessage(originalMessageContent);
       if (textFieldRef.current) {
