@@ -11,7 +11,7 @@ import './AgentMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
+const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message ? message.message || '' : '');
@@ -257,22 +257,20 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
             ) : (
               <Box className="action-messages-container">
                 {message.action_messages.slice(2 * displayedIndex - 2, 2 * displayedIndex).map((actionMessage, index) => (
-                  <div ref={(el) => (cellRefs.current[actionMessage.current_id] = el)} key={actionMessage.current_id}>
-                    <ActionMessage
-                      key={index}
-                      index={index}
-                      action={actionMessage}
-                      onUpdateMessageInput={onUpdateMessageInput}
-                      onRerunMessage={onRerunMessage}
-                      onEditingChange={onEditingChange}
-                      isEditing={isEditing}                    
-                      selectedCellId={selectedCellId}
-                      onCellSelect={onCellSelect}
-                      onChildUpdate={handleChildUpdate}
-                      displayedIndex={displayedIndex}
-                      versionLength={message.action_messages.length / 2}
-                    />
-                  </div>
+                  <ActionMessage
+                    key={index}
+                    index={index}
+                    action={actionMessage}
+                    onUpdateMessageInput={onUpdateMessageInput}
+                    onRerunMessage={onRerunMessage}
+                    onEditingChange={onEditingChange}
+                    isEditing={isEditing}                    
+                    selectedCellId={selectedCellId}
+                    onCellSelect={onCellSelect}
+                    onChildUpdate={handleChildUpdate}
+                    displayedIndex={displayedIndex}
+                    versionLength={message.action_messages.length / 2}
+                  />
                 ))}
               </Box>
             )}

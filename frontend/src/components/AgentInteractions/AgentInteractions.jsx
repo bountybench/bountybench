@@ -14,7 +14,6 @@ const AgentInteractions = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const messagesEndRef = useRef(null);
-  const cellRefs = useRef({}); 
   const [selectedCellId, setSelectedCellId] = useState(null);
 
   const handleKeyDown = useCallback((event) => {
@@ -68,7 +67,6 @@ const AgentInteractions = ({
             isEditing={isEditing}            
             selectedCellId={selectedCellId}
             onCellSelect={setSelectedCellId}
-            cellRefs={cellRefs}
           />
         )}
         <div ref={messagesEndRef} />

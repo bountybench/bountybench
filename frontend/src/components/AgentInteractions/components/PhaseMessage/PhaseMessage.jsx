@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AgentMessage from '../AgentMessage/AgentMessage';
 import './PhaseMessage.css'
 
-const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs }) => {
+const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
@@ -83,22 +83,19 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
                 {agentsVersionChain.map((messages, index) => (
-                  <div ref={(el) => (cellRefs.current[messages['versionChain'][messages['index'] - 1].current_id] = el)} key={messages['versionChain'][messages['index'] - 1].current_id}>
-                    <AgentMessage 
-                      key={index} 
-                      message={messages['versionChain'][messages['index'] - 1]} 
-                      onUpdateMessageInput={onUpdateMessageInput}
-                      onRerunMessage={onRerunMessage}
-                      onEditingChange={onEditingChange}
-                      isEditing={isEditing}                      
-                      selectedCellId={selectedCellId}
-                      onCellSelect={onCellSelect}
-                      cellRefs={cellRefs}
-                      onPhaseChildUpdate={handleChildUpdate}
-                      phaseDisplayedIndex={messages['index']}
-                      phaseVersionLength={messages['versionChain'].length}
-                    />
-                  </div>
+                  <AgentMessage 
+                    key={index} 
+                    message={messages['versionChain'][messages['index'] - 1]} 
+                    onUpdateMessageInput={onUpdateMessageInput}
+                    onRerunMessage={onRerunMessage}
+                    onEditingChange={onEditingChange}
+                    isEditing={isEditing}                      
+                    selectedCellId={selectedCellId}
+                    onCellSelect={onCellSelect}
+                    onPhaseChildUpdate={handleChildUpdate}
+                    phaseDisplayedIndex={messages['index']}
+                    phaseVersionLength={messages['versionChain'].length}
+                  />
                 ))}
               </Box>
             )}
