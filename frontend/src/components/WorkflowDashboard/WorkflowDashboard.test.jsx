@@ -179,7 +179,7 @@ describe('WorkflowDashboard Component', () => {
 
     renderWithRouter(mockSelectedWorkflow, mockInteractiveMode, mockOnWorkflowStateUpdate, mockShowInvalidWorkflowToast);
 
-    const triggerNextIterationButton = screen.getByRole('button', { name: 'Next' });
+    const triggerNextIterationButton = screen.getByRole('button', { name: 'Continue' });
     fireEvent.click(triggerNextIterationButton);
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
@@ -215,7 +215,7 @@ describe('WorkflowDashboard Component', () => {
         renderWithRouter(mockSelectedWorkflow, mockInteractiveMode, mockOnWorkflowStateUpdate, mockShowInvalidWorkflowToast);
 
         // Simulate triggering next iteration event.
-        const triggerNextIterationButton = screen.getByRole('button', { name: 'Next' });
+        const triggerNextIterationButton = screen.getByRole('button', { name: 'Continue' });
         fireEvent.click(triggerNextIterationButton);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
