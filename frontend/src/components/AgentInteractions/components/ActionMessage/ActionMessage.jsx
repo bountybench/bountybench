@@ -14,10 +14,10 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onChildUpdate, displayedIndex, versionLength }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editedMessage, setEditedMessage] = useState(action.message || '');
+  const [editedMessage, setEditedMessage] = useState(action?.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
-  const [originalMessageContent, setOriginalMessageContent] = useState(formatData(action.message));
+  const [originalMessageContent, setOriginalMessageContent] = useState(formatData(action?.message || ''));
 
   const handleCancelEdit = useCallback(() => {
     setEditing(false);

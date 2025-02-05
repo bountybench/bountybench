@@ -14,12 +14,12 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editedMessage, setEditedMessage] = useState(message ? message.message || '' : '');
+  const [editedMessage, setEditedMessage] = useState(message?.message || '');
   const textFieldRef = useRef(null);
 
   const [displayedIndex, setDisplayedIndex] = useState(1);
   
-  const [originalMessageContent, setOriginalMessageContent] = useState(formatData(message.message));
+  const [originalMessageContent, setOriginalMessageContent] = useState(formatData(message?.message || ''));
   
   const handleCancelEdit = useCallback(() => {
     setEditing(false);
