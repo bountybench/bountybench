@@ -13,7 +13,8 @@ class StartWorkflowInput(BaseModel):
         default=False, description="Whether the workflow is interactive"
     )
     iterations: int = Field(..., gt=0, description="Number of phase iterations")
-
+    model: str = Field(..., description="Name of the model")
+    use_helm: bool = Field(..., description="Using HELM vs. Non-Helm")
 
 class MessageInputData(BaseModel):
     message_id: str

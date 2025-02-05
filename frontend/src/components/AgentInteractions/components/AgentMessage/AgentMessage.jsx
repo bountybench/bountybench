@@ -8,10 +8,45 @@ import CloseIcon from '@mui/icons-material/Close';
 import ActionMessage from '../ActionMessage/ActionMessage';
 import './AgentMessage.css'
 
-const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing }) => {
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+
+const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingChange, isEditing, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editedMessage, setEditedMessage] = useState(message.message || '');
+  const [editedMessage, setEditedMessage] = useState(message ? message.message || '' : '');
+
+  const [displayedIndex, setDisplayedIndex] = useState(1);
+  
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && editing) {
+        handleCancelEdit();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [editing]);
+
+  useEffect(() => {
+    if (message && message.action_messages){
+      const messageLength = message.action_messages.length;
+      // Make sure that both model and kali_env are received
+      if (messageLength % 2 !== 0) {
+        return;
+      }
+      setDisplayedIndex(messageLength / 2);
+    }
+  }, [message]);
+
+  useEffect(() => {
+    setDisplayedIndex(1);
+  }, [phaseDisplayedIndex]);
+
+  if (!message) return null;
 
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
 
@@ -19,6 +54,12 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     setEditing(true);
     onEditingChange(true);
     setEditedMessage(message.message || '');
+  };
+
+  const handleToggleVersion = (num) => {
+    if (onPhaseChildUpdate) {
+        onPhaseChildUpdate(message.agent_id, num); // Notify parent of the update
+    }
   };
 
   const handleSaveClick = async () => {
@@ -41,18 +82,10 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
     setEditedMessage(message.message || '');
   };
 
-  useEffect(() => {
-    const handleEscKey = (event) => {
-      if (event.key === 'Escape' && editing) {
-        handleCancelEdit();
-      }
-    };
 
-    document.addEventListener('keydown', handleEscKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }, [editing]);
+  const handleChildUpdate = (num) => {
+      setDisplayedIndex((prev) => prev + num);
+  };
 
   return (
     <Box className="agent-message-container">
@@ -126,21 +159,60 @@ const AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
                       >
                         <EditIcon />
                       </Button>
+
+                      {/* Toggle Version Arrows */}
+                    {phaseVersionLength > 1 && (
+                    <>
+                    <Typography variant="caption" sx={{ mx: 1 }}>
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      {/* Arrow Buttons */}
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <IconButton
+                          aria-label="arrow back"
+                          onClick={() => handleToggleVersion(-1)}
+                          disabled={phaseDisplayedIndex === 1}
+                          sx={{ color: 'black' }}
+                          size="small"
+                        >
+                          <ArrowBackIcon />
+                        </IconButton>
+                        <IconButton
+                          aria-label="arrow forward"
+                          onClick={() => handleToggleVersion(1)}
+                          disabled={phaseDisplayedIndex === phaseVersionLength}
+                          sx={{ color: 'black' }}
+                          size="small"
+                        >
+                          <ArrowForwardIcon />
+                        </IconButton>
+                      </Box>
+
+                      {/* Version Number */}
+                      <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
+                        {phaseDisplayedIndex}/{phaseVersionLength}
+                      </Typography>
+                    </Box>
+                    </>)}     
+
                     </Box>
                   </Box>
                 )}
               </Box>
             ) : (
               <Box className="action-messages-container">
-                <Typography className="action-messages-title">Actions:</Typography>
-                {message.current_children.map((actionMessage, index) => (
-                  <ActionMessage 
-                    key={index} 
-                    action={actionMessage} 
+                {message.action_messages.slice(2*displayedIndex-2, 2*displayedIndex).map((actionMessage, index) => (
+                  <ActionMessage
+                    key={index}
+                    index={index}
+                    action={actionMessage}
                     onUpdateActionInput={onUpdateActionInput}
                     onRerunAction={onRerunAction}
                     onEditingChange={onEditingChange}
                     isEditing={isEditing}
+                    onChildUpdate={handleChildUpdate}
+                    displayedIndex={displayedIndex}
+                    versionLength={message.action_messages.length / 2}
                   />
                 ))}
               </Box>
