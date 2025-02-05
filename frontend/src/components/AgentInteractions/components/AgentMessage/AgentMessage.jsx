@@ -48,6 +48,18 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     }
   }, [message, editedMessage, onEditingChange, onUpdateMessageInput]);
 
+  const handleRerunClick = useCallback(async () => {
+    if (!message.current_id) {
+      console.error('Action id is undefined');
+      return;
+    }
+    try {
+      await onRerunMessage(message.current_id);
+    } catch (error) {
+      console.error('Error rerunning action:', error);
+    }
+  }, [message, onRerunMessage]);
+
   useEffect(() => {
     if (editing) {
       setEditedMessage(originalMessageContent);
@@ -68,9 +80,13 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
         }
         else if (event.shiftKey && event.key === 'Enter') {
           event.preventDefault(); // Prevent the default action 
-          handleSaveClick();      // Call the save function
+          if (editing) {
+            handleSaveClick();      // Call the save function
+          } else {
+            handleRerunClick();
+          }
         }
-        else if (event.key === 'Enter') {
+        else if (event.key === 'Enter' && !event.altKey) {
           handleEditClick();
         }
       }
@@ -80,7 +96,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing, message, handleCancelEdit, handleEditClick, handleSaveClick, selectedCellId]);
+  }, [editing, message, handleCancelEdit, handleEditClick, handleSaveClick, handleRerunClick, selectedCellId]);
 
   useEffect(() => {
     if (message && message.action_messages) {
@@ -100,18 +116,6 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
   if (!message) return null;
 
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
-  
-  const handleRerunClick = async () => {
-    if (!message.current_id) {
-      console.error('Action id is undefined');
-      return;
-    }
-    try {
-      await onRerunMessage(message.current_id);
-    } catch (error) {
-      console.error('Error rerunning action:', error);
-    }
-  };
 
   const handleToggleVersion = (num) => {
     if (onPhaseChildUpdate) {

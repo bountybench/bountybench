@@ -46,6 +46,18 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     }
   }, [action, editedMessage, onEditingChange, onUpdateMessageInput]);
 
+  const handleRerunClick = useCallback(async () => {
+    if (!action.current_id) {
+      console.error('Action id is undefined');
+      return;
+    }
+    try {
+      await onRerunMessage(action.current_id);
+    } catch (error) {
+      console.error('Error rerunning action:', error);
+    }
+  }, [action, onRerunMessage]);
+
   const textFieldRef = useRef(null);
 
   useEffect(() => {
@@ -65,12 +77,16 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
       if (selectedCellId === action.current_id) {
         if (event.key === 'Escape' && editing) {
           handleCancelEdit();
-        }    
+        }
         else if (event.shiftKey && event.key === 'Enter') {
           event.preventDefault(); // Prevent the default action 
-          handleSaveClick();      // Call the save function
+          if (editing) {
+            handleSaveClick();      // Call the save function
+          } else {
+            handleRerunClick();
+          }
         }
-        else if (event.key === 'Enter') {
+        else if (event.key === 'Enter' && !event.altKey) {
           handleEditClick();
         }
       }
@@ -80,7 +96,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, onUpdateMessageInput, selectedCellId]);
+  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRerunClick, onUpdateMessageInput, selectedCellId]);
 
   if (!action) return null;
   
@@ -92,18 +108,6 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
   const handleToggleVersion = (num) => {
     if (onChildUpdate) {
       onChildUpdate(num); // Notify parent of the update
-    }
-  };
-
-  const handleRerunClick = async () => {
-    if (!action.current_id) {
-      console.error('Action id is undefined');
-      return;
-    }
-    try {
-      await onRerunMessage(action.current_id);
-    } catch (error) {
-      console.error('Error rerunning action:', error);
     }
   };
 
