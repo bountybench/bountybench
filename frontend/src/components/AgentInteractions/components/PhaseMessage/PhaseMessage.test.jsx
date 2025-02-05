@@ -99,30 +99,8 @@ test('handles updating action input', async () => {
     };
     render(<PhaseMessage message={message} />);
     // Checks that the newest version is displayed
-    expect(screen.getByText(/Agent: agent-1/i)).toBeInTheDocument();
-    expect(screen.getByText(/New Message 1/i)).toBeInTheDocument();
-    expect(screen.getByText(/current1/i)).toBeInTheDocument();
-    expect(screen.getByText(/current2/i)).toBeInTheDocument();
-
-    /* 
-    // Verify the version toggling buttons are present
-    const backButton = screen.getByRole('button', { name: /arrow back/i }); 
-    const forwardButton = screen.getByRole('button', { name: /arrow forward/i }); 
-    expect(forwardButton).toBeInTheDocument();
-    expect(forwardButton).toBeDisabled();
-    expect(backButton).toBeInTheDocument();
-    expect(backButton).not.toBeDisabled();
-
-    // Verify the version text (2/2)
-    const versionText = screen.getByText(`${2}/${2}`);
-    expect(versionText).toBeInTheDocument();
-
-    // Select previous version and verify that the display is changed
-    fireEvent.click(backButton);
-    expect(screen.getByText(/Old Message 1/i)).toBeInTheDocument();
-    expect(screen.getByText(/former1/i)).toBeInTheDocument();
-    expect(screen.getByText(/former2/i)).toBeInTheDocument();
-    const newVersionText = screen.getByText(`${1}/${2}`);
-    expect(newVersionText).toBeInTheDocument();
-    */
+    expect(await screen.findByText(/Agent: agent-1/i)).toBeInTheDocument();
+    expect(await screen.findByText(/New Message 1/i)).toBeInTheDocument();
+    expect(await screen.findByText(/current1/i)).toBeInTheDocument();
+    expect(await screen.findByText(/current2/i)).toBeInTheDocument();
 });

@@ -13,21 +13,48 @@ logger = get_main_logger(__name__)
 
 def run_command(command, work_dir=None):
     """
-    Runs a shell command.
+    Runs a shell command while capturing output in real-time.
+    
     :param command: List of command arguments.
     :param work_dir: Working directory to execute the command in.
-    :return: subprocess.CompletedProcess instance
+    :return: stdout and stderr as strings.
     """
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             command,
             cwd=work_dir,
-            check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            bufsize=1,  # Ensures line buffering for real-time output
+            universal_newlines=True
         )
-        return result
+
+        stdout_lines = []
+        stderr_lines = []
+
+        # Read output in real-time
+        for stdout_line in iter(process.stdout.readline, ""):
+            sys.stdout.write(stdout_line)  # Print to console immediately
+            sys.stdout.flush()  # Force immediate print
+            stdout_lines.append(stdout_line)  # Store in variable
+
+        for stderr_line in iter(process.stderr.readline, ""):
+            sys.stderr.write(stderr_line)  # Print errors to console immediately
+            sys.stderr.flush()  # Force immediate print
+            stderr_lines.append(stderr_line)  # Store in variable
+
+        process.stdout.close()
+        process.stderr.close()
+        process.wait()  # Ensure process completes
+
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=process.returncode,
+            stdout="".join(stdout_lines),
+            stderr="".join(stderr_lines)
+        )
+
     except subprocess.CalledProcessError as e:
         logger.error(f"Command '{' '.join(command)}' failed with return code {e.returncode}")
         logger.error(f"stdout: {e.stdout}")
