@@ -90,6 +90,7 @@ class ExecutorAgent(BaseAgent):
         iterations = 0
         
         start_progress(f"Getting response from LM")
+        logger.info(f"LM Model used in executor: {self.model.to_dict()}")
         try:
             iterations = 0 
             while iterations < MAX_RETRIES:

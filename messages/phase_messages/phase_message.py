@@ -2,6 +2,10 @@ from typing import List, Optional
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
+
 class PhaseMessage(Message):
     def __init__(self, phase_id: str, prev: 'PhaseMessage' = None, agent_messages: Optional[List[AgentMessage]] = []) -> None:
         self._phase_id = phase_id
@@ -67,8 +71,10 @@ class PhaseMessage(Message):
         self._summary = summary
 
     def add_agent_message(self, agent_message: AgentMessage):
+        logger.info(f"adding phase message {agent_message}")
         self._agent_messages.append(agent_message)
         agent_message.set_parent(self)
+        logger.info(f"adding phase message parent {agent_message.parent}")
         from messages.message_utils import broadcast_update
         broadcast_update(self)
 
