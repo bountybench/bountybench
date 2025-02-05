@@ -242,7 +242,9 @@ def test_workflow_restart_creates_new_workflow(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "999",
         "interactive": True,
-        "iterations": 3
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False
     }
 
     new_payload = {
@@ -250,7 +252,9 @@ def test_workflow_restart_creates_new_workflow(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "100",
         "interactive": True,
-        "iterations": 3
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False
     }
 
     # Step 1: Start the first workflow
@@ -302,7 +306,9 @@ def test_stopping_multiple_workflows(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "101",
         "interactive": True,
-        "iterations": 3
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False, 
     }
 
     payload_2 = {
@@ -310,7 +316,9 @@ def test_stopping_multiple_workflows(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "102",
         "interactive": True,
-        "iterations": 3
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False, 
     }
 
     
@@ -345,7 +353,9 @@ def test_restarting_workflow_with_same_bounty_number(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "999",
         "interactive": True,
-        "iterations": 3
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False
     }
 
     # Start the first workflow
@@ -371,7 +381,9 @@ def test_stopping_workflow_twice(client):
         "task_dir": "/path/to/tasks",
         "bounty_number": "777",
         "interactive": True,
-        "iterations": 3
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False
     }
 
      # Start the workflow
@@ -442,7 +454,7 @@ async def test_websocket_receive_status_update(client):
         # Verify initial status
         status_msg = websocket.receive_json()
         assert status_msg["message_type"] == "workflow_status"
-        assert status_msg["status"] == "initializing"
+        assert status_msg["status"] == "starting"
 
         # Verify progression to running state
         running_msg = websocket.receive_json()
