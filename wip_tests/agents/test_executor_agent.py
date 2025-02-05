@@ -15,7 +15,6 @@ class TestAsyncExecutorAgent(unittest.IsolatedAsyncioTestCase):
         Test run() returns valid message. 
         Need to run this in AsyncioTestCase due to async.
         """
-
         command_message = CommandMessage("test_id", "command: ls")
         self.agent.execute = Mock(return_value=command_message)
 

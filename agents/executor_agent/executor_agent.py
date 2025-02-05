@@ -43,7 +43,6 @@ class ExecutorAgent(BaseAgent):
         (ModelResource, "model")
     ]     
     
-
     async def run(self, messages: List[Message]) -> Message:
         if len(messages) > 1:
             raise Exception(f"Accepts at most a single message, got {len(messages)}.")
