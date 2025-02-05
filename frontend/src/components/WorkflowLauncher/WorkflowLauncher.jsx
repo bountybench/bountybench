@@ -43,7 +43,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     iterations: 10,
     api_key_name: 'HELM_API_KEY',
     api_key_value: '',
-    model: 'openai/o3-mini-2025-01-14',
+    model: '',
     use_helm: false
   });
   const [allModels, setAllModels] = useState({});
@@ -133,8 +133,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       const response = await fetch('http://localhost:8000/workflow/models');
       const models = await response.json();
       setAllModels(models);
-      setSelectedModels(models.nonHelmModels);
-      setTopLevelSelection("Non-HELM");
     } catch (err) {
       console.error('Failed to fetch models. Make sure the backend server is running.');
     }
@@ -382,6 +380,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           name="type"
           value={topLevelSelection}
           onChange={handleTopLevelChange}
+          required
           margin="normal"
         >
           <MenuItem value="HELM">HELM</MenuItem>
@@ -389,7 +388,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         </TextField>
 
         {/* Conditionally render the second dropdown based on top-level selection */}
-        {selectedModels && (
+        {topLevelSelection && (
           <TextField
             select
             fullWidth
@@ -397,6 +396,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             name="model"
             value={formData.model}
             onChange={handleInputChange}
+            required
             margin="normal"
           >
             {selectedModels.map((model) => (

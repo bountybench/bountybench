@@ -152,8 +152,8 @@ class BasePhase(ABC):
         Returns:
             PhaseMessage: The message of the current phase.
         """
-        logger.info(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
-        logger.info(f"Running phase {self.name}")
+        logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
+        logger.debug(f"Running phase {self.name}")
         
         self._phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
         workflow_message.add_phase_message(self._phase_message)
@@ -169,7 +169,6 @@ class BasePhase(ABC):
                 agent_id="system",
                 message=self.params.get("initial_prompt").format(**self.params),
             )
-            logger.info(f"adding agent message {self._last_agent_message}")
             self._phase_message.add_agent_message(self._last_agent_message)
 
         for iteration_num in range(1, self.phase_config.max_iterations + 1):

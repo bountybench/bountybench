@@ -13,7 +13,7 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
 
   const [agentsVersionChain, setAgentsVersionChain] = useState([]);
-  console.log('chains', agentsVersionChain)
+
   const getAgentIds = (agents) => agents.length === 0 ? [] : agents.map(agent => agent.current_id);
 
   useEffect(() => {

@@ -29,7 +29,7 @@ HALLUCINATION_STRINGS = [
 class ModelResourceConfig(BaseResourceConfig):
     """Configuration for ModelResource"""
 
-    model: str = field(default="anthropic/claude-3-5-sonnet-20240620")
+    model: str = field(default="openai/o3-mini-2025-01-14")
     max_output_tokens: int = field(default=4096)
     max_input_tokens: int = field(default=4096)
     max_iterations_stored_in_memory: int = field(default=3)

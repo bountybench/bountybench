@@ -56,10 +56,8 @@ class WorkflowMessage(Message):
         self._summary = summary
 
     def add_phase_message(self, phase_message: PhaseMessage):
-        logger.info(f"adding phase message {phase_message}")
         self._phase_messages.append(phase_message)  
         phase_message.set_parent(self)
-        logger.info(f"adding phase message parent {phase_message.parent}")
 
     def add_agent(self, agent_name: str, agent) -> None:        
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
