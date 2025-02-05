@@ -65,10 +65,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
   const [isCustomApiKey, setIsCustomApiKey] = useState(false);
-  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(() => {
-    // Initialize state from sessionStorage if exists
-    return sessionStorage.getItem('isCreatingWorkflow') === 'true';
-  });
+  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
 
   const fetchWorkflows = async () => {
     setLoading(true);
@@ -110,7 +107,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsCreatingWorkflow(true); // Set loading state
-    sessionStorage.setItem('isCreatingWorkflow', 'true');
 
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
@@ -154,12 +150,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         onWorkflowStart(data.workflow_id, data.model, interactiveMode);
         navigate(`/workflow/${data.workflow_id}`); // Navigate to workflow page after start
         setIsCreatingWorkflow(false); // Reset loading state
-        sessionStorage.removeItem('isCreatingWorkflow'); 
       }
     } catch (err) {
       // Handle error
       setIsCreatingWorkflow(false); // Reset loading state on error   
-      sessionStorage.removeItem('isCreatingWorkflow'); 
       console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
     }
   };
@@ -223,24 +217,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       console.log(err.message);
     }
   };
-
-  
-  // Reset state when navigating away and when there is an active server
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      // Clear out isCreatingWorkflow in session storage when navigating away
-      sessionStorage.removeItem('isCreatingWorkflow');
-      setIsCreatingWorkflow(false);
-    };
-
-    // Add beforeunload listener
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      // Cleanup function to remove listener on unmount
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []);
 
   // 2. Fetch workflows only once server is confirmed available
   useEffect(() => {
