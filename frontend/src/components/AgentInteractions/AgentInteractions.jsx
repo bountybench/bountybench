@@ -14,9 +14,11 @@ const AgentInteractions = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const messagesEndRef = useRef(null);
+  const cellRefs = useRef({}); 
+  const [selectedCellId, setSelectedCellId] = useState(null);
 
   const handleKeyDown = (event) => {
-    if (event.key === 'Enter' && (event.altKey || !isEditing)) {
+    if (event.key === 'Enter' && event.altKey) {
       event.preventDefault(); // Prevent the default action
       onTriggerNextIteration();
     }
@@ -62,8 +64,11 @@ const AgentInteractions = ({
             message={latestPhaseMessage}
             onUpdateMessageInput={onUpdateMessageInput}
             onRerunMessage={onRerunMessage}
-            onEditingChange={setIsEditing}
-            isEditing={isEditing}
+            onEditingChange={setIsEditing}            
+            isEditing={isEditing}            
+            selectedCellId={selectedCellId}
+            onCellSelect={setSelectedCellId}
+            cellRefs={cellRefs}
           />
         )}
         <div ref={messagesEndRef} />

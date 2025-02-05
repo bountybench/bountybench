@@ -143,3 +143,16 @@
   border-radius: 4px;
   font-family: monospace;
 }
+
+.selected {
+  border: 2px solid #ffd23d !important;
+  border-radius: 4px;
+}
+
+.selected.action-message.MODEL {
+  border-left: 4px solid #966200 !important;
+}
+
+.selected.action-message.KALI_ENV {
+  border-left: 4px solid #966200 !important;
+}

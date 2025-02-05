@@ -6,12 +6,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ActionMessage from '../ActionMessage/ActionMessage';
+import { formatData } from '../../utils/messageFormatters';
 import './AgentMessage.css';
-
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
+const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, cellRefs, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message ? message.message || '' : '');
@@ -19,11 +19,19 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
 
   const [displayedIndex, setDisplayedIndex] = useState(1);
   
+  const [originalMessageContent, setOriginalMessageContent] = useState(formatData(message.message));
+  
   const handleCancelEdit = useCallback(() => {
     setEditing(false);
     onEditingChange(false);
-    setEditedMessage(message.message || '');
-  }, [message, onEditingChange]);
+    setEditedMessage(originalMessageContent);
+  }, [originalMessageContent, onEditingChange]);
+  
+  const handleEditClick = useCallback(() => {
+    setEditing(true);
+    onEditingChange(true);
+    setEditedMessage(originalMessageContent);
+  });
 
   useEffect(() => {
     if (editing) {
@@ -38,17 +46,26 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
   }, [editing]);
   
   useEffect(() => {
-    const handleEscKey = (event) => {
-      if (event.key === 'Escape' && editing) {
-        handleCancelEdit();
+    const handleKeyDown = (event) => {
+      if (selectedCellId === message.current_id) {
+        if (event.key === 'Escape' && editing) {
+          handleCancelEdit();
+        }
+        else if (event.shiftKey && event.key === 'Enter') {
+          event.preventDefault(); // Prevent the default action 
+          handleSaveClick();      // Call the save function
+        }
+        else if (event.key === 'Enter') {
+          handleEditClick();
+        }
       }
     };
 
-    document.addEventListener('keydown', handleEscKey);
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleEscKey);
+      document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing, handleCancelEdit]);
+  }, [editing, handleCancelEdit, handleEditClick, selectedCellId]);
 
   useEffect(() => {
     if (message && message.action_messages) {
@@ -68,13 +85,6 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
   if (!message) return null;
 
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
-
-  const handleKeyDown = (event) => {
-    if (event.shiftKey && event.key === 'Enter') {
-      event.preventDefault(); // Prevent the default action 
-      handleSaveClick();      // Call the save function
-    }
-  };
   
   const handleRerunClick = async () => {
     if (!message.current_id) {
@@ -86,12 +96,6 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     } catch (error) {
       console.error('Error rerunning action:', error);
     }
-  };
-
-  const handleEditClick = () => {
-    setEditing(true);
-    onEditingChange(true);
-    setEditedMessage(message.message || '');
   };
 
   const handleToggleVersion = (num) => {
@@ -106,9 +110,10 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
       return;
     }
     try {
-      await onUpdateMessageInput(message.current_id, editedMessage);
+      setOriginalMessageContent(editedMessage);
       setEditing(false);
       onEditingChange(false);
+      await onUpdateMessageInput(message.current_id, editedMessage);
     } catch (error) {
       console.error('Error updating message:', error);
     }
@@ -118,8 +123,15 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     setDisplayedIndex((prev) => prev + num);
   };
 
-  return (
-    <Box className="agent-message-container">
+  const handleContainerClick = (e) => {
+    e.stopPropagation();
+    onCellSelect(message.current_id);
+  };
+
+  return (    
+    <Box className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
+      onClick={handleContainerClick}
+    >
       <Card className="message-bubble agent-bubble">
         <CardContent>
           <Box className="agent-message-header">
@@ -146,9 +158,8 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                       maxRows={10}
                       value={editedMessage}
                       onChange={(e) => setEditedMessage(e.target.value)}
-                      onKeyDown={handleKeyDown}
                     />
-                    <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+                    <Box className="message-buttons">
                       <Button
                         variant="outlined"
                         color="secondary"
@@ -179,10 +190,10 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                         component="pre"
                         className="agent-message-text"
                       >
-                        {message.message || ''}
+                        {originalMessageContent}
                       </Typography>
                     </Card>
-                    <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+                    <Box className="message-buttons">
                       <Button
                         variant="outlined"
                         color="primary"
@@ -246,18 +257,22 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
             ) : (
               <Box className="action-messages-container">
                 {message.action_messages.slice(2 * displayedIndex - 2, 2 * displayedIndex).map((actionMessage, index) => (
-                  <ActionMessage
-                    key={index}
-                    index={index}
-                    action={actionMessage}
-                    onUpdateMessageInput={onUpdateMessageInput}
-                    onRerunMessage={onRerunMessage}
-                    onEditingChange={onEditingChange}
-                    isEditing={isEditing}
-                    onChildUpdate={handleChildUpdate}
-                    displayedIndex={displayedIndex}
-                    versionLength={message.action_messages.length / 2}
-                  />
+                  <div ref={(el) => (cellRefs.current[actionMessage.current_id] = el)} key={actionMessage.current_id}>
+                    <ActionMessage
+                      key={index}
+                      index={index}
+                      action={actionMessage}
+                      onUpdateMessageInput={onUpdateMessageInput}
+                      onRerunMessage={onRerunMessage}
+                      onEditingChange={onEditingChange}
+                      isEditing={isEditing}                    
+                      selectedCellId={selectedCellId}
+                      onCellSelect={onCellSelect}
+                      onChildUpdate={handleChildUpdate}
+                      displayedIndex={displayedIndex}
+                      versionLength={message.action_messages.length / 2}
+                    />
+                  </div>
                 ))}
               </Box>
             )}
