@@ -1,5 +1,6 @@
 import asyncio
 import signal
+import sys
 
 from starlette.middleware.cors import CORSMiddleware
 
@@ -41,33 +42,32 @@ class Server:
         self.app.include_router(workflow_service_router)
 
     def setup_signal_handlers(self):
-        def handle_signal(signum, frame):
-            print("\nShutdown signal received. Cleaning up...")
-            self.should_exit = True
+        """
+        Use the asyncio event loop’s add_signal_handler so that shutdown is scheduled immediately.
+        This avoids potential delays when using the standard signal.signal handler.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # If no running loop is found, get the default event loop.
+            loop = asyncio.get_event_loop()
 
-            try:
-                # Try to get the existing event loop
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                # If no loop is running, we don't create a new one
-                # This avoids issues with atexit handlers
-                return
+        # When SIGINT or SIGTERM is received, schedule the shutdown coroutine.
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda sig=sig: self._handle_signal(sig))
 
-            # Schedule the shutdown coroutine
-            try:
-                loop.create_task(self.shutdown())
-            except Exception as e:
-                print(f"Error scheduling shutdown: {e}")
-
-        signal.signal(signal.SIGINT, handle_signal)
-        signal.signal(signal.SIGTERM, handle_signal)
+    def _handle_signal(self, sig):
+        print(f"\nReceived signal {sig.name}. Shutting down immediately...")
+        self.should_exit = True
+        # Schedule the shutdown coroutine immediately
+        asyncio.create_task(self.shutdown())
 
     async def shutdown(self):
         """Gracefully shutdown the server with proper cleanup"""
-        # Gather all cleanup tasks
+        # Gather cleanup tasks
         cleanup_tasks = []
 
-        # Clean up all websocket connections
+        # Close all active websocket connections
         for workflow_id in list(self.websocket_manager.active_connections.keys()):
             connections = list(self.websocket_manager.active_connections[workflow_id])
             for connection in connections:
@@ -76,21 +76,22 @@ class Server:
                 except Exception as e:
                     print(f"Error closing connection: {e}")
 
-        # Clean up heartbeat tasks
+        # Cancel heartbeat tasks
         for task in self.websocket_manager.heartbeat_tasks:
             task.cancel()
             cleanup_tasks.append(task)
 
-        # Wait for all cleanup tasks to complete
         if cleanup_tasks:
             try:
                 await asyncio.gather(*cleanup_tasks, return_exceptions=True)
             except Exception as e:
                 print(f"Error during cleanup: {e}")
+                raise e
 
-        # Let the event loop complete any remaining tasks
+        # Stop the event loop safely
         try:
             loop = asyncio.get_running_loop()
             loop.stop()
-        except Exception as e:
+        except RuntimeError as e:
             print(f"Error stopping event loop: {e}")
+            raise
