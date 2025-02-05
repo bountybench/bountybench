@@ -98,6 +98,15 @@ class InitFilesResource(BaseResource):
                     check=True,
                     text=True
                 )
+            logger.info("Cleaning up the working directory before checkout.")
+            subprocess.run(
+                ["git", "clean", "-fdx"],
+                cwd=self.files_dir,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                check=True,
+                text=True
+            )
             logger.info(
                 f"Checking out {self.vulnerable_commit}")
             subprocess.run(
