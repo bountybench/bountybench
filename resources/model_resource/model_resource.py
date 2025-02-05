@@ -112,6 +112,7 @@ class ModelResource(BaseResource):
                 prev=prev_message,
             )
         except:
+            logger.info(f"LM responded with {response}.")
             logger.debug("Could not parse as CommandMessage.")
             raise Exception("Could not parse LM response as CommandMessage.")
 

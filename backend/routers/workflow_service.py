@@ -60,7 +60,10 @@ async def edit_action_input(workflow_id: str, data: MessageInputData, request: R
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
-        result = await workflow.edit_one_message(data.message_id, data.new_input_data)
+        result = await workflow.edit_and_rerun_message(data.message_id, data.new_input_data)
+        if not result:
+            result = await next_iteration(workflow_id, active_workflows)
+            return result
         return {"status": "updated", "result": result.id}
     except Exception as e:
         return {"error": str(e)}
@@ -267,7 +270,7 @@ async def change_model(workflow_id: str, data: dict, request: Request):
     print(f"Changing Model for Workflow: {workflow_id}, New Name: {data}")
     workflow = active_workflows[workflow_id]["instance"]
     try:
-        result = await workflow.change_current_model(data['new_model_name'])
+        result = await workflow.change_current_model(data["new_model_name"])
         return {"status": "updated", "result": result.id}
     except Exception as e:
         return {"error": str(e)}
