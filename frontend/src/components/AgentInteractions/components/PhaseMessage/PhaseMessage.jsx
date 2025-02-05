@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -14,36 +14,34 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction, onEditingCh
 
   const [agentsVersionChain, setAgentsVersionChain] = useState([]);
 
-  const getAgentIds = (agents) => agents.length === 0 ? [] : agents.map(agent => agent.current_id);
-
   useEffect(() => {
     if (message.current_children){
-      const children_length = message.current_children.length;
-      if (children_length === 0){
-        return;
-      }
-      const chain_copy = [...agentsVersionChain]; 
-      const num_agents = agentsVersionChain.length;
-      for (let i = 0; i < children_length; i++) {
-        const curr_child = message.current_children[i];
-        const agent_id = curr_child.agent_id;
-        if (i >= num_agents){
-          chain_copy.push({'agent': agent_id, 'versionChain': [curr_child], 'index': 1});
-        }
-        else{
-          const found_index = getAgentIds(chain_copy[i]['versionChain']).indexOf(curr_child.current_id);
-          if (found_index !== -1){
-            chain_copy[i]['versionChain'][found_index] = curr_child
+      const children = message.current_children;
+      if (children.length === 0) return;
+  
+      setAgentsVersionChain(currentChain => {
+        const chainCopy = [...currentChain];
+        const numAgents = chainCopy.length;
+        
+        children.forEach((currChild, i) => {
+          const agentId = currChild.agent_id;
+          if (i >= numAgents) {
+            chainCopy.push({ agent: agentId, versionChain: [currChild], index: 1 });
+          } else {
+            const existingVersions = chainCopy[i].versionChain;
+            const foundIndex = existingVersions.findIndex(v => v.current_id === currChild.current_id);
+            if (foundIndex !== -1) {
+              existingVersions[foundIndex] = currChild;
+            } else {
+              existingVersions.push(currChild);
+              chainCopy[i].index = existingVersions.length;
+            }
           }
-          else{
-            chain_copy[i]['versionChain'].push(curr_child);
-            chain_copy[i]['index'] = chain_copy[i]['versionChain'].length;
-          }
-        }
-        }
-        setAgentsVersionChain(chain_copy);      
-      }
-      
+        });
+  
+        return chainCopy;
+      });
+    }
   }, [message.current_children]);
 
   const handleChildUpdate = (id, num) => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -7,7 +7,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
-import './ActionMessage.css'
+import './ActionMessage.css';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -17,6 +17,14 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+
+  const originalMessageContent = formatData(action.message);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditing(false);
+    onEditingChange(false);
+    setEditedMessage(originalMessageContent);
+  }, [originalMessageContent, onEditingChange]);
 
   useEffect(() => {
     const handleEscKey = (event) => {
@@ -29,7 +37,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
     return () => {
       document.removeEventListener('keydown', handleEscKey);
     };
-  }, [editing]);
+  }, [editing, handleCancelEdit]);
 
   if (!action) return null;
 
@@ -40,7 +48,7 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
 
   const handleToggleVersion = (num) => {
     if (onChildUpdate) {
-        onChildUpdate(num); // Notify parent of the update
+      onChildUpdate(num); // Notify parent of the update
     }
   };
 
@@ -55,8 +63,6 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
       console.error('Error rerunning action:', error);
     }
   };
-
-  const originalMessageContent = formatData(action.message);
 
   const handleEditClick = () => {
     setEditing(true);
@@ -78,12 +84,6 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditing(false);
-    onEditingChange(false);
-    setEditedMessage(originalMessageContent);
-  };
-
   const handleExpandClick = (e) => {
     e.stopPropagation();
     setExpanded(!expanded);
@@ -94,90 +94,90 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
       className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''}`} 
       variant="outlined"
     >
-    <CardContent>
-      <Box className="action-message-header">
-        <Box>
-          <Typography className="action-message-title">
-            {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
-          </Typography>
-          {action.timestamp && (
-            <Typography className="action-message-timestamp">
-              {new Date(action.timestamp).toLocaleTimeString()}
+      <CardContent>
+        <Box className="action-message-header">
+          <Box>
+            <Typography className="action-message-title">
+              {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
             </Typography>
-          )}
-        </Box>
-        <IconButton
-          onClick={handleExpandClick}
-          aria-expanded={expanded}
-          aria-label="show more"
-          className="action-toggle-button"
-        >
-          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-        </IconButton>
-      </Box>
-
-      <Collapse in={expanded}>
-        {editing ? (
-          <Box className="edit-mode-container">
-            <Typography variant="caption" color="text.secondary">
-              Editing Message:
-            </Typography>
-            <TextField
-              multiline
-              minRows={3}
-              maxRows={10}
-              value={editedMessage}
-              onChange={(e) => setEditedMessage(e.target.value)}
-              className="edit-textarea"
-              fullWidth
-            />
-            <Box className="action-message-buttons">
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSaveClick}
-                size="small"
-                aria-label="save"
-                sx={{ mr: 1 }}
-              >
-                <SaveIcon/>
-              </Button>
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleCancelEdit}
-                size="small"
-                aria-label="cancel"
-              >
-                <CloseIcon/>
-              </Button>
-            </Box>
-          </Box>
-        ) : (
-          <>
-            <Box className="action-message-content">
-              <Typography className="action-message-text">
-                {originalMessageContent}
+            {action.timestamp && (
+              <Typography className="action-message-timestamp">
+                {new Date(action.timestamp).toLocaleTimeString()}
               </Typography>
+            )}
+          </Box>
+          <IconButton
+            onClick={handleExpandClick}
+            aria-expanded={expanded}
+            aria-label="show more"
+            className="action-toggle-button"
+          >
+            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </IconButton>
+        </Box>
+
+        <Collapse in={expanded}>
+          {editing ? (
+            <Box className="edit-mode-container">
+              <Typography variant="caption" color="text.secondary">
+                Editing Message:
+              </Typography>
+              <TextField
+                multiline
+                minRows={3}
+                maxRows={10}
+                value={editedMessage}
+                onChange={(e) => setEditedMessage(e.target.value)}
+                className="edit-textarea"
+                fullWidth
+              />
+              <Box className="action-message-buttons">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSaveClick}
+                  size="small"
+                  aria-label="save"
+                  sx={{ mr: 1 }}
+                >
+                  <SaveIcon/>
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleCancelEdit}
+                  size="small"
+                  aria-label="cancel"
+                >
+                  <CloseIcon/>
+                </Button>
+              </Box>
             </Box>
-            <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={handleEditClick}
-                size="small"
-                aria-label="edit"
-                className="edit-button"
-              >
-                <EditIcon />
-              </Button>
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleRerunClick}
-                size="small"
-                aria-label="rerun"
-              >
+          ) : (
+            <>
+              <Box className="action-message-content">
+                <Typography className="action-message-text">
+                  {originalMessageContent}
+                </Typography>
+              </Box>
+              <Box className="action-message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleEditClick}
+                  size="small"
+                  aria-label="edit"
+                  className="edit-button"
+                >
+                  <EditIcon />
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleRerunClick}
+                  size="small"
+                  aria-label="rerun"
+                >
                 <KeyboardArrowRightIcon />
               </Button>
 
@@ -214,37 +214,38 @@ const ActionMessage = ({ index, action, onUpdateActionInput, onRerunAction, onEd
                         {displayedIndex}/{versionLength}
                       </Typography>
                     </Box>
-                  </>)}               
-                </Box>
+                  </>
+                )}               
+              </Box>
             </>
           )}
 
-        {/* Metadata section */}
-        {action.additional_metadata && (
-          <Box className="metadata-section">
-            <Box 
-              className="metadata-toggle"
-              onClick={handleToggleMetadata}
-            >
-              <Typography className="metadata-label">
-                Metadata
-                <IconButton size="small" className="action-toggle-button">
-                  {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                </IconButton>
-              </Typography>
-            </Box>
-            
-            <Collapse in={metadataExpanded}>
-              <Box className="metadata-content">
-                <Typography className="metadata-text">
-                  {JSON.stringify(action.additional_metadata, null, 2)}
+          {/* Metadata section */}
+          {action.additional_metadata && (
+            <Box className="metadata-section">
+              <Box 
+                className="metadata-toggle"
+                onClick={handleToggleMetadata}
+              >
+                <Typography className="metadata-label">
+                  Metadata
+                  <IconButton size="small" className="action-toggle-button">
+                    {metadataExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </IconButton>
                 </Typography>
               </Box>
-            </Collapse>
-          </Box>
-        )}
-      </Collapse>
-    </CardContent>
+              
+              <Collapse in={metadataExpanded}>
+                <Box className="metadata-content">
+                  <Typography className="metadata-text">
+                    {JSON.stringify(action.additional_metadata, null, 2)}
+                  </Typography>
+                </Box>
+              </Collapse>
+            </Box>
+          )}
+        </Collapse>
+      </CardContent>
     </Card>
   );
 };
