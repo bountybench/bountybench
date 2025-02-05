@@ -241,7 +241,7 @@ class SetupResource(BaseResource):
                     logger.info(f"Container '{container}' is healthy.")
                     container_queue.get()
                 elif health_status != "starting":
-                    logger.warning(
+                    raise RuntimeError(
                         f"Container '{container}' has unexpected health status: {health_status}."
                     )
 
