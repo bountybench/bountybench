@@ -21,7 +21,10 @@ class Server:
 
         self.setup_middleware()
         self.setup_routes()
-        self.setup_signal_handlers()
+
+        self.app.add_event_handler("shutdown", self.shutdown)
+
+        #self.setup_signal_handlers()
 
     def setup_middleware(self):
         self.app.add_middleware(
@@ -62,6 +65,7 @@ class Server:
         # Schedule the shutdown coroutine immediately
         asyncio.create_task(self.shutdown())
 
+    '''
     async def shutdown(self):
         """Gracefully shutdown the server with proper cleanup"""
         # Gather cleanup tasks
@@ -87,7 +91,7 @@ class Server:
             except Exception as e:
                 print(f"Error during cleanup: {e}")
                 raise e
-
+        
         # Stop the event loop safely
         try:
             loop = asyncio.get_running_loop()
@@ -95,3 +99,27 @@ class Server:
         except RuntimeError as e:
             print(f"Error stopping event loop: {e}")
             raise
+    '''
+
+    async def shutdown(self):
+        """Gracefully shutdown the server with proper cleanup"""
+        # Close all active websocket connections
+        for workflow_id in list(self.websocket_manager.active_connections.keys()):
+            connections = list(self.websocket_manager.active_connections[workflow_id])
+            for connection in connections:
+                try:
+                    await connection.close()
+                except Exception as e:
+                    print(f"Error closing connection: {e}")
+
+        # Cancel heartbeat tasks
+        for task in self.websocket_manager.heartbeat_tasks:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                print(f"Error: {e}")   
+                raise e
+            except Exception as e:
+                print(f"Error awaiting cancelled task: {e}")   
+                raise e 
