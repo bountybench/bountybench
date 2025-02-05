@@ -1,7 +1,4 @@
 import asyncio
-import signal
-import sys
-
 from starlette.middleware.cors import CORSMiddleware
 
 
