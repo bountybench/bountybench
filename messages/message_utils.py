@@ -61,5 +61,6 @@ def log_message(message: Message):
     broadcast_update(message)
     if should_log(message):  
         workflow_id = message.workflow_id
-        if hasattr(message_dict[workflow_id][message.id], "save"):
-            message_dict[workflow_id][message.id].save()
+        #if hasattr(message_dict[workflow_id][message.id], "save"):
+        #message_dict[workflow_id][message.id].save()
+        message_dict[workflow_id][workflow_id].save()
