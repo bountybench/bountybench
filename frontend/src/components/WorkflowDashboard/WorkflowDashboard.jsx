@@ -87,6 +87,10 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   }, [workflowId]);
   
   const triggerNextIteration = async () => {
+    if (workflowStatus === "stopped") {
+      console.error("Cannot trigger next iteration: Workflow is stopped.");
+      return;
+    }
     if (workflowId) {
       setIsNextDisabled(true);
       try {
@@ -215,6 +219,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     <Box height="100%" overflow="auto">
       <AgentInteractions
         interactiveMode={interactiveMode}
+        workflowStatus={workflowStatus}  // Pass the workflow status
         currentPhase={currentPhase}
         currentIteration={currentIteration}
         isNextDisabled={isNextDisabled}

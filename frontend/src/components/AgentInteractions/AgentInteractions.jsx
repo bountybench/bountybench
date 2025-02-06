@@ -7,6 +7,7 @@ import './AgentInteractions.css';
 
 const AgentInteractions = ({ 
   interactiveMode, 
+  workflowStatus, // Pass workflowStatus from parent
   isNextDisabled,
   messages = [],
   onUpdateMessageInput,
@@ -45,9 +46,17 @@ const AgentInteractions = ({
   console.log('Latest PhaseMessage:', latestPhaseMessage);
 
   const handleStopClick = async () => {
+    setIsStopped(true); // Hide buttons immediately
     await onStopWorkflow();
-    setIsStopped(true);
   };
+
+    // Ensure buttons remain hidden when workflow status updates from parent
+    useEffect(() => {
+      if (workflowStatus === "stopped") {
+        setIsStopped(true);
+      }
+    }, [workflowStatus]);
+  
 
   if (!messages) {
     return (

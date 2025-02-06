@@ -159,8 +159,6 @@ async def last_message(workflow_id: str, request: Request):
 
 @workflow_service_router.websocket("/ws/{workflow_id}")
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
-    print("==== WEBSOCKET_ENDPOINT TOP-LEVEL REACHED! ====")
-    print("workflow_id =", workflow_id)
     request = websocket.scope["app"]
     active_workflows = request.state.active_workflows
     websocket_manager = request.state.websocket_manager
@@ -208,6 +206,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                         "can_execute": False,
                     }
                 )
+
         else:
             # If workflow doesn't exist yet, start it
             print(f"Auto-starting new workflow {workflow_id}")
