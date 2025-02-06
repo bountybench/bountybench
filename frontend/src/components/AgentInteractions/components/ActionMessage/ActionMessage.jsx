@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ContentCopyIcon from "@mui/icons-material/ContentCopy"; 
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
@@ -18,6 +19,10 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   const originalMessageContent = formatData(action.message);
+
+  const handleCopyClick = () => {
+		navigator.clipboard.writeText(originalMessageContent);
+	};
 
   const handleCancelEdit = useCallback(() => {
     setEditing(false);
@@ -181,7 +186,17 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
                 {originalMessageContent}
               </Typography>
             </Box>
-            <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+            <Box className="message-buttons" sx={{ display: 'flex' }}>
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={handleCopyClick}
+                size="small"
+                aria-label="copy"
+                className="copy-button"
+              >
+                <ContentCopyIcon />
+              </Button>
               <Button
                 variant="outlined"
                 color="primary"
@@ -189,6 +204,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
                 size="small"
                 aria-label="edit"
                 className="edit-button"
+                sx={{ display: !editing ? 'none' : undefined }}
               >
                 <EditIcon />
               </Button>
@@ -199,6 +215,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
                 size="small"
                 aria-label="rerun"
                 className="rerun-button"
+                sx={{ display: !editing ? 'none' : undefined }}
               >
                 <KeyboardArrowRightIcon />
               </Button>
