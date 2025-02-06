@@ -3,12 +3,12 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
 class PhaseMessage(Message):
-    def __init__(self, phase_id: str, prev: 'PhaseMessage' = None, agent_messages: Optional[List[AgentMessage]] = []) -> None:
+    def __init__(self, phase_id: str, prev: 'PhaseMessage' = None) -> None:
         self._phase_id = phase_id
         self._success = False
         self._complete = False
         self._summary = "incomplete"
-        self._agent_messages = agent_messages
+        self._agent_messages = []
         self._phase_summary = None
         super().__init__(prev)
 
