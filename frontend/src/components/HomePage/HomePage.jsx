@@ -63,10 +63,10 @@ const HomePage = () => {
       >
         <Box>
           <Typography variant="body1">
-            {workflow.task?.task_dir} {workflow.task?.bounty_number} ({workflow.status})
+            {workflow.task?.task_dir} {workflow.task?.bounty_number} ({workflow?.status})
           </Typography>
           <Typography variant="caption" color="textSecondary">
-            {workflow.timestamp} - {workflow.name}
+            {workflow.timestamp ? `${workflow.timestamp} - ${workflow.name}` : workflow.name}
           </Typography>
         </Box>
       </Button>
