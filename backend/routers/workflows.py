@@ -47,7 +47,9 @@ async def list_active_workflows(request: Request):
                 "status": workflow_data["status"],
                 "name": workflow_data["instance"].__class__.__name__,
                 "task": workflow_data["instance"].task,
-                "timestamp": workflow_data["workflow_message"].timestamp,
+                "timestamp": getattr(
+                    workflow_data["workflow_message"], "timestamp", None
+                ),
             }
         )
     return {"active_workflows": active_workflows_list}
