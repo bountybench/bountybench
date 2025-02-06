@@ -3,8 +3,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 
 from backend.schema import StartWorkflowInput
-
-from resources.model_resource.model_mapping import TokenizerMapping, NonHELMMapping
+from resources.model_resource.model_mapping import NonHELMMapping, TokenizerMapping
 
 workflows_router = APIRouter()
 
@@ -48,6 +47,7 @@ async def list_active_workflows(request: Request):
                 "status": workflow_data["status"],
                 "name": workflow_data["instance"].__class__.__name__,
                 "task": workflow_data["instance"].task,
+                "timestamp": workflow_data["workflow_message"].timestamp,
             }
         )
     return {"active_workflows": active_workflows_list}
@@ -65,7 +65,7 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
             interactive=workflow_data.interactive,
             phase_iterations=workflow_data.iterations,
             model=workflow_data.model,
-            use_helm=workflow_data.use_helm
+            use_helm=workflow_data.use_helm,
         )
         workflow_id = workflow.workflow_message.workflow_id
         active_workflows[workflow_id] = {
@@ -73,24 +73,37 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
             "status": "initializing",
             "workflow_message": workflow.workflow_message,
         }
-        return {"workflow_id": workflow_id, "model": workflow_data.model, "status": "initializing"}
+        return {
+            "workflow_id": workflow_id,
+            "model": workflow_data.model,
+            "status": "initializing",
+        }
     except Exception as e:
         return {"error": str(e)}
+
 
 @workflows_router.get("/workflow/allmodels")
 async def list_all_models():
     """List available model types"""
     helm_models = list(set(TokenizerMapping.mapping.keys()))
-    nonhelm_models = [value if '/' in value else key for key, value in NonHELMMapping.mapping.items()]
+    nonhelm_models = [
+        value if "/" in value else key for key, value in NonHELMMapping.mapping.items()
+    ]
     all_models = sorted(set(helm_models + nonhelm_models))
-    all_models = [{'name': model} for model in all_models]
+    all_models = [{"name": model} for model in all_models]
     return {"allModels": all_models}
+
 
 @workflows_router.get("/workflow/models")
 async def list_helm_models():
     """List HELM and NONHELM model types separately"""
     helm_models = sorted(set(TokenizerMapping.mapping.keys()))
-    helm_mapping = [{'name': model} for model in helm_models]
-    nonhelm_models = sorted([value if '/' in value else key for key, value in NonHELMMapping.mapping.items()])
-    nonhelm_mapping = [{'name': model} for model in nonhelm_models]
+    helm_mapping = [{"name": model} for model in helm_models]
+    nonhelm_models = sorted(
+        [
+            value if "/" in value else key
+            for key, value in NonHELMMapping.mapping.items()
+        ]
+    )
+    nonhelm_mapping = [{"name": model} for model in nonhelm_models]
     return {"helmModels": helm_mapping, "nonHelmModels": nonhelm_mapping}
