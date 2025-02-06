@@ -44,9 +44,9 @@ class BaseWorkflow(ABC):
         
         self.initial_prompt=self._get_initial_prompt()
 
-        self.workflow_message = WorkflowMessage.initialize(
+        self.workflow_message = WorkflowMessage(
             workflow_name=self.name,
-            task=self._get_task(),
+            task=self.task,
             additional_metadata=self._get_metadata()
         )
         
@@ -82,6 +82,10 @@ class BaseWorkflow(ABC):
         """Create and register phases. To be implemented by subclasses."""
         pass
 
+    @property
+    def task(self):
+        return self._get_task()
+    
     def _create_phase(self, phase_class: Type[BasePhase], **kwargs: Any) -> None:
         """
         Create a phase instance and register it with the workflow.
@@ -222,9 +226,10 @@ class BaseWorkflow(ABC):
     async def get_last_message(self) -> str:
         result = self._current_phase.last_agent_message  
         return result.message if result else ""
-
+      
     async def rerun_message(self, message_id: str):
-        message = message_dict[message_id]
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        message = workflow_messages.get(message_id)
         message = await self.rerun_manager.rerun(message)        
         if message.next:
             message = await self.rerun_manager.run_edited(message)
@@ -236,45 +241,34 @@ class BaseWorkflow(ABC):
         return message
     
     async def run_next_message(self):
-        if len(message_dict) > 0:
-            _, last_message = list(message_dict.items())[-1]
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        if len(workflow_messages) > 0:
+            _, last_message = list(workflow_messages.items())[-1]
             if last_message.next:
-                last_message = await self.rerun_manager.run_edited(last_message)
+                last_message = await self.rerun_manager.rerun(last_message)
                 return last_message
             if last_message.parent and last_message.parent.next:
-                last_message = await self.rerun_manager.run_edited(last_message.parent)
+                last_message = await self.rerun_manager.rerun(last_message.parent)
                 return last_message
         return None
     
-    async def edit_message(self, message: Message, new_message_data: str) -> Message:
+    async def edit_and_rerun_message(self, message_id: str, new_message_data: str) -> Message:
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        message = workflow_messages.get(message_id)
         message = await self.rerun_manager.edit_message(message, new_message_data)
         if message.next:
-            message = await self.rerun_manager.run_edited(message)
-            message = message.next
-        if isinstance(message, ActionMessage):
-            while message.next:
-                message = await self.rerun_manager.run_edited(message)
-                message = message.next
-        return message
+            message = await self.rerun_manager.rerun(message)
+            if isinstance(message, ActionMessage):
+                while message.next:
+                    message = await self.rerun_manager.rerun(message)
+            return message
+        return None
     
-    async def edit_one_message(self, message_id: str, new_message_data: str) -> Message:
-        message = message_dict[message_id]
-        message = await self.edit_message(message, new_message_data)
-        return message
-    
-    """
-    async def set_interactive_mode(self, interactive: bool):
-        self.interactive = interactive
-        # Update the interactive mode for the current phase
-        if self._current_phase:
-            await self._current_phase.set_interactive_mode(interactive)
-        # Update the interactive mode for all remaining phases
-        for phase in self._phase_graph:
-            if phase != self._current_phase:
-                phase.phase_config.interactive = interactive
-        logger.info(f"Interactive mode set to {interactive}")
-    """
-
+    async def change_current_model(self, new_model_name: str):
+        self.params['model'] = new_model_name
+        self.resource_manager.update_model(new_model_name)
+        self.agent_manager.update_phase_agents_models(new_model_name)
+        
     async def set_interactive_mode(self, interactive: bool):
         if self.interactive != interactive:
             self.interactive = interactive
@@ -292,6 +286,23 @@ class BaseWorkflow(ABC):
             if not interactive:
                 # If switching to non-interactive, trigger next iteration
                 self.next_iteration_event.set()
+    
+    async def stop(self): 
+        # Set the status to stopped
+        self.status = WorkflowStatus.INCOMPLETE
+
+        # Deallocate agents and resources
+        self.agent_manager.deallocate_all_agents()
+        self.resource_manager.deallocate_all_resources()
+
+        if hasattr(self, "next_iteration_event"):
+            self.next_iteration_event.clear()
+        
+
+        self._finalize_workflow()
+
+        
+
     @property
     def name(self):
         return self.__class__.__name__

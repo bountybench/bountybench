@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+// src/components/WorkflowLauncher/WorkflowLauncher.jsx
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router';
 import { useServerAvailability } from '../../hooks/useServerAvailability';
 import {
   Box,
@@ -9,9 +11,16 @@ import {
   Typography,
   MenuItem,
   CircularProgress,
-  Alert
+  Alert,
+  Grid,
+  InputAdornment,
+  IconButton,
+  Divider,
 } from '@mui/material';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import ListIcon from '@mui/icons-material/List';
 import './WorkflowLauncher.css';
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
@@ -20,39 +29,86 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     console.log('Server is available!');
   });
 
+  const navigate = useNavigate();
+  
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  
   const [formData, setFormData] = useState({
     workflow_name: '',
     task_dir: '',
     bounty_number: '0',
     interactive: true,
-    iterations: 10
+    iterations: 10,
+    api_key_name: 'HELM_API_KEY',
+    api_key_value: '',
+    model: 'openai/o3-mini-2025-01-14',
+    use_helm: false
   });
+  const [allModels, setAllModels] = useState({});
+  const [selectedModels, setSelectedModels] = useState([]);
+  const [topLevelSelection, setTopLevelSelection] = useState("");
 
-  // 2. Fetch workflows only once server is confirmed available
-  useEffect(() => {
-    if (!isChecking && isServerAvailable) {
-      fetchWorkflows();
+  const handleTopLevelChange = (event) => {
+    const { value } = event.target;
+    setTopLevelSelection(value);
+    // Set the model field based on top-level selection
+    if (value === "Non-HELM") {
+      setSelectedModels(allModels.nonHelmModels);
+    } else {
+      handleInputChange({ target: { name: 'use_helm', value: true } });
+      setSelectedModels(allModels.helmModels);
     }
-  }, [isChecking, isServerAvailable]);
+  };
+
+  const [apiKeys, setApiKeys] = useState({"HELM_API_KEY": ""});
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
+  const [isCustomApiKey, setIsCustomApiKey] = useState(false);
+  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
 
   const fetchWorkflows = async () => {
     setLoading(true);
     try {
       const response = await fetch('http://localhost:8000/workflow/list');
       const data = await response.json();
-      setWorkflows(data.workflows || []);
+      setWorkflows(data.workflows);
     } catch (err) {
       console.error('Failed to fetch workflows. Make sure the backend server is running.');
     } finally {
       setLoading(false);
     }
   };
+  
+  const fetchApiKeys = useCallback(async () => { 
+    try {
+      const response = await fetch('http://localhost:8000/service/api-service/get');
+      const data = await response.json();
+      setApiKeys(data);
+      setFormData((prev) => ({
+        ...prev,
+        api_key_value: data[formData.api_key_name] || '',
+      }));
+    } catch (err) {
+      console.error('Failed to fetch API keys:', err);
+    }
+  }, [formData.api_key_name]);
+ 
+  const fetchModels = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/workflow/models');
+      const models = await response.json();
+      setAllModels(models);
+      setSelectedModels(models.nonHelmModels);
+      setTopLevelSelection("Non-HELM");
+    } catch (err) {
+      console.error('Failed to fetch models. Make sure the backend server is running.');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsCreatingWorkflow(true); // Set loading state
 
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
@@ -63,10 +119,12 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: formData.bounty_number,
           interactive: interactiveMode,
-          iterations: formData.iterations
+          iterations: formData.iterations,
+          model: formData.model,
+          use_helm: formData.use_helm
         }),
       });
-
+      
       if (!response) {
         throw new Error('Failed to get response from server');
       }
@@ -74,7 +132,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       if (!response.ok) {
         let errorData;
         try {
-          errorData = await response.json();
+          errorData = await response.json();        
         } catch {
           throw new Error('Failed to parse error response');
         }
@@ -87,13 +145,17 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       } catch {
         throw new Error('Failed to parse response data');
       }
-
+      
       if (data.error) {
         console.error(data.error);
       } else {
-        onWorkflowStart(data.workflow_id, interactiveMode);
+        onWorkflowStart(data.workflow_id, data.model, interactiveMode);
+        navigate(`/workflow/${data.workflow_id}`); // Navigate to workflow page after start
+        setIsCreatingWorkflow(false); // Reset loading state
       }
     } catch (err) {
+      // Handle error
+      setIsCreatingWorkflow(false); // Reset loading state on error   
       console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
     }
   };
@@ -104,18 +166,79 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       ...prev,
       [name]: name === 'interactive' ? checked : value
     }));
+
+
+    if (name === 'api_key_name') {
+      setFormData((prev) => ({
+        ...prev,
+        api_key_value: apiKeys[value] || '',
+      }));
+    }
   };
 
-  // 3. Render different states
+  const handleRevealToggle = () => {
+    setShowApiKey((prev) => !prev);
+  };
+
+  const handleApiKeyChange = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/service/api-service/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key_name: formData.api_key_name || "",
+          api_key_value: formData.api_key_value || "",
+        }),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        setApiStatus({ 
+          type: "error", 
+          message: `Failed to update API key. Please double-check your entry. Here's the full log:\n${responseData.detail || "Failed to update API key"}` 
+        });
+        
+      } else {
+        let successMessage = `${formData.api_key_name} updated successfully!`;
+
+        if (responseData.warning) {
+          setApiStatus({
+            type: "warning",
+            message: `${successMessage}\n\n Warning: ${responseData.warning}`,
+          });
+        } else {
+          setApiStatus({ type: "success", message: successMessage });
+          setTimeout(() => setApiStatus({ type: "", message: "" }), 3000);
+        }
+      }
+
+      console.log(`${formData.api_key_name} updated successfully.`);
+      fetchApiKeys();
+    } catch (err) {
+      console.log(err.message);
+    }
+  };
+
+  // 2. Fetch workflows only once server is confirmed available
+  useEffect(() => {
+    if (!isChecking && isServerAvailable) {
+      fetchWorkflows();
+      fetchApiKeys(); 
+      fetchModels();
+    }
+  }, [isChecking, isServerAvailable, fetchApiKeys])
 
   // While still checking server
   if (isChecking) {
     return (
-      <Box className="launcher-loading">
-        <CircularProgress />
-        <Typography>Checking server availability...</Typography>
-      </Box>
-    );
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+          <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+            <CircularProgress />
+            <Typography>Checking server availability...</Typography>
+          </Box>
+        </Box>
+      );
   }
 
   // Server not available (will keep polling in background)
@@ -130,9 +253,23 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   // Server available but workflows still loading
   if (loading) {
     return (
-      <Box className="launcher-loading">
-        <CircularProgress />
-        <Typography>Loading workflows...</Typography>
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+          <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+            <CircularProgress />
+            <Typography>Loading workflows...</Typography>
+          </Box>
+        </Box>
+      );
+  }
+
+  // Show loading message while creating workflow
+  if (isCreatingWorkflow) {
+  return (
+    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+          <CircularProgress />
+          <Typography>Creating workflow instance...</Typography>
+        </Box>
       </Box>
     );
   }
@@ -155,8 +292,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
         >
-          {(workflows.length > 0) ? (
-            workflows.map((workflow) => (
+        {(workflows.length > 0) ? (
+          workflows.map((workflow) => (
               <MenuItem key={workflow.name} value={workflow.name}>
                 <Box display="flex" flexDirection="column">
                   <Typography>{workflow.name}</Typography>
@@ -206,7 +343,137 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           placeholder="e.g., 10"
         />
 
-        <FormControlLabel
+        <TextField
+          select
+          fullWidth
+          label="Model Type"
+          name="type"
+          value={topLevelSelection}
+          onChange={handleTopLevelChange}
+          margin="normal"
+        >
+          <MenuItem value="HELM">HELM</MenuItem>
+          <MenuItem value="Non-HELM">Non-HELM</MenuItem>
+        </TextField>
+
+        {/* Conditionally render the second dropdown based on top-level selection */}
+        {selectedModels && (
+          <TextField
+            select
+            fullWidth
+            label="Model Name"
+            name="model"
+            value={formData.model}
+            onChange={handleInputChange}
+            margin="normal"
+          >
+            {selectedModels.map((model) => (
+            <MenuItem key={model.name} value={model.name}>
+              <Box display="flex" flexDirection="column">
+                <Typography>{model.name}</Typography>
+              </Box>
+            </MenuItem>
+          ))}
+          </TextField>
+          )}
+
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={5}>
+            <TextField
+              select={!isCustomApiKey} // Turns into input when "Enter new key" is selected
+              fullWidth
+              label="API Key Name"
+              name="api_key_name"
+              value={formData.api_key_name || ""}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              InputProps={{
+                endAdornment: (
+                  <IconButton onClick={() => {
+                    if (isCustomApiKey) {
+                      setIsCustomApiKey(!isCustomApiKey);
+
+                      handleInputChange({ // Reset to default
+                        target: {
+                          name: "api_key_name",
+                          value: "HELM_API_KEY",
+                        },
+                      });
+                    }
+                  }}>
+                    {isCustomApiKey ? <ListIcon /> : null}
+                  </IconButton>
+                )
+              }}
+            >
+              {Object.keys(apiKeys).map((key) => (
+                <MenuItem key={key} value={key}>
+                  {key}
+                </MenuItem>
+              ))}
+              <Divider />
+              <MenuItem onClick={() => {
+                setIsCustomApiKey(true);
+                setFormData((prev) => ({
+                  ...prev,
+                  api_key_name: "my_custom_key",
+                }));
+                
+              }}>
+                Enter a New API Key:
+              </MenuItem>
+            </TextField>
+          </Grid>
+
+          <Grid item xs={5.5}>
+            <TextField
+              fullWidth
+              type={showApiKey ? 'text' : 'password'}
+              label="API Key Value"
+              name="api_key_value"
+              value={formData.api_key_value}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              placeholder="Enter API key"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={handleRevealToggle} size="large">
+                      {showApiKey ? <Visibility /> : <VisibilityOff />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+
+          <Grid item xs={1}>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleApiKeyChange}
+                size="small"
+              >
+                Update
+              </Button>
+            </Box>
+          </Grid>
+
+          <Grid item xs={10}>
+            {apiStatus.message && (
+              <Alert severity={apiStatus.type} className="launcher-alert" sx={{ whiteSpace: "pre-line" }}>
+                {apiStatus.message}
+              </Alert>
+            )}
+          </Grid>
+
+
+        </Grid>
+
+          <FormControlLabel
           control={
             <Switch
               checked={interactiveMode}
@@ -216,7 +483,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             />
           }
           label="Interactive Mode"
-        />
+          />
 
         <Button
           type="submit"

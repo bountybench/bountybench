@@ -45,8 +45,11 @@ ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 
 TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
-RETRY_DELAY = 10
+RETRY_DELAY = 5
 
+class DockerContainerStartError(Exception):
+    """Custom exception for Docker container start failures."""
+    pass
 
 @dataclass
 class KaliEnvResourceConfig(BaseResourceConfig):
@@ -112,27 +115,35 @@ class KaliEnvResource(BaseResource):
         return False
 
 
-    
+
     def _start(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]) -> Container:
         """
         Start a Kali Linux container to be used throughout the lifecycle.
         """
         for attempt in range(MAX_RETRIES):
             try:
-                # Attempt to get existing container
+                # Check for existing container and force remove it
                 try:
                     container = self.client.containers.get(name)
-                    logger.info(f"Container '{name}' already exists.")
-                    if container.status != "running":
-                        logger.info(f"Container '{name}' is not running. Removing it.")
-                        container.remove(force=True)
-                    else:
-                        start_progress(f"Container '{name}' is running. Stopping and removing it.")
-                        try:
-                            container.stop()
-                            container.remove()
-                        finally:
-                            stop_progress()
+                    logger.info(f"Container '{name}' already exists. Forcefully removing it.")
+                    start_progress(f"Removing existing container '{name}'...")
+                    try:
+                        container.remove(force=True)  # Force stop and remove
+                        # Verify container is removed
+                        for _ in range(5):
+                            try:
+                                self.client.containers.get(name)
+                                time.sleep(1)
+                            except docker.errors.NotFound:
+                                logger.debug(f"Confirmed container '{name}' is removed.")
+                                break
+                        else:
+                            logger.warning(f"Container '{name}' still exists post-removal.")
+                    except docker.errors.APIError as e:
+                        logger.error(f"Force removal failed: {e}")
+                        raise
+                    finally:
+                        stop_progress()
                 except docker.errors.NotFound:
                     logger.info(f"No existing container named '{name}'.")
 
@@ -148,35 +159,31 @@ class KaliEnvResource(BaseResource):
                         name=name,
 
                     )
-                    logger.info("KaliEnvResource Docker container started successfully.")
-                        # Inside `_start()`, right after container creation:
                     if not self.wait_for_container(container):
                         logs = container.logs().decode("utf-8")
                         print(f"Container failed to start. Logs:\n{logs}")
                         raise RuntimeError("Container failed to reach running state.")
+                    logger.info("Container started successfully.")
+                    return container
                 finally:
                     stop_progress()
 
-                container_info = self.client.api.inspect_container(container.id)
-                mounts = container_info['Mounts']
-                logger.debug(f"Container mounts: {mounts}")
-                return container
             except docker.errors.APIError as e:
                 logger.error(f"Docker API error while starting container: {e}")
                 if attempt < MAX_RETRIES - 1:
                     logger.info(f"Retrying in {RETRY_DELAY} seconds...")
                     time.sleep(RETRY_DELAY)
                 else:
-                    logger.error("Failed to start Docker container after maximum retries.")
-                    sys.exit(1)
+                    logger.critical("Failed to start Docker container after maximum retries.")
+                    raise DockerContainerStartError(f"Docker API error: {str(e)}") from e
             except Exception as e:
                 logger.error(f"Unexpected error while starting container: {e}")
                 if attempt < MAX_RETRIES - 1:
                     logger.info(f"Retrying in {RETRY_DELAY} seconds...")
                     time.sleep(RETRY_DELAY)
                 else:
-                    logger.error("Failed to start Docker container after maximum retries.")
-                    sys.exit(1)
+                    logger.critical("Failed to start Docker container after maximum retries.")
+                    raise DockerContainerStartError(f"Unexpected error: {str(e)}") from e
 
     def cleanup_tmp(self):
         """Clean up temporary files"""
@@ -265,6 +272,7 @@ class KaliEnvResource(BaseResource):
                         )
                         self.socket = sock
                         self._send_to_bash('export PS1="$"\n')
+                        time.sleep(1)
 
                     self._clear_bash_output_buffer()
                     num_new_lines = self._count_trailing_new_lines(command)

@@ -3,20 +3,24 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
 class PhaseMessage(Message):
-    def __init__(self, phase_id: str, prev: 'PhaseMessage' = None, agent_messages: Optional[List[AgentMessage]] = []) -> None:
+    def __init__(self, phase_id: str, prev: 'PhaseMessage' = None) -> None:
         self._phase_id = phase_id
         self._success = False
         self._complete = False
         self._summary = "incomplete"
-        self._agent_messages = agent_messages
+        self._agent_messages = []
         self._phase_summary = None
         super().__init__(prev)
-        from messages.message_utils import update_message
-        update_message(self)
 
     @property
     def phase_id(self) -> str:
         return self._phase_id
+    
+    @property
+    def workflow_id(self) -> str:
+        if self.parent:
+            return self.parent.workflow_id
+        return None
     
     @property
     def success(self) -> bool:
@@ -65,9 +69,8 @@ class PhaseMessage(Message):
     def add_agent_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
         agent_message.set_parent(self)
-        from messages.message_utils import broadcast_update
-        phase_dict = self.to_dict()
-        broadcast_update(phase_dict)
+        from messages.message_utils import log_message
+        log_message(self)
 
 
     def to_dict(self) -> dict:

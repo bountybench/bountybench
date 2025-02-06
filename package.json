@@ -8,7 +8,7 @@
   "scripts": {
     "postinstall": "npm install --prefix frontend",
     "start": "concurrently \"npm:server\" \"npm:frontend\"",
-    "server": "python server.py",
+    "server": "python -m backend.main",
     "frontend": "npm start --prefix frontend"
   },
   "dependencies": {

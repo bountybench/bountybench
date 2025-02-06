@@ -5,6 +5,7 @@ import sys
 import time
 
 from resources.base_resource import BaseResource
+from resources.utils import read_bounty_metadata
 from utils.logger import get_main_logger
 import shutil
 
@@ -72,8 +73,11 @@ class InitFilesResource(BaseResource):
             )
             self.copy_files(self.exploit_files_dir, self.tmp_dir)
             self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
-            
-        self.vulnerable_commit = self._resource_config.vulnerable_commit
+        
+        if self._resource_config.vulnerable_commit:
+            self.vulnerable_commit = self._resource_config.vulnerable_commit
+        else: 
+            self.vulnerable_commit = read_bounty_metadata(self.task_dir, self._resource_config.bounty_number)["vulnerable_commit"]
         
         # Initialize resource
         self._start()
@@ -84,13 +88,32 @@ class InitFilesResource(BaseResource):
         Run the initialization script for the task.
         """
         try:
+            if not os.listdir(self.files_dir):  # If the directory is empty
+                logger.info("Codebase is empty. Initializing Git submodules.")
+                subprocess.run(
+                    ["git", "submodule", "update", "--init", "."],
+                    cwd=self.files_dir,
+                    stdout=sys.stdout,
+                    stderr=sys.stderr, 
+                    check=True,
+                    text=True
+                )
+            logger.info("Cleaning up the working directory before checkout.")
+            subprocess.run(
+                ["git", "clean", "-fdx"],
+                cwd=self.files_dir,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                check=True,
+                text=True
+            )
             logger.info(
                 f"Checking out {self.vulnerable_commit}")
             subprocess.run(
                 ["git", "checkout", self.vulnerable_commit],
                 cwd=os.path.abspath(self.files_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=sys.stdout, 
+                stderr=sys.stderr, 
                 check=True,
                 text=True)
             
@@ -174,16 +197,21 @@ class InitFilesResource(BaseResource):
         if os.path.exists(work_dir):
             try:
                 subprocess.run(["git", "init", "-q"],
-                               cwd=work_dir, check=True)
+                               cwd=work_dir, check=True,
+                               stdout=sys.stdout,
+                               stderr=sys.stderr)
                 logger.info(f"Initialized git repository in {work_dir}")
 
-                subprocess.run(["git", "branch", "-m", "main"], cwd=work_dir, check=True)
+                subprocess.run(["git", "branch", "-m", "main"], cwd=work_dir, check=True, stdout=sys.stdout,
+                               stderr=sys.stderr)
                 logger.info("Branch named to main")
 
-                subprocess.run(["git", "add", "."], cwd=work_dir, check=True)
+                subprocess.run(["git", "add", "."], cwd=work_dir, check=True, stdout=sys.stdout,
+                               stderr=sys.stderr)
 
                 subprocess.run(
-                    ["git", "commit", "-q", "-m", "initial commit"], cwd=work_dir, check=True)
+                    ["git", "commit", "-q", "-m", "initial commit"], cwd=work_dir, check=True, stdout=sys.stdout,
+                               stderr=sys.stderr)
                 logger.info(f"Committed initial files in {work_dir}")
             except subprocess.CalledProcessError as e:
                 logger.critical(
@@ -197,13 +225,18 @@ class InitFilesResource(BaseResource):
         try:
             # Ensure Git repository is set up
             result = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
-                                    cwd=files_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
+                                    cwd=files_dir, 
+                                    stdout=subprocess.PIPE, 
+                                    stderr=subprocess.PIPE, 
+                                    check=True, 
+                                    text=True)
 
             if result.stdout.strip() == 'true':
                 # Force checkout to the vulnerable commit
                 logger.info(f"Forcing checkout to commit: {self.vulnerable_commit}")
                 subprocess.run(["git", "checkout", "-f", self.vulnerable_commit],
-                            cwd=files_dir, check=True)
+                            cwd=files_dir, check=True,  stdout=sys.stdout,
+                            stderr=sys.stderr)
 
                 # Check if 'dev' branch exists
                 branch_exists = subprocess.run(
@@ -213,12 +246,14 @@ class InitFilesResource(BaseResource):
                 if "dev" in branch_exists.stdout:
                     logger.info("Branch 'dev' exists. Deleting it...")
                     subprocess.run(["git", "branch", "-D", "dev"],
-                                cwd=files_dir, check=True)
+                                cwd=files_dir, check=True,  stdout=sys.stdout,
+                               stderr=sys.stderr)
 
                 # Create and switch to a new 'dev' branch
                 logger.info("Creating new 'dev' branch...")
                 subprocess.run(["git", "checkout", "-b", "dev"],
-                            cwd=files_dir, check=True)
+                            cwd=files_dir, check=True, stdout=sys.stdout,
+                            stderr=sys.stderr)
                 logger.info(f"Created and switched to 'dev' branch in {files_dir}")
 
                 # Verify the current commit

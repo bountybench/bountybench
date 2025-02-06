@@ -49,8 +49,10 @@ export const useWorkflowWebSocket = (workflowId) => {
           break;
 
         case 'workflow_status':
+          console.log(`Received workflow status update: ${data.status}`);
           setWorkflowStatus(data.status);
           if (data.error) {
+            console.error(`Workflow error: ${data.error}`);
             setError(data.error);
           }
           break;
@@ -121,61 +123,44 @@ export const useWorkflowWebSocket = (workflowId) => {
   }, []);
 
   const connect = useCallback(() => {
-    if (!workflowId) {
-      console.warn('No workflow ID provided, skipping connection');
-      return;
-    }
+    if (reconnectAttempts.current >= maxReconnectAttempts) return;
 
-    if (reconnectAttempts.current >= maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
-      setError('Failed to connect after multiple attempts');
-      return;
-    }
+    const backoff = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+    connectionTimeout.current = setTimeout(() => {
+      const wsUrl = `ws://localhost:8000/ws/${workflowId}`;
+      ws.current = new WebSocket(wsUrl);
 
-    // Cleanup any existing connection
-    cleanupConnection();
+      ws.current.onopen = () => {
+        clearTimeout(connectionTimeout.current);
+        reconnectAttempts.current = 0;
+        lastHeartbeat.current = Date.now();
+      };
 
-    const wsUrl = `ws://localhost:8000/ws/${workflowId}`;
-    console.log('Connecting to WebSocket:', wsUrl);
-
-    ws.current = new WebSocket(wsUrl);
-
-    ws.current.onopen = () => {
-      console.log('WebSocket connected for workflow:', workflowId);
-      setError(null);
-      reconnectAttempts.current = 0;
-      lastHeartbeat.current = Date.now();
-
-      // Start heartbeat check
-      heartbeatInterval.current = setInterval(() => {
-        const timeSinceLastHeartbeat = Date.now() - lastHeartbeat.current;
-        if (timeSinceLastHeartbeat > 90000) { // 90 seconds timeout
-          console.warn('No heartbeat received, reconnecting...');
-          cleanupConnection();
+      ws.current.onclose = (event) => {
+        if (!event.wasClean) {
+          reconnectAttempts.current += 1;
           connect();
         }
-      }, 30000); // Check every 30 seconds
-    };
+      };
 
-    ws.current.onclose = (event) => {
-      console.log('WebSocket disconnected for workflow:', workflowId, 'Event:', event);
-      cleanupConnection();
+      ws.current.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        // Handle heartbeat first
+        if (data.message_type === "ping") {
+          ws.current.send(JSON.stringify({ message_type: "pong" }));
+          lastHeartbeat.current = Date.now();
+          return;
+        }
 
-      if (!event.wasClean) {
-        reconnectAttempts.current++;
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
-        console.log(`Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts} in ${delay}ms`);
-        connectionTimeout.current = setTimeout(connect, delay);
-      }
-    };
-
-    ws.current.onerror = (event) => {
-      console.error('WebSocket error for workflow:', workflowId, 'Event:', event);
-      setError('WebSocket error: ' + (event.message || 'Unknown error'));
-    };
-
-    ws.current.onmessage = handleWebSocketMessage;
-  }, [workflowId, handleWebSocketMessage, cleanupConnection]);
+        // Process application messages
+        handleWebSocketMessage(event);
+        
+        // Update last heartbeat on any valid message
+        lastHeartbeat.current = Date.now();
+      };
+    }, backoff);
+  }, [workflowId, maxReconnectAttempts]);
 
   useEffect(() => {
     if (workflowId) {
