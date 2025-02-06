@@ -32,9 +32,9 @@ class MemoryPrompts:
     )
 
     _DEFAULT_SEGMENTS = (
-        " - Current workflow, previous phase messages: {prev_phase_messages}\n"
-        " - Current phase, previous agents messages: {prev_agent_messages}\n"
-        " - Current agent, previous action messages: {prev_action_messages}"
+        " * {prev_phase_messages}\n"
+        " * {prev_agent_messages}\n"
+        " * {prev_action_messages}"
     )
 
     DEFAULT_FMT_WORKFLOW = '\n'.join([_DEFAULT_SEGUE, _DEFAULT_SEGMENTS])
@@ -172,7 +172,7 @@ class MemoryResourceConfig(BaseResourceConfig):
     scope: MemoryScope = field(default=MemoryScope.WORKFLOW)
     fmt: str = field(default=MemoryPrompts.DEFAULT_FMT_WORKFLOW)
     collate_fn: Callable[[List], str] = field(default=MemoryCollationFunctions.collate_ordered)
-    segment_trunc_fn: Callable[[List], List] = field(default=MemoryTruncationFunctions.segment_fn_noop)
+    segment_trunc_fn: Callable[[List], List] = field(default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=3))
     memory_trunc_fn: Callable[[List], List] = field(default=MemoryTruncationFunctions.memory_fn_by_token)
     
     def validate(self) -> None:
