@@ -11,24 +11,62 @@ import './ActionMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, onChildUpdate, displayedIndex, versionLength }) => {
+const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onChildUpdate, displayedIndex, versionLength }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editedMessage, setEditedMessage] = useState(action.message || '');
+  const [editedMessage, setEditedMessage] = useState(action?.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
-  const originalMessageContent = formatData(action.message);
+  const [originalMessageContent, setOriginalMessageContent] = useState(formatData(action?.message || ''));
 
   const handleCancelEdit = useCallback(() => {
     setEditing(false);
     onEditingChange(false);
     setEditedMessage(originalMessageContent);
   }, [originalMessageContent, onEditingChange]);
+  
+  const handleEditClick = useCallback(() => {
+    setEditing(true);
+    onEditingChange(true);
+    setEditedMessage(originalMessageContent);
+  }, [originalMessageContent, onEditingChange]);
+
+  const handleSaveClick = useCallback(async () => {
+    if (!action.current_id) {
+      console.error('Action id is undefined');
+      return;
+    }
+    try {
+      setOriginalMessageContent(editedMessage);
+      setEditing(false);
+      onEditingChange(false);
+      await onUpdateMessageInput(action.current_id, editedMessage);
+    } catch (error) {
+      console.error('Error updating action message:', error);
+    }
+  }, [action, editedMessage, onEditingChange, onUpdateMessageInput]);
+
+  const handleRerunClick = useCallback(async () => {
+    if (!action.current_id) {
+      console.error('Action id is undefined');
+      return;
+    }
+    try {
+      await onRerunMessage(action.current_id);
+    } catch (error) {
+      console.error('Error rerunning action:', error);
+    }
+  }, [action, onRerunMessage]);
+
   const textFieldRef = useRef(null);
 
   useEffect(() => {
+    setOriginalMessageContent(action.message);
+  }, [action]);
+
+  useEffect(() => {
     if (editing) {
-      setEditedMessage(action.message || '');
+      setEditedMessage(originalMessageContent);
       if (textFieldRef.current) {
         setTimeout(() => {
           textFieldRef.current.focus();   // Focus the text field when editing starts
@@ -36,29 +74,35 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
         }, 0);
       }
     }
-  }, [editing]);
+  }, [editing, originalMessageContent]);
 
   useEffect(() => {
-    const handleEscKey = (event) => {
-      if (event.key === 'Escape' && editing) {
-        handleCancelEdit();
+    const handleKeyDown = (event) => {
+      if (selectedCellId === action.current_id) {
+        if (event.key === 'Escape' && editing) {
+          handleCancelEdit();
+        }
+        else if (event.shiftKey && event.key === 'Enter') {
+          event.preventDefault(); // Prevent the default action 
+          if (editing) {
+            handleSaveClick();      // Call the save function
+          } else {
+            handleRerunClick();
+          }
+        }
+        else if (event.key === 'Enter' && !event.altKey && !editing) {
+          handleEditClick();
+        }
       }
     };
 
-    document.addEventListener('keydown', handleEscKey);
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleEscKey);
+      document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing, handleCancelEdit]);
+  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRerunClick, onUpdateMessageInput, selectedCellId]);
 
   if (!action) return null;
-
-  const handleKeyDown = (event) => {
-    if (event.shiftKey && event.key === 'Enter') {
-      event.preventDefault(); // Prevent the default action 
-      handleSaveClick();      // Call the save function
-    }
-  };
   
   const handleToggleMetadata = (event) => {
     event.stopPropagation();
@@ -71,46 +115,20 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     }
   };
 
-  const handleRerunClick = async () => {
-    if (!action.current_id) {
-      console.error('Action id is undefined');
-      return;
-    }
-    try {
-      await onRerunMessage(action.current_id);
-    } catch (error) {
-      console.error('Error rerunning action:', error);
-    }
-  };
-
-  const handleEditClick = () => {
-    setEditing(true);
-    onEditingChange(true);
-    setEditedMessage(originalMessageContent);
-  };
-
-  const handleSaveClick = async () => {
-    if (!action.current_id) {
-      console.error('Action id is undefined');
-      return;
-    }
-    try {
-      await onUpdateMessageInput(action.current_id, editedMessage);
-      setEditing(false);
-      onEditingChange(false);
-    } catch (error) {
-      console.error('Error updating action message:', error);
-    }
-  };
-
   const handleExpandClick = (e) => {
     e.stopPropagation();
     setExpanded(!expanded);
   };
 
+  const handleContainerClick = (e) => {
+    e.stopPropagation();
+    onCellSelect(action.current_id);
+  };
+
   return (
     <Card 
-      className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''}`} 
+      className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''} ${selectedCellId === action.current_id ? 'selected' : ''}`}
+      onClick={handleContainerClick}
       variant="outlined"
     >
       <CardContent>
@@ -147,10 +165,9 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
               value={editedMessage}
               onChange={(e) => setEditedMessage(e.target.value)}
               fullWidth
-              onKeyDown={handleKeyDown}
             />
           </Box>
-          <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+          <Box className="message-buttons">
             <Button
               variant="outlined"
               color="secondary"
@@ -181,7 +198,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
                 {originalMessageContent}
               </Typography>
             </Box>
-            <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+            <Box className="message-buttons">
               <Button
                 variant="outlined"
                 color="primary"

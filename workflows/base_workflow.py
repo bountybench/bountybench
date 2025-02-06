@@ -248,19 +248,16 @@ class BaseWorkflow(ABC):
                 return last_message
         return None
     
-    async def edit_message(self, message: Message, new_message_data: str) -> Message:
+    async def edit_and_rerun_message(self, message_id: str, new_message_data: str) -> Message:
+        message = message_dict[message_id]
         message = await self.rerun_manager.edit_message(message, new_message_data)
         if message.next:
             message = await self.rerun_manager.rerun(message)
-        if isinstance(message, ActionMessage):
-            while message.next:
-                message = await self.rerun_manager.rerun(message)
-        return message
-    
-    async def edit_one_message(self, message_id: str, new_message_data: str) -> Message:
-        message = message_dict[message_id]
-        message = await self.edit_message(message, new_message_data)
-        return message
+            if isinstance(message, ActionMessage):
+                while message.next:
+                    message = await self.rerun_manager.rerun(message)
+            return message
+        return None
     
     async def change_current_model(self, new_model_name: str):
         self.params['model'] = new_model_name

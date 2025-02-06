@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
@@ -14,13 +14,14 @@ const AgentInteractions = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const messagesEndRef = useRef(null);
+  const [selectedCellId, setSelectedCellId] = useState(null);
 
-  const handleKeyDown = (event) => {
-    if (event.key === 'Enter' && (event.altKey || !isEditing)) {
+  const handleKeyDown = useCallback((event) => {
+    if (event.key === 'Enter' && event.altKey) {
       event.preventDefault(); // Prevent the default action
       onTriggerNextIteration();
     }
-  };
+  }, [onTriggerNextIteration]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -28,7 +29,7 @@ const AgentInteractions = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isEditing, onTriggerNextIteration]);
+  }, [isEditing, handleKeyDown, onTriggerNextIteration]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -62,8 +63,10 @@ const AgentInteractions = ({
             message={latestPhaseMessage}
             onUpdateMessageInput={onUpdateMessageInput}
             onRerunMessage={onRerunMessage}
-            onEditingChange={setIsEditing}
-            isEditing={isEditing}
+            onEditingChange={setIsEditing}            
+            isEditing={isEditing}            
+            selectedCellId={selectedCellId}
+            onCellSelect={setSelectedCellId}
           />
         )}
         <div ref={messagesEndRef} />
