@@ -40,6 +40,13 @@ async def _broadcast_update_async(workflow_id: str, data: dict):
         logger.error(f"Exception: {e}")
 
 
+def register_message(message: Message):
+    if message.workflow_id not in message_dict:
+        message_dict[message.workflow_id] = {}
+
+    message_dict[message.workflow_id][message.id] = message
+
+    
 def log_message(message: Message):
     if not message.workflow_id:
         logger.info(f"No associated workflow for {type(message)} message {message.id}, skipping logging")

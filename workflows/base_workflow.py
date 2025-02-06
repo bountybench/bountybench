@@ -253,7 +253,8 @@ class BaseWorkflow(ABC):
         return None
     
     async def edit_and_rerun_message(self, message_id: str, new_message_data: str) -> Message:
-        message = message_dict[message_id]
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        message = workflow_messages.get(message_id)
         message = await self.rerun_manager.edit_message(message, new_message_data)
         if message.next:
             message = await self.rerun_manager.rerun(message)
