@@ -1,19 +1,24 @@
 import atexit
-import uuid
-import docker
-import os
-from pathlib import Path
-import time
 import json
+import os
 import sys
+import time
+import uuid
+from dataclasses import dataclass
 
-from resources.base_resource import BaseResource
+import docker
+from docker.errors import (
+    APIError,
+    BuildError,
+    ContainerError,
+    DockerException,
+    ImageNotFound,
+    NotFound,
+)
+
+from resources.base_resource import BaseResource, BaseResourceConfig
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
-from dataclasses import dataclass
-from typing import Optional
-from resources.base_resource import BaseResourceConfig
-
 
 logger = get_main_logger(__name__)
 
@@ -37,12 +42,28 @@ class DockerResource(BaseResource):
 
     def __init__(self, resource_id: str, config: DockerResourceConfig):
         super().__init__(resource_id, config)
-        
-        self.client = docker.from_env()
+
+        try:
+            self.client = docker.from_env()
+        except FileNotFoundError as e:
+            raise RuntimeError("Docker daemon not available: " + str(e)) from e
+        except DockerException as e:
+            self.handle_docker_exception(e)
+        except Exception as e:
+            raise RuntimeError(
+                "Unexpected error while initializing Docker client: " + str(e)
+            ) from e
+
         atexit.register(self.stop)
 
     def execute(
-        self, docker_image: str, command: str, network: str = None, work_dir: str = None, volumes: dict = None, detach: bool = False
+        self,
+        docker_image: str,
+        command: str,
+        network: str = None,
+        work_dir: str = None,
+        volumes: dict = None,
+        detach: bool = False,
     ) -> tuple:
         """
         Run a Docker container with the specified configuration.
@@ -58,14 +79,14 @@ class DockerResource(BaseResource):
         Returns:
             tuple: A tuple containing the logs from the container and the exit code.
         """
-        
+
         unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
         start_progress(f"Running command in Docker: {command}")
         try:
             # If command is a string, convert it to a list
             if isinstance(command, str):
-                command = ['/bin/bash', '-c', command]
-                
+                command = ["/bin/bash", "-c", command]
+
             container = self.client.containers.run(
                 image=docker_image,
                 command=command,  # Pass command directly without additional formatting
@@ -75,24 +96,24 @@ class DockerResource(BaseResource):
                 detach=True,
                 name=unique_name,
             )
-            
+
             logs = ""
             last_line = ""
             for line in container.logs(stdout=True, stderr=True, stream=True):
                 decoded_line = line.decode().strip()
-                logs += (decoded_line + "\n")
+                logs += decoded_line + "\n"
                 if decoded_line:  # Only update last_line if non-empty
                     last_line = decoded_line
-            
+
             # Wait for the container to finish and get the exit code
             result = container.wait()
-            exit_code = result['StatusCode']
-            
+            exit_code = result["StatusCode"]
+
             logger.info(f"Container logs:\n{logs.strip()}")
             logger.info(f"Exit code: {exit_code}")
-            
+
             return last_line, exit_code
-        
+
         except docker.errors.APIError as e:
             logger.error(f"Docker API error: {str(e)}")
             return str(e), -1
@@ -106,7 +127,9 @@ class DockerResource(BaseResource):
             except:
                 pass  # If container removal fails, just ignore it
 
-    def copy_from_container(self, container_name: str, source_path: str, dest_path: str) -> None:
+    def copy_from_container(
+        self, container_name: str, source_path: str, dest_path: str
+    ) -> None:
         """
         Copy a file or directory from a container to the host system.
 
@@ -117,19 +140,21 @@ class DockerResource(BaseResource):
         """
         try:
             container = self.client.containers.get(container_name)
-            
+
             # Get file/directory data from container
             bits, stat = container.get_archive(source_path)
-            
+
             # Ensure the destination directory exists
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-            
+
             # Write the file/directory data to the destination
-            with open(dest_path, 'wb') as f:
+            with open(dest_path, "wb") as f:
                 for chunk in bits:
                     f.write(chunk)
-            
-            logger.info(f"Copied from container {container_name}: {source_path} -> {dest_path}")
+
+            logger.info(
+                f"Copied from container {container_name}: {source_path} -> {dest_path}"
+            )
         except docker.errors.NotFound:
             logger.critical(f"Container not found: {container_name}")
             sys.exit(1)
@@ -144,35 +169,54 @@ class DockerResource(BaseResource):
         """
         self.client.close()
 
+    def handle_docker_exception(self, e: DockerException) -> RuntimeError:
+        """Handle different Docker exceptions for clearer debugging and return appropriate runtime error."""
+        error_message = ""
+
+        if isinstance(e, APIError):
+            error_message = "Docker API error: " + str(e)
+        elif isinstance(e, NotFound):
+            error_message = "Not found error in Docker: " + str(e)
+        elif isinstance(e, ImageNotFound):
+            error_message = "Image not found: " + str(e)
+        elif isinstance(e, ContainerError):
+            error_message = "Container error: " + str(e)
+        elif isinstance(e, BuildError):
+            error_message = "Build error: " + str(e)
+        else:
+            error_message = "Error while connecting to Docker: " + str(e)
+
+        return RuntimeError(error_message)
+
     def to_dict(self) -> dict:
         """
         Serializes the DockerResource state to a dictionary.
         """
         return {
-            'resource_id': self.resource_id,
-            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S%z')
+            "resource_id": self.resource_id,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         }
 
     @classmethod
-    def from_dict(cls, data: dict, **kwargs) -> 'DockerResource':
+    def from_dict(cls, data: dict, **kwargs) -> "DockerResource":
         """
         Creates a DockerResource instance from a serialized dictionary.
         """
-        return cls(name=data['resource_id'])
+        return cls(name=data["resource_id"])
 
     def save_to_file(self, filepath: str) -> None:
         """
         Saves the resource state to a JSON file.
         """
         state = self.to_dict()
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(state, f, indent=2)
 
     @classmethod
-    def load_from_file(cls, filepath: str, **kwargs) -> 'DockerResource':
+    def load_from_file(cls, filepath: str, **kwargs) -> "DockerResource":
         """
         Loads a resource state from a JSON file.
         """
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             data = json.load(f)
         return cls.from_dict(data, **kwargs)
