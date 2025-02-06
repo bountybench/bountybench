@@ -53,29 +53,12 @@ class TestAgentMessage(unittest.TestCase):
         agent_message = AgentMessage("test_id")
         action_msg1 = ActionMessage("test_id1", "test_msg1")
         action_msg4 = ActionMessage("test_id4", "test_msg4", prev=action_msg1)
-        # msg1 -next-> msg4
-        # msg4 -prev-> msg1
         agent_message.add_action_message(action_msg1)
         agent_message.add_action_message(action_msg4)
 
         action_msg2 = asyncio.run(rerun_manager.edit_message(action_msg1, "test_msg2"))
-        # msg2 -version_prev-> msg1
-        # msg1 -version_next-> msg2
-        # msg2 -next-> msg4
-        # msg2 -prev-> None
-        # agent_message.add_action_message(msg2)
         action_msg3 = asyncio.run(rerun_manager.edit_message(action_msg2, "test_msg3"))
-        # msg3 -version_prev-> msg2
-        # msg2 -version_next-> msg3
-        # msg3 -next-> msg4
-        # msg3 -prev-> None
-        # agent_message.add_action_message(msg3)
         action_msg5 = asyncio.run(rerun_manager.edit_message(action_msg4, "test_msg5"))
-        # msg5 -version_prev-> msg4
-        # msg4 -version_next-> msg5
-        # msg5 -next-> None
-        # msg5 -prev-> msg1
-        # agent_message.add_action_message(msg5)
         current_actions = agent_message.current_actions_list
 
         # Assertions
