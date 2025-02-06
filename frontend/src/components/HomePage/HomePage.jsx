@@ -33,6 +33,46 @@ const HomePage = () => {
     navigate(`/workflow/${workflowId}`);
   };
 
+  // Helper function to render workflow buttons
+  const renderWorkflowButton = (workflow) => {
+    let buttonColor;
+
+    switch (workflow.status) {
+      case 'error':
+        buttonColor = 'error';
+        break;
+      case 'running':
+        buttonColor = 'success'; 
+        break;
+      default:
+        buttonColor = 'secondary'; // Default color
+    }
+
+    return (
+      <Button
+        key={workflow.id}
+        variant="outlined"
+        color={buttonColor} // Set the color dynamically based on the status
+        onClick={() => handleWorkflowClick(workflow.id)}
+        style={{ 
+          margin: '5px', 
+          width: '100%',   
+          display: 'block',
+          textAlign: 'left' // Align text to the left
+        }}
+      >
+        <Box>
+          <Typography variant="body1">
+            {workflow.task?.task_dir} {workflow.task?.bounty_number} ({workflow.status})
+          </Typography>
+          <Typography variant="caption" color="textSecondary">
+            {workflow.timestamp} - {workflow.name}
+          </Typography>
+        </Box>
+      </Button>
+    );
+  };
+
   return (
     <Box className="homepage-container">
       <Typography variant="h4" gutterBottom>
@@ -62,39 +102,10 @@ const HomePage = () => {
           {activeWorkflows && activeWorkflows.length === 0 ? (
             <Typography>No active workflows</Typography>
           ) : (
-            activeWorkflows.map((workflow) => {
-              // Set button color based on the status
-              let buttonColor;
-
-              switch (workflow.status) {
-                case 'error':
-                  buttonColor = 'error';
-                  break;
-                case 'running':
-                  buttonColor = 'success'; 
-                  break;
-                default:
-                  buttonColor = 'secondary'; // Default color
-              }
-
-              return (
-                <Button
-                  key={workflow.id}
-                  variant="outlined"
-                  color={buttonColor} // Set the color dynamically based on the status
-                  onClick={() => handleWorkflowClick(workflow.id)}
-                  style={{ 
-                    margin: '5px', 
-                    width: '100%',   
-                  }}
-                >
-                  {workflow.task?.task_dir} {workflow.task?.bounty_number} - {workflow.name} ({workflow.status})
-                </Button>
-              );
-            })
+            activeWorkflows.map(renderWorkflowButton)
           )}
         </Box>
-       )}
+      )}
     </Box>
   );
 };
