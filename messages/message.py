@@ -15,8 +15,8 @@ class Message(ABC):
         
         self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
         self._id = str(id(self))
-        from messages.message_utils import log_message
-        log_message(self)
+        from messages.message_utils import register_message
+        register_message(self)
 
     @property 
     def workflow_id(self) -> str:

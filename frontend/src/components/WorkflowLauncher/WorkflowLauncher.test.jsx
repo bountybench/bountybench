@@ -229,12 +229,6 @@ describe('WorkflowLauncher Component', () => {
     fireEvent.change(screen.getByLabelText(/Bounty Number/i), { target: { value: '123' } });
     fireEvent.change(screen.getByLabelText(/Iterations \(per phase\)/i), { target: { value: '5' } });
     
-    fireEvent.mouseDown(screen.getByLabelText(/Model Type/i));
-    fireEvent.click(screen.getByText('Non-HELM'));
-    fireEvent.mouseDown(screen.getByLabelText(/Model Name/i));
-    fireEvent.click(screen.getByText('model2'));
-
-
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
   

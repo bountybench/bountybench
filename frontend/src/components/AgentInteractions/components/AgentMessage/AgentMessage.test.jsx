@@ -47,7 +47,9 @@ test('triggers version change', () => {
     current_children: [],
   };
   const mockPhaseChildUpdate = jest.fn();
-  render(<AgentMessage index={0} message={message} onPhaseChildUpdate={mockPhaseChildUpdate} phaseDisplayedIndex={1} phaseVersionLength={2}/>);
+  const mockOnCellSelect = jest.fn(); // Mock function for onCellSelect
+
+  render(<AgentMessage index={0} message={message} onCellSelect={mockOnCellSelect} onPhaseChildUpdate={mockPhaseChildUpdate} phaseDisplayedIndex={1} phaseVersionLength={2}/>);
   fireEvent.click(screen.getByRole('button', { name: /arrow forward/i }));
   // Version index is incremented by 1
   expect(mockPhaseChildUpdate).toHaveBeenCalledWith('agent1', 1);
@@ -63,8 +65,9 @@ test('multiple versions of action messages', () => {
     current_children: [{current_id: 'action-12', message: 'current1'},{current_id: 'action-22', message: 'current2'}],
     message_type: 'AgentMessage',
   };
+  const mockOnCellSelect = jest.fn(); // Mock function for onCellSelect
 
-  render(<AgentMessage index={0} message={message}/>);
+  render(<AgentMessage index={0} message={message} onCellSelect={mockOnCellSelect} />);
   
   expect(screen.getByText(/former1/i)).toBeInTheDocument();
   expect(screen.getByText(/former2/i)).toBeInTheDocument();

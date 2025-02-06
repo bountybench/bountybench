@@ -71,21 +71,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   }, [workflowStatus, messages]);
   
-  // Next iteration via ctrl + enter
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-        event.preventDefault();
-        triggerNextIteration();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [workflowId]);
-  
   const triggerNextIteration = async () => {
     if (workflowStatus === "stopped") {
       console.error("Cannot trigger next iteration: Workflow is stopped.");
