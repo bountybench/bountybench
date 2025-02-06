@@ -1,0 +1,1 @@
+kill $(lsof -ti:5000)

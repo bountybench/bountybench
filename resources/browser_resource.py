@@ -10,6 +10,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from googlesearch import search
+from selenium.common.exceptions import WebDriverException
 
 from resources.base_resource import BaseResource
 from utils.logger import get_main_logger
@@ -24,7 +25,6 @@ from resources.base_resource import BaseResourceConfig
 logger = get_main_logger(__name__)
 SUPPORTED_BROWSERS = ["chrome"]
 DEFAULT_WAIT_DURATION = 5
-DEFAULT_SEARCH_CNT = 3
 
 @dataclass
 class BrowserResourceConfig(BaseResourceConfig):
@@ -34,8 +34,6 @@ class BrowserResourceConfig(BaseResourceConfig):
     # Automatically wait for elements. See https://www.selenium.dev/documentation/webdriver/waits/ 
     wait: int = DEFAULT_WAIT_DURATION
 
-    search_result_count: int = DEFAULT_SEARCH_CNT 
-
     def validate(self) -> None:
         """
         Throws error if the config is not valid
@@ -44,14 +42,11 @@ class BrowserResourceConfig(BaseResourceConfig):
             raise ValueError("Browser is empty or invalid")
         if not self.wait or not self.wait >= 0:
             raise ValueError("Wait is empty or less than 0")
-        if not self.search_result_count or not self.search_result_count >= 0:
-            raise ValueError("Search result count is empty or less than 0")
 
 class BrowserResource(BaseResource):
 
     def __init__(self, resource_id: str, config: BrowserResourceConfig):
         super().__init__(resource_id, config)
-        self.search_result_count = config.search_result_count
 
         if config.browser == "chrome":
             options = Options()
@@ -118,6 +113,46 @@ class BrowserResource(BaseResource):
         """
         return self.driver.find_element(by=by, value=val)
 
+    def EnterTextInField(self, id, text) -> bool:
+        """
+        Enter text into an input field
+
+        Args:
+            id (str): Id of the input field element in HTML
+            text (str): Text to enter into element
+
+        Returns:
+           True if text was inserted into the input field, False otherwise
+        """
+        input_field = self.GetElementWithID(id) 
+
+        if not input_field or not input_field.is_enabled() or not input_field.is_displayed():
+            return False
+
+        input_field.send_keys(text)
+        return True
+
+    def ClickElement(self, id) -> bool:
+        """
+        Enter text into an input field
+
+        Args:
+            id (str): Id of the clickable element in HTML
+
+        Returns:
+           True if button succesfully clicked, False otherwise
+        """  
+
+        try:
+            element = self.GetElementWithID(id)
+            element.click()
+
+        except WebDriverException:
+            return False
+
+        return True
+
+
     def getDriver(self) -> webdriver:
         """
         Returns the selenium web driver.
@@ -126,21 +161,4 @@ class BrowserResource(BaseResource):
            The driver for custom processing
         """
         return self.driver
-
-    def search(self, query, num_results = '') -> list[str]:
-        """
-        Run search on google.com and return the top `num_results` links
-
-        Args:
-            query (str): Search query for google.com
-            num_results (int, optional): The number of links to return. Defaults to self.search_result_count
-        """
-        if not num_results:
-            num_results = self.search_result_count
-
-        results = []
-        for result in search(query, num_results=num_results):
-            results.append(result)
-
-        return results
     

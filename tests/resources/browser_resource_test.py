@@ -6,16 +6,18 @@ import shutil
 from resources.browser_resource import BrowserResourceConfig, BrowserResource
 from selenium.webdriver.common.by import By
 from retrying import retry
+import subprocess
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO) 
 
 class BrowserResourceTest(unittest.TestCase):
+
     def setUp(self):
-        pass
+        subprocess.run("./test_website/start_webserver.sh", shell=True)
 
     def tearDown(self):
-        pass
+        subprocess.run("./test_website/stop_webserver.sh", shell=True)
 
     @retry(stop_max_attempt_number=3, wait_fixed=1000)
     def test_chrome_connection(self):
@@ -25,7 +27,7 @@ class BrowserResourceTest(unittest.TestCase):
 
         browser_resource = BrowserResource(resource_id="test_browser_resource", config=config)
         browser_resource.LoadPage("https://google.com")
-        self.assertEqual(browser_resource.GetTitle(),"Google", "Incorrect title")
+        self.assertEqual(browser_resource.GetTitle(), "Google", "Incorrect title")
 
     @retry(stop_max_attempt_number=3, wait_fixed=1000)
     def test_chrome_get_interact(self):
@@ -50,18 +52,18 @@ class BrowserResourceTest(unittest.TestCase):
         self.assertEqual(heading_elem.text, "Form submitted", "Incorrect heading text after form submission")
         self.assertEqual(paragraph_elem.text, "Received!", "Incorrect paragraph text after form submission")
 
-    def test_search(self):
+    def test_local_get_interact(self):
         config = BrowserResourceConfig(
-            search_result_count = 5,
             browser = "chrome"
         )
-
         browser_resource = BrowserResource(resource_id="test_browser_resource", config=config)
-        search_results = browser_resource.search("wikipedia")    
-        self.assertEqual(len(search_results), 5, "Incorrect number of default search results")
-
-        search_results = browser_resource.search("wikipedia", 2)    
-        self.assertEqual(len(search_results), 2, "Incorrect number of custom search results")
+        browser_resource.LoadPage("http://localhost:5000/form")
+        content = browser_resource.GetPage()
+        self.assertTrue("Username" in content, "Form page not loaded")
+        self.assertTrue(browser_resource.EnterTextInField("name", "user"))
+        self.assertTrue(browser_resource.ClickElement("submit"))
+        content = browser_resource.GetPage()
+        self.assertTrue("Success" in content, "Success page not loaded") 
 
 if __name__ == '__main__':
     unittest.main()
