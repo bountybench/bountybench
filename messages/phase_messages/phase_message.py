@@ -78,6 +78,7 @@ class PhaseMessage(Message):
             "phase_id": self.phase_id,
             "phase_summary": self.summary,
             "agent_messages": [agent_message.to_dict() for agent_message in self.agent_messages if agent_message is not None] if self.agent_messages else None,
+            "current_children": [agent_message.to_dict() for agent_message in self.current_agent_list],
             "phase_summary": self.phase_summary
         }
         base_dict = super().to_dict()

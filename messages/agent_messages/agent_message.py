@@ -67,6 +67,8 @@ class AgentMessage(Message):
             "action_messages": [action_message.to_dict() for action_message in self.action_messages if action_message is not None] if self.action_messages else None,
             "message": self.message
         }
+        agent_dict["current_children"] = [action_message.to_dict() for action_message in self.current_actions_list]
+        
         return agent_dict
     
     def to_dict(self) -> dict:
