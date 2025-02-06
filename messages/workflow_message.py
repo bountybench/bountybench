@@ -97,7 +97,7 @@ class WorkflowMessage(Message):
             phase_message.pop('current_children', None)
 
         with open(self.log_file, 'w') as f:
-            json.dump(self.to_dict(), f, indent=4, default=self._json_serializable)
+            json.dump(logs, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
     
     def _json_serializable(self, obj: Any) -> Any:
