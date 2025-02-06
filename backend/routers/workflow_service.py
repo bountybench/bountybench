@@ -59,6 +59,12 @@ async def stop_workflow(workflow_id: str, request: Request):
         # Notify WebSocket clients about the stop
         websocket_manager = request.app.state.websocket_manager
 
+        await websocket_manager.broadcast(
+            workflow_id,
+            {"message_type": "workflow_status", "status": "stopped"}
+        )
+        
+
         if workflow_id in websocket_manager.get_active_connections():
             print(f"Closing WebSocket connections for workflow {workflow_id}")
             await websocket_manager.disconnect_all(workflow_id)
