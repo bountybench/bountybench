@@ -204,7 +204,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
                 size="small"
                 aria-label="edit"
                 className="edit-button"
-                sx={{ display: !editing ? 'none' : undefined }}
+                sx={{ display: isEditing && !editing ? 'none' : undefined }}
               >
                 <EditIcon />
               </Button>
@@ -215,7 +215,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
                 size="small"
                 aria-label="rerun"
                 className="rerun-button"
-                sx={{ display: !editing ? 'none' : undefined }}
+                sx={{ display: isEditing && !editing ? 'none' : undefined }}
               >
                 <KeyboardArrowRightIcon />
               </Button>
