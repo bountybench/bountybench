@@ -25,6 +25,7 @@ from resources.base_resource import BaseResourceConfig
 logger = get_main_logger(__name__)
 SUPPORTED_BROWSERS = ["chrome"]
 DEFAULT_WAIT_DURATION = 5
+DEFAULT_NUM_TABS = 1
 
 @dataclass
 class BrowserResourceConfig(BaseResourceConfig):
@@ -34,6 +35,8 @@ class BrowserResourceConfig(BaseResourceConfig):
     # Automatically wait for elements. See https://www.selenium.dev/documentation/webdriver/waits/ 
     wait: int = DEFAULT_WAIT_DURATION
 
+    tabs: int = DEFAULT_NUM_TABS
+
     def validate(self) -> None:
         """
         Throws error if the config is not valid
@@ -42,89 +45,151 @@ class BrowserResourceConfig(BaseResourceConfig):
             raise ValueError("Browser is empty or invalid")
         if not self.wait or not self.wait >= 0:
             raise ValueError("Wait is empty or less than 0")
+        if not self.tabs or not self.tabs >= 0:
+            raise ValueError("Tabs is empty or less than 0")
 
 class BrowserResource(BaseResource):
 
     def __init__(self, resource_id: str, config: BrowserResourceConfig):
         super().__init__(resource_id, config)
+        
+        self.drivers = []
 
+        for i in range(config.tabs):
+            if config.browser == "chrome":
+                self.addChromeTab(config.wait)
+
+    def closeTab(tab = 1):
+        """
+        Close tab
+
+        Args:
+           tab (int): tab to close
+        """
+        if (tab <= 0) or (tab > len(self.drivers)):
+            raise Exception("Invalid tab passed to closeTab")
+
+        self.drivers[tab-1].quit()
+        self.drivers.pop(tab-1)
+
+    def addTab(config: BrowserResourceConfig):
+        """
+        Add a tab
+
+        Args:
+           config (BrowserResourceConfig) - configuration for the tab
+        """
         if config.browser == "chrome":
-            options = Options()
-            options.add_argument('--headless')
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
-            self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-            self.driver.implicitly_wait(config.wait)
-            
+            self.addChromeTab(config.wait)
+
+    def addChromeTab(self, wait):
+        """
+        Add a chrome tab
+
+        Args:
+           wait (int) - Implicit wait time. See https://www.selenium.dev/documentation/webdriver/waits/
+        """
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        driver.implicitly_wait(wait)
+        self.drivers.append(driver)
 
     def stop():
-        self.driver.quit()
+        for i in range(len(self.drivers)):
+            self.drivers[i].quit()
         
-    def LoadPage(self,url) -> None:
+    def LoadPage(self, url, tab = 1) -> None:
         """
         Loads a web page
 
         Args:
            url (str): the url (Ex: https://www.selenium.dev/selenium/web/web-form.html)
+           tab (int): tab in which to load page
         """
-        self.driver.get(url)
+        if (tab <= 0) or (tab > len(self.drivers)):
+            raise Exception("Invalid tab passed to LoadPage")
+
+        self.drivers[tab-1].get(url)
         return
 
-    def GetTitle(self) -> str:
-        return self.driver.title
+    def GetTitle(self, tab = 1) -> str:
+        """
+        Returns the title of tab
 
-    def GetPage(self, url = '') -> str:
+        Args:
+           tab (int): tab to get title from
+        """
+        if (tab <= 0) or (tab > len(self.drivers)):
+            raise Exception("Invalid tab passed to GetTitle")
+
+        return self.drivers[tab-1].title
+
+    def GetPage(self, url = '', tab = 1) -> str:
         """
         Returns the content of a web page. Pass in url if not already on page
 
         Args:
            url (str, optional): the url (Ex: https://www.selenium.dev/selenium/web/web-form.html)
+           tab (int): tab to get content from
         """
-        if url and self.driver.current_url != url:
-           self.LoadPage(url)
+        if (tab <= 0) or (tab > len(self.drivers)):
+            raise Exception("Invalid tab passed to GetPage")
 
-        return self.driver.page_source
+        if url and self.drivers[tab-1].current_url != url:
+           self.LoadPage(url, tab)
 
-    def GetElementWithID(self, val) -> WebElement:
+        return self.drivers[tab-1].page_source
+
+    def GetElementWithID(self, val, tab = 1) -> WebElement:
         """
         Get an element using ID (See https://selenium-python.readthedocs.io/locating-elements.html#locating-by-id)
 
         Args:
             val (str): ID
+            tab (int): tab in which to get the element
         """
-        return self.GetElement(By.ID, val)
+        return self.GetElement(By.ID, val, tab)
 
-    def GetElementWithCSS(self, val) -> WebElement:
+    def GetElementWithCSS(self, val, tab = 1) -> WebElement:
         """
         Get an element using CSS
 
         Args:
             val (str): CSS selector string (See https://selenium-python.readthedocs.io/locating-elements.html#locating-elements-by-css-selectors)
+            tab (int): tab in which to get the element
         """
-        return self.GetElement(By.CSS_SELECTOR, val)
+        return self.GetElement(By.CSS_SELECTOR, val, tab)
 
-    def GetElement(self, by, val) -> WebElement:
+    def GetElement(self, by, val, tab = 1) -> WebElement:
         """
         Get an element (See https://selenium-python.readthedocs.io/locating-elements.html)
 
         Args:
             by (str): Locator Strategy (See: https://www.selenium.dev/selenium/docs/api/py/webdriver/selenium.webdriver.common.by.html)
             val (str): The value to search with in accordance with locator strategy
+            tab (int): tab in which to get the element
         """
-        return self.driver.find_element(by=by, value=val)
+        if (tab <= 0) or (tab > len(self.drivers)):
+            raise Exception("Invalid tab passed to GetElement")
 
-    def EnterTextInField(self, id, text) -> bool:
+        return self.drivers[tab-1].find_element(by=by, value=val)
+
+    def EnterTextInField(self, id, text, tab = 1) -> bool:
         """
         Enter text into an input field
 
         Args:
             id (str): Id of the input field element in HTML
             text (str): Text to enter into element
+            tab (int): tab in which to enter text for an element
 
         Returns:
            True if text was inserted into the input field, False otherwise
         """
-        input_field = self.GetElementWithID(id) 
+        input_field = self.GetElementWithID(id, tab) 
 
         if not input_field or not input_field.is_enabled() or not input_field.is_displayed():
             return False
@@ -132,19 +197,20 @@ class BrowserResource(BaseResource):
         input_field.send_keys(text)
         return True
 
-    def ClickElement(self, id) -> bool:
+    def ClickElement(self, id, tab = 1) -> bool:
         """
         Enter text into an input field
 
         Args:
             id (str): Id of the clickable element in HTML
+            tab (int): tab in which to click the element
 
         Returns:
            True if button succesfully clicked, False otherwise
         """  
 
         try:
-            element = self.GetElementWithID(id)
+            element = self.GetElementWithID(id, tab)
             element.click()
 
         except WebDriverException:
@@ -153,12 +219,18 @@ class BrowserResource(BaseResource):
         return True
 
 
-    def getDriver(self) -> webdriver:
+    def GetDriver(self, tab = 1) -> webdriver:
         """
+        Args:
+            tab (int): tab for which to get the driver for
+
         Returns the selenium web driver.
 
         Returns:
            The driver for custom processing
         """
-        return self.driver
+        if (tab <= 0) or (tab > len(self.drivers)):
+            raise Exception("Invalid tab passed to GetDriver")
+
+        return self.drivers[tab-1]
     

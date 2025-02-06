@@ -65,5 +65,36 @@ class BrowserResourceTest(unittest.TestCase):
         content = browser_resource.GetPage()
         self.assertTrue("Success" in content, "Success page not loaded") 
 
+    def test_local_multiple_tabs(self):
+        config = BrowserResourceConfig(
+            browser = "chrome",
+            tabs = 2
+        )
+        browser_resource = BrowserResource(resource_id="test_browser_resource", config=config)
+
+        with self.assertRaises(Exception) as context:
+            browser_resource.LoadPage("http://localhost:5000/form", 3)
+
+        self.assertTrue('Invalid tab passed to LoadPage' in str(context.exception))
+
+        browser_resource.LoadPage("http://localhost:5000/form", 1)
+        browser_resource.LoadPage("http://localhost:5000/form", 2)
+
+        content_tab_1 = browser_resource.GetPage(tab = 1)
+        content_tab_2 = browser_resource.GetPage(tab = 2)
+
+        self.assertTrue("Username" in content_tab_1, "Form page not loaded in tab 1")
+        self.assertTrue("Username" in content_tab_2, "Form page not loaded in tab 2")
+
+        self.assertTrue(browser_resource.EnterTextInField("name", "user", tab = 1))
+        self.assertTrue(browser_resource.EnterTextInField("name", "bye", tab = 2))
+
+        self.assertTrue(browser_resource.ClickElement("submit", tab=1))
+        content_tab_1 = browser_resource.GetPage(tab = 1)
+        content_tab_2 = browser_resource.GetPage(tab = 2)
+
+        self.assertTrue("Success" in content_tab_1, "Success page not loaded for tab 1 when it should be") 
+        self.assertFalse("Success" in content_tab_2, "Success page loaded for tab 2 when it should not be")
+
 if __name__ == '__main__':
     unittest.main()
