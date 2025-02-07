@@ -22,7 +22,17 @@ class PatchAgentMessage(AgentMessage):
     @property
     def patch_files_dir(self) -> str:
         return self._patch_files_dir
-
+    
+    def to_dict(self) -> dict:
+        agent_dict = self.agent_dict()
+        agent_dict.update({
+            "success": self.success,
+            "patch_files_dir": self.patch_files_dir
+        })
+        base_dict = super(AgentMessage, self).to_dict() 
+        agent_dict.update(base_dict)
+        return agent_dict
+        
     @classmethod
     def from_dict(cls, data: dict) -> "PatchAgentMessage":
         agent_id = data.get("agent_id")
