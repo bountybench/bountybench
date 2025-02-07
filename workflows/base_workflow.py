@@ -229,16 +229,20 @@ class BaseWorkflow(ABC):
       
     async def rerun_message(self, message_id: str):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
-        message = workflow_messages.get(message_id)
-        message = await self.rerun_manager.rerun(message)        
-        if message.next:
-            message = await self.rerun_manager.run_edited(message)
-            message = message.next
-        if isinstance(message, ActionMessage):
-            while message.next:
+        message = workflow_messages.get(message_id, None)
+        if message:
+            message = await self.rerun_manager.rerun(message)        
+            if message.next:
                 message = await self.rerun_manager.run_edited(message)
                 message = message.next
-        return message
+                if isinstance(message, ActionMessage):
+                    while message.next:
+                        message = await self.rerun_manager.run_edited(message)
+                        message = message.next
+                return message
+        else:
+            logger.warning(f"No message object found for {message_id}")
+        return None
     
     async def run_next_message(self):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
@@ -254,14 +258,17 @@ class BaseWorkflow(ABC):
     
     async def edit_and_rerun_message(self, message_id: str, new_message_data: str) -> Message:
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
-        message = workflow_messages.get(message_id)
-        message = await self.rerun_manager.edit_message(message, new_message_data)
-        if message.next:
-            message = await self.rerun_manager.rerun(message)
-            if isinstance(message, ActionMessage):
-                while message.next:
-                    message = await self.rerun_manager.rerun(message)
-            return message
+        message = workflow_messages.get(message_id, None)
+        if message:
+            message = await self.rerun_manager.edit_message(message, new_message_data)
+            if message.next:
+                message = await self.rerun_manager.rerun(message)
+                if isinstance(message, ActionMessage):
+                    while message.next:
+                        message = await self.rerun_manager.rerun(message)
+                return message
+        else:
+            logger.warning(f"No message object found for {message_id}")
         return None
     
     async def change_current_model(self, new_model_name: str):
