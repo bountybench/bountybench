@@ -9,10 +9,18 @@ class FakeWorkflow:
         self.interactive = interactive
         self.phase_iterations = phase_iterations
         self.resource_manager = type('obj', (object,), {'resources': {}})()
+        self.agent_manager = type('obj', (object,), {'agents': {}})()
+        self.status = "running"  # Simulating a workflow status
+        self.next_iteration_event = asyncio.Event()
         self.initial_prompt = "This is a fake initial prompt."
 
+    @property
+    def task(self) -> Dict[str, Any]:
+        """Return a fake task representation."""
+        return {"description": "Fake task for testing", "id": "fake-task-id"}
+
     async def run(self):
-        # Simulate some asynchronous work
+        """Simulate running workflow asynchronously."""
         await asyncio.sleep(0.1)
 
     async def add_user_message(self, content: str) -> str:
@@ -32,6 +40,25 @@ class FakeWorkflow:
 
     async def get_last_message(self) -> str:
         return "This is the last fake message."
+
+    async def stop(self):
+        """Simulate stopping a workflow properly."""
+        self.status = "stopped"
+
+        # Simulate deallocating agents and resources
+        self.agent_manager.agents.clear()
+        self.resource_manager.resources.clear()
+
+        # Ensure no lingering async events (preventing unexpected executions)
+        self.next_iteration_event.clear()
+
+        # Simulate finalizing workflow
+        await self._finalize_workflow()
+
+    async def _finalize_workflow(self):
+        """Simulate finalizing workflow - saves workflow state."""
+        self.status = "INCOMPLETE"
+
 
 # Define specific fake workflows if behavior varies
 class FakeDetectWorkflow(FakeWorkflow):

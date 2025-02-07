@@ -1,26 +1,31 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
+import StopIcon from '@mui/icons-material/Stop';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
 import './AgentInteractions.css';
 
 const AgentInteractions = ({ 
   interactiveMode, 
+  workflowStatus, // Pass workflowStatus from parent
   isNextDisabled,
   messages = [],
   onUpdateMessageInput,
   onRerunMessage,
   onTriggerNextIteration,
+  onStopWorkflow
 }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isStopped, setIsStopped] = useState(false);
   const messagesEndRef = useRef(null);
+  const [selectedCellId, setSelectedCellId] = useState(null);
 
-  const handleKeyDown = (event) => {
-    if (event.key === 'Enter' && (event.altKey || !isEditing)) {
+  const handleKeyDown = useCallback((event) => {
+    if (event.key === 'Enter' && event.altKey) {
       event.preventDefault(); // Prevent the default action
       onTriggerNextIteration();
     }
-  };
+  }, [onTriggerNextIteration]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -28,7 +33,7 @@ const AgentInteractions = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isEditing, onTriggerNextIteration]);
+  }, [isEditing, handleKeyDown, onTriggerNextIteration]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -38,9 +43,21 @@ const AgentInteractions = ({
     console.log('Messages updated:', messages);
   }, [messages]);
 
-  // Find the latest PhaseMessage
   const latestPhaseMessage = messages.filter(msg => msg.message_type === 'PhaseMessage').pop();
   console.log('Latest PhaseMessage:', latestPhaseMessage);
+
+  const handleStopClick = async () => {
+    setIsStopped(true); // Hide buttons immediately
+    await onStopWorkflow();
+  };
+
+    // Ensure buttons remain hidden when workflow status updates from parent
+    useEffect(() => {
+      if (workflowStatus === "stopped") {
+        setIsStopped(true);
+      }
+    }, [workflowStatus]);
+  
 
   if (!messages) {
     return (
@@ -62,31 +79,39 @@ const AgentInteractions = ({
             message={latestPhaseMessage}
             onUpdateMessageInput={onUpdateMessageInput}
             onRerunMessage={onRerunMessage}
-            onEditingChange={setIsEditing}
-            isEditing={isEditing}
+            onEditingChange={setIsEditing}            
+            isEditing={isEditing}            
+            selectedCellId={selectedCellId}
+            onCellSelect={setSelectedCellId}
           />
         )}
         <div ref={messagesEndRef} />
       </Box>
 
-      <Box className="input-and-buttons-container" display="flex">
-        <Box className="buttons-wrapper" display="flex" flexDirection="column" justifyContent="flex-end">
-          {interactiveMode && (
-            <>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={onTriggerNextIteration}
-                startIcon={<KeyboardDoubleArrowRightIcon />}
-                disabled={isNextDisabled || isEditing}
-                size="small"
-                sx={{ mb: 1 }}
-              >
-                Continue
-              </Button>
-            </>
-          )}
-        </Box>
+      <Box className="input-and-buttons-container" display="flex" justifyContent="center" gap={1}>
+        {interactiveMode && !isStopped && (
+          <>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={onTriggerNextIteration}
+              startIcon={<KeyboardDoubleArrowRightIcon />}
+              disabled={isNextDisabled || isEditing}
+              size="small"
+            >
+              Continue
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={handleStopClick}
+              startIcon={<StopIcon />}
+              size="small"
+            >
+              Stop
+            </Button>
+          </>
+        )}
       </Box>
     </Box>
   );

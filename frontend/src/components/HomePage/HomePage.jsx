@@ -33,6 +33,46 @@ const HomePage = () => {
     navigate(`/workflow/${workflowId}`);
   };
 
+  // Helper function to render workflow buttons
+  const renderWorkflowButton = (workflow) => {
+    let buttonColor;
+
+    switch (workflow.status) {
+      case 'error':
+        buttonColor = 'error';
+        break;
+      case 'running':
+        buttonColor = 'success'; 
+        break;
+      default:
+        buttonColor = 'secondary'; // Default color
+    }
+
+    return (
+      <Button
+        key={workflow.id}
+        variant="outlined"
+        color={buttonColor} // Set the color dynamically based on the status
+        onClick={() => handleWorkflowClick(workflow.id)}
+        style={{ 
+          margin: '5px', 
+          width: '100%',   
+          display: 'block',
+          textAlign: 'left' // Align text to the left
+        }}
+      >
+        <Box>
+          <Typography variant="body1">
+            {workflow.task?.task_dir} {workflow.task?.bounty_number} ({workflow?.status})
+          </Typography>
+          <Typography variant="caption" color="textSecondary">
+            {workflow.timestamp ? `${workflow.timestamp} - ${workflow.name}` : workflow.name}
+          </Typography>
+        </Box>
+      </Button>
+    );
+  };
+
   return (
     <Box className="homepage-container">
       <Typography variant="h4" gutterBottom>
@@ -51,23 +91,18 @@ const HomePage = () => {
       {loading ? (
         <CircularProgress />
       ) : (
-        <Box>
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+        >
           <Typography variant="h5" gutterBottom>
             Active Workflows
           </Typography>
           {activeWorkflows && activeWorkflows.length === 0 ? (
             <Typography>No active workflows</Typography>
           ) : (
-            activeWorkflows.map((workflow) => (
-              <Button
-                key={workflow.id}
-                variant="outlined"
-                onClick={() => handleWorkflowClick(workflow.id)}
-                style={{ margin: '5px' }}
-              >
-                {workflow.name} - {workflow.bounty_number} ({workflow.status})
-              </Button>
-            ))
+            activeWorkflows.map(renderWorkflowButton)
           )}
         </Box>
       )}

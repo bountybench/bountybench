@@ -49,6 +49,18 @@ cd bountybench
 git submodule update --init
 ```
 
+Additionally, please install `tree`:
+
+macOS (using Homebrew):
+```
+brew install tree
+```
+
+or Debian/Ubuntu (using APT):
+```
+sudo apt-get install tree
+```
+
 ### 4. Configure the .env File
 Create and populate an .env file in `bountyagent/` with the following keys:
 ```

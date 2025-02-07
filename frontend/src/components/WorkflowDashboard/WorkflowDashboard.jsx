@@ -71,22 +71,11 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   }, [workflowStatus, messages]);
   
-  // Next iteration via ctrl + enter
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-        event.preventDefault();
-        triggerNextIteration();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [workflowId]);
-  
   const triggerNextIteration = async () => {
+    if (workflowStatus === "stopped") {
+      console.error("Cannot trigger next iteration: Workflow is stopped.");
+      return;
+    }
     if (workflowId) {
       setIsNextDisabled(true);
       try {
@@ -171,6 +160,33 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     );
   }
 
+
+  const handleStopWorkflow = async () => {
+    if (workflowId) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/stop/${workflowId}`, {
+          method: 'POST',
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        console.log('Workflow stopped successfully');
+      } catch (error) {
+        console.error('Error stopping workflow:', error);
+      }
+    } else {
+      console.error('Workflow ID is not available');
+    }
+  };
+
+  if (error) {
+    return (
+      <Box p={2}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
   if (!isConnected || isLoading) { // Show loading state
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
@@ -188,6 +204,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     <Box height="100%" overflow="auto">
       <AgentInteractions
         interactiveMode={interactiveMode}
+        workflowStatus={workflowStatus}  // Pass the workflow status
         currentPhase={currentPhase}
         currentIteration={currentIteration}
         isNextDisabled={isNextDisabled}
@@ -195,6 +212,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         onUpdateMessageInput={handleUpdateMessageInput}
         onRerunMessage={handleRerunMessage}
         onTriggerNextIteration={triggerNextIteration}
+        onStopWorkflow={handleStopWorkflow}
       />
     </Box>
   );
