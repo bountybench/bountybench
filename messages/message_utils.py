@@ -6,6 +6,15 @@ from messages.message import Message
 from utils.logger import get_main_logger
 from utils.websocket_manager import websocket_manager
 
+_message_registry = {}
+
+def register_message_class(cls):
+    message_type = cls._get_message_type()
+    _message_registry[message_type] = cls
+
+def get_message_class(message_type: str):
+    return _message_registry.get(message_type)
+
 logger = get_main_logger(__name__)
 
 # Set the logging level
@@ -13,7 +22,6 @@ set_logging_level(MessageType.AGENT)
 
 # Dict of workflow_id -> Dict of message_id -> Message
 message_dict: Dict[str, Dict[str, Message]] = {}
-
 
 def broadcast_update(message: Message):
     """Send an update over WebSocket. This can be disabled or customized as desired."""
@@ -64,3 +72,10 @@ def log_message(message: Message):
     if should_log(message):
         workflow_id = message.workflow_id
         message_dict[workflow_id][workflow_id].save()
+        
+def message_from_dict(data: dict) -> Message:
+    message_type = data.get('message_type')
+    cls = get_message_class(message_type)
+    if not cls:
+        raise ValueError(f"Unregistered message type: {message_type}")
+    return cls.from_dict(data)

@@ -33,14 +33,6 @@ class ActionMessage(Message):
         return self._message
 
     @property
-    def message_type(self) -> str:
-        """
-        Override the message_type property to always return "ActionMessage"
-        for ActionMessage and its subclasses.
-        """
-        return "ActionMessage"
-
-    @property
     def additional_metadata(self) -> str:
         return self._additional_metadata
 
@@ -59,22 +51,22 @@ class ActionMessage(Message):
         base_dict = super().to_dict()
         action_dict.update(base_dict)
         return action_dict
-
+    
     @classmethod
     def from_dict(cls, data: dict) -> "ActionMessage":
+        resource_id = data.get('resource_id')
+        message = data.get('message', '')
+        additional_metadata = data.get('additional_metadata', {})
+        attrs = {
+            key: data[key] 
+            for key in data 
+            if key not in ['message_type', 'agent_id', 'message', 'action_messages']
+        }
         action_message = cls(
-            resource_id=data["resource_id"],
-            message=data["message"],
-            additional_metadata=data.get("additional_metadata"),
-            attrs={
-                "prev": data.get("prev"),
-                "next": data.get("next"),
-                "version_prev": data.get("version_prev"),
-                "version_next": data.get("version_next"),
-                "parent": data.get("parent"),
-                "current_id": data.get("current_id"),
-                "timestamp": data.get("timestamp"),
-            },
+            resource_id=resource_id, 
+            message=message, 
+            additional_metadata=additional_metadata, 
+            attrs=attrs
         )
 
         return action_message

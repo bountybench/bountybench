@@ -1,11 +1,6 @@
 from enum import Enum
 from typing import Type
 
-from messages.action_messages.action_message import ActionMessage
-from messages.agent_messages.agent_message import AgentMessage
-from messages.phase_messages.phase_message import PhaseMessage
-from messages.workflow_message import WorkflowMessage
-
 class MessageType(Enum):
     WORKFLOW = 0
     PHASE = 1
@@ -25,6 +20,11 @@ class LoggingConfig:
     
     @staticmethod
     def get_message_level(message_class: Type) -> int:
+        from messages.action_messages.action_message import ActionMessage
+        from messages.agent_messages.agent_message import AgentMessage
+        from messages.phase_messages.phase_message import PhaseMessage
+        from messages.workflow_message import WorkflowMessage
+        
         if not isinstance(message_class, type):
             raise TypeError("message_class must be a type")
 

@@ -1,12 +1,21 @@
+from typing import Any, Dict, Optional
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.answer_message_interface import  AnswerMessageInterface
 from messages.parse_message import parse_field
 
 class AnswerMessage(AnswerMessageInterface, ActionMessage):
-    def __init__(self, message: str) -> None:
+    def __init__(
+        self,
+        resource_id: str,
+        message: str,
+        additional_metadata: Optional[Dict[str, Any]] = {},
+        prev: "ActionMessage" = None,
+        attrs: dict = None,
+    ) -> None:
         self._message = message
         self._answer = self.parse_answer()
- 
+        super().__init__(resource_id, message, additional_metadata, prev, attrs)
+
     @property
     def message(self) -> str:
         return self._message

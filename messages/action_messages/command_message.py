@@ -13,10 +13,11 @@ class CommandMessage(CommandMessageInterface, ActionMessage):
         message: str,
         additional_metadata: Optional[Dict[str, Any]] = {},
         prev: "ActionMessage" = None,
+        attrs: dict = None,
     ) -> None:
         self._message = message
         self._command = self.parse_command()
-        super().__init__(resource_id, message, additional_metadata, prev)
+        super().__init__(resource_id, message, additional_metadata, prev, attrs)
 
     @property
     def command(self) -> str:

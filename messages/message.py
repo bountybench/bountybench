@@ -2,7 +2,18 @@ import time
 from abc import ABC
 
 
-class Message(ABC):
+class Message(ABC):    
+    @classmethod
+    def _get_message_type(cls):
+        if hasattr(cls, '_message_type'):
+            return cls._message_type
+        return cls.__name__
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        from messages.message_utils import register_message_class
+        register_message_class(cls)
+
     def __init__(self, prev: "Message" = None, attrs: dict = None) -> None:
         self._prev = prev
         if prev and hasattr(prev, "set_next"):
@@ -21,7 +32,6 @@ class Message(ABC):
 
         register_message(self)
 
-    @classmethod
     def _initialize_from_dict(self, attrs: dict) -> None:
         for key, value in attrs.items():
             setattr(self, f"_{key}", value)
@@ -89,12 +99,18 @@ class Message(ABC):
         self._version_prev = version_prev
         version_prev._version_next = self
 
+    def set_additional_attrs(self, data: dict) -> None:
+        for key, value in data.items():
+            setattr(self, key, value)
+
     @property
     def message_type(self) -> str:
         """
         Return the type of this message. By default, use the class name.
         Subclasses can override or rely on the base class name.
         """
+        if hasattr(self, "_message_type"):
+            return self._message_type
         return self.__class__.__name__
 
     def to_dict(self) -> dict:

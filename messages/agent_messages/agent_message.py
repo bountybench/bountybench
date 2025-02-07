@@ -24,14 +24,6 @@ class AgentMessage(Message):
         return self._message
 
     @property
-    def message_type(self) -> str:
-        """
-        Override the message_type property to always return "AgentMessage"
-        for AgentMessage and its subclasses.
-        """
-        return "AgentMessage"
-
-    @property
     def agent_id(self) -> str:
         return self._agent_id
 
@@ -99,22 +91,32 @@ class AgentMessage(Message):
 
     @classmethod
     def from_dict(cls, data: dict) -> "AgentMessage":
-        agent_message = cls(
-            agent_id=data["agent_id"],
-            message=data["message"],
-            attrs={
-                "prev": data.get("prev"),
-                "next": data.get("next"),
-                "version_prev": data.get("version_prev"),
-                "version_next": data.get("version_next"),
-                "parent": data.get("parent"),
-                "current_id": data.get("current_id"),
-                "timestamp": data.get("timestamp"),
-            },
-        )
+        attrs = {
+            "prev": data.get("prev"),
+            "next": data.get("next"),
+            "version_prev": data.get("version_prev"),
+            "version_next": data.get("version_next"),
+            "parent": data.get("parent"),
+            "id": data.get("current_id"),
+            "timestamp": data.get("timestamp"),
+        }
+        instance = cls(agent_id=data["agent_id"], message=data["message"], attrs=attrs)
+        return instance
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "AgentMessage":
+        agent_id = data.get('agent_id')
+        message = data.get('message', '')
+        attrs = {
+            key: data[key] 
+            for key in data 
+            if key not in ['message_type', 'agent_id', 'message', 'action_messages']
+        }
+        agent_message = cls(agent_id=agent_id, message=message, attrs=attrs)
+        
         for action_data in data.get("action_messages", []):
-            action_message = ActionMessage.from_dict(action_data)
+            from messages.message_utils import message_from_dict
+            action_message = message_from_dict(action_data)
             agent_message.add_action_message(action_message)
 
         return agent_message

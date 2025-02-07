@@ -11,7 +11,6 @@ class PhaseMessage(Message):
         self._phase_id = phase_id
         self._success = False
         self._complete = False
-        self._summary = "incomplete"
         self._agent_messages = []
         self._phase_summary = None
         super().__init__(prev=prev, attrs=attrs)
@@ -35,17 +34,13 @@ class PhaseMessage(Message):
         return self._complete
 
     @property
-    def summary(self) -> bool:
-        return self._summary
-
-    @property
     def agent_messages(self) -> List[AgentMessage]:
         return self._agent_messages
 
     @property
     def phase_summary(self) -> str:
-        return self.summary
-
+        return self._phase_summary
+    
     @property
     def current_agent_list(self) -> List[AgentMessage]:
         current_agents = []
@@ -72,7 +67,7 @@ class PhaseMessage(Message):
         self._complete = True
 
     def set_summary(self, summary: str):
-        self._summary = summary
+        self._phase_summary = summary
 
     def add_agent_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
@@ -84,7 +79,7 @@ class PhaseMessage(Message):
     def to_dict(self) -> dict:
         phase_dict = {
             "phase_id": self.phase_id,
-            "phase_summary": self.summary,
+            "phase_summary": self.phase_summary,
             "agent_messages": (
                 [
                     agent_message.to_dict()
@@ -97,7 +92,6 @@ class PhaseMessage(Message):
             "current_children": [
                 agent_message.to_dict() for agent_message in self.current_agent_list
             ],
-            "phase_summary": self.phase_summary,
         }
         base_dict = super().to_dict()
         phase_dict.update(base_dict)
@@ -105,25 +99,23 @@ class PhaseMessage(Message):
 
     @classmethod
     def from_dict(cls, data: dict) -> "PhaseMessage":
+        phase_id = data.get('phase_id')
+        phase_summary = data.get('phase_summary')
+        attrs = {
+            key: data[key] 
+            for key in data 
+            if key not in ['message_type', 'phase_id', 'phase_summary', 'agent_messages']
+        }
         phase_message = cls(
-            phase_id=data["phase_id"],
-            attrs={
-                "prev": data.get("prev"),
-                "next": data.get("next"),
-                "version_prev": data.get("version_prev"),
-                "version_next": data.get("version_next"),
-                "parent": data.get("parent"),
-                "current_id": data.get("current_id"),
-                "timestamp": data.get("timestamp"),
-            },
+            phase_id=phase_id, 
+            attrs=attrs
         )
-
-        phase_message._success = data.get("success")
-        phase_message._complete = data.get("complete")
-        phase_message._summary = data.get("phase_summary")
+        
+        phase_message.set_summary(phase_summary)
 
         for agent_data in data.get("agent_messages", []):
-            agent_message = AgentMessage.from_dict(agent_data)
+            from messages.message_utils import message_from_dict
+            agent_message = message_from_dict(agent_data)
             phase_message.add_agent_message(agent_message)
 
         return phase_message
