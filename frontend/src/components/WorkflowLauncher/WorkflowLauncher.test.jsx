@@ -56,7 +56,8 @@ describe('WorkflowLauncher Component', () => {
       render(<Router><WorkflowLauncher onWorkflowStart={onWorkflowStartMock} interactiveMode={true} setInteractiveMode={setInteractiveModeMock} /></Router>);
     });
 
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    // Fetches both workflows and models
+    expect(global.fetch).toHaveBeenCalledTimes(3);
 
     // Wait for async state updates to complete
     await waitFor(() => {
@@ -96,7 +97,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
   
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
   
     // Wait for async state updates to complete
     await waitFor(() => {
@@ -110,6 +111,8 @@ describe('WorkflowLauncher Component', () => {
   test('handles form input correctly, submits the form successfully, and navigates to new page', async () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [{ name: 'Workflow 1', description: 'Description 1' }];
+    const helmModels = [{ name: 'model1', description: 'Description 1' }];
+    const nonHelmModels = [{ name: 'model2', description: 'Description 2' }];
     const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     global.fetch = jest
       .fn()
@@ -125,8 +128,13 @@ describe('WorkflowLauncher Component', () => {
       )
       .mockImplementationOnce(() =>
         Promise.resolve({
+          json: () => Promise.resolve({ helmModels , nonHelmModels}) // Third fetch API call (fetchModels)
+        })
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ workflow_id: '123' })
+          json: () => Promise.resolve({ workflow_id: '123', model: "test_model" })
         })
       );
 
@@ -142,7 +150,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
 
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
 
     // Ensure form is updated and submitted correctly
     fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
@@ -152,16 +160,25 @@ describe('WorkflowLauncher Component', () => {
     fireEvent.change(screen.getByLabelText(/Bounty Number/i), { target: { value: '123' } });
     fireEvent.change(screen.getByLabelText(/Iterations \(per phase\)/i), { target: { value: '5' } });
 
+
+    fireEvent.mouseDown(screen.getByLabelText(/Model Type/i));
+    fireEvent.click(screen.getByText('HELM'));
+
+    fireEvent.mouseDown(screen.getByLabelText(/Model Name/i));
+    fireEvent.click(screen.getByText('model1'));
+
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
-    expect(onWorkflowStartMock).toHaveBeenCalledWith('123', true);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
+    expect(onWorkflowStartMock).toHaveBeenCalledWith('123', "test_model", true);
   });
 
   test('displays an error message if the form submission fails', async () => {
     useServerAvailability.mockReturnValue({ isServerAvailable: true, isChecking: false });
     const workflows = [{ name: 'Workflow 1', description: 'Description 1' }];
+    const helmModels = [{ name: 'model1', description: 'Description 1' }];
+    const nonHelmModels = [{ name: 'model2', description: 'Description 2' }];
     const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     global.fetch = jest
       .fn()
@@ -173,6 +190,11 @@ describe('WorkflowLauncher Component', () => {
       .mockImplementationOnce(() =>
         Promise.resolve({
           json: () => Promise.resolve(apiKeys) // Second fetch API call (fetchApiKeys)
+        })
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          json: () => Promise.resolve({ helmModels, nonHelmModels }) // Third fetch API call (fetchModels)
         })
       )
       .mockImplementationOnce(() =>
@@ -197,7 +219,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
   
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
   
     // Open the select dropdown and select the option
     fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
@@ -206,11 +228,11 @@ describe('WorkflowLauncher Component', () => {
     fireEvent.change(screen.getByLabelText(/Task Repository Directory/i), { target: { value: 'test-dir' } });
     fireEvent.change(screen.getByLabelText(/Bounty Number/i), { target: { value: '123' } });
     fireEvent.change(screen.getByLabelText(/Iterations \(per phase\)/i), { target: { value: '5' } });
-  
+    
     // Submit form
     fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
   
     // Check if console.error was called with the expected error message
     expect(consoleErrorMock).toHaveBeenCalledWith('Failed to start workflow');

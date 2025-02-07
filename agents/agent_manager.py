@@ -2,6 +2,8 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 from agents.base_agent import BaseAgent, AgentConfig
 from resources.resource_manager import resource_dict
 from utils.logger import get_main_logger
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 
 logger = get_main_logger(__name__)
 
@@ -57,6 +59,32 @@ class AgentManager:
             
         return initialized_agents
     
+    def update_phase_agents_models(self, new_model: str):
+        for agent_id in self._phase_agents:
+            agent = self._phase_agents[agent_id]
+            logger.info(f"Updating agent: {agent}, {agent.model.to_dict()}")
+            for resource_entry in agent.REQUIRED_RESOURCES + agent.OPTIONAL_RESOURCES:
+                resource_type, attr_name = self._parse_resource_entry(resource_entry)
+                if "model" == attr_name:
+                    resource_config = ModelResourceConfig.create(model=new_model)
+                    resource = ModelResource("model", resource_config)
+                    setattr(agent, attr_name, resource)
+                    logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
+                    break
+
+    def update_phase_agents_models(self, new_model: str):
+        for agent_id in self._phase_agents:
+            agent = self._phase_agents[agent_id]
+            logger.info(f"Updating agent: {agent}, {agent.model.to_dict()}")
+            for resource_entry in agent.REQUIRED_RESOURCES + agent.OPTIONAL_RESOURCES:
+                resource_type, attr_name = self._parse_resource_entry(resource_entry)
+                if "model" == attr_name:
+                    resource_config = ModelResourceConfig.create(model=new_model)
+                    resource = ModelResource("model", resource_config)
+                    setattr(agent, attr_name, resource)
+                    logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
+                    break
+
     def create_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> BaseAgent:
         """Create a new agent and bind resources to it."""
         agent = agent_class(agent_id, agent_config)
@@ -96,3 +124,11 @@ class AgentManager:
         if agent_id not in self._agents:
             raise KeyError(f"Agent '{agent_id}' not initialized")
         return self._agents[agent_id]
+    
+    def deallocate_all_agents(self):
+        for agent_id, agent in self._agents.items():
+            if hasattr(agent, 'cleanup'):
+                agent.cleanup()
+        self._agents.clear()
+        self._phase_agents.clear()
+        self._agent_configs.clear()

@@ -13,6 +13,7 @@ from messages.action_messages.answer_message_interface import AnswerMessageInter
 from messages.message import Message
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.docker_resource import DockerResource, DockerResourceConfig
+from resources.memory_resource import MemoryResource, MemoryResourceConfig
 from typing import Any, Dict, List, Optional, Tuple, Type
 from resources.setup_resource import SetupResource, SetupResourceConfig
 import os
@@ -104,6 +105,10 @@ class PatchPhase(BasePhase):
             "docker": (
                 DockerResource,
                 DockerResourceConfig()
+            ),
+            'executor_agent_memory': (
+                MemoryResource,
+                MemoryResourceConfig()
             )
         }
 

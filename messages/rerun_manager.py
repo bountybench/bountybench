@@ -17,17 +17,14 @@ class RerunManager:
         self.agent_manager = agent_manager
         self.resource_manager = resource_manager
 
-    async def run_edited(self, edited_message: Message) -> Message:
-        if edited_message.next:
-            if isinstance(edited_message, ActionMessage):
-                message = await self._rerun_action_message(
-                    edited_message.next, edited_message
-                )
+    async def rerun(self, message: Message) -> Message:
+        """Regenerates next message if a .next exists"""
+        if message.next:
+            if isinstance(message, ActionMessage):
+                message = await self._rerun_action_message(message.next, message)
                 return message
-            elif isinstance(edited_message, AgentMessage):
-                message = await self._rerun_agent_message(
-                    edited_message.next, edited_message
-                )
+            elif isinstance(message, AgentMessage):
+                message = await self._rerun_agent_message(message.next, message)
                 return message
             else:
                 raise ValueError("Unsupported message type for rerun")
@@ -35,19 +32,6 @@ class RerunManager:
             raise ValueError(
                 "No defined next actions to run, please continue to next iteration"
             )
-
-    async def rerun(self, message: Message) -> Message:
-        if isinstance(message, ActionMessage):
-            if message.prev:
-                message = await self._rerun_action_message(message, message.prev)
-            else:
-                message = await self._rerun_action_message(message, message.parent)
-            return message
-        elif isinstance(message, AgentMessage):
-            message = await self._rerun_agent_message(message, message.prev)
-            return message
-        else:
-            raise ValueError("Unsupported message type for rerun")
 
     async def _rerun_action_message(
         self, old_message: Message, input_message: Message
@@ -102,13 +86,6 @@ class RerunManager:
         if parent_message:
             if isinstance(parent_message, AgentMessage):
                 parent_message.add_action_message(new_message)
-                # 1) find the top-level Phase
-                phase = self.find_phase_parent(parent_message)
-                # 2) broadcast from the Phase
-                if phase:
-                    from messages.message_utils import broadcast_update
-
-                    broadcast_update(phase)
 
             if isinstance(parent_message, PhaseMessage):
                 parent_message.add_agent_message(new_message)

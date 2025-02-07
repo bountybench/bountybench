@@ -125,4 +125,4 @@ jobs:
 
       - name: Run frontend tests
         working-directory: ./frontend
-        run: npm test
+        run: npm test -- --watchAll=false
