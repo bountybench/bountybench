@@ -21,7 +21,8 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
   const originalMessageContent = formatData(action.message);
 
   const handleCopyClick = () => {
-		navigator.clipboard.writeText(originalMessageContent);
+    const message = formatData(editedMessage)
+		navigator.clipboard.writeText(message);
 	};
 
   const handleCancelEdit = useCallback(() => {
@@ -113,6 +114,12 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     setExpanded(!expanded);
   };
 
+  const CopyButton = () => (
+		<Button variant='outlined' color='primary' onClick={handleCopyClick} size='small' aria-label='copy' className='copy-button'>
+			<ContentCopyIcon />
+		</Button>
+	);
+
   return (
     <Card 
       className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''}`} 
@@ -156,6 +163,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
             />
           </Box>
           <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+            <CopyButton />
             <Button
               variant="outlined"
               color="secondary"
@@ -187,16 +195,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
               </Typography>
             </Box>
             <Box className="message-buttons" sx={{ display: 'flex' }}>
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={handleCopyClick}
-                size="small"
-                aria-label="copy"
-                className="copy-button"
-              >
-                <ContentCopyIcon />
-              </Button>
+              <CopyButton />
               <Button
                 variant="outlined"
                 color="primary"
