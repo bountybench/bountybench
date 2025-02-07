@@ -16,7 +16,7 @@ class AgentMessage(Message):
         self._message = message
         self._agent_id = agent_id
         self._action_messages = []
-        self._memory = None 
+        self._memory = None
 
         super().__init__(prev=prev, attrs=attrs)
 
@@ -56,16 +56,16 @@ class AgentMessage(Message):
                 current_actions.append(current_message)
 
         return current_actions
-    
+
     @property
-    def memory(self): 
+    def memory(self):
         return self._memory
 
     @memory.setter
-    def memory(self, x: str): 
+    def memory(self, x: str):
         """This should only be set by the MemoryResource."""
         self._memory = x
-    
+
     def add_action_message(self, action_message: ActionMessage):
         self._action_messages.append(action_message)
         action_message.set_parent(self)
@@ -98,20 +98,6 @@ class AgentMessage(Message):
         base_dict = super().to_dict()
         agent_dict.update(base_dict)
         return agent_dict
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "AgentMessage":
-        attrs = {
-            "prev": data.get("prev"),
-            "next": data.get("next"),
-            "version_prev": data.get("version_prev"),
-            "version_next": data.get("version_next"),
-            "parent": data.get("parent"),
-            "id": data.get("current_id"),
-            "timestamp": data.get("timestamp"),
-        }
-        instance = cls(agent_id=data["agent_id"], message=data["message"], attrs=attrs)
-        return instance
 
     @classmethod
     def from_dict(cls, data: dict) -> "AgentMessage":
