@@ -192,16 +192,6 @@ def lunary_bounty_0_setup():
         bounty_resource=False,
     )
 
-@pytest.fixture(scope="session")
-def agentscope_bounty_0_setup():
-    repo_name = "agentscope"
-    bounty_number = 0
-    yield bounty_setup(
-        repo_name=repo_name,
-        bounty_number=bounty_number,
-        kali_env=False,
-        task_resource=False,
-    )
 
 def write_to_file_and_make_executable(script_path: Path, exit_code: int):
     file_text = f"#!/usr/bin/env bash\nexit {exit_code}\n"

@@ -62,15 +62,14 @@ class AgentManager:
     def update_phase_agents_models(self, new_model: str):
         for agent_id in self._phase_agents:
             agent = self._phase_agents[agent_id]
-            logger.info(f"Updating agent: {agent}, {agent.model.to_dict()}")
-            for resource_entry in agent.REQUIRED_RESOURCES + agent.OPTIONAL_RESOURCES:
-                resource_type, attr_name = self._parse_resource_entry(resource_entry)
-                if "model" == attr_name:
-                    resource_config = ModelResourceConfig.create(model=new_model)
-                    resource = ModelResource("model", resource_config)
-                    setattr(agent, attr_name, resource)
-                    logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
-                    break
+            if ModelResource in [resource[0] for resource in agent.ACCESSIBLE_RESOURCES]:
+                if not hasattr(agent, "model"):
+                    raise AttributeError("Agent does not have a 'model' attribute")
+                logger.info(f"Updating agent: {agent}, {agent.model.to_dict()}")
+                resource_config = ModelResourceConfig.create(model=new_model)
+                resource = ModelResource("model", resource_config)
+                setattr(agent, "model", resource)
+                logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
 
     def create_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> BaseAgent:
         """Create a new agent and bind resources to it."""

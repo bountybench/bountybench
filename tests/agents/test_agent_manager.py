@@ -2,23 +2,24 @@ import pytest
 import random
 import string
 
-from agents.agent_manager import AgentManager
+from agents.agent_manager import AgentManager, AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.exploit_agent.exploit_agent import ExploitAgent, ExploitAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent
-from tests.agents.agent_test_utils import agentscope_bounty_0_setup, EnvPath
+from tests.agents.agent_test_utils import lunary_bounty_0_setup, EnvPath
 
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 from resources.base_resource import BaseResource
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
-from resources.model_resource import ModelResource
-from unittest import patch
+from unittest.mock import patch, MagicMock
 
 
 @pytest.fixture(scope="module")
-def agent_configs(agentscope_bounty_0_setup):
-    env_setup: EnvPath = agentscope_bounty_0_setup
+def agent_configs(lunary_bounty_0_setup):
+    env_setup: EnvPath = lunary_bounty_0_setup
     pConfig = PatchAgentConfig(
         bounty_dir=env_setup.BOUNTY_DIR_FROM_TASK_DIR,
         task_dir=env_setup.TASK_DIR,
@@ -49,7 +50,7 @@ def alternative_agent_configs():
 def initialized_agent_manager(agent_configs):
     am = AgentManager()
     pConfig, eConfig = agent_configs
-    am.initialize_phase_agents({"exploit_agent": eConfig, "patch_agent": pConfig})
+    am.initialize_phase_agents({"exploit_agent": (ExploitAgent, eConfig), "patch_agent": (PatchAgent, pConfig)})
     yield am
     am.deallocate_all_agents()
 
@@ -119,8 +120,51 @@ def test_initialize_phase_agents_mismatch(agent_configs, initialized_agent_manag
         with patch.object(AgentManager, "create_agent", mock_create_agent):
             am.initialize_phase_agents(agent_configs)
 
-def update_phase_agents_models():
-    pass
+def test_update_phase_agents_models_has_executor():
+    mock_model_resource_config = MagicMock()
+    mock_model_resource = MagicMock(return_value=None)
+
+    ModelResourceConfig.create = MagicMock(return_value=mock_model_resource_config)
+    ModelResource.__init__ = mock_model_resource
+    ModelResource.to_dict = MagicMock()
+
+    am = AgentManager()
+    class Model:
+        def to_dict(self):
+            return ""
+
+    am._phase_agents = {"executor": ExecutorAgent("update_phase_agents_has_executor", AgentConfig)}
+    for agent in am._phase_agents.values():
+        agent.model = Model()
+
+    new_model = "new_model_value"
+    am.update_phase_agents_models(new_model)
+
+    # Assertions
+    for agent in am._phase_agents.values():
+        mock_model_resource.assert_called_with("model", mock_model_resource_config)
+        assert hasattr(agent, "model")
+        assert isinstance(agent.model, ModelResource)
+        ModelResourceConfig.create.assert_called_with(model=new_model)
+
+def test_update_phase_agents_models_no_executor():
+    mock_model_resource_config = MagicMock()
+    model_resource_mock = MagicMock(return_value=None)  
+
+    ModelResourceConfig.create = MagicMock(return_value=mock_model_resource_config)
+    ModelResource.__init__ = model_resource_mock
+
+    am = AgentManager()
+    am._phase_agents = {"patch_agent": PatchAgent("update_phase_agents_no_executor", PatchAgentConfig("", "", False))}
+
+    new_model = "new_model_value"
+    am.update_phase_agents_models(new_model)
+
+    for agent in am._phase_agents.values():
+        if isinstance(agent, PatchAgent):
+            model_resource_mock.assert_not_called()
+            ModelResourceConfig.create.assert_not_called()
+            assert not hasattr(agent, "model")
 
 def test_create_agent(agent_configs, initialized_agent_manager):
     pConfig, _ = agent_configs
@@ -130,8 +174,8 @@ def test_create_agent(agent_configs, initialized_agent_manager):
     assert isinstance(agent, PatchAgent)
     assert hasattr(agent, "init_files")
     assert hasattr(agent, "docker")
-    assert hasattr(agent, "bounty_resource")
-    assert not hasattr(agent, "repo_resource")
+    assert hasattr(agent, "repo_resource")
+    assert not hasattr(agent, "bounty_resource")
 
 
 def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
@@ -142,8 +186,8 @@ def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
 
     assert hasattr(agent, "init_files")
     assert hasattr(agent, "docker")
-    assert hasattr(agent, "bounty_resource")
-    assert not hasattr(agent, "repo_resource")
+    assert hasattr(agent, "repo_resource")
+    assert not hasattr(agent, "bounty_resource")
 
 
 def test_parse_resource_entry():
@@ -159,7 +203,6 @@ def test_parse_resource_entry():
         DockerResource: "dockerresource",
         InitFilesResource: "initfilesresource",
         KaliEnvResource: "kalienvresource",
-        ModelResource: "modelresource",
     }
     for resource, name in resources.items():
         result = am._parse_resource_entry(resource)
@@ -167,7 +210,7 @@ def test_parse_resource_entry():
     
     for resource in resources.keys():
         name = generate_random_string()
-        result = am._parse_resource_entry(resource)
+        result = am._parse_resource_entry((resource, name))
         assert result[0] == resource and result[1] == name
 
 
@@ -180,7 +223,7 @@ def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
     assert not am.is_agent_equivalent("exploit_agent", ExploitAgent, ExploitAgentConfig("hi", "hi"))
     assert not am.is_agent_equivalent("patch_agent", PatchAgent, PatchAgentConfig("hi", "hi", False))
     assert am.is_agent_equivalent("patch_agent", PatchAgent, pConfig)
-    assert am.is_agent_equivalent("exploit_agent", PatchAgent, eConfig)
+    assert am.is_agent_equivalent("exploit_agent", ExploitAgent, eConfig)
 
 def test_get_agent(initialized_agent_manager):
     am: AgentManager = initialized_agent_manager
