@@ -98,8 +98,8 @@ class InitFilesResource(BaseResource):
                     check=True,
                     text=True
                 )
-            bountyagent_dir = os.path.join(self.files_dir, "..", "..", "..")
-            bountyagent_dir = os.path.abspath(bountyagent_dir)
+
+            bountyagent_dir = os.getcwd()
             logger.info("Cleaning up the working directory before checkout.")
             if os.path.exists(os.path.join(bountyagent_dir, ".git")):
                 subprocess.run(
