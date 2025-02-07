@@ -19,9 +19,15 @@
 ## Installation
 ## Environment Setup
 
-You can quickly set up the environment by running the following command:
+You can quickly set up the dev environment by running the following command:
 ```
 ./setup.sh
+source venv/bin/activate
+```
+
+To initialize all submodules, run:
+```
+./setup.sh --all
 source venv/bin/activate
 ```
 

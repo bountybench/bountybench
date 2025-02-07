@@ -9,6 +9,22 @@ function error_exit {
     exit 1
 }
 
+# Parse command line arguments
+INIT_ALL=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --all)
+            INIT_ALL=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
 # 1. Check if the Python version is 3.11
 echo "Checking Python version..."
 PYTHON_VERSION=$(python --version 2>&1)
@@ -45,7 +61,23 @@ git submodule update --init || error_exit "Failed to initialize submodules."
 if [ -d "bountybench" ]; then
     echo "🔗 Initializing submodules within 'bountybench'..."
     cd bountybench
-    git submodule update --init || error_exit "Failed to initialize submodules in 'bountybench'."
+    if [ "$INIT_ALL" = true ]; then
+        git submodule update --init || error_exit "Failed to initialize all submodules in 'bountybench'."
+    else
+        echo "⚠️ Initializing test submodules..."
+        TEST_SUBMODULES=(
+            "astropy"
+            "lunary"
+            "gunicorn"
+            "setuptools"
+        )
+        
+        if [ ${#TEST_SUBMODULES[@]} -eq 0 ]; then
+            echo "⚠️ No test submodules specified. Skipping initialization."
+        else
+            git submodule update --init "${TEST_SUBMODULES[@]}" || error_exit "Failed to initialize test submodules in 'bountybench'."
+        fi
+    fi
     cd ..
 else
     echo "⚠️ Directory 'bountybench' does not exist."
