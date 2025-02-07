@@ -1,25 +1,27 @@
-from abc import ABC
 import time
+from abc import ABC
 
-class Message(ABC): 
 
-    def __init__(self, prev: 'Message' = None, attrs: dict = None) -> None:
+class Message(ABC):
+
+    def __init__(self, prev: "Message" = None, attrs: dict = None) -> None:
         self._prev = prev
-        if prev is not None and hasattr(prev, 'set_next'):
+        if prev is not None and hasattr(prev, "set_next"):
             prev.set_next(self)
-            
+
         self._next = None
         self._version_prev = None
         self._version_next = None
         self._parent = None
-        
-        self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
+
+        self.timestamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
         self._id = str(id(self))
-        
+
         if attrs:
             self._initialize_from_dict(attrs)
 
         from messages.message_utils import register_message
+
         register_message(self)
 
     def _initialize_from_dict(self, attrs: dict) -> None:
@@ -28,54 +30,56 @@ class Message(ABC):
         self._next = attrs.get("next", None)
         self._version_prev = attrs.get("version_prev", None)
         self._version_next = attrs.get("version_next", None)
-        self.timestamp = attrs.get("timestamp", self.timestamp)  # Use existing timestamp if not provided
+        self.timestamp = attrs.get(
+            "timestamp", self.timestamp
+        )  # Use existing timestamp if not provided
 
-    @property 
+    @property
     def workflow_id(self) -> str:
         return None
-    
+
     @property
     def prev(self) -> str:
         return self._prev
-    
+
     @property
     def next(self) -> str:
         return self._next
-    
+
     @property
     def version_prev(self) -> str:
         return self._version_prev
-    
+
     @property
     def version_next(self) -> str:
         return self._version_next
-    
+
     def get_latest_version(self, message):
         while message.version_next:
             message = message.version_next
         return message
-    
+
     @property
     def id(self) -> str:
         return self._id
-    
+
     @property
     def parent(self) -> str:
         return self._parent
-    
-    def set_parent(self, parent: 'Message') -> None:
+
+    def set_parent(self, parent: "Message") -> None:
         self._parent = parent
-    
-    def set_prev(self, prev: 'Message') -> None:
+
+    def set_prev(self, prev: "Message") -> None:
         self._prev = prev
 
-    def set_next(self, next: 'Message') -> None:
+    def set_next(self, next: "Message") -> None:
         self._next = next
-    
-    def set_version_prev(self, version_prev: 'Message') -> None:
+
+    def set_version_prev(self, version_prev: "Message") -> None:
         self._version_prev = version_prev
         version_prev._version_next = self
-    
+
     @property
     def message_type(self) -> str:
         """
@@ -83,23 +87,22 @@ class Message(ABC):
         Subclasses can override or rely on the base class name.
         """
         return self.__class__.__name__
-    
+
     def to_dict(self) -> dict:
-            result = {}
-            result["message_type"] = self.message_type
-            if self.prev is not None:
-                result["prev"] = self.prev.id
-            
-            result["current_id"] = self.id
-            
-            if self.next is not None:
-                result["next"] = self.next.id
-            if self.version_prev is not None:
-                result["version_prev"] = id(self.version_prev)
-            if self.version_next is not None:
-                result["version_next"] = id(self.version_next)
-            
-            result["timestamp"] = self.timestamp
-            
-        
-            return result
+        result = {}
+        result["message_type"] = self.message_type
+        if self.prev is not None:
+            result["prev"] = self.prev.id
+
+        result["current_id"] = self.id
+
+        if self.next is not None:
+            result["next"] = self.next.id
+        if self.version_prev is not None:
+            result["version_prev"] = id(self.version_prev)
+        if self.version_next is not None:
+            result["version_next"] = id(self.version_next)
+
+        result["timestamp"] = self.timestamp
+
+        return result

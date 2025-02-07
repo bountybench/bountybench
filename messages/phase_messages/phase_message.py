@@ -1,9 +1,13 @@
 from typing import List, Optional
+
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
+
 class PhaseMessage(Message):
-    def __init__(self, phase_id: str, prev: 'PhaseMessage' = None, attrs: dict = None) -> None:
+    def __init__(
+        self, phase_id: str, prev: "PhaseMessage" = None, attrs: dict = None
+    ) -> None:
         self._phase_id = phase_id
         self._success = False
         self._complete = False
@@ -15,34 +19,34 @@ class PhaseMessage(Message):
     @property
     def phase_id(self) -> str:
         return self._phase_id
-    
+
     @property
     def workflow_id(self) -> str:
         if self.parent:
             return self.parent.workflow_id
         return None
-    
+
     @property
     def success(self) -> bool:
         return self._success
-    
+
     @property
     def complete(self) -> bool:
         return self._complete
-    
+
     @property
     def summary(self) -> bool:
         return self._summary
-    
+
     @property
     def agent_messages(self) -> List[AgentMessage]:
         return self._agent_messages
-    
+
     @property
     def phase_summary(self) -> str:
         return self.summary
-  
-    @property 
+
+    @property
     def current_agent_list(self) -> List[AgentMessage]:
         current_agents = []
         if len(self.agent_messages) > 0:
@@ -50,11 +54,15 @@ class PhaseMessage(Message):
             current_message = self.get_latest_version(current_message)
 
             current_agents.append(current_message)
-            while current_message.next and current_message.next.prev and current_message.next.prev.id == current_message.id:
+            while (
+                current_message.next
+                and current_message.next.prev
+                and current_message.next.prev.id == current_message.id
+            ):
                 current_message = current_message.next
                 current_message = self.get_latest_version(current_message)
                 current_agents.append(current_message)
-            
+
         return current_agents
 
     def set_success(self):
@@ -70,25 +78,35 @@ class PhaseMessage(Message):
         self._agent_messages.append(agent_message)
         agent_message.set_parent(self)
         from messages.message_utils import log_message
-        log_message(self)
 
+        log_message(self)
 
     def to_dict(self) -> dict:
         phase_dict = {
             "phase_id": self.phase_id,
             "phase_summary": self.summary,
-            "agent_messages": [agent_message.to_dict() for agent_message in self.agent_messages if agent_message is not None] if self.agent_messages else None,
-            "current_children": [agent_message.to_dict() for agent_message in self.current_agent_list],
-            "phase_summary": self.phase_summary
+            "agent_messages": (
+                [
+                    agent_message.to_dict()
+                    for agent_message in self.agent_messages
+                    if agent_message is not None
+                ]
+                if self.agent_messages
+                else None
+            ),
+            "current_children": [
+                agent_message.to_dict() for agent_message in self.current_agent_list
+            ],
+            "phase_summary": self.phase_summary,
         }
         base_dict = super().to_dict()
         phase_dict.update(base_dict)
         return phase_dict
-    
+
     @classmethod
-    def from_dict(cls, data: dict) -> 'PhaseMessage':
+    def from_dict(cls, data: dict) -> "PhaseMessage":
         attrs = {
-            "_prev": data.get("prev", None),  
+            "_prev": data.get("prev", None),
             "_next": data.get("next", None),
             "_version_prev": data.get("version_prev", None),
             "_version_next": data.get("version_next", None),
@@ -96,13 +114,13 @@ class PhaseMessage(Message):
             "_id": data.get("current_id", None),
             "timestamp": data.get("timestamp", None),
         }
-        phase_message = cls(phase_id=data['phase_id'], attrs=attrs)
+        phase_message = cls(phase_id=data["phase_id"], attrs=attrs)
 
-        phase_message._success = data.get('success')
-        phase_message._complete = data.get('complete')
-        phase_message._summary = data.get('phase_summary')
+        phase_message._success = data.get("success")
+        phase_message._complete = data.get("complete")
+        phase_message._summary = data.get("phase_summary")
 
-        for agent_data in data['agent_messages']:
+        for agent_data in data["agent_messages"]:
             agent_message = AgentMessage.from_dict(agent_data)
             phase_message.add_agent_message(agent_message)
 
