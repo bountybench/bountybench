@@ -29,10 +29,27 @@ done
 echo "Checking Python version..."
 PYTHON_VERSION=$(python --version 2>&1)
 
-if [[ $PYTHON_VERSION == "Python 3.11"* ]]; then
-    echo "✅ Python version is 3.11."
+if [[ "$PYTHON_VERSION" != *"3.11"* ]]; then
+    error_exit "Python 3.11 is required. Please install it first."
+fi
+
+# 2. Install tree command if missing
+echo "Checking for 'tree' command..."
+if ! command -v tree &> /dev/null; then
+    echo "⏳ Installing tree utility..."
+    
+    # Detect package manager
+    if command -v brew &> /dev/null; then
+        brew install tree || error_exit "Failed to install tree via Homebrew"
+    elif command -v apt-get &> /dev/null; then
+        sudo apt-get update && sudo apt-get install -y tree || error_exit "Failed to install tree via apt-get"
+    else
+        error_exit "Could not detect supported package manager (brew/apt-get) for tree installation"
+    fi
+    
+    echo "✅ Successfully installed tree"
 else
-    error_exit "Python 3.11 is required. Current version: $PYTHON_VERSION"
+    echo "✅ tree already installed"
 fi
 
 # 2. Set up a virtual environment and install requirements
