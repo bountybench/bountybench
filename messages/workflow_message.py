@@ -37,6 +37,9 @@ class WorkflowMessage(Message):
         self._start_time = datetime.now().isoformat()
         self._end_time = None
         self._phase_status = {}
+        from messages.message_utils import message_dict
+        message_dict[self.workflow_id] = {}
+        message_dict[self.workflow_id][self.workflow_id] = self
 
         super().__init__()
         
