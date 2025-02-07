@@ -13,8 +13,10 @@ import {
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import './WorkflowLauncher.css';
+import { useNavigate } from 'react-router-dom'; 
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
+
   // 1. Use the hook to poll for server availability
   const { isServerAvailable, isChecking } = useServerAvailability(() => {
     console.log('Server is available!');
@@ -31,6 +33,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     interactive: true,
     iterations: 10
   });
+
+  const navigate = useNavigate();
 
   // 2. Fetch workflows only once server is confirmed available
   useEffect(() => {
@@ -125,6 +129,12 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     );
   }
 
+  
+
+  const handleViewHistoryLogs = () => {
+    navigate('/history-logs');
+  };
+
   // All good: show the form
   return (
     <Box className="launcher-container">
@@ -213,6 +223,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           startIcon={<PlayArrowIcon />}
         >
           Start Workflow
+        </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleViewHistoryLogs} 
+        >
+          View History Logs
         </Button>
       </form>
     </Box>

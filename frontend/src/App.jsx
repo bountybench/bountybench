@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import Box from '@mui/material/Box';
+import { Box } from '@mui/material';
 import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
 import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
 import { AppHeader } from './components/AppHeader/AppHeader'; 
 import { darkTheme } from './theme';
 import './App.css';
+import { Routes, Route } from 'react-router-dom';
+import LogViewer from './components/LogViewer/LogViewer';
 
 function App() {  
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
@@ -61,21 +63,27 @@ function App() {
           workflowStatus={workflowStatus}
           currentPhase={currentPhase}
         />
-        <Box flexGrow={1} overflow="auto">
-          {selectedWorkflow ? (
-            <WorkflowDashboard 
-              selectedWorkflow={selectedWorkflow}
-              interactiveMode={interactiveMode}
-              onWorkflowStateUpdate={handleWorkflowStateUpdate}
-            />
-          ) : (
-            <WorkflowLauncher 
-              onWorkflowStart={handleWorkflowStart}
-              interactiveMode={interactiveMode}
-              setInteractiveMode={setInteractiveMode}
-            />
-          )}
-        </Box>
+        <Routes>
+          <Route 
+            path="/" 
+            element={
+              selectedWorkflow ? (
+                <WorkflowDashboard 
+                  selectedWorkflow={selectedWorkflow}
+                  interactiveMode={interactiveMode}
+                  onWorkflowStateUpdate={handleWorkflowStateUpdate}
+                />
+              ) : (
+                <WorkflowLauncher 
+                  onWorkflowStart={handleWorkflowStart}
+                  interactiveMode={interactiveMode}
+                  setInteractiveMode={setInteractiveMode}
+                />
+              )
+            }
+          />
+          <Route path="/history-logs" element={<LogViewer />} />
+        </Routes>
       </Box>
     </ThemeProvider>
   );
