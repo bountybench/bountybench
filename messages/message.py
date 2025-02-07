@@ -2,16 +2,17 @@ import time
 from abc import ABC
 
 
-class Message(ABC):    
+class Message(ABC):
     @classmethod
     def _get_message_type(cls):
-        if hasattr(cls, '_message_type'):
+        if hasattr(cls, "_message_type"):
             return cls._message_type
         return cls.__name__
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         from messages.message_utils import register_message_class
+
         register_message_class(cls)
 
     def __init__(self, prev: "Message" = None, attrs: dict = None) -> None:

@@ -40,7 +40,7 @@ class PhaseMessage(Message):
     @property
     def phase_summary(self) -> str:
         return self._phase_summary
-    
+
     @property
     def current_agent_list(self) -> List[AgentMessage]:
         current_agents = []
@@ -99,22 +99,21 @@ class PhaseMessage(Message):
 
     @classmethod
     def from_dict(cls, data: dict) -> "PhaseMessage":
-        phase_id = data.get('phase_id')
-        phase_summary = data.get('phase_summary')
+        phase_id = data.get("phase_id")
+        phase_summary = data.get("phase_summary")
         attrs = {
-            key: data[key] 
-            for key in data 
-            if key not in ['message_type', 'phase_id', 'phase_summary', 'agent_messages']
+            key: data[key]
+            for key in data
+            if key
+            not in ["message_type", "phase_id", "phase_summary", "agent_messages"]
         }
-        phase_message = cls(
-            phase_id=phase_id, 
-            attrs=attrs
-        )
-        
+        phase_message = cls(phase_id=phase_id, attrs=attrs)
+
         phase_message.set_summary(phase_summary)
 
         for agent_data in data.get("agent_messages", []):
             from messages.message_utils import message_from_dict
+
             agent_message = message_from_dict(agent_data)
             phase_message.add_agent_message(agent_message)
 

@@ -51,22 +51,22 @@ class ActionMessage(Message):
         base_dict = super().to_dict()
         action_dict.update(base_dict)
         return action_dict
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "ActionMessage":
-        resource_id = data.get('resource_id')
-        message = data.get('message', '')
-        additional_metadata = data.get('additional_metadata', {})
+        resource_id = data.get("resource_id")
+        message = data.get("message", "")
+        additional_metadata = data.get("additional_metadata", {})
         attrs = {
-            key: data[key] 
-            for key in data 
-            if key not in ['message_type', 'agent_id', 'message', 'action_messages']
+            key: data[key]
+            for key in data
+            if key not in ["message_type", "agent_id", "message", "action_messages"]
         }
         action_message = cls(
-            resource_id=resource_id, 
-            message=message, 
-            additional_metadata=additional_metadata, 
-            attrs=attrs
+            resource_id=resource_id,
+            message=message,
+            additional_metadata=additional_metadata,
+            attrs=attrs,
         )
 
         return action_message

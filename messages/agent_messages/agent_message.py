@@ -105,17 +105,18 @@ class AgentMessage(Message):
 
     @classmethod
     def from_dict(cls, data: dict) -> "AgentMessage":
-        agent_id = data.get('agent_id')
-        message = data.get('message', '')
+        agent_id = data.get("agent_id")
+        message = data.get("message", "")
         attrs = {
-            key: data[key] 
-            for key in data 
-            if key not in ['message_type', 'agent_id', 'message', 'action_messages']
+            key: data[key]
+            for key in data
+            if key not in ["message_type", "agent_id", "message", "action_messages"]
         }
         agent_message = cls(agent_id=agent_id, message=message, attrs=attrs)
-        
+
         for action_data in data.get("action_messages", []):
             from messages.message_utils import message_from_dict
+
             action_message = message_from_dict(action_data)
             agent_message.add_action_message(action_message)
 

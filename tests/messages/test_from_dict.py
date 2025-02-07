@@ -1,7 +1,9 @@
 import pytest
+
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.exploit_agent_message import ExploitAgentMessage
 from messages.message_utils import message_from_dict
+
 
 @pytest.fixture
 def agent_message_data():
@@ -13,6 +15,7 @@ def agent_message_data():
         "current_id": "12345",
         "timestamp": "2023-01-01T12:00:00+0000",
     }
+
 
 @pytest.fixture
 def exploit_agent_message_data():
@@ -27,6 +30,7 @@ def exploit_agent_message_data():
         "timestamp": "2023-01-01T13:00:00+0000",
     }
 
+
 @pytest.fixture
 def action_message_data():
     return {
@@ -37,6 +41,7 @@ def action_message_data():
         "next": "9876",
         "timestamp": "2023-01-01T14:00:00+0000",
     }
+
 
 @pytest.fixture
 def command_action_message_data():
@@ -49,9 +54,13 @@ def command_action_message_data():
         "timestamp": "2023-01-01T15:00:00+0000",
     }
 
+
 def test_agent_message_from_dict(agent_message_data):
     # Create an agent message from the provided dictionary
-    agent_message_data.action_messages = [action_message_data, command_action_message_data]
+    agent_message_data.action_messages = [
+        action_message_data,
+        command_action_message_data,
+    ]
 
     agent_message = message_from_dict(agent_message_data)
 
@@ -63,7 +72,8 @@ def test_agent_message_from_dict(agent_message_data):
     assert action_1.resource_id == "resource-001"
     assert action_1.next == action_2
     assert action_2.command == "echo hi"
-    
+
+
 def test_agent_message_from_dict(agent_message_data):
     # Create an agent message from the provided dictionary
     agent_message = message_from_dict(agent_message_data)
@@ -79,6 +89,7 @@ def test_agent_message_from_dict(agent_message_data):
     # Since there are no action messages, current_actions_list should be empty
     assert agent_message.current_actions_list == []
     assert len(agent_message.action_messages) == 0
+
 
 def test_exploit_agent_message_from_dict(exploit_agent_message_data):
     # Create an exploit agent message from the provided dictionary

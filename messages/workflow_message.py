@@ -99,7 +99,7 @@ class WorkflowMessage(Message):
             "workflow_id": self.workflow_id,
             "additional_metadata": self.additional_metadata,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "WorkflowMessage":
         workflow_message = cls(
@@ -116,9 +116,10 @@ class WorkflowMessage(Message):
 
         for phase_data in data.get("phase_messages", []):
             from messages.message_utils import message_from_dict
+
             phase_message = message_from_dict(phase_data)
             workflow_message.add_phase_message(phase_message)
-            
+
         return workflow_message
 
     def save(self):
