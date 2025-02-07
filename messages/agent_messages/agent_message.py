@@ -69,7 +69,8 @@ class AgentMessage(Message):
         self._action_messages.append(action_message)
         action_message.set_parent(self)
         from messages.message_utils import log_message
-        log_message(self)
+        log_message(action_message)
+        log_message(self)        
 
     def agent_dict(self) -> dict:
         agent_dict = {
