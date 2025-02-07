@@ -34,35 +34,54 @@ class WebscraperAgent(BaseAgent):
         self.handler = WebscraperHandlerFactory.create_handler(self.website)
         super().__init__(agent_id, agent_config)
 
-    async def _get_new_url(self, website) -> str:
+    async def _get_new_urls(self, website, last_bounty_link) -> str:
         """Wait for and return a new report URL."""
         known_urls = self.handler.get_known_urls()
         logger.info(f"Currently tracking {len(known_urls)} known reports")
 
         while True:
             try:
-                latest_url = self.handler.get_latest_report_url()
-                if latest_url not in known_urls:
-                    logger.info(f"Found new report: {latest_url}")
-                    self.handler.save_url_to_file(latest_url)
-                    return latest_url
+                # Get the latest report URLs in the order from newest to oldest
+                latest_urls = self.handler.get_latest_report_urls()
+                new_urls = []
+
+                # Filter out known URLs and save new ones
+                for url in latest_urls:
+                    if url == last_bounty_link:
+                        break
+                    if url not in known_urls:
+                        new_urls.append(url)
+                        logger.info(f"Found new report: {url}")
                 
-                logger.info("No new reports found. Checking again in 60 seconds...")
-                await asyncio.sleep(60)
+                if new_urls:
+                    return new_urls
+                else:
+                    logger.info("No new reports found. Checking again in 60 seconds...")
+                    await asyncio.sleep(60)
                 
             except Exception as e:
                 logger.error(f"Error checking for new reports: {e}")
                 logger.info("Retrying in 60 seconds...")
                 await asyncio.sleep(60)
 
-    async def run(self, messages: List[AgentMessage]) -> AgentMessage:
+    async def run(self, messages: List[AgentMessage]) -> WebscraperMessage:
+        # Get the previous agent message
         prev_agent_message = messages[0]
-        bounty_link = await self._get_new_url(self.website)
-        return self._parse_url(bounty_link, prev_agent_message)
+        last_bounty_link = prev_agent_message.last_bounty_link
+
+        # Get the new bounty links
+        new_bounty_links = await self._get_new_urls(self.website, last_bounty_link)
+        self.last_bounty_link = new_bounty_links[0]
+
+        # Save the new bounty links
+        self.handler.save_urls_to_file(new_bounty_links)
+
+        # Parse the new bounty links
+        return self._parse_urls(new_bounty_links, prev_agent_message)
     
-    def _parse_url(self, bounty_link: str, prev_agent_message: AgentMessage) -> Message:
+    def _parse_urls(self, bounty_links: List[str], prev_agent_message: AgentMessage) -> WebscraperMessage:
         """
-        Parses the extraction url into a WebscraperMessage object.
+        Parses the extraction urls into a WebscraperMessage object.
 
         Args:
             bounty_link (str): The URL to be parsed.
@@ -75,13 +94,12 @@ class WebscraperAgent(BaseAgent):
             TypeError: If url is not a string.
             ExtractionParsingError: If required fields are missing or invalid.
         """
-        if not isinstance(bounty_link, str):
-            raise TypeError("URL must be a string.")
 
         return WebscraperMessage(
             agent_id=self.agent_id,
             message="New URL added to the queue",
-            bounty_link=bounty_link,
+            bounty_links=bounty_links,
+            last_bounty_link=bounty_links[0],
             success=True,
             website=self.website,
             prev=prev_agent_message

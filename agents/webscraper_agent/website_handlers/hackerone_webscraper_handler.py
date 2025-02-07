@@ -1,4 +1,4 @@
-import os
+from typing import List
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -9,24 +9,25 @@ class HackeroneWebscraperHandler(WebscraperBaseHandler):
     def __init__(self):
         super().__init__('hackerone')
         
-    def get_latest_report_url(self) -> str:
+    def get_latest_report_urls(self) -> List[str]:
         driver = webdriver.Chrome(options=self.chrome_options)
         try:
             driver.get("https://hackerone.com/hacktivity?querystring=&filter=type:public&order_direction=DESC&order_field=latest_disclosable_activity_at")
             wait = WebDriverWait(driver, 10)
-            bounty_links = wait.until(
+            report_links = wait.until(
                 EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[href*='/reports/']"))
             )
 
-            # Get first valid report URL
-            for link in bounty_links:
-                bounty_url = link.get_attribute('href')
-                if bounty_url and '/reports/' in bounty_url:
-                    if not bounty_url.startswith('https://hackerone.com'):
-                        bounty_url = 'https://hackerone.com' + bounty_url
-                    return bounty_url
+            # Get the latest report URLsL
+            bounty_links = []
+            for link in report_links:
+                bounty_link = link.get_attribute('href')
+                if bounty_link and '/reports/' in bounty_link:
+                    if not bounty_link.startswith('https://hackerone.com'):
+                        bounty_link = 'https://hackerone.com' + bounty_link
+                    bounty_links.append(bounty_link)
 
-            raise Exception("No valid bounty links found")
+            return bounty_links
 
         except Exception as e:
             raise Exception(f"Error scraping HackerOne: {str(e)}")
