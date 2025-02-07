@@ -1,16 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+<<<<<<< HEAD
 import Box from '@mui/material/Box';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Routes, Route, Navigate } from 'react-router';
+=======
+import { Box } from '@mui/material';
+>>>>>>> b06b1c5 (Log viewer)
 import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
 import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
 import { AppHeader } from './components/AppHeader/AppHeader';
 import { darkTheme } from './theme';
 import './App.css';
+<<<<<<< HEAD
 import HomePage from './components/HomePage/HomePage';
+=======
+import { Routes, Route } from 'react-router-dom';
+import LogViewer from './components/LogViewer/LogViewer';
+>>>>>>> b06b1c5 (Log viewer)
 
 function App() {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
@@ -134,6 +143,7 @@ function App() {
                   showInvalidWorkflowToast={showInvalidWorkflowToast}
                 />} 
             />
+            <Route path="/history-logs" element={<LogViewer />} />
             {/* Fallback route */}
             <Route path='*' element={<Navigate to="/" />} />
           </Routes>
