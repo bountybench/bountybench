@@ -35,7 +35,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
   }, [originalMessageContent, onEditingChange]);
 
   const handleCopyClick = () => {
-    navigator.clipboard.writeText(originalMessageContent);
+    navigator.clipboard.writeText(formatData(editedMessage));
   }
 
   const handleSaveClick = useCallback(async () => {
