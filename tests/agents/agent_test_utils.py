@@ -107,7 +107,15 @@ class EnvPath():
         cls.EXPLOIT_FILES_DIR_NAME = exploit_files_dir_name
 
 # Setup bounties and initialize needed resources for all agent tests once
-def bounty_setup(repo_name: str, bounty_number: int) -> EnvPath:
+def bounty_setup(
+        repo_name: str,
+        bounty_number: int,
+        init_files=True,
+        repo_resource=True,
+        bounty_resource=True,
+        kali_env_resource=True,
+        docker=True,
+) -> EnvPath:
     # Initialize EnvPath enum for use in tests
     env_path = EnvPath(repo_name, bounty_number)
 
@@ -120,37 +128,57 @@ def bounty_setup(repo_name: str, bounty_number: int) -> EnvPath:
     vulnerable_commit = bounty_metadata['vulnerable_commit']
 
 
-    # Configurations
-    init_config = InitFilesResourceConfig(
-        task_dir=env_path.TASK_DIR,
-        files_dir_name=env_path.CODEBASE_FILES_DIR_NAME,
-        tmp_dir_name=env_path.TMP_DIR_NAME,
-        bounty_number=bounty_number,
-        exploit_files_dir_name=env_path.EXPLOIT_FILES_DIR_NAME,
-        vulnerable_commit=vulnerable_commit,
-    )
-    setup_config = SetupResourceConfig(
-        bounty_level_setup=False,
-        task_dir=env_path.TASK_DIR,
-        bounty_number=bounty_number
-    )
-    kali_env_config = KaliEnvResourceConfig(
-        task_dir=env_path.TASK_DIR,
-        bounty_number=bounty_number,
-        volumes= {
-            os.path.abspath(env_path.TMP_DIR): {"bind": "/app", "mode": "rw"},
-        }, 
-        target_host= repo_metadata["target_host"],
-    )
-    docker_config = DockerResourceConfig()
-    
     # Initialize resources 
+    resources = []
     resource_manager = ResourceManager()
-    resource_manager.register_resource("init_files", InitFilesResource, init_config)
-    resource_manager.register_resource("repo_resource", SetupResource, setup_config)
-    resource_manager.register_resource("kali_env_config", KaliEnvResource, kali_env_config)
-    resource_manager.register_resource("docker", DockerResource, docker_config)
-    resource_manager.initialize_phase_resources(0, ["init_files", "repo_resource", "kali_env_config", "docker"])
+    if init_files:
+        init_config = InitFilesResourceConfig(
+            task_dir=env_path.TASK_DIR,
+            files_dir_name=env_path.CODEBASE_FILES_DIR_NAME,
+            tmp_dir_name=env_path.TMP_DIR_NAME,
+            bounty_number=bounty_number,
+            exploit_files_dir_name=env_path.EXPLOIT_FILES_DIR_NAME,
+            vulnerable_commit=vulnerable_commit,
+        )
+        resources.append("init_files")
+        resource_manager.register_resource("init_files", InitFilesResource, init_config)
+    
+    if repo_resource:
+        repo_config = SetupResourceConfig(
+            bounty_level_setup=False,
+            task_dir=env_path.TASK_DIR,
+            bounty_number=bounty_number
+        )
+        resources.append("repo_resource")
+        resource_manager.register_resource("repo_resource", SetupResource, repo_config)
+    
+    if bounty_resource:
+        bounty_config = SetupResourceConfig(
+            bounty_level_setup=True,
+            task_dir=env_path.TASK_DIR,
+            bounty_number=bounty_number
+        )
+        resources.append("bounty_resource")
+        resource_manager.register_resource("bounty_resource", SetupResource, bounty_config)
+    
+    if kali_env_resource:
+        kali_env_config = KaliEnvResourceConfig(
+            task_dir=env_path.TASK_DIR,
+            bounty_number=bounty_number,
+            volumes= {
+                os.path.abspath(env_path.TMP_DIR): {"bind": "/app", "mode": "rw"},
+            }, 
+            target_host= repo_metadata["target_host"],
+        )
+        resources.append("kali_env")
+        resource_manager.register_resource("kali_env", KaliEnvResource, kali_env_config)
+    
+    if docker:
+        docker_config = DockerResourceConfig()
+        resources.append("docker")
+        resource_manager.register_resource("docker", DockerResource, docker_config)
+    
+    resource_manager.initialize_phase_resources(0, resources)
 
     return env_path
 
@@ -161,6 +189,18 @@ def lunary_bounty_0_setup():
     yield bounty_setup(
         repo_name=repo_name,
         bounty_number=bounty_number,
+        bounty_resource=False,
+    )
+
+@pytest.fixture(scope="session")
+def agentscope_bounty_0_setup():
+    repo_name = "agentscope"
+    bounty_number = 0
+    yield bounty_setup(
+        repo_name=repo_name,
+        bounty_number=bounty_number,
+        kali_env=False,
+        task_resource=False,
     )
 
 def write_to_file_and_make_executable(script_path: Path, exit_code: int):
