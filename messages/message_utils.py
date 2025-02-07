@@ -46,10 +46,12 @@ def register_message(message: Message):
 
     message_dict[message.workflow_id][message.id] = message
 
-    
+
 def log_message(message: Message):
     if not message.workflow_id:
-        logger.info(f"No associated workflow for {type(message)} message {message.id}, skipping logging")
+        logger.debug(
+            f"No associated workflow for {type(message)} message {message.id}, skipping logging"
+        )
         return
 
     # Initialize dict for new workflows
@@ -59,8 +61,6 @@ def log_message(message: Message):
     message_dict[message.workflow_id][message.id] = message
 
     broadcast_update(message)
-    if should_log(message):  
+    if should_log(message):
         workflow_id = message.workflow_id
-        #if hasattr(message_dict[workflow_id][message.id], "save"):
-        #message_dict[workflow_id][message.id].save()
         message_dict[workflow_id][workflow_id].save()
