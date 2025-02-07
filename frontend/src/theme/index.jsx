@@ -4,7 +4,7 @@ export const darkTheme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#4760ff',
+      main: '#90caf9',
     },
     secondary: {
       main: '#ce93d8',
@@ -25,6 +25,9 @@ export const darkTheme = createTheme({
     info: {
       main: '#29b6f6',
     },
+    primaryDark: {
+      main: '#1E90FF'
+    }
   },
   typography: {
     fontFamily: '"Roboto Mono", monospace',
