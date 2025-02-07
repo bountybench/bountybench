@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Switch, FormControl, Select, MenuItem } from '@mui/material';
+import { useNavigate } from 'react-router';
 
 export const AppHeader = ({
   onInteractiveModeToggle,
@@ -17,21 +18,24 @@ export const AppHeader = ({
   const [selectedModelName, setSelectedModelName] = useState('');
   
 
-    // Fetch available models
-    useEffect(() => {
-      const fetchModels = async () => {
-        try {
-          const response = await fetch('http://localhost:8000/workflow/allmodels');
-          const models = await response.json();
+  // Initialize navigate
+  const navigate = useNavigate();
 
-          setModelMapping(models.allModels);
-          console.log(models.allModels)
-        } catch (err) {
-          console.log('Failed to fetch models. Make sure the backend server is running.');
-        }
-      };
-      fetchModels();
-    }, []);
+  // Fetch available models
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/workflow/allmodels');
+        const models = await response.json();
+
+        setModelMapping(models.allModels);
+        console.log(models.allModels)
+      } catch (err) {
+        console.log('Failed to fetch models. Make sure the backend server is running.');
+      }
+    };
+    fetchModels();
+  }, []);
     
   // Extracting modelTypes (prefixes) whenever modelMapping changes
   const allModelTypes = [...new Set(modelMapping.map(model => model.name.split('/')[0]))];
@@ -62,7 +66,12 @@ export const AppHeader = ({
     }
 
   };
-
+  
+  // Navigate to home when Workflow Agent is clicked
+  const handleHeaderClick = () => {
+    navigate('/'); // Navigate to the homepage
+  };
+  
   return (
     <Box 
       display="flex" 
@@ -72,7 +81,12 @@ export const AppHeader = ({
       bgcolor="#266798"
       borderBottom="1px solid #444"
     >
-      <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+      <Typography 
+        variant="h6" 
+        component="div" 
+        sx={{ flexGrow: 1, cursor: 'pointer' }} 
+        onClick={handleHeaderClick} 
+      >
         Workflow Agent
       </Typography>
       <Box display="flex" alignItems="center">
