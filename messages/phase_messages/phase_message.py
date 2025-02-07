@@ -3,14 +3,14 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
 class PhaseMessage(Message):
-    def __init__(self, phase_id: str, prev: 'PhaseMessage' = None) -> None:
+    def __init__(self, phase_id: str, prev: 'PhaseMessage' = None, attrs: dict = None) -> None:
         self._phase_id = phase_id
         self._success = False
         self._complete = False
         self._summary = "incomplete"
         self._agent_messages = []
         self._phase_summary = None
-        super().__init__(prev)
+        super().__init__(prev=prev, attrs=attrs)
 
     @property
     def phase_id(self) -> str:
@@ -84,3 +84,26 @@ class PhaseMessage(Message):
         base_dict = super().to_dict()
         phase_dict.update(base_dict)
         return phase_dict
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> 'PhaseMessage':
+        attrs = {
+            "_prev": data.get("prev", None),  
+            "_next": data.get("next", None),
+            "_version_prev": data.get("version_prev", None),
+            "_version_next": data.get("version_next", None),
+            "_parent": data.get("parent", None),
+            "_id": data.get("current_id", None),
+            "timestamp": data.get("timestamp", None),
+        }
+        phase_message = cls(phase_id=data['phase_id'], attrs=attrs)
+
+        phase_message._success = data.get('success')
+        phase_message._complete = data.get('complete')
+        phase_message._summary = data.get('phase_summary')
+
+        for agent_data in data['agent_messages']:
+            agent_message = AgentMessage.from_dict(agent_data)
+            phase_message.add_agent_message(agent_message)
+
+        return phase_message

@@ -2,12 +2,12 @@ from messages.message import Message
 from typing import Dict, Any, Optional
 
 class ActionMessage(Message):
-    def __init__(self, resource_id: str, message: str, additional_metadata: Optional[Dict[str, Any]] = {}, prev: 'ActionMessage' = None) -> None:
+    def __init__(self, resource_id: str, message: str, additional_metadata: Optional[Dict[str, Any]] = {}, prev: 'ActionMessage' = None, attrs: dict = None) -> None:
         self._resource_id = resource_id
         self._message = message
         self._additional_metadata = additional_metadata
 
-        super().__init__(prev)
+        super().__init__(prev=prev, attrs=attrs)
 
     @property
     def resource_id(self) -> str:
@@ -50,3 +50,22 @@ class ActionMessage(Message):
         base_dict = super().to_dict() 
         action_dict.update(base_dict)
         return action_dict
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> 'ActionMessage':
+        attrs = {
+            "_prev": data.get("prev", None),  
+            "_next": data.get("next", None),
+            "_version_prev": data.get("version_prev", None),
+            "_version_next": data.get("version_next", None),
+            "_parent": data.get("parent", None),
+            "_id": data.get("current_id", None),
+            "timestamp": data.get("timestamp", None),
+        }
+        
+        return cls(
+            resource_id=data['resource_id'],
+            message=data['message'],
+            additional_metadata=data.get('additional_metadata', {}),
+            attrs=attrs
+        )

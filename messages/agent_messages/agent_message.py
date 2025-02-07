@@ -6,12 +6,12 @@ from messages.message import Message
 
 class AgentMessage(Message):
     
-    def __init__(self, agent_id: str, message: Optional[str] = "", prev: 'AgentMessage' = None) -> None:
+    def __init__(self, agent_id: str, message: Optional[str] = "", prev: 'AgentMessage' = None, attrs: dict = None) -> None:
         self._message = message
         self._agent_id = agent_id
         self._action_messages = []
 
-        super().__init__(prev)
+        super().__init__(prev=prev, attrs=attrs)
 
 
     @property
@@ -76,3 +76,23 @@ class AgentMessage(Message):
         base_dict = super().to_dict() 
         agent_dict.update(base_dict)
         return agent_dict
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> 'AgentMessage':        
+        attrs = {
+            "_prev": data.get("prev", None),  
+            "_next": data.get("next", None),
+            "_version_prev": data.get("version_prev", None),
+            "_version_next": data.get("version_next", None),
+            "_parent": data.get("parent", None),
+            "_id": data.get("current_id", None),
+            "timestamp": data.get("timestamp", None),
+        }
+        agent_message = cls(agent_id=data['agent_id'], message=data['message'], attrs=attrs)
+        
+        action_messages = data.get('action_messages') if data.get('action_messages') else []
+        for action_data in action_messages:
+            action_message = ActionMessage.from_dict(action_data)
+            agent_message.add_action_message(action_message)
+
+        return agent_message

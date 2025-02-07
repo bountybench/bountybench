@@ -3,7 +3,7 @@ import time
 
 class Message(ABC): 
 
-    def __init__(self, prev: 'Message' = None) -> None:
+    def __init__(self, prev: 'Message' = None, attrs: dict = None) -> None:
         self._prev = prev
         if prev is not None and hasattr(prev, 'set_next'):
             prev.set_next(self)
@@ -15,8 +15,20 @@ class Message(ABC):
         
         self.timestamp = time.strftime('%Y-%m-%dT%H:%M:%S%z')
         self._id = str(id(self))
+        
+        if attrs:
+            self._initialize_from_dict(attrs)
+
         from messages.message_utils import register_message
         register_message(self)
+
+    def _initialize_from_dict(self, attrs: dict) -> None:
+        # Set each attribute based on the dictionary, if it exists
+        self._prev = attrs.get("prev", None)
+        self._next = attrs.get("next", None)
+        self._version_prev = attrs.get("version_prev", None)
+        self._version_next = attrs.get("version_next", None)
+        self.timestamp = attrs.get("timestamp", self.timestamp)  # Use existing timestamp if not provided
 
     @property 
     def workflow_id(self) -> str:
