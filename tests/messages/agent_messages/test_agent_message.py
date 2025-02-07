@@ -1,13 +1,14 @@
-import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
 import asyncio
+import unittest
+from unittest.mock import MagicMock, PropertyMock, patch
 
-from messages.agent_messages.agent_message import AgentMessage
+from agents.agent_manager import AgentManager
 from messages.action_messages.action_message import ActionMessage
+from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 from messages.rerun_manager import RerunManager
-from agents.agent_manager import AgentManager
 from resources.resource_manager import ResourceManager
+
 
 class TestAgentMessage(unittest.TestCase):
 
@@ -83,9 +84,15 @@ class TestAgentMessage(unittest.TestCase):
         Test agent_dict method.
         """
         # Mock to_dict for action messages
-        with patch.object(AgentMessage, 'action_messages', new_callable=PropertyMock) as mock_action_messages, \
-             patch.object(AgentMessage, 'current_actions_list', new_callable=PropertyMock) as mock_current_actions_list:
-            
+        with (
+            patch.object(
+                AgentMessage, "action_messages", new_callable=PropertyMock
+            ) as mock_action_messages,
+            patch.object(
+                AgentMessage, "current_actions_list", new_callable=PropertyMock
+            ) as mock_current_actions_list,
+        ):
+
             action_message = MagicMock(spec=ActionMessage)
             action_message.to_dict.return_value = {"action": "msg"}
             mock_action_messages.return_value = [action_message]
@@ -107,12 +114,14 @@ class TestAgentMessage(unittest.TestCase):
         """
         Test to_dict method.
         """
-        with patch.object(Message, 'to_dict') as mock_super_to_dict, \
-             patch.object(AgentMessage, 'agent_dict') as mock_agent_dict:
-            
+        with (
+            patch.object(Message, "to_dict") as mock_super_to_dict,
+            patch.object(AgentMessage, "agent_dict") as mock_agent_dict,
+        ):
+
             mock_super_to_dict.return_value = {"super_key": "super_value"}
             mock_agent_dict.return_value = {"agent_key": "agent_value"}
-            
+
             agent_message = AgentMessage("test_id", "test_msg")
             agent_dict = agent_message.to_dict()
 
@@ -121,3 +130,66 @@ class TestAgentMessage(unittest.TestCase):
             self.assertEqual(agent_dict["agent_key"], "agent_value")
             mock_super_to_dict.assert_called_once()
             mock_agent_dict.assert_called_once()
+
+    # Sample test data for ActionMessage
+    def create_action_message_dict(
+        self, resource_id, message, additional_metadata=None
+    ):
+        return {
+            "resource_id": resource_id,
+            "message": message,
+            "additional_metadata": additional_metadata or {},
+            "prev": None,
+            "next": None,
+            "version_prev": None,
+            "version_next": None,
+            "parent": None,
+            "current_id": str(id(message)),
+            "timestamp": "2023-10-01T12:00:00Z",
+        }
+
+    # Sample test case for AgentMessage from_dict method
+    def test_agent_message_from_dict(self):
+        # Prepare test data with action messages
+        action_message_dict1 = self.create_action_message_dict(
+            "resource-1", "Action 1", {"key": "value"}
+        )
+        action_message_dict2 = self.create_action_message_dict("resource-2", "Action 2")
+
+        # Prepare the main AgentMessage dict
+        agent_message_data = {
+            "agent_id": "agent-1",
+            "message": "Agent message content",
+            "prev": None,
+            "next": None,
+            "version_prev": None,
+            "version_next": None,
+            "parent": None,
+            "current_id": str(id("agent-1")),
+            "timestamp": "2023-10-01T12:00:00Z",
+            "action_messages": [action_message_dict1, action_message_dict2],
+        }
+
+        # Create an AgentMessage instance using from_dict
+        agent_message = AgentMessage.from_dict(agent_message_data)
+
+        # Assertions to verify the properties of the created AgentMessage
+        assert agent_message.agent_id == "agent-1"
+        assert agent_message.message == "Agent message content"
+        assert len(agent_message.action_messages) == 2
+
+        # Verify the first action message
+        action_message1 = agent_message.action_messages[0]
+        assert action_message1.resource_id == "resource-1"
+        assert action_message1.message == "Action 1"
+        assert action_message1.additional_metadata == {"key": "value"}
+
+        # Verify the second action message
+        action_message2 = agent_message.action_messages[1]
+        assert action_message2.resource_id == "resource-2"
+        assert action_message2.message == "Action 2"
+        assert action_message2.additional_metadata == {}
+
+        # Verify the integrity of previous and next properties (None)
+        assert agent_message.prev is None
+        assert agent_message.next is None

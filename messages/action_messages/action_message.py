@@ -62,19 +62,19 @@ class ActionMessage(Message):
 
     @classmethod
     def from_dict(cls, data: dict) -> "ActionMessage":
-        attrs = {
-            "_prev": data.get("prev", None),
-            "_next": data.get("next", None),
-            "_version_prev": data.get("version_prev", None),
-            "_version_next": data.get("version_next", None),
-            "_parent": data.get("parent", None),
-            "_id": data.get("current_id", None),
-            "timestamp": data.get("timestamp", None),
-        }
-
-        return cls(
+        action_message = cls(
             resource_id=data["resource_id"],
             message=data["message"],
-            additional_metadata=data.get("additional_metadata", {}),
-            attrs=attrs,
+            additional_metadata=data.get("additional_metadata"),
+            attrs={
+                "prev": data.get("prev"),
+                "next": data.get("next"),
+                "version_prev": data.get("version_prev"),
+                "version_next": data.get("version_next"),
+                "parent": data.get("parent"),
+                "current_id": data.get("current_id"),
+                "timestamp": data.get("timestamp"),
+            },
         )
+
+        return action_message

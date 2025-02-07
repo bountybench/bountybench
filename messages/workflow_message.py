@@ -104,20 +104,18 @@ class WorkflowMessage(Message):
     def from_dict(cls, data: dict) -> "WorkflowMessage":
         workflow_message = cls(
             workflow_name=data["workflow_metadata"]["workflow_name"],
-            workflow_id=data["workflow_id"],
-            task=data["workflow_metadata"]["task"],
-            additional_metadata=data["additional_metadata"],
+            workflow_id=data.get("workflow_id"),
+            task=data["workflow_metadata"].get("task"),
+            additional_metadata=data.get("additional_metadata"),
         )
-
         workflow_message._summary = data["workflow_metadata"]["workflow_summary"]
-        workflow_message._start_time = data["start_time"]
-        workflow_message._end_time = data["end_time"]
-        workflow_message.agents_used = data["agents_used"]
-        workflow_message.resources_used = data["resources_used"]
+        workflow_message._start_time = data.get("start_time")
+        workflow_message._end_time = data.get("end_time")
+        workflow_message.agents_used = data.get("agents_used", {})
+        workflow_message.resources_used = data.get("resources_used", {})
 
-        for phase_data in data["phase_messages"]:
-            phase_message = PhaseMessage.from_dict(phase_data)
-            workflow_message.add_phase_message(phase_message)
+        for phase_data in data.get("phase_messages", []):
+            workflow_message.add_phase_message(PhaseMessage.from_dict(phase_data))
 
         return workflow_message
 

@@ -105,22 +105,24 @@ class PhaseMessage(Message):
 
     @classmethod
     def from_dict(cls, data: dict) -> "PhaseMessage":
-        attrs = {
-            "_prev": data.get("prev", None),
-            "_next": data.get("next", None),
-            "_version_prev": data.get("version_prev", None),
-            "_version_next": data.get("version_next", None),
-            "_parent": data.get("parent", None),
-            "_id": data.get("current_id", None),
-            "timestamp": data.get("timestamp", None),
-        }
-        phase_message = cls(phase_id=data["phase_id"], attrs=attrs)
+        phase_message = cls(
+            phase_id=data["phase_id"],
+            attrs={
+                "prev": data.get("prev"),
+                "next": data.get("next"),
+                "version_prev": data.get("version_prev"),
+                "version_next": data.get("version_next"),
+                "parent": data.get("parent"),
+                "current_id": data.get("current_id"),
+                "timestamp": data.get("timestamp"),
+            },
+        )
 
         phase_message._success = data.get("success")
         phase_message._complete = data.get("complete")
         phase_message._summary = data.get("phase_summary")
 
-        for agent_data in data["agent_messages"]:
+        for agent_data in data.get("agent_messages", []):
             agent_message = AgentMessage.from_dict(agent_data)
             phase_message.add_agent_message(agent_message)
 

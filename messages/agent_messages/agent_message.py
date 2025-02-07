@@ -99,23 +99,21 @@ class AgentMessage(Message):
 
     @classmethod
     def from_dict(cls, data: dict) -> "AgentMessage":
-        attrs = {
-            "_prev": data.get("prev", None),
-            "_next": data.get("next", None),
-            "_version_prev": data.get("version_prev", None),
-            "_version_next": data.get("version_next", None),
-            "_parent": data.get("parent", None),
-            "_id": data.get("current_id", None),
-            "timestamp": data.get("timestamp", None),
-        }
         agent_message = cls(
-            agent_id=data["agent_id"], message=data["message"], attrs=attrs
+            agent_id=data["agent_id"],
+            message=data["message"],
+            attrs={
+                "prev": data.get("prev"),
+                "next": data.get("next"),
+                "version_prev": data.get("version_prev"),
+                "version_next": data.get("version_next"),
+                "parent": data.get("parent"),
+                "current_id": data.get("current_id"),
+                "timestamp": data.get("timestamp"),
+            },
         )
 
-        action_messages = (
-            data.get("action_messages") if data.get("action_messages") else []
-        )
-        for action_data in action_messages:
+        for action_data in data.get("action_messages", []):
             action_message = ActionMessage.from_dict(action_data)
             agent_message.add_action_message(action_message)
 

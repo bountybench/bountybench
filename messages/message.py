@@ -3,18 +3,15 @@ from abc import ABC
 
 
 class Message(ABC):
-
     def __init__(self, prev: "Message" = None, attrs: dict = None) -> None:
         self._prev = prev
-        if prev is not None and hasattr(prev, "set_next"):
+        if prev and hasattr(prev, "set_next"):
             prev.set_next(self)
-
         self._next = None
         self._version_prev = None
         self._version_next = None
         self._parent = None
-
-        self.timestamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+        self._timestamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
         self._id = str(id(self))
 
         if attrs:
@@ -24,15 +21,23 @@ class Message(ABC):
 
         register_message(self)
 
+    @classmethod
     def _initialize_from_dict(self, attrs: dict) -> None:
-        # Set each attribute based on the dictionary, if it exists
-        self._prev = attrs.get("prev", None)
-        self._next = attrs.get("next", None)
-        self._version_prev = attrs.get("version_prev", None)
-        self._version_next = attrs.get("version_next", None)
-        self.timestamp = attrs.get(
-            "timestamp", self.timestamp
-        )  # Use existing timestamp if not provided
+        for key, value in attrs.items():
+            setattr(self, f"_{key}", value)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Message":
+        attrs = {
+            "prev": data.get("prev"),
+            "next": data.get("next"),
+            "version_prev": data.get("version_prev"),
+            "version_next": data.get("version_next"),
+            "parent": data.get("parent"),
+            "current_id": data.get("current_id"),
+            "timestamp": data.get("timestamp"),
+        }
+        return cls(attrs=attrs)
 
     @property
     def workflow_id(self) -> str:
@@ -53,6 +58,10 @@ class Message(ABC):
     @property
     def version_next(self) -> str:
         return self._version_next
+
+    @property
+    def timestamp(self) -> str:
+        return self._timestamp
 
     def get_latest_version(self, message):
         while message.version_next:
