@@ -39,13 +39,6 @@ async def _broadcast_update_async(workflow_id: str, data: dict):
     except Exception as e:
         logger.error(f"Exception: {e}")
 
-
-def register_message(message: Message):
-    if message.workflow_id not in message_dict:
-        message_dict[message.workflow_id] = {}
-
-    message_dict[message.workflow_id][message.id] = message
-
     
 def log_message(message: Message):
     if not message.workflow_id:
@@ -61,6 +54,4 @@ def log_message(message: Message):
     broadcast_update(message)
     if should_log(message):  
         workflow_id = message.workflow_id
-        #if hasattr(message_dict[workflow_id][message.id], "save"):
-        #message_dict[workflow_id][message.id].save()
         message_dict[workflow_id][workflow_id].save()
