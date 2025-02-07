@@ -16,6 +16,7 @@ class ActionMessage(Message):
         self._message = message
         self._additional_metadata = additional_metadata
 
+        self._memory = None
         super().__init__(prev=prev, attrs=attrs)
 
     @property
@@ -35,6 +36,15 @@ class ActionMessage(Message):
     @property
     def additional_metadata(self) -> str:
         return self._additional_metadata
+    
+    @property
+    def memory(self): 
+        return self._memory
+
+    @memory.setter
+    def memory(self, x: str): 
+        """This should only be set by the MemoryResource."""
+        self._memory = x
 
     def action_dict(self) -> dict:
         action_dict = {
