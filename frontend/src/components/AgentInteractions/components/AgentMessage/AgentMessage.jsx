@@ -10,6 +10,7 @@ import { formatData } from '../../utils/messageFormatters';
 import './AgentMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { CopyButton } from '../buttons/CopyButton';
 
 const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onPhaseChildUpdate, phaseDisplayedIndex, phaseVersionLength }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
@@ -32,6 +33,10 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     onEditingChange(true);
     setEditedMessage(originalMessageContent);
   }, [originalMessageContent, onEditingChange]);
+
+  const handleCopyClick = () => {
+    navigator.clipboard.writeText(originalMessageContent);
+  }
 
   const handleSaveClick = useCallback(async () => {
     if (!message.current_id) {
@@ -168,6 +173,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                       onChange={(e) => setEditedMessage(e.target.value)}
                     />
                     <Box className="message-buttons">
+                      <CopyButton onClick={handleCopyClick} />
                       <Button
                         variant="outlined"
                         color="secondary"
@@ -202,6 +208,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                       </Typography>
                     </Card>
                     <Box className="message-buttons">
+                      <CopyButton onClick={handleCopyClick} />
                       <Button
                         variant="outlined"
                         color="primary"

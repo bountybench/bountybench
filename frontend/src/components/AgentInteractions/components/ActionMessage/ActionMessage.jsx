@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ContentCopyIcon from "@mui/icons-material/ContentCopy"; 
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
+import { CopyButton } from '../buttons/CopyButton';
 import './ActionMessage.css';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -126,12 +126,6 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     setExpanded(!expanded);
   };
 
-  const CopyButton = () => (
-		<Button variant='outlined' color='primary' onClick={handleCopyClick} size='small' aria-label='copy' className='copy-button'>
-			<ContentCopyIcon />
-		</Button>
-	);
-
   const handleContainerClick = (e) => {
     e.stopPropagation();
     onCellSelect(action.current_id);
@@ -181,7 +175,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
             />
           </Box>
           <Box className="message-buttons" sx={{ display: 'flex' }}>
-            <CopyButton />
+            <CopyButton onClick={handleCopyClick} />
             <Button
               variant="outlined"
               color="secondary"
@@ -213,7 +207,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
               </Typography>
             </Box>
             <Box className="message-buttons" sx={{ display: 'flex' }}>
-              <CopyButton />
+            <CopyButton onClick={handleCopyClick} />
               <Button
                 variant="outlined"
                 color="primary"
