@@ -56,7 +56,7 @@ class WorkflowMessage(Message):
         self._summary = summary
 
     def add_phase_message(self, phase_message: PhaseMessage):
-        self._phase_messages.append(phase_message)  
+        self._phase_messages.append(phase_message)
         phase_message.set_parent(self)
 
     def add_agent(self, agent_name: str, agent) -> None:        

@@ -10,6 +10,7 @@ class AgentMessage(Message):
         self._message = message
         self._agent_id = agent_id
         self._action_messages = []
+        self._memory = None 
 
         super().__init__(prev)
 
@@ -54,6 +55,15 @@ class AgentMessage(Message):
                 current_actions.append(current_message)
             
         return current_actions
+    
+    @property
+    def memory(self): 
+        return self._memory
+
+    @memory.setter
+    def memory(self, x: str): 
+        """This should only be set by the MemoryResource."""
+        self._memory = x
     
     def add_action_message(self, action_message: ActionMessage):
         self._action_messages.append(action_message)
