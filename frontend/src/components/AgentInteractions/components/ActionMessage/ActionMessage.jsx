@@ -180,7 +180,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
               fullWidth
             />
           </Box>
-          <Box className="message-buttons" sx={{ display: isEditing && !editing ? 'none' : 'flex' }}>
+          <Box className="message-buttons" sx={{ display: 'flex' }}>
             <CopyButton />
             <Button
               variant="outlined"
