@@ -70,6 +70,7 @@ class PhaseMessage(Message):
         self._agent_messages.append(agent_message)
         agent_message.set_parent(self)
         from messages.message_utils import log_message
+        log_message(agent_message)
         log_message(self)
 
 
