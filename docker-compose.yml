@@ -1,11 +1,10 @@
-version: '3.8'
-
 services:
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     container_name: backend-service
+    privileged: true
     ports:
       - "8000:8000"
     volumes:
@@ -23,8 +22,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile.frontend
+      context: .
+      dockerfile: frontend/Dockerfile.frontend
     container_name: frontend-service
     ports:
       - "3000:3000"

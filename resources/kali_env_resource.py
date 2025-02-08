@@ -42,6 +42,7 @@ def timeout_context(seconds):
 # Constants with type annotations
 DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
+DOCKER_CLIENT_INIT_TIMEOUT: int = 300
 
 TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
@@ -76,7 +77,7 @@ class KaliEnvResource(BaseResource):
     def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
         super().__init__(resource_id, config)
         
-        self.client = docker.from_env()
+        self.client = docker.from_env(timeout=DOCKER_CLIENT_INIT_TIMEOUT)
         self.container = self._start(self.resource_id, self._resource_config.volumes)
         
         if self.container.status != "running":
@@ -155,8 +156,10 @@ class KaliEnvResource(BaseResource):
                         network="shared_net",
                         volumes=volumes,
                         entrypoint=ENTRYPOINT,
+                        privileged=True,
                         detach=True,
                         name=name,
+                        command=["tail", "-f", "/dev/null"]
 
                     )
                     if not self.wait_for_container(container):
