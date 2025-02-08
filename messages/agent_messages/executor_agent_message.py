@@ -10,11 +10,9 @@ class ExecutorAgentMessage(AgentMessage):
         """
         if self._message:  # If manually set, return it
             return self._message
-
-        aggregated_message = ""
         current_action_messages = self.current_actions_list
         for action_message in current_action_messages:
             if action_message and action_message.message:
-                aggregated_message += action_message.message + "\n"
+                self._message += action_message.message
 
-        return aggregated_message.strip()
+        return self._message
