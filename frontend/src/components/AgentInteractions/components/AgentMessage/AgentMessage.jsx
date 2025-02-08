@@ -61,7 +61,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
   }, [message, onRerunMessage]);
 
   useEffect(() => {
-    setOriginalMessageContent(message.message);
+    setOriginalMessageContent(message?.message);
   }, [message]);
 
   useEffect(() => {
@@ -78,7 +78,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
   
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (selectedCellId === message.current_id) {
+      if (selectedCellId === message?.current_id) {
         if (event.key === 'Escape' && editing) {
           handleCancelEdit();
         }
@@ -103,7 +103,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
   }, [editing, message, handleCancelEdit, handleEditClick, handleSaveClick, handleRerunClick, selectedCellId]);
 
   useEffect(() => {
-    if (message && message.action_messages) {
+    if (message?.action_messages) {
       const messageLength = message.action_messages.length;
       // Make sure that both model and kali_env are received
       if (messageLength % 2 !== 0) {
