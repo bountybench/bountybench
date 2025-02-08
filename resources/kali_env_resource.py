@@ -33,8 +33,6 @@ from contextlib import contextmanager
 def timeout_context(seconds):
     # Check if we're in the main thread
     if threading.current_thread() != threading.main_thread():
-        # In non-main threads, signals don't work.
-        # You could log a warning here if desired.
         yield
     else:
         def signal_handler(signum, frame):
