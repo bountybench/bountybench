@@ -15,3 +15,4 @@ isort==5.13.2
 coverage==7.6.10
 pytest==7.4.4
 pytest-asyncio==0.23.6
+pytest-mock==3.12.0
