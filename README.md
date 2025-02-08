@@ -150,6 +150,10 @@ npm start
 
 This will launch the development server for the frontend.
 
+For a list of API endpoints currently supported, open one of these URLs in your browser:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
 ## Accessing the Application
 
 Once both the backend and frontend are running, you can access the application through your web browser (default `localhost:3000`)

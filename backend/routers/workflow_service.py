@@ -9,7 +9,7 @@ from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeI
 workflow_service_router = APIRouter()
 
 
-@workflow_service_router.post("/workflow/next/{workflow_id}")
+@workflow_service_router.post("/workflow/{workflow_id}/next")
 async def next_message(workflow_id: str, request: Request):
     active_workflows = request.app.state.active_workflows
     if workflow_id not in active_workflows:
@@ -31,7 +31,7 @@ async def next_message(workflow_id: str, request: Request):
 
 
 
-@workflow_service_router.post("/workflow/stop/{workflow_id}")
+@workflow_service_router.post("/workflow/{workflow_id}/stop")
 async def stop_workflow(workflow_id: str, request: Request):
     """
     Stops the execution of a running workflow and removes it from active workflows.
@@ -83,7 +83,7 @@ async def stop_workflow(workflow_id: str, request: Request):
 
 
 
-@workflow_service_router.post("/workflow/rerun-message/{workflow_id}")
+@workflow_service_router.post("/workflow/{workflow_id}/rerun-message")
 async def rerun_message(workflow_id: str, data: MessageData, request: Request):
     active_workflows = request.app.state.active_workflows
     print(f"Rerunning message: {data.message_id}")
@@ -103,7 +103,7 @@ async def rerun_message(workflow_id: str, data: MessageData, request: Request):
         return {"error": str(e), "traceback": error_traceback}
 
 
-@workflow_service_router.post("/workflow/edit-message/{workflow_id}")
+@workflow_service_router.post("/workflow/{workflow_id}/edit-message")
 async def edit_action_input(workflow_id: str, data: MessageInputData, request: Request):
     active_workflows = request.app.state.active_workflows
     print(f"Editing message: {data.message_id}")
@@ -155,7 +155,7 @@ async def update_interactive_mode(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@workflow_service_router.get("/workflow/last-message/{workflow_id}")
+@workflow_service_router.get("/workflow/{workflow_id}/last-message")
 async def last_message(workflow_id: str, request: Request):
     active_workflows = request.app.state.active_workflows
     if workflow_id not in active_workflows:
@@ -314,7 +314,7 @@ async def next_iteration(workflow_id: str, active_workflows):
     else:
         return {"error": "Workflow is not in interactive mode"}
 
-@workflow_service_router.post("/workflow/model-change/{workflow_id}")
+@workflow_service_router.post("/workflow/{workflow_id}/model-change")
 async def change_model(workflow_id: str, data: dict, request: Request):
     active_workflows = request.app.state.active_workflows
     if workflow_id not in active_workflows:

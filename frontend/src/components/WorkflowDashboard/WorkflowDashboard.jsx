@@ -18,7 +18,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
     const checkIfWorkflowExists = async () => {
-      const response = await fetch('http://localhost:8000/workflows/active');
+      const response = await fetch('http://localhost:8000/workflow/active');
       const data = await response.json();
 
       if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
@@ -79,7 +79,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     if (workflowId) {
       setIsNextDisabled(true);
       try {
-        const response = await fetch(`http://localhost:8000/workflow/next/${workflowId}`, {
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/next`, {
           method: 'POST',
         });
         if (!response.ok) {
@@ -98,7 +98,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   };
 
   const handleUpdateMessageInput = async (messageId, newInputData) => {
-    const url = `http://localhost:8000/workflow/edit-message/${workflowId}`;
+    const url = `http://localhost:8000/workflow/${workflowId}/edit-message`;
     const requestBody = { message_id: messageId, new_input_data: newInputData };
     
     console.log('Sending request to:', url);
@@ -129,7 +129,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const handleRerunMessage = async (messageId) => {
     if (workflowId) {
       try {
-        const response = await fetch(`http://localhost:8000/workflow/rerun-message/${workflowId}`, {
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/rerun-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -164,7 +164,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const handleStopWorkflow = async () => {
     if (workflowId) {
       try {
-        const response = await fetch(`http://localhost:8000/workflow/stop/${workflowId}`, {
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/stop`, {
           method: 'POST',
         });
         if (!response.ok) {
