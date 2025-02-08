@@ -1,6 +1,7 @@
 import atexit
 import os
 import sys
+import threading
 import time
 import select
 from typing import Dict, Optional, Tuple
@@ -30,14 +31,20 @@ from contextlib import contextmanager
 
 @contextmanager
 def timeout_context(seconds):
-    def signal_handler(signum, frame):
-        raise TimeoutError("Timed out!")
-    signal.signal(signal.SIGALRM, signal_handler)
-    signal.alarm(seconds)
-    try:
+    # Check if we're in the main thread
+    if threading.current_thread() != threading.main_thread():
+        # In non-main threads, signals don't work.
+        # You could log a warning here if desired.
         yield
-    finally:
-        signal.alarm(0)
+    else:
+        def signal_handler(signum, frame):
+            raise TimeoutError("Timed out!")
+        signal.signal(signal.SIGALRM, signal_handler)
+        signal.alarm(seconds)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
         
 # Constants with type annotations
 DOCKER_IMAGE: str = "cybench/bountyagent:latest"
