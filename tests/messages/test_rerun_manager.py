@@ -1,166 +1,173 @@
 import pytest
-from pytest_asyncio import fixture
+from unittest.mock import Mock, AsyncMock
 import os
-import logging
-from typing import Any, List, Dict, Tuple, Type, Optional
-from agents.base_agent import AgentConfig, BaseAgent
+import asyncio
+from pathlib import Path
+from messages.message import Message
+from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
-from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
-from phases.base_phase import BasePhase
-from resources.base_resource import BaseResource
+from messages.workflow_message import WorkflowMessage
+from messages.rerun_manager import RerunManager
+from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
+from phases.exploit_phase import ExploitPhase
+from agents.agent_manager import AgentManager
+from resources.resource_manager import ResourceManager
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
-from utils.logger import get_main_logger
-from workflows.base_workflow import BaseWorkflow
 
-logger = get_main_logger(__name__)
+@pytest.fixture
+def mock_phase_message():
+    message = PhaseMessage("test_phase")
+    return message
 
-class KaliAgent(BaseAgent):
-    REQUIRED_RESOURCES = [(KaliEnvResource, "kali_env")]
-    ACCESSIBLE_RESOURCES = [(KaliEnvResource, "kali_env")]
-
-    async def run(self, messages: List[AgentMessage]) -> AgentMessage:
-        """Simple implementation that passes through messages"""
-        return messages[-1] if messages else AgentMessage(message="")
-
-class KaliPhase(BasePhase):
-    AGENT_CLASSES = [KaliAgent]
-
-    def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
-        kali_config = AgentConfig()
-        return {"kali_agent": (KaliAgent, kali_config)}
+@pytest.fixture
+def mock_workflow(rerun_manager):
+    workflow = Mock(spec=ExploitAndPatchWorkflow)
+    workflow.name = "TestWorkflow"
+    workflow.task = {}
+    workflow.workflow_message = WorkflowMessage(workflow_name="TestWorkflow", task={})
+    workflow.rerun_manager = rerun_manager
     
-    def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
-        current_dir = os.getcwd()
-        tmp_dir = os.path.join(current_dir, "tmp")
-        os.makedirs(tmp_dir, exist_ok=True)
-        
-        return {
-            "kali_env": (
-                KaliEnvResource,
-                KaliEnvResourceConfig(
-                    task_dir=tmp_dir,
-                    bounty_number="test",
-                    volumes={
-                        os.path.abspath(tmp_dir): {"bind": "/app/workspace", "mode": "rw"}
-                    }
-                )
-            )
+    # Configure mock methods to delegate to rerun_manager
+    async def mock_rerun_message(message_id):
+        messages = {msg.id: msg for msg in workflow.messages}
+        message = messages[message_id]
+        return await rerun_manager.rerun(message)
+    
+    async def mock_edit_and_rerun(message_id, new_data):
+        messages = {msg.id: msg for msg in workflow.messages}
+        message = messages[message_id]
+        edited = await rerun_manager.edit_message(message, new_data)
+        if edited.next:
+            rerun_result = await rerun_manager.rerun(edited)
+            rerun_result.set_version_prev(edited)
+            rerun_result.set_next(edited.next)
+            return rerun_result
+        return edited
+    
+    workflow.rerun_message = AsyncMock(side_effect=mock_rerun_message)
+    workflow.edit_and_rerun_message = AsyncMock(side_effect=mock_edit_and_rerun)
+    workflow.messages = []
+    
+    return workflow
+
+@pytest.fixture
+def mock_agent_manager():
+    agent_manager = AgentManager()
+    agent = AsyncMock()
+    agent.run = AsyncMock(return_value=AgentMessage("test_agent", "new agent message"))
+    agent_manager.get_agent = Mock(return_value=agent)
+    return agent_manager
+
+@pytest.fixture
+def test_dir(tmp_path):
+    """Create a temporary directory for testing"""
+    return tmp_path
+
+@pytest.fixture
+def kali_env(test_dir):
+    """Setup real KaliEnv resource"""
+    config = KaliEnvResourceConfig(
+        task_dir=str(test_dir),
+        bounty_number="0",
+        volumes={
+            str(test_dir): {"bind": "/app", "mode": "rw"},
         }
+    )
+    return KaliEnvResource("kali_env", config)
 
-    async def run_one_iteration(
-        self,
-        phase_message: PhaseMessage,
-        agent_instance: Any,
-        previous_output: Optional[Message]
-    ) -> Message:
-        if previous_output:
-            return previous_output
-        return AgentMessage(message="")
+@pytest.fixture
+def resource_manager(kali_env):
+    """Setup resource manager with mixed mock and real resources"""
+    manager = ResourceManager()
+    # Add the kali_env resource
+    manager._resources.id_to_resource["kali_env"] = kali_env
+    # Setup mock for other resources
+    mock_resource = Mock()
+    mock_resource.run = Mock(return_value=ActionMessage("test_resource", "new message"))
+    manager.get_resource = Mock(side_effect=lambda rid: 
+        kali_env if rid == "kali_env" else mock_resource
+    )
+    return manager
 
-class WorkflowForTest(BaseWorkflow):
-    def _create_phases(self):
-        kali_phase = KaliPhase(workflow=self)
-        self._register_root_phase(kali_phase)
+@pytest.fixture
+def rerun_manager(mock_agent_manager, resource_manager):
+    return RerunManager(mock_agent_manager, resource_manager)
 
-    def _get_initial_prompt(self):
-        return ""
-
-    def _get_task(self):
-        return {}
-
-@pytest.fixture(scope="session", autouse=True)
-def manage_logging():
-    """Configure logging for tests"""
-    root_logger = logging.getLogger()
-    original_level = root_logger.level
-    original_handlers = root_logger.handlers.copy()
-    
-    root_logger.setLevel(logging.INFO)
-    null_handler = logging.NullHandler()
-    root_logger.addHandler(null_handler)
-    
-    yield
-    
-    try:
-        for handler in root_logger.handlers[:]:
-            handler.flush()
-            handler.close()
-            root_logger.removeHandler(handler)
-            
-        root_logger.setLevel(original_level)
-        for handler in original_handlers:
-            root_logger.addHandler(handler)
-    except:
-        pass
-
-@pytest.mark.asyncio
 class TestRerunManager:
-    @fixture
-    async def workflow(self) -> WorkflowForTest:
-        """Create and setup a workflow instance for testing"""
-        test_workflow = WorkflowForTest()
-        try:
-            yield test_workflow
-        finally:
-            self._cleanup_tmp_directory()
 
-    def _cleanup_tmp_directory(self):
-        """Helper to clean up the temporary directory"""
-        try:
-            current_dir = os.getcwd()
-            tmp_dir = os.path.join(current_dir, "tmp")
-            if os.path.exists(tmp_dir):
-                for item in os.listdir(tmp_dir):
-                    path = os.path.join(tmp_dir, item)
-                    try:
-                        if os.path.isfile(path):
-                            os.remove(path)
-                        elif os.path.isdir(path):
-                            import shutil
-                            shutil.rmtree(path)
-                    except Exception as e:
-                        print(f"Error cleaning up {path}: {e}")
-        except Exception as e:
-            print(f"Error during cleanup: {e}")
+    @pytest.mark.asyncio
+    async def test_rerun_action_message(self, rerun_manager):
+        """Test direct rerun of action message"""
+        action_msg = ActionMessage("test_resource", "test message")
+        next_msg = ActionMessage("test_resource", "next message")
+        action_msg.set_next(next_msg)
+        
+        result = await rerun_manager.rerun(action_msg)
+        assert isinstance(result, ActionMessage)
+        assert result.message == "new message"
 
-    async def test_basic_io(self, workflow: WorkflowForTest):
-        """Test basic input/output functionality"""
-        workflow._current_phase = workflow._root_phase
-        phase_instance = workflow._current_phase.setup()
-        kali = workflow.resource_manager.get_resource("kali_env")
+    @pytest.mark.asyncio
+    async def test_edit_message_version_chain(self, rerun_manager):
+        """Test version chain is maintained after edit"""
+        msg = ActionMessage("test_resource", "original")
+        edited = await rerun_manager.edit_message(msg, "edited")
+        
+        assert edited.version_prev == msg
+        assert edited.message == "edited"
+        assert msg.version_next == edited
 
-        # Test echo command
-        cmd = "Command: cd /app/workspace && echo 'test message'"
-        result = kali.run(CommandMessage(resource_id="", message=cmd))
-        assert "test message" in result.message, "Basic echo command failed"
+    @pytest.mark.asyncio
+    async def test_real_command_rerun(self, rerun_manager, test_dir):
+        """Test rerunning real commands with file system effects"""
+        # Initial command to create a file
+        cmd1 = CommandMessage("kali_env", "Command: echo 'line1' > test.txt")
+        result = rerun_manager.resource_manager.get_resource("kali_env").run(cmd1)
+        
+        # Verify file was created
+        file_path = test_dir / "test.txt"
+        assert file_path.exists()
+        assert file_path.read_text().strip() == "line1"
+        
+        # Edit the command and rerun
+        new_cmd = "Command: echo 'edited' >> test.txt"
+        edited_msg = await rerun_manager.edit_message(cmd1, new_cmd)
+        result = await rerun_manager.rerun(edited_msg)
+        
+        # Verify file content includes both lines
+        content = file_path.read_text().splitlines()
+        assert len(content) == 2
+        assert content[0].strip() == "line1"
+        assert content[1].strip() == "edited"
 
-        # Test file write and read
-        cmd = "Command: cd /app/workspace && echo 'test data' > test.txt && cat test.txt"
-        result = kali.run(CommandMessage(resource_id="", message=cmd))
-        assert "test data" in result.message, "File write/read failed"
+    @pytest.mark.asyncio
+    async def test_command_chain_rerun(self, rerun_manager, test_dir):
+        """Test rerunning a chain of dependent commands"""
+        # Setup command chain
+        cmd1 = CommandMessage("kali_env", "Command: mkdir -p test_dir")
+        cmd2 = CommandMessage("kali_env", "Command: echo 'content' > test_dir/file.txt")
+        cmd1.set_next(cmd2)
+        
+        # Run initial chain
+        kali = rerun_manager.resource_manager.get_resource("kali_env")
+        result1 = kali.run(cmd1)
+        result2 = kali.run(cmd2)
+        
+        # Edit first command and rerun chain
+        edit_cmd = "Command: mkdir -p new_dir"
+        edited = await rerun_manager.edit_message(cmd1, edit_cmd)
+        rerun_result = await rerun_manager.rerun(edited)
+        
+        # Verify both directories exist
+        assert (test_dir / "test_dir").exists()
+        assert (test_dir / "new_dir").exists()
+        assert (test_dir / "test_dir" / "file.txt").exists()
 
-    async def test_error_handling(self, workflow: WorkflowForTest):
-        """Test error handling for various scenarios"""
-        workflow._current_phase = workflow._root_phase
-        phase_instance = workflow._current_phase.setup()
-        kali = workflow.resource_manager.get_resource("kali_env")
-
-        # Test nonexistent command
-        cmd = "Command: cd /app/workspace && nonexistent_cmd"
-        result = kali.run(CommandMessage(resource_id="", message=cmd))
-        assert "command not found" in result.message.lower() or "not found" in result.message.lower(), \
-            "Command not found error not detected"
-
-    async def test_resource_health(self, workflow: WorkflowForTest):
-        """Test resource health and functionality"""
-        workflow._current_phase = workflow._root_phase
-        phase_instance = workflow._current_phase.setup()
-        kali = workflow.resource_manager.get_resource("kali_env")
-
-        # Check workspace accessibility
-        cmd = "Command: cd /app/workspace && pwd && touch test_file && ls test_file"
-        result = kali.run(CommandMessage(resource_id="", message=cmd))
-        assert "/app/workspace" in result.message, "Workspace not accessible"
-        assert "test_file" in result.message, "File creation failed"
+    @pytest.mark.asyncio
+    async def test_rerun_no_next_message(self, rerun_manager):
+        """Test error when rerunning message with no next"""
+        msg = ActionMessage("test_resource", "test")  # No next message set
+        
+        with pytest.raises(ValueError, match="No defined next actions to run"):
+            await rerun_manager.rerun(msg)
