@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
@@ -22,6 +23,18 @@ logger = get_main_logger(__name__)
 MAX_RETRIES = 3
 RETRY_DELAY = 30
 
+def run_wrapper(fn, *args, **kwargs):
+    result = fn(*args, **kwargs)
+    print(f"Result from {fn.__name__}: {result} (type: {type(result)})")
+    if asyncio.iscoroutine(result):
+        loop = asyncio.new_event_loop()
+        try:
+            final_result = loop.run_until_complete(result)
+            print(f"Final result after running coroutine: {final_result} (type: {type(final_result)})")
+            return final_result
+        finally:
+            loop.close()
+    return result
 
 class ExecutorAgent(BaseAgent):
 
@@ -55,17 +68,15 @@ class ExecutorAgent(BaseAgent):
 
         agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
         
-        #print("************IN EXECUTOR AGENT RUN*****************************")
-        #print("AGENT MESSAGE", agent_message.to_dict())
-        #print("PREVIOUS AGENT MESSAGE", prev_agent_message.to_dict())
-        #print("***************************************************************")
-        self.execute(agent_message, prev_agent_message)
-        #self.model.update_memory(executor_message)
+        await self.execute(agent_message, prev_agent_message)
 
         return agent_message
+    
 
-    def execute(self, agent_message: ExecutorAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> Message:
-        model_action_message = self.call_lm(prev_agent_message)
+
+
+    async def execute(self, agent_message: ExecutorAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> Message:
+        model_action_message = await self.call_lm(prev_agent_message)
         if not model_action_message:
             return
         
@@ -77,14 +88,14 @@ class ExecutorAgent(BaseAgent):
         # If the model decides to output a command, we run it in the environment
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
-            kali_action_message = self.execute_in_env(model_action_message)
+            kali_action_message = await self.execute_in_env(model_action_message)
             if not kali_action_message:
                 return
             agent_message.add_action_message(kali_action_message)
             return kali_action_message
         return model_action_message
 
-    def call_lm(self, lm_input_message: Optional[Message] = None) -> CommandMessage:
+    async def call_lm(self, lm_input_message: Optional[Message] = None) -> CommandMessage:
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
@@ -97,7 +108,8 @@ class ExecutorAgent(BaseAgent):
             while iterations < MAX_RETRIES:
                 try:
                     lm_input_message = self.executor_agent_memory.get_memory(lm_input_message)
-                    model_response = self.model.run(input_message=lm_input_message)
+                    model_response = await asyncio.to_thread(run_wrapper, self.model.run, input_message=lm_input_message)
+
                     return model_response
                 except Exception as e:
                     logger.warning(f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}")
@@ -113,13 +125,15 @@ class ExecutorAgent(BaseAgent):
         finally:
             stop_progress()
 
-    def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
+    async def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
         """
         Executes the command in the environment using self.kali_env,
         captures the output, and returns an ActionMessage.
         """
         try:
-            kali_message = self.kali_env.run(executor_message)
+            kali_message = await asyncio.to_thread(
+                run_wrapper, self.kali_env.run, executor_message
+            )
             return kali_message
         except Exception as e:
             logger.exception(f"Failed to execute command: {executor_message.command}.\nException: {str(e)}")
