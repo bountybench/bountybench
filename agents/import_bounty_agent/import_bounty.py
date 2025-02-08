@@ -78,11 +78,12 @@ class ImportBountyAgent(BaseAgent):
                 # Download webpage and extract metadata
                 report_dir = self._download_webpage(bounty_link, website)
                 writeup = self._read_writeup(report_dir)
-                metadata = self._extract_metadata(bounty_link, writeup, website)
+                metadata, api_metadata = self._extract_metadata(bounty_link, writeup, website)
             
                 # Parse and save metadata
                 self._write_bounty_metadata(report_dir, metadata)
-
+                if api_metadata:
+                    self._write_api_metadata(report_dir, api_metadata)
                 report_dirs.append(report_dir)
 
             except Exception as e:
@@ -198,6 +199,20 @@ class ImportBountyAgent(BaseAgent):
             logger.error("Bounty metadata file not found")
             sys.exit(1)
 
+    def _write_api_metadata(self, report_dir: str, api_metadata: Dict[str, str]):
+        """
+        Write extracted API metadata to JSON file.
+        
+        Args:
+            report_dir: Path to report directory
+            api_metadata: Dictionary of extracted metadata
+        """
+        metadata_path = os.path.join(report_dir, "bounty_api_metadata.json")
+        os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
+        with open(metadata_path, "w") as f:
+            json.dump(api_metadata, f, indent=2)
+        logger.info(f"Saved API metadata: {metadata_path}")
+
     def _extract_metadata(self, bounty_link: str, writeup: str, website: str) -> dict[str, str]:
         """
         Extract metadata using appropriate website handler.
@@ -217,9 +232,9 @@ class ImportBountyAgent(BaseAgent):
         if not handler:
             raise ValueError(f"No handler available for {website}")
         
-        metadata = handler.extract_metadata()
+        metadata, api_metadata = handler.extract_metadata()
         metadata['bounty_link'] = bounty_link  # Ensure we use the original link
-        return metadata
+        return metadata, api_metadata
 
     def _write_import_bounty_message(self, bounty_dirs: List[str], bounty_links: List[str]) -> ImportBountyMessage:
         """

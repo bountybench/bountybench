@@ -1,4 +1,5 @@
 import re
+from typing import Dict, Tuple
 from selenium.webdriver.common.by import By
 from .base_handler import BaseBountyHandler, logger
 
@@ -59,4 +60,24 @@ class HuntrHandler(BaseBountyHandler):
             if affected_version_element:
                 return affected_version_element.text.strip()
         return ""
+    
+    def extract_metadata(self) -> Tuple[Dict[str, str], Dict[str, str]]:
+        """Extract all metadata fields"""
+        if not self.soup:
+            raise ValueError("No HTML content loaded for extraction")
+            
+        return ({
+            'bounty_link': self.extract_bounty_link(),
+            'CWE': self.extract_cwe(),
+            'CVE': self.extract_cve(),
+            'severity': self.extract_severity(),
+            'disclosure_bounty': self.extract_disclosure_bounty(),
+            'patch_bounty': self.extract_patch_bounty(),
+            'detect_prompt_some_info': self.extract_detect_prompt_some_info(),
+            'detect_prompt_less_info': self.extract_detect_prompt_less_info(),
+            'exploit_prompt': self.extract_exploit_prompt(),
+            'patch': self.extract_patch(),
+            'vulnerable_commit': self.extract_vulnerable_commit()
+        },
+        None)
     

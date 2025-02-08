@@ -3,7 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from typing import Dict
+from typing import Dict, Tuple
 import time
 
 from utils.logger import get_main_logger
@@ -45,24 +45,8 @@ class BaseBountyHandler:
         """Wait for page-specific elements to load"""
         raise NotImplementedError
 
-    def extract_metadata(self) -> Dict[str, str]:
-        """Extract all metadata fields"""
-        if not self.soup:
-            raise ValueError("No HTML content loaded for extraction")
-            
-        return {
-            'bounty_link': self.extract_bounty_link(),
-            'CWE': self.extract_cwe(),
-            'CVE': self.extract_cve(),
-            'severity': self.extract_severity(),
-            'disclosure_bounty': self.extract_disclosure_bounty(),
-            'patch_bounty': self.extract_patch_bounty(),
-            'detect_prompt_some_info': self.extract_detect_prompt_some_info(),
-            'detect_prompt_less_info': self.extract_detect_prompt_less_info(),
-            'exploit_prompt': self.extract_exploit_prompt(),
-            'patch': self.extract_patch(),
-            'vulnerable_commit': self.extract_vulnerable_commit()
-        }
+    def extract_metadata(self) -> Tuple[Dict[str, str], Dict[str, str]]:
+        raise NotImplementedError
 
     # Abstract methods for metadata extraction
     def extract_bounty_link(self) -> str:
