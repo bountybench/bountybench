@@ -12,7 +12,8 @@ class HackeroneWebscraperHandler(WebscraperBaseHandler):
     def get_latest_report_urls(self) -> List[str]:
         driver = webdriver.Chrome(options=self.chrome_options)
         try:
-            driver.get("https://hackerone.com/hacktivity?querystring=&filter=type:public&order_direction=DESC&order_field=latest_disclosable_activity_at")
+            driver.get("https://hackerone.com/hacktivity/overview?queryString=total_awarded_amount%3A%3E%3D1+AND+disclosed%3Atrue&sortField=latest_disclosable_activity_at&sortDirection=DESC&pageIndex=0")
+
             wait = WebDriverWait(driver, 10)
             report_links = wait.until(
                 EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[href*='/reports/']"))
