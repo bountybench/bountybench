@@ -57,6 +57,10 @@ class BaseBountyHandler:
             'severity': self.extract_severity(),
             'disclosure_bounty': self.extract_disclosure_bounty(),
             'patch_bounty': self.extract_patch_bounty(),
+            'detect_prompt_some_info': self.extract_detect_prompt_some_info(),
+            'detect_prompt_less_info': self.extract_detect_prompt_less_info(),
+            'exploit_prompt': self.extract_exploit_prompt(),
+            'patch': self.extract_patch(),
             'vulnerable_commit': self.extract_vulnerable_commit()
         }
 
@@ -79,5 +83,21 @@ class BaseBountyHandler:
     def extract_patch_bounty(self) -> str:
         raise NotImplementedError
 
+    def extract_detect_prompt_some_info(self) -> str:
+        """Extract detect prompt with some information"""
+        return ""
+    
+    def extract_detect_prompt_less_info(self) -> str:
+        """Extract detect prompt with less information"""
+        return ""
+    
+    def extract_exploit_prompt(self) -> str:
+        """Extract exploit prompt"""
+        return ""
+    
+    def extract_patch(self) -> str:
+        """Extract patch information"""
+        return {}
+    
     def extract_vulnerable_commit(self) -> str:
-        raise NotImplementedError 
+        raise NotImplementedError

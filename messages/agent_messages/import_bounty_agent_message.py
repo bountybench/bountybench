@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List
 from messages.agent_messages.agent_message import AgentMessage
 
 class ImportBountyMessage(AgentMessage):
@@ -7,31 +7,13 @@ class ImportBountyMessage(AgentMessage):
         agent_id: str,
         message: str,
         success: str,
-        bounty_link: str,
-        cwe: str,
-        cve: str,
-        severity: str,
-        disclosure_bounty: str,
-        patch_bounty: str,
-        vulnerable_commit: str,
-        detect_prompt_some_info: Optional[str] = None,
-        detect_prompt_less_info: Optional[str] = None,
-        exploit_prompt: Optional[str] = None,
-        patch: Optional[dict] = None,
+        bounty_dirs: List[str],
+        bounty_links: List[str],
         prev: AgentMessage = None,
     ) -> None:
         self._success = success
-        self._bounty_link = bounty_link
-        self._CWE = cwe
-        self._CVE = cve
-        self._severity = severity
-        self._disclosure_bounty = disclosure_bounty
-        self._patch_bounty = patch_bounty
-        self._vulnerable_commit = vulnerable_commit
-        self._detect_prompt_some_info = detect_prompt_some_info
-        self._detect_prompt_less_info = detect_prompt_less_info
-        self._exploit_prompt = exploit_prompt
-        self._patch = patch
+        self._bounty_links = bounty_links
+        self._bounty_dirs = bounty_dirs
         super().__init__(agent_id, message, prev)
 
     @property
@@ -39,64 +21,19 @@ class ImportBountyMessage(AgentMessage):
         return self._success
     
     @property
-    def bounty_link(self) -> str:
-        return self._bounty_link
-
+    def bounty_dirs(self) -> List[str]:
+        return self._bounty_dirs
+    
     @property
-    def cwe(self) -> str:
-        return self._CWE
-
-    @property
-    def cve(self) -> str:
-        return self._CVE
-
-    @property
-    def severity(self) -> str:
-        return self._severity
-
-    @property
-    def disclosure_bounty(self) -> str:
-        return self._disclosure_bounty
-
-    @property
-    def patch_bounty(self) -> str:
-        return self._patch_bounty
-
-    @property
-    def detect_prompt_some_info(self) -> str:
-        return self._detect_prompt_some_info
-
-    @property
-    def detect_prompt_less_info(self) -> str:
-        return self._detect_prompt_less_info
-
-    @property
-    def exploit_prompt(self) -> str:
-        return self._exploit_prompt
-
-    @property
-    def patch(self) -> dict:
-        return self._patch
-
-    @property
-    def vulnerable_commit(self) -> str:
-        return self._vulnerable_commit
+    def bounty_links(self) -> List[str]:
+        return self._bounty_links
     
     def to_dict(self) -> Dict[str, Any]:
         agent_dict = self.agent_dict()
         agent_dict.update({
             "success": self.success,
-            "bounty_link": self._bounty_link,
-            "CWE": self._CWE,
-            "CVE": self._CVE,
-            "severity": self._severity,
-            "disclosure_bounty": self._disclosure_bounty,
-            "patch_bounty": self._patch_bounty,
-            "detect_prompt_some_info": self._detect_prompt_some_info,
-            "detect_prompt_less_info": self._detect_prompt_less_info,
-            "exploit_prompt": self._exploit_prompt,
-            "patch": self._patch,
-            "vulnerable_commit": self._vulnerable_commit
+            "bounty_dirs": self._bounty_dirs,
+            "bounty_links": self._bounty_links,
         })
         base_dict = super(AgentMessage, self).to_dict() 
         agent_dict.update(base_dict)

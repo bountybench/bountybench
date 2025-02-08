@@ -34,7 +34,7 @@ class WebscraperAgent(BaseAgent):
         self.handler = WebscraperHandlerFactory.create_handler(self.website)
         super().__init__(agent_id, agent_config)
 
-    async def _get_new_urls(self, website, last_bounty_link) -> str:
+    async def _get_new_urls(self, last_bounty_link) -> List[str]:
         """Wait for and return a new report URL."""
         known_urls = self.handler.get_known_urls()
         logger.info(f"Currently tracking {len(known_urls)} known reports")
@@ -48,6 +48,7 @@ class WebscraperAgent(BaseAgent):
                 # Filter out known URLs and save new ones
                 for url in latest_urls:
                     if url == last_bounty_link:
+                        # Break the loop when we hit the last known bounty link to avoid re-processing old links
                         break
                     if url not in known_urls:
                         new_urls.append(url)
@@ -67,11 +68,17 @@ class WebscraperAgent(BaseAgent):
     async def run(self, messages: List[AgentMessage]) -> WebscraperMessage:
         # Get the previous agent message
         prev_agent_message = messages[0]
-        last_bounty_link = prev_agent_message.last_bounty_link
+
+        # Get the last bounty link
+        if prev_agent_message.bounty_links:
+            last_bounty_link = prev_agent_message.bounty_links[0]
+            logger.info(f"Last bounty link: {last_bounty_link}")
+        else:
+            last_bounty_link = None
+            logger.info("No previous bounty links found. Starting from the beginning.")
 
         # Get the new bounty links
-        new_bounty_links = await self._get_new_urls(self.website, last_bounty_link)
-        self.last_bounty_link = new_bounty_links[0]
+        new_bounty_links = await self._get_new_urls(last_bounty_link)
 
         # Save the new bounty links
         self.handler.save_urls_to_file(new_bounty_links)
@@ -84,7 +91,7 @@ class WebscraperAgent(BaseAgent):
         Parses the extraction urls into a WebscraperMessage object.
 
         Args:
-            bounty_link (str): The URL to be parsed.
+            bounty_links (List[str]): The URLs to be parsed.
             prev_agent_message (AgentMessage): The previous agent message.
 
         Returns:
@@ -97,9 +104,8 @@ class WebscraperAgent(BaseAgent):
 
         return WebscraperMessage(
             agent_id=self.agent_id,
-            message="New URL added to the queue",
+            message="New URLs added to the queue",
             bounty_links=bounty_links,
-            last_bounty_link=bounty_links[0],
             success=True,
             website=self.website,
             prev=prev_agent_message

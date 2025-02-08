@@ -3,7 +3,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options 
@@ -13,6 +13,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.import_bounty_agent_message import ImportBountyMessage
+from messages.agent_messages.webscraper_agent_message import WebscraperMessage
 from utils.logger import get_main_logger
 from .website_handlers.handler_factory import get_handler
 
@@ -49,7 +50,7 @@ class ImportBountyAgent(BaseAgent):
         self.bounty_dir = Path(agent_config.bounty_dir)
         super().__init__(agent_id, agent_config)
 
-    def run(self, messages: List[AgentMessage]) -> AgentMessage:
+    def run(self, messages: List[WebscraperMessage]) -> ImportBountyMessage:
         """
         Main execution method for the agent.
         
@@ -68,24 +69,27 @@ class ImportBountyAgent(BaseAgent):
             raise ValueError(f"Accepts only a single message, but received {len(messages)}.")
 
         prev_message = messages[0]
-        bounty_link = prev_message._bounty_link
-        website = prev_message._website
+        bounty_links = prev_message.bounty_links
+        website = prev_message.website
+        report_dirs = []
 
-        try:
-            # Download webpage and extract metadata
-            report_dir = self._download_webpage(bounty_link, website)
-            writeup = self._read_writeup(report_dir)
-            metadata = self._extract_metadata(bounty_link, writeup, website)
+        for bounty_link in bounty_links:
+            try:
+                # Download webpage and extract metadata
+                report_dir = self._download_webpage(bounty_link, website)
+                writeup = self._read_writeup(report_dir)
+                metadata = self._extract_metadata(bounty_link, writeup, website)
             
-            # Parse and save metadata
-            import_bounty_message = self._parse_metadata_extraction(metadata)
-            self._write_bounty_metadata(report_dir, import_bounty_message)
+                # Parse and save metadata
+                self._write_bounty_metadata(report_dir, metadata)
 
-            return import_bounty_message
+                report_dirs.append(report_dir)
 
-        except Exception as e:
-            logger.error(f"Exception during bounty report handling: {e}")
-            raise
+            except Exception as e:
+                logger.error(f"Exception during bounty report handling of bounty link {bounty_link}: {e}")
+                raise
+        
+        return self._write_import_bounty_message(report_dirs, bounty_links)
 
     def _download_webpage(self, bounty_link: str, website: str) -> str:
         """
@@ -173,13 +177,13 @@ class ImportBountyAgent(BaseAgent):
             logger.warning(f"Writeup not found at: {html_file_path}")
             return ""
     
-    def _write_bounty_metadata(self, report_dir: str, import_bounty_message: ImportBountyMessage):
+    def _write_bounty_metadata(self, report_dir: str, metadata: Dict[str, Any]):
         """
         Write extracted metadata to JSON file.
         
         Args:
             report_dir: Path to report directory
-            import_bounty_message: Message containing metadata
+            metadata: Dictionary of extracted metadata
             
         Raises:
             SystemExit: If metadata file cannot be written
@@ -188,7 +192,7 @@ class ImportBountyAgent(BaseAgent):
         os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
         
         with open(metadata_path, "w") as f:
-            json.dump(import_bounty_message.to_dict(), f)
+            json.dump(metadata, f)
 
         if not os.path.exists(metadata_path):
             logger.error("Bounty metadata file not found")
@@ -217,34 +221,22 @@ class ImportBountyAgent(BaseAgent):
         metadata['bounty_link'] = bounty_link  # Ensure we use the original link
         return metadata
 
-    def _parse_metadata_extraction(self, metadata: Dict[str, str]) -> ImportBountyMessage:
+    def _write_import_bounty_message(self, bounty_dirs: List[str], bounty_links: List[str]) -> ImportBountyMessage:
         """
-        Parse metadata dictionary into ImportBountyMessage.
+        Write toImportBountyMessage.
 
         Args:
-            metadata: Dictionary of extracted metadata fields
-
+            bounty_dirs: List of bounty directories
+            bounty_links: List of bounty links
+            
         Returns:
             ImportBountyMessage containing parsed metadata
 
-        Raises:
-            ValueError: If required fields are missing
         """
-        required_fields = ['bounty_link', 'CWE', 'CVE', 'severity', 
-                         'disclosure_bounty', 'patch_bounty', 'vulnerable_commit']
-        missing_fields = [field for field in required_fields if field not in metadata]
-        if missing_fields:
-            raise ValueError(f"Metadata is missing required fields: {', '.join(missing_fields)}")
-        
         return ImportBountyMessage(
             agent_id=self.agent_id,
             message="Bounty metadata imported",
             success=True,
-            bounty_link=metadata['bounty_link'],
-            cwe=metadata['CWE'],
-            cve=metadata['CVE'],
-            severity=metadata['severity'], 
-            disclosure_bounty=metadata['disclosure_bounty'],
-            patch_bounty=metadata['patch_bounty'],
-            vulnerable_commit=metadata['vulnerable_commit']
+            bounty_dirs=bounty_dirs,
+            bounty_links=bounty_links
         )
