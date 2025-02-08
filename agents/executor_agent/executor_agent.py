@@ -7,6 +7,7 @@ from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
+from messages.convert_message_utils import cast_action_to_command
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.model_resource.model_resource import ModelResource
@@ -89,13 +90,10 @@ class ExecutorAgent(BaseAgent):
         try:
             while iterations < MAX_RETRIES:
                 try:
-                    model_output = self.model.run(lm_input_message)
-                    raw_response = model_output.message
-                    metadata = model_output.additional_metadata
-                    prev_action_message = model_output.prev
+                    model_output: ActionMessage = self.model.run(lm_input_message)
 
-                    # Attempt parsing
-                    parsed_response = self.parse_response(raw_response, metadata, prev_action_message)
+                    # Attempt conversion
+                    parsed_response = self.parse_response(model_output)
                     return parsed_response
 
                 except Exception as e:
@@ -111,22 +109,20 @@ class ExecutorAgent(BaseAgent):
         finally:
             stop_progress()
     
-    def parse_response(self, response: str, metadata: Dict[str, Any], prev_message: Optional[ActionMessage] = None) -> Optional[CommandMessage]:
+    def parse_response(self, action_message: ActionMessage) -> Optional[CommandMessage]:
         """
-        Attempts to parse the raw model string into a CommandMessage.
+        Attempts to parse the ActionMessage into a CommandMessage.
         If parsing fails, return None so that the agent can still send an AgentMessage.
         """
         try:
-            return CommandMessage(
-                resource_id=self.model.resource_id,
-                message=response,
-                additional_metadata=metadata,
-                prev=prev_message,
-            )
-        except Exception:
-            logger.info(f"LM responded with: {response}")
-            logger.debug("Could not parse response as CommandMessage.")
-            return None  
+            # Convert ActionMessage to CommandMessage
+            command_message = cast_action_to_command(action_message)
+            return command_message
+
+        except Exception as e:
+            logger.info(f"LM responded with: {action_message.message}")
+            logger.debug(f"Could not parse response as CommandMessage. Error: {e}")
+            return None
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
         """
