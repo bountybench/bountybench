@@ -44,29 +44,35 @@ export const useWorkflowWebSocket = (workflowId) => {
   })
 
   const handleUpdatedAgentMessage = useCallback((updatedAgentMessage) => {
+    const updatedMessages = Array.isArray(updatedAgentMessage) ? updatedAgentMessage : [updatedAgentMessage];
+    if (!updatedMessages[0].parent) {
+      console.error("Agent should already have parent set");
+      return;
+    }
+
     setPhaseMessages(prevPhaseMessages => {
-      const updatedMessages = Array.isArray(updatedAgentMessage) ? updatedAgentMessage : [updatedAgentMessage];
-      
       return prevPhaseMessages.map(phase => {
         if (phase.current_id === updatedMessages[0].parent) {
-          const updatedAgentMessages = [...phase.agent_messages];
-          let updated = false;
+          let updatedAgentMessages = [...(phase.current_children || [])];
           
-          updatedMessages.forEach(newMessage => {
-            const existingIndex = updatedAgentMessages.findIndex(am => am.current_id === newMessage.current_id);
-            if (existingIndex !== -1) {
-              // Update existing message
-              updatedAgentMessages.splice(existingIndex, updatedAgentMessages.length - existingIndex, newMessage);
-              updated = true;
-            } else if (!updated) {
-              // Append new message if no update has occurred
+          const newMessage = updatedMessages[0];
+          if (newMessage.prev) {
+            const prevIndex = updatedAgentMessages.findIndex(am => am.current_id === newMessage.prev);
+            if (prevIndex !== -1) {
+              // Keep messages up to and including the prev message, then append the new message
+              updatedAgentMessages = [...updatedAgentMessages.slice(0, prevIndex + 1), newMessage];
+            } else {
+              // If prev not found, just append the new message
               updatedAgentMessages.push(newMessage);
             }
-          });
-
+          } else {
+            // If no prev, replace all messages with the new message
+            updatedAgentMessages = [newMessage];
+          }
+          
           return {
             ...phase,
-            agent_messages: updatedAgentMessages
+            current_children: updatedAgentMessages
           };
         }
         return phase;
@@ -97,10 +103,10 @@ export const useWorkflowWebSocket = (workflowId) => {
 
       messages.forEach(message => {
         if (message.error) {
-          console.error(`${message.message_type}: ${message.error}`);
+          console.error(`${message.message_type}: ${message.error} ${message.traceback}`);
           setError(message.error);
         }
-
+        
         switch (message.message_type) {
           case 'connection_established':
             connectionEstablished.current = true;
@@ -144,7 +150,7 @@ export const useWorkflowWebSocket = (workflowId) => {
       console.error('Error processing WebSocket message:', err);
       setError('Failed to process workflow update: ' + err.message);
     }
-  }, [handleUpdatedAgentMessage]);
+  }, [handleUpdatePhaseMessage, handleUpdatedAgentMessage, handleUpdatedActionMessage]);
 
   const cleanupConnection = useCallback(() => {
     if (heartbeatInterval.current) {

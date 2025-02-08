@@ -84,7 +84,7 @@ class Message(ABC):
                 result["version_prev"] = id(self.version_prev)
             if self.version_next is not None:
                 result["version_next"] = id(self.version_next)
-            
+            result["parent"] = self.parent.id
             result["timestamp"] = self.timestamp
             
         

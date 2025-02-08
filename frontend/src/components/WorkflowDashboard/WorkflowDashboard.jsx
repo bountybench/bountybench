@@ -8,13 +8,12 @@ import './WorkflowDashboard.css';
 export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast }) => {
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
-  const [preservedMessages, setPreservedMessages] = useState([]);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Loading workflow instance..."); // Initial loading message
   const [isLoading, setIsLoading] = useState(true); // State to manage loading visibility
 
   const navigate = useNavigate();
-  
+   
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
     const checkIfWorkflowExists = async () => {
@@ -37,8 +36,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     isConnected,
     workflowStatus,
     currentPhase,
-    currentIteration,
-    messages,
+    phaseMessages,
     error,
   } = useWorkflowWebSocket(workflowId);
 
@@ -58,19 +56,11 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   console.log('WebSocket state:', { 
     isConnected, 
     workflowStatus, 
-    currentPhase, 
-    currentIteration,
+    currentPhase,
     error,
-    messageCount: messages?.length 
-  }); // Debug log
+    phaseMessagesCount: phaseMessages?.length 
+  });
 
-  useEffect(() => {
-    if (workflowStatus === 'completed') {
-      console.log('Workflow completed. Preserving messages:', messages);
-      setPreservedMessages(messages);
-    }
-  }, [workflowStatus, messages]);
-  
   const triggerNextIteration = async () => {
     if (workflowStatus === "stopped") {
       console.error("Cannot trigger next iteration: Workflow is stopped.");
@@ -149,17 +139,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       console.error('Workflow ID is not available');
     }
   };
-  
-  console.log('Rendering WorkflowDashboard with messages:', workflowStatus === 'completed' ? preservedMessages : messages);
-
-  if (error) {
-    return (
-      <Box p={2}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
-  }
-
 
   const handleStopWorkflow = async () => {
     if (workflowId) {
@@ -187,7 +166,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     );
   }
 
-  if (!isConnected || isLoading) { // Show loading state
+  if (!isConnected || isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
         <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
@@ -198,17 +177,14 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     );
   }
 
-  const displayMessages = workflowStatus === 'completed' ? preservedMessages : messages;
-
   return (
     <Box height="100%" overflow="auto">
       <AgentInteractions
         interactiveMode={interactiveMode}
-        workflowStatus={workflowStatus}  // Pass the workflow status
+        workflowStatus={workflowStatus}
         currentPhase={currentPhase}
-        currentIteration={currentIteration}
         isNextDisabled={isNextDisabled}
-        messages={displayMessages}
+        phaseMessages={phaseMessages}
         onUpdateMessageInput={handleUpdateMessageInput}
         onRerunMessage={handleRerunMessage}
         onTriggerNextIteration={triggerNextIteration}

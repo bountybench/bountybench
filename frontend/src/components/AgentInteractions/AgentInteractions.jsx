@@ -9,7 +9,7 @@ const AgentInteractions = ({
   interactiveMode, 
   workflowStatus, // Pass workflowStatus from parent
   isNextDisabled,
-  messages = [],
+  phaseMessages = [],
   onUpdateMessageInput,
   onRerunMessage,
   onTriggerNextIteration,
@@ -29,7 +29,7 @@ const AgentInteractions = ({
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
-    
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
@@ -37,29 +37,25 @@ const AgentInteractions = ({
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [phaseMessages]);
 
   useEffect(() => {
-    console.log('Messages updated:', messages);
-  }, [messages]);
-
-  const latestPhaseMessage = messages.filter(msg => msg.message_type === 'PhaseMessage').pop();
-  console.log('Latest PhaseMessage:', latestPhaseMessage);
+    console.log('Phase Messages updated:', phaseMessages);
+  }, [phaseMessages]);
 
   const handleStopClick = async () => {
     setIsStopped(true); // Hide buttons immediately
     await onStopWorkflow();
   };
 
-    // Ensure buttons remain hidden when workflow status updates from parent
-    useEffect(() => {
-      if (workflowStatus === "stopped") {
-        setIsStopped(true);
-      }
-    }, [workflowStatus]);
-  
+    // Ensure buttons remain hidden when workflow status updates from parent  
+  useEffect(() => {
+    if (workflowStatus === "stopped") {
+      setIsStopped(true);
+    }
+  }, [workflowStatus]);
 
-  if (!messages) {
+  if (phaseMessages.length === 0) {
     return (
       <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
         <CircularProgress />
@@ -70,13 +66,10 @@ const AgentInteractions = ({
   return (
     <Box className="interactions-container">
       <Box className="messages-container">
-        {!latestPhaseMessage ? (
-          <Typography variant="body2" color="text.secondary" align="center">
-            No Phase messages yet
-          </Typography>
-        ) : (
+        {phaseMessages.map((phaseMessage, index) => (
           <PhaseMessage
-            message={latestPhaseMessage}
+            key={phaseMessage.current_id}
+            message={phaseMessage}
             onUpdateMessageInput={onUpdateMessageInput}
             onRerunMessage={onRerunMessage}
             onEditingChange={setIsEditing}            
@@ -84,7 +77,7 @@ const AgentInteractions = ({
             selectedCellId={selectedCellId}
             onCellSelect={setSelectedCellId}
           />
-        )}
+        ))}
         <div ref={messagesEndRef} />
       </Box>
 

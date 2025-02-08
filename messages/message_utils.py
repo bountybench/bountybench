@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict
+from typing import Dict, List
 
 from messages.config import MessageType, set_logging_level, should_log
 from messages.message import Message
@@ -14,31 +14,33 @@ set_logging_level(MessageType.AGENT)
 # Dict of workflow_id -> Dict of message_id -> Message
 message_dict: Dict[str, Dict[str, Message]] = {}
 
+def broadcast_update(messages):
+    """Send an update over WebSocket."""
+    if not isinstance(messages, list):
+        print("Making message in a list")
+        messages = [messages]
 
-def broadcast_update(message: Message):
-    """Send an update over WebSocket. This can be disabled or customized as desired."""
-    data = message.to_dict()
-    workflow_id = message.workflow_id
+    workflow_id = messages[0].workflow_id  # Assumes all messages are for the same workflow
 
     try:
         loop = asyncio.get_running_loop()
 
         if not loop.is_running():
-            result = asyncio.run(_broadcast_update_async(workflow_id, data))
+            result = asyncio.run(_broadcast_update_async(workflow_id, [msg.to_dict() for msg in messages]))
             return result
         else:
-            task = asyncio.create_task(_broadcast_update_async(workflow_id, data))
+            task = asyncio.create_task(_broadcast_update_async(workflow_id, [msg.to_dict() for msg in messages]))
             return task
     except Exception as e:
         logger.error(f"Exception: {e}")
 
-
-async def _broadcast_update_async(workflow_id: str, data: dict):
+async def _broadcast_update_async(workflow_id: str, data_list: List[dict]):
     try:
-        await websocket_manager.broadcast(workflow_id, data)
+        for data in data_list:
+            print(f"sending data {data}")
+            await websocket_manager.broadcast(workflow_id, data)
     except Exception as e:
         logger.error(f"Exception: {e}")
-
     
 def log_message(message: Message):
     if not message.workflow_id:
@@ -55,3 +57,15 @@ def log_message(message: Message):
     if should_log(message):  
         workflow_id = message.workflow_id
         message_dict[workflow_id][workflow_id].save()
+
+
+def get_subtree(message: Message) -> dict:
+    # This logic is meant to generate proper subtree within a phase. 
+    # Additional logic may be needed for across phase edits
+
+    messages = []
+    messages.append(message)
+    while message.next and message.next.prev == message:
+        messages.append(message)
+
+    return messages
