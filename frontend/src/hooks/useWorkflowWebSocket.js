@@ -16,37 +16,65 @@ export const useWorkflowWebSocket = (workflowId) => {
   const connectionEstablished = useRef(false);
 
   const handleUpdatePhaseMessage = useCallback((updatedPhaseMessage) => {
-    setCurrentPhase(message);
-    // HERE WE NEED TO UPDATE PHASE MESSAGES
-    // Essentially, if we are sending an update on an existing phase message (already in phaseMessages array),
-    // we want to overwrite both the existing entry
-    // AND clear all of the subsequent entries (e.g. we have [1, 2, 3, 4], update 2* > messages become [1, 2*])
-    // The message may be an array of messages (all one type):
-    // e.g. we have [1, 2, 3, 4], update [2*, 3*] > messages become [1, 2*, 3*]
-    // Distinguish entries via "current_id"
+    setCurrentPhase(updatedPhaseMessage);
+    setPhaseMessages(prevPhaseMessages => {
+      const updatedMessages = Array.isArray(updatedPhaseMessage) ? updatedPhaseMessage : [updatedPhaseMessage];
+      
+      let updated = false;
+      const newPhaseMessages = prevPhaseMessages.reduce((acc, phase) => {
+        if (!updated && updatedMessages.some(um => um.current_id === phase.current_id)) {
+          // Found the phase to update
+          acc.push(...updatedMessages.filter(um => !acc.some(p => p.current_id === um.current_id)));
+          updated = true;
+        } else if (!updated) {
+          // Keep phases before the update
+          acc.push(phase);
+        }
+        // Phases after the update are dropped
+        return acc;
+      }, []);
+
+      // If no existing phase was updated, append the new phase(s)
+      if (!updated) {
+        newPhaseMessages.push(...updatedMessages);
+      }
+
+      return newPhaseMessages;
+    });
   })
 
   const handleUpdatedAgentMessage = useCallback((updatedAgentMessage) => {
-    
-    // HERE WE NEED TO UPDATE AGENT MESSAGES
-    // Agent messages are nested within a Phase message
-    // the relevant phase message (id) can be retrieved via element.parent
-    
-    // We do not want to overwrite the existing phase message entry (note phase message is a dict)
-    // instead, we want to update a property of the phase message (phase.agent_messages)
-    // phase.agent_messages is a list of agent messages
+    setPhaseMessages(prevPhaseMessages => {
+      const updatedMessages = Array.isArray(updatedAgentMessage) ? updatedAgentMessage : [updatedAgentMessage];
+      
+      return prevPhaseMessages.map(phase => {
+        if (phase.current_id === updatedMessages[0].parent) {
+          const updatedAgentMessages = [...phase.agent_messages];
+          let updated = false;
+          
+          updatedMessages.forEach(newMessage => {
+            const existingIndex = updatedAgentMessages.findIndex(am => am.current_id === newMessage.current_id);
+            if (existingIndex !== -1) {
+              // Update existing message
+              updatedAgentMessages.splice(existingIndex, updatedAgentMessages.length - existingIndex, newMessage);
+              updated = true;
+            } else if (!updated) {
+              // Append new message if no update has occurred
+              updatedAgentMessages.push(newMessage);
+            }
+          });
 
-    // Essentially, if we are sending an update on an existing agent message (already in agent_messages array),
-    // we want to overwrite both the existing entry
-    // AND clear all of the subsequent entries (e.g. we have [1, 2, 3, 4], update 2* > messages become [1, 2*])
-    // The message may be an array of messages (all one type):
-    // e.g. we have [1, 2, 3, 4], update [2*, 3*] > messages become [1, 2*, 3*]
-    // if there is not an existing entry, append to end, e.g. we have [1, 2, 3, 4], update 5 > messages become [1, 2, 3, 4, 5]
-    // Distinguish entries via "current_id"
-
-    // We can assume (or error otherwise) that we are sending agent messages associated with an already broadcast phase.
-    // When an existing phase message is updated with agent message(s), we clear later phases. 
-    // e.g. [Phase0: [0] Phase1: [1, 2], Phase2: [2]], update Phase1: [3], our phaseMessages becomes [Phase0: [0], Phase1: [1, 2, 3]]
+          return {
+            ...phase,
+            agent_messages: updatedAgentMessages
+          };
+        }
+        return phase;
+      }).filter((phase, index, array) => {
+        // Keep this phase if it's before or is the phase being updated
+        return array.findIndex(p => p.current_id === updatedMessages[0].parent) >= index;
+      });
+    });
   }, []);
 
   const handleUpdatedActionMessage = useCallback((updatedAgentMessage) => {
@@ -186,7 +214,7 @@ export const useWorkflowWebSocket = (workflowId) => {
 
   return {
     isConnected,
-    messages,
+    phaseMessages,
     error,
     workflowStatus,
     currentPhase,
