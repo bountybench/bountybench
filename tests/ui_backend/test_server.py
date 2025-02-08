@@ -93,7 +93,7 @@ def started_chat_workflow(client):
 
 def test_next_message_success(client, started_chat_workflow):
     """Test retrieving the next message in an existing workflow."""
-    response = client.post(f"/workflow/next/{started_chat_workflow}")
+    response = client.post(f"/workflow/{started_chat_workflow}/next")
     assert response.status_code == 200, "Expected status code 200 for next message"
     data = response.json()
     assert "status" in data, "Response should contain 'status'"
@@ -103,7 +103,7 @@ def test_next_message_success(client, started_chat_workflow):
 
 def test_next_message_workflow_not_found(client):
     """Test retrieving the next message for a non-existent workflow."""
-    response = client.post("/workflow/next/nonexistent-id")
+    response = client.post("/workflow/nonexistent-id/next")
     assert response.status_code == 200, "Expected status code 200 even on error"
     data = response.json()
     assert "error" in data, "Response should contain 'error' key"
@@ -128,7 +128,7 @@ def started_patch_workflow(client):
 def test_rerun_message_success(client, started_patch_workflow):
     """Test rerunning a message in an existing workflow."""
     payload = {"message_id": "original-message-id"}
-    response = client.post(f"/workflow/rerun-message/{started_patch_workflow}", json=payload)
+    response = client.post(f"/workflow/{started_patch_workflow}/rerun-message", json=payload)
     assert response.status_code == 200, "Expected status code 200 for rerun message"
     data = response.json()
     assert "status" in data, "Response should contain 'status'"
@@ -139,7 +139,7 @@ def test_rerun_message_success(client, started_patch_workflow):
 def test_rerun_message_workflow_not_found(client):
     """Test rerunning a message in a non-existent workflow."""
     payload = {"message_id": "some-id"}
-    response = client.post("/workflow/rerun-message/nonexistent-id", json=payload)
+    response = client.post("/workflow/nonexistent-id/rerun-message", json=payload)
     assert response.status_code == 200, "Expected status code 200 even on error"
     data = response.json()
     assert "error" in data, "Response should contain 'error' key"
@@ -186,7 +186,7 @@ def test_update_interactive_mode_missing_field(client, started_detect_workflow):
 
 def test_last_message_success(client, started_chat_workflow):
     """Test retrieving the last message of an existing workflow."""
-    response = client.get(f"/workflow/last-message/{started_chat_workflow}")
+    response = client.get(f"/workflow/{started_chat_workflow}/last-message")
     assert response.status_code == 200, "Expected status code 200 for last message"
     data = response.json()
     assert "message_type" in data, "Response should contain 'message_type'"
@@ -196,7 +196,7 @@ def test_last_message_success(client, started_chat_workflow):
 
 def test_last_message_workflow_not_found(client):
     """Test retrieving the last message of a non-existent workflow."""
-    response = client.get("/workflow/last-message/nonexistent-id")
+    response = client.get("/workflow/nonexistent-id/last-message")
     assert response.status_code == 200, "Expected status code 200 even on error"
     data = response.json()
     assert "error" in data, "Response should contain 'error' key"
