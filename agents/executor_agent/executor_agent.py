@@ -16,6 +16,7 @@ from messages.action_messages.command_message_interface import CommandMessageInt
 from messages.message import Message
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
+from resources.memory_resource import MemoryResource
 
 logger = get_main_logger(__name__)
 
@@ -28,8 +29,8 @@ class ExecutorAgent(BaseAgent):
     REQUIRED_RESOURCES = [
        (InitFilesResource, "init_files"),
         (KaliEnvResource, "kali_env"),
-        (ModelResource, "model")
-
+        (ModelResource, "model"),
+        (MemoryResource, "executor_agent_memory")
     ]
     OPTIONAL_RESOURCES = [(SetupResource, "repo_resource"), (SetupResource, "bounty_resource")]
     ACCESSIBLE_RESOURCES = [
@@ -37,7 +38,8 @@ class ExecutorAgent(BaseAgent):
        (InitFilesResource, "init_files"),
         (SetupResource, "repo_resource"),
         (SetupResource, "bounty_resource"),
-        (ModelResource, "model")]     
+        (ModelResource, "model"),
+        (MemoryResource, "executor_agent_memory")]     
     
 
     async def run(self, messages: List[Message]) -> Message:
@@ -90,12 +92,10 @@ class ExecutorAgent(BaseAgent):
         try:
             while iterations < MAX_RETRIES:
                 try:
+                    lm_input_message = self.executor_agent_memory.get_memory(lm_input_message)
                     model_output: ActionMessage = self.model.run(lm_input_message)
-
-                    # Attempt conversion
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
-
                 except Exception as e:
                     logger.warning(f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}")
                     iterations += 1

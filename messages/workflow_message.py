@@ -37,6 +37,9 @@ class WorkflowMessage(Message):
         self._start_time = datetime.now().isoformat()
         self._end_time = None
         self._phase_status = {}
+        from messages.message_utils import message_dict
+        message_dict[self.workflow_id] = {}
+        message_dict[self.workflow_id][self.workflow_id] = self
 
         super().__init__()
         
@@ -56,7 +59,7 @@ class WorkflowMessage(Message):
         self._summary = summary
 
     def add_phase_message(self, phase_message: PhaseMessage):
-        self._phase_messages.append(phase_message)  
+        self._phase_messages.append(phase_message)
         phase_message.set_parent(self)
 
     def add_agent(self, agent_name: str, agent) -> None:        
