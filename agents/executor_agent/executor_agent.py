@@ -23,19 +23,6 @@ logger = get_main_logger(__name__)
 MAX_RETRIES = 3
 RETRY_DELAY = 30
 
-def run_wrapper(fn, *args, **kwargs):
-    result = fn(*args, **kwargs)
-    print(f"Result from {fn.__name__}: {result} (type: {type(result)})")
-    if asyncio.iscoroutine(result):
-        loop = asyncio.new_event_loop()
-        try:
-            final_result = loop.run_until_complete(result)
-            print(f"Final result after running coroutine: {final_result} (type: {type(final_result)})")
-            return final_result
-        finally:
-            loop.close()
-    return result
-
 class ExecutorAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
@@ -108,7 +95,7 @@ class ExecutorAgent(BaseAgent):
             while iterations < MAX_RETRIES:
                 try:
                     lm_input_message = self.executor_agent_memory.get_memory(lm_input_message)
-                    model_response = await asyncio.to_thread(run_wrapper, self.model.run, input_message=lm_input_message)
+                    model_response = await asyncio.to_thread(self.model.run, input_message=lm_input_message)
 
                     return model_response
                 except Exception as e:
@@ -131,10 +118,10 @@ class ExecutorAgent(BaseAgent):
         captures the output, and returns an ActionMessage.
         """
         try:
-            kali_message = await asyncio.to_thread(
-                run_wrapper, self.kali_env.run, executor_message
-            )
+            kali_message = await asyncio.to_thread(self.kali_env.run, executor_message)
+
             return kali_message
+        
         except Exception as e:
             logger.exception(f"Failed to execute command: {executor_message.command}.\nException: {str(e)}")
             return ActionMessage(resource_id=self.kali_env.resource_id, message=str(e), prev=executor_message)
