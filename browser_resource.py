@@ -1,22 +1,19 @@
 import logging
+import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-import time
 from resources.base_resource import BaseResource
-from messages.action_messages.command_message import CommandMessage
-from messages.parse_message import parse_field
+
 
 class BrowserResource(BaseResource):
     """
-    BrowserResource for automating browser interactions, exploring subpages,
-    and changing site states (e.g., filling forms, clicking buttons).
+    BrowserResource for automating browser interactions, detecting forms dynamically,
+    clicking buttons, and navigating pages.
     """
 
     def __init__(self, resource_id: str, config: dict):
@@ -26,11 +23,9 @@ class BrowserResource(BaseResource):
         self.logger = self._setup_logger()
 
     def _setup_logger(self):
-        """
-        Sets up a logger for the resource.
-        """
+        """Sets up a logger for the resource."""
         logger = logging.getLogger(self._resource_id)
-        if not logger.hasHandlers():
+        if not logger.hasHandlers():  # Avoid duplicate handlers
             handler = logging.StreamHandler()
             formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             handler.setFormatter(formatter)
@@ -39,167 +34,125 @@ class BrowserResource(BaseResource):
         return logger
 
     def init(self) -> None:
-        """
-        Initializes the browser resource by setting up the Selenium WebDriver.
-        """
+        """Initializes the browser resource by setting up the Selenium WebDriver."""
         driver_path = self._resource_config.get("driver_path", "chromedriver-mac-arm64/chromedriver")
         service = Service(driver_path)
         self.driver = webdriver.Chrome(service=service)
         self.logger.info("BrowserResource initialized successfully.")
-    
-    def _handle_scrolling(self) -> None:
-        """
-        Scrolls through the page to load dynamically loaded content.
-        """
-        self.logger.info("Scrolling through the page for lazy-loaded content...")
-
-        last_height = self.driver.execute_script("return document.body.scrollHeight")
-        
-        while True:
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(self.scroll_pause_time)  # Wait for content to load
-
-            new_height = self.driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                break  # Stop if no new content loads
-
-            last_height = new_height
-
-    def _extract_page_data(self, url: str) -> dict:
-        """
-        Extracts data from a single webpage, including visible text, title, and links.
-
-        :param url: The URL of the page to extract.
-        :return: Dictionary with extracted page data.
-        """
-        self.driver.get(url)
-        self.logger.info(f"Extracting data from {url}...")
-
-        # Handle scrolling for lazy-loaded content
-        self._handle_scrolling()
-
-        # Extract visible text
-        body_text = self.driver.find_element(By.TAG_NAME, "body").text
-
-        # Extract metadata
-        page_title = self.driver.title
-
-        # Extract all links
-        page_source = self.driver.page_source
-        soup = BeautifulSoup(page_source, "html.parser")
-        links = [urljoin(url, link.get("href")) for link in soup.find_all("a", href=True)]
-
-        return {
-            "url": url,
-            "title": page_title,
-            "body_text": body_text,
-            "links": links,
-        }
 
     def run(self, message: dict) -> dict:
         """
-        Parses the user's natural language command, extracts the relevant information,
-        and executes the requested browser action.
+        Executes the task of interacting with a webpage, detecting elements, and changing site state.
 
-        :param message: Dictionary containing the URL and command message.
+        :param message: Dictionary containing the URL, actions, inputs, and subpage exploration options.
         :return: Dictionary with extracted data and action results.
         """
-        command_message = CommandMessage(resource_id=self._resource_id, message=message["message"])
         url = message.get("url")
-        command = command_message.command.lower()  # Convert to lowercase for easier matching
+        actions = message.get("actions", [])
+        inputs = message.get("inputs", {})
 
         if not url:
             raise ValueError("The 'url' key must be provided in the message.")
 
         try:
-            # Extract data from the main page
             main_page_data = self._extract_page_data(url)
+            action_results = [self._perform_action(action, inputs) for action in actions]
 
-            # Determine the action based on parsed command
-            action_results = []
-            if "fill form" in command or "submit" in command:
-                result = self._handle_form_submission(command_message._message)
-                action_results.append(result)
-
-            elif "click button" in command or "press" in command:
-                result = self._handle_button_click(command_message._message)
-                action_results.append(result)
-
-            elif "navigate" in command or "go to" in command:
-                result = self._handle_navigation(command_message._message)
-                action_results.append(result)
-
-            else:
-                return {"error": "Command not recognized. Supported commands: 'fill form', 'click button', 'navigate'."}
-
-            # Return results
             return {
                 "main_page": main_page_data,
-                "actions_performed": action_results,
+                "actions_performed": action_results
             }
 
         except Exception as e:
             self.logger.error(f"An error occurred: {e}")
             raise e
 
-    def _handle_form_submission(self, message: str) -> dict:
+    def _perform_action(self, action: str, inputs: dict) -> dict:
         """
-        Extracts form details from the message and fills the form.
+        Performs a specific action on the webpage (e.g., fill form, click button, navigate).
+        Automatically detects forms if no selector is provided.
 
-        :param message: The user command message containing form details.
-        :return: Result of the form submission.
-        """
-        form_selector = parse_field(message, "Form Selector:")
-        form_data = self._extract_form_data(message)
-
-        if not form_selector:
-            return {"error": "Form selector missing. Please specify 'Form Selector:' followed by the correct identifier."}
-        if not form_data:
-            return {"error": "Form fields missing. Please specify field names and values (e.g., 'Name: John Doe')."}
-
-        return self._fill_form(form_selector, form_data)
-
-    def _extract_form_data(self, message: str) -> dict:
-        """
-        Extracts key-value pairs from the message related to form filling.
-
-        :param message: The user command message containing form details.
-        :return: A dictionary with form field names and their values.
-        """
-        fields = ["Name:", "Email:", "Username:", "Password:", "Phone:", "Address:"]
-        form_data = {field.lower().rstrip(":"): parse_field(message, field) for field in fields if parse_field(message, field)}
-
-        return form_data if form_data else None
-
-    def _fill_form(self, form_selector: str, form_data: dict) -> dict:
-        """
-        Fills out a form on the webpage using the provided data.
-
-        :param form_selector: The selector to identify the form (e.g., "form#login").
-        :param form_data: Dictionary of form fields and their values.
-        :return: Result of the form submission.
+        :param action: The type of action to perform (e.g., "fill_form", "click_button").
+        :param inputs: The inputs required for the action.
+        :return: Result of the action.
         """
         try:
-            # Wait for the form to be present
+            if action == "fill_form":
+                form_selector = inputs.get("form_selector") or self._detect_form_selector()
+                if not form_selector:
+                    return {"action": "fill_form", "success": False, "error": "No form detected on page."}
+
+                form_data = inputs.get("form_data", {})
+                return self._fill_form(form_selector, form_data)
+
+            elif action == "click_button":
+                button_selector = inputs.get("button_selector") or self._detect_button_selector()
+                if not button_selector:
+                    return {"action": "click_button", "success": False, "error": "No button detected on page."}
+
+                return self._click_button(button_selector)
+
+            elif action == "navigate":
+                navigate_to = inputs.get("navigate_to")
+                if not navigate_to:
+                    return {"action": "navigate", "success": False, "error": "Navigation URL missing."}
+
+                return self._navigate(navigate_to)
+
+            else:
+                return {"action": action, "success": False, "error": "Unsupported action"}
+
+        except Exception as e:
+            self.logger.error(f"Error performing action '{action}': {e}")
+            return {"action": action, "success": False, "error": str(e)}
+
+    def _detect_form_selector(self):
+        """Automatically detects the most relevant form on the page."""
+        try:
+            forms = self.driver.find_elements(By.TAG_NAME, "form")
+            if not forms:
+                return None
+
+            # Pick the form with the most input fields
+            best_form = max(forms, key=lambda form: len(form.find_elements(By.TAG_NAME, "input")), default=None)
+
+            if best_form:
+                form_id = best_form.get_attribute("id")
+                form_class = best_form.get_attribute("class")
+                return f"form[id='{form_id}']" if form_id else f"form[class='{form_class.split()[0]}']" if form_class else "form"
+
+        except Exception as e:
+            self.logger.error(f"Error detecting form: {e}")
+            return None
+
+    def _detect_button_selector(self):
+        """Automatically detects the most relevant button on the page."""
+        try:
+            buttons = self.driver.find_elements(By.TAG_NAME, "button")
+            if not buttons:
+                return None
+            return "button[type='submit']"  # Defaulting to submit buttons
+
+        except Exception as e:
+            self.logger.error(f"Error detecting button: {e}")
+            return None
+
+    def _fill_form(self, form_selector: str, form_data: dict) -> dict:
+        """Fills out a form dynamically using detected selectors."""
+        try:
             form = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, form_selector))
             )
 
-            # Fill each form field
             for field_name, value in form_data.items():
                 try:
                     field = form.find_element(By.NAME, field_name)
-                    if field.tag_name == "input":
-                        field.clear()
-                        field.send_keys(value)
-                    elif field.tag_name == "select":
-                        select = Select(field)
-                        select.select_by_value(value)
-                    self.logger.info(f"Filled field '{field_name}' with value '{value}'.")
-                except Exception as fe:
-                    self.logger.warning(f"Could not fill field '{field_name}': {fe}")
+                    field.clear()
+                    field.send_keys(value)
+                    self.logger.info(f"Filled '{field_name}' with '{value}'.")
+                except:
+                    self.logger.warning(f"Field '{field_name}' not found.")
 
-            # Submit the form
             form.submit()
             self.logger.info("Form submitted successfully.")
             return {"action": "fill_form", "success": True}
@@ -208,39 +161,55 @@ class BrowserResource(BaseResource):
             self.logger.error(f"Error filling form: {e}")
             return {"action": "fill_form", "success": False, "error": str(e)}
 
+    def _click_button(self, button_selector: str) -> dict:
+        """Clicks a button on the page dynamically."""
+        try:
+            button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, button_selector))
+            )
+            button.click()
+            self.logger.info(f"Clicked button: {button_selector}")
+            return {"action": "click_button", "success": True}
 
-    def _handle_button_click(self, message: str) -> dict:
-        """
-        Extracts button selector and performs a click.
+        except Exception as e:
+            self.logger.error(f"Error clicking button: {e}")
+            return {"action": "click_button", "success": False, "error": str(e)}
 
-        :param message: The user command message containing button details.
-        :return: Result of the button click.
-        """
-        button_selector = parse_field(message, "Button Selector:")
-        if not button_selector:
-            return {"error": "Button selector missing. Please specify 'Button Selector:' followed by the button ID."}
+    def _navigate(self, url: str) -> dict:
+        """Navigates to a different page."""
+        try:
+            self.driver.get(url)
+            self.logger.info(f"Navigated to {url}")
+            return {"action": "navigate", "success": True}
+        except Exception as e:
+            self.logger.error(f"Error navigating to {url}: {e}")
+            return {"action": "navigate", "success": False, "error": str(e)}
 
-        return self._click_button(button_selector)
+    def _extract_page_data(self, url: str) -> dict:
+        """Extracts page text, title, and links."""
+        self.driver.get(url)
+        self.logger.info(f"Extracting data from {url}...")
 
-    def _handle_navigation(self, message: str) -> dict:
-        """
-        Extracts navigation URL and directs the browser.
+        self._handle_scrolling()
+        body_text = self.driver.find_element(By.TAG_NAME, "body").text
+        page_title = self.driver.title
+        links = [urljoin(url, a.get_attribute("href")) for a in self.driver.find_elements(By.TAG_NAME, "a") if a.get_attribute("href")]
 
-        :param message: The user command message containing navigation details.
-        :return: Result of the navigation.
-        """
-        navigate_url = parse_field(message, "Navigate To:")
-        if not navigate_url:
-            return {"error": "Navigation URL missing. Please specify 'Navigate To:' followed by a valid URL."}
+        return {"url": url, "title": page_title, "body_text": body_text, "links": links}
 
-        self.driver.get(navigate_url)
-        self.logger.info(f"Navigated to {navigate_url}")
-        return {"action": "navigate", "success": True}
+    def _handle_scrolling(self):
+        """Scrolls to load dynamic content."""
+        last_height = self.driver.execute_script("return document.body.scrollHeight")
+        while True:
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(self.scroll_pause_time)
+            new_height = self.driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
 
     def stop(self) -> None:
-        """
-        Stops the browser resource and closes the Selenium WebDriver.
-        """
-        if self.driver:
+        """Stops and closes the browser."""
+        if self.driver: 
             self.driver.quit()
-            self.logger.info("BrowserResource stopped and WebDriver closed.")
+            self.logger.info("BrowserResource stopped.")
