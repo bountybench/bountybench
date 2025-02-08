@@ -5,7 +5,7 @@ class ExecutorAgentMessage(AgentMessage):
     @property
     def message(self) -> str:
         self._message = ""
-        current_action_messages = self.current_actions_list
+        current_action_messages = self.current_children
         for action_message in current_action_messages:
             if action_message and action_message.message:
                 self._message += action_message.message

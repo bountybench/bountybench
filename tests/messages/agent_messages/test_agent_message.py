@@ -42,9 +42,9 @@ class TestAgentMessage(unittest.TestCase):
         self.assertListEqual(agent_message.action_messages, [])
 
     @patch("messages.message_utils.broadcast_update")
-    def test_current_actions_list(self, mock_broadcast_update):
+    def test_current_children(self, mock_broadcast_update):
         """
-        Test that current_actions_list correctly retrieves the latest versions of actions.
+        Test that current_children correctly retrieves the latest versions of actions.
         """
         agent_manager = MagicMock(spec=AgentManager)
         resource_manager = MagicMock(spec=ResourceManager)
@@ -59,7 +59,7 @@ class TestAgentMessage(unittest.TestCase):
         action_msg2 = asyncio.run(rerun_manager.edit_message(action_msg1, "test_msg2"))
         action_msg3 = asyncio.run(rerun_manager.edit_message(action_msg2, "test_msg3"))
         action_msg5 = asyncio.run(rerun_manager.edit_message(action_msg4, "test_msg5"))
-        current_actions = agent_message.current_actions_list
+        current_actions = agent_message.current_children
 
         # Assertions
         self.assertEqual(len(agent_message.action_messages), 5)
@@ -84,12 +84,12 @@ class TestAgentMessage(unittest.TestCase):
         """
         # Mock to_dict for action messages
         with patch.object(AgentMessage, 'action_messages', new_callable=PropertyMock) as mock_action_messages, \
-             patch.object(AgentMessage, 'current_actions_list', new_callable=PropertyMock) as mock_current_actions_list:
+             patch.object(AgentMessage, 'current_children', new_callable=PropertyMock) as mock_current_children:
             
             action_message = MagicMock(spec=ActionMessage)
             action_message.to_dict.return_value = {"action": "msg"}
             mock_action_messages.return_value = [action_message]
-            mock_current_actions_list.return_value = [action_message]
+            mock_current_children.return_value = [action_message]
 
             agent_message = AgentMessage("test_id", "test_msg")
             agent_dict = agent_message.agent_dict()
@@ -99,7 +99,7 @@ class TestAgentMessage(unittest.TestCase):
             self.assertEqual(agent_dict["action_messages"], [{"action": "msg"}])
             self.assertEqual(agent_dict["message"], "test_msg")
             mock_action_messages.assert_called()
-            mock_current_actions_list.assert_called_once()
+            mock_current_children.assert_called_once()
             action_message.to_dict.assert_called()
             self.assertIn("current_children", agent_dict)
 
