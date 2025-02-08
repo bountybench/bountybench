@@ -4,7 +4,7 @@ import os
 # ✅ Ensure Python can find `messages`
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from browser_resource import BrowserResource
+from tests.resources.browser_resource import BrowserResource
 from messages.action_messages.command_message import CommandMessage
 from messages.workflow_message import WorkflowMessage  # ✅ Import WorkflowMessage
 
