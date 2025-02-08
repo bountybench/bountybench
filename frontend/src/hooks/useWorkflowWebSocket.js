@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 export const useWorkflowWebSocket = (workflowId) => {
   const [isConnected, setIsConnected] = useState(false);
-  const [messages, setMessages] = useState([]);
+  const [phaseMessages, setPhaseMessages] = useState([]);
   const [error, setError] = useState(null);
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
@@ -15,20 +15,42 @@ export const useWorkflowWebSocket = (workflowId) => {
   const connectionTimeout = useRef(null);
   const connectionEstablished = useRef(false);
 
-  const handleUpdatedAgentMessage = useCallback((updatedAgentMessage) => {
-    setMessages((prevMessages) => {
-      const index = prevMessages.findIndex(
-        (msg) => msg.current_id === updatedAgentMessage.current_id
-      );
+  const handleUpdatePhaseMessage = useCallback((updatedPhaseMessage) => {
+    setCurrentPhase(message);
+    // HERE WE NEED TO UPDATE PHASE MESSAGES
+    // Essentially, if we are sending an update on an existing phase message (already in phaseMessages array),
+    // we want to overwrite both the existing entry
+    // AND clear all of the subsequent entries (e.g. we have [1, 2, 3, 4], update 2* > messages become [1, 2*])
+    // The message may be an array of messages (all one type):
+    // e.g. we have [1, 2, 3, 4], update [2*, 3*] > messages become [1, 2*, 3*]
+    // Distinguish entries via "current_id"
+  })
 
-      if (index !== -1) {
-        const newMessages = [...prevMessages];
-        newMessages[index] = updatedAgentMessage;
-        return newMessages;
-      } else {
-        return [...prevMessages, updatedAgentMessage];
-      }
-    });
+  const handleUpdatedAgentMessage = useCallback((updatedAgentMessage) => {
+    
+    // HERE WE NEED TO UPDATE AGENT MESSAGES
+    // Agent messages are nested within a Phase message
+    // the relevant phase message (id) can be retrieved via element.parent
+    
+    // We do not want to overwrite the existing phase message entry (note phase message is a dict)
+    // instead, we want to update a property of the phase message (phase.agent_messages)
+    // phase.agent_messages is a list of agent messages
+
+    // Essentially, if we are sending an update on an existing agent message (already in agent_messages array),
+    // we want to overwrite both the existing entry
+    // AND clear all of the subsequent entries (e.g. we have [1, 2, 3, 4], update 2* > messages become [1, 2*])
+    // The message may be an array of messages (all one type):
+    // e.g. we have [1, 2, 3, 4], update [2*, 3*] > messages become [1, 2*, 3*]
+    // if there is not an existing entry, append to end, e.g. we have [1, 2, 3, 4], update 5 > messages become [1, 2, 3, 4, 5]
+    // Distinguish entries via "current_id"
+
+    // We can assume (or error otherwise) that we are sending agent messages associated with an already broadcast phase.
+    // When an existing phase message is updated with agent message(s), we clear later phases. 
+    // e.g. [Phase0: [0] Phase1: [1, 2], Phase2: [2]], update Phase1: [3], our phaseMessages becomes [Phase0: [0], Phase1: [1, 2, 3]]
+  }, []);
+
+  const handleUpdatedActionMessage = useCallback((updatedAgentMessage) => {
+    console.error("We shouldn't be broadcasting ActionMessages");
   }, []);
 
   const handleWebSocketMessage = useCallback((event) => {
@@ -42,63 +64,54 @@ export const useWorkflowWebSocket = (workflowId) => {
         return;
       }
 
-      switch (data.message_type) {
-        case 'connection_established':
-          connectionEstablished.current = true;
-          setIsConnected(true);
-          break;
+      // Handle single message or list of messages
+      const messages = Array.isArray(data) ? data : [data];
 
-        case 'workflow_status':
-          console.log(`Received workflow status update: ${data.status}`);
-          setWorkflowStatus(data.status);
-          if (data.error) {
-            console.error(`Workflow error: ${data.error}`);
-            setError(data.error);
-          }
-          break;
+      messages.forEach(message => {
+        if (message.error) {
+          console.error(`${message.message_type}: ${message.error}`);
+          setError(message.error);
+        }
 
-        case 'WorkflowMessage':
-          setMessages((prev) => [...prev, data]);
-          if (data.workflow_metadata?.workflow_summary) {
-            setWorkflowStatus(data.workflow_metadata.workflow_summary);
-          }
-          break;
+        switch (message.message_type) {
+          case 'connection_established':
+            connectionEstablished.current = true;
+            setIsConnected(true);
+            break;
 
-        case 'PhaseMessage':
-          setCurrentPhase(data);
-          setMessages((prev) => {
-            const idx = prev.findIndex((msg) => msg.current_id === data.current_id);
-            if (idx > -1) {
-              const newArr = [...prev];
-              newArr[idx] = data;
-              return newArr;
-            } else {
-              return [...prev, data];
+          case 'workflow_status':
+            console.log(`Received workflow status update: ${message.status}`);
+            setWorkflowStatus(message.status);
+            break;
+
+          case 'WorkflowMessage':
+            if (message.workflow_metadata?.workflow_summary) {
+              console.log(`Received workflow message summary update: ${message.status}`);
+              setWorkflowStatus(message.workflow_metadata.workflow_summary);
             }
-          });
-          break;
+            break;
 
-        case 'AgentMessage':
-          handleUpdatedAgentMessage(data);
-          break;
+          case 'PhaseMessage':
+            handleUpdatePhaseMessage(message);
+            break;
 
-        case 'ActionMessage':
-          setMessages((prev) => [...prev, data]);
-          break;
+          case 'AgentMessage':
+            handleUpdatedAgentMessage(message);
+            break;
 
-        case 'first_message':
-          setMessages((prev) => [...prev, data]);
-          break;
+          case 'ActionMessage':
+            handleUpdatedActionMessage(message);
+            break;
 
-        case 'workflow_completed':
-          setWorkflowStatus('completed');
-          setMessages(prev => [...prev, data]);
-          break;
+          case 'workflow_completed':
+            console.log(`Received workflow status update (should be complete): ${message.status}`);
+            setWorkflowStatus('completed');
+            break;
 
-        default:
-          console.warn('Unknown message_type:', data.message_type);
-          setMessages((prev) => [...prev, data]);
-      }
+          default:
+            console.error('Unknown message_type:', message.message_type);
+        }
+      });
     } catch (err) {
       console.error('Error processing WebSocket message:', err);
       setError('Failed to process workflow update: ' + err.message);
@@ -171,32 +184,11 @@ export const useWorkflowWebSocket = (workflowId) => {
     }
   }, [connect, workflowId, cleanupConnection]);
 
-  const sendMessage = useCallback((message) => {
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN || !connectionEstablished.current) {
-      console.warn('WebSocket not ready for sending');
-      setError('Cannot send message: not connected to workflow');
-      return;
-    }
-
-    try {
-      ws.current.send(
-        JSON.stringify({
-          message_type: 'user_message',
-          content: message.content
-        })
-      );
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setError('Failed to send message: ' + err.message);
-    }
-  }, []);
-
   return {
     isConnected,
     messages,
     error,
     workflowStatus,
     currentPhase,
-    sendMessage
   };
 };
