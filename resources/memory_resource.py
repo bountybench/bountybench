@@ -289,12 +289,12 @@ class MemoryResource(BaseResource):
                     add_to_segment(msg_node, segment)
 
             if len(children) > 0: 
-                child = msg_node.get_latest_version(children[0])
+                child = children[0].get_latest_version()
                 while child.next: 
                     if child is stop_instance: 
                         break
                     segment.extend(go_down(child, sys_messages, stop_instance))
-                    child = child.next.get_latest_version(child.next)
+                    child = child.next.get_latest_version()
                 
                 if child is not stop_instance:
                     segment.extend(go_down(child, sys_messages, stop_instance))

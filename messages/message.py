@@ -40,21 +40,22 @@ class Message(ABC):
     @property
     def versions(self) -> List[str]:
         message = self
-        versions = [message]
+        versions = [message.id]
         while message.version_prev:
             message = message.version_prev
-            versions.insert(message)
+            versions.insert(0, message.id)
         message = self
         while message.version_next:
             message = message.version_next
-            versions.append(message)
+            versions.append(message.id)
         
         return versions
 
     def get_latest_version(self):
-        if self.versions.length > 0:
-            return self.versions[-1]
-        return self
+        message = self
+        while message.version_next:
+            message = message.version_next
+        return message
     
     @property
     def id(self) -> str:
@@ -101,7 +102,7 @@ class Message(ABC):
                 result["version_next"] = id(self.version_next)
             result["parent"] = self.parent.id
             result["timestamp"] = self.timestamp
-            if self.versions.length > 1:
+            if len(self.versions) > 1:
                 result["versions"] = self.versions
         
             return result

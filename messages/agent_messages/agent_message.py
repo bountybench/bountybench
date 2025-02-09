@@ -46,12 +46,12 @@ class AgentMessage(Message):
         current_actions = []
         if len(self.action_messages) > 0:
             current_message = self.action_messages[0]
-            current_message = self.get_latest_version(current_message)
+            current_message = current_message.get_latest_version()
 
             current_actions.append(current_message)
             while current_message.next and current_message.next.prev and current_message.next.prev.id == current_message.id:
                 current_message = current_message.next
-                current_message = self.get_latest_version(current_message)
+                current_message = current_message.get_latest_version()
                 current_actions.append(current_message)
             
         return current_actions
