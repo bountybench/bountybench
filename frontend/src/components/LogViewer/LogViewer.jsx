@@ -12,6 +12,7 @@ export const LogViewer = ({ workflow }) => {
   const [expandedWorkflows, setExpandedWorkflows] = useState({});
   const [expandedCodebases, setExpandedCodebases] = useState({});
   const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [selectedCellId, setSelectedCellId] = useState(null);
 
   // Fetch log file list
@@ -19,7 +20,7 @@ export const LogViewer = ({ workflow }) => {
     fetch('http://localhost:8000/logs')
       .then((response) => response.json())
       .then((data) => {
-        console.log("Fetched log files:", data);
+        
         if (Array.isArray(data)) {
           setLogFiles(data);
         } else {
@@ -37,7 +38,6 @@ export const LogViewer = ({ workflow }) => {
   const handleLogClick = async (filename) => {
     setLoading(true);
     setSelectedLogFile(filename);
-    console.log("file read");
     try {
       const response = await fetch(`http://localhost:8000/logs/${filename}`);
       const content = await response.json();
@@ -68,7 +68,6 @@ export const LogViewer = ({ workflow }) => {
   
       grouped[workflowType][codebase].push(file);
     });
-    console.log("loading groups");
     return grouped;
   }, [logFiles]);
 
@@ -87,6 +86,15 @@ export const LogViewer = ({ workflow }) => {
     }));
   };
 
+  const handleRerunMessage = (messageId) => {
+    console.log(`Rerun placeholder for message ID: ${messageId}`);
+    // TODO: Implement rerun logic
+  };
+  
+  const handleUpdateMessageInput = (messageId) => {
+    console.log(`Update placeholder for message ID: ${messageId}`);
+    // TODO: Implement update logic
+  };
   
   return (
     <Box className="log-container">
@@ -175,8 +183,12 @@ export const LogViewer = ({ workflow }) => {
                       current_children: phase.agent_messages || [],
                       additional_metadata: phase.additional_metadata || null,
                     }}
+                    onEditingChange={setIsEditing}            
+                    isEditing={isEditing}            
                     selectedCellId={selectedCellId}
                     onCellSelect={setSelectedCellId}
+                    onRerunMessage={handleRerunMessage}
+                    onUpdateMessageInput={handleUpdateMessageInput}
                   />
                 ))}
               </Box>
