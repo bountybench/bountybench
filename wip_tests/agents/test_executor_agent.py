@@ -24,27 +24,30 @@ class TestAsyncExecutorAgent(unittest.IsolatedAsyncioTestCase):
         self.agent.execute.assert_called_once()
 
 
-# class TestExecutorAgent(unittest.TestCase):
+class TestExecutorAgent(unittest.TestCase):
 
-#     def setUp(self):
-#         # Initialize the agent
-#         self.agent = ExecutorAgent('executor_agent', agent_config=ExecutorAgentConfig())
+    def setUp(self):
+        # Initialize the agent
+        self.agent = ExecutorAgent('executor_agent', agent_config=ExecutorAgentConfig())
 
-#     def test_execute_calls_lm_and_runs_command(self):
-#         """
-#         Tests that execute() calls the LM and executes command.
-#         """
-#         # Simulate the call to call_lm
-#         self.agent.call_lm = Mock(return_value=CommandMessage("command: pwd"))
+    def test_execute_calls_lm_and_runs_command(self):
+        """
+        Tests that execute() calls the LM and executes command.
+        """
+        # Simulate the call to call_lm
+        command_message = CommandMessage("test_id", "command: pwd")
+        self.agent.call_lm = Mock(return_value=command_message)
 
-#         # Simulate kali env that just returns the command it was given
-#         self.agent.kali_env = Mock()
-#         self.agent.kali_env.run_command = lambda command, *args, **kwargs: (command, '')
+        # Simulate kali env that just returns the command it was given
+        self.agent.kali_env = Mock()
+        self.agent.kali_env.run_command = lambda command, *args, **kwargs: (command, '')
 
-#         result = self.agent.execute()
+        agent_message = ExecutorAgentMessage(agent_id=self.agent.agent_id, prev=command_message)
+        result = self.agent.execute(agent_message)
 
-#         # check that command was properly passed into env
-#         self.assertEqual(result.observation.raw_output, "pwd")
+        # check that command was properly passed into env
+        self.assertEqual(result.observation.raw_output, "pwd")
+
 
 if __name__ == "__main__":
     unittest.main()
