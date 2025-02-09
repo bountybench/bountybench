@@ -12,7 +12,8 @@ logger = get_main_logger(__name__)
 
 
 class ResourceManager:
-    def __init__(self):
+    def __init__(self, workflow_id: str):
+        self.workflow_id = workflow_id
         self._resources = resource_dict
         self._resource_registration: Dict[
             str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]
@@ -42,7 +43,7 @@ class ResourceManager:
             )
             self._resource_registration["model"] = (resource_class, resource_config)
             resource = resource_class("model", resource_config)
-            self._resources["model"] = resource
+            self._resources[self.workflow_id]["model"] = resource
             logger.info(f"New model specifics: {resource}")
 
     def compute_schedule(self, phases: List["BasePhase"]):
@@ -150,7 +151,7 @@ class ResourceManager:
 
     def _initialize_single_resource(self, resource_id: str, phase_index: int):
         """Initialize a single resource."""
-        if resource_id in self._resources.id_to_resource:
+        if resource_id in self._resources[self.workflow_id].id_to_resource:
             logger.info(f"Resource '{resource_id}' already initialized. Skipping.")
             return
 
