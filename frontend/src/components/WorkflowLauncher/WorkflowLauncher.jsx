@@ -39,17 +39,19 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     message: "Checking server availability...",
     error: null
   });
+
+  const { isAvailable, isChecking, error: serverError } = useServerAvailability();
   
-  const { isAvailable, isChecking, error: serverError } = useServerAvailability(() => {
-    console.log('Server is available!');
-    setLauncherState({
-      status: LauncherState.LOADING_DATA,
-      message: "Loading workflows...",
-      error: null
-    });
-  });
-  
-  console.log(`Is available ${isAvailable}, isChecking: ${isChecking}`);
+  useEffect(() => {
+    if (isAvailable && !isChecking) {
+      setLauncherState({
+        status: LauncherState.LOADING_DATA,
+        message: "Loading workflows...",
+        error: null
+      });
+    }
+  }, [isAvailable, isChecking]);
+
   const [workflows, setWorkflows] = useState([]);
   
   const [formData, setFormData] = useState({
@@ -136,7 +138,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       message: "Creating workflow instance...",
       error: null
     });
-
+  
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
         method: 'POST',
@@ -156,13 +158,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to start workflow');
       }
-
+  
       const data = await response.json();
-
+  
       if (data.error) {
         throw new Error(data.error);
       } else {
-        onWorkflowStart(data.workflow_id, data.model, interactiveMode);
+        await onWorkflowStart(data.workflow_id, data.model, interactiveMode);
         navigate(`/workflow/${data.workflow_id}`);
       }
     } catch (err) {
@@ -322,7 +324,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
         >
-        {(workflows.length > 0) ? (
+        {(workflows?.length > 0) ? (
           workflows.map((workflow) => (
               <MenuItem key={workflow.name} value={workflow.name}>
                 <Box display="flex" flexDirection="column">
