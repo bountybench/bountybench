@@ -11,7 +11,7 @@ import './AgentMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
+const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message?.message || '');
@@ -203,6 +203,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                       disabled={!message?.version_prev}
                       sx={{ color: 'black' }}
                       size="small"
+                      onClick={() => onToggleVersion(message.current_id, 'prev')}
                     >
                       <ArrowBackIcon />
                     </IconButton>
@@ -211,6 +212,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                       disabled={!message?.version_next}
                       sx={{ color: 'black' }}
                       size="small"
+                      onClick={() => onToggleVersion(message.current_id, 'next')}
                     >
                       <ArrowForwardIcon />
                     </IconButton>

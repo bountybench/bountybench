@@ -230,15 +230,13 @@ class BaseWorkflow(ABC):
     async def rerun_message(self, message_id: str):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
         message = workflow_messages.get(message_id)
-        message = await self.rerun_manager.rerun(message)        
         if message.next:
-            message = await self.rerun_manager.run_edited(message)
-            message = message.next
-        if isinstance(message, ActionMessage):
-            while message.next:
-                message = await self.rerun_manager.run_edited(message)
-                message = message.next
-        return message
+            message = await self.rerun_manager.rerun(message)
+            if isinstance(message, ActionMessage):
+                while message.next:
+                    message = await self.rerun_manager.rerun(message)
+            return message
+        return None
     
     async def run_next_message(self):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
@@ -301,7 +299,24 @@ class BaseWorkflow(ABC):
 
         self._finalize_workflow()
 
+    async def toggle_version(self, message_id: str, direction: str):
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        message = workflow_messages.get(message_id)
         
+        if not message:
+            raise ValueError(f"Message with id {message_id} not found")
+        
+        if direction == "prev":
+            target_message = message.version_prev
+        elif direction == "next":
+            target_message = message.version_next
+        else:
+            raise ValueError("Invalid direction. Must be 'prev' or 'next'")
+        
+        from messages.message_utils import generate_subtree
+        subtree = generate_subtree(target_message)
+        
+        return subtree
 
     @property
     def name(self):

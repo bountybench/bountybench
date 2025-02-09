@@ -36,9 +36,7 @@ def broadcast_update(messages):
 
 async def _broadcast_update_async(workflow_id: str, data_list: List[dict]):
     try:
-        for data in data_list:
-            print(f"sending data {data}")
-            await websocket_manager.broadcast(workflow_id, data)
+        await websocket_manager.broadcast(workflow_id, data_list)
     except Exception as e:
         logger.error(f"Exception: {e}")
     
@@ -59,13 +57,16 @@ def log_message(message: Message):
         message_dict[workflow_id][workflow_id].save()
 
 
-def get_subtree(message: Message) -> dict:
+def generate_subtree(message: Message) -> dict:
     # This logic is meant to generate proper subtree within a phase. 
     # Additional logic may be needed for across phase edits
 
     messages = []
     messages.append(message)
     while message.next and message.next.prev == message:
+        message = message.next
         messages.append(message)
+
+    broadcast_update(messages)
 
     return messages

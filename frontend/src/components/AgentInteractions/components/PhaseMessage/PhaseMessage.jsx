@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AgentMessage from '../AgentMessage/AgentMessage';
 import './PhaseMessage.css'
 
-const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
+const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
@@ -47,6 +47,7 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                     isEditing={isEditing}                      
                     selectedCellId={selectedCellId}
                     onCellSelect={onCellSelect}
+                    onToggleVersion={onToggleVersion}
                   />
                 ))}
               </Box>

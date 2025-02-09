@@ -13,7 +13,8 @@ const AgentInteractions = ({
   onUpdateMessageInput,
   onRerunMessage,
   onTriggerNextIteration,
-  onStopWorkflow
+  onStopWorkflow,
+  onToggleVersion
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isStopped, setIsStopped] = useState(false);
@@ -76,6 +77,7 @@ const AgentInteractions = ({
             isEditing={isEditing}            
             selectedCellId={selectedCellId}
             onCellSelect={setSelectedCellId}
+            onToggleVersion={onToggleVersion}
           />
         ))}
         <div ref={messagesEndRef} />

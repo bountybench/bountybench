@@ -97,7 +97,6 @@ class WorkflowMessage(Message):
 
         logs = self.to_dict()
         for phase_message in logs.get("phase_messages", []):
-            logger.info(phase_message)
             agent_messages = phase_message.get("agent_messages")
             for agent_message in agent_messages if agent_messages else []:
                 agent_message.pop('current_children', None)

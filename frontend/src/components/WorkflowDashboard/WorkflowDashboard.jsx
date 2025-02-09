@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Box, CircularProgress, Alert, Typography } from '@mui/material';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
@@ -158,6 +158,27 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   };
 
+  const handleToggleVersion = useCallback(async (messageId, direction) => {
+    try {
+      const response = await fetch(`http://localhost:8000/workflow/${workflowId}/toggle-version`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message_id: messageId, direction }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle version');
+      }
+
+      const result = await response.json();
+      // Updating messages should be triggered by call
+    } catch (error) {
+      console.error('Error toggling version:', error);
+    }
+  }, [workflowId]);
+
   if (error) {
     return (
       <Box p={2}>
@@ -189,6 +210,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         onRerunMessage={handleRerunMessage}
         onTriggerNextIteration={triggerNextIteration}
         onStopWorkflow={handleStopWorkflow}
+        onToggleVersion={handleToggleVersion}
       />
     </Box>
   );
