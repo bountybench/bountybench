@@ -11,7 +11,8 @@ logger = get_main_logger(__name__)
 # Set the logging level
 set_logging_level(MessageType.AGENT)
 
-message_dict: Dict[str, Message] = {}
+# Dict of workflow_id -> Dict of message_id -> Message
+message_dict: Dict[str, Dict[str, Message]] = {}
 
 
 def broadcast_update(message: Message):
@@ -38,17 +39,19 @@ async def _broadcast_update_async(workflow_id: str, data: dict):
     except Exception as e:
         logger.error(f"Exception: {e}")
 
-
+    
 def log_message(message: Message):
-    message_dict[message.id] = message
-
     if not message.workflow_id:
-        logger.debug(
-            f"No associated workflow for {type(message)} message {message.id}, skipping logging"
-        )
+        logger.info(f"No associated workflow for {type(message)} message {message.id}, skipping logging")
         return
 
+    # Initialize dict for new workflows
+    if message.workflow_id not in message_dict:
+        message_dict[message.workflow_id] = {}
+
+    message_dict[message.workflow_id][message.id] = message
+
     broadcast_update(message)
-    if should_log(message):
+    if should_log(message):  
         workflow_id = message.workflow_id
-        message_dict[workflow_id].save()
+        message_dict[workflow_id][workflow_id].save()

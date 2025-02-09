@@ -213,6 +213,17 @@ class PatchAgent(BaseAgent):
                 logger.error(f"{directory_path} is not a git repository, something went wrong.")
                 return ""
 
+
+            subprocess.run(
+                ['git', 'rm', '--cached', '-r', '__pycache__'],
+                cwd=directory_path,
+                check=False
+            )
+            subprocess.run(
+                ['git', 'rm', '--cached', '*.pyc'],
+                cwd=directory_path,
+                check=False
+            )
             # Check for untracked files
             untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=directory_path).decode('utf-8')
             logger.debug(f"Untracked files: {untracked}")

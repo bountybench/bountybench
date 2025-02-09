@@ -47,7 +47,7 @@ describe('HomePage Component', () => {
     renderWithRouter();
 
     // Wait for the loading to finish and the workflows to load
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflows/active'));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflow/active'));
     expect(await screen.findByText(/Workflow 1/)).toBeInTheDocument();
     expect(await screen.findByText(/Workflow 2/)).toBeInTheDocument();  
   });
@@ -61,7 +61,7 @@ describe('HomePage Component', () => {
     renderWithRouter();
 
     // Wait for the loading to finish
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflows/active'));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflow/active'));
     
     // Assert
     expect(await screen.findByText(/No active workflows/i)).toBeInTheDocument();
@@ -76,7 +76,7 @@ describe('HomePage Component', () => {
     renderWithRouter();
 
     // Wait for the loading to finish
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflows/active'));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflow/active'));
 
     // Act
     const newWorkflowButton = screen.getByRole('button', { name: /New Workflow/i });
@@ -98,7 +98,7 @@ describe('HomePage Component', () => {
     renderWithRouter();
 
     // Wait for the loading to finish and the workflows to load
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflows/active'));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflow/active'));
 
     // Act
     const workflowButton = await screen.findByRole('button', { name: /Workflow 1/i });

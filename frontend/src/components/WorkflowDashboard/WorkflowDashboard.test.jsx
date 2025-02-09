@@ -183,7 +183,7 @@ describe('WorkflowDashboard Component', () => {
     fireEvent.click(triggerNextIterationButton);
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-    expect(global.fetch).toHaveBeenCalledWith(`http://localhost:8000/workflow/next/${mockSelectedWorkflow.id}`, { method: 'POST' });
+    expect(global.fetch).toHaveBeenCalledWith(`http://localhost:8000/workflow/${mockSelectedWorkflow.id}/next`, { method: 'POST' });
   });
 
     test('displays error message when triggering next iteration fails', async () => {
@@ -219,7 +219,7 @@ describe('WorkflowDashboard Component', () => {
         fireEvent.click(triggerNextIterationButton);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-        expect(global.fetch).toHaveBeenCalledWith(`http://localhost:8000/workflow/next/${mockSelectedWorkflow.id}`, { method: 'POST' });
+        expect(global.fetch).toHaveBeenCalledWith(`http://localhost:8000/workflow/${mockSelectedWorkflow.id}/next`, { method: 'POST' });
 
         // Additional checks can be added here to verify if any UI updates reflect the error
     });
@@ -255,14 +255,24 @@ describe('WorkflowDashboard Component', () => {
                     {
                       current_id: 'test-message-id',
                       resource_id: 'test-message-id',
-                      message: 'former'
+                      message: 'former1'
+                    },
+                    {
+                      current_id: 'test-message-id2',
+                      resource_id: 'test-message-id2',
+                      message: 'former2'
                     }
                   ],
                   current_children: [
                     {
                       current_id: 'test-message-id',
                       resource_id: 'test-message-id',
-                      message: 'former'
+                      message: 'former1'
+                    },
+                    {
+                      current_id: 'test-message-id2',
+                      resource_id: 'test-message-id2',
+                      message: 'former2'
                     }
                   ],
                   message_type: 'AgentMessage',
@@ -276,14 +286,24 @@ describe('WorkflowDashboard Component', () => {
                     {
                       current_id: 'test-message-id',
                       resource_id: 'test-message-id',
-                      message: 'former'
+                      message: 'former1'
+                    },
+                    {
+                      current_id: 'test-message-id2',
+                      resource_id: 'test-message-id2',
+                      message: 'former2'
                     }
                   ],
                   current_children: [
                     {
                       current_id: 'test-message-id',
                       resource_id: 'test-message-id',
-                      message: 'former'
+                      message: 'former1'
+                    },
+                    {
+                      current_id: 'test-message-id2',
+                      resource_id: 'test-message-id2',
+                      message: 'former2'
                     }
                   ],
                   message_type: 'AgentMessage',
@@ -298,10 +318,10 @@ describe('WorkflowDashboard Component', () => {
 
         renderWithRouter(mockSelectedWorkflow, mockInteractiveMode, mockOnWorkflowStateUpdate, mockShowInvalidWorkflowToast);
 
-        expect(screen.getByText(/former/)).toBeInTheDocument();
+        expect(screen.getByText(/former1/)).toBeInTheDocument();
     
         // Find the Edit button in the ActionMessage component and click it
-        const editButton = screen.getByRole('button', { name: /edit/i });
+        const editButton = screen.getAllByRole('button', { name: /edit/i })[0];
         fireEvent.click(editButton);
 
         // Ensure the text area appears and update the value
@@ -315,7 +335,7 @@ describe('WorkflowDashboard Component', () => {
         // Assertion for the fetch call
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
         expect(global.fetch).toHaveBeenCalledWith(
-        `http://localhost:8000/workflow/edit-message/${mockSelectedWorkflow.id}`,
+        `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/edit-message`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -356,14 +376,24 @@ describe('WorkflowDashboard Component', () => {
                     {
                       current_id: 'test-message-id',
                       resource_id: 'test-message-id',
-                      message: 'former'
+                      message: 'former1'
+                    },
+                    {
+                      current_id: 'test-message-id2',
+                      resource_id: 'test-message-id2',
+                      message: 'former2'
                     }
                   ],
                   current_children: [
                     {
                       current_id: 'test-message-id',
                       resource_id: 'test-message-id',
-                      message: 'former'
+                      message: 'former1'
+                    },
+                    {
+                      current_id: 'test-message-id2',
+                      resource_id: 'test-message-id2',
+                      message: 'former2'
                     }
                   ],
                   message_type: 'AgentMessage',
@@ -377,14 +407,24 @@ describe('WorkflowDashboard Component', () => {
                     {
                       current_id: 'test-message-id',
                       resource_id: 'test-message-id',
-                      message: 'former'
+                      message: 'former1'
+                    },
+                    {
+                      current_id: 'test-message-id2',
+                      resource_id: 'test-message-id2',
+                      message: 'former2'
                     }
                   ],
                   current_children: [
                     {
                       current_id: 'test-message-id',
                       resource_id: 'test-message-id',
-                      message: 'former'
+                      message: 'former1'
+                    },
+                    {
+                      current_id: 'test-message-id2',
+                      resource_id: 'test-message-id2',
+                      message: 'former2'
                     }
                   ],
                   message_type: 'AgentMessage',
@@ -399,10 +439,11 @@ describe('WorkflowDashboard Component', () => {
 
         renderWithRouter(mockSelectedWorkflow, mockInteractiveMode, mockOnWorkflowStateUpdate, mockShowInvalidWorkflowToast);
 
-        expect(screen.getByText(/former/)).toBeInTheDocument();
+        expect(screen.getByText(/former1/)).toBeInTheDocument();
+        expect(screen.getByText(/former2/)).toBeInTheDocument();
     
         // Find the Edit button in the ActionMessage component and click it
-        const editButton = screen.getByRole('button', { name: /edit/i });
+        const editButton = screen.getAllByRole('button', { name: /edit/i })[0];
         fireEvent.click(editButton);
 
         // Ensure the text area appears and update the value
@@ -416,7 +457,7 @@ describe('WorkflowDashboard Component', () => {
         // Assertion for the fetch call
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
         expect(global.fetch).toHaveBeenCalledWith(
-        `http://localhost:8000/workflow/edit-message/${mockSelectedWorkflow.id}`,
+        `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/edit-message`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

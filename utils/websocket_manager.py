@@ -185,5 +185,17 @@ class WebSocketManager:
     def get_active_connections(self):
         """Get dictionary of active connections"""
         return self.active_connections
+    
+    async def disconnect_all(self, workflow_id: str):
+        """Disconnects all WebSockets associated with a given workflow."""
+        if workflow_id not in self.active_connections:
+            return
+
+        print(f"Disconnecting all WebSockets for workflow {workflow_id}")
+        
+        for connection in list(self.active_connections[workflow_id]):  # Iterate safely
+            await self.disconnect(workflow_id, connection)
+
+        print(f"All WebSockets disconnected for workflow {workflow_id}")
 
 websocket_manager = WebSocketManager()

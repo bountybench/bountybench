@@ -19,9 +19,15 @@
 ## Installation
 ## Environment Setup
 
-You can quickly set up the environment by running the following command:
+You can quickly set up the dev environment by running the following command:
 ```
 ./setup.sh
+source venv/bin/activate
+```
+
+To initialize all submodules, run:
+```
+./setup.sh --all
 source venv/bin/activate
 ```
 
@@ -47,6 +53,18 @@ Initialize submodules (may take a few minutes to complete):
 git submodule update --init
 cd bountybench
 git submodule update --init
+```
+
+Additionally, please install `tree`:
+
+macOS (using Homebrew):
+```
+brew install tree
+```
+
+or Debian/Ubuntu (using APT):
+```
+sudo apt-get install tree
 ```
 
 ### 4. Configure the .env File
@@ -137,6 +155,10 @@ npm start
 ```
 
 This will launch the development server for the frontend.
+
+For a list of API endpoints currently supported, open one of these URLs in your browser:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
 ## Accessing the Application
 

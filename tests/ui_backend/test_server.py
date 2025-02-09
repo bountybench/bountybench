@@ -93,7 +93,7 @@ def started_chat_workflow(client):
 
 def test_next_message_success(client, started_chat_workflow):
     """Test retrieving the next message in an existing workflow."""
-    response = client.post(f"/workflow/next/{started_chat_workflow}")
+    response = client.post(f"/workflow/{started_chat_workflow}/next")
     assert response.status_code == 200, "Expected status code 200 for next message"
     data = response.json()
     assert "status" in data, "Response should contain 'status'"
@@ -103,7 +103,7 @@ def test_next_message_success(client, started_chat_workflow):
 
 def test_next_message_workflow_not_found(client):
     """Test retrieving the next message for a non-existent workflow."""
-    response = client.post("/workflow/next/nonexistent-id")
+    response = client.post("/workflow/nonexistent-id/next")
     assert response.status_code == 200, "Expected status code 200 even on error"
     data = response.json()
     assert "error" in data, "Response should contain 'error' key"
@@ -128,7 +128,7 @@ def started_patch_workflow(client):
 def test_rerun_message_success(client, started_patch_workflow):
     """Test rerunning a message in an existing workflow."""
     payload = {"message_id": "original-message-id"}
-    response = client.post(f"/workflow/rerun-message/{started_patch_workflow}", json=payload)
+    response = client.post(f"/workflow/{started_patch_workflow}/rerun-message", json=payload)
     assert response.status_code == 200, "Expected status code 200 for rerun message"
     data = response.json()
     assert "status" in data, "Response should contain 'status'"
@@ -139,7 +139,7 @@ def test_rerun_message_success(client, started_patch_workflow):
 def test_rerun_message_workflow_not_found(client):
     """Test rerunning a message in a non-existent workflow."""
     payload = {"message_id": "some-id"}
-    response = client.post("/workflow/rerun-message/nonexistent-id", json=payload)
+    response = client.post("/workflow/nonexistent-id/rerun-message", json=payload)
     assert response.status_code == 200, "Expected status code 200 even on error"
     data = response.json()
     assert "error" in data, "Response should contain 'error' key"
@@ -186,7 +186,7 @@ def test_update_interactive_mode_missing_field(client, started_detect_workflow):
 
 def test_last_message_success(client, started_chat_workflow):
     """Test retrieving the last message of an existing workflow."""
-    response = client.get(f"/workflow/last-message/{started_chat_workflow}")
+    response = client.get(f"/workflow/{started_chat_workflow}/last-message")
     assert response.status_code == 200, "Expected status code 200 for last message"
     data = response.json()
     assert "message_type" in data, "Response should contain 'message_type'"
@@ -196,7 +196,7 @@ def test_last_message_success(client, started_chat_workflow):
 
 def test_last_message_workflow_not_found(client):
     """Test retrieving the last message of a non-existent workflow."""
-    response = client.get("/workflow/last-message/nonexistent-id")
+    response = client.get("/workflow/nonexistent-id/last-message")
     assert response.status_code == 200, "Expected status code 200 even on error"
     data = response.json()
     assert "error" in data, "Response should contain 'error' key"
@@ -230,6 +230,179 @@ def test_update_interactive_mode_invalid_payload(client, started_detect_workflow
     assert error['loc'] == ['body', 'interactive'], "Error should be located in body.interactive"
     assert "Input should be a valid boolean" in error['msg'], "Error message should indicate invalid boolean"
     assert error['input'] == 'random', "Error should include the invalid input"
+
+
+def test_workflow_restart_creates_new_workflow(client):
+    """
+    Test that stopping a workflow does not remove it from active workflows,
+    and starting a new workflow creates a new instance with a different ID.
+    """
+    start_payload = {
+        "workflow_name": "Exploit and Patch Workflow",
+        "task_dir": "/path/to/tasks",
+        "bounty_number": "999",
+        "interactive": True,
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False
+    }
+
+    new_payload = {
+        "workflow_name": "Exploit and Patch Workflow",
+        "task_dir": "/path/to/tasks",
+        "bounty_number": "100",
+        "interactive": True,
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False
+    }
+
+    # Step 1: Start the first workflow
+    start_response_1 = client.post("/workflow/start", json=start_payload)
+    assert start_response_1.status_code == 200, "Expected status code 200 for first workflow start"
+    workflow_id_1 = start_response_1.json()["workflow_id"]
+
+    # Step 2: Stop the first workflow
+    stop_response = client.post(f"/workflow/{workflow_id_1}/stop")
+    assert stop_response.status_code == 200, "Expected status code 200 for stopping workflow"
+    assert "status" in stop_response.json(), "Response should contain 'status'"
+    assert stop_response.json()["status"] == "stopped", "Workflow should be marked as stopped"
+
+    # Step 3: Verify that the stopped workflow still exists in active workflows
+    active_workflows_before_restart = client.get("/workflow/active").json()
+    found_workflow = next((w for w in active_workflows_before_restart["active_workflows"] if w["id"] == workflow_id_1), None)
+    assert found_workflow is not None, "Stopped workflow should still be in active workflows"
+    assert found_workflow["status"] == "stopped", "Stopped workflow should have status 'stopped'"
+
+    # Step 4: Start a new workflow
+    start_response_2 = client.post("/workflow/start", json=new_payload)
+    assert start_response_2.status_code == 200, "Expected status code 200 for second workflow start"
+    workflow_id_2 = start_response_2.json()["workflow_id"]
+
+    # Step 5: Ensure the new workflow ID is different
+    assert workflow_id_1 != workflow_id_2, "New workflow should have a different ID"
+
+    # Step 6: Ensure both workflows exist in active workflows
+    active_workflows_after_restart = client.get("/workflow/active").json()
+    workflow_ids = {w["id"] for w in active_workflows_after_restart["active_workflows"]}
+
+    assert workflow_id_1 in workflow_ids, "Old workflow should still exist"
+    assert workflow_id_2 in workflow_ids, "New workflow should be added"
+
+    # Step 7: Ensure the old workflow is still stopped and the new workflow is initializing
+    old_workflow = next((w for w in active_workflows_after_restart["active_workflows"] if w["id"] == workflow_id_1), None)
+    new_workflow = next((w for w in active_workflows_after_restart["active_workflows"] if w["id"] == workflow_id_2), None)
+
+    assert old_workflow["status"] == "stopped", "Old workflow should remain stopped"
+    assert new_workflow["status"] == "initializing", "New workflow should be in 'initializing' state"
+
+def test_stopping_multiple_workflows(client):
+    """
+    Test that stopping multiple workflows correctly updates their statuses to 'stopped'
+    while keeping them in active workflows.
+    """
+    payload_1 = {
+        "workflow_name": "Exploit and Patch Workflow",
+        "task_dir": "/path/to/tasks",
+        "bounty_number": "101",
+        "interactive": True,
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False, 
+    }
+
+    payload_2 = {
+        "workflow_name": "Detect Workflow",
+        "task_dir": "/path/to/tasks",
+        "bounty_number": "102",
+        "interactive": True,
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False, 
+    }
+
+    
+    # Start two workflows
+    start_response_1 = client.post("/workflow/start", json=payload_1)
+    workflow_id_1 = start_response_1.json()["workflow_id"]
+
+    start_response_2 = client.post("/workflow/start", json=payload_2)
+    workflow_id_2 = start_response_2.json()["workflow_id"]
+
+    # Stop both workflows
+    stop_response_1 = client.post(f"/workflow/{workflow_id_1}/stop")
+    stop_response_2 = client.post(f"/workflow/{workflow_id_2}/stop")
+
+    assert stop_response_1.status_code == 200, "Expected status code 200 for stopping first workflow"
+    assert stop_response_2.status_code == 200, "Expected status code 200 for stopping second workflow"
+
+    # Verify that both workflows still exist but are marked as 'stopped'
+    active_workflows = client.get("/workflow/active").json()
+    workflow_1_status = next(w["status"] for w in active_workflows["active_workflows"] if w["id"] == workflow_id_1)
+    workflow_2_status = next(w["status"] for w in active_workflows["active_workflows"] if w["id"] == workflow_id_2)
+
+    assert workflow_1_status == "stopped", "First workflow should be marked as stopped"
+    assert workflow_2_status == "stopped", "Second workflow should be marked as stopped"
+
+def test_restarting_workflow_with_same_bounty_number(client):
+    """
+    Test that stopping a workflow and restarting it with the same bounty number does not overwrite the original workflow.
+    """
+    payload = {
+        "workflow_name": "Exploit and Patch Workflow",
+        "task_dir": "/path/to/tasks",
+        "bounty_number": "999",
+        "interactive": True,
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False
+    }
+
+    # Start the first workflow
+    start_response_1 = client.post("/workflow/start", json=payload)
+    workflow_id_1 = start_response_1.json()["workflow_id"]
+
+    # Stop the first workflow
+    stop_response = client.post(f"/workflow/{workflow_id_1}/stop")
+    assert stop_response.status_code == 200, "Expected status code 200 for stopping workflow"
+
+    # Restart with the same bounty number
+    start_response_2 = client.post("/workflow/start", json=payload)
+    workflow_id_2 = start_response_2.json()["workflow_id"]
+
+    assert workflow_id_1 == workflow_id_2, "New workflow should have same ID with the same bounty number"
+
+def test_stopping_workflow_twice(client):
+    """
+    Test that stopping a workflow twice does not cause errors and does not change its status after the first stop.
+    """
+    payload = {
+        "workflow_name": "Patch Workflow",
+        "task_dir": "/path/to/tasks",
+        "bounty_number": "777",
+        "interactive": True,
+        "iterations": 3,
+        "model": "some_model_name",
+        "use_helm": False
+    }
+
+     # Start the workflow
+    start_response = client.post("/workflow/start", json=payload)
+    workflow_id = start_response.json()["workflow_id"]
+
+    # Stop the workflow once
+    stop_response_1 = client.post(f"/workflow/{workflow_id}/stop")
+    assert stop_response_1.status_code == 200, "Expected status code 200 for stopping workflow the first time"
+    
+    # Stop the workflow again
+    stop_response_2 = client.post(f"/workflow/{workflow_id}/stop")
+    assert stop_response_2.status_code == 200, "Expected status code 200 even for repeated stop"
+
+    # Verify that the workflow is still present in active workflows with 'stopped' status
+    active_workflows = client.get("/workflow/active").json()
+    workflow_status = next(w["status"] for w in active_workflows["active_workflows"] if w["id"] == workflow_id)
+
+    assert workflow_status == "stopped", "Workflow should still be in 'stopped' status"
 
 ###############################################################################
 # ASYNC TESTS

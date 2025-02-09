@@ -37,6 +37,9 @@ class WorkflowMessage(Message):
         self._start_time = datetime.now().isoformat()
         self._end_time = None
         self._phase_status = {}
+        from messages.message_utils import message_dict
+        message_dict[self.workflow_id] = {}
+        message_dict[self.workflow_id][self.workflow_id] = self
 
         super().__init__()
         
@@ -56,7 +59,7 @@ class WorkflowMessage(Message):
         self._summary = summary
 
     def add_phase_message(self, phase_message: PhaseMessage):
-        self._phase_messages.append(phase_message)  
+        self._phase_messages.append(phase_message)
         phase_message.set_parent(self)
 
     def add_agent(self, agent_name: str, agent) -> None:        
@@ -90,8 +93,14 @@ class WorkflowMessage(Message):
         self._end_time = datetime.now().isoformat()
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
+        logs = self.to_dict()
+        for phase_message in logs["phase_messages"]:
+            for agent_message in phase_message["agent_messages"]:
+                agent_message.pop('current_children', None)
+            phase_message.pop('current_children', None)
+
         with open(self.log_file, 'w') as f:
-            json.dump(self.to_dict(), f, indent=4, default=self._json_serializable)
+            json.dump(logs, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
     
     def _json_serializable(self, obj: Any) -> Any:

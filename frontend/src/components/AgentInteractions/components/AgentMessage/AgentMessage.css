@@ -136,3 +136,9 @@
   font-size: 0.75rem !important;
   color: #1f1f1f !important;
 }
+
+.selected {
+  border: 2px solid #ffd23d !important;
+  background-color: #f0f8ff;
+  border-radius: 4px;
+}
