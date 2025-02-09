@@ -12,6 +12,7 @@ export const LogViewer = ({ workflow }) => {
   const [expandedWorkflows, setExpandedWorkflows] = useState({});
   const [expandedCodebases, setExpandedCodebases] = useState({});
   const [loading, setLoading] = useState(false);
+  const [selectedCellId, setSelectedCellId] = useState(null);
 
   // Fetch log file list
   useEffect(() => {
@@ -174,6 +175,8 @@ export const LogViewer = ({ workflow }) => {
                       current_children: phase.agent_messages || [],
                       additional_metadata: phase.additional_metadata || null,
                     }}
+                    selectedCellId={selectedCellId}
+                    onCellSelect={setSelectedCellId}
                   />
                 ))}
               </Box>
