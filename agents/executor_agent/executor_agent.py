@@ -25,8 +25,6 @@ RETRY_DELAY = 30
 @dataclass
 class ExecutorAgentConfig(AgentConfig):
     """Configuration for ExecutorAgent"""
-    # TODO: Add any executor-specific config fields here
-
 
 class ExecutorAgent(BaseAgent):
 

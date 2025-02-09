@@ -24,6 +24,7 @@ def _subtract_paths(path1: Path, path2: Path):
         return remaining_path
     except ValueError:
         raise ValueError(f"{path2} is not a subset of {path1}")
+
 @dataclass
 class EnvPath():
     """
