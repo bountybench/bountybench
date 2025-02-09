@@ -219,7 +219,6 @@ class PatchAgent(BaseAgent):
                 cwd=directory_path,
                 check=False
             )
-            # You can also remove *.pyc files if necessary:
             subprocess.run(
                 ['git', 'rm', '--cached', '*.pyc'],
                 cwd=directory_path,
