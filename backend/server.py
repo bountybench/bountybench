@@ -35,10 +35,12 @@ class Server:
         from backend.routers.api_service import api_service_router
         from backend.routers.workflow_service import workflow_service_router
         from backend.routers.workflows import workflows_router
+        from backend.routers.logs import logs_router
 
         self.app.include_router(api_service_router)
         self.app.include_router(workflows_router)
         self.app.include_router(workflow_service_router)
+        self.app.include_router(logs_router)
 
     async def shutdown(self):
         """Gracefully shutdown the server with proper cleanup"""

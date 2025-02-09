@@ -17,9 +17,21 @@ export const LogViewer = ({ workflow }) => {
   useEffect(() => {
     fetch('http://localhost:8000/logs')
       .then((response) => response.json())
-      .then((data) => setLogFiles(data))
-      .catch((error) => console.error('Error fetching log files:', error));
+      .then((data) => {
+        console.log("Fetched log files:", data);
+        if (Array.isArray(data)) {
+          setLogFiles(data);
+        } else {
+          console.error("Expected an array but got:", data);
+          setLogFiles([]);
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching log files:', error);
+        setLogFiles([]); 
+      });
   }, []);
+  
 
   // Fetch log file content
   const handleLogClick = async (filename) => {

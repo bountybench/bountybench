@@ -22,7 +22,6 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ListIcon from '@mui/icons-material/List';
 import './WorkflowLauncher.css';
-import { useNavigate } from 'react-router-dom'; 
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
 
@@ -50,8 +49,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [allModels, setAllModels] = useState({});
   const [selectedModels, setSelectedModels] = useState([]);
   const [topLevelSelection, setTopLevelSelection] = useState("");
-
-  const navigate = useNavigate();
 
   const handleTopLevelChange = (event) => {
     const { value } = event.target;
