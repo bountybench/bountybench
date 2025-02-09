@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 export const useWorkflowWebSocket = (workflowId) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -209,6 +209,15 @@ export const useWorkflowWebSocket = (workflowId) => {
     }, backoff);
   }, [workflowId, maxReconnectAttempts]);
 
+  const currentMessageId = useMemo(() => {
+    if (currentPhase?.current_children?.length > 0) {
+      const lastMessage = currentPhase.current_children[currentPhase.current_children.length - 1];
+      console.log(`Last agent message is ${lastMessage.current_id}`);
+      return lastMessage.current_id;
+    }
+    return null;
+  }, [currentPhase]);
+
   useEffect(() => {
     if (workflowId) {
       connect();
@@ -224,5 +233,6 @@ export const useWorkflowWebSocket = (workflowId) => {
     error,
     workflowStatus,
     currentPhase,
+    currentMessageId
   };
 };

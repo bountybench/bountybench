@@ -129,7 +129,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
           </Box>
 
           <Collapse in={agentMessageExpanded}>
-          {!message.current_children || message.current_children.length === 0 || message.action_messages.length % 2 !== 0 ? (
+          {!message.current_children || message.current_children.length === 0 ? (
              <Box className="agent-message-content">
               {editing ? (
                 <Box className="edit-mode-container">
@@ -197,25 +197,42 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                     >
                       <KeyboardArrowRightIcon />
                     </Button>
-                    {/* Keeping version toggle buttons for UI consistency */}
-                    <IconButton
-                      aria-label="arrow back"
-                      disabled={!message?.version_prev}
-                      sx={{ color: 'black' }}
-                      size="small"
-                      onClick={() => onToggleVersion(message.current_id, 'prev')}
-                    >
-                      <ArrowBackIcon />
-                    </IconButton>
-                    <IconButton
-                      aria-label="arrow forward"
-                      disabled={!message?.version_next}
-                      sx={{ color: 'black' }}
-                      size="small"
-                      onClick={() => onToggleVersion(message.current_id, 'next')}
-                    >
-                      <ArrowForwardIcon />
-                    </IconButton>
+
+                    {/* Toggle Version Arrows */}
+                    {message?.versions?.length > 1 && (
+                        <>
+                          <Typography variant="caption" sx={{ mx: 1 }}>
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            {/* Arrow Buttons */}
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              <IconButton
+                                aria-label="arrow back"
+                                disabled={!message?.version_prev}
+                                sx={{ color: 'black' }}
+                                size="small"
+                                onClick={() => onToggleVersion(message.current_id, 'prev')}
+                              >
+                                <ArrowBackIcon />
+                              </IconButton>
+                              <IconButton
+                                aria-label="arrow forward"
+                                disabled={!message?.version_next}
+                                sx={{ color: 'black' }}
+                                size="small"
+                                onClick={() => onToggleVersion(message.current_id, 'next')}
+                              >
+                                <ArrowForwardIcon />
+                              </IconButton>
+                            </Box>
+
+                            {/* Version Number */}
+                            <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
+                              {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
+                            </Typography>
+                          </Box>
+                        </>
+                      )}     
                   </Box>
                 </Box>
               )}

@@ -37,6 +37,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     workflowStatus,
     currentPhase,
     phaseMessages,
+    currentMessageId,
     error,
   } = useWorkflowWebSocket(workflowId);
 
@@ -68,9 +69,14 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
     if (workflowId) {
       setIsNextDisabled(true);
+      console.log(`Current message id is ${currentMessageId}`)
       try {
-        const response = await fetch(`http://localhost:8000/workflow/next/${workflowId}`, {
+        const response = await fetch(`http://localhost:8000/workflow/rerun-message/${workflowId}`, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message_id: currentMessageId }),
         });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
