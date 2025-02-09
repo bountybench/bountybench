@@ -100,7 +100,9 @@ class WorkflowMessage(Message):
             agent_messages = phase_message.get("agent_messages")
             for agent_message in agent_messages if agent_messages else []:
                 agent_message.pop('current_children', None)
+                agent_message.pop('versions', None)
             phase_message.pop('current_children', None)
+            phase_message.pop('versions', None)
 
         with open(self.log_file, 'w') as f:
             json.dump(logs, f, indent=4, default=self._json_serializable)

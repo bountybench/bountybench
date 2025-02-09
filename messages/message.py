@@ -1,5 +1,6 @@
 from abc import ABC
 import time
+from typing import List
 
 class Message(ABC): 
 
@@ -36,10 +37,24 @@ class Message(ABC):
     def version_next(self) -> str:
         return self._version_next
     
-    def get_latest_version(self, message):
+    @property
+    def versions(self) -> List[str]:
+        message = self
+        versions = [message]
+        while message.version_prev:
+            message = message.version_prev
+            versions.insert(message)
+        message = self
         while message.version_next:
             message = message.version_next
-        return message
+            versions.append(message)
+        
+        return versions
+
+    def get_latest_version(self):
+        if self.versions.length > 0:
+            return self.versions[-1]
+        return self
     
     @property
     def id(self) -> str:
@@ -86,6 +101,7 @@ class Message(ABC):
                 result["version_next"] = id(self.version_next)
             result["parent"] = self.parent.id
             result["timestamp"] = self.timestamp
-            
+            if self.versions.length > 1:
+                result["versions"] = self.versions
         
             return result
