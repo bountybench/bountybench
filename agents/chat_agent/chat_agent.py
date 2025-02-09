@@ -5,7 +5,7 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
-from resources.model_resource.model_resource import ModelResource
+from resources.resource_enum import Resource
 from messages.message import Message
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
@@ -18,12 +18,12 @@ RETRY_DELAY = 30
 class ChatAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
-        (ModelResource, "model")
-
+        Resource.MODEL
     ]
     OPTIONAL_RESOURCES = []
     ACCESSIBLE_RESOURCES = [
-        (ModelResource, "model")]
+        Resource.MODEL
+    ]
 
     
     async def run(self, messages: List[Message]) -> Message:
@@ -58,7 +58,8 @@ class ChatAgent(BaseAgent):
             iterations = 0 
             while iterations < MAX_RETRIES:
                 try:
-                    model_response = self.model.run(lm_input_message)
+                    model = Resource.MODEL.get_resource(self)
+                    model_response = model.run(lm_input_message)
                     return model_response
                 except Exception as e:
                     logger.warning(f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}")

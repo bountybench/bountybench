@@ -6,6 +6,7 @@ from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 from resources.resource_dict import resource_dict
+from resources.resource_enum import Resource
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)

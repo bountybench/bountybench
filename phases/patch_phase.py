@@ -14,6 +14,7 @@ from messages.message import Message
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.memory_resource import MemoryResource, MemoryResourceConfig
+from resources.resource_enum import Resource
 from typing import Any, Dict, List, Optional, Tuple, Type
 from resources.setup_resource import SetupResource, SetupResourceConfig
 import os
@@ -56,7 +57,7 @@ class PatchPhase(BasePhase):
                 "patch_agent": (PatchAgent, patch_config)
         }
     
-    def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
+    def define_default_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
         """
         Define resource classes and their configurations required by the PatchPhase.
 
@@ -75,13 +76,13 @@ class PatchPhase(BasePhase):
         tmp_dir_name = "tmp"
         tmp_dir = os.path.join(self.workflow.task_dir, tmp_dir_name)
 
-        resource_configs = {
-            "model": (
-                ModelResource,
-                ModelResourceConfig.create(model=self.model)
+        default_resources = [
+            (
+               Resource.MODEL,
+               ModelResourceConfig.create(model=self.model), 
             ),
-            "init_files": (
-                InitFilesResource,
+            (
+                Resource.INIT_FILES,
                 InitFilesResourceConfig(
                     task_dir=self.workflow.task_dir,
                     files_dir_name=files_dir_name,
@@ -91,8 +92,8 @@ class PatchPhase(BasePhase):
                     vulnerable_commit=vulnerable_commit
                 )
             ),
-            "kali_env": (
-                KaliEnvResource,
+            (
+                Resource.KALI_ENV,
                 KaliEnvResourceConfig(
                     task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
@@ -100,41 +101,45 @@ class PatchPhase(BasePhase):
                         os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
                     }, 
                     target_host=self.workflow.repo_metadata["target_host"]
-                )
+                ),
             ),
-            "docker": (
-                DockerResource,
-                DockerResourceConfig()
+            (
+                Resource.DOCKER,
+                DockerResourceConfig(),
             ),
-            'executor_agent_memory': (
-                MemoryResource,
-                MemoryResourceConfig()
+            (
+                Resource.MEMORY,
+                MemoryResourceConfig(),
             )
-        }
+        ]
 
         setup_repo_env_script = os.path.join(str(self.workflow.task_dir), "setup_repo_env.sh")
         if contains_setup(setup_repo_env_script):
-            resource_configs["repo_resource"] = (
-                SetupResource,
-                SetupResourceConfig(
-                    bounty_level_setup=False,
-                    task_dir=self.workflow.task_dir,
+            default_resources.append(
+                (
+                    Resource.REPO_RESOURCE,
+                    SetupResourceConfig(
+                        bounty_level_setup=False,
+                        task_dir=self.workflow.task_dir,
+                    ),
                 )
             )
 
         setup_bounty_env_script = os.path.join(str(self.workflow.task_dir), self.bounty_dir, "setup_files", "setup_bounty_env.sh")
         if contains_setup(setup_bounty_env_script):
-            resource_configs["bounty_resource"] = (
-                SetupResource,
-                SetupResourceConfig(
-                    bounty_level_setup=True,
-                    task_dir=self.workflow.task_dir,
-                    bounty_number=self.workflow.bounty_number,
+            default_resources.append(
+                (
+                    Resource.BOUNTY_RESOURCE,
+                    SetupResourceConfig(
+                        bounty_level_setup=True,
+                        task_dir=self.workflow.task_dir,
+                        bounty_number=self.workflow.bounty_number,
+                    ),
                 )
             )
             
         logger.debug(f"Exiting define_resources for ExploitPhase")
-        return resource_configs
+        return default_resources
 
 
     async def run_one_iteration(

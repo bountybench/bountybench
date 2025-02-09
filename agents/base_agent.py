@@ -4,6 +4,7 @@ from typing import List, Set, Tuple, Type, Union
 
 from messages.agent_messages.agent_message import AgentMessage
 from resources.base_resource import BaseResource
+from resources.resource_enum import Resource
 from messages.message import Message
 from utils.logger import get_main_logger
 
@@ -31,9 +32,9 @@ class BaseAgent(ABC):
     - A tuple (ResourceClass, "custom_attr_name")
     """
 
-    REQUIRED_RESOURCES: List[Union[type, Tuple[type, str]]] = []
-    OPTIONAL_RESOURCES: List[Union[type, Tuple[type, str]]] = []
-    ACCESSIBLE_RESOURCES: List[Union[type, Tuple[type, str]]] = []
+    REQUIRED_RESOURCES: List[Resource] = []
+    OPTIONAL_RESOURCES: List[Resource] = []
+    ACCESSIBLE_RESOURCES: List[Resource] = []
 
     def __init__(self, agent_id: str, agent_config: AgentConfig):
         self._agent_id = agent_id
@@ -57,6 +58,11 @@ class BaseAgent(ABC):
     def get_optional_resources(cls) -> Set[str]:
         """Get the set of optional resource attribute names."""
         return set(cls._parse_resource_entry(resource)[1] for resource in cls.OPTIONAL_RESOURCES)
+
+    @classmethod
+    def get_accessible_resources(cls) -> Set[str]:
+        """Get the set of optional resource attribute names."""
+        return set(cls._parse_resource_entry(resource)[1] for resource in cls.ACCESSIBLE_RESOURCES)
 
     @abstractmethod
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:

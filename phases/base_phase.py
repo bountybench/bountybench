@@ -17,6 +17,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple, Type
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.resource_enum import Resource
 
 logger = get_main_logger(__name__)
 
@@ -60,7 +61,6 @@ class BasePhase(ABC):
         self.current_agent_index = 0
         self._last_agent_message = None
 
-    @abstractmethod
     def define_resources(self) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
         """
         Define the resources required for this phase.
@@ -69,7 +69,41 @@ class BasePhase(ABC):
             Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]: 
             A dictionary mapping resource IDs to their class and config.
         """
+        resource_configs = {}
+        for default_resource, config in self.define_default_resources():
+            resource_configs[str(default_resource)] = (
+                default_resource.get_class(),
+                config,
+            )
+
+        for resource_id, (resource_class, config) in self.define_custom_resources():
+            if resource_id in resource_configs:
+                logger.warning(f"Phase defined custom resource ({resource_class.__name__}, {resource_id}) with the same id as ")
+            resource_configs[resource_id] = (
+                resource_class,
+                config,
+            )
+    
+    @abstractmethod
+    def define_default_resources(self) -> List[Tuple[Resource, Optional[BaseResourceConfig]]]:
+        """
+        Define the predefined resources from resource_enum.py for this phase.
+
+        Returns:
+            List[Resource]: A list of default resources.
+        """
         pass
+
+    def define_custom_resources(self) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
+        """
+        Define a set of custom resources required for this phase.
+        
+        Returns:
+            Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]: 
+            A dictionary mapping resource IDs to their class and config.
+        """
+        return {}
+
 
     @abstractmethod
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
@@ -82,12 +116,6 @@ class BasePhase(ABC):
         """
         pass
 
-
-    def get_phase_resources(self):
-        phase_resources = {}
-        for agent_class in self.AGENT_CLASSES:
-            phase_resources.update(agent_class.REQUIRED_RESOURCES)
-        return phase_resources
 
     def __rshift__(self, other):
         if isinstance(other, BasePhase):

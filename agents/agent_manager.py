@@ -88,29 +88,17 @@ class AgentManager:
     def create_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> BaseAgent:
         """Create a new agent and bind resources to it."""
         agent = agent_class(agent_id, agent_config)
-        self.bind_resources_to_agent(agent)
+        self.validate_agent_required_resources(agent)
         return agent
 
-    def bind_resources_to_agent(self, agent: BaseAgent):
-        """Bind required and optional resources to the agent."""
-        
-        for resource_entry in agent.REQUIRED_RESOURCES + agent.OPTIONAL_RESOURCES:
-            resource_type, attr_name = self._parse_resource_entry(resource_entry)
+    def validate_agent_required_resources(self, agent: BaseAgent):
+        """Verify that required resources are set."""
 
-            resource = None
-            if attr_name in self.resource_dict:
-                resource = self.resource_dict[attr_name]
-
-            if resource:
-                setattr(agent, attr_name, resource)
-            elif resource_entry in agent.REQUIRED_RESOURCES:
-                raise ValueError(f"Required resource {resource_type.__name__} not found for agent {agent.__class__.__name__}")
-
-    @staticmethod
-    def _parse_resource_entry(entry: Union[Type[BaseAgent], Tuple[Type[BaseAgent], str]]) -> Tuple[Type[BaseAgent], str]:
-        if isinstance(entry, tuple):
-            return entry
-        return entry, entry.__name__.lower()
+        for resource_entry in agent.REQUIRED_RESOURCES:
+            resource_name = str(resource_entry)
+            resource = self.resource_dict.get(resource_name, None)
+            if not resource:
+                raise ValueError(f"Required resource {resource.get_class().__name__} not found for agent {agent.__class__.__name__}")
 
     def is_agent_equivalent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> bool:
         """Check if an agent with the given ID is equivalent to the provided class and config."""

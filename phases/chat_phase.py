@@ -4,6 +4,7 @@ from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.resource_enum import Resource
 from messages.action_messages.answer_message_interface import AnswerMessageInterface
 from messages.message import Message
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -28,21 +29,16 @@ class ChatPhase(BasePhase):
         return {"chat_agent": (ChatAgent, chat_config),
         }
     
-    def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
+    def define_default_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
         """
         Define resource classes and their configurations required by the ChatPhase.
 
         Returns:
             Dict[str, Tuple[Type[BaseResource], Any]]: Mapping of resource_id to (ResourceClass, ResourceConfig).
         """
-
-        resource_configs = {
-            "model": (
-                ModelResource,
-                ModelResourceConfig.create(model=self.model)
-            ),
-        }
-        return resource_configs
+        return [
+            (Resource.MODEL, ModelResourceConfig.create(model=self.model))
+        ]
 
     async def run_one_iteration(
         self,
