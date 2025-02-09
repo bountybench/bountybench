@@ -140,11 +140,8 @@ class BasePhase(ABC):
         """
         logger.debug(f"Entering setup for {self.name}")
         
-        # 1. Define and register resources
+        # 1. Define resources which were registered via workflow's compute_schedule
         resource_configs = self.define_resources()
-        for resource_id, (resource_class, resource_config) in resource_configs.items():
-            if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
-                self.resource_manager.register_resource(resource_id, resource_class, resource_config)
         
         # 2. Initialize phase resources
         self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
