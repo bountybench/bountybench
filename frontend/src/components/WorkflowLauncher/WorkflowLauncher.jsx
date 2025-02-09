@@ -22,6 +22,7 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ListIcon from '@mui/icons-material/List';
 import './WorkflowLauncher.css';
+import { useNavigate } from 'react-router-dom'; 
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
 
@@ -50,6 +51,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [selectedModels, setSelectedModels] = useState([]);
   const [topLevelSelection, setTopLevelSelection] = useState("");
 
+<<<<<<< HEAD
   const handleTopLevelChange = (event) => {
     const { value } = event.target;
     setTopLevelSelection(value);
@@ -59,6 +61,14 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     } else {
       handleInputChange({ target: { name: 'use_helm', value: true } });
       setSelectedModels(allModels.helmModels);
+=======
+  const navigate = useNavigate();
+
+  // 2. Fetch workflows only once server is confirmed available
+  useEffect(() => {
+    if (!isChecking && isServerAvailable) {
+      fetchWorkflows();
+>>>>>>> b06b1c5a8c72af67c7e70c8ea447f23ddac99a22
     }
   };
 
