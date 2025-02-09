@@ -17,7 +17,6 @@ export const LogViewer = ({ workflow }) => {
   useEffect(() => {
     fetch('http://localhost:8000/logs')
       .then((response) => response.json())
-<<<<<<< HEAD
       .then((data) => {
         console.log("Fetched log files:", data);
         if (Array.isArray(data)) {
@@ -32,12 +31,6 @@ export const LogViewer = ({ workflow }) => {
         setLogFiles([]); 
       });
   }, []);
-  
-=======
-      .then((data) => setLogFiles(data))
-      .catch((error) => console.error('Error fetching log files:', error));
-  }, []);
->>>>>>> b06b1c5a8c72af67c7e70c8ea447f23ddac99a22
 
   // Fetch log file content
   const handleLogClick = async (filename) => {

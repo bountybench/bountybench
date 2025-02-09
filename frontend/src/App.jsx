@@ -122,7 +122,6 @@ function App() {
           currentPhase={currentPhase}
           onModelChange={handleModelChange}
         />
-<<<<<<< HEAD
         <Box flexGrow={1} overflow='auto'>
           <Routes>
             <Route path='/' element={<HomePage/>} />
@@ -141,29 +140,6 @@ function App() {
             <Route path='*' element={<Navigate to="/" />} />
           </Routes>
         </Box>
-=======
-        <Routes>
-          <Route 
-            path="/" 
-            element={
-              selectedWorkflow ? (
-                <WorkflowDashboard 
-                  selectedWorkflow={selectedWorkflow}
-                  interactiveMode={interactiveMode}
-                  onWorkflowStateUpdate={handleWorkflowStateUpdate}
-                />
-              ) : (
-                <WorkflowLauncher 
-                  onWorkflowStart={handleWorkflowStart}
-                  interactiveMode={interactiveMode}
-                  setInteractiveMode={setInteractiveMode}
-                />
-              )
-            }
-          />
-          <Route path="/history-logs" element={<LogViewer />} />
-        </Routes>
->>>>>>> b06b1c5a8c72af67c7e70c8ea447f23ddac99a22
       </Box>
     </ThemeProvider>
   );
