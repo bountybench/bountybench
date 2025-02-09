@@ -198,10 +198,11 @@ class KaliEnvResource(BaseResource):
         """Stop and remove the Docker container"""
         try:
             if self.container:
-                try:
-                    self.cleanup_tmp()
-                except Exception as e:
-                    logger.error(f"Error during tmp cleanup: {e}")
+                if self.container.status == 'running':
+                    try:
+                        self.cleanup_tmp()
+                    except Exception as e:
+                        logger.error(f"Error during tmp cleanup: {e}")                    
                 
                 logger.info("Cleaning up: stopping and removing Docker container.")
                 try:
@@ -407,10 +408,7 @@ class KaliEnvResource(BaseResource):
 
         # Use regex to find the command and split the output after the match
         match = re.search(f"^{command_pattern}.*$", cleaned_output, re.MULTILINE)
-        # print("CLEANED_OUTPUT:", cleaned_output)
-        # print("COMMAND PATTERN:", command_pattern)
         if not match:
-            # print("No match found.")
             return cleaned_output.strip()  # If no match, return the original stripped output
 
         # Get everything after the command match
