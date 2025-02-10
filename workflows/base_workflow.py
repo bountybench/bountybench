@@ -114,11 +114,11 @@ class BaseWorkflow(ABC):
         pass
 
     def _setup_agent_manager(self):
-        self.agent_manager = AgentManager()
+        self.agent_manager = AgentManager(workflow_id=self.workflow_message.workflow_id)
         logger.info("Setup agent manager")
 
     def _setup_resource_manager(self):
-        self.resource_manager = ResourceManager()
+        self.resource_manager = ResourceManager(workflow_id=self.workflow_message.workflow_id)
         logger.info("Setup resource manager")
 
     def _setup_rerun_manager(self):

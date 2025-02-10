@@ -8,10 +8,11 @@ from resources.model_resource.model_resource import ModelResource, ModelResource
 logger = get_main_logger(__name__)
 
 class AgentManager:
-    def __init__(self):
+    def __init__(self, workflow_id: str):
         self._agents: Dict[str, BaseAgent] = {}
         self._phase_agents: Dict[str, BaseAgent] = {}
         self._agent_configs: Dict[str, Tuple[Type[BaseAgent], AgentConfig]] = {}
+        self.workflow_id = workflow_id
         self.resource_dict = resource_dict
 
     def register_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig):
@@ -72,19 +73,6 @@ class AgentManager:
                     logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
                     break
 
-    def update_phase_agents_models(self, new_model: str):
-        for agent_id in self._phase_agents:
-            agent = self._phase_agents[agent_id]
-            logger.info(f"Updating agent: {agent}, {agent.model.to_dict()}")
-            for resource_entry in agent.REQUIRED_RESOURCES + agent.OPTIONAL_RESOURCES:
-                resource_type, attr_name = self._parse_resource_entry(resource_entry)
-                if "model" == attr_name:
-                    resource_config = ModelResourceConfig.create(model=new_model)
-                    resource = ModelResource("model", resource_config)
-                    setattr(agent, attr_name, resource)
-                    logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
-                    break
-
     def create_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> BaseAgent:
         """Create a new agent and bind resources to it."""
         agent = agent_class(agent_id, agent_config)
@@ -94,13 +82,14 @@ class AgentManager:
     def bind_resources_to_agent(self, agent: BaseAgent):
         """Bind required and optional resources to the agent."""
         
+        workflow_resources = self.resource_dict.id_to_resource.get(self.workflow_id, {})
+
         for resource_entry in agent.REQUIRED_RESOURCES + agent.OPTIONAL_RESOURCES:
             resource_type, attr_name = self._parse_resource_entry(resource_entry)
 
             resource = None
-            if attr_name in self.resource_dict:
-                resource = self.resource_dict[attr_name]
-
+            if attr_name in workflow_resources:
+                resource = workflow_resources[attr_name]
             if resource:
                 setattr(agent, attr_name, resource)
             elif resource_entry in agent.REQUIRED_RESOURCES:
