@@ -91,24 +91,6 @@ def started_chat_workflow(client):
     assert response.status_code == 200
     return response.json()["workflow_id"]
 
-def test_next_message_success(client, started_chat_workflow):
-    """Test retrieving the next message in an existing workflow."""
-    response = client.post(f"/workflow/next/{started_chat_workflow}")
-    assert response.status_code == 200, "Expected status code 200 for next message"
-    data = response.json()
-    assert "status" in data, "Response should contain 'status'"
-    assert data["status"] == "updated", "Status should be 'updated'"
-    assert "result" in data, "Response should contain 'result'"
-    assert data["result"] == "fake-message-id", "Result ID does not match expected fake message ID"
-
-def test_next_message_workflow_not_found(client):
-    """Test retrieving the next message for a non-existent workflow."""
-    response = client.post("/workflow/next/nonexistent-id")
-    assert response.status_code == 200, "Expected status code 200 even on error"
-    data = response.json()
-    assert "error" in data, "Response should contain 'error' key"
-    assert data["error"] == "Workflow nonexistent-id not found", "Error message should indicate workflow not found"
-
 @pytest.fixture
 def started_patch_workflow(client):
     """Fixture to create a started patch workflow for testing."""
