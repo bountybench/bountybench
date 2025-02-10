@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Box, CircularProgress, Alert, Typography } from '@mui/material';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
@@ -37,7 +37,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     workflowStatus,
     currentPhase,
     phaseMessages,
-    currentMessageId,
     error,
   } = useWorkflowWebSocket(workflowId);
 
@@ -59,8 +58,16 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     workflowStatus, 
     currentPhase,
     error,
-    phaseMessagesCount: phaseMessages?.length 
+    phaseMessagesCount: phaseMessages?.length
   });
+
+  const getTailMessageId = async () => {
+    if (phaseMessages?.length > 0 && phaseMessages[phaseMessages.length - 1].current_children?.length > 0) {
+      const lastMessage = phaseMessages[phaseMessages.length - 1].current_children[phaseMessages[phaseMessages.length - 1].current_children.length - 1];
+      return lastMessage.current_id;
+    }
+    return null;
+  };
 
   const triggerNextIteration = async () => {
     if (workflowStatus === "stopped") {
@@ -69,8 +76,9 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
     if (workflowId) {
       setIsNextDisabled(true);
-      console.log(`Current message id is ${currentMessageId}`)
       try {
+        const currentMessageId = await getTailMessageId();
+        console.log(`Tail message id is ${currentMessageId}`)
         const response = await fetch(`http://localhost:8000/workflow/rerun-message/${workflowId}`, {
           method: 'POST',
           headers: {
