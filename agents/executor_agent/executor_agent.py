@@ -75,7 +75,7 @@ class ExecutorAgent(BaseAgent):
         # If the model decides to output a command, we run it in the environment
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
-            kali_action_message = await self.execute_in_env(model_action_message)
+            kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
                 return
             agent_message.add_action_message(kali_action_message)
@@ -112,13 +112,13 @@ class ExecutorAgent(BaseAgent):
         finally:
             stop_progress()
 
-    async def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
+    def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
         """
         Executes the command in the environment using self.kali_env,
         captures the output, and returns an ActionMessage.
         """
         try:
-            kali_message = await asyncio.to_thread(self.kali_env.run, executor_message)
+            kali_message = self.kali_env.run(executor_message)
 
             return kali_message
         
