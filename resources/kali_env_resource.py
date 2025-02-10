@@ -31,24 +31,21 @@ from contextlib import contextmanager
 
 @contextmanager
 def timeout_context(seconds):
-    # Check if we're in the main thread
-    if threading.current_thread() != threading.main_thread():
+    def signal_handler(signum, frame):
+        raise TimeoutError("Timed out!")
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
         yield
-    else:
-        def signal_handler(signum, frame):
-            raise TimeoutError("Timed out!")
-        signal.signal(signal.SIGALRM, signal_handler)
-        signal.alarm(seconds)
-        try:
-            yield
-        finally:
-            signal.alarm(0)
+    finally:
+        signal.alarm(0)
         
+
 # Constants with type annotations
 DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 
-TIMEOUT_PER_COMMAND = 120
+TIMEOUT_PER_COMMAND = 5
 MAX_RETRIES = 3
 RETRY_DELAY = 5
 
