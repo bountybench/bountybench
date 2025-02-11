@@ -273,7 +273,7 @@ class KaliEnvResource(BaseResource):
                         )
                         self.socket = sock
                         self._send_to_bash('export PS1="$"\n')
-                        time.sleep(1)
+                        # time.sleep(1)
 
                     self._clear_bash_output_buffer()
                     num_new_lines = self._count_trailing_new_lines(command)
@@ -369,7 +369,7 @@ class KaliEnvResource(BaseResource):
         start_time = time.time()
         try:
             while time.time() - start_time < timeout:
-                rlist, _, _ = select.select([self.socket.fileno()], [], [], 0.1)
+                rlist, _, _ = select.select([self.socket.fileno()], [], [])
                 if self.socket.fileno() in rlist:
                     try:
                         chunk = self.socket._sock.recv(1024)
