@@ -1,37 +1,13 @@
 import asyncio
 from pathlib import Path
-from agents.prompts import TARGET_HOST_DETECT_PROMPT, DETECT_PROMPT, STOP_TOKEN
-from phases.exploit_phase import ExploitPhase
-from resources.utils import read_writeup
+from agents.prompts import TARGET_HOST_DETECT_PATCH_PROMPT, DETECT_PATCH_PROMPT, STOP_TOKEN
 from utils.logger import get_main_logger
-from workflows.bounty_workflow import BountyWorkflow
+from workflows.patch_workflow import PatchWorkflow
 
 logger = get_main_logger(__name__)
 
-class DetectWorkflow(BountyWorkflow):
+class DetectPatchWorkflow(PatchWorkflow):
     """Workflow for detecting vulnerabilities"""
-    
-    def _create_phases(self):
-        """Define and create phases specific to DetectWorkflow."""
-
-        phase_kwargs = {
-            'model': self.params.get('model'),
-            'helm': self.params.get('helm'),
-            'task_dir': self.task_dir,
-            'bounty_number': self.bounty_number,
-            'target_host': self.repo_metadata["target_host"],
-            'stop_token': STOP_TOKEN,
-            'initial_prompt': self.initial_prompt,
-        }
-        if hasattr(self, "phase_iterations"):
-            phase_kwargs["max_iterations"] = self.phase_iterations
-
-        phase_kwargs["interactive"] = self.interactive
-
-        exploit_phase = ExploitPhase(workflow=self, **phase_kwargs)
-        
-        self._register_root_phase(exploit_phase)
-
 
     def _get_initial_prompt(self):
         """
@@ -40,7 +16,7 @@ class DetectWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
-        return TARGET_HOST_DETECT_PROMPT if self.repo_metadata["target_host"] else DETECT_PROMPT
+        return TARGET_HOST_DETECT_PATCH_PROMPT if self.repo_metadata["target_host"] else DETECT_PATCH_PROMPT
 
 async def main() -> None:
     """Main entry point"""
@@ -64,7 +40,7 @@ async def main() -> None:
     logger.info(f"Created logs directory at: {logs_dir}")
     
     # Run workflow
-    workflow = DetectWorkflow(
+    workflow = DetectPatchWorkflow(
         task_dir=Path(args.task_dir),
         bounty_number=args.bounty_number,
         interactive=args.interactive,

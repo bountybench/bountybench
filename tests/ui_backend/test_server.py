@@ -4,8 +4,8 @@ from backend.main import create_app
 from unittest import IsolatedAsyncioTestCase
 
 from tests.ui_backend.fake_workflows import (
-    FakeDetectWorkflow,
-    FakeExploitAndPatchWorkflow,
+    FakeDetectPatchWorkflow,
+    FakeExploitPatchWorkflow,
     FakePatchWorkflow,
     FakeChatWorkflow
 )
@@ -14,8 +14,8 @@ from tests.ui_backend.fake_workflows import (
 @pytest.fixture(scope="module")
 def test_app():
     fake_workflow_factory = {
-        "Detect Workflow": FakeDetectWorkflow,
-        "Exploit and Patch Workflow": FakeExploitAndPatchWorkflow,
+        "Detect Workflow": FakeDetectPatchWorkflow,
+        "Exploit and Patch Workflow": FakeExploitPatchWorkflow,
         "Patch Workflow": FakePatchWorkflow,
         "Chat Workflow": FakeChatWorkflow,
     }

@@ -61,10 +61,10 @@ class FakeWorkflow:
 
 
 # Define specific fake workflows if behavior varies
-class FakeDetectWorkflow(FakeWorkflow):
+class FakeDetectPatchWorkflow(FakeWorkflow):
     pass
 
-class FakeExploitAndPatchWorkflow(FakeWorkflow):
+class FakeExploitPatchWorkflow(FakeWorkflow):
     pass
 
 class FakePatchWorkflow(FakeWorkflow):
