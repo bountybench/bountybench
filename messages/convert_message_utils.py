@@ -17,7 +17,7 @@ def cast_action_to_command(action: ActionMessage) -> CommandMessage:
     """
     
     command = extract_command(action.message, STOP_TOKEN)
-    
+
     # If extraction is successful, cast the instance by reassigning its __class__.
     action.__class__ = CommandMessage
     action._command = command

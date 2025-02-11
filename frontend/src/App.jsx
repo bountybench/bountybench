@@ -50,7 +50,7 @@ function App() {
   };
 
   const handleModelChange = async (name) => {
-    const url = `http://localhost:8000/workflow/model-change/${selectedWorkflow.id}`;
+    const url = `http://localhost:8000/workflow/${selectedWorkflow.id}/model-change`;
     const requestBody = { new_model_name: name };
 
     const response = await fetch(url, {

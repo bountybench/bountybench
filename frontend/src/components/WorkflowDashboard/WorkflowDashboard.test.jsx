@@ -183,7 +183,7 @@ describe('WorkflowDashboard Component', () => {
     fireEvent.click(triggerNextIterationButton);
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-    expect(global.fetch).toHaveBeenCalledWith(`http://localhost:8000/workflow/next/${mockSelectedWorkflow.id}`, { method: 'POST' });
+    expect(global.fetch).toHaveBeenCalledWith(`http://localhost:8000/workflow/${mockSelectedWorkflow.id}/next`, { method: 'POST' });
   });
 
     test('displays error message when triggering next iteration fails', async () => {
@@ -219,7 +219,7 @@ describe('WorkflowDashboard Component', () => {
         fireEvent.click(triggerNextIterationButton);
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-        expect(global.fetch).toHaveBeenCalledWith(`http://localhost:8000/workflow/next/${mockSelectedWorkflow.id}`, { method: 'POST' });
+        expect(global.fetch).toHaveBeenCalledWith(`http://localhost:8000/workflow/${mockSelectedWorkflow.id}/next`, { method: 'POST' });
 
         // Additional checks can be added here to verify if any UI updates reflect the error
     });
@@ -335,7 +335,7 @@ describe('WorkflowDashboard Component', () => {
         // Assertion for the fetch call
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
         expect(global.fetch).toHaveBeenCalledWith(
-        `http://localhost:8000/workflow/edit-message/${mockSelectedWorkflow.id}`,
+        `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/edit-message`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -457,7 +457,7 @@ describe('WorkflowDashboard Component', () => {
         // Assertion for the fetch call
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
         expect(global.fetch).toHaveBeenCalledWith(
-        `http://localhost:8000/workflow/edit-message/${mockSelectedWorkflow.id}`,
+        `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/edit-message`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
