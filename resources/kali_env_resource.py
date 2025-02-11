@@ -46,6 +46,7 @@ ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
 RETRY_DELAY = 5
+SOCKET_OP_DEFAULT_TIMEOUT = 2
 
 class DockerContainerStartError(Exception):
     """Custom exception for Docker container start failures."""
@@ -274,7 +275,6 @@ class KaliEnvResource(BaseResource):
                         self.socket = sock
                         
                         self._send_to_bash('export PS1="$"\n')
-                        # time.sleep(1)
 
                     self._clear_bash_output_buffer()
                     num_new_lines = self._count_trailing_new_lines(command)
@@ -340,18 +340,41 @@ class KaliEnvResource(BaseResource):
         finally:
             stop_progress()
         
-    def _send_to_bash(self, input_str: str, timeout: float = 2.0):
-        # self.socket._sock.sendall(input_str.encode())  # why socket.write() does not work?
+    def _send_to_bash(self, input_str: str, timeout: int = SOCKET_OP_DEFAULT_TIMEOUT):
+        """
+        Wait for the socket to be ready for writing and then sends the input string.
+        """
         start_time = time.time()
-        while True:
-            remaining = timeout - (time.time() - start_time)
-            if remaining <= 0:
-                raise TimeoutError("Socket not ready for writing within timeout")
-            _, wlist, _ = select.select([], [self.socket], [], remaining)
-            if self.socket in wlist:
-                break
+        try:
+            while time.time() - start_time < timeout:
+                _, wlist, _ = select.select([], [self.socket], [], 1)
+                if self.socket in wlist: # Socket is ready for writing
+                    self.socket._sock.sendall(input_str.encode())
+                    break
+        except TimeoutError:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while waiting for socket: {e}")
+            raise
 
-        self.socket._sock.sendall(input_str.encode())
+    def _clear_bash_output_buffer(self, timeout: int = SOCKET_OP_DEFAULT_TIMEOUT):
+        """
+        Clears the bash output buffer by reading until no more data is available
+        or until the timeout is reached.
+        """
+        start_time = time.time()
+        try:
+            while time.time() - start_time < timeout:
+                rlist, _, _ = select.select([self.socket], [], [], 1)
+                if self.socket in rlist:
+                    data = self.socket._sock.recv(1024)
+                    if len(data) == 0: # Buffer is confirmed empty, so we can stop here
+                        break
+        except TimeoutError:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while clearing bash buffer: {str(e)}")
+            raise
 
     
     def _count_trailing_new_lines(self, input_str: str) -> int:
@@ -369,32 +392,6 @@ class KaliEnvResource(BaseResource):
         if ord(char) == 127:  # Special case for DEL
             return '^?'
         return f"^{chr(ord(char) + 64)}"
-    
-
-    def _clear_bash_output_buffer(self, timeout: float = 2.0):
-        """
-        Clears the bash output buffer by reading until no more data is available
-        or until the timeout is reached.
-
-        Copied from 
-        """
-        start_time = time.time()
-        try:
-            while time.time() - start_time < timeout:
-                rlist, _, _ = select.select([self.socket], [], [], 1)
-                if self.socket in rlist:
-                    try:
-                        chunk = self.socket._sock.recv(1024)
-                    except OSError as e:
-                        logger.error(f"Error while clearing bash buffer: {str(e)}")
-                        break
-                else:
-                    # No data ready; buffer is clear
-                    break
-        except TimeoutError:
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error while clearing bash buffer: {str(e)}")
         
 
     def _clean_command_output(self, raw_output: str, command_str: str) -> str:
