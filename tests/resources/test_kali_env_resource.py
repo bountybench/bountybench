@@ -4,7 +4,8 @@ import tempfile
 from unittest.mock import patch, MagicMock
 import docker
 from pathlib import Path
-from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig, DockerContainerStartError
+from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
+from resources.kali_env_resource_util import DockerContainerStartError
 
 VOLUME = {
     Path(__file__).parent.resolve() / "test_files": {"bind": "/app/", "mode": "rw"}
@@ -31,13 +32,21 @@ def kali_env_resource():
 
 def test_docker_api_error_on_start():
     """Test if Docker API error is handled when starting the container."""
-    with patch("docker.from_env") as mock_docker:
-        mock_client = MagicMock()
-        mock_docker.return_value = mock_client
-        mock_client.containers.run.side_effect = docker.errors.APIError("API error")
 
-        with pytest.raises(DockerContainerStartError, match="Docker API error: API error"):
-            KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME))
+    with patch("docker.from_env") as MockDocker:
+        mock_client = MagicMock()
+        mock_containers = MagicMock()
+        mock_client.containers = mock_containers
+        mock_containers.run.side_effect = docker.errors.APIError("API error")
+        MockDocker.return_value = mock_client
+
+        # Patch the _remove_existing_container method to do nothing
+        with patch.object(KaliEnvResource, "_remove_existing_container") as mock_remove:
+            mock_remove.return_value = None
+            mock_remove.side_effect = None
+
+            with pytest.raises(DockerContainerStartError, match=".*Docker API error.*"):
+                KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME))
 
 
 def test_container_start_timeout():
@@ -49,12 +58,14 @@ def test_container_start_timeout():
 
         mock_client.containers.run.return_value = mock_container
         mock_container.status = "created"  # Simulate that container started but is not running
-        
         # Simulate the reload to always return 'created'
         mock_container.reload = MagicMock(side_effect=lambda: None)
+        with patch.object(KaliEnvResource, "_remove_existing_container") as mock_remove:
+            mock_remove.return_value = None
+            mock_remove.side_effect = None
 
-        with pytest.raises(DockerContainerStartError, match="Container failed to reach running state."):
-            KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME))
+            with pytest.raises(DockerContainerStartError, match="Container failed to reach running state."):
+                KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME))
 
 
 def test_container_removal_error():
