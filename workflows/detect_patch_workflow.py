@@ -1,6 +1,6 @@
 import asyncio
 from pathlib import Path
-from agents.prompts import TARGET_HOST_DETECT_PATCH_PROMPT, DETECT_PATCH_PROMPT, STOP_TOKEN
+from agents.prompts import TARGET_HOST_DETECT_PATCH_PROMPT, DETECT_PATCH_PROMPT
 from utils.logger import get_main_logger
 from workflows.patch_workflow import PatchWorkflow
 
