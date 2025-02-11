@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
@@ -54,12 +55,16 @@ class ExecutorAgent(BaseAgent):
             while prev_agent_message.version_next:
                 prev_agent_message = prev_agent_message.version_next
         agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
-        self.execute(agent_message, prev_agent_message)
+        
+        await self.execute(agent_message, prev_agent_message)
 
         return agent_message
+    
 
-    def execute(self, agent_message: ExecutorAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> Message:
-        model_action_message = self.call_lm(prev_agent_message)
+
+
+    async def execute(self, agent_message: ExecutorAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> Message:
+        model_action_message = await self.call_lm(prev_agent_message)
         if not model_action_message:
             return
         
@@ -76,7 +81,7 @@ class ExecutorAgent(BaseAgent):
             return kali_action_message
         return model_action_message
 
-    def call_lm(self, lm_input_message: Optional[Message] = None) -> CommandMessage:
+    async def call_lm(self, lm_input_message: Optional[Message] = None) -> CommandMessage:
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
@@ -89,7 +94,8 @@ class ExecutorAgent(BaseAgent):
             while iterations < MAX_RETRIES:
                 try:
                     lm_input_message = self.executor_agent_memory.get_memory(lm_input_message)
-                    model_response = self.model.run(input_message=lm_input_message)
+                    model_response = await asyncio.to_thread(self.model.run, input_message=lm_input_message)
+
                     return model_response
                 except Exception as e:
                     logger.warning(f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}")
@@ -112,7 +118,9 @@ class ExecutorAgent(BaseAgent):
         """
         try:
             kali_message = self.kali_env.run(executor_message)
+
             return kali_message
+        
         except Exception as e:
             logger.exception(f"Failed to execute command: {executor_message.command}.\nException: {str(e)}")
             return ActionMessage(resource_id=self.kali_env.resource_id, message=str(e), prev=executor_message)

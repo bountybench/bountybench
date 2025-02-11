@@ -84,12 +84,14 @@
 
 .edit-button,
 .cancel-button {
+  max-height: 32px;
   color: #c200bf !important;
   border-color: #c200bf !important;
 }
 
 .rerun-button,
 .save-button {
+  max-height: 32px;
   color: #2196f3 !important;
   border-color: #2196f3 !important;
 }
