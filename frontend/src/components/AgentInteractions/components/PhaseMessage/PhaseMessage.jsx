@@ -18,29 +18,27 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     if (message.current_children){
       const children = message.current_children;
       if (children.length === 0) return;
-  
-      setAgentsVersionChain(currentChain => {
-        const chainCopy = [...currentChain];
-        const numAgents = chainCopy.length;
-        
-        children.forEach((currChild, i) => {
-          const agentId = currChild.agent_id;
-          if (i >= numAgents) {
-            chainCopy.push({ agent: agentId, versionChain: [currChild], index: 1 });
-          } else {
-            const existingVersions = chainCopy[i].versionChain;
-            const foundIndex = existingVersions.findIndex(v => v.current_id === currChild.current_id);
-            if (foundIndex !== -1) {
-              existingVersions[foundIndex] = currChild;
-            } else {
-              existingVersions.push(currChild);
-              chainCopy[i].index = existingVersions.length;
+      const seenAgents = new Set();
+      const all_messages = [];
+      let curr_index = 0;
+      for (const msg of message.agent_messages) {
+        const agentId = msg.agent_id;
+        if (curr_index === 0 || !seenAgents.has(agentId)) {
+            seenAgents.add(agentId);
+            all_messages.push({ agent: agentId, versionChain: [msg], index: 1 });
+            curr_index += 1;
+        } else {
+            // When agent is seen (indicating multiple versions) we build upon the version chain
+            if (agentId === 'system'){
+              curr_index = 0;
             }
-          }
-        });
-  
-        return chainCopy;
-      });
+            all_messages[curr_index]['versionChain'].push(msg);
+            all_messages[curr_index]['index'] += 1;
+            curr_index += 1;
+        }
+      }
+      setAgentsVersionChain(all_messages);
+      return;
     }
   }, [message.current_children]);
 
