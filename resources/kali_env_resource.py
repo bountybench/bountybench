@@ -272,6 +272,7 @@ class KaliEnvResource(BaseResource):
                             tty=True,
                         )
                         self.socket = sock
+                        
                         self._send_to_bash('export PS1="$"\n')
                         # time.sleep(1)
 
@@ -297,9 +298,9 @@ class KaliEnvResource(BaseResource):
                     execution_time = time.time()
 
                     while execution_time < end_time:
-                        rlist, _, _ = select.select([self.socket.fileno()], [], [], 1)
+                        rlist, _, _ = select.select([self.socket], [], [], 1)
                         
-                        if self.socket.fileno() in rlist:
+                        if self.socket in rlist:
                             chunk = self.socket._sock.recv(1024)
                             if not chunk:
                                 break
@@ -339,8 +340,19 @@ class KaliEnvResource(BaseResource):
         finally:
             stop_progress()
         
-    def _send_to_bash(self, input_str: str):
-        self.socket._sock.sendall(input_str.encode())  # why socket.write() does not work?
+    def _send_to_bash(self, input_str: str, timeout: float = 2.0):
+        # self.socket._sock.sendall(input_str.encode())  # why socket.write() does not work?
+        start_time = time.time()
+        while True:
+            remaining = timeout - (time.time() - start_time)
+            if remaining <= 0:
+                raise TimeoutError("Socket not ready for writing within timeout")
+            _, wlist, _ = select.select([], [self.socket], [], remaining)
+            if self.socket in wlist:
+                break
+
+        self.socket._sock.sendall(input_str.encode())
+
     
     def _count_trailing_new_lines(self, input_str: str) -> int:
         input_str = input_str.rstrip(' ')
@@ -369,8 +381,8 @@ class KaliEnvResource(BaseResource):
         start_time = time.time()
         try:
             while time.time() - start_time < timeout:
-                rlist, _, _ = select.select([], [self.socket.fileno()], [], 1)
-                if self.socket.fileno() in rlist:
+                rlist, _, _ = select.select([self.socket], [self.socket], [], 1)
+                if self.socket in rlist:
                     try:
                         chunk = self.socket._sock.recv(1024)
                     except OSError as e:
