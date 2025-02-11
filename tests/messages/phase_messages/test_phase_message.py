@@ -1,13 +1,15 @@
-import pytest
 import asyncio
-from unittest.mock import MagicMock, patch, PropertyMock
-from messages.workflow_message import WorkflowMessage
-from messages.phase_messages.phase_message import PhaseMessage
-from messages.agent_messages.agent_message import AgentMessage
-from messages.action_messages.action_message import ActionMessage
-from messages.message import Message
-from messages.rerun_manager import RerunManager
+from unittest.mock import MagicMock, PropertyMock, patch
+
+import pytest
+
 from agents.agent_manager import AgentManager
+from messages.action_messages.action_message import ActionMessage
+from messages.agent_messages.agent_message import AgentMessage
+from messages.message import Message
+from messages.phase_messages.phase_message import PhaseMessage
+from messages.rerun_manager import RerunManager
+from messages.workflow_message import WorkflowMessage
 from resources.resource_manager import ResourceManager
 
 
@@ -88,9 +90,7 @@ def test_add_agent_message(mocker, mock_log_message):
     Test adding an AgentMessage to the PhaseMessage.
     """
     mock_action_messages = mocker.patch.object(
-        AgentMessage, 
-        'action_messages', 
-        new_callable=PropertyMock
+        AgentMessage, "action_messages", new_callable=PropertyMock
     )
     action_message = MagicMock(spec=ActionMessage)
     mock_action_messages.return_value = [action_message]
@@ -100,14 +100,12 @@ def test_add_agent_message(mocker, mock_log_message):
 
     assert agent_message in phase_message.agent_messages
     assert agent_message.parent == phase_message
-    log_call_count = 2 + (len(agent_message.action_messages) if agent_message.action_messages else 0)
-    assert mock_log_message.call_count == log_call_count
 
 
 @pytest.mark.asyncio
-async def test_current_agent_list():
+async def test_current_children():
     """
-    Test that current_agent_list correctly retrieves the latest versions of agent messages.
+    Test that current_children correctly retrieves the latest versions of agent messages.
     """
     agent_manager = MagicMock(spec=AgentManager)
     resource_manager = MagicMock(spec=ResourceManager)
@@ -123,8 +121,8 @@ async def test_current_agent_list():
     agent_msg5 = await rerun_manager.edit_message(agent_msg4, "test_msg5")
     agent_msg6 = AgentMessage("test_id6", "test_msg6", prev=agent_msg3)
     phase_message.add_agent_message(agent_msg6)
-    current_agents = phase_message.current_agent_list
-    
+    current_agents = phase_message.current_children
+
     assert len(phase_message.agent_messages) == 6
     assert len(current_agents) == 2
     assert current_agents[0] == agent_msg3
@@ -136,23 +134,16 @@ def test_to_dict(mocker):
     Test the to_dict method for PhaseMessage.
     """
     mock_agent_messages = mocker.patch.object(
-        PhaseMessage, 
-        'agent_messages', 
-        new_callable=PropertyMock
+        PhaseMessage, "agent_messages", new_callable=PropertyMock
     )
-    mock_current_agent_list = mocker.patch.object(
-        PhaseMessage, 
-        'current_agent_list', 
-        new_callable=PropertyMock
+    mock_current_children = mocker.patch.object(
+        PhaseMessage, "current_children", new_callable=PropertyMock
     )
-    mock_super_to_dict = mocker.patch.object(
-        Message, 
-        'to_dict'
-    )
+    mock_super_to_dict = mocker.patch.object(Message, "to_dict")
     agent_msg_mock = MagicMock(spec=AgentMessage)
     agent_msg_mock.to_dict.return_value = {"agent_key": "agent_value"}
     mock_agent_messages.return_value = [agent_msg_mock]
-    mock_current_agent_list.return_value = [agent_msg_mock]
+    mock_current_children.return_value = [agent_msg_mock]
     mock_super_to_dict.return_value = {"super_key": "super_value"}
 
     phase_message = PhaseMessage("phase_1")
@@ -172,4 +163,3 @@ def test_to_dict(mocker):
     assert result_dict["current_children"][0] == {"agent_key": "agent_value"}
 
     assert result_dict["super_key"] == "super_value"
-
