@@ -82,6 +82,44 @@ async def stop_workflow(workflow_id: str, request: Request):
         return {"error": str(e), "traceback": error_traceback}
 
 
+@workflow_service_router.post("/workflow/restart/{workflow_id}")
+async def notify_restart_workflow(workflow_id: str, request: Request):
+    """
+    Restart a previously stopped workflow from where it left off.
+    """
+    print(f"Attempting to restart workflow {workflow_id}")
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        print(f"Workflow {workflow_id} not found in active workflows")
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    print(f"BEFORE RESTART - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}")
+    
+    workflow_data = active_workflows[workflow_id]
+    workflow = workflow_data["instance"]
+    websocket_manager = request.app.state.websocket_manager
+
+    try:
+        print(f"Restarting workflow {workflow_id}")
+        await workflow.restart()    
+
+    except Exception as e:
+        # Handle errors
+        print(f"Workflow error: {e}")
+        workflow_data["status"] = "error"
+        await websocket_manager.broadcast(
+            workflow_id,
+            {"message_type": "workflow_status", "status": "error", "error": str(e)},
+        )
+        print(f"Broadcasted error status for {workflow_id}")
+
+    active_workflows[workflow_id]["status"] = "restarted"
+    await websocket_manager.broadcast(
+        workflow_id,
+        {"message_type": "workflow_status", "status": "restarted"}
+    )
+    print(f"Broadcasted running status for {workflow_id}")
+
 
 @workflow_service_router.post("/workflow/{workflow_id}/rerun-message")
 async def rerun_message(workflow_id: str, data: MessageData, request: Request):
@@ -191,22 +229,31 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
             workflow_message = workflow_data.get("workflow_message")
             if workflow_message and hasattr(workflow_message, "phase_messages"):
                 for phase_message in workflow_message.phase_messages:
+                    print(f"phase message sent, {phase_message.to_dict()}")
                     await websocket.send_json(phase_message.to_dict())
 
             if current_status not in ["running", "completed", "stopped"]:
-                print(f"Auto-starting workflow {workflow_id}")
-                asyncio.create_task(
-                    run_workflow(
-                        workflow_id, active_workflows, websocket_manager, should_exit
+                if current_status == "restarted":
+                    print(f"Re-starting workflow {workflow_id}")
+                    asyncio.create_task(
+                        rerun_workflow(
+                            workflow_id, active_workflows, websocket_manager, should_exit
+                        )
                     )
-                )
-                await websocket.send_json(
-                    {
-                        "message_type": "workflow_status",
-                        "status": "starting",
-                        "can_execute": False,
-                    }
-                )
+                else:
+                    print(f"Auto-starting workflow {workflow_id}")
+                    asyncio.create_task(
+                        run_workflow(
+                            workflow_id, active_workflows, websocket_manager, should_exit
+                        )
+                    )
+                    await websocket.send_json(
+                        {
+                            "message_type": "workflow_status",
+                            "status": "starting",
+                            "can_execute": False,
+                        }
+                    )
             else:
                 await websocket.send_json(
                     {
@@ -303,12 +350,59 @@ async def run_workflow(
             print(f"Broadcasted error status for {workflow_id}")
 
 
+async def rerun_workflow(
+    workflow_id: str, active_workflows, websocket_manager, should_exit
+):
+    if workflow_id not in active_workflows or should_exit:
+        print(f"Workflow {workflow_id} not found or should exit")
+        return
+
+    workflow_data = active_workflows[workflow_id]
+    workflow = workflow_data["instance"]
+
+    try:
+        # Update status to running after initial start
+        workflow_data["status"] = "running"
+        await websocket_manager.broadcast(
+            workflow_id, {"message_type": "workflow_status", "status": "running"}
+        )
+        print(f"Broadcasted running status for {workflow_id}")
+
+        print(f"Running workflow {workflow_id}")
+        # Run the workflow
+        await workflow.run_restart()
+
+        # Handle successful completion
+        if not should_exit:
+            workflow_data["status"] = "completed"
+            await websocket_manager.broadcast(
+                workflow_id,
+                {
+                    "message_type": "workflow_status",
+                    "status": "completed",
+                },
+            )
+
+    except Exception as e:
+        # Handle errors
+        if not should_exit:
+            print(f"Workflow error: {e}")
+            workflow_data["status"] = "error"
+            await websocket_manager.broadcast(
+                workflow_id,
+                {"message_type": "workflow_status", "status": "error", "error": str(e)},
+            )
+            print(f"Broadcasted error status for {workflow_id}")
+
+
 async def next_iteration(workflow_id: str, active_workflows):
+    print("running next_iteration")
     if workflow_id not in active_workflows:
         return {"error": "Workflow not found"}
 
     workflow = active_workflows[workflow_id]["instance"]
     if hasattr(workflow, "next_iteration_event"):
+        print("next_iter triggered")
         workflow.next_iteration_event.set()
         return {"status": "next iteration triggered"}
     else:

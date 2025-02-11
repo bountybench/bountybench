@@ -56,6 +56,9 @@ const AgentInteractions = ({
       if (workflowStatus === "stopped") {
         setIsStopped(true);
       }
+      if (workflowStatus === "restarted") {
+        setIsStopped(false);
+      }
     }, [workflowStatus]);
   
 

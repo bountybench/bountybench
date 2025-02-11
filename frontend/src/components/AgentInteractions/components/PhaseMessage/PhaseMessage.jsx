@@ -18,13 +18,11 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     if (message.current_children){
       const children = message.current_children;
       if (children.length === 0) return;
-      const seenAgents = new Set();
       const all_messages = [];
       let curr_index = 0;
       for (const msg of message.agent_messages) {
         const agentId = msg.agent_id;
-        if (curr_index === 0 || !seenAgents.has(agentId)) {
-            seenAgents.add(agentId);
+        if (curr_index === 0 || (agentId !== 'system' && curr_index === all_messages.length)) {
             all_messages.push({ agent: agentId, versionChain: [msg], index: 1 });
             curr_index += 1;
         } else {

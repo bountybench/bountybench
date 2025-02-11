@@ -12,7 +12,8 @@ const WorkflowState = {
   RUNNING: 'RUNNING',
   COMPLETED: 'COMPLETED',
   ERROR: 'ERROR',
-  STOPPED: 'STOPPED'
+  STOPPED: 'STOPPED',
+  RESTARTED: 'RESTARTED',
 };
 
 export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast }) => {
@@ -95,6 +96,12 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       setWorkflowState({
         status: WorkflowState.STOPPED,
         message: "Workflow stopped",
+        error: null
+      });
+    } else if (workflowStatus === 'restarted') {
+      setWorkflowState({
+        status: WorkflowState.RESTARTED,
+        message: "Workflow restarted",
         error: null
       });
     } else if (workflowStatus) {

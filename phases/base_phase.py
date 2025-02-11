@@ -111,7 +111,7 @@ class BasePhase(ABC):
         Initialize and register resources and agents for the phase.
         """
         logger.debug(f"Entering setup for {self.name}")
-        
+
         # 1. Define and register resources
         resource_configs = self.define_resources()
         for resource_id, (resource_class, resource_config) in resource_configs.items():
@@ -128,7 +128,6 @@ class BasePhase(ABC):
         logger.info(f"Agents for phase {self.name} initialized")
         self.agents = list(self.agent_manager._phase_agents.items())
 
-        
         logger.info(f"Completed setup for {self.name}")
 
     def deallocate_resources(self):
@@ -152,26 +151,29 @@ class BasePhase(ABC):
         Returns:
             PhaseMessage: The message of the current phase.
         """
-        logger.debug(f"Entering run_phase for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})")
-        logger.debug(f"Running phase {self.name}")
-        
-        self._phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
-        workflow_message.add_phase_message(self._phase_message)
+        logger.info(f"running Phase {self.name} starting at iteration {self.iteration_count}")
 
-        if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
-            self._last_agent_message = prev_phase_message.agent_messages[-1]
-        else:
-            logger.info(f"Adding initial prompt to phase")
-            if self.params.get("task_dir"):
-                codebase_structure = subprocess.run(["tree", "-L", "4"], cwd=os.path.join(self.params.get("task_dir"), "tmp"), capture_output=True, text=True).stdout
-                self.params["codebase"] = "$ tree -L 4\n" + codebase_structure
-            self._last_agent_message = AgentMessage(
-                agent_id="system",
-                message=self.params.get("initial_prompt").format(**self.params),
-            )
-            self._phase_message.add_agent_message(self._last_agent_message)
+        if self.iteration_count == 0:           
+            self._phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
+            workflow_message.add_phase_message(self._phase_message)
 
-        for iteration_num in range(1, self.phase_config.max_iterations + 1):
+            if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
+                self._last_agent_message = prev_phase_message.agent_messages[-1]
+            else:
+                logger.info(f"Adding initial prompt to phase")
+                if self.params.get("task_dir"):
+                    codebase_structure = subprocess.run(["tree", "-L", "4"], cwd=os.path.join(self.params.get("task_dir"), "tmp"), capture_output=True, text=True).stdout
+                    self.params["codebase"] = "$ tree -L 4\n" + codebase_structure
+                self._last_agent_message = AgentMessage(
+                    agent_id="system",
+                    message=self.params.get("initial_prompt").format(**self.params),
+                )
+                self._phase_message.add_agent_message(self._last_agent_message)
+            self.iteration_count += 1
+
+        start_count = self.iteration_count
+        # Start the iteration at the current count
+        for iteration_num in range(start_count, self.phase_config.max_iterations + 1):
             if self._phase_message.complete:
                 break
 
