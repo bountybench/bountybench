@@ -55,16 +55,19 @@ class TestAgentMessage(unittest.TestCase):
         action_msg4 = ActionMessage("test_id4", "test_msg4", prev=action_msg1)
         agent_message.add_action_message(action_msg1)
         agent_message.add_action_message(action_msg4)
-
         action_msg2 = asyncio.run(rerun_manager.edit_message(action_msg1, "test_msg2"))
         action_msg3 = asyncio.run(rerun_manager.edit_message(action_msg2, "test_msg3"))
         action_msg5 = asyncio.run(rerun_manager.edit_message(action_msg4, "test_msg5"))
+        action_msg6 = ActionMessage("test_id6", "test_msg6", prev=action_msg3)
+        agent_message.add_action_message(action_msg6)
+
         current_actions = agent_message.current_children
 
         # Assertions
-        self.assertEqual(len(agent_message.action_messages), 5)
-        self.assertEqual(len(current_actions), 1)
+        self.assertEqual(len(agent_message.action_messages), 6)
+        self.assertEqual(len(current_actions), 2)
         self.assertEqual(current_actions[0], action_msg3)
+        self.assertEqual(current_actions[1], action_msg6)
 
     def test_add_action_message(self):
         """

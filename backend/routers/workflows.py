@@ -36,7 +36,7 @@ async def list_workflows():
     }
 
 
-@workflows_router.get("/workflows/active")
+@workflows_router.get("/workflow/active")
 async def list_active_workflows(request: Request):
     active_workflows = request.app.state.active_workflows
     active_workflows_list = []
