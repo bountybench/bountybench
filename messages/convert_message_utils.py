@@ -1,5 +1,7 @@
+from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
+from messages.parse_message import extract_command
 
 def cast_action_to_command(action: ActionMessage) -> CommandMessage:
     """
@@ -13,14 +15,9 @@ def cast_action_to_command(action: ActionMessage) -> CommandMessage:
     Returns:
         CommandMessage: The same object, now treated as a CommandMessage.
     """
-    if not isinstance(action, ActionMessage):
-        raise TypeError("Object must be an instance of ActionMessage")
-
-    # Change the object's class to CommandMessage
+    
     action.__class__ = CommandMessage
-
-    # Ensure required attributes for CommandMessage exist
-    if not hasattr(action, "_command"):
-        action._command = action.parse_command()
-
+    action._command = extract_command(action.message, STOP_TOKEN)
     return action
+
+

@@ -66,7 +66,7 @@ class ExecutorAgent(BaseAgent):
 
         # If the model couldn't generate a valid command, just return a failure message
         if not model_action_message:
-            agent_message.message = "Model failed to produce a valid response."
+            agent_message.set_message("Model failed to produce a valid response.")
             return agent_message
         agent_message.add_action_message(model_action_message)
 
