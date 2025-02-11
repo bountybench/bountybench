@@ -135,7 +135,7 @@ def bounty_setup(repo_name: str, bounty_number: int) -> EnvPath:
     docker_config = DockerResourceConfig()
     
     # Initialize resources 
-    resource_manager = ResourceManager()
+    resource_manager = ResourceManager(workflow_id="test_id")
     resource_manager.register_resource("init_files", InitFilesResource, init_config)
     resource_manager.register_resource("repo_resource", SetupResource, setup_config)
     resource_manager.register_resource("docker", DockerResource, docker_config)

@@ -31,7 +31,7 @@ def mock_restart_resource(return_value: bool = True):
 def patch_agent(bounty_setup):
     env_path: EnvPath = bounty_setup
     # Initialize agent
-    agent_manager = AgentManager()
+    agent_manager = AgentManager(workflow_id="test_id")
     patch_config = PatchAgentConfig(
         bounty_dir=env_path.BOUNTY_DIR_FROM_TASK_DIR,
         task_dir=env_path.TASK_DIR,
@@ -276,11 +276,11 @@ def test_create_git_patch(bounty_setup, patch_agent, git_fixture):
     env_path: EnvPath = bounty_setup
     agent = patch_agent
     agent.patch_id = 1
-    tmp_dir = env_path.TMP_DIR
-    with open(os.path.join(tmp_dir, TEST_FILE_NAME), 'w') as f:
+    tmp_repo_path = env_path.TMP_CODEBASE_FILES_DIR
+    with open(os.path.join(tmp_repo_path, TEST_FILE_NAME), 'w') as f:
         f.write("Another modification")
     
-    diff = agent.get_git_diff(tmp_dir)
+    diff = agent.get_git_diff(tmp_repo_path)
     agent.create_git_patch(diff, agent.patch_dir)
     
     patch_file_path = os.path.join(agent.patch_dir, "patch_1.patch")
@@ -294,21 +294,24 @@ def test_create_git_commit(bounty_setup, patch_agent, git_fixture):
     env_path: EnvPath = bounty_setup
     agent = patch_agent
     agent.patch_id = 1
-    tmp_dir = env_path.TMP_DIR
+    tmp_repo_path = env_path.TMP_CODEBASE_FILES_DIR
 
-    with open(os.path.join(tmp_dir, TEST_FILE_NAME), 'w') as f:
+    with open(os.path.join(tmp_repo_path, TEST_FILE_NAME), 'w') as f:
         f.write("New content for patch")
     
-    diff = agent.get_git_diff(tmp_dir)
+    print("=======================")
+    print(tmp_repo_path)
+    print("=======================")
+    diff = agent.get_git_diff(tmp_repo_path)
     
     agent.create_git_patch(diff, agent.patch_dir)
-    agent.create_git_commit(tmp_dir)
+    agent.create_git_commit(tmp_repo_path)
 
-    log_output = subprocess.check_output(['git', 'log', '--oneline'], cwd=tmp_dir).decode('utf-8')
+    log_output = subprocess.check_output(['git', 'log', '--oneline'], cwd=tmp_repo_path).decode('utf-8')
     print(log_output)
     assert "Commit 1" in log_output, "Expected the commit message to contain the patch id."
 
-    committed_files = subprocess.check_output(['git', 'ls-tree', '--name-only', '-r', 'HEAD'], cwd=tmp_dir).decode('utf-8')
+    committed_files = subprocess.check_output(['git', 'ls-tree', '--name-only', '-r', 'HEAD'], cwd=tmp_repo_path).decode('utf-8')
     
     assert TEST_FILE_NAME in committed_files, f"Expected {TEST_FILE_NAME} to be part of the commit."
     
