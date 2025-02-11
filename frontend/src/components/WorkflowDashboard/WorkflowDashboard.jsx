@@ -142,6 +142,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     console.log('Sending request to:', url);
     console.log('Request body:', JSON.stringify(requestBody));
   
+    setIsNextDisabled(true);
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -161,11 +162,14 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       console.log('Action updated successfully', data);
     } catch (error) {
       console.error('Error updating action:', error);
+    } finally {
+      setIsNextDisabled(false);
     }
   };
 
   const handleRerunMessage = async (messageId) => {
     if (workflowId) {
+      setIsNextDisabled(true);
       try {
         const response = await fetch(`http://localhost:8000/workflow/${workflowId}/rerun-message`, {
           method: 'POST',
@@ -182,6 +186,8 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         }
       } catch (error) {
         console.error('Error rerunning action:', error);
+      } finally {
+        setIsNextDisabled(false);
       }
     } else {
       console.error('Workflow ID is not available');
