@@ -34,7 +34,7 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
               Summary: {message.phase_summary || '(no summary)'}
             </Typography>
             
-            {message.current_children.length > 0 && (
+            {message.current_children?.length > 0 && (
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
                 {message.current_children.map((agentMessage, index) => (

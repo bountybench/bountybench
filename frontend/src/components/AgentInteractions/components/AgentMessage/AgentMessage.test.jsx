@@ -3,8 +3,6 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AgentMessage from '../AgentMessage/AgentMessage';
 
-//AgentMessage = ({ message, onUpdateActionInput, onRerunAction, onPhaseChildUpdate, phaseMultiVersion, phaseDisplayedIndex, phaseVersionLength })
-
 test('renders agent type and message', () => {
   const message = {
     agent_id: 'executor_agent',
@@ -22,8 +20,11 @@ test('checks multiple version', () => {
     agent_id: "agent1",
     message: "custom message",
     current_children: [],
+    current_id: "message1",
+    versions: ["message1", "message2"],
+    version_next: "example",
   };
-  render(<AgentMessage message={message} phaseDisplayedIndex={1} phaseVersionLength={2}/>);
+  render(<AgentMessage message={message}/>);
   // Verify the version text
   const versionText = screen.getByText(`${1}/${2}`);
   expect(versionText).toBeInTheDocument();
@@ -45,50 +46,20 @@ test('triggers version change', () => {
     agent_id: "agent1",
     message: "custom message",
     current_children: [],
+    current_id: "message1",
+    versions: ["message1", "message2"],
+    version_next: "example",
   };
-  const mockPhaseChildUpdate = jest.fn();
-  const mockOnCellSelect = jest.fn(); // Mock function for onCellSelect
-
-  render(<AgentMessage index={0} message={message} onCellSelect={mockOnCellSelect} onPhaseChildUpdate={mockPhaseChildUpdate} phaseDisplayedIndex={1} phaseVersionLength={2}/>);
-  fireEvent.click(screen.getByRole('button', { name: /arrow forward/i }));
-  // Version index is incremented by 1
-  expect(mockPhaseChildUpdate).toHaveBeenCalledWith('agent1', 1);
-});
-
-
-test('multiple versions of action messages', () => {
-  const message = {
-    agent_id: 'agent-1',
-    current_id: 'agent-1',
-    message: 'agent message',
-    action_messages: [{current_id: 'action-11', message: 'former1'},{current_id: 'action-21', message: 'former2'}, {current_id: 'action-12', message: 'current1'},{current_id: 'action-22', message: 'current2'}],
-    current_children: [{current_id: 'action-12', message: 'current1'},{current_id: 'action-22', message: 'current2'}],
-    message_type: 'AgentMessage',
-  };
-  const mockOnCellSelect = jest.fn(); // Mock function for onCellSelect
-
-  render(<AgentMessage index={0} message={message} onCellSelect={mockOnCellSelect} />);
   
-  expect(screen.getByText(/former1/i)).toBeInTheDocument();
-  expect(screen.getByText(/former2/i)).toBeInTheDocument();
+  const mockOnToggleVersion = jest.fn();
+  const mockOnCellSelect = jest.fn();
 
-  // Verify the version text (1/2)
-  const versionText = screen.getByText(`${1}/${2}`);
-  expect(versionText).toBeInTheDocument();
+  // Render the AgentMessage component with necessary props
+  render(<AgentMessage message={message} onCellSelect={mockOnCellSelect} onToggleVersion={mockOnToggleVersion} />);
 
-  // Verify the version toggling buttons are present
-  const backButton = screen.getByRole('button', { name: /arrow back/i }); 
-  const forwardButton = screen.getByRole('button', { name: /arrow forward/i }); 
-  expect(forwardButton).toBeInTheDocument();
-  expect(forwardButton).not.toBeDisabled();
-  expect(backButton).toBeInTheDocument();
-  expect(backButton).toBeDisabled();
-
-  // Select previous version and verify that the display is changed
-  fireEvent.click(forwardButton);
-  expect(screen.getByText(/current1/i)).toBeInTheDocument();
-  expect(screen.getByText(/current2/i)).toBeInTheDocument();
-  const newVersionText = screen.getByText(`${2}/${2}`);
-  expect(newVersionText).toBeInTheDocument();
-
+  // Click the forward arrow to trigger version change
+  fireEvent.click(screen.getByRole('button', { name: /arrow forward/i }));
+  
+  // Assert that the onToggleVersion was called with the correct parameters
+  expect(mockOnToggleVersion).toHaveBeenCalledWith('message1', 'next');
 });

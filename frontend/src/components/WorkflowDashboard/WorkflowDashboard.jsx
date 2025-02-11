@@ -95,7 +95,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         message: "Workflow completed",
         error: null
       });
-      setPreservedMessages(messages);
+      setPreservedMessages(phaseMessages);
     } else if (workflowStatus === 'stopped') {
       setWorkflowState({
         status: WorkflowState.STOPPED,
@@ -112,7 +112,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
     console.log(`Workflow state updated to ${workflowStatus}`)
     onWorkflowStateUpdate(workflowStatus, currentPhase);
-  }, [isConnected, workflowStatus, currentPhase, messages, error, onWorkflowStateUpdate]);
+  }, [isConnected, workflowStatus, currentPhase, phaseMessages, error, onWorkflowStateUpdate]);
 
   const triggerNextIteration = async () => {
     if (workflowStatus === "stopped") {
@@ -260,7 +260,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     );
   }
 
-  const displayMessages = workflowState.status === WorkflowState.COMPLETED ? preservedMessages : messages;
+  const displayMessages = workflowState.status === WorkflowState.COMPLETED ? preservedMessages : phaseMessages;
 
   return (
     <Box height="100%" overflow="auto">
@@ -269,7 +269,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         workflowStatus={workflowStatus}
         currentPhase={currentPhase}
         isNextDisabled={isNextDisabled}
-        phaseMessages={phaseMessages}
+        phaseMessages={displayMessages}
         onUpdateMessageInput={handleUpdateMessageInput}
         onRerunMessage={handleRerunMessage}
         onTriggerNextIteration={triggerNextIteration}
