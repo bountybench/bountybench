@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
