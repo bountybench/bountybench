@@ -91,7 +91,7 @@ const AgentInteractions = ({
               color="primary"
               onClick={onTriggerNextIteration}
               startIcon={<KeyboardDoubleArrowRightIcon />}
-              disabled={isNextDisabled || isEditing}
+              disabled={isNextDisabled}
               size="small"
             >
               Continue

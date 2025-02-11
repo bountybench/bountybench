@@ -138,7 +138,6 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                     multiline
                     fullWidth
                     minRows={3}
-                    maxRows={10}
                     value={editedMessage}
                     onChange={(e) => setEditedMessage(e.target.value)}
                   />
