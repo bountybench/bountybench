@@ -17,7 +17,6 @@ message_dict: Dict[str, Dict[str, Message]] = {}
 def broadcast_update(messages):
     """Send an update over WebSocket."""
     if not isinstance(messages, list):
-        print("Making message in a list")
         messages = [messages]
 
     workflow_id = messages[0].workflow_id  # Assumes all messages are for the same workflow

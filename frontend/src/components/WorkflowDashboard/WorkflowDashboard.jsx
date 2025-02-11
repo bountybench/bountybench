@@ -19,6 +19,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
+  const [preservedMessages, setPreservedMessages] = useState([]);
   
   const [workflowState, setWorkflowState] = useState({
     status: WorkflowState.LOADING,

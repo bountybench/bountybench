@@ -292,7 +292,7 @@ async def next_iteration(workflow_id: str, active_workflows, last_message_id: st
         return {"error": "Workflow not found"}
 
     workflow = active_workflows[workflow_id]["instance"]
-    await workflow.set_last_message(last_message_id)
+    
     if hasattr(workflow, "next_iteration_event"):
         workflow.next_iteration_event.set()
         return {"status": "next iteration triggered"}
