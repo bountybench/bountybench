@@ -65,7 +65,7 @@ class TestWorkflowGraph(unittest.TestCase):
             list(workflow._run_phases())
 
     def test_phase_failure(self):
-        with patch('phases.base_phase.BasePhase.run_phase') as mock_run:
+        with patch('phases.base_phase.BasePhase.run') as mock_run:
             mock_message = PhaseMessage(agent_messages=[])
             mock_run.return_value = mock_message
             
