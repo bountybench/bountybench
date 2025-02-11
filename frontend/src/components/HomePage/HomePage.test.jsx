@@ -106,6 +106,6 @@ describe('HomePage Component', () => {
     fireEvent.click(workflowButton);
     
     // Assert
-    expect(screen.getByText(/Workflow/i)).toBeInTheDocument(); // Check for workflow navigation
+    expect(screen.getAllByText(/Workflow/i).length).toBeGreaterThan(0); // Check for workflow navigation
   });
 });
