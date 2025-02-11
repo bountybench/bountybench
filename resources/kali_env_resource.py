@@ -381,7 +381,7 @@ class KaliEnvResource(BaseResource):
         start_time = time.time()
         try:
             while time.time() - start_time < timeout:
-                rlist, _, _ = select.select([self.socket], [self.socket], [], 1)
+                rlist, _, _ = select.select([self.socket], [], [], 1)
                 if self.socket in rlist:
                     try:
                         chunk = self.socket._sock.recv(1024)
@@ -391,6 +391,8 @@ class KaliEnvResource(BaseResource):
                 else:
                     # No data ready; buffer is clear
                     break
+        except TimeoutError:
+            raise
         except Exception as e:
             logger.error(f"Unexpected error while clearing bash buffer: {str(e)}")
         
