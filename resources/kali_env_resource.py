@@ -369,7 +369,7 @@ class KaliEnvResource(BaseResource):
         start_time = time.time()
         try:
             while time.time() - start_time < timeout:
-                rlist, _, _ = select.select([self.socket.fileno()], [], [])
+                rlist, _, _ = select.select([], [self.socket.fileno()], [], 1)
                 if self.socket.fileno() in rlist:
                     try:
                         chunk = self.socket._sock.recv(1024)
