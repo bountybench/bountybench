@@ -1,7 +1,6 @@
 import atexit
 import os
 import sys
-import threading
 import time
 import select
 from typing import Dict, Optional, Tuple
@@ -45,7 +44,7 @@ def timeout_context(seconds):
 DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 
-TIMEOUT_PER_COMMAND = 5
+TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
 RETRY_DELAY = 5
 
