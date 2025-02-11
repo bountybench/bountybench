@@ -1,6 +1,5 @@
 import asyncio
-from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.action_message import ActionMessage
