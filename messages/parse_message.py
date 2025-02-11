@@ -42,7 +42,7 @@ def parse_field(text: str, field: str, multiline: bool = True, stop_str: Optiona
 
         return extracted_field if extracted_field else None
 
-def extract_command(message: str, stop_str: str) -> str:
+def extract_command(message: str, stop_str: str) -> list[str]:
     command = parse_field(message, "Command:", stop_str)
     if not command:
         raise Exception(
