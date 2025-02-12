@@ -25,7 +25,7 @@ import signal
 from contextlib import contextmanager
 
 # Constants with type annotations
-DOCKER_IMAGE: str = "custom-kali-linux:v1.0" 
+DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 
 TIMEOUT_PER_COMMAND = 120
@@ -162,6 +162,10 @@ class KaliEnvResource(BaseResource):
     
     def _remove_existing_container(self, name: str):
         try:
+            print("-"*90)
+            print(self.client.containers.get(name))
+            print("in remove")
+            print("-"*90)
             container = self.client.containers.get(name)
             logger.info(f"Container '{name}' already exists. Forcefully removing it.")
             start_progress(f"Removing existing container '{name}'...")
@@ -182,6 +186,9 @@ class KaliEnvResource(BaseResource):
     def _create_and_start_container(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]], attempt:int) -> Container:
         start_progress(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
         try:
+            print(self.client.containers)
+            print("in start")
+            print("-"*90)
             container = self.client.containers.run(
                 image=DOCKER_IMAGE,
                 cgroupns="host",
