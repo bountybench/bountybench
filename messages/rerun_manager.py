@@ -141,34 +141,6 @@ class RerunManager:
 
         return new_message
 
-    """
-    def update_version_links(
-        self, old_message: Message, new_message: Message, set_version=True, parent_message=None
-    ) -> Message:
-        print(f"Updating version links for old_message ID={old_message.id} and new_message ID={new_message.id}")
-        if set_version:
-            parent_message = old_message.parent
-            new_message.set_version_prev(old_message)
-            print(f"Set new_message.version_prev = {old_message.id}")
-
-        print(f"Old message next: {old_message.next}")
-        new_message.set_next(old_message.next)
-        print(f"New message next after update: {new_message.next}")
-
-        if parent_message:
-            if isinstance(parent_message, AgentMessage):
-                parent_message.add_action_message(new_message)
-                # 1) find the top-level Phase
-                phase = self.find_phase_parent(parent_message)
-                # 2) broadcast from the Phase
-                if phase:
-                    from messages.message_utils import broadcast_update
-
-                    broadcast_update(phase)
-
-            if isinstance(parent_message, PhaseMessage):
-                parent_message.add_agent_message(new_message)
-    """
 
     def update_version_links(
         self, old_message: Message, new_message: Message, set_version=True, parent_message=None
