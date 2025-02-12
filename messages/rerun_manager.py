@@ -17,7 +17,6 @@ class RerunManager:
         self.agent_manager = agent_manager
         self.resource_manager = resource_manager
 
-    '''
     async def rerun(self, message: Message) -> Message:
         """Regenerates next message if a .next exists"""
         if message.next:
@@ -33,52 +32,7 @@ class RerunManager:
             raise ValueError(
                 "No defined next actions to run, please continue to next iteration"
             )
-    '''
 
-    async def rerun(self, message: Message) -> Message:
-        """Regenerates next message and all subsequent messages in the agent context"""
-        if message.next:
-            if isinstance(message, ActionMessage):
-                # Get the agent context
-                agent_message = message.parent
-                if not isinstance(agent_message, AgentMessage):
-                    raise ValueError("Action message parent must be an AgentMessage")
-                
-                logger.info(f"Rerunning message chain from {message.id} in agent {agent_message.id}")
-                
-                # Start with the next message
-                current = message.next
-                input_msg = message
-                
-                # Rerun each subsequent message in the chain
-                while current:
-                    logger.info(f"Rerunning action {current.id}")
-                    new_message = await self._rerun_action_message(current, input_msg)
-                    
-                    # Update the agent's action list
-                    agent_message.add_action_message(new_message)
-                    
-                    # Set up for next iteration
-                    input_msg = new_message
-                    current = current.next
-                
-                # Find and update the phase
-                phase = self.find_phase_parent(agent_message)
-                if phase:
-                    from messages.message_utils import broadcast_update
-                    broadcast_update(phase)
-                    
-                return input_msg
-            elif isinstance(message, AgentMessage):
-                message = await self._rerun_agent_message(message.next, message)
-                return message
-            else:
-                raise ValueError("Unsupported message type for rerun")
-        else:
-            raise ValueError(
-                "No defined next actions to run, please continue to next iteration"
-            )
-        
     async def _rerun_action_message(
         self, old_message: Message, input_message: Message
     ) -> Message:
@@ -114,9 +68,7 @@ class RerunManager:
         params["prev"] = prev
         params["message"] = edit if edit else params["message"]
         new_message = cls(**params)
-
         return new_message
-    
     
     def _clone_parent_agent_message(self, old_message: ActionMessage, parent_message: AgentMessage, edit: str) -> Message:
         new_parent_message = self._clone_message(parent_message)
@@ -132,7 +84,6 @@ class RerunManager:
         )
         
         return new_message
-
     
     def _clone_action_chain(
         self, actions_list: list[ActionMessage], old_message: ActionMessage, new_parent: AgentMessage
@@ -173,7 +124,6 @@ class RerunManager:
     def _finalize_edit(self, old_message: Message, edit: str) -> Message:
         new_message = self._clone_message(old_message, edit=edit)
         new_message.set_prev(old_message.prev)
-        
         self.update_version_links(old_message, new_message)
 
         logger.info(
@@ -182,33 +132,26 @@ class RerunManager:
 
         return new_message
 
-
     def update_version_links(
         self, old_message: Message, new_message: Message, set_version=True, parent_message=None
     ) -> Message:
         if set_version:
             parent_message = old_message.parent
             new_message.set_version_prev(old_message)
-
         new_message.set_next(old_message.next)
-
         if parent_message:
             if isinstance(parent_message, AgentMessage):
                 parent_message.add_action_message(new_message)
-
-                # 1) Find the top-level Phase
+                # 1) find the top-level Phase
                 phase = self.find_phase_parent(parent_message)
-                
-                # 2) Broadcast from the Phase
+                # 2) broadcast from the Phase
                 if phase:
                     from messages.message_utils import broadcast_update
+
                     broadcast_update(phase)
 
             if isinstance(parent_message, PhaseMessage):
                 parent_message.add_agent_message(new_message)
-
-        return new_message
-
 
     def find_phase_parent(self, message: Message) -> Optional[PhaseMessage]:
         current = message
