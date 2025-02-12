@@ -129,13 +129,12 @@ export const AppHeader = ({
       <Box display="flex" alignItems="center">
         {selectedWorkflow && (
           <>
-            {selectedWorkflow.model && (
+            {selectedWorkflow.model && modelMapping.length > 0 && (
               <>
                 <FormControl variant="outlined" sx={{ mr: 2 }}>
                   <Select
-                    value={selectedModelType}
+                    value={selectedModelType || ''}
                     onChange={(e) => setSelectedModelType(e.target.value)}
-                    //displayEmpty
                   >
                     {allModelTypes.map((type) => (
                       <MenuItem key={type} value={type}>
@@ -147,9 +146,8 @@ export const AppHeader = ({
 
                 <FormControl variant="outlined" sx={{ mr: 2 }}>
                   <Select
-                    value={selectedModelName}
-                    onChange={(e) => handleModelChange(e.target.value)} 
-                    //displayEmpty
+                    value={selectedModelName || ''}
+                    onChange={(e) => handleModelChange(e.target.value)}
                   >
                     {allModelNames.map((name) => (
                       <MenuItem key={name} value={name}>
