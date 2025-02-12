@@ -44,7 +44,6 @@ def parse_field(text: str, field: str, multiline: bool = True, stop_str: Optiona
 
 def extract_command(message: str, stop_str: str) -> List[str]:
     command = parse_field(message, "Command:", stop_str=stop_str)
-    print(command)
     if not command:
         raise Exception(
             "Command is missing from message, cannot be a command message."
