@@ -77,7 +77,7 @@ def execute_fixture(bounty_setup, patch_agent):
 def git_fixture(bounty_setup):
     env_path: EnvPath = bounty_setup
     files_to_delete = [
-        Path(env_path.CODEBASE_FILES_DIR) / TEST_FILE_NAME,
+        Path(env_path.TMP_CODEBASE_FILES_DIR) / TEST_FILE_NAME,
         Path(env_path.AGENT_PATCHES_DIR) / "patch_1.patch",
     ]
     yield
@@ -298,10 +298,7 @@ def test_create_git_commit(bounty_setup, patch_agent, git_fixture):
 
     with open(os.path.join(tmp_repo_path, TEST_FILE_NAME), 'w') as f:
         f.write("New content for patch")
-    
-    print("=======================")
-    print(tmp_repo_path)
-    print("=======================")
+
     diff = agent.get_git_diff(tmp_repo_path)
     
     agent.create_git_patch(diff, agent.patch_dir)
@@ -318,6 +315,7 @@ def test_create_git_commit(bounty_setup, patch_agent, git_fixture):
     patch_file_path = os.path.join(agent.patch_dir, f"patch_{agent.patch_id}.patch")
     assert os.path.exists(patch_file_path)
 
+
 def test_apply_git_patch(bounty_setup, patch_agent, git_fixture):
     """
     Test the apply_git_patch method in the task repo.
@@ -328,20 +326,35 @@ def test_apply_git_patch(bounty_setup, patch_agent, git_fixture):
     files_repo_path = env_path.CODEBASE_FILES_DIR
     agent.patch_id = 1
 
-    with open(os.path.join(tmp_repo_path, TEST_FILE_NAME), 'w') as f:
+    test_file_path = os.path.join(tmp_repo_path, TEST_FILE_NAME)
+    with open(test_file_path, 'w') as f:
         f.write("test_apply_git_patch")
-    
+
     diff = agent.get_git_diff(tmp_repo_path)
     agent.create_git_patch(diff, agent.patch_dir)
     agent.create_git_commit(tmp_repo_path)
 
     patch_file = Path(os.path.abspath(os.path.join(agent.patch_dir, f"patch_{agent.patch_id}.patch")))
+    
+    assert patch_file.exists(), f"Patch file {patch_file} was not created."
+
     subprocess.check_call(['git', 'checkout', 'dev'], cwd=files_repo_path)
 
     success, message = agent.apply_git_patch(patch_file, files_repo_path, 'dev')
 
     assert success, message
-    assert "test_apply_git_patch" in open(os.path.join(files_repo_path, TEST_FILE_NAME)).read()
+
+    expected_file_path = os.path.join(files_repo_path, TEST_FILE_NAME)
+    assert os.path.exists(expected_file_path), f"File {expected_file_path} not found after applying patch."
+
+    with open(expected_file_path) as f:
+        file_contents = f.read()
+    
+    assert "test_apply_git_patch" in file_contents, "Patch did not apply correctly."
+
+    subprocess.check_call(['git', 'clean', '-fdx'], cwd=env_path.TASK_DIR)
+
+
 
 
 
