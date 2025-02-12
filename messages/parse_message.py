@@ -41,3 +41,12 @@ def parse_field(text: str, field: str, multiline: bool = True, stop_str: Optiona
             extracted_field = extracted_field.split('\n', 1)[0].strip()
 
         return extracted_field if extracted_field else None
+
+def extract_command(message: str, stop_str: str) -> list[str]:
+    command = parse_field(message, "Command:", stop_str)
+    if not command:
+        raise Exception(
+            "Command is missing from message, cannot be a command message."
+        )
+    command = command.lstrip().lstrip("*").lstrip()
+    return command
