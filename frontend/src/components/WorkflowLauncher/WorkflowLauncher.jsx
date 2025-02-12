@@ -107,7 +107,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setWorkflows(data.workflows);
       
       // Set default workflow_name
-      const defaultWorkflow = data.workflows.find(w => w.name === "Detect Workflow") || data.workflows[0];
+      const defaultWorkflow = data.workflows.find(w => w.name === "Detect Patch Workflow") || data.workflows[0];
       setFormData(prev => ({
         ...prev,
         workflow_name: defaultWorkflow ? defaultWorkflow.name : ''
