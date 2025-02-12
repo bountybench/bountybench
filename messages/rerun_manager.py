@@ -75,9 +75,9 @@ class RerunManager:
         new_parent_message.set_prev(parent_message.prev)
         self.update_version_links(parent_message, new_parent_message)
 
-        new_prev_action = self._clone_action_chain(parent_message.current_actions_list, old_message)
+        new_prev_action = self._clone_action_chain(parent_message.current_actions_list, old_message, new_parent_message)
         new_message = self._clone_message(old_message, edit=edit, prev=new_prev_action)
-        self.update_version_links(old_message, new_message, set_version=False)
+        self.update_version_links(old_message, new_message, set_version=False, parent_message=new_parent_message)
 
         logger.info(
             f"Parent AgentMessage edited, ID: {old_message.id} to ID: {new_message.id}"
@@ -85,7 +85,9 @@ class RerunManager:
         
         return new_message
     
-    def _clone_action_chain(self, actions_list: list[ActionMessage], old_message: ActionMessage) -> Message:
+    def _clone_action_chain(
+        self, actions_list: list[ActionMessage], old_message: ActionMessage, new_parent: AgentMessage
+    ) -> Message:
         if not actions_list:
             return None
 
@@ -94,11 +96,11 @@ class RerunManager:
             return None
 
         new_prev_action = self._clone_message(prev_action)
-        self.update_version_links(prev_action, new_prev_action, set_version=False)
+        self.update_version_links(prev_action, new_prev_action, set_version=False, parent_message=new_parent)
 
         while prev_action.next and prev_action.next != old_message:
             new_action = self._clone_message(prev_action.next, prev=new_prev_action)
-            self.update_version_links(prev_action.next, new_action, set_version=False)
+            self.update_version_links(prev_action.next, new_action, set_version=False, parent_message=new_parent)
             prev_action = prev_action.next
             new_prev_action = new_prev_action.next
 
@@ -131,12 +133,12 @@ class RerunManager:
         return new_message
 
     def update_version_links(
-        self, old_message: Message, new_message: Message, set_version=True
+        self, old_message: Message, new_message: Message, set_version=True, parent_message=None
     ) -> Message:
         if set_version:
+            parent_message = old_message.parent
             new_message.set_version_prev(old_message)
         new_message.set_next(old_message.next)
-        parent_message = old_message.parent
         if parent_message:
             if isinstance(parent_message, AgentMessage):
                 parent_message.add_action_message(new_message)
