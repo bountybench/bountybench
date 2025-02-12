@@ -136,8 +136,8 @@ describe('WorkflowLauncher Component', () => {
     fireEvent.mouseDown(screen.getByLabelText(/Workflow Type/i));
 
     await waitFor(() => {
-      expect(screen.getByText('Workflow 1')).toBeInTheDocument();
-      expect(screen.getByText('Description 1')).toBeInTheDocument();
+      expect(screen.getAllByText('Workflow 1')).toHaveLength(2); // One for selected and one for in list
+      expect(screen.getAllByText('Description 1')).toHaveLength(2);
       expect(screen.getByText('Workflow 2')).toBeInTheDocument();
       expect(screen.getByText('Description 2')).toBeInTheDocument();
     });
@@ -152,7 +152,7 @@ describe('WorkflowLauncher Component', () => {
     ];
     const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     const models = { 
-      helmModels: [{ name: 'model1', description: 'Description 1' }],
+      helmModels: [{ name: 'model1', description: 'Description 1' }, { name: 'model3', description: 'Description 3' }],
       nonHelmModels: [{ name: 'model2', description: 'Description 2' }]
     };
     
@@ -183,13 +183,13 @@ describe('WorkflowLauncher Component', () => {
     fireEvent.mouseDown(workflowTypeSelect);
 
     await waitFor(() => {
-      expect(screen.getByText('Workflow 1')).toBeInTheDocument();
-      expect(screen.getByText('Description 1')).toBeInTheDocument();
+      expect(screen.getAllByText('Workflow 1')).toHaveLength(2); // One for selected and one for in list
+      expect(screen.getAllByText('Description 1')).toHaveLength(2);
       expect(screen.getByText('Workflow 2')).toBeInTheDocument();
       expect(screen.getByText('Description 2')).toBeInTheDocument();
     });
   
-    fireEvent.click(screen.getByText('Workflow 1'));
+    fireEvent.click(screen.getByText('Workflow 2'));
   
     fireEvent.change(screen.getByLabelText(/Task Repository Directory/i), { target: { value: 'test-dir' } });
     fireEvent.change(screen.getByLabelText(/Bounty Number/i), { target: { value: '123' } });
@@ -201,7 +201,7 @@ describe('WorkflowLauncher Component', () => {
   
     const modelNameSelect = screen.getByRole('combobox', { name: /Model Name/i });
     fireEvent.mouseDown(modelNameSelect);
-    fireEvent.click(screen.getByText('model1'));
+    fireEvent.click(screen.getByText('model3'));
   
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
@@ -220,7 +220,7 @@ describe('WorkflowLauncher Component', () => {
     ];
     const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     const models = { 
-      helmModels: [{ name: 'model1', description: 'Description 1' }],
+      helmModels: [{ name: 'model1', description: 'Description 1' }, { name: 'model3', description: 'Description 3' }],
       nonHelmModels: [{ name: 'model2', description: 'Description 2' }]
     };
     
@@ -251,13 +251,13 @@ describe('WorkflowLauncher Component', () => {
     fireEvent.mouseDown(workflowTypeSelect);
 
     await waitFor(() => {
-      expect(screen.getByText('Workflow 1')).toBeInTheDocument();
-      expect(screen.getByText('Description 1')).toBeInTheDocument();
+      expect(screen.getAllByText('Workflow 1')).toHaveLength(2); // One for selected and one for in list
+      expect(screen.getAllByText('Description 1')).toHaveLength(2);
       expect(screen.getByText('Workflow 2')).toBeInTheDocument();
       expect(screen.getByText('Description 2')).toBeInTheDocument();
     });
   
-    fireEvent.click(screen.getByText('Workflow 1'));
+    fireEvent.click(screen.getByText('Workflow 2'));
   
     fireEvent.change(screen.getByLabelText(/Task Repository Directory/i), { target: { value: 'test-dir' } });
     fireEvent.change(screen.getByLabelText(/Bounty Number/i), { target: { value: '123' } });
@@ -269,7 +269,7 @@ describe('WorkflowLauncher Component', () => {
   
     const modelNameSelect = screen.getByRole('combobox', { name: /Model Name/i });
     fireEvent.mouseDown(modelNameSelect);
-    fireEvent.click(screen.getByText('model1'));
+    fireEvent.click(screen.getByText('model3'));
   
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));

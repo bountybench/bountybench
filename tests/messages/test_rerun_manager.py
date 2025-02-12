@@ -10,7 +10,7 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from messages.rerun_manager import RerunManager
-from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
+from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from phases.exploit_phase import ExploitPhase
 from agents.agent_manager import AgentManager
 from resources.resource_manager import ResourceManager
@@ -23,7 +23,7 @@ def mock_phase_message():
 
 @pytest.fixture
 def mock_workflow(rerun_manager):
-    workflow = Mock(spec=ExploitAndPatchWorkflow)
+    workflow = Mock(spec=ExploitPatchWorkflow)
     workflow.name = "TestWorkflow"
     workflow.task = {}
     workflow.workflow_message = WorkflowMessage(workflow_name="TestWorkflow", task={})

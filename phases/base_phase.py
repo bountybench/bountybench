@@ -141,7 +141,7 @@ class BasePhase(ABC):
             logger.error(f"Failed to deallocate resources for phase {self.phase_config.phase_idx}: {e}")
             raise
 
-    async def run_phase(self, workflow_message: WorkflowMessage, prev_phase_message: PhaseMessage) -> PhaseMessage:
+    async def run(self, workflow_message: WorkflowMessage, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.
 
@@ -151,6 +151,7 @@ class BasePhase(ABC):
         Returns:
             PhaseMessage: The message of the current phase.
         """
+
         logger.info(f"running Phase {self.name} starting at iteration {self.iteration_count}")
 
         if self.iteration_count == 0:           
