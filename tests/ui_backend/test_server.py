@@ -35,7 +35,7 @@ def test_list_workflows(client):
     assert isinstance(data["workflows"], list), "'workflows' should be a list"
     assert len(data["workflows"]) == 4, "There should be exactly 4 workflows listed"
 
-    expected_ids = {"detect", "exploit_and_patch", "patch", "chat"}
+    expected_ids = {"detect_patch", "exploit_patch", "patch", "chat"}
     returned_ids = {wf["id"] for wf in data["workflows"]}
     assert returned_ids == expected_ids, "Workflow IDs do not match expected IDs"
 
