@@ -31,9 +31,7 @@ def test_agent_lm_config(mock_env):
     assert lm_config1.max_output_tokens == 4096
     assert lm_config1.use_helm is False
 
-    lm_config2 = ModelResourceConfig.create(
-        model="custom-model", max_output_tokens=10000
-    )
+    lm_config2 = ModelResourceConfig(model="custom-model", max_output_tokens=10000)
     assert lm_config2.model == "custom-model"
     assert lm_config2.max_output_tokens == 10000
     assert lm_config2.use_helm is True
