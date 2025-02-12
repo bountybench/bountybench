@@ -13,7 +13,7 @@ const WorkflowState = {
   COMPLETED: 'COMPLETED',
   ERROR: 'ERROR',
   STOPPED: 'STOPPED',
-  RESTARTED: 'RESTARTED',
+  RESTARTING: 'RESTARTING',
 };
 
 export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast }) => {
@@ -21,7 +21,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [preservedMessages, setPreservedMessages] = useState([]);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
-  
+  const [restart, setRestart] = useState(0);
   const [workflowState, setWorkflowState] = useState({
     status: WorkflowState.LOADING,
     message: "Loading workflow instance...",
@@ -55,7 +55,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     currentIteration,
     messages,
     error,
-  } = useWorkflowWebSocket(workflowId);
+  } = useWorkflowWebSocket(workflowId, restart);
   
   console.log('WebSocket state:', { 
     isConnected, 
@@ -98,10 +98,10 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         message: "Workflow stopped",
         error: null
       });
-    } else if (workflowStatus === 'restarted') {
+    } else if (workflowStatus === 'restarting') {
       setWorkflowState({
-        status: WorkflowState.RESTARTED,
-        message: "Workflow restarted",
+        status: WorkflowState.RESTARTING,
+        message: "Workflow restarting",
         error: null
       });
     } else if (workflowStatus) {
@@ -174,6 +174,21 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   };
 
+  const handleRestart = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/workflow/restart/${workflowId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      console.log('Workflow restarted successfully');
+    } catch (error) {
+      console.error('Error restarting workflow:', error);
+    } finally {
+      setRestart((prev) => prev + 1);
+    }
+  };
   const handleRerunMessage = async (messageId) => {
     if (workflowId) {
       setIsNextDisabled(true);
@@ -229,7 +244,8 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   if (workflowState.status === WorkflowState.LOADING || 
       workflowState.status === WorkflowState.CONNECTING ||
-      workflowState.status === WorkflowState.STARTING) {
+      workflowState.status === WorkflowState.STARTING ||
+      workflowState.status === WorkflowState.RESTARTING) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
         <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
@@ -255,6 +271,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         onRerunMessage={handleRerunMessage}
         onTriggerNextIteration={triggerNextIteration}
         onStopWorkflow={handleStopWorkflow}
+        onRestart={handleRestart}
       />
     </Box>
   );

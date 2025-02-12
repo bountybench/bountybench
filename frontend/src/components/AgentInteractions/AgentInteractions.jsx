@@ -4,6 +4,7 @@ import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArro
 import StopIcon from '@mui/icons-material/Stop';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
 import './AgentInteractions.css';
+import ReplayIcon from '@mui/icons-material/Replay';
 
 const AgentInteractions = ({ 
   interactiveMode, 
@@ -13,10 +14,12 @@ const AgentInteractions = ({
   onUpdateMessageInput,
   onRerunMessage,
   onTriggerNextIteration,
-  onStopWorkflow
+  onStopWorkflow,
+  onRestart
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [isStopped, setIsStopped] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
+  const [stopped, setStopped] = useState(false);
   const messagesEndRef = useRef(null);
   const [selectedCellId, setSelectedCellId] = useState(null);
 
@@ -47,17 +50,24 @@ const AgentInteractions = ({
   console.log('Latest PhaseMessage:', latestPhaseMessage);
 
   const handleStopClick = async () => {
-    setIsStopped(true); // Hide buttons immediately
+    setIsStopping(true); // Hide buttons immediately
     await onStopWorkflow();
+    setStopped(true);
+  };
+
+  const handleRestart = async (w) => {
+    await onRestart();
   };
 
     // Ensure buttons remain hidden when workflow status updates from parent
     useEffect(() => {
       if (workflowStatus === "stopped") {
-        setIsStopped(true);
+        setIsStopping(true);
+        setStopped(true);
       }
-      if (workflowStatus === "restarted") {
-        setIsStopped(false);
+      else {
+        setIsStopping(false);
+        setStopped(false);
       }
     }, [workflowStatus]);
   
@@ -92,7 +102,9 @@ const AgentInteractions = ({
       </Box>
 
       <Box className="input-and-buttons-container" display="flex" justifyContent="center" gap={1}>
-        {interactiveMode && !isStopped && (
+      {interactiveMode && (
+        <>
+        {!isStopping && !stopped ? (
           <>
             <Button
               variant="contained"
@@ -114,7 +126,20 @@ const AgentInteractions = ({
               Stop
             </Button>
           </>
-        )}
+        ) : null}
+        {isStopping && stopped && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleRestart}
+            startIcon={<ReplayIcon />}
+            size="small"
+          >
+            Restart
+          </Button>
+          )}
+        </>
+      )}
       </Box>
     </Box>
   );

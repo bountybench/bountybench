@@ -83,7 +83,7 @@ async def stop_workflow(workflow_id: str, request: Request):
 
 
 @workflow_service_router.post("/workflow/restart/{workflow_id}")
-async def notify_restart_workflow(workflow_id: str, request: Request):
+async def restart_workflow(workflow_id: str, request: Request):
     """
     Restart a previously stopped workflow from where it left off.
     """
@@ -95,31 +95,30 @@ async def notify_restart_workflow(workflow_id: str, request: Request):
 
     print(f"BEFORE RESTART - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}")
     
-    workflow_data = active_workflows[workflow_id]
-    workflow = workflow_data["instance"]
-    websocket_manager = request.app.state.websocket_manager
+    workflow = active_workflows[workflow_id]["instance"]
 
     try:
         print(f"Restarting workflow {workflow_id}")
-        await workflow.restart()    
+        await workflow.restart()   
+        active_workflows[workflow_id]["status"] = "restarting"
 
-    except Exception as e:
-        # Handle errors
-        print(f"Workflow error: {e}")
-        workflow_data["status"] = "error"
+        # Notify WebSocket clients about the stop
+        websocket_manager = request.app.state.websocket_manager
         await websocket_manager.broadcast(
             workflow_id,
-            {"message_type": "workflow_status", "status": "error", "error": str(e)},
+            {"message_type": "workflow_status", "status": "restarting"}
         )
-        print(f"Broadcasted error status for {workflow_id}")
+        print(f"Broadcasted running status for {workflow_id}")
+        return {"status": "restarting", "workflow_id": workflow_id}
+        
+    except Exception as e:
+        # Handle errors
+        error_traceback = traceback.format_exc()
+        print(f"Error stopping workflow {workflow_id}: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
 
-    active_workflows[workflow_id]["status"] = "restarted"
-    await websocket_manager.broadcast(
-        workflow_id,
-        {"message_type": "workflow_status", "status": "restarted"}
-    )
-    print(f"Broadcasted running status for {workflow_id}")
-
+    
+    
 
 @workflow_service_router.post("/workflow/{workflow_id}/rerun-message")
 async def rerun_message(workflow_id: str, data: MessageData, request: Request):
@@ -211,6 +210,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     websocket_manager = request.state.websocket_manager
     should_exit = request.state.should_exit
     try:
+        print(f"WebSocket connecting for workflow {workflow_id}")
         await websocket_manager.connect(workflow_id, websocket)
         print(f"WebSocket connected for workflow {workflow_id}")
 
@@ -233,7 +233,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                     await websocket.send_json(phase_message.to_dict())
 
             if current_status not in ["running", "completed", "stopped"]:
-                if current_status == "restarted":
+                if current_status == "restarting":
                     print(f"Re-starting workflow {workflow_id}")
                     asyncio.create_task(
                         rerun_workflow(
