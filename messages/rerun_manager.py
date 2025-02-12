@@ -56,7 +56,6 @@ class RerunManager:
             raise ValueError(
                 "Trying to clone None Messasge"
             )
-        print(f"Cloning message: ID={old_message.id}, current text='{old_message.message}'")
         dic = old_message.__dict__
         cls = type(old_message)
         init_method = cls.__init__
@@ -69,10 +68,7 @@ class RerunManager:
         params["prev"] = prev
         params["message"] = edit if edit else params["message"]
         new_message = cls(**params)
-        print(f"New cloned message: ID={new_message.id}, text='{new_message.message}', prev={new_message.prev}")
-
         return new_message
-    
     
     def _clone_parent_agent_message(self, old_message: ActionMessage, parent_message: AgentMessage, edit: str) -> Message:
         new_parent_message = self._clone_message(parent_message)
@@ -88,7 +84,6 @@ class RerunManager:
         )
         
         return new_message
-
     
     def _clone_action_chain(
         self, actions_list: list[ActionMessage], old_message: ActionMessage, new_parent: AgentMessage
@@ -116,7 +111,6 @@ class RerunManager:
             old_message = old_message.version_next
 
         logger.info(f"Latest version before edit: {old_message.id}")
-        print(f"Latest version before edit: {old_message.id} with text: {old_message.message}")
 
         if not isinstance(old_message, ActionMessage):
             return self._finalize_edit(old_message, edit)
@@ -130,17 +124,13 @@ class RerunManager:
     def _finalize_edit(self, old_message: Message, edit: str) -> Message:
         new_message = self._clone_message(old_message, edit=edit)
         new_message.set_prev(old_message.prev)
-        
         self.update_version_links(old_message, new_message)
 
         logger.info(
             f"{old_message.__class__.__name__} message edited, ID: {old_message.id} to ID: {new_message.id}"
         )
-        print(f"Edited message finalized: old ID={old_message.id}, new ID={new_message.id}, text='{new_message.message}'")
-
 
         return new_message
-
 
     def update_version_links(
         self, old_message: Message, new_message: Message, set_version=True, parent_message=None
@@ -148,29 +138,20 @@ class RerunManager:
         if set_version:
             parent_message = old_message.parent
             new_message.set_version_prev(old_message)
-
         new_message.set_next(old_message.next)
-
         if parent_message:
             if isinstance(parent_message, AgentMessage):
                 parent_message.add_action_message(new_message)
-
-                # 🔥 Debug Log - Check Action Messages
-                print(f"🟢 Parent AgentMessage {parent_message.id} now has action messages: {parent_message.action_messages}")
-
-                # 1) Find the top-level Phase
+                # 1) find the top-level Phase
                 phase = self.find_phase_parent(parent_message)
-                
-                # 2) Broadcast from the Phase
+                # 2) broadcast from the Phase
                 if phase:
                     from messages.message_utils import broadcast_update
+
                     broadcast_update(phase)
 
             if isinstance(parent_message, PhaseMessage):
                 parent_message.add_agent_message(new_message)
-
-        return new_message
-
 
     def find_phase_parent(self, message: Message) -> Optional[PhaseMessage]:
         current = message

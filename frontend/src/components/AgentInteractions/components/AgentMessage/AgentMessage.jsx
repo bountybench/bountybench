@@ -138,8 +138,6 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     onCellSelect(message.current_id);
   };
 
-  console.log("Received Action Messages:", message.action_messages);
-
   return (    
     <Box className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
       onClick={handleContainerClick}
@@ -158,7 +156,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
           </Box>
 
           <Collapse in={agentMessageExpanded}>
-            {!message.current_children || message.current_children.length === 0 ? (
+            {!message.current_children || message.current_children.length === 0 || message.action_messages.length % 2 !== 0 ? (
               <Box className="agent-message-content">
                 {editing ? (
                   <Box className="edit-mode-container">
@@ -267,7 +265,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
               </Box>
             ) : (
               <Box className="action-messages-container">
-                  {message.action_messages.map((actionMessage, index) => (
+                {message.action_messages.slice(2 * displayedIndex - 2, 2 * displayedIndex).map((actionMessage, index) => (
                   <ActionMessage
                     key={index}
                     index={index}
