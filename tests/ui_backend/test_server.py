@@ -4,8 +4,8 @@ from backend.main import create_app
 from unittest import IsolatedAsyncioTestCase
 
 from tests.ui_backend.fake_workflows import (
-    FakeDetectWorkflow,
-    FakeExploitAndPatchWorkflow,
+    FakeDetectPatchWorkflow,
+    FakeExploitPatchWorkflow,
     FakePatchWorkflow,
     FakeChatWorkflow
 )
@@ -14,8 +14,8 @@ from tests.ui_backend.fake_workflows import (
 @pytest.fixture(scope="module")
 def test_app():
     fake_workflow_factory = {
-        "Detect Workflow": FakeDetectWorkflow,
-        "Exploit and Patch Workflow": FakeExploitAndPatchWorkflow,
+        "Detect Workflow": FakeDetectPatchWorkflow,
+        "Exploit and Patch Workflow": FakeExploitPatchWorkflow,
         "Patch Workflow": FakePatchWorkflow,
         "Chat Workflow": FakeChatWorkflow,
     }
@@ -35,7 +35,7 @@ def test_list_workflows(client):
     assert isinstance(data["workflows"], list), "'workflows' should be a list"
     assert len(data["workflows"]) == 4, "There should be exactly 4 workflows listed"
 
-    expected_ids = {"detect", "exploit_and_patch", "patch", "chat"}
+    expected_ids = {"detect_patch", "exploit_patch", "patch", "chat"}
     returned_ids = {wf["id"] for wf in data["workflows"]}
     assert returned_ids == expected_ids, "Workflow IDs do not match expected IDs"
 
