@@ -312,10 +312,12 @@ class BaseWorkflow(ABC):
         if max_iterations < 1:
             raise ValueError("max_iterations must be greater than 0")
         
+        # Set workflow-level max iterations
         self.max_iterations = max_iterations
         logger.info(f"Workflow max iterations set to {max_iterations}")
         
-        # Update phase iterations to not exceed max_iterations
+        # Ensure phase_iterations never exceeds max_iterations
+        # This maintains max_iterations as a true upper bound
         self.phase_iterations = min(self.phase_iterations, max_iterations)
         logger.info(f"Phase iterations adjusted to {self.phase_iterations}")
         

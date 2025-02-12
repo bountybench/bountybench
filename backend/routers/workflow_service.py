@@ -349,9 +349,11 @@ async def update_max_iterations(workflow_id: str, data: MaxIterationsInput, requ
     if workflow_id not in active_workflows:
         raise HTTPException(status_code=404, detail="Workflow not found")
     
+    # Ensure max_iterations is positive
     if data.max_iterations < 1:
         raise HTTPException(status_code=400, detail="max_iterations must be greater than 0")
-        
+    
+    # Update workflow and all its phases to respect new max_iterations
     workflow = active_workflows[workflow_id]["instance"]
     await workflow.set_max_iterations(data.max_iterations)
     

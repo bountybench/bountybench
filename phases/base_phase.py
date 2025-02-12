@@ -207,12 +207,14 @@ class BasePhase(ABC):
             self.iteration_count += 1
             self.current_agent_index += 1
 
-            # Check against max iterations and set appropriate message
+            # Check if we've hit the iteration limit
             if self.iteration_count >= self.phase_config.max_iterations:
+                # Log as error to make it highly visible and add to phase message
+                # This ensures the max iterations limit is clearly communicated
                 error_msg = f"Maximum iterations ({self.phase_config.max_iterations}) reached for {self.name}"
-                logger.error(error_msg)  # This will show in red
+                logger.error(error_msg)
                 self._phase_message.set_summary("max_iterations_reached")
-                self._phase_message.add_error_message(error_msg)  # Add to phase message for UI
+                self._phase_message.add_error_message(error_msg)
                 break
 
         if self._phase_message.summary == "incomplete":

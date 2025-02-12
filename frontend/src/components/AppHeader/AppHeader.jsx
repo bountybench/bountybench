@@ -183,14 +183,12 @@ export const AppHeader = ({
                 }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
-                    // Update backend when Enter is pressed
                     if (maxIterations >= 1) {
                       onMaxIterationsChange(maxIterations);
                     }
                   }
                 }}
                 onBlur={() => {
-                  // Update backend when field loses focus
                   if (!maxIterations || maxIterations < 1) {
                     setMaxIterations(1);
                     onMaxIterationsChange(1);
