@@ -34,6 +34,17 @@ const LauncherState = {
 const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-14';
 const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
 
+const STORAGE_KEY = 'workflowLauncherSettings';
+const DEFAULT_SETTINGS = {
+  topLevelSelection: "Non-HELM",
+  task_dir: '',
+  bounty_number: '0',
+  iterations: 10,
+  model: '',
+  workflow_name: '',
+  interactive: true
+};
+
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
   const navigate = useNavigate();
   
@@ -57,21 +68,33 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const [workflows, setWorkflows] = useState([]);
   
-  const [formData, setFormData] = useState({
-    workflow_name: '',
-    task_dir: '',
-    bounty_number: '0',
-    interactive: true,
-    iterations: 10,
-    api_key_name: '',
-    api_key_value: '',
-    model: '',
-    use_helm: false
+  // Load all saved settings at once
+  const loadSavedSettings = useCallback(() => {
+    const savedSettings = localStorage.getItem(STORAGE_KEY);
+    return savedSettings ? JSON.parse(savedSettings) : DEFAULT_SETTINGS;
+  }, []);
+
+  const [formData, setFormData] = useState(() => {
+    const saved = loadSavedSettings();
+    return {
+      workflow_name: saved.workflow_name || '',
+      task_dir: saved.task_dir || '',
+      bounty_number: saved.bounty_number || '0',
+      interactive: saved.interactive ?? true,
+      iterations: saved.iterations || 10,
+      api_key_name: '',
+      api_key_value: '',
+      model: saved.model || '',
+      use_helm: saved.topLevelSelection === "HELM"
+    };
   });
 
   const [allModels, setAllModels] = useState({});
   const [selectedModels, setSelectedModels] = useState([]);
-  const [topLevelSelection, setTopLevelSelection] = useState("Non-HELM");
+  const [topLevelSelection, setTopLevelSelection] = useState(() => {
+    const saved = loadSavedSettings();
+    return saved.topLevelSelection || DEFAULT_SETTINGS.topLevelSelection;
+  });
 
   const setDefaultModel = (modelList, defaultModelName) => {
     return modelList.find(m => m.name === defaultModelName) || modelList[0];
@@ -127,12 +150,14 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       const models = await response.json();
       setAllModels(models);
       
-      // Set default model
       const isHelmModel = topLevelSelection === "HELM";
       const modelList = isHelmModel ? models.helmModels : models.nonHelmModels;
-      const defaultModelName = isHelmModel ? DEFAULT_HELM_MODEL : DEFAULT_NON_HELM_MODEL;
       
-      const defaultModel = setDefaultModel(modelList, defaultModelName);
+      // Try to use saved model first, fall back to defaults
+      const savedSettings = loadSavedSettings();
+      const savedModel = modelList.find(m => m.name === savedSettings.model);
+      const defaultModelName = isHelmModel ? DEFAULT_HELM_MODEL : DEFAULT_NON_HELM_MODEL;
+      const defaultModel = savedModel || setDefaultModel(modelList, defaultModelName);
       
       setSelectedModels(modelList);
       setFormData(prev => ({
@@ -147,7 +172,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         error: err.message
       });
     }
-  }, [topLevelSelection]);  
+  }, [topLevelSelection, loadSavedSettings]);  
   
   const fetchApiKeys = useCallback(async () => { 
     try {
@@ -307,6 +332,28 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   }, [isChecking, isAvailable, serverError, launcherState.status, fetchApiKeys, fetchWorkflows, fetchModels]);
   
+  // Save all settings in one effect
+  useEffect(() => {
+    const settingsToSave = {
+      topLevelSelection,
+      task_dir: formData.task_dir,
+      bounty_number: formData.bounty_number,
+      iterations: formData.iterations,
+      model: formData.model,
+      workflow_name: formData.workflow_name,
+      interactive: interactiveMode
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settingsToSave));
+  }, [
+    topLevelSelection, 
+    formData.task_dir, 
+    formData.bounty_number, 
+    formData.iterations,
+    formData.model,
+    formData.workflow_name,
+    interactiveMode
+  ]);
+
   if (launcherState.status === LauncherState.CHECKING_SERVER || launcherState.status === LauncherState.LOADING_DATA) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
