@@ -73,6 +73,34 @@ function App() {
     setCurrentPhase(phase);
   };
 
+  const handleMaxIterationsChange = async (value) => {
+    if (selectedWorkflow) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/${selectedWorkflow.id}/max-iterations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ max_iterations: value }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to update max iterations: ${errorText}`);
+        }
+
+        console.log('Backend updated with new max iterations:', value);
+      } catch (error) {
+        console.error('Error updating max iterations:', error);
+        toast.error('Failed to update max iterations - endpoint not found', {
+          position: "top-center",
+          autoClose: 3000,
+          transition: Slide,
+        });
+      }
+    }
+  };
+
   useEffect(() => {
     const originalConsoleError = console.error;
 
@@ -120,6 +148,7 @@ function App() {
           workflowStatus={workflowStatus}
           currentPhase={currentPhase}
           onModelChange={handleModelChange}
+          onMaxIterationsChange={handleMaxIterationsChange}
         />
         <Box flexGrow={1} overflow='auto'>
           <Routes>

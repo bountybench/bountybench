@@ -121,6 +121,7 @@ class BasePhase(ABC):
         # 2. Initialize phase resources
         self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
         logger.info(f"Resources for phase {self.name} initialized")
+        
         # 3. Define and register agents
         agent_configs = self.define_agents()
 
@@ -206,6 +207,14 @@ class BasePhase(ABC):
             self.iteration_count += 1
             self.current_agent_index += 1
 
+            # Check against max iterations and set appropriate message
+            if self.iteration_count >= self.phase_config.max_iterations:
+                error_msg = f"Maximum iterations ({self.phase_config.max_iterations}) reached for {self.name}"
+                logger.error(error_msg)  # This will show in red
+                self._phase_message.set_summary("max_iterations_reached")
+                self._phase_message.add_error_message(error_msg)  # Add to phase message for UI
+                break
+
         if self._phase_message.summary == "incomplete":
             self._phase_message.set_summary("completed_failure")
 
@@ -229,6 +238,15 @@ class BasePhase(ABC):
         self.phase_config.interactive = interactive
         print(f"Interactive mode for phase {self.name} set to {interactive}")
     
+    async def set_max_iterations(self, max_iterations: int):
+        """Set the maximum number of iterations for this phase.
+        
+        Args:
+            max_iterations (int): The new maximum number of iterations
+        """
+        self.phase_config.max_iterations = max_iterations
+        print(f"Max iterations for phase {self.name} set to {max_iterations}")
+
     @abstractmethod
     async def run_one_iteration(
         self, phase_message: PhaseMessage, agent_instance: Any, previous_output: Optional[Message]

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Switch, FormControl, Select, MenuItem } from '@mui/material';
+import { Box, Typography, Switch, FormControl, Select, MenuItem, TextField } from '@mui/material';
 import { useNavigate } from 'react-router';
 
 export const AppHeader = ({
@@ -8,7 +8,8 @@ export const AppHeader = ({
   selectedWorkflow,
   workflowStatus,
   currentPhase,
-  onModelChange
+  onModelChange,
+  onMaxIterationsChange,
 }) => {
   // Example options
   const [modelMapping, setModelMapping] = useState([]);
@@ -16,6 +17,7 @@ export const AppHeader = ({
   // State for currently selected values
   const [selectedModelType, setSelectedModelType] = useState('');
   const [selectedModelName, setSelectedModelName] = useState('');
+  const [maxIterations, setMaxIterations] = useState(10);
   
 
   // Initialize navigate
@@ -56,6 +58,24 @@ export const AppHeader = ({
     }
   }, [selectedWorkflow]);
 
+  // Add effect to fetch max iterations when workflow is selected
+  useEffect(() => {
+    const fetchMaxIterations = async () => {
+      if (selectedWorkflow) {
+        try {
+          const response = await fetch(`http://localhost:8000/workflow/${selectedWorkflow.id}/max-iterations`);
+          if (response.ok) {
+            const data = await response.json();
+            setMaxIterations(data.max_iterations);
+          }
+        } catch (error) {
+          console.error('Failed to fetch max iterations:', error);
+        }
+      }
+    };
+    fetchMaxIterations();
+  }, [selectedWorkflow]);
+
   const handleModelChange = async (name) => {
     setSelectedModelName(name); 
     const new_model_name = `${selectedModelType}/${name}`;
@@ -70,6 +90,23 @@ export const AppHeader = ({
   // Navigate to home when Workflow Agent is clicked
   const handleHeaderClick = () => {
     navigate('/'); // Navigate to the homepage
+  };
+
+  const handleMaxIterationsChange = async (event) => {
+    const value = event.target.value === '' ? '' : parseInt(event.target.value) || 1;
+    try {
+      if (value !== '') {  // Only update if there's a value
+        setMaxIterations(value);
+        if (onMaxIterationsChange) {
+          await onMaxIterationsChange(value);
+        }
+      } else {
+        setMaxIterations(''); // Allow empty field while typing
+      }
+    } catch (error) {
+      console.error('Failed to update max iterations:', error);
+      setMaxIterations(prevValue => prevValue); // Revert on error
+    }
   };
   
   return (
@@ -132,18 +169,78 @@ export const AppHeader = ({
                 Phase: <span style={{ fontWeight: 'bold' }}>{currentPhase.phase_id || 'N/A'}</span>
               </Typography>
             )}
+
+            <Box display="flex" alignItems="center" mr={2}>
+              <Typography variant="body2" sx={{ mr: 1 }}>Max Iterations:</Typography>
+              <TextField
+                type="number"
+                size="small"
+                value={maxIterations}
+                onChange={(event) => {
+                  // Just update local state while typing
+                  const value = event.target.value === '' ? '' : parseInt(event.target.value) || 1;
+                  setMaxIterations(value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    // Update backend when Enter is pressed
+                    if (maxIterations >= 1) {
+                      onMaxIterationsChange(maxIterations);
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  // Update backend when field loses focus
+                  if (!maxIterations || maxIterations < 1) {
+                    setMaxIterations(1);
+                    onMaxIterationsChange(1);
+                  } else {
+                    onMaxIterationsChange(maxIterations);
+                  }
+                }}
+                inputProps={{ 
+                  min: 1,
+                  style: { 
+                    padding: '4px 8px',
+                    width: '60px',
+                    color: 'white'
+                  }
+                }}
+                sx={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)', // Semi-transparent background
+                  borderRadius: 1,
+                  '& .MuiOutlinedInput-root': {
+                    height: '32px',
+                    color: 'white', // Make text visible
+                    '& fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.3)', // Lighter border
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.5)', // Lighter border on hover
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'white', // White border when focused
+                    }
+                  },
+                  '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                    '-webkit-appearance': 'none',
+                  }
+                }}
+              />
+            </Box>
+
+            <Box display="flex" alignItems="center" mr={2}>
+              <Typography variant="body2" sx={{ mr: 1 }}>Interactive:</Typography>
+              <Switch
+                checked={interactiveMode}
+                onChange={onInteractiveModeToggle}
+                color="primary"
+                size="small"
+                disabled={!interactiveMode}
+              />
+            </Box>
           </>
         )}
-        <Box display="flex" alignItems="center" mr={2}>
-          <Typography variant="body2" sx={{ mr: 1 }}>Interactive:</Typography>
-          <Switch
-            checked={interactiveMode}
-            onChange={onInteractiveModeToggle}
-            color="primary"
-            size="small"
-            disabled={!interactiveMode} // Disable when not in interactive mode
-          />
-        </Box>
       </Box>
     </Box>
   );
