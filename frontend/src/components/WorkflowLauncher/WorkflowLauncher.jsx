@@ -31,6 +31,9 @@ const LauncherState = {
   CREATING_WORKFLOW: 'CREATING_WORKFLOW',
 };
 
+const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-14';
+const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
+
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
   const navigate = useNavigate();
   
@@ -60,28 +63,39 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     bounty_number: '0',
     interactive: true,
     iterations: 10,
-    api_key_name: 'HELM_API_KEY',
+    api_key_name: '',
     api_key_value: '',
-    model: 'openai/o3-mini-2025-01-14',
+    model: '',
     use_helm: false
   });
+
   const [allModels, setAllModels] = useState({});
   const [selectedModels, setSelectedModels] = useState([]);
-  const [topLevelSelection, setTopLevelSelection] = useState("");
+  const [topLevelSelection, setTopLevelSelection] = useState("Non-HELM");
+
+  const setDefaultModel = (modelList, defaultModelName) => {
+    return modelList.find(m => m.name === defaultModelName) || modelList[0];
+  };
 
   const handleTopLevelChange = (event) => {
     const { value } = event.target;
     setTopLevelSelection(value);
-    // Set the model field based on top-level selection
-    if (value === "Non-HELM") {
-      setSelectedModels(allModels.nonHelmModels);
-    } else {
-      handleInputChange({ target: { name: 'use_helm', value: true } });
-      setSelectedModels(allModels.helmModels);
-    }
+    
+    const isHelmModel = value === "HELM";
+    const modelList = isHelmModel ? allModels.helmModels : allModels.nonHelmModels;
+    const defaultModelName = isHelmModel ? DEFAULT_HELM_MODEL : DEFAULT_NON_HELM_MODEL;
+    
+    const defaultModel = setDefaultModel(modelList, defaultModelName);
+    
+    setSelectedModels(modelList);
+    setFormData(prev => ({
+      ...prev,
+      model: defaultModel ? defaultModel.name : '',
+      use_helm: isHelmModel
+    }));
   };
 
-  const [apiKeys, setApiKeys] = useState({"HELM_API_KEY": ""});
+  const [apiKeys, setApiKeys] = useState({});
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
   const [isCustomApiKey, setIsCustomApiKey] = useState(false);
@@ -91,6 +105,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       const response = await fetch('http://localhost:8000/workflow/list');
       const data = await response.json();
       setWorkflows(data.workflows);
+      
+      // Set default workflow_name
+      const defaultWorkflow = data.workflows.find(w => w.name === "Detect Patch Workflow") || data.workflows[0];
+      setFormData(prev => ({
+        ...prev,
+        workflow_name: defaultWorkflow ? defaultWorkflow.name : ''
+      }));
     } catch (err) {
       setLauncherState({
         status: LauncherState.SERVER_ERROR,
@@ -105,8 +126,20 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       const response = await fetch('http://localhost:8000/workflow/models');
       const models = await response.json();
       setAllModels(models);
-      setSelectedModels(models.nonHelmModels);
-      setTopLevelSelection("Non-HELM");
+      
+      // Set default model
+      const isHelmModel = topLevelSelection === "HELM";
+      const modelList = isHelmModel ? models.helmModels : models.nonHelmModels;
+      const defaultModelName = isHelmModel ? DEFAULT_HELM_MODEL : DEFAULT_NON_HELM_MODEL;
+      
+      const defaultModel = setDefaultModel(modelList, defaultModelName);
+      
+      setSelectedModels(modelList);
+      setFormData(prev => ({
+        ...prev,
+        model: defaultModel ? defaultModel.name : '',
+        use_helm: isHelmModel
+      }));
     } catch (err) {
       setLauncherState({
         status: LauncherState.SERVER_ERROR,
@@ -114,21 +147,26 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         error: err.message
       });
     }
-  }, []);
+  }, [topLevelSelection]);  
   
   const fetchApiKeys = useCallback(async () => { 
     try {
       const response = await fetch('http://localhost:8000/service/api-service/get');
       const data = await response.json();
       setApiKeys(data);
+      
+      // Get the first API key name
+      const firstApiKeyName = Object.keys(data)[0] || '';
+      
       setFormData((prev) => ({
         ...prev,
-        api_key_value: data[formData.api_key_name] || '',
+        api_key_name: firstApiKeyName,
+        api_key_value: data[firstApiKeyName] || '',
       }));
     } catch (err) {
       console.error('Failed to fetch API keys:', err);
     }
-  }, [formData.api_key_name]);
+  }, []);
 
 
   const handleSubmit = async (e) => {
@@ -180,16 +218,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     const { name, value, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'interactive' ? checked : value
+      [name]: name === 'interactive' ? checked : value,
+      ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
     }));
-
-
-    if (name === 'api_key_name') {
-      setFormData((prev) => ({
-        ...prev,
-        api_key_value: apiKeys[value] || '',
-      }));
-    }
   };
 
   const handleRevealToggle = () => {
