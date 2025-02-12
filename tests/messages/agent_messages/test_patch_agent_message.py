@@ -31,13 +31,13 @@ class TestPatchAgentMessage(unittest.TestCase):
         Test PatchAgentMessage Initialization.
         """
         prev_message = MagicMock(spec=AgentMessage)
-        patch_agent_message = PatchAgentMessage("test_id", "test_msg", True, "\patch", prev_message)
+        patch_agent_message = PatchAgentMessage("test_id", "test_msg", True, "/patch", prev_message)
 
         # Assertions
         self.assertEqual(patch_agent_message.agent_id, "test_id")
         self.assertEqual(patch_agent_message.message, "test_msg")
         self.assertEqual(patch_agent_message.success, True)
-        self.assertEqual(patch_agent_message.patch_files_dir, "\patch")
+        self.assertEqual(patch_agent_message.patch_files_dir, "/patch")
         self.assertIs(patch_agent_message.prev, prev_message)
 
     def test_to_dict(self):
@@ -50,13 +50,13 @@ class TestPatchAgentMessage(unittest.TestCase):
             mock_super_to_dict.return_value = {"super_key": "super_value"}
             mock_agent_dict.return_value = {"agent_key": "agent_value"}
             
-            patch_agent_message = PatchAgentMessage("test_id", "test_msg", True, "\patch")
+            patch_agent_message = PatchAgentMessage("test_id", "test_msg", True, "/patch")
             patch_agent_dict = patch_agent_message.to_dict()
 
             # Assertions
             self.assertEqual(patch_agent_dict["super_key"], "super_value")
             self.assertEqual(patch_agent_dict["agent_key"], "agent_value")
             self.assertEqual(patch_agent_dict["success"], True)
-            self.assertEqual(patch_agent_dict["patch_files_dir"], "\patch")
+            self.assertEqual(patch_agent_dict["patch_files_dir"], "/patch")
             mock_super_to_dict.assert_called_once()
             mock_agent_dict.assert_called_once()
