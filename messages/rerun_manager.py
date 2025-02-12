@@ -69,44 +69,60 @@ class RerunManager:
         params["message"] = edit if edit else params["message"]
         new_message = cls(**params)
         return new_message
+    
+    def _clone_parent_agent_message(self, old_message: ActionMessage, parent_message: AgentMessage, edit: str) -> Message:
+        new_parent_message = self._clone_message(parent_message)
+        new_parent_message.set_prev(parent_message.prev)
+        self.update_version_links(parent_message, new_parent_message)
+
+        new_prev_action = self._clone_action_chain(parent_message.current_actions_list, old_message)
+        new_message = self._clone_message(old_message, edit=edit, prev=new_prev_action)
+        self.update_version_links(old_message, new_message, set_version=False)
+
+        logger.info(
+            f"Parent AgentMessage edited, ID: {old_message.id} to ID: {new_message.id}"
+        )
+        
+        return new_message
+    
+    def _clone_action_chain(self, actions_list: list[ActionMessage], old_message: ActionMessage) -> Message:
+        if not actions_list:
+            return None
+
+        prev_action = actions_list[0]
+        if prev_action == old_message:
+            return None
+
+        new_prev_action = self._clone_message(prev_action)
+        self.update_version_links(prev_action, new_prev_action, set_version=False)
+
+        while prev_action.next and prev_action.next != old_message:
+            new_action = self._clone_message(prev_action.next, prev=new_prev_action)
+            self.update_version_links(prev_action.next, new_action, set_version=False)
+            prev_action = prev_action.next
+            new_prev_action = new_prev_action.next
+
+        return new_prev_action
 
     async def edit_message(self, old_message: Message, edit: str) -> Message:
         while old_message.version_next:
             old_message = old_message.version_next
 
-        print(f"Latest version before edit: {old_message.id}")
+        logger.info(f"Latest version before edit: {old_message.id}")
 
-        new_message = None
+        if not isinstance(old_message, ActionMessage):
+            return self._finalize_edit(old_message, edit)
 
-        if isinstance(old_message, ActionMessage):
-            parent_message = old_message.parent()
-            
-            if parent_message and isinstance(parent_message, AgentMessage):
-                new_parent_message = self._clone_message(parent_message)
-                new_parent_message.set_prev(parent_message.prev)
-                self.update_version_links(parent_message, new_parent_message)
-
-                parent_actions_list = parent_message.current_actions_list
-                prev_action = parent_actions_list[0] if parent_actions_list else None
-                new_prev_action = None
-                if prev_action and prev_action != old_message:
-                    new_prev_action = self._clone_message(prev_action)
-                    self.update_version_links(prev_action, new_prev_action, set_version=False)
-                
-                    while prev_action.next and prev_action.next != old_message:
-                        new_action = self._clone_message(prev_action.next, prev=new_prev_action)
-                        self.update_version_links(prev_action.next, new_action, set_version=False)
-                        prev_action = prev_action.next
-                        new_prev_action = new_prev_action.next
-
-                    new_message = self._clone_message(old_message, edit=edit, prev=new_prev_action)
-                    self.update_version_links(old_message, new_message, set_version=False)
-
+        parent_message = old_message.parent
+        if parent_message and isinstance(parent_message, AgentMessage):
+            return self._clone_parent_agent_message(old_message, parent_message, edit)
         else:
-            new_message = self._clone_message(old_message, edit)
+            return self._finalize_edit(old_message, edit)
 
-            new_message.set_prev(old_message.prev)
-            self.update_version_links(old_message, new_message)
+    def _finalize_edit(self, old_message: Message, edit: str) -> Message:
+        new_message = self._clone_message(old_message, edit=edit)
+        new_message.set_prev(old_message.prev)
+        self.update_version_links(old_message, new_message)
 
         logger.info(
             f"{old_message.__class__.__name__} message edited, ID: {old_message.id} to ID: {new_message.id}"
