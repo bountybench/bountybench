@@ -128,8 +128,8 @@ class SetupResource(BaseResource):
                         result = run_command(
                             command=["bash", f"./{setup_script}"], work_dir=work_dir
                         )
-
-                result = run_command(command=[f"./{setup_script}"], work_dir=work_dir)
+                    else:
+                        raise  # Re-raise if it's not an exec format error
 
                 if result.returncode != 0:
                     raise RuntimeError(
