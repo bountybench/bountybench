@@ -1,13 +1,14 @@
-import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
 import asyncio
+import unittest
+from unittest.mock import MagicMock, PropertyMock, patch
 
-from messages.agent_messages.agent_message import AgentMessage
+from agents.agent_manager import AgentManager
 from messages.action_messages.action_message import ActionMessage
+from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 from messages.rerun_manager import RerunManager
-from agents.agent_manager import AgentManager
 from resources.resource_manager import ResourceManager
+
 
 class TestAgentMessage(unittest.TestCase):
 
@@ -60,13 +61,13 @@ class TestAgentMessage(unittest.TestCase):
         action_msg5 = asyncio.run(rerun_manager.edit_message(action_msg4, "test_msg5"))
         action_msg6 = ActionMessage("test_id6", "test_msg6", prev=action_msg3)
         action_msg3.parent.add_action_message(action_msg6)
-        org_actions = agent_message.current_actions_list
+        org_actions = agent_message.current_children
         parent2 = action_msg2.parent
-        parent2_actions = parent2.current_actions_list
+        parent2_actions = parent2.current_children
         parent3 = action_msg3.parent
-        parent3_actions = parent3.current_actions_list
+        parent3_actions = parent3.current_children
         parent5 = action_msg5.parent
-        parent5_actions = parent5.current_actions_list
+        parent5_actions = parent5.current_children
 
         # Assertions
         self.assertEqual(len(agent_message.action_messages), 2)
@@ -102,9 +103,15 @@ class TestAgentMessage(unittest.TestCase):
         Test agent_dict method.
         """
         # Mock to_dict for action messages
-        with patch.object(AgentMessage, 'action_messages', new_callable=PropertyMock) as mock_action_messages, \
-             patch.object(AgentMessage, 'current_children', new_callable=PropertyMock) as mock_current_children:
-            
+        with (
+            patch.object(
+                AgentMessage, "action_messages", new_callable=PropertyMock
+            ) as mock_action_messages,
+            patch.object(
+                AgentMessage, "current_children", new_callable=PropertyMock
+            ) as mock_current_children,
+        ):
+
             action_message = MagicMock(spec=ActionMessage)
             action_message.to_dict.return_value = {"action": "msg"}
             mock_action_messages.return_value = [action_message]
@@ -126,12 +133,14 @@ class TestAgentMessage(unittest.TestCase):
         """
         Test to_dict method.
         """
-        with patch.object(Message, 'to_dict') as mock_super_to_dict, \
-             patch.object(AgentMessage, 'agent_dict') as mock_agent_dict:
-            
+        with (
+            patch.object(Message, "to_dict") as mock_super_to_dict,
+            patch.object(AgentMessage, "agent_dict") as mock_agent_dict,
+        ):
+
             mock_super_to_dict.return_value = {"super_key": "super_value"}
             mock_agent_dict.return_value = {"agent_key": "agent_value"}
-            
+
             agent_message = AgentMessage("test_id", "test_msg")
             agent_dict = agent_message.to_dict()
 

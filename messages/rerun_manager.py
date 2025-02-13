@@ -75,7 +75,7 @@ class RerunManager:
         new_parent_message.set_prev(parent_message.prev)
         self.update_version_links(parent_message, new_parent_message)
 
-        new_prev_action = self._clone_action_chain(parent_message.current_actions_list, old_message, new_parent_message)
+        new_prev_action = self._clone_action_chain(parent_message.current_children, old_message, new_parent_message)
         new_message = self._clone_message(old_message, edit=edit, prev=new_prev_action)
         self.update_version_links(old_message, new_message, set_version=False, parent_message=new_parent_message)
 
