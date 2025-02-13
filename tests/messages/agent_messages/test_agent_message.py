@@ -59,15 +59,31 @@ class TestAgentMessage(unittest.TestCase):
         action_msg3 = asyncio.run(rerun_manager.edit_message(action_msg2, "test_msg3"))
         action_msg5 = asyncio.run(rerun_manager.edit_message(action_msg4, "test_msg5"))
         action_msg6 = ActionMessage("test_id6", "test_msg6", prev=action_msg3)
-        agent_message.add_action_message(action_msg6)
-
-        current_actions = agent_message.current_children
+        action_msg3.parent.add_action_message(action_msg6)
+        org_actions = agent_message.current_actions_list
+        parent2 = action_msg2.parent
+        parent2_actions = parent2.current_actions_list
+        parent3 = action_msg3.parent
+        parent3_actions = parent3.current_actions_list
+        parent5 = action_msg5.parent
+        parent5_actions = parent5.current_actions_list
 
         # Assertions
-        self.assertEqual(len(agent_message.action_messages), 6)
-        self.assertEqual(len(current_actions), 2)
-        self.assertEqual(current_actions[0], action_msg3)
-        self.assertEqual(current_actions[1], action_msg6)
+        self.assertEqual(len(agent_message.action_messages), 2)
+        self.assertEqual(len(org_actions), 2)
+        self.assertEqual(org_actions[0], action_msg1)
+        self.assertEqual(org_actions[1], action_msg4)
+        self.assertEqual(len(parent2.action_messages), 1)
+        self.assertEqual(len(parent2_actions), 1)
+        self.assertEqual(parent2_actions[0], action_msg2)
+        self.assertEqual(len(parent3.action_messages), 2)
+        self.assertEqual(len(parent3_actions), 2)
+        self.assertEqual(parent3_actions[0], action_msg3)
+        self.assertEqual(parent3_actions[1], action_msg6)
+        self.assertEqual(len(parent5.action_messages), 2)
+        self.assertEqual(len(parent5_actions), 2)
+        self.assertEqual(parent5_actions[0], action_msg5.prev)
+        self.assertEqual(parent5_actions[1], action_msg5)
 
     def test_add_action_message(self):
         """
