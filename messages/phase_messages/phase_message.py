@@ -43,7 +43,7 @@ class PhaseMessage(Message):
         return self.summary
   
     @property 
-    def current_agent_list(self) -> List[AgentMessage]:
+    def current_children(self) -> List[AgentMessage]:
         current_agents = []
         if len(self.agent_messages) > 0:
             current_message = self.agent_messages[0]
@@ -66,7 +66,7 @@ class PhaseMessage(Message):
     def set_summary(self, summary: str):
         self._summary = summary
 
-    def add_agent_message(self, agent_message: AgentMessage):
+    def add_child_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
         agent_message.set_parent(self)
         from messages.message_utils import log_message
@@ -81,7 +81,7 @@ class PhaseMessage(Message):
             "phase_id": self.phase_id,
             "phase_summary": self.summary,
             "agent_messages": [agent_message.to_dict() for agent_message in self.agent_messages if agent_message is not None] if self.agent_messages else None,
-            "current_children": [agent_message.to_dict() for agent_message in self.current_agent_list],
+            "current_children": [agent_message.to_dict() for agent_message in self.current_children],
             "phase_summary": self.phase_summary
         }
         base_dict = super().to_dict()

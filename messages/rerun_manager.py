@@ -151,7 +151,7 @@ class RerunManager:
                     broadcast_update(phase)
 
             if isinstance(parent_message, PhaseMessage):
-                parent_message.add_agent_message(new_message)
+                parent_message.add_child_message(new_message)
 
     def find_phase_parent(self, message: Message) -> Optional[PhaseMessage]:
         current = message

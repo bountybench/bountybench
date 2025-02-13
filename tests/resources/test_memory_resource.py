@@ -43,7 +43,7 @@ def message_tree():
         prev_phase = phase_message
 
         initial_prompt = AgentMessage("system", "initial prompt")
-        phase_message.add_agent_message(initial_prompt)
+        phase_message.add_child_message(initial_prompt)
 
         prev_agent = initial_prompt
         for j in range(2):
@@ -57,7 +57,7 @@ def message_tree():
             )
 
             agent_message.add_action_message(action_message)
-            phase_message.add_agent_message(agent_message)
+            phase_message.add_child_message(agent_message)
 
         last_action_message = action_message
         last_agent_message = agent_message
@@ -289,7 +289,7 @@ def test_messages_with_version(message_tree):
 
     new_agent0.set_prev(agent0.prev)
     new_agent0.set_next(agent0.next)
-    agent0.parent.add_agent_message(new_agent0)
+    agent0.parent.add_child_message(new_agent0)
 
     new_agent0.set_version_prev(agent0)
 
