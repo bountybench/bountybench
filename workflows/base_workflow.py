@@ -173,7 +173,7 @@ class BaseWorkflow(ABC):
         for resource_id, resource in phase_instance.resource_manager._resources.id_to_resource.items():
             self.workflow_message.add_resource(resource_id, resource)
 
-        phase_message = await phase_instance.run_phase(self.workflow_message, prev_phase_message)
+        phase_message = await phase_instance.run(self.workflow_message, prev_phase_message)
 
         logger.status(f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
 
@@ -230,15 +230,10 @@ class BaseWorkflow(ABC):
     async def rerun_message(self, message_id: str):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
         message = workflow_messages.get(message_id)
-        message = await self.rerun_manager.rerun(message)        
         if message.next:
-            message = await self.rerun_manager.run_edited(message)
-            message = message.next
-        if isinstance(message, ActionMessage):
-            while message.next:
-                message = await self.rerun_manager.run_edited(message)
-                message = message.next
-        return message
+            message = await self.rerun_manager.rerun(message)
+            return message
+        return None
     
     async def run_next_message(self):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
@@ -252,15 +247,18 @@ class BaseWorkflow(ABC):
                 return last_message
         return None
     
+    async def edit_message(self, message_id: str, new_message_data: str) -> Message:
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        message = workflow_messages.get(message_id)
+        message = await self.rerun_manager.edit_message(message, new_message_data)
+        return message
+    
     async def edit_and_rerun_message(self, message_id: str, new_message_data: str) -> Message:
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
         message = workflow_messages.get(message_id)
         message = await self.rerun_manager.edit_message(message, new_message_data)
         if message.next:
             message = await self.rerun_manager.rerun(message)
-            if isinstance(message, ActionMessage):
-                while message.next:
-                    message = await self.rerun_manager.rerun(message)
             return message
         return None
     

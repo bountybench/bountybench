@@ -104,7 +104,7 @@ async def test_base_phase_runs_all_iterations(mock_logger, mock_workflow):
     workflow_message = WorkflowMessage(workflow_name="test_workflow")
     prev_phase_message = None
     
-    phase_message = await phase.run_phase(workflow_message, prev_phase_message)
+    phase_message = await phase.run(workflow_message, prev_phase_message)
     
     assert phase_message.summary == "completed_failure"
     assert len(phase_message.agent_messages) > 0
@@ -132,7 +132,7 @@ async def test_base_phase_stops_early(mock_logger, mock_workflow):
     workflow_message = WorkflowMessage(workflow_name="test_workflow")
     prev_phase_message = None
     
-    phase_message = await phase.run_phase(workflow_message, prev_phase_message)
+    phase_message = await phase.run(workflow_message, prev_phase_message)
     
     assert phase_message.summary == "completed_success"
     assert phase_message.complete
@@ -159,7 +159,7 @@ async def test_base_phase_with_initial_message(mock_logger, mock_workflow):
         AgentMessage(agent_id="system", message="Initial")
     )
     
-    phase_message = await phase.run_phase(workflow_message, prev_phase_message)
+    phase_message = await phase.run(workflow_message, prev_phase_message)
     
     assert not phase_message.complete
     assert phase_message.summary == "completed_failure"
@@ -186,7 +186,7 @@ async def test_base_phase_with_prev_message(mock_logger, mock_workflow):
         AgentMessage(agent_id="system", message="Previous message")
     )
     
-    phase_message = await phase.run_phase(workflow_message, prev_phase_message)
+    phase_message = await phase.run(workflow_message, prev_phase_message)
     
     assert len(phase_message.agent_messages) > 0
     assert not phase_message.complete
@@ -208,11 +208,11 @@ async def test_interactive_mode(mock_workflow):
 
     phase.setup()
 
-    async def run_phase():
+    async def run():
         workflow_message = WorkflowMessage(workflow_name="test_workflow")
-        return await phase.run_phase(workflow_message, None)
+        return await phase.run(workflow_message, None)
 
-    task = asyncio.create_task(run_phase())
+    task = asyncio.create_task(run())
 
     for _ in range(3):
         await asyncio.sleep(0.1)
