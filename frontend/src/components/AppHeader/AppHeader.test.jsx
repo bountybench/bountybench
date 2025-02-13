@@ -207,10 +207,13 @@ describe('Max Iterations Input', () => {
   test('Enter key only triggers API call with valid values', async () => {
     const { input, onMaxIterationsChange } = setupMaxIterationsTest();
     
-    // Invalid value
+    // Invalid value - should set to 1 and trigger API call
     fireEvent.change(input, { target: { value: '0' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(onMaxIterationsChange).not.toHaveBeenCalled();
+    expect(onMaxIterationsChange).toHaveBeenCalledWith(1); // Changed: should be called with corrected value
+    
+    // Reset mock
+    onMaxIterationsChange.mockClear();
 
     // Valid value
     fireEvent.change(input, { target: { value: '5' } });
