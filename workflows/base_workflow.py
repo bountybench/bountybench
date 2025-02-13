@@ -318,7 +318,7 @@ class BaseWorkflow(ABC):
         agent_configs =  self._current_phase.define_agents()
         self.agent_manager.initialize_phase_agents(agent_configs)
         
-        phase_message = await self._current_phase.run_phase(self.workflow_message, None)
+        phase_message = await self._current_phase.run(self.workflow_message, None)
 
         logger.status(f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
 
