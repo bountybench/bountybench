@@ -57,7 +57,6 @@ class ExecutorAgent(BaseAgent):
                 prev_agent_message = prev_agent_message.version_next
         agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
 
-        
         await self.execute(agent_message, prev_agent_message)
 
         return agent_message
