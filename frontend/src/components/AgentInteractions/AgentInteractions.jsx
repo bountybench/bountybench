@@ -4,7 +4,7 @@ import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArro
 import StopIcon from '@mui/icons-material/Stop';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
 import './AgentInteractions.css';
-import ReplayIcon from '@mui/icons-material/Replay';
+import RestoreIcon from '@mui/icons-material/Restore';
 
 const AgentInteractions = ({ 
   interactiveMode, 
@@ -132,10 +132,10 @@ const AgentInteractions = ({
             variant="contained"
             color="primary"
             onClick={handleRestart}
-            startIcon={<ReplayIcon />}
+            startIcon={<RestoreIcon />}
             size="small"
           >
-            Restart
+            Resume
           </Button>
           )}
         </>

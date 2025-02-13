@@ -229,7 +229,6 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
             workflow_message = workflow_data.get("workflow_message")
             if workflow_message and hasattr(workflow_message, "phase_messages"):
                 for phase_message in workflow_message.phase_messages:
-                    print(f"phase message sent, {phase_message.to_dict()}")
                     await websocket.send_json(phase_message.to_dict())
 
             if current_status not in ["running", "completed", "stopped"]:

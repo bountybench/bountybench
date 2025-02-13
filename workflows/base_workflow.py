@@ -309,8 +309,9 @@ class BaseWorkflow(ABC):
         self._compute_resource_schedule()
 
         self.next_iteration_event = asyncio.Event()
+        self.workflow_message.new_log()
         logger.info(f"Restarted workflow {self.name}")
-    
+        
     async def run_restart(self): 
         logger.info(f"Running restarted workflow {self.name}")
         # pick up running from current phase
