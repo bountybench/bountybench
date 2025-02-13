@@ -56,7 +56,7 @@ def message_tree():
                 resource_id=action_id, message=action_message
             )
 
-            agent_message.add_action_message(action_message)
+            agent_message.add_child_message(action_message)
             phase_message.add_child_message(agent_message)
 
         last_action_message = action_message
