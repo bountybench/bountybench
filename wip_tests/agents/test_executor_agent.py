@@ -56,17 +56,6 @@ async def test_call_lm_failure(executor_agent):
     
     assert str(exc_info.value) == "call_lm error: Max retries reached without valid response."
     assert executor_agent.model.run.call_count == 3  # MAX_RETRIES
-    
-def test_execute_in_env_success(executor_agent):
-    """Test successful execution of CommandMessage in Kali environment"""
-    command_msg = CommandMessage("test_id", "command: ls")
-    expected_action_msg = ActionMessage("test_id", "command: ls", prev=command_msg)
-    executor_agent.kali_env.run = Mock(return_value=expected_action_msg)
-    
-    result = executor_agent.execute_in_env(command_msg)
-    
-    assert isinstance(result, ActionMessage)
-    assert result == expected_action_msg
 
 @pytest.mark.asyncio
 async def test_execute_command_success(executor_agent):
@@ -95,3 +84,33 @@ async def test_execute_non_command_message(executor_agent):
     executor_agent.kali_env.run.assert_not_called()
     
     assert result_executor_agent_message.message == "Model failed to produce a valid response."
+
+def test_parse_response_invalid(executor_agent):
+    """Test parse_response with invalid message that can't be converted to CommandMessage"""
+    action_msg = ActionMessage("test_id", "invalid command format")
+    
+    result = executor_agent.parse_response(action_msg)
+    
+    assert result is None
+
+def test_execute_in_env_success(executor_agent):
+    """Test successful execution of CommandMessage in Kali environment"""
+    command_msg = CommandMessage("test_id", "command: ls")
+    expected_action_msg = ActionMessage("test_id", "command: ls", prev=command_msg)
+    executor_agent.kali_env.run = Mock(return_value=expected_action_msg)
+    
+    result = executor_agent.execute_in_env(command_msg)
+    
+    assert isinstance(result, ActionMessage)
+    assert result == expected_action_msg
+
+def test_execute_in_env_failure(executor_agent):
+    """Test execute_in_env when command execution fails"""
+    command_msg = CommandMessage("test_id", "command: invalid")
+    executor_agent.kali_env.run = Mock(side_effect=Exception("Command failed"))
+    
+    result = executor_agent.execute_in_env(command_msg)
+    
+    assert isinstance(result, ActionMessage)
+    assert "Command failed" in result.message
+    assert result.prev == command_msg
