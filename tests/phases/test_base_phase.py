@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from unittest.mock import Mock, patch
 from typing import Dict, List, Optional, Tuple, Type, Any
 from dataclasses import dataclass, field
@@ -31,12 +32,10 @@ def mock_workflow():
     workflow.agent_manager = Mock()
     workflow.resource_manager = Mock()
     
-    # Mock resource manager methods
     workflow.resource_manager.is_resource_equivalent = Mock(return_value=False)
     workflow.resource_manager.register_resource = Mock()
     workflow.resource_manager.initialize_phase_resources = Mock()
     
-    # Mock agent manager methods
     workflow.agent_manager.initialize_phase_agents = Mock()
     workflow.agent_manager._phase_agents = {}
     
@@ -87,14 +86,12 @@ class SamplePhase(BasePhase):
 
 @pytest.mark.asyncio
 async def test_base_phase_runs_all_iterations(mock_logger, mock_workflow):
-    # Initialize phase with required parameters including initial_prompt
     phase = SamplePhase(
         workflow=mock_workflow, 
         max_iterations=5,
         initial_prompt="Test prompt"
     )
     
-    # Set up mock agents
     agent1 = SampleAgent("Agent1", SampleAgentConfig(), magic_iteration=-1)
     agent2 = SampleAgent("Agent2", SampleAgentConfig(), magic_iteration=-1)
     mock_workflow.agent_manager._phase_agents = {
@@ -102,7 +99,6 @@ async def test_base_phase_runs_all_iterations(mock_logger, mock_workflow):
         "Agent2": agent2
     }
     
-    # Call setup to initialize agents
     phase.setup()
     
     workflow_message = WorkflowMessage(workflow_name="test_workflow")
@@ -124,7 +120,6 @@ async def test_base_phase_stops_early(mock_logger, mock_workflow):
         initial_prompt="Test prompt"
     )
     
-    # Set up mock agents
     agent1 = SampleAgent("Agent1", SampleAgentConfig(), magic_iteration=-1)
     agent2 = SampleAgent("Agent2", SampleAgentConfig(), magic_iteration=1)
     mock_workflow.agent_manager._phase_agents = {
@@ -132,7 +127,6 @@ async def test_base_phase_stops_early(mock_logger, mock_workflow):
         "Agent2": agent2
     }
     
-    # Call setup to initialize agents
     phase.setup()
     
     workflow_message = WorkflowMessage(workflow_name="test_workflow")
@@ -152,13 +146,11 @@ async def test_base_phase_with_initial_message(mock_logger, mock_workflow):
         initial_prompt="Test prompt"
     )
     
-    # Set up mock agents
     agent = SampleAgent("Agent1", SampleAgentConfig(), magic_iteration=-1)
     mock_workflow.agent_manager._phase_agents = {
         "Agent1": agent
     }
     
-    # Call setup to initialize agents
     phase.setup()
     
     workflow_message = WorkflowMessage(workflow_name="test_workflow")
@@ -181,13 +173,11 @@ async def test_base_phase_with_prev_message(mock_logger, mock_workflow):
         initial_prompt="Test prompt"
     )
     
-    # Set up mock agents
     agent = SampleAgent("Agent1", SampleAgentConfig(), magic_iteration=-1)
     mock_workflow.agent_manager._phase_agents = {
         "Agent1": agent
     }
     
-    # Call setup to initialize agents
     phase.setup()
     
     workflow_message = WorkflowMessage(workflow_name="test_workflow")
@@ -201,3 +191,36 @@ async def test_base_phase_with_prev_message(mock_logger, mock_workflow):
     assert len(phase_message.agent_messages) > 0
     assert not phase_message.complete
     assert phase_message.summary == "completed_failure"
+    
+    
+@pytest.mark.asyncio
+async def test_interactive_mode(mock_workflow):
+    phase = SamplePhase(
+        workflow=mock_workflow,
+        max_iterations=3,
+        interactive=True,
+        initial_prompt="Test prompt"
+    )
+    mock_workflow.next_iteration_event = asyncio.Event()
+
+    agent = SampleAgent("Agent1", SampleAgentConfig())
+    mock_workflow.agent_manager._phase_agents = {"Agent1": agent}
+
+    phase.setup()
+
+    async def run_phase():
+        workflow_message = WorkflowMessage(workflow_name="test_workflow")
+        return await phase.run_phase(workflow_message, None)
+
+    task = asyncio.create_task(run_phase())
+
+    for _ in range(3):
+        await asyncio.sleep(0.1)
+        mock_workflow.next_iteration_event.set()
+        mock_workflow.next_iteration_event.clear()
+
+    phase_message = await task
+
+    assert agent.run_count == 3
+    assert phase_message.summary == "completed_failure"
+    assert len(phase_message.agent_messages) == 4  # Initial prompt + 3 agent messages
