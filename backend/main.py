@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from backend.server import Server
 from utils.websocket_manager import WebSocketManager, websocket_manager
 from workflows.chat_workflow import ChatWorkflow
-from workflows.detect_workflow import DetectWorkflow
-from workflows.exploit_and_patch_workflow import ExploitAndPatchWorkflow
+from workflows.detect_patch_workflow import DetectPatchWorkflow
+from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 
 
@@ -19,8 +19,8 @@ def create_app(
 
     if workflow_factory is None:
         workflow_factory = {
-            "Detect Workflow": DetectWorkflow,
-            "Exploit and Patch Workflow": ExploitAndPatchWorkflow,
+            "Detect Patch Workflow": DetectPatchWorkflow,
+            "Exploit and Patch Workflow": ExploitPatchWorkflow,
             "Patch Workflow": PatchWorkflow,
             "Chat Workflow": ChatWorkflow,
         }
