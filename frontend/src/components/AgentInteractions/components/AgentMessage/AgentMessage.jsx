@@ -267,9 +267,9 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
               </Box>
             ) : (
               <Box className="action-messages-container">
-                  {message.action_messages.map((actionMessage, index) => (
+                {message.current_children.map((actionMessage, index) => (
                   <ActionMessage
-                    key={index}
+                    key={actionMessage.current_id}
                     index={index}
                     action={actionMessage}
                     onUpdateMessageInput={onUpdateMessageInput}
@@ -280,7 +280,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                     onCellSelect={onCellSelect}
                     onChildUpdate={handleChildUpdate}
                     displayedIndex={displayedIndex}
-                    versionLength={message.action_messages.length / 2}
+                    versionLength={message.action_messages ? message.action_messages.length / 2 : 1}
                   />
                 ))}
               </Box>
