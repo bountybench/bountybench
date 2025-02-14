@@ -26,7 +26,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
   }, [originalMessageContent, onEditingChange]);
   
   const handleEditClick = useCallback(() => {
-    if (!message?.current_children) {
+    if (!message?.current_children || message?.current_children.length === 0) {
       setEditing(true);
       onEditingChange(true);
       setEditedMessage(originalMessageContent);
