@@ -33,73 +33,74 @@ class RerunManager:
                 "No defined next actions to run, please continue to next iteration"
             )
 
-    '''
+    
     async def _rerun_action_message(
-        self, old_message: Message, input_message: Message
+        self, old_message: ActionMessage, input_message: Message
     ) -> Message:
-        resource = self.resource_manager.get_resource(old_message.resource_id)
-        new_message = resource.run(input_message)
-        
-        # Determine the correct parent message.
-        # If a cloned version exists, use that; otherwise, use the original parent.
-        parent = old_message.parent
-        if parent and getattr(parent, 'version_next', None):
-            parent = parent.version_next
-
-        self.update_version_links(old_message, new_message, set_version=False, parent_message=parent)
-        return new_message
-    '''
-
-    async def _rerun_action_message(
-    self, old_message: ActionMessage, input_message: Message
-) -> Message:
-
-        # Make sure we have the latest version of old_message
+        """
+        Reruns the given old_message by cloning its parent agent message (if applicable)
+        and creating a new ActionMessage (just like edit does).
+        """
+        # 1) Move old_message to its latest version
         while old_message.version_next:
             old_message = old_message.version_next
 
+        # 2) Likewise, move up the parent’s version chain so we attach to the latest.
         parent_message = old_message.parent
+        while parent_message and parent_message.version_next:
+            parent_message = parent_message.version_next
 
         resource = self.resource_manager.get_resource(old_message.resource_id)
+        new_output: ActionMessage = resource.run(input_message)
 
+        # 4) If there’s a valid AgentMessage parent, clone it, clone its chain, then attach.
         if parent_message and isinstance(parent_message, AgentMessage):
+            # Clone the parent agent message
             new_parent_message = self._clone_message(parent_message)
             new_parent_message.set_prev(parent_message.prev)
-            self.update_version_links(parent_message, new_parent_message)
+            self.update_version_links(
+                old_message=parent_message, 
+                new_message=new_parent_message, 
+                set_version=True
+            )
+
             new_prev_action = self._clone_action_chain(
                 parent_message.current_actions_list, old_message, new_parent_message
             )
 
-        
-            new_message = resource.run(input_message)
-
-            new_message.set_prev(new_prev_action)
-
+            new_output.set_prev(new_prev_action)
             if old_message.next:
-                new_message.set_next(old_message.next)
+                new_output.set_next(old_message.next)
+
 
             self.update_version_links(
-                old_message, new_message, set_version=False, parent_message=new_parent_message
+                old_message=old_message, 
+                new_message=new_output, 
+                set_version=False, 
+                parent_message=new_parent_message
             )
 
             logger.info(
                 f"Rerun with cloned parent. Old ActionMessage ID: {old_message.id}, "
-                f"New ActionMessage ID: {new_message.id}"
+                f"New ActionMessage ID: {new_output.id}"
             )
-            return new_message
+            return new_output
 
+        # 5) Otherwise, if the parent is absent or not an AgentMessage,
+        #    just do the simpler re-run with version linking.
         else:
-            new_message = resource.run(input_message)
-            # If you do want version chaining, set_version=True
             self.update_version_links(
-                old_message, new_message, set_version=True, parent_message=parent_message
+                old_message=old_message, 
+                new_message=new_output, 
+                set_version=True, 
+                parent_message=parent_message
             )
             logger.info(
                 f"Standard Rerun. Old ActionMessage ID: {old_message.id}, "
-                f"New ActionMessage ID: {new_message.id}"
+                f"New ActionMessage ID: {new_output.id}"
             )
-            return new_message
-
+            return new_output
+                
     async def _rerun_agent_message(
         self, old_message: Message, input_message: Message
     ) -> Message:
@@ -107,6 +108,7 @@ class RerunManager:
         new_message = await agent.run([input_message])
         self.update_version_links(old_message, new_message)
         return new_message
+    
     
     def _clone_message(
         self, old_message: Message, edit: Optional[str] = None, prev: Optional[Message] = None
@@ -129,6 +131,8 @@ class RerunManager:
         new_message = cls(**params)
         return new_message
     
+
+        
     def _clone_parent_agent_message(self, old_message: ActionMessage, parent_message: AgentMessage, edit: str) -> Message:
         new_parent_message = self._clone_message(parent_message)
         new_parent_message.set_prev(parent_message.prev)
