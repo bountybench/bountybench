@@ -169,7 +169,7 @@ class BasePhase(ABC):
                 agent_id="system",
                 message=self.params.get("initial_prompt").format(**self.params),
             )
-            self._phase_message.add_agent_message(self._last_agent_message)
+            self._phase_message.add_child_message(self._last_agent_message)
 
         for iteration_num in range(1, self.phase_config.max_iterations + 1):
             if self._phase_message.complete:
@@ -194,7 +194,7 @@ class BasePhase(ABC):
                 agent_instance=agent_instance,
                 previous_output=self._last_agent_message,
             )
-            self._phase_message.add_agent_message(message)
+            self._phase_message.add_child_message(message)
 
             logger.info(f"Finished iteration {iteration_num} of {self.name} with {agent_id}")
             if self._phase_message.complete:
