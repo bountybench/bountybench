@@ -44,7 +44,7 @@ class SearchResource(BaseResource):
     def stop():
         self.__browser_resource.stop()
         
-    def GetSearchLinks(self, query, num_results = '') -> list[str]:
+    def get_search_links(self, query, num_results = '') -> list[str]:
         """
         Run search on google.com and return the top `num_results` links
 
@@ -65,7 +65,7 @@ class SearchResource(BaseResource):
         return results
 
    
-    def Search(self, query, num_results = '') -> list[str]:
+    def search(self, query, num_results = '') -> list[str]:
         """
         Run search on google.com and return the top `num_results` links
 
@@ -76,10 +76,10 @@ class SearchResource(BaseResource):
         if not num_results:
             num_results = self.search_result_count
 
-        links = self.GetSearchLinks(query, num_results)
+        links = self.get_search_links(query, num_results)
         results = []
         for link in links:
-            results.append(self.__browser_resource.GetPage(link))
+            results.append(self.__browser_resource.get_page(link))
         
         return results
     
