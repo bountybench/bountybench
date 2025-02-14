@@ -268,7 +268,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                 {message.current_children.map((actionMessage, index) => (
                   <ActionMessage
                     key={index}
-                    index={actionMessage.current_id}
+                    index={index}
                     action={actionMessage}
                     onUpdateMessageInput={onUpdateMessageInput}
                     onRerunMessage={onRerunMessage}
