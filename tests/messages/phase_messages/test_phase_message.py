@@ -50,7 +50,7 @@ def test_workflow_id():
     """
     workflow_message = WorkflowMessage("workflow_1", "workflow_id")
     phase_message = PhaseMessage("phase_1")
-    workflow_message.add_phase_message(phase_message)
+    workflow_message.add_child_message(phase_message)
 
     assert phase_message.workflow_id == "workflow_id"
 
