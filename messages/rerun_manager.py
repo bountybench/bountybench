@@ -34,11 +34,27 @@ class RerunManager:
             )
 
     async def _rerun_action_message(
-        self, old_message: Message, input_message: Message
-    ) -> Message:
+            self, old_message: Message, input_message: Message
+        ) -> Message:
         resource = self.resource_manager.get_resource(old_message.resource_id)
         new_message = resource.run(input_message)
-        self.update_version_links(old_message, new_message, set_version=False)
+        
+        # Create new parent chain for action message
+        if old_message.parent and isinstance(old_message.parent, AgentMessage):
+            parent_message = old_message.parent
+            new_parent = self._clone_message(parent_message)
+            new_parent.set_prev(parent_message.prev)
+            self.update_version_links(parent_message, new_parent)
+            
+            # Clone previous action messages in chain
+            new_prev_action = self._clone_action_chain(parent_message.current_children, old_message, new_parent)
+            new_message.set_prev(new_prev_action)
+            
+            # Update version links with new parent
+            self.update_version_links(old_message, new_message, set_version=False, parent_message=new_parent)
+        else:
+            self.update_version_links(old_message, new_message, set_version=False)
+            
         return new_message
 
     async def _rerun_agent_message(
@@ -86,23 +102,27 @@ class RerunManager:
         return new_message
     
     def _clone_action_chain(
-        self, actions_list: list[ActionMessage], old_message: ActionMessage, new_parent: AgentMessage
-    ) -> Message:
+        self, actions_list: list[ActionMessage], target_message: ActionMessage, new_parent: AgentMessage
+    ) -> Optional[Message]:
         if not actions_list:
             return None
 
         prev_action = actions_list[0]
-        if prev_action == old_message:
+        if prev_action == target_message:
             return None
 
+        # Clone first action
         new_prev_action = self._clone_message(prev_action)
         self.update_version_links(prev_action, new_prev_action, set_version=False, parent_message=new_parent)
+        current_new = new_prev_action
 
-        while prev_action.next and prev_action.next != old_message:
-            new_action = self._clone_message(prev_action.next, prev=new_prev_action)
-            self.update_version_links(prev_action.next, new_action, set_version=False, parent_message=new_parent)
-            prev_action = prev_action.next
-            new_prev_action = new_prev_action.next
+        # Clone remaining actions until target
+        current = prev_action
+        while current.next and current.next != target_message:
+            new_action = self._clone_message(current.next, prev=current_new)
+            self.update_version_links(current.next, new_action, set_version=False, parent_message=new_parent)
+            current = current.next
+            current_new = new_action
 
         return new_prev_action
 
