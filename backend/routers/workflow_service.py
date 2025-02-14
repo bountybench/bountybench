@@ -340,3 +340,25 @@ async def change_model(workflow_id: str, data: dict, request: Request):
         error_traceback = traceback.format_exc()
         print(f"Error stopping workflow {workflow_id}: {str(e)}\n{error_traceback}")
         return {"error": str(e), "traceback": error_traceback}
+
+
+@workflow_service_router.post("/workflow/{workflow_id}/toggle-version")
+async def toggle_version(workflow_id: str, data: dict, request: Request):
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+    message_id = data.get("message_id")
+    direction = data.get("direction")  # "prev" or "next"
+
+    try:
+        result = await workflow.toggle_version(message_id, direction)
+        if result:
+            return {"status": "updated", "result": result.id}
+        return {"error": f"Message {direction} for {message_id} not found"}
+    except Exception as e:
+        error_traceback = traceback.format_exc()
+        return {"error": str(e), "traceback": error_traceback}
+     
+

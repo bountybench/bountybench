@@ -33,14 +33,40 @@ class RerunManager:
                 "No defined next actions to run, please continue to next iteration"
             )
 
+    
     async def _rerun_action_message(
-        self, old_message: Message, input_message: Message
+        self, old_message: ActionMessage, input_message: Message
     ) -> Message:
-        resource = self.resource_manager.get_resource(old_message.resource_id)
-        new_message = resource.run(input_message)
-        self.update_version_links(old_message, new_message, set_version=False)
-        return new_message
+        # Ensure we start with the "latest version" of old_message
+        while old_message.version_next:
+            old_message = old_message.version_next
 
+        # Also grab the final version of the parent, if it has one
+        parent_message = old_message.parent
+        while parent_message and parent_message.version_next:
+            parent_message = parent_message.version_next
+
+        # Run the resource again
+        resource = self.resource_manager.get_resource(old_message.resource_id)
+        new_action: ActionMessage = resource.run(input_message)
+
+        # Keep next link if the old action had one
+        if old_message.next:
+            new_action.set_next(old_message.next)
+
+        # If parent is an AgentMessage, just attach new_action to it
+        if parent_message and isinstance(parent_message, AgentMessage):
+            parent_message.add_child_message(new_action)
+            
+        # Always update version links with set_version=False like in old version
+        self.update_version_links(
+            old_message=old_message,
+            new_message=new_action,
+            set_version=False,
+            parent_message=parent_message
+        )
+        return new_action
+                
     async def _rerun_agent_message(
         self, old_message: Message, input_message: Message
     ) -> Message:
@@ -48,6 +74,7 @@ class RerunManager:
         new_message = await agent.run([input_message])
         self.update_version_links(old_message, new_message)
         return new_message
+    
     
     def _clone_message(
         self, old_message: Message, edit: Optional[str] = None, prev: Optional[Message] = None
@@ -70,6 +97,8 @@ class RerunManager:
         new_message = cls(**params)
         return new_message
     
+
+        
     def _clone_parent_agent_message(self, old_message: ActionMessage, parent_message: AgentMessage, edit: str) -> Message:
         new_parent_message = self._clone_message(parent_message)
         new_parent_message.set_prev(parent_message.prev)
@@ -77,6 +106,11 @@ class RerunManager:
 
         new_prev_action = self._clone_action_chain(parent_message.current_children, old_message, new_parent_message)
         new_message = self._clone_message(old_message, edit=edit, prev=new_prev_action)
+        
+        # Maintain the next link so workflow can handle the rerun
+        if old_message.next:
+            new_message.set_next(old_message.next)
+            
         self.update_version_links(old_message, new_message, set_version=False, parent_message=new_parent_message)
 
         logger.info(
@@ -139,6 +173,8 @@ class RerunManager:
             parent_message = old_message.parent
             new_message.set_version_prev(old_message)
         new_message.set_next(old_message.next)
+        if not parent_message:
+            parent_message = old_message.parent
         if parent_message:
             parent_message.add_child_message(new_message)
             if isinstance(parent_message, AgentMessage):
