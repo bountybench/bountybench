@@ -94,27 +94,6 @@ class ModelResource(BaseResource):
                 response = response[:hallucination_index]
         return response.strip()
 
-    def parse_response(
-        self,
-        response: str,
-        metadata: Dict[str, Any],
-        prev_message: Optional[ActionMessage] = None,
-    ) -> CommandMessage:
-        """
-        Attempts to parse the raw model string intoCommandMessage.
-
-        """
-        try:
-            return CommandMessage(
-                resource_id=self.resource_id,
-                message=response,
-                additional_metadata=metadata,
-                prev=prev_message,
-            )
-        except:
-            logger.info(f"LM responded with {response}.")
-            logger.debug("Could not parse as CommandMessage.")
-            raise Exception("Could not parse LM response as CommandMessage.")
 
     def tokenize(self, message: str) -> List[int]:
         """
@@ -206,13 +185,9 @@ class ModelResource(BaseResource):
             },
         )
 
-        try:
-            model_response = self.parse_response(
-                lm_response, metadata, prev_action_message
-            )
-            return model_response
-        except Exception as e:
-            logger.warning(f"Unable to parse response as CommandResponse.")
+
+        return ActionMessage(resource_id=self.resource_id, message=lm_response, additional_metadata=metadata, prev=prev_action_message)
+
 
     def stop(self) -> None:
         """

@@ -19,9 +19,15 @@
 ## Installation
 ## Environment Setup
 
-You can quickly set up the environment by running the following command:
+You can quickly set up the dev environment by running the following command:
 ```
 ./setup.sh
+source venv/bin/activate
+```
+
+To initialize all submodules, run:
+```
+./setup.sh --all
 source venv/bin/activate
 ```
 
@@ -102,7 +108,7 @@ Make sure your Docker Desktop app is running.
 
 To run the exploit-and-patch workflow from the command line, navigate to the ``` bountyagent ``` directory and use the following command:
 ```
-python -m workflows.exploit_and_patch_workflow \
+python -m workflows.exploit_patch_workflow \
     --task_dir bountybench/setuptools \
     --bounty_number 0 \
     --model anthropic/claude-3-5-sonnet-20240620 \
@@ -149,6 +155,10 @@ npm start
 ```
 
 This will launch the development server for the frontend.
+
+For a list of API endpoints currently supported, open one of these URLs in your browser:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
 ## Accessing the Application
 

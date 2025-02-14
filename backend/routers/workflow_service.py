@@ -9,7 +9,7 @@ from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeI
 workflow_service_router = APIRouter()
 
 
-@workflow_service_router.post("/workflow/next/{workflow_id}")
+@workflow_service_router.post("/workflow/{workflow_id}/next")
 async def next_message(workflow_id: str, request: Request):
     active_workflows = request.app.state.active_workflows
     if workflow_id not in active_workflows:
@@ -30,8 +30,7 @@ async def next_message(workflow_id: str, request: Request):
         return {"error": str(e), "traceback": error_traceback}
 
 
-
-@workflow_service_router.post("/workflow/stop/{workflow_id}")
+@workflow_service_router.post("/workflow/{workflow_id}/stop")
 async def stop_workflow(workflow_id: str, request: Request):
     """
     Stops the execution of a running workflow and removes it from active workflows.
@@ -43,35 +42,34 @@ async def stop_workflow(workflow_id: str, request: Request):
         return {"error": f"Workflow {workflow_id} not found"}
 
     workflow = active_workflows[workflow_id]["instance"]
-    
+
     try:
-        print(f"BEFORE STOP - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}")
+        print(
+            f"BEFORE STOP - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}"
+        )
 
         await workflow.stop()
-        
-        #Update workflow status
+
+        # Update workflow status
         active_workflows[workflow_id]["status"] = "stopped"
 
-
-        print(f"AFTER STOP - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}")
-
+        print(
+            f"AFTER STOP - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}"
+        )
 
         # Notify WebSocket clients about the stop
         websocket_manager = request.app.state.websocket_manager
 
         await websocket_manager.broadcast(
-            workflow_id,
-            {"message_type": "workflow_status", "status": "stopped"}
+            workflow_id, {"message_type": "workflow_status", "status": "stopped"}
         )
-        
 
         if workflow_id in websocket_manager.get_active_connections():
             print(f"Closing WebSocket connections for workflow {workflow_id}")
             await websocket_manager.disconnect_all(workflow_id)
 
         await websocket_manager.broadcast(
-            workflow_id,
-            {"message_type": "workflow_status", "status": "stopped"}
+            workflow_id, {"message_type": "workflow_status", "status": "stopped"}
         )
 
         return {"status": "stopped", "workflow_id": workflow_id}
@@ -82,8 +80,7 @@ async def stop_workflow(workflow_id: str, request: Request):
         return {"error": str(e), "traceback": error_traceback}
 
 
-
-@workflow_service_router.post("/workflow/rerun-message/{workflow_id}")
+@workflow_service_router.post("/workflow/{workflow_id}/rerun-message")
 async def rerun_message(workflow_id: str, data: MessageData, request: Request):
     active_workflows = request.app.state.active_workflows
     print(f"Rerunning message: {data.message_id}")
@@ -100,10 +97,11 @@ async def rerun_message(workflow_id: str, data: MessageData, request: Request):
         return {"status": "updated", "result": result.id}
     except Exception as e:
         error_traceback = traceback.format_exc()
+        print(f"Error rerunning message {workflow_id}: {str(e)}\n{error_traceback}")
         return {"error": str(e), "traceback": error_traceback}
 
 
-@workflow_service_router.post("/workflow/edit-message/{workflow_id}")
+@workflow_service_router.post("/workflow/{workflow_id}/edit-message")
 async def edit_action_input(workflow_id: str, data: MessageInputData, request: Request):
     active_workflows = request.app.state.active_workflows
     print(f"Editing message: {data.message_id}")
@@ -113,13 +111,19 @@ async def edit_action_input(workflow_id: str, data: MessageInputData, request: R
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
-        result = await workflow.edit_and_rerun_message(data.message_id, data.new_input_data)
+        result = await workflow.edit_and_rerun_message(
+            data.message_id, data.new_input_data
+        )
         if not result:
             result = await next_iteration(workflow_id, active_workflows)
             return result
         return {"status": "updated", "result": result.id}
     except Exception as e:
-        return {"error": str(e)}
+        error_traceback = traceback.format_exc()
+        print(
+            f"Error editing and rerunning message {workflow_id}: {str(e)}\n{error_traceback}"
+        )
+        return {"error": str(e), "traceback": error_traceback}
 
 
 @workflow_service_router.post("/workflow/{workflow_id}/interactive")
@@ -155,7 +159,7 @@ async def update_interactive_mode(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@workflow_service_router.get("/workflow/last-message/{workflow_id}")
+@workflow_service_router.get("/workflow/{workflow_id}/last-message")
 async def last_message(workflow_id: str, request: Request):
     active_workflows = request.app.state.active_workflows
     if workflow_id not in active_workflows:
@@ -258,6 +262,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
         await websocket_manager.disconnect(workflow_id, websocket)
         print(f"Cleaned up connection for workflow {workflow_id}")
 
+
 async def run_workflow(
     workflow_id: str, active_workflows, websocket_manager, should_exit
 ):
@@ -292,13 +297,19 @@ async def run_workflow(
             )
 
     except Exception as e:
+        error_traceback = traceback.format_exc()
         # Handle errors
         if not should_exit:
             print(f"Workflow error: {e}")
             workflow_data["status"] = "error"
             await websocket_manager.broadcast(
                 workflow_id,
-                {"message_type": "workflow_status", "status": "error", "error": str(e)},
+                {
+                    "message_type": "workflow_status",
+                    "status": "error",
+                    "error": str(e),
+                    "traceback": error_traceback,
+                },
             )
             print(f"Broadcasted error status for {workflow_id}")
 
@@ -314,7 +325,8 @@ async def next_iteration(workflow_id: str, active_workflows):
     else:
         return {"error": "Workflow is not in interactive mode"}
 
-@workflow_service_router.post("/workflow/model-change/{workflow_id}")
+
+@workflow_service_router.post("/workflow/{workflow_id}/model-change")
 async def change_model(workflow_id: str, data: dict, request: Request):
     active_workflows = request.app.state.active_workflows
     if workflow_id not in active_workflows:
@@ -325,4 +337,6 @@ async def change_model(workflow_id: str, data: dict, request: Request):
         result = await workflow.change_current_model(data["new_model_name"])
         return {"status": "updated", "result": result.id}
     except Exception as e:
-        return {"error": str(e)}
+        error_traceback = traceback.format_exc()
+        print(f"Error stopping workflow {workflow_id}: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
