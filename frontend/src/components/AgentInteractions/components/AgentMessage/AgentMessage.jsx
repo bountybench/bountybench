@@ -156,7 +156,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
           </Box>
 
           <Collapse in={agentMessageExpanded}>
-            {!message.current_children || message.current_children.length === 0 || message.action_messages.length % 2 !== 0 ? (
+            {!message.current_children || message.current_children.length === 0 ? (
               <Box className="agent-message-content">
                 {editing ? (
                   <Box className="edit-mode-container">
@@ -265,10 +265,10 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
               </Box>
             ) : (
               <Box className="action-messages-container">
-                {message.action_messages.slice(2 * displayedIndex - 2, 2 * displayedIndex).map((actionMessage, index) => (
+                {message.current_children.map((actionMessage, index) => (
                   <ActionMessage
                     key={index}
-                    index={index}
+                    index={actionMessage.current_id}
                     action={actionMessage}
                     onUpdateMessageInput={onUpdateMessageInput}
                     onRerunMessage={onRerunMessage}
@@ -278,7 +278,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                     onCellSelect={onCellSelect}
                     onChildUpdate={handleChildUpdate}
                     displayedIndex={displayedIndex}
-                    versionLength={message.action_messages.length / 2}
+                    versionLength={message.current_children.length}
                   />
                 ))}
               </Box>
