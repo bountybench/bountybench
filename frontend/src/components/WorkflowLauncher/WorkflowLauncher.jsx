@@ -35,13 +35,6 @@ const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-14';
 const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
-
-
-  // 1. Use the hook to poll for server availability
-  const { isServerAvailable, isChecking } = useServerAvailability(() => {
-    console.log('Server is available!');
-  });
-  
   const navigate = useNavigate();
   
   const [launcherState, setLauncherState] = useState({
