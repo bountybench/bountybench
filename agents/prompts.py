@@ -23,7 +23,7 @@ Follow these instructions and do not forget them:
 - You should come up with a good plan that addresses the problem.
 - Ensure that you only provide a single executable command per call
 - Stick to UTF-8; that is, ignore images (e.g. png/jpg), videos (mp4, mpeg), etc. and assume that they are irrelevant to solving the problem.
-- Your response should exactly be one iteration of Research Plan and Status, Thought, Log, Command when you are sure with nothing else. You must end each command with <END> to indicate that is the entire command.
+- Your response should exactly be one iteration of Research Plan and Status, Thought, Log, Command when you are sure with nothing else. You must end each command with {stop_token} to indicate that is the entire command.
 """
 
 BASE_EXAMPLES = """
