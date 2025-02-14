@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Box, CircularProgress, Alert, Typography } from '@mui/material';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
@@ -18,8 +18,8 @@ const WorkflowState = {
 export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast }) => {
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
-  const [preservedMessages, setPreservedMessages] = useState([]);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
+  const [preservedMessages, setPreservedMessages] = useState([]);
   
   const [workflowState, setWorkflowState] = useState({
     status: WorkflowState.LOADING,
@@ -28,7 +28,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   });
 
   const navigate = useNavigate();
-  
+   
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
     const checkIfWorkflowExists = async () => {
@@ -51,20 +51,26 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     isConnected,
     workflowStatus,
     currentPhase,
-    currentIteration,
-    messages,
+    phaseMessages,
     error,
   } = useWorkflowWebSocket(workflowId);
   
   console.log('WebSocket state:', { 
     isConnected, 
     workflowStatus, 
-    currentPhase, 
-    currentIteration,
+    currentPhase,
     error,
-    messageCount: messages?.length 
-  }); // Debug log
+    phaseMessagesCount: phaseMessages?.length
+  });
 
+  const getTailMessageId = async () => {
+    if (phaseMessages?.length > 0 && phaseMessages[phaseMessages.length - 1].current_children?.length > 0) {
+      const lastMessage = phaseMessages[phaseMessages.length - 1].current_children[phaseMessages[phaseMessages.length - 1].current_children.length - 1];
+      return lastMessage.current_id;
+    }
+    return null;
+  };
+  
   useEffect(() => {
     if (error) {
       setWorkflowState({
@@ -90,7 +96,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         message: "Workflow completed",
         error: null
       });
-      setPreservedMessages(messages);
+      setPreservedMessages(phaseMessages);
     } else if (workflowStatus === 'stopped') {
       setWorkflowState({
         status: WorkflowState.STOPPED,
@@ -107,7 +113,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
     console.log(`Workflow state updated to ${workflowStatus}`)
     onWorkflowStateUpdate(workflowStatus, currentPhase);
-  }, [isConnected, workflowStatus, currentPhase, messages, error, onWorkflowStateUpdate]);
+  }, [isConnected, workflowStatus, currentPhase, phaseMessages, error, onWorkflowStateUpdate]);
 
   const triggerNextIteration = async () => {
     if (workflowStatus === "stopped") {
@@ -117,8 +123,14 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     if (workflowId) {
       setIsNextDisabled(true);
       try {
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/next`, {
+        const currentMessageId = await getTailMessageId();
+        console.log(`Tail message id is ${currentMessageId}`)
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/rerun-message`, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message_id: currentMessageId }),
         });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -193,7 +205,8 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       console.error('Workflow ID is not available');
     }
   };
-  
+
+
   const handleStopWorkflow = async () => {
     if (workflowId) {
       try {
@@ -211,6 +224,27 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       console.error('Workflow ID is not available');
     }
   };
+
+  const handleToggleVersion = useCallback(async (messageId, direction) => {
+    try {
+      const response = await fetch(`http://localhost:8000/workflow/${workflowId}/toggle-version`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message_id: messageId, direction }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle version');
+      }
+
+      const result = await response.json();
+      // Updating messages should be triggered by call
+    } catch (error) {
+      console.error('Error toggling version:', error);
+    }
+  }, [workflowId]);
 
   if (workflowState.status === WorkflowState.ERROR) {
     return (
@@ -233,21 +267,21 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     );
   }
 
-  const displayMessages = workflowState.status === WorkflowState.COMPLETED ? preservedMessages : messages;
+  const displayMessages = workflowState.status === WorkflowState.COMPLETED ? preservedMessages : phaseMessages;
 
   return (
     <Box height="100%" overflow="auto">
       <AgentInteractions
         interactiveMode={interactiveMode}
-        workflowStatus={workflowStatus}  // Pass the workflow status
+        workflowStatus={workflowStatus}
         currentPhase={currentPhase}
-        currentIteration={currentIteration}
         isNextDisabled={isNextDisabled}
-        messages={displayMessages}
+        phaseMessages={displayMessages}
         onUpdateMessageInput={handleUpdateMessageInput}
         onRerunMessage={handleRerunMessage}
         onTriggerNextIteration={triggerNextIteration}
         onStopWorkflow={handleStopWorkflow}
+        onToggleVersion={handleToggleVersion}
       />
     </Box>
   );

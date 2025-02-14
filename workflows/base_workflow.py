@@ -301,8 +301,25 @@ class BaseWorkflow(ABC):
 
         self._finalize_workflow()
 
-        
+    async def toggle_version(self, message_id: str, direction: str):
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        message = workflow_messages.get(message_id)
 
+        if not message:
+            raise ValueError(f"Message with id {message_id} not found")
+
+        if direction == "prev":
+            target_message = message.version_prev
+        elif direction == "next":
+            target_message = message.version_next
+        else:
+            raise ValueError("Invalid direction. Must be 'prev' or 'next'")
+
+        from messages.message_utils import generate_subtree
+        subtree = generate_subtree(target_message)
+
+        return subtree
+    
     @property
     def name(self):
         return self.__class__.__name__
