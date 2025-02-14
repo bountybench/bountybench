@@ -75,7 +75,7 @@ class RerunManager:
         new_parent_message.set_prev(parent_message.prev)
         self.update_version_links(parent_message, new_parent_message)
 
-        new_prev_action = self._clone_action_chain(parent_message.current_actions_list, old_message, new_parent_message)
+        new_prev_action = self._clone_action_chain(parent_message.current_children, old_message, new_parent_message)
         new_message = self._clone_message(old_message, edit=edit, prev=new_prev_action)
         self.update_version_links(old_message, new_message, set_version=False, parent_message=new_parent_message)
 
@@ -140,8 +140,8 @@ class RerunManager:
             new_message.set_version_prev(old_message)
         new_message.set_next(old_message.next)
         if parent_message:
+            parent_message.add_child_message(new_message)
             if isinstance(parent_message, AgentMessage):
-                parent_message.add_action_message(new_message)
                 # 1) find the top-level Phase
                 phase = self.find_phase_parent(parent_message)
                 # 2) broadcast from the Phase
@@ -149,9 +149,6 @@ class RerunManager:
                     from messages.message_utils import broadcast_update
 
                     broadcast_update(phase)
-
-            if isinstance(parent_message, PhaseMessage):
-                parent_message.add_agent_message(new_message)
 
     def find_phase_parent(self, message: Message) -> Optional[PhaseMessage]:
         current = message

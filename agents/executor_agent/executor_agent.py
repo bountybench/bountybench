@@ -69,14 +69,14 @@ class ExecutorAgent(BaseAgent):
         if not model_action_message:
             agent_message.set_message("Model failed to produce a valid response.")
             return agent_message
-        agent_message.add_action_message(model_action_message)
+        agent_message.add_child_message(model_action_message)
 
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
                 return
-            agent_message.add_action_message(kali_action_message)
+            agent_message.add_child_message(kali_action_message)
             return kali_action_message
 
         return model_action_message
