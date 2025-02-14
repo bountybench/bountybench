@@ -85,7 +85,7 @@ def test_set_summary():
     assert phase_message.phase_summary == "summary_1"
 
 
-def test_add_agent_message(mocker, mock_log_message):
+def test_add_child_message(mocker, mock_log_message):
     """
     Test adding an AgentMessage to the PhaseMessage.
     """
@@ -96,7 +96,7 @@ def test_add_agent_message(mocker, mock_log_message):
     mock_action_messages.return_value = [action_message]
     agent_message = AgentMessage("agent_1")
     phase_message = PhaseMessage("phase_1")
-    phase_message.add_agent_message(agent_message)
+    phase_message.add_child_message(agent_message)
 
     assert agent_message in phase_message.agent_messages
     assert agent_message.parent == phase_message
@@ -114,15 +114,15 @@ async def test_current_children():
     phase_message = PhaseMessage("phase_1")
     agent_msg1 = AgentMessage("test_id1", "test_msg1")
     agent_msg4 = AgentMessage("test_id4", "test_msg4", prev=agent_msg1)
-    phase_message.add_agent_message(agent_msg1)
-    phase_message.add_agent_message(agent_msg4)
+    phase_message.add_child_message(agent_msg1)
+    phase_message.add_child_message(agent_msg4)
     agent_msg2 = await rerun_manager.edit_message(agent_msg1, "test_msg2")
     agent_msg3 = await rerun_manager.edit_message(agent_msg2, "test_msg3")
     agent_msg5 = await rerun_manager.edit_message(agent_msg4, "test_msg5")
     agent_msg6 = AgentMessage("test_id6", "test_msg6", prev=agent_msg3)
-    phase_message.add_agent_message(agent_msg6)
+    phase_message.add_child_message(agent_msg6)
     current_agents = phase_message.current_children
-
+    
     assert len(phase_message.agent_messages) == 6
     assert len(current_agents) == 2
     assert current_agents[0] == agent_msg3
@@ -137,7 +137,9 @@ def test_to_dict(mocker):
         PhaseMessage, "agent_messages", new_callable=PropertyMock
     )
     mock_current_children = mocker.patch.object(
-        PhaseMessage, "current_children", new_callable=PropertyMock
+        PhaseMessage, 
+        'current_children', 
+        new_callable=PropertyMock
     )
     mock_super_to_dict = mocker.patch.object(Message, "to_dict")
     agent_msg_mock = MagicMock(spec=AgentMessage)
@@ -148,7 +150,7 @@ def test_to_dict(mocker):
 
     phase_message = PhaseMessage("phase_1")
     phase_message.set_summary("summary_1")
-    phase_message.add_agent_message(agent_msg_mock)
+    phase_message.add_child_message(agent_msg_mock)
 
     result_dict = phase_message.to_dict()
 

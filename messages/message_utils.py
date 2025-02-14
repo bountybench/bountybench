@@ -41,7 +41,7 @@ async def _broadcast_update_async(workflow_id: str, data_list: List[dict]):
     
 def log_message(message: Message):
     if not message.workflow_id:
-        logger.info(f"No associated workflow for {type(message)} message {message.id}, skipping logging")
+        logger.debug(f"No associated workflow for {type(message)} message {message.id}, skipping logging")
         return
 
     # Initialize dict for new workflows

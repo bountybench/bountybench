@@ -71,7 +71,7 @@ class AgentMessage(Message):
         """This should only be set by the MemoryResource."""
         self._memory = x
     
-    def add_action_message(self, action_message: ActionMessage):
+    def add_child_message(self, action_message: ActionMessage):
         self._action_messages.append(action_message)
         action_message.set_parent(self)
         from messages.message_utils import log_message

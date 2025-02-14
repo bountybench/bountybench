@@ -66,7 +66,7 @@ class PhaseMessage(Message):
     def set_summary(self, summary: str):
         self._summary = summary
 
-    def add_agent_message(self, agent_message: AgentMessage):
+    def add_child_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
         agent_message.set_parent(self)
         from messages.message_utils import log_message
