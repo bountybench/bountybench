@@ -186,9 +186,6 @@ class BasePhase(ABC):
             agent_id, agent_instance = self._get_current_agent()
             logger.info(f"Running iteration {iteration_num} of {self.name} with {agent_id}")
 
-            while self._last_agent_message.version_next:
-                self._last_agent_message = self._last_agent_message.version_next
-                
             message = await self.run_one_iteration(
                 phase_message=self._phase_message,
                 agent_instance=agent_instance,
@@ -252,3 +249,7 @@ class BasePhase(ABC):
     @property
     def last_agent_message(self) -> Optional[Message]:
         return self._last_agent_message
+    
+    def set_last_agent_message(self, message: AgentMessage) -> Optional[Message]:
+        logger.info(f"Set last from {self._last_agent_message.id} to {message.id}")
+        self._last_agent_message = message

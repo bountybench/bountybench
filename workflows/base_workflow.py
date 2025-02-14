@@ -3,6 +3,7 @@ import asyncio
 import atexit
 from typing import Any, Dict, Type
 from enum import Enum
+from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 from messages.message_utils import message_dict
 from messages.action_messages.action_message import ActionMessage
@@ -227,6 +228,14 @@ class BaseWorkflow(ABC):
         result = self._current_phase.last_agent_message  
         return result.message if result else ""
       
+    async def set_last_message(self, message_id: str):
+        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        message = workflow_messages.get(message_id)
+        if isinstance(message, ActionMessage):
+            message = message.parent
+        if message and isinstance(message, AgentMessage):
+            self._current_phase.set_last_agent_message(message)
+    
     async def rerun_message(self, message_id: str):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
         message = workflow_messages.get(message_id)
