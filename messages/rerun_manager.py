@@ -139,6 +139,8 @@ class RerunManager:
             parent_message = old_message.parent
             new_message.set_version_prev(old_message)
         new_message.set_next(old_message.next)
+        if not parent_message:
+            parent_message = old_message.parent
         if parent_message:
             parent_message.add_child_message(new_message)
             if isinstance(parent_message, AgentMessage):
