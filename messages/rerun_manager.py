@@ -33,6 +33,7 @@ class RerunManager:
                 "No defined next actions to run, please continue to next iteration"
             )
 
+    '''
     async def _rerun_action_message(
         self, old_message: Message, input_message: Message
     ) -> Message:
@@ -47,6 +48,57 @@ class RerunManager:
 
         self.update_version_links(old_message, new_message, set_version=False, parent_message=parent)
         return new_message
+    '''
+
+    async def _rerun_action_message(
+    self, old_message: ActionMessage, input_message: Message
+) -> Message:
+
+        # Make sure we have the latest version of old_message
+        while old_message.version_next:
+            old_message = old_message.version_next
+
+        parent_message = old_message.parent
+
+        resource = self.resource_manager.get_resource(old_message.resource_id)
+
+        if parent_message and isinstance(parent_message, AgentMessage):
+            new_parent_message = self._clone_message(parent_message)
+            new_parent_message.set_prev(parent_message.prev)
+            self.update_version_links(parent_message, new_parent_message)
+            new_prev_action = self._clone_action_chain(
+                parent_message.current_actions_list, old_message, new_parent_message
+            )
+
+        
+            new_message = resource.run(input_message)
+
+            new_message.set_prev(new_prev_action)
+
+            if old_message.next:
+                new_message.set_next(old_message.next)
+
+            self.update_version_links(
+                old_message, new_message, set_version=False, parent_message=new_parent_message
+            )
+
+            logger.info(
+                f"Rerun with cloned parent. Old ActionMessage ID: {old_message.id}, "
+                f"New ActionMessage ID: {new_message.id}"
+            )
+            return new_message
+
+        else:
+            new_message = resource.run(input_message)
+            # If you do want version chaining, set_version=True
+            self.update_version_links(
+                old_message, new_message, set_version=True, parent_message=parent_message
+            )
+            logger.info(
+                f"Standard Rerun. Old ActionMessage ID: {old_message.id}, "
+                f"New ActionMessage ID: {new_message.id}"
+            )
+            return new_message
 
     async def _rerun_agent_message(
         self, old_message: Message, input_message: Message

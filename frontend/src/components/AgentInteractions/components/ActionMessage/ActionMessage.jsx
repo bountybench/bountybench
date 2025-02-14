@@ -126,7 +126,6 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
   };
 
 
-  console.log("Rendering ActionMessage:", action);
 
   return (
     <Card 

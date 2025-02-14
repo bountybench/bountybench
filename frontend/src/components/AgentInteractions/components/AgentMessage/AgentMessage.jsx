@@ -138,7 +138,6 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     onCellSelect(message.current_id);
   };
 
-  console.log("Received Action Messages:", message.action_messages);
 
   return (    
     <Box className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
@@ -280,7 +279,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                     onCellSelect={onCellSelect}
                     onChildUpdate={handleChildUpdate}
                     displayedIndex={displayedIndex}
-                    versionLength={message.action_messages ? message.action_messages.length / 2 : 1}
+                    versionLength={message.current_children.length / 2}
                   />
                 ))}
               </Box>
