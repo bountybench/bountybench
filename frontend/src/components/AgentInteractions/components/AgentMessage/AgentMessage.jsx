@@ -28,9 +28,11 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
   }, [originalMessageContent, onEditingChange]);
   
   const handleEditClick = useCallback(() => {
-    setEditing(true);
-    onEditingChange(true);
-    setEditedMessage(originalMessageContent);
+    if (!message?.action_messages) {
+      setEditing(true);
+      onEditingChange(true);
+      setEditedMessage(originalMessageContent);
+    }
   }, [originalMessageContent, onEditingChange]);
 
   const handleSaveClick = useCallback(async () => {
@@ -163,7 +165,6 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                       multiline
                       fullWidth
                       minRows={3}
-                      maxRows={10}
                       value={editedMessage}
                       onChange={(e) => setEditedMessage(e.target.value)}
                     />

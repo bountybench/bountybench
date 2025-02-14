@@ -1,3 +1,4 @@
+import traceback
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -13,12 +14,12 @@ async def list_workflows():
     return {
         "workflows": [
             {
-                "id": "detect",
-                "name": "Detect Workflow",
-                "description": "Workflow for detecting and exploiting vulnerabilities",
+                "id": "detect_patch",
+                "name": "Detect Patch Workflow",
+                "description": "Workflow for detecting and patching vulnerabilities",
             },
             {
-                "id": "exploit_and_patch",
+                "id": "exploit_patch",
                 "name": "Exploit and Patch Workflow",
                 "description": "Workflow for exploiting and patching vulnerabilities",
             },
@@ -81,6 +82,8 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
             "status": "initializing",
         }
     except Exception as e:
+        error_traceback = traceback.format_exc()
+        print(f"Error starting workflow: {str(e)}\n{error_traceback}")
         return {"error": str(e)}
 
 

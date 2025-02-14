@@ -86,7 +86,7 @@ class TestBasePhase(unittest.TestCase):
         )
 
         phase = SamplePhase(phase_config=config)
-        final_message, success_flag = phase.run_phase()
+        final_message, success_flag = phase.run()
 
         self.assertFalse(success_flag)
         self.assertEqual(agent1.run_count, 3)
@@ -111,7 +111,7 @@ class TestBasePhase(unittest.TestCase):
         )
 
         phase = SamplePhase(phase_config=config)
-        final_message, success_flag = phase.run_phase()
+        final_message, success_flag = phase.run()
 
         self.assertEqual(agent1.run_count, 1)
         self.assertEqual(agent2.run_count, 1)
@@ -136,7 +136,7 @@ class TestBasePhase(unittest.TestCase):
 
         initial_resp = Message("Initial")
         phase = SamplePhase(phase_config=config, initial_message=initial_resp)
-        final_message, success_flag = phase.run_phase()
+        final_message, success_flag = phase.run()
 
         self.assertEqual(agent.run_count, 3)
         self.assertFalse(success_flag)
@@ -156,7 +156,7 @@ class TestBasePhase(unittest.TestCase):
             ],
         )
         phase = PhaseWithRequiredAgents(phase_config=config)
-        final_message, success_flag = phase.run_phase()
+        final_message, success_flag = phase.run()
 
         self.assertFalse(success_flag)
         self.assertEqual(final_message.message, "FakeAgentB")

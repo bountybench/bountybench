@@ -1,4 +1,6 @@
 from typing import List, Optional
+import asyncio
+from typing import List, Optional
 
 from agents.base_agent import BaseAgent
 from messages.action_messages.action_message import ActionMessage
@@ -6,6 +8,7 @@ from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.resource_enum import Resource
+from messages.convert_message_utils import cast_action_to_command
 from messages.action_messages.command_message_interface import CommandMessageInterface
 from messages.message import Message
 from utils.logger import get_main_logger
@@ -15,7 +18,6 @@ logger = get_main_logger(__name__)
 
 MAX_RETRIES = 3
 RETRY_DELAY = 30
-
 
 class ExecutorAgent(BaseAgent):
 
@@ -48,37 +50,33 @@ class ExecutorAgent(BaseAgent):
 
 
         agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
+
         
-        #print("************IN EXECUTOR AGENT RUN*****************************")
-        #print("AGENT MESSAGE", agent_message.to_dict())
-        #print("PREVIOUS AGENT MESSAGE", prev_agent_message.to_dict())
-        #print("***************************************************************")
-        self.execute(agent_message, prev_agent_message)
-        #self.model.update_memory(executor_message)
+        await self.execute(agent_message, prev_agent_message)
 
         return agent_message
-
-    def execute(self, agent_message: ExecutorAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> Message:
-        model_action_message = self.call_lm(prev_agent_message)
-        if not model_action_message:
-            return
-        
-
-        agent_message.add_action_message(model_action_message)
-
     
 
-        # If the model decides to output a command, we run it in the environment
+    async def execute(self, agent_message: ExecutorAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> Message:
+        model_action_message = await self.call_lm(prev_agent_message)
+
+        # If the model couldn't generate a valid command, just return a failure message
+        if not model_action_message:
+            agent_message.set_message("Model failed to produce a valid response.")
+            return agent_message
+        agent_message.add_child_message(model_action_message)
+
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
                 return
-            agent_message.add_action_message(kali_action_message)
+            agent_message.add_child_message(kali_action_message)
             return kali_action_message
+
         return model_action_message
 
-    def call_lm(self, lm_input_message: Optional[Message] = None) -> CommandMessage:
+    async def call_lm(self, lm_input_message: Optional[Message] = None) ->  Optional[CommandMessage]:
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
@@ -92,8 +90,9 @@ class ExecutorAgent(BaseAgent):
                 try:
                     executor_agent_memory = Resource.MEMORY.get_resource(self)
                     lm_input_message = executor_agent_memory.get_memory(lm_input_message)
-                    model_response = Resource.MODEL.get_resource(self).run(input_message=lm_input_message)
-                    return model_response
+                    model_output: ActionMessage = await asyncio.to_thread(self.model.run, input_message=lm_input_message)
+                    parsed_response = self.parse_response(model_output)
+                    return parsed_response
                 except Exception as e:
                     logger.warning(f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}")
                     iterations += 1
@@ -107,6 +106,21 @@ class ExecutorAgent(BaseAgent):
 
         finally:
             stop_progress()
+    
+    def parse_response(self, action_message: ActionMessage) -> Optional[CommandMessage]:
+        """
+        Attempts to parse the ActionMessage into a CommandMessage.
+        If parsing fails, return None so that the agent can still send an AgentMessage.
+        """
+        try:
+            # Convert ActionMessage to CommandMessage
+            command_message = cast_action_to_command(action_message)
+            return command_message
+
+        except Exception as e:
+            logger.info(f"LM responded with: {action_message.message}")
+            logger.debug(f"Could not parse response as CommandMessage. Error: {e}")
+            return None
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
         """
@@ -117,6 +131,7 @@ class ExecutorAgent(BaseAgent):
         try:
             kali_message = kali_env.run(executor_message)
             return kali_message
+        
         except Exception as e:
             logger.exception(f"Failed to execute command: {executor_message.command}.\nException: {str(e)}")
             return ActionMessage(resource_id=kali_env.resource_id, message=str(e), prev=executor_message)

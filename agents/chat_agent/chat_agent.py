@@ -41,7 +41,7 @@ class ChatAgent(BaseAgent):
 
     def execute(self, agent_message: AgentMessage, action_message: Optional[ActionMessage] = None) -> Message:
         model_action_message = self.call_lm(action_message)
-        agent_message.add_action_message(model_action_message)
+        agent_message.add_child_message(model_action_message)
         logger.info(f"LM Response:\n{model_action_message.message}")
 
         return model_action_message
