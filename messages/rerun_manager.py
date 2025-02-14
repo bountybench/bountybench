@@ -35,8 +35,8 @@ class RerunManager:
 
     
     async def _rerun_action_message(
-    self, old_message: ActionMessage, input_message: Message
-) -> Message:
+        self, old_message: ActionMessage, input_message: Message
+    ) -> Message:
         while old_message.version_next:
             old_message = old_message.version_next
 
@@ -81,7 +81,7 @@ class RerunManager:
 
             return new_output
 
-        # 5) Otherwise, just handle version linking for the resource.run() output
+        # Otherwise, just handle version linking for the resource.run() output
         else:
             self.update_version_links(
                 old_message=old_message, 
