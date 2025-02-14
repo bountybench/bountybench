@@ -83,7 +83,7 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
         }
     except Exception as e:
         error_traceback = traceback.format_exc()
-        print(f"Error starting workflow {workflow_id}: {str(e)}\n{error_traceback}")
+        print(f"Error starting workflow: {str(e)}\n{error_traceback}")
         return {"error": str(e)}
 
 
