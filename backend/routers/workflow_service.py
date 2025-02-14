@@ -100,6 +100,7 @@ async def rerun_message(workflow_id: str, data: MessageData, request: Request):
         return {"status": "updated", "result": result.id}
     except Exception as e:
         error_traceback = traceback.format_exc()
+        print(f"Error rerunning message {workflow_id}: {str(e)}\n{error_traceback}")
         return {"error": str(e), "traceback": error_traceback}
 
 
@@ -119,7 +120,9 @@ async def edit_action_input(workflow_id: str, data: MessageInputData, request: R
             return result
         return {"status": "updated", "result": result.id}
     except Exception as e:
-        return {"error": str(e)}
+        error_traceback = traceback.format_exc()
+        print(f"Error editing and rerunning message {workflow_id}: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
 
 
 @workflow_service_router.post("/workflow/{workflow_id}/interactive")
@@ -292,13 +295,14 @@ async def run_workflow(
             )
 
     except Exception as e:
+        error_traceback = traceback.format_exc()
         # Handle errors
         if not should_exit:
             print(f"Workflow error: {e}")
             workflow_data["status"] = "error"
             await websocket_manager.broadcast(
                 workflow_id,
-                {"message_type": "workflow_status", "status": "error", "error": str(e)},
+                {"message_type": "workflow_status", "status": "error", "error": str(e), "traceback": error_traceback},
             )
             print(f"Broadcasted error status for {workflow_id}")
 
@@ -325,4 +329,7 @@ async def change_model(workflow_id: str, data: dict, request: Request):
         result = await workflow.change_current_model(data["new_model_name"])
         return {"status": "updated", "result": result.id}
     except Exception as e:
-        return {"error": str(e)}
+        error_traceback = traceback.format_exc()
+        print(f"Error stopping workflow {workflow_id}: {str(e)}\n{error_traceback}")
+        return {"error": str(e), "traceback": error_traceback}
+
