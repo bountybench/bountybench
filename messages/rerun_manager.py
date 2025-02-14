@@ -50,28 +50,19 @@ class RerunManager:
         resource = self.resource_manager.get_resource(old_message.resource_id)
         new_action: ActionMessage = resource.run(input_message)
 
+        # Keep next link if the old action had one
+        if old_message.next:
+            new_action.set_next(old_message.next)
+
         # If parent is an AgentMessage, just attach new_action to it
         if parent_message and isinstance(parent_message, AgentMessage):
             parent_message.add_child_message(new_action)
-
-            # Keep next link if the old action had one
-            if old_message.next:
-                new_action.set_next(old_message.next)
-
-            # Set up version linking
-            self.update_version_links(
-                old_message=old_message,
-                new_message=new_action,
-                set_version=True,
-                parent_message=parent_message
-            )
-            return new_action
-
-        # Else, just do standard version linking with no parent clone
+            
+        # Always update version links with set_version=False like in old version
         self.update_version_links(
             old_message=old_message,
             new_message=new_action,
-            set_version=True,
+            set_version=False,
             parent_message=parent_message
         )
         return new_action
