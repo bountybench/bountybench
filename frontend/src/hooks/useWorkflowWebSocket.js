@@ -84,7 +84,7 @@ export const useWorkflowWebSocket = (workflowId) => {
   }, []);
 
   const handleUpdatedActionMessage = useCallback((updatedAgentMessage) => {
-    console.error("We shouldn't be broadcasting ActionMessages");
+    console.log("TODO: handle broadcasting ActionMessages");
   }, []);
 
   const handleWebSocketMessage = useCallback((event) => {
