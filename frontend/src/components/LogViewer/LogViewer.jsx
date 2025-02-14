@@ -34,21 +34,34 @@ export const LogViewer = ({ workflow }) => {
       });
   }, []);
 
-  // Fetch log file content
+  // Fetch log file content  
   const handleLogClick = async (filename) => {
     setLoading(true);
     setSelectedLogFile(filename);
     try {
       const response = await fetch(`http://localhost:8000/logs/${filename}`);
       const content = await response.json();
-      setSelectedLogContent(content?.phase_messages || null);
+
+      // Construct current_children for PhaseMessage
+      const modifiedContent = content?.phase_messages?.map(phase => {
+        if (phase.agent_messages) {
+          
+          phase.agent_messages = phase.agent_messages.map(agentMessage => ({
+            ...agentMessage,
+            current_children: agentMessage.action_messages || []
+          }));
+        }
+        return phase;
+      });
+      
+      setSelectedLogContent(modifiedContent || null);
     } catch (error) {
       console.error('Error fetching log content:', error);
     } finally {
       setLoading(false);
     }
   };
-  
+
   // Function to group logs by workflow type and codebase
   const groupedLogs = useMemo(() => {
     const grouped = {};
