@@ -58,9 +58,11 @@ class WorkflowMessage(Message):
     def set_summary(self, summary: str):
         self._summary = summary
 
-    def add_phase_message(self, phase_message: PhaseMessage):
+    def add_child_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
         phase_message.set_parent(self)
+        from messages.message_utils import log_message
+        log_message(phase_message)
 
     def add_agent(self, agent_name: str, agent) -> None:        
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
@@ -94,8 +96,10 @@ class WorkflowMessage(Message):
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
         logs = self.to_dict()
-        for phase_message in logs["phase_messages"]:
-            for agent_message in phase_message["agent_messages"]:
+        phase_messages = logs["phase_messages"] if logs["phase_messages"] else []
+        for phase_message in phase_messages:
+            agent_messages = phase_message["agent_messages"] if phase_message["agent_messages"] else []
+            for agent_message in agent_messages:
                 agent_message.pop('current_children', None)
             phase_message.pop('current_children', None)
 

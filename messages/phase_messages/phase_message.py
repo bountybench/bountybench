@@ -80,7 +80,6 @@ class PhaseMessage(Message):
         for action_message in agent_message.action_messages:
             log_message(action_message)
         log_message(agent_message)
-        log_message(self)
 
     def to_dict(self) -> dict:
         phase_dict = {
