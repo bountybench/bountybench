@@ -96,6 +96,8 @@ class Message(ABC):
         return self.to_base_dict()
 
     def to_log_dict(self) -> dict:
-        return self.to_base_dict()
+        log_dict = self.to_base_dict()
+        log_dict.pop("parent", None)
+        return log_dict
 
         

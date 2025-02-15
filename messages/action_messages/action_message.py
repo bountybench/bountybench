@@ -51,19 +51,17 @@ class ActionMessage(Message):
             "message": self.message,
         }
         if self.additional_metadata:
-            action_dict["additional_metadata"]=  self.additional_metadata
-
+            action_dict["additional_metadata"] = self.additional_metadata
         return action_dict
 
-    def _merge_with_base_dict(self) -> dict:
-        """Helper method to merge action_dict with base_dict."""
-        base_dict = super().to_base_dict()
+    def to_broadcast_dict(self) -> dict:
+        base_dict = super().to_broadcast_dict()
         action_dict = self.action_dict()
         action_dict.update(base_dict)
         return action_dict
 
-    def to_broadcast_dict(self) -> dict:
-        return self._merge_with_base_dict()
-
     def to_log_dict(self) -> dict:
-        return self._merge_with_base_dict()
+        base_dict = super().to_log_dict()
+        action_dict = self.action_dict()
+        action_dict.update(base_dict)
+        return action_dict
