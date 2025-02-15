@@ -174,7 +174,7 @@ describe('WorkflowDashboard Component', () => {
     const triggerNextIterationButton = screen.getByRole('button', { name: 'Continue' });
     fireEvent.click(triggerNextIterationButton);
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
     expect(global.fetch).toHaveBeenCalledWith(
       `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/run-message`, 
       { 
@@ -215,7 +215,7 @@ describe('WorkflowDashboard Component', () => {
         const triggerNextIterationButton = screen.getByRole('button', { name: 'Continue' });
         fireEvent.click(triggerNextIterationButton);
 
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
         expect(global.fetch).toHaveBeenCalledWith(
           `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/run-message`, 
           { 
@@ -335,7 +335,7 @@ describe('WorkflowDashboard Component', () => {
         fireEvent.click(saveButton);
 
         // Assertion for the fetch call
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
         expect(global.fetch).toHaveBeenCalledWith(
         `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/edit-message`,
         {
@@ -455,7 +455,7 @@ describe('WorkflowDashboard Component', () => {
         fireEvent.click(saveButton);
 
         // Assertion for the fetch call
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
         expect(global.fetch).toHaveBeenCalledWith(
         `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/edit-message`,
         {

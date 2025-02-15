@@ -341,3 +341,29 @@ async def toggle_version(workflow_id: str, data: dict, request: Request):
     except Exception as e:
         error_traceback = traceback.format_exc()
         return {"error": str(e), "traceback": error_traceback}
+
+@workflow_service_router.get("/workflow/{workflow_id}/resources")
+async def get_workflow_resources(workflow_id: str, request: Request):
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+
+    workflow = active_workflows[workflow_id]["instance"]
+    resource_manager = workflow.resource_manager
+
+    resources = resource_manager.get_resources()
+    resource_list = []
+    for resource_id, resource in resources.items():
+        resource_info = {
+            "id": resource_id,
+            "type": type(resource).__name__,
+            "config": (
+                resource._resource_config.to_dict()
+                if resource._resource_config
+                else None
+            ),
+        }
+        resource_list.append(resource_info)
+
+    return {"resources": resource_list}
+  
