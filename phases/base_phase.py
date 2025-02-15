@@ -219,6 +219,7 @@ class BasePhase(ABC):
 
             message = await self._run_iteration(agent_instance)
             message.set_iteration(iteration)
+            await self.set_last_agent_message(message)
             self._phase_message.add_child_message(message)
 
             logger.info(
@@ -227,7 +228,7 @@ class BasePhase(ABC):
             if self._phase_message.complete:
                 break
 
-            self._update_iteration_state()
+            self.iteration_count += 1
 
         self._finalize_phase()
 
@@ -278,11 +279,6 @@ class BasePhase(ABC):
             previous_output=self._last_agent_message,
         )
 
-    def _update_iteration_state(self) -> None:
-        """Update the state after each iteration."""
-        self._last_agent_message = self._phase_message.agent_messages[-1]
-        self.iteration_count += 1
-
     def _finalize_phase(self) -> None:
         """Finalize the phase by setting the summary and deallocating resources."""
         if self._phase_message.summary == "incomplete":
@@ -301,7 +297,7 @@ class BasePhase(ABC):
             iteration = self._last_agent_message.iteration
             iteration += 1
         return iteration
-    
+
     def _get_agent_from_message(self, message: AgentMessage) -> Tuple[str, BaseAgent]:
         """
         Retrieve the agent associated with iteration from a given message.
@@ -315,7 +311,7 @@ class BasePhase(ABC):
             return None, None
         agent = self.agents[iteration % len(self.agents)]
         return agent
-    
+
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:
         """
         Retrieve the next agent in a round-robin fashion.
@@ -376,8 +372,8 @@ class BasePhase(ABC):
             Optional[Message]: The last agent message, if any.
         """
         return self._last_agent_message
-    
-    def set_last_agent_message(self, message: AgentMessage) -> Optional[Message]:
-        logger.info(f"Set last from {self._last_agent_message.id} to {message.id}")
-        self._last_agent_message = message
 
+    async def set_last_agent_message(self, message: AgentMessage) -> Optional[Message]:
+        logger.info(f"Set last from {self._last_agent_message.id} to {message.id}")
+        logger.info(f"Message: {message.to_dict()}")
+        self._last_agent_message = message
