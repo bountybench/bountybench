@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { Box, CircularProgress, Alert, Typography } from '@mui/material';
+import { Box, CircularProgress, Alert, Typography, IconButton } from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
+import ResourceDict from '../ResourceDict/ResourceDict';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
@@ -21,6 +24,9 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
   const [preservedMessages, setPreservedMessages] = useState([]);
   
+  const [resources, setResources] = useState([]);
+  const [isResourcePanelOpen, setIsResourcePanelOpen] = useState(false);
+
   const [workflowState, setWorkflowState] = useState({
     status: WorkflowState.LOADING,
     message: "Loading workflow instance...",
@@ -114,6 +120,31 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     console.log(`Workflow state updated to ${workflowStatus}`)
     onWorkflowStateUpdate(workflowStatus, currentPhase);
   }, [isConnected, workflowStatus, currentPhase, phaseMessages, error, onWorkflowStateUpdate]);
+
+  const fetchResources = useCallback(async () => {
+    if (workflowId) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/resources`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log(`Got resources ${data.resources}`)
+        setResources(data.resources);
+      } catch (error) {
+        console.error('Error fetching resources:', error);
+      }
+    }
+  }, [workflowId]);
+
+
+  useEffect(() => {
+    fetchResources();
+  }, [phaseMessages]);
+
+  const toggleResourcePanel = () => {
+    setIsResourcePanelOpen(!isResourcePanelOpen);
+  };
 
   const triggerNextIteration = async () => {
     if (workflowStatus === "stopped") {
@@ -270,19 +301,31 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const displayMessages = workflowState.status === WorkflowState.COMPLETED ? preservedMessages : phaseMessages;
 
   return (
-    <Box height="100%" overflow="auto">
-      <AgentInteractions
-        interactiveMode={interactiveMode}
-        workflowStatus={workflowStatus}
-        currentPhase={currentPhase}
-        isNextDisabled={isNextDisabled}
-        phaseMessages={displayMessages}
-        onUpdateMessageInput={handleUpdateMessageInput}
-        onRerunMessage={handleRerunMessage}
-        onTriggerNextIteration={triggerNextIteration}
-        onStopWorkflow={handleStopWorkflow}
-        onToggleVersion={handleToggleVersion}
-      />
+    <Box height="100%" overflow="hidden" display="flex">
+      <Box flexGrow={1} overflow="auto">
+        <AgentInteractions
+          interactiveMode={interactiveMode}
+          workflowStatus={workflowStatus}
+          currentPhase={currentPhase}
+          isNextDisabled={isNextDisabled}
+          phaseMessages={displayMessages}
+          onUpdateMessageInput={handleUpdateMessageInput}
+          onRerunMessage={handleRerunMessage}
+          onTriggerNextIteration={triggerNextIteration}
+          onStopWorkflow={handleStopWorkflow}
+          onToggleVersion={handleToggleVersion}
+        />
+      </Box>
+      <Box className={`resource-panel ${isResourcePanelOpen ? 'open' : ''}`}>
+        <IconButton
+          className="toggle-panel"
+          onClick={toggleResourcePanel}
+          size="small"
+        >
+          {isResourcePanelOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+        </IconButton>
+        <ResourceDict resources={resources} />
+      </Box>
     </Box>
   );
 };
