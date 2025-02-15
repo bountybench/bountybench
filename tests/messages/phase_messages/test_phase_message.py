@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 from unittest.mock import MagicMock, patch, PropertyMock
 from messages.workflow_message import WorkflowMessage
 from messages.phase_messages.phase_message import PhaseMessage
@@ -131,9 +130,9 @@ async def test_current_children():
     assert current_agents[1] == agent_msg6
 
 
-def test_to_dict(mocker):
+def test_to_broadcast_dict(mocker):
     """
-    Test the to_dict method for PhaseMessage.
+    Test the to_broadcast_dict method for PhaseMessage.
     """
     mock_agent_messages = mocker.patch.object(
         PhaseMessage, 
@@ -145,31 +144,59 @@ def test_to_dict(mocker):
         'current_children', 
         new_callable=PropertyMock
     )
-    mock_super_to_dict = mocker.patch.object(
+    mock_super_broadcast = mocker.patch.object(
         Message, 
-        'to_dict'
+        'to_broadcast_dict'
     )
+
     agent_msg_mock = MagicMock(spec=AgentMessage)
-    agent_msg_mock.to_dict.return_value = {"agent_key": "agent_value"}
+    agent_msg_mock.to_broadcast_dict.return_value = {"agent_key": "agent_value"}
     mock_agent_messages.return_value = [agent_msg_mock]
     mock_current_children.return_value = [agent_msg_mock]
-    mock_super_to_dict.return_value = {"super_key": "super_value"}
+    mock_super_broadcast.return_value = {"super_key": "super_value"}
 
     phase_message = PhaseMessage("phase_1")
     phase_message.set_summary("summary_1")
     phase_message.add_child_message(agent_msg_mock)
 
-    result_dict = phase_message.to_dict()
+    result_dict = phase_message.to_broadcast_dict()
+
+    assert result_dict["phase_id"] == "phase_1"
+    assert result_dict["phase_summary"] == "summary_1"
+    assert result_dict["current_children"] is not None
+    assert len(result_dict["current_children"]) == 1
+    assert result_dict["current_children"][0] == {"agent_key": "agent_value"}
+    assert result_dict["super_key"] == "super_value"
+
+
+def test_to_log_dict(mocker):
+    """
+    Test the to_log_dict method for PhaseMessage.
+    """
+    mock_agent_messages = mocker.patch.object(
+        PhaseMessage, 
+        'agent_messages', 
+        new_callable=PropertyMock
+    )
+    mock_super_log = mocker.patch.object(
+        Message, 
+        'to_log_dict'
+    )
+
+    agent_msg_mock = MagicMock(spec=AgentMessage)
+    agent_msg_mock.to_log_dict.return_value = {"agent_key": "agent_value"}
+    mock_agent_messages.return_value = [agent_msg_mock]
+    mock_super_log.return_value = {"super_key": "super_value"}
+
+    phase_message = PhaseMessage("phase_1")
+    phase_message.set_summary("summary_1")
+    phase_message.add_child_message(agent_msg_mock)
+
+    result_dict = phase_message.to_log_dict()
 
     assert result_dict["phase_id"] == "phase_1"
     assert result_dict["phase_summary"] == "summary_1"
     assert result_dict["agent_messages"] is not None
     assert len(result_dict["agent_messages"]) == 1
     assert result_dict["agent_messages"][0] == {"agent_key": "agent_value"}
-
-    assert result_dict["current_children"] is not None
-    assert len(result_dict["current_children"]) == 1
-    assert result_dict["current_children"][0] == {"agent_key": "agent_value"}
-
     assert result_dict["super_key"] == "super_value"
-
