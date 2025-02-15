@@ -20,7 +20,7 @@ def broadcast_update(messages):
     if not isinstance(messages, list):
         messages = [messages]
 
-    data_list = [msg.to_dict() for msg in messages]
+    data_list = [msg.to_broadcast_dict() for msg in messages]
     workflow_id = messages[0].workflow_id  # Assumes all messages are for the same workflow
 
     try:

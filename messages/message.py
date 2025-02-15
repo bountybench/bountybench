@@ -1,6 +1,6 @@
 import time
 from abc import ABC
-
+from typing import List
 
 class Message(ABC):
 
@@ -63,6 +63,21 @@ class Message(ABC):
     def set_version_prev(self, version_prev: "Message") -> None:
         self._version_prev = version_prev
         version_prev._version_next = self
+    
+
+    @property
+    def versions(self) -> List[str]:
+        message = self
+        versions = [message.id]
+        while message.version_prev:
+            message = message.version_prev
+            versions.insert(0, message.id)
+        message = self
+        while message.version_next:
+            message = message.version_next
+            versions.append(message.id)
+        
+        return versions
 
     @property
     def message_type(self) -> str:
@@ -72,7 +87,7 @@ class Message(ABC):
         """
         return self.__class__.__name__
 
-    def to_dict(self) -> dict:
+    def to_base_dict(self) -> dict:
             result = {}
             result["message_type"] = self.message_type
             if self.prev is not None:
@@ -86,11 +101,20 @@ class Message(ABC):
                 result["version_prev"] = id(self.version_prev)
             if self.version_next is not None:
                 result["version_next"] = id(self.version_next)
-            if self.parent is not None:
-                result["parent"] = self.parent.id
-                
             result["timestamp"] = self.timestamp
-            
-        
             return result
+    
+    def to_broadcast_dict(self) -> dict: 
+        base_dict = self.to_base_dict()
+        if self.parent is not None:
+            base_dict["parent"] = self.parent.id
+        if len(self.versions) > 1:
+            base_dict["versions"] = self.versions
+
+        return base_dict
+
+    def to_log_dict(self) -> dict:
+        log_dict = self.to_base_dict()
+        return log_dict
+
         

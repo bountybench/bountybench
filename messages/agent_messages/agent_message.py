@@ -96,29 +96,27 @@ class AgentMessage(Message):
         log_message(action_message)
         log_message(self)
 
-    def agent_dict(self) -> dict:
-        agent_dict = {
+    def to_broadcast_dict(self) -> dict:
+        base_dict = super().to_broadcast_dict()
+        broadcast_dict = {
             "agent_id": self.agent_id,
-            "action_messages": (
-                [
-                    action_message.to_dict()
-                    for action_message in self.action_messages
-                    if action_message is not None
-                ]
-                if self.action_messages
-                else None
-            ),
             "message": self.message,
-            "iteration": self.iteration,
+            "current_children": [
+                action_message.to_broadcast_dict() for action_message in self.current_children
+            ],
+            "iteration": self.iteration
         }
-        agent_dict["current_children"] = [
-            action_message.to_dict() for action_message in self.current_children
-        ]
+        broadcast_dict.update(base_dict)
+        return broadcast_dict
 
-        return agent_dict
-
-    def to_dict(self) -> dict:
-        agent_dict = self.agent_dict()
-        base_dict = super().to_dict()
-        agent_dict.update(base_dict)
-        return agent_dict
+    def to_log_dict(self) -> dict:
+        base_dict = super().to_log_dict()
+        log_dict = {
+            "agent_id": self.agent_id,
+            "message": self.message,
+            "action_messages": [
+                action_message.to_log_dict() for action_message in self.action_messages
+            ] if self.action_messages else None,
+        }
+        log_dict.update(base_dict)
+        return log_dict

@@ -81,24 +81,26 @@ class PhaseMessage(Message):
             log_message(action_message)
         log_message(agent_message)
 
-    def to_dict(self) -> dict:
-        phase_dict = {
+    def to_broadcast_dict(self) -> dict:
+            base_dict = super().to_broadcast_dict()
+            broadcast_dict = {
+                "phase_id": self.phase_id,
+                "phase_summary": self.summary,
+                "current_children": [
+                    agent_message.to_broadcast_dict() for agent_message in self.current_children
+                ],
+            }
+            broadcast_dict.update(base_dict)
+            return broadcast_dict
+
+    def to_log_dict(self) -> dict:
+        base_dict = super().to_log_dict()
+        log_dict = {
             "phase_id": self.phase_id,
             "phase_summary": self.summary,
-            "agent_messages": (
-                [
-                    agent_message.to_dict()
-                    for agent_message in self.agent_messages
-                    if agent_message is not None
-                ]
-                if self.agent_messages
-                else None
-            ),
-            "current_children": [
-                agent_message.to_dict() for agent_message in self.current_children
-            ],
-            "phase_summary": self.phase_summary,
+            "agent_messages": [
+                agent_message.to_log_dict() for agent_message in self.agent_messages
+            ] if self.agent_messages else None,
         }
-        base_dict = super().to_dict()
-        phase_dict.update(base_dict)
-        return phase_dict
+        log_dict.update(base_dict)
+        return log_dict

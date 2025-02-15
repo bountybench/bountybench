@@ -233,11 +233,10 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                           </Box>
 
                           {/* Version Number */}
-                          {message?.version_next || message?.version_prev && (
-                            <></>
-                          // <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
-                          //   {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
-                          // </Typography>
+                          {(message?.version_next || message?.version_prev) && (
+                          <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
+                          {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
+                          </Typography>
                           )}
                         </Box>
                       </> 
@@ -300,11 +299,10 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                 </Box>
 
                 {/* Version Number */}
-                {message?.version_next || message?.version_prev && (
-                  <></>
-                // <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
-                //   {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
-                // </Typography>
+                {(message?.version_next || message?.version_prev) && (
+                <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
+                {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
+                </Typography>
                 )}
               </Box>
             </> 
