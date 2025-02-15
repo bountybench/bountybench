@@ -54,7 +54,6 @@ class BasePhase(ABC):
         self.params: Dict[str, Any] = kwargs
         self._done: bool = False
         self.iteration_count: int = 0
-        self.current_agent_index: int = 0
         self._last_agent_message: Optional[Message] = None
 
     @abstractmethod
@@ -206,18 +205,20 @@ class BasePhase(ABC):
 
         self._initialize_last_agent_message(prev_phase_message)
 
-        for iteration_num in range(1, self.phase_config.max_iterations + 1):
+        for iteration_num in range(0, self.phase_config.max_iterations):
             if self._phase_message.complete:
                 break
 
             await self._handle_interactive_mode()
 
+            iteration = self._get_current_iteration()
             agent_id, agent_instance = self._get_current_agent()
             logger.info(
-                f"Running iteration {iteration_num} of {self.name} with {agent_id}"
+                f"Running iteration {iteration_num} ({iteration}) of {self.name} with {agent_id}"
             )
 
             message = await self._run_iteration(agent_instance)
+            message.set_iteration(iteration)
             self._phase_message.add_child_message(message)
 
             logger.info(
@@ -281,7 +282,6 @@ class BasePhase(ABC):
         """Update the state after each iteration."""
         self._last_agent_message = self._phase_message.agent_messages[-1]
         self.iteration_count += 1
-        self.current_agent_index += 1
 
     def _finalize_phase(self) -> None:
         """Finalize the phase by setting the summary and deallocating resources."""
@@ -289,6 +289,33 @@ class BasePhase(ABC):
             self._phase_message.set_summary("completed_failure")
         self.deallocate_resources()
 
+    def _get_current_iteration(self) -> int:
+        """
+        Based on the last agent message iteration property, return the subsequent (current) iteration
+
+        Returns:
+            int: The current (depth) iteration.
+        """
+        iteration = 0
+        if self._last_agent_message:
+            iteration = self._last_agent_message.iteration
+            iteration += 1
+        return iteration
+    
+    def _get_agent_from_message(self, message: AgentMessage) -> Tuple[str, BaseAgent]:
+        """
+        Retrieve the agent associated with iteration from a given message.
+
+        Returns:
+            Tuple[str, BaseAgent]: A tuple containing the agent ID and the agent instance.
+        """
+        iteration = message.iteration
+        if iteration == -1:
+            logger.warning(f"Message {message} iteration unset or negative")
+            return None, None
+        agent = self.agents[iteration % len(self.agents)]
+        return agent
+    
     def _get_current_agent(self) -> Tuple[str, BaseAgent]:
         """
         Retrieve the next agent in a round-robin fashion.
@@ -296,17 +323,8 @@ class BasePhase(ABC):
         Returns:
             Tuple[str, BaseAgent]: A tuple containing the agent ID and the agent instance.
         """
-        agent = self.agents[self.current_agent_index % len(self.agents)]
-        return agent
-
-    def _get_last_agent(self) -> Tuple[str, BaseAgent]:
-        """
-        Retrieve the previous agent in a round-robin fashion.
-
-        Returns:
-            Tuple[str, BaseAgent]: A tuple containing the agent ID and the agent instance.
-        """
-        agent = self.agents[(self.current_agent_index - 1) % len(self.agents)]
+        iteration = self._get_current_iteration()
+        agent = self.agents[iteration % len(self.agents)]
         return agent
 
     async def set_interactive_mode(self, interactive: bool) -> None:
