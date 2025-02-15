@@ -10,6 +10,7 @@ from messages.phase_messages.phase_message import PhaseMessage
 from messages.rerun_manager import RerunManager
 from messages.workflow_message import WorkflowMessage
 from resources.resource_manager import ResourceManager
+from agents.agent_manager import AgentManager
 
 
 @pytest.fixture
