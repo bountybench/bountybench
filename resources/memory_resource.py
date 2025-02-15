@@ -203,7 +203,7 @@ class MemoryResourceConfig(BaseResourceConfig):
         default=MemoryCollationFunctions.collate_ordered
     )
     segment_trunc_fn: Callable[[List], List] = field(
-        default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=3)
+        default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=6)
     )
     memory_trunc_fn: Callable[[List], List] = field(
         default=MemoryTruncationFunctions.memory_fn_by_token
@@ -288,14 +288,14 @@ class MemoryResource(BaseResource):
                 return msg_node.agent_id
 
             assert isinstance(msg_node, ActionMessage)
-            return msg_node.parent.agent_id
+            return msg_node.parent.agent_id + "/" + msg_node.resource_id
 
         def add_to_segment(msg_node, segment):
             id_ = extract_id(msg_node)
             if not msg_node._message.strip():
                 return
 
-            segment.append(f"[{id_}]{msg_node._message.strip()}")
+            segment.append(f"[{id_}] {msg_node._message.strip()}")
 
         def go_up(msg_node, dst_cls):
             down_stop = None
@@ -303,11 +303,6 @@ class MemoryResource(BaseResource):
                 down_stop = msg_node
                 msg_node = msg_node.parent
             return msg_node, down_stop
-            #     stops.append(msg_node)
-            #     while msg_node.prev:
-            #         msg_node = msg_node.prev
-            #     msg_node = msg_node.parent
-            # return msg_node, stops
 
         def go_down(msg_node, sys_messages, stop_instance):
             if is_initial_prompt(msg_node):
