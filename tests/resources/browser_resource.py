@@ -8,6 +8,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from resources.base_resource import BaseResource
+from messages.message import Message
+from messages.action_messages.action_message import ActionMessage
+import traceback
 
 
 class BrowserResource(BaseResource):
@@ -40,16 +43,19 @@ class BrowserResource(BaseResource):
         self.driver = webdriver.Chrome(service=service)
         self.logger.info("BrowserResource initialized successfully.")
 
-    def run(self, message: dict) -> dict:
+    def run(self, message: Message) -> ActionMessage:
         """
         Executes the task of interacting with a webpage, detecting elements, and changing site state.
 
-        :param message: Dictionary containing the URL, actions, inputs, and subpage exploration options.
-        :return: Dictionary with extracted data and action results.
+        :param message: Message object containing the URL, actions, and inputs.
+        :return: ActionMessage with extracted data and action results.
         """
-        url = message.get("url")
-        actions = message.get("actions", [])
-        inputs = message.get("inputs", {})
+        if not hasattr(message, "additional_metadata") or not isinstance(message.additional_metadata, dict):
+            raise ValueError("Invalid message format: additional_metadata is missing or incorrect.")
+
+        url = message.additional_metadata.get("url", "")
+        actions = message.additional_metadata.get("actions", [])
+        inputs = message.additional_metadata.get("inputs", {})
 
         if not url:
             raise ValueError("The 'url' key must be provided in the message.")
@@ -58,14 +64,27 @@ class BrowserResource(BaseResource):
             main_page_data = self._extract_page_data(url)
             action_results = [self._perform_action(action, inputs) for action in actions]
 
-            return {
+            result_metadata = {
                 "main_page": main_page_data,
                 "actions_performed": action_results
             }
 
+            return ActionMessage(
+                resource_id=self._resource_id,
+                message="Browser actions completed",
+                additional_metadata=result_metadata,
+                prev=message
+            )
+
         except Exception as e:
             self.logger.error(f"An error occurred: {e}")
-            raise e
+
+            return ActionMessage(
+                resource_id=self._resource_id,
+                message=f"Error: {str(e)}",
+                additional_metadata={"error": str(e)},
+                prev=message
+            )
 
     def _perform_action(self, action: str, inputs: dict) -> dict:
         """
