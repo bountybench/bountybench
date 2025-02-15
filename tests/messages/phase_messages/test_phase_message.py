@@ -8,7 +8,7 @@ from messages.action_messages.action_message import ActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
-from messages.rerun_manager import RerunManager
+from messages.rerun_manager import MessageHandler
 from messages.workflow_message import WorkflowMessage
 from resources.resource_manager import ResourceManager
 
@@ -109,7 +109,7 @@ async def test_current_children():
     """
     agent_manager = MagicMock(spec=AgentManager)
     resource_manager = MagicMock(spec=ResourceManager)
-    rerun_manager = RerunManager(agent_manager, resource_manager)
+    rerun_manager = MessageHandler(agent_manager, resource_manager)
 
     phase_message = PhaseMessage("phase_1")
     agent_msg1 = AgentMessage("test_id1", "test_msg1")

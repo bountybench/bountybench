@@ -10,7 +10,7 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 from messages.message_utils import message_dict
 from messages.phase_messages.phase_message import PhaseMessage
-from messages.rerun_manager import RerunManager
+from messages.rerun_manager import MessageHandler
 from messages.workflow_message import WorkflowMessage
 from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
@@ -127,7 +127,7 @@ class BaseWorkflow(ABC):
         logger.info("Setup resource manager")
 
     def _setup_rerun_manager(self):
-        self.rerun_manager = RerunManager(self.agent_manager, self.resource_manager)
+        self.rerun_manager = MessageHandler(self.agent_manager, self.resource_manager)
         logger.info("Setup rerun manager")
 
     def _get_task(self) -> Dict[str, Any]:
