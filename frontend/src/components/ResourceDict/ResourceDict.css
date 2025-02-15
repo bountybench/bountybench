@@ -1,39 +1,44 @@
 .workflow-resources {
-    padding: 15px;
-    background-color: #266798;
-    border-left: 1px solid #215a85;
-    overflow-y: auto;
-    height: 100%;
-  }
-  
-  .resource-item {
-    margin-bottom: 20px;
-    background-color: white;
-    color: #333;
-    font-size: 14px;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-  
-  .resource-item h4 {
-    margin-top: 0;
-    color: #333;
-  }
-  
-  .resource-item details {
-    margin-top: 10px;
-  }
-  
-  .resource-item summary {
-    cursor: pointer;
-    color: #007bff;
-  }
-  
-  .resource-item pre {
-    background-color: #f8f9fa;
-    color: #333;
-    padding: 10px;
-    border-radius: 4px;
-    overflow-x: auto;
-  }
+  padding: 15px;
+  background-color: #266798;
+  border-left: 1px solid #215a85;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.workflow-resources .MuiPaper-root {
+  background-color: #1c537c !important;
+  color: white !important;
+  border: 1px solid white;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  margin-bottom: 15px;
+}
+
+.workflow-resources .MuiTypography-root {
+  color: white !important;
+}
+
+.workflow-resources .MuiIconButton-root {
+  color: white !important;
+}
+
+.workflow-resources .MuiListItem-root {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.workflow-resources .MuiListItemText-secondary {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.workflow-resources .MuiTypography-subtitle2 {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.workflow-resources .MuiTypography-body2 pre {
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
