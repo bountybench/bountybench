@@ -128,7 +128,7 @@ class BaseWorkflow(ABC):
 
     def _setup_message_handler(self):
         self.message_handler = MessageHandler(self.agent_manager, self.resource_manager)
-        logger.info("Setup rerun manager")
+        logger.info("Setup message handler")
 
     def _get_task(self) -> Dict[str, Any]:
         return {}
@@ -258,11 +258,11 @@ class BaseWorkflow(ABC):
         if message and isinstance(message, AgentMessage):
             await self._current_phase.set_last_agent_message(message)
 
-    async def rerun_message(self, message_id: str):
+    async def run_message(self, message_id: str):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
         message = workflow_messages.get(message_id)
         if message.next:
-            message = await self.message_handler.rerun(message)
+            message = await self.message_handler.run_message(message)
             return message
         return None
 
@@ -271,10 +271,12 @@ class BaseWorkflow(ABC):
         if len(workflow_messages) > 0:
             _, last_message = list(workflow_messages.items())[-1]
             if last_message.next:
-                last_message = await self.message_handler.rerun(last_message)
+                last_message = await self.message_handler.run_message(last_message)
                 return last_message
             if last_message.parent and last_message.parent.next:
-                last_message = await self.message_handler.rerun(last_message.parent)
+                last_message = await self.message_handler.run_message(
+                    last_message.parent
+                )
                 return last_message
         return None
 
@@ -284,14 +286,14 @@ class BaseWorkflow(ABC):
         message = await self.message_handler.edit_message(message, new_message_data)
         return message
 
-    async def edit_and_rerun_message(
+    async def edit_and_run_message(
         self, message_id: str, new_message_data: str
     ) -> Message:
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
         message = workflow_messages.get(message_id)
         message = await self.message_handler.edit_message(message, new_message_data)
         if message.next:
-            message = await self.message_handler.rerun(message)
+            message = await self.message_handler.run_message(message)
             return message
         return None
 

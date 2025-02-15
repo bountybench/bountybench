@@ -8,7 +8,7 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
 import './ActionMessage.css';
 
-const ActionMessage = ({ action, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
+const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(action?.message || '');
@@ -43,17 +43,17 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRerunMessage, onEditing
     }
   }, [action, editedMessage, onEditingChange, onUpdateMessageInput]);
 
-  const handleRerunClick = useCallback(async () => {
+  const handleRunClick = useCallback(async () => {
     if (!action.current_id) {
       console.error('Action id is undefined');
       return;
     }
     try {
-      await onRerunMessage(action.current_id);
+      await onRunMessage(action.current_id);
     } catch (error) {
-      console.error('Error rerunning action:', error);
+      console.error('Error running action:', error);
     }
-  }, [action, onRerunMessage]);
+  }, [action, onRunMessage]);
 
   const textFieldRef = useRef(null);
 
@@ -84,7 +84,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRerunMessage, onEditing
           if (editing) {
             handleSaveClick();      // Call the save function
           } else {
-            handleRerunClick();
+            handleRunClick();
           }
         }
         else if (event.key === 'Enter' && !event.altKey && !editing) {
@@ -97,7 +97,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRerunMessage, onEditing
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRerunClick, selectedCellId]);
+  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, selectedCellId]);
 
   if (!action) return null;
   
@@ -205,10 +205,10 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRerunMessage, onEditing
                 <Button
                   variant="outlined"
                   color="secondary"
-                  onClick={handleRerunClick}
+                  onClick={handleRunClick}
                   size="small"
-                  aria-label="rerun"
-                  className="rerun-button"
+                  aria-label="run"
+                  className="run-button"
                 >
                   <KeyboardArrowRightIcon />
                 </Button>

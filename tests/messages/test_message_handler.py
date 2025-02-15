@@ -34,24 +34,24 @@ def mock_workflow(message_handler):
     workflow.message_handler = message_handler
 
     # Configure mock methods to delegate to message_handler
-    async def mock_rerun_message(message_id):
+    async def mock_run_message(message_id):
         messages = {msg.id: msg for msg in workflow.messages}
         message = messages[message_id]
-        return await message_handler.rerun(message)
+        return await message_handler.run_message(message)
 
-    async def mock_edit_and_rerun(message_id, new_data):
+    async def mock_edit_and_run(message_id, new_data):
         messages = {msg.id: msg for msg in workflow.messages}
         message = messages[message_id]
         edited = await message_handler.edit_message(message, new_data)
         if edited.next:
-            rerun_result = await message_handler.rerun(edited)
-            rerun_result.set_version_prev(edited)
-            rerun_result.set_next(edited.next)
-            return rerun_result
+            run_result = await message_handler.run_message(edited)
+            run_result.set_version_prev(edited)
+            run_result.set_next(edited.next)
+            return run_result
         return edited
 
-    workflow.rerun_message = AsyncMock(side_effect=mock_rerun_message)
-    workflow.edit_and_rerun_message = AsyncMock(side_effect=mock_edit_and_rerun)
+    workflow.run_message = AsyncMock(side_effect=mock_run_message)
+    workflow.edit_and_run_message = AsyncMock(side_effect=mock_edit_and_run)
     workflow.messages = []
 
     return workflow
@@ -108,13 +108,13 @@ def message_handler(mock_agent_manager, resource_manager):
 class TestMessageHandler:
 
     @pytest.mark.asyncio
-    async def test_rerun_action_message(self, message_handler):
-        """Test direct rerun of action message"""
+    async def test_run_action_message(self, message_handler):
+        """Test direct run of action message"""
         action_msg = ActionMessage("test_resource", "test message")
         next_msg = ActionMessage("test_resource", "next message")
         action_msg.set_next(next_msg)
 
-        result = await message_handler.rerun(action_msg)
+        result = await message_handler.run_message(action_msg)
         assert isinstance(result, ActionMessage)
         assert result.message == "new message"
 
@@ -129,8 +129,8 @@ class TestMessageHandler:
         assert msg.version_next == edited
 
     @pytest.mark.asyncio
-    async def test_real_command_rerun(self, message_handler, test_dir):
-        """Test rerunning real commands with file system effects"""
+    async def test_real_command_run(self, message_handler, test_dir):
+        """Test running real commands with file system effects"""
         # Initial command to create a file
         cmd1 = CommandMessage("kali_env", "Command: echo 'line1' > test.txt")
         result = message_handler.resource_manager.get_resource("kali_env").run(cmd1)
@@ -140,10 +140,10 @@ class TestMessageHandler:
         assert file_path.exists()
         assert file_path.read_text().strip() == "line1"
 
-        # Edit the command and rerun
+        # Edit the command and run
         new_cmd = "Command: echo 'edited' >> test.txt"
         edited_msg = await message_handler.edit_message(cmd1, new_cmd)
-        result = await message_handler.rerun(edited_msg)
+        result = await message_handler.run_message(edited_msg)
 
         # Verify file content includes both lines
         content = file_path.read_text().splitlines()
@@ -152,8 +152,8 @@ class TestMessageHandler:
         assert content[1].strip() == "edited"
 
     @pytest.mark.asyncio
-    async def test_command_chain_rerun(self, message_handler, test_dir):
-        """Test rerunning a chain of dependent commands"""
+    async def test_command_chain_run(self, message_handler, test_dir):
+        """Test running a chain of dependent commands"""
         # Setup command chain
         cmd1 = CommandMessage("kali_env", "Command: mkdir -p test_dir")
         cmd2 = CommandMessage("kali_env", "Command: echo 'content' > test_dir/file.txt")
@@ -164,10 +164,10 @@ class TestMessageHandler:
         result1 = kali.run(cmd1)
         result2 = kali.run(cmd2)
 
-        # Edit first command and rerun chain
+        # Edit first command and run chain
         edit_cmd = "Command: mkdir -p new_dir"
         edited = await message_handler.edit_message(cmd1, edit_cmd)
-        rerun_result = await message_handler.rerun(edited)
+        run_result = await message_handler.run_message(edited)
 
         # Verify both directories exist
         assert (test_dir / "test_dir").exists()
@@ -175,9 +175,9 @@ class TestMessageHandler:
         assert (test_dir / "test_dir" / "file.txt").exists()
 
     @pytest.mark.asyncio
-    async def test_rerun_no_next_message(self, message_handler):
-        """Test error when rerunning message with no next"""
+    async def test_run_no_next_message(self, message_handler):
+        """Test error when running message with no next"""
         msg = ActionMessage("test_resource", "test")  # No next message set
 
         with pytest.raises(ValueError, match="No defined next actions to run"):
-            await message_handler.rerun(msg)
+            await message_handler.run_message(msg)

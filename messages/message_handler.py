@@ -17,23 +17,23 @@ class MessageHandler:
         self.agent_manager = agent_manager
         self.resource_manager = resource_manager
 
-    async def rerun(self, message: Message) -> Message:
+    async def run_message(self, message: Message) -> Message:
         """Regenerates next message if a .next exists"""
         if message.next:
             if isinstance(message, ActionMessage):
-                message = await self._rerun_action_message(message.next, message)
+                message = await self._run_action_message(message.next, message)
                 return message
             elif isinstance(message, AgentMessage):
-                message = await self._rerun_agent_message(message.next, message)
+                message = await self._run_agent_message(message.next, message)
                 return message
             else:
-                raise ValueError("Unsupported message type for rerun")
+                raise ValueError("Unsupported message type for run")
         else:
             raise ValueError(
                 "No defined next actions to run, please continue to next iteration"
             )
 
-    async def _rerun_action_message(
+    async def _run_action_message(
         self, old_message: ActionMessage, input_message: Message
     ) -> Message:
         # Ensure we start with the "latest version" of old_message
@@ -66,7 +66,7 @@ class MessageHandler:
         )
         return new_action
 
-    async def _rerun_agent_message(
+    async def _run_agent_message(
         self, old_message: Message, input_message: Message
     ) -> Message:
         agent = self.agent_manager.get_agent(old_message.agent_id)
@@ -108,7 +108,7 @@ class MessageHandler:
         )
         new_message = self._clone_message(old_message, edit=edit, prev=new_prev_action)
 
-        # Maintain the next link so workflow can handle the rerun
+        # Maintain the next link so workflow can handle the run message
         if old_message.next:
             new_message.set_next(old_message.next)
 
