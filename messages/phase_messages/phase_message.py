@@ -80,7 +80,6 @@ class PhaseMessage(Message):
         for action_message in agent_message.action_messages:
             log_message(action_message)
         log_message(agent_message)
-        log_message(self)
 
     def to_broadcast_dict(self) -> dict:
             base_dict = super().to_broadcast_dict()

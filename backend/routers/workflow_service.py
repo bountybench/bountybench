@@ -9,27 +9,6 @@ from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeI
 workflow_service_router = APIRouter()
 
 
-@workflow_service_router.post("/workflow/{workflow_id}/next")
-async def next_message(workflow_id: str, request: Request):
-    active_workflows = request.app.state.active_workflows
-    if workflow_id not in active_workflows:
-        return {"error": f"Workflow {workflow_id} not found"}
-
-    workflow = active_workflows[workflow_id]["instance"]
-    try:
-        result = await workflow.run_next_message()
-        if not result:
-            result = await next_iteration(workflow_id, active_workflows)
-            return result
-
-        print(f"Received result : {result.id}")
-        return {"status": "updated", "result": result.id}
-    except Exception as e:
-        error_traceback = traceback.format_exc()
-        print(f"Error in next_message: {str(e)}\n{error_traceback}")
-        return {"error": str(e), "traceback": error_traceback}
-
-
 @workflow_service_router.post("/workflow/{workflow_id}/stop")
 async def stop_workflow(workflow_id: str, request: Request):
     """
@@ -92,6 +71,7 @@ async def rerun_message(workflow_id: str, data: MessageData, request: Request):
     try:
         result = await workflow.rerun_message(data.message_id)
         if not result:
+            await workflow.set_last_message(data.message_id)
             result = await next_iteration(workflow_id, active_workflows)
             return result
         return {"status": "updated", "result": result.id}
@@ -115,6 +95,7 @@ async def edit_action_input(workflow_id: str, data: MessageInputData, request: R
             data.message_id, data.new_input_data
         )
         if not result:
+            await workflow.set_last_message(data.message_id)
             result = await next_iteration(workflow_id, active_workflows)
             return result
         return {"status": "updated", "result": result.id}

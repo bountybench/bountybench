@@ -58,9 +58,11 @@ class WorkflowMessage(Message):
     def set_summary(self, summary: str):
         self._summary = summary
 
-    def add_phase_message(self, phase_message: PhaseMessage):
+    def add_child_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
         phase_message.set_parent(self)
+        from messages.message_utils import log_message
+        log_message(phase_message)
 
     def add_agent(self, agent_name: str, agent) -> None:        
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):

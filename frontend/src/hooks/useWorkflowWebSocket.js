@@ -62,8 +62,8 @@ export const useWorkflowWebSocket = (workflowId) => {
               // Keep messages up to and including the prev message, then append the new message
               updatedAgentMessages = [...updatedAgentMessages.slice(0, prevIndex + 1), newMessage];
             } else {
-              // If prev not found, just append the new message
-              updatedAgentMessages.push(newMessage);
+              // If prev not found, log for now, this isn't a reasonable scenario
+              console.log(`No prev found for ${newMessage}`);
             }
           } else {
             // If no prev, replace all messages with the new message
@@ -76,9 +76,6 @@ export const useWorkflowWebSocket = (workflowId) => {
           };
         }
         return phase;
-      }).filter((phase, index, array) => {
-        // Keep this phase if it's before or is the phase being updated
-        return array.findIndex(p => p.current_id === updatedMessages[0].parent) >= index;
       });
     });
   }, []);
@@ -105,8 +102,8 @@ export const useWorkflowWebSocket = (workflowId) => {
                   // Keep messages up to and including the prev message, then append the new message
                   updatedActionMessages = [...updatedActionMessages.slice(0, prevIndex + 1), newMessage];
                 } else {
-                  // If prev not found, just append the new message
-                  updatedActionMessages.push(newMessage);
+                  // If prev not found, log for now, this isn't a reasonable scenario
+                  console.log(`No prev found for ${newMessage}`);
                 }
               } else {
                 // If no prev, replace all messages with the new message
@@ -121,11 +118,6 @@ export const useWorkflowWebSocket = (workflowId) => {
             return agentMessage;
           })
         };
-      }).filter((phase, index, array) => {
-        // Keep this phase if it's before or is the phase containing the agent being updated
-        return array.findIndex(p => 
-          p.current_children && p.current_children.some(am => am.current_id === updatedMessages[0].parent)
-        ) >= index;
       });
     });
   }, []);
