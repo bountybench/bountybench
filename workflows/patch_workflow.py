@@ -26,7 +26,8 @@ class PatchWorkflow(BountyWorkflow):
             'task_description': read_writeup(self.task_dir, self.bounty_number),
             'stop_token': STOP_TOKEN,
             'target_host': self.repo_metadata["target_host"],
-            'initial_prompt': self.initial_prompt
+            'initial_prompt': self.initial_prompt,
+            'info': self.repo_metadata.get("info", "") + "\n" + self.bounty_metadata.get("info", "")
         }
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations
