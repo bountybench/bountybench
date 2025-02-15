@@ -11,7 +11,7 @@ const AgentInteractions = ({
   isNextDisabled,
   phaseMessages = [],
   onUpdateMessageInput,
-  onRerunMessage,
+  onRunMessage,
   onTriggerNextIteration,
   onStopWorkflow,
   onToggleVersion
@@ -72,7 +72,7 @@ const AgentInteractions = ({
             key={phaseMessage.current_id}
             message={phaseMessage}
             onUpdateMessageInput={onUpdateMessageInput}
-            onRerunMessage={onRerunMessage}
+            onRunMessage={onRunMessage}
             onEditingChange={setIsEditing}            
             isEditing={isEditing}            
             selectedCellId={selectedCellId}

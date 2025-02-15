@@ -156,7 +156,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       try {
         const currentMessageId = await getTailMessageId();
         console.log(`Tail message id is ${currentMessageId}`)
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/rerun-message`, {
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/run-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -210,11 +210,11 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   };
 
-  const handleRerunMessage = async (messageId) => {
+  const handleRunMessage = async (messageId) => {
     if (workflowId) {
       setIsNextDisabled(true);
       try {
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/rerun-message`, {
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/run-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -223,12 +223,12 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         });
         const data = await response.json();
         if (data.error) {
-          console.error('Error rerunning action:', data.error);
+          console.error('Error running action:', data.error);
         } else {
-          console.log('Action rerun successfully', data);
+          console.log('Action run successfully', data);
         }
       } catch (error) {
-        console.error('Error rerunning action:', error);
+        console.error('Error running action:', error);
       } finally {
         setIsNextDisabled(false);
       }
@@ -310,7 +310,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
           isNextDisabled={isNextDisabled}
           phaseMessages={displayMessages}
           onUpdateMessageInput={handleUpdateMessageInput}
-          onRerunMessage={handleRerunMessage}
+          onRunMessage={handleRunMessage}
           onTriggerNextIteration={triggerNextIteration}
           onStopWorkflow={handleStopWorkflow}
           onToggleVersion={handleToggleVersion}

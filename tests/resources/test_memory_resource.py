@@ -62,7 +62,7 @@ def message_tree():
         last_action_message = action_message
         last_agent_message = agent_message
 
-        workflow_message.add_phase_message(phase_message)
+        workflow_message.add_child_message(phase_message)
 
     last_phase_message = phase_message
 

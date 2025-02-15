@@ -7,9 +7,14 @@ from messages.message import Message
 class AgentMessage(Message):
 
     def __init__(
-        self, agent_id: str, message: Optional[str] = "", prev: "AgentMessage" = None
+        self,
+        agent_id: str,
+        message: Optional[str] = "",
+        prev: "AgentMessage" = None,
+        iteration: Optional[int] = -1,
     ) -> None:
         self._message = message
+        self._iteration = iteration
         self._agent_id = agent_id
         self._action_messages = []
         self._memory = None
@@ -25,6 +30,13 @@ class AgentMessage(Message):
         Setter for message property.
         """
         self._message = value
+
+    @property
+    def iteration(self) -> int:
+        return self._iteration
+
+    def set_iteration(self, iteration: int) -> None:
+        self._iteration = iteration
 
     @property
     def message_type(self) -> str:
@@ -97,6 +109,7 @@ class AgentMessage(Message):
                 else None
             ),
             "message": self.message,
+            "iteration": self.iteration,
         }
         agent_dict["current_children"] = [
             action_message.to_dict() for action_message in self.current_children

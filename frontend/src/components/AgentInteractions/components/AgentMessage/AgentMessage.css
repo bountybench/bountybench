@@ -24,6 +24,12 @@
   color: #1f1f1f;
 }
 
+.message-timestamp {
+  font-size: 0.7rem !important;
+  color: #666;
+  margin-top: 2px !important;
+}
+
 .agent-message-content {
   padding: 12px 16px;
   background-color: #ffffff;
@@ -89,7 +95,7 @@
   border-color: #c200bf !important;
 }
 
-.rerun-button,
+.run-button,
 .save-button {
   max-height: 32px;
   color: #2196f3 !important;

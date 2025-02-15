@@ -9,27 +9,6 @@ from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeI
 workflow_service_router = APIRouter()
 
 
-@workflow_service_router.post("/workflow/{workflow_id}/next")
-async def next_message(workflow_id: str, request: Request):
-    active_workflows = request.app.state.active_workflows
-    if workflow_id not in active_workflows:
-        return {"error": f"Workflow {workflow_id} not found"}
-
-    workflow = active_workflows[workflow_id]["instance"]
-    try:
-        result = await workflow.run_next_message()
-        if not result:
-            result = await next_iteration(workflow_id, active_workflows)
-            return result
-
-        print(f"Received result : {result.id}")
-        return {"status": "updated", "result": result.id}
-    except Exception as e:
-        error_traceback = traceback.format_exc()
-        print(f"Error in next_message: {str(e)}\n{error_traceback}")
-        return {"error": str(e), "traceback": error_traceback}
-
-
 @workflow_service_router.post("/workflow/{workflow_id}/stop")
 async def stop_workflow(workflow_id: str, request: Request):
     """
@@ -80,24 +59,25 @@ async def stop_workflow(workflow_id: str, request: Request):
         return {"error": str(e), "traceback": error_traceback}
 
 
-@workflow_service_router.post("/workflow/{workflow_id}/rerun-message")
-async def rerun_message(workflow_id: str, data: MessageData, request: Request):
+@workflow_service_router.post("/workflow/{workflow_id}/run-message")
+async def run_message(workflow_id: str, data: MessageData, request: Request):
     active_workflows = request.app.state.active_workflows
-    print(f"Rerunning message: {data.message_id}")
+    print(f"Running message: {data.message_id}")
     if workflow_id not in active_workflows:
         return {"error": f"Workflow {workflow_id} not found"}
 
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
-        result = await workflow.rerun_message(data.message_id)
+        result = await workflow.run_message(data.message_id)
         if not result:
+            await workflow.set_last_message(data.message_id)
             result = await next_iteration(workflow_id, active_workflows)
             return result
         return {"status": "updated", "result": result.id}
     except Exception as e:
         error_traceback = traceback.format_exc()
-        print(f"Error rerunning message {workflow_id}: {str(e)}\n{error_traceback}")
+        print(f"Error running message {workflow_id}: {str(e)}\n{error_traceback}")
         return {"error": str(e), "traceback": error_traceback}
 
 
@@ -111,17 +91,18 @@ async def edit_action_input(workflow_id: str, data: MessageInputData, request: R
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
-        result = await workflow.edit_and_rerun_message(
+        result = await workflow.edit_and_run_message(
             data.message_id, data.new_input_data
         )
         if not result:
+            await workflow.set_last_message(data.message_id)
             result = await next_iteration(workflow_id, active_workflows)
             return result
         return {"status": "updated", "result": result.id}
     except Exception as e:
         error_traceback = traceback.format_exc()
         print(
-            f"Error editing and rerunning message {workflow_id}: {str(e)}\n{error_traceback}"
+            f"Error editing and running message {workflow_id}: {str(e)}\n{error_traceback}"
         )
         return {"error": str(e), "traceback": error_traceback}
 
@@ -361,7 +342,6 @@ async def toggle_version(workflow_id: str, data: dict, request: Request):
         error_traceback = traceback.format_exc()
         return {"error": str(e), "traceback": error_traceback}
 
-
 @workflow_service_router.get("/workflow/{workflow_id}/resources")
 async def get_workflow_resources(workflow_id: str, request: Request):
     active_workflows = request.app.state.active_workflows
@@ -386,3 +366,4 @@ async def get_workflow_resources(workflow_id: str, request: Request):
         resource_list.append(resource_info)
 
     return {"resources": resource_list}
+  

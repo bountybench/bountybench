@@ -176,7 +176,7 @@ describe('WorkflowDashboard Component', () => {
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
     expect(global.fetch).toHaveBeenCalledWith(
-      `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/rerun-message`, 
+      `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/run-message`, 
       { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -217,7 +217,7 @@ describe('WorkflowDashboard Component', () => {
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
         expect(global.fetch).toHaveBeenCalledWith(
-          `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/rerun-message`, 
+          `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/run-message`, 
           { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
