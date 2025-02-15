@@ -1,73 +1,68 @@
-import sys
-import os
-
-# ✅ Ensure Python can find `messages`
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-
 from tests.resources.browser_resource import BrowserResource
-from messages.action_messages.command_message import CommandMessage
-from messages.workflow_message import WorkflowMessage  # ✅ Import WorkflowMessage
+from messages.workflow_message import WorkflowMessage
+from messages.action_messages.browser_message import BrowserMessage  # ✅ Use BrowserMessage
+import traceback
 
-# ✅ Initialize WorkflowMessage (Required to prevent errors)
+# Initialize workflow logging
 WorkflowMessage.initialize("TestWorkflow")
 
-# ✅ Setup WebDriver
-config = {"driver_path": "chromedriver-mac-arm64/chromedriver"}
+# Define configuration with ChromeDriver path
+config = {"driver_path": "chromedriver-mac-arm64/chromedriver"}  # Update path if needed
+
+# Initialize BrowserResource
 resource = BrowserResource("test_browser_resource", config)
+resource.init()
 
 try:
-    resource.init()
-
-    # ✅ Test 1: Fill Form (Ensure "Command:" is formatted correctly)
-    message1 = {
-        "url": "https://demoqa.com/automation-practice-form",
-        "message": "Command: fill form\nForm Selector: #userForm\nFirst Name: John\nLast Name: Doe\nUser Email: john.doe@example.com",
-        "actions": ["fill_form"],
-        "inputs": {
-            "form_selector": "#userForm",  # ✅ Fix: Provide selector
-            "firstName": "John",
-            "lastName": "Doe",
-            "userEmail": "john.doe@example.com"
+    # ✅ Test Case 1: Fill Form
+    message1 = BrowserMessage(  # ✅ Use BrowserMessage instead of Message
+        resource_id="test_browser_resource",
+        message="Command: fill form\nForm Selector: #userForm\nFirst Name: John\nLast Name: Doe\nUser Email: john.doe@example.com",
+        additional_metadata={
+            "url": "https://demoqa.com/automation-practice-form",
+            "actions": ["fill_form"],
+            "inputs": {
+                "form_selector": "#userForm",
+                "firstName": "John",
+                "lastName": "Doe",
+                "userEmail": "john.doe@example.com",
+            },
         }
-    }
-    print("\n🔍 Debugging message1:", message1)  # ✅ Debugging
-
-    command_message = CommandMessage(resource.resource_id, message1["message"])
-    print(f"\n✅ Extracted Command: {command_message.command}")  # ✅ Debugging
-
+    )
     result1 = resource.run(message1)
     print("\n🚀 Test 1 (Fill Form) Result:\n", result1)
 
-    # ✅ Test 2: Click Button (Ensure Button Selector is Provided)
-    message2 = {
-        "url": "https://demoqa.com/automation-practice-form",
-        "message": "Command: click button\nButton Selector: button[id='submit']",
-        "actions": ["click_button"],
-        "inputs": {
-            "button_selector": "button[id='submit']"
+    # ✅ Test Case 2: Click Button
+    message2 = BrowserMessage(  # ✅ Use BrowserMessage
+        resource_id="test_browser_resource",
+        message="Command: click button\nButton Selector: button[id='submit']",
+        additional_metadata={
+            "url": "https://demoqa.com/automation-practice-form",
+            "actions": ["click_button"],
+            "inputs": {"button_selector": "button[id='submit']"},
         }
-    }
-    print("\n🔍 Debugging message2:", message2)  # ✅ Debugging
-
+    )
     result2 = resource.run(message2)
     print("\n🚀 Test 2 (Click Button) Result:\n", result2)
 
-    # ✅ Test 3: Navigate to a Page (Ensure `"Navigate To:"` is included)
-    message3 = {
-        "url": "https://example.com",
-        "message": "Command: navigate\nNavigate To: https://example.com/profile",
-        "actions": ["navigate"],
-        "inputs": {
-            "navigate_to": "https://example.com/profile"  # ✅ Fix: Provide explicit URL
+    # ✅ Test Case 3: Navigate to a Page
+    message3 = BrowserMessage(  # ✅ Use BrowserMessage
+        resource_id="test_browser_resource",
+        message="Command: navigate\nNavigate To: https://example.com/profile",
+        additional_metadata={
+            "url": "https://example.com",
+            "actions": ["navigate"],
+            "inputs": {"navigate_to": "https://example.com/profile"},
         }
-    }
-    print("\n🔍 Debugging message3:", message3)  # ✅ Debugging
-
+    )
     result3 = resource.run(message3)
     print("\n🚀 Test 3 (Navigate) Result:\n", result3)
 
 except Exception as e:
+    error_traceback = traceback.format_exc()
+    print(error_traceback)
     print(f"\n❌ An error occurred: {e}")
 
 finally:
+    # Stop the WebDriver
     resource.stop()
