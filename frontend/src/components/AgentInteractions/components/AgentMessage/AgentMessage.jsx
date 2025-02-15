@@ -10,6 +10,7 @@ import { formatData } from '../../utils/messageFormatters';
 import './AgentMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import AddIcon from '@mui/icons-material/Add';
 
 const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
@@ -253,6 +254,16 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                     onCellSelect={onCellSelect}
                   />
                 ))}
+                <Box className="add-action-button-container">
+                  <Button
+                    variant="outlined"
+                    aria-label="action add"
+                    size="small"
+                    className="add-action-button"
+                  >
+                    <AddIcon />
+                  </Button>
+                </Box>
               </Box>
               
               <>

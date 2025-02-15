@@ -96,6 +96,18 @@
   border-color: #2196f3 !important;
 }
 
+.add-action-button-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px; 
+}
+
+.add-action-button {
+  max-height: 32px;
+  color: rgb(0, 187, 44) !important;
+  border-color: rgb(0, 187, 44) !important;
+}
+
 .action-messages-container {
   margin-top: 16px;
   padding: 0 16px;
