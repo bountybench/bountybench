@@ -230,11 +230,12 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                               <ArrowForwardIcon />
                             </IconButton>
                           </Box>
-                            {/* Version Number */}
-                            {(message?.version_next || message?.version_prev) && (
-                            <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
-                              {message?.version_prev ? 2 : 1}/{message?.version_next ? 2 : (message?.version_prev ? 2 : 1)}
-                            </Typography>
+
+                          {/* Version Number */}
+                          {(message?.version_next || message?.version_prev) && (
+                          <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
+                          {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
+                          </Typography>
                           )}
                         </Box>
                       </> 
