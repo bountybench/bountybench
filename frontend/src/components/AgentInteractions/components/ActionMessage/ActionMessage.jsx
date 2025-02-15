@@ -131,7 +131,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRerunMessage, onEditing
               {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
             </Typography>
             {action.timestamp && (
-              <Typography className="action-message-timestamp">
+              <Typography className="message-timestamp">
                 {new Date(action.timestamp).toLocaleTimeString()}
               </Typography>
             )}

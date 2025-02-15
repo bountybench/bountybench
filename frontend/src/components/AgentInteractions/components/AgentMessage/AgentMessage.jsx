@@ -119,7 +119,14 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
       <Card className="message-bubble agent-bubble">
         <CardContent>
           <Box className="agent-message-header">
-            <Typography className="agent-name">Agent: {message.agent_id}</Typography>
+            <Box>
+              <Typography className="agent-name">Agent: {message.agent_id}</Typography>
+              {message.timestamp && (
+                <Typography className="message-timestamp">
+                  {new Date(message.timestamp).toLocaleTimeString()}
+                </Typography>
+              )}
+            </Box>
             <IconButton 
               size="small" 
               onClick={handleToggleAgentMessage} 
