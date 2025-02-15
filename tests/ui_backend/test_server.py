@@ -120,26 +120,26 @@ def started_patch_workflow(client):
     return response.json()["workflow_id"]
 
 
-def test_rerun_message_success(client, started_patch_workflow):
-    """Test rerunning a message in an existing workflow."""
+def test_run_message_success(client, started_patch_workflow):
+    """Test running a message in an existing workflow."""
     payload = {"message_id": "original-message-id"}
     response = client.post(
-        f"/workflow/{started_patch_workflow}/rerun-message", json=payload
+        f"/workflow/{started_patch_workflow}/run-message", json=payload
     )
-    assert response.status_code == 200, "Expected status code 200 for rerun message"
+    assert response.status_code == 200, "Expected status code 200 for run message"
     data = response.json()
     assert "status" in data, "Response should contain 'status'"
     assert data["status"] == "updated", "Status should be 'updated'"
     assert "result" in data, "Response should contain 'result'"
     assert (
-        data["result"] == "fake-rerun-message-id"
-    ), "Result ID does not match expected fake rerun message ID"
+        data["result"] == "fake-run-message-id"
+    ), "Result ID does not match expected fake run message ID"
 
 
-def test_rerun_message_workflow_not_found(client):
-    """Test rerunning a message in a non-existent workflow."""
+def test_run_message_workflow_not_found(client):
+    """Test running a message in a non-existent workflow."""
     payload = {"message_id": "some-id"}
-    response = client.post("/workflow/nonexistent-id/rerun-message", json=payload)
+    response = client.post("/workflow/nonexistent-id/run-message", json=payload)
     assert response.status_code == 200, "Expected status code 200 even on error"
     data = response.json()
     assert "error" in data, "Response should contain 'error' key"

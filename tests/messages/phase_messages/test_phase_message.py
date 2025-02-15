@@ -7,8 +7,8 @@ from agents.agent_manager import AgentManager
 from messages.action_messages.action_message import ActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
+from messages.message_handler import MessageHandler
 from messages.phase_messages.phase_message import PhaseMessage
-from messages.rerun_manager import RerunManager
 from messages.workflow_message import WorkflowMessage
 from resources.resource_manager import ResourceManager
 
@@ -109,16 +109,16 @@ async def test_current_children():
     """
     agent_manager = MagicMock(spec=AgentManager)
     resource_manager = MagicMock(spec=ResourceManager)
-    rerun_manager = RerunManager(agent_manager, resource_manager)
+    message_handler = MessageHandler(agent_manager, resource_manager)
 
     phase_message = PhaseMessage("phase_1")
     agent_msg1 = AgentMessage("test_id1", "test_msg1")
     agent_msg4 = AgentMessage("test_id4", "test_msg4", prev=agent_msg1)
     phase_message.add_child_message(agent_msg1)
     phase_message.add_child_message(agent_msg4)
-    agent_msg2 = await rerun_manager.edit_message(agent_msg1, "test_msg2")
-    agent_msg3 = await rerun_manager.edit_message(agent_msg2, "test_msg3")
-    agent_msg5 = await rerun_manager.edit_message(agent_msg4, "test_msg5")
+    agent_msg2 = await message_handler.edit_message(agent_msg1, "test_msg2")
+    agent_msg3 = await message_handler.edit_message(agent_msg2, "test_msg3")
+    agent_msg5 = await message_handler.edit_message(agent_msg4, "test_msg5")
     agent_msg6 = AgentMessage("test_id6", "test_msg6", prev=agent_msg3)
     phase_message.add_child_message(agent_msg6)
     current_agents = phase_message.current_children
