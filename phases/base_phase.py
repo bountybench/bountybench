@@ -374,6 +374,7 @@ class BasePhase(ABC):
         return self._last_agent_message
 
     async def set_last_agent_message(self, message: AgentMessage) -> Optional[Message]:
-        logger.info(f"Set last from {self._last_agent_message.id} to {message.id}")
-        logger.info(f"Message: {message.to_dict()}")
+        """
+        Set the last agent message to run from for phase.
+        """
         self._last_agent_message = message
