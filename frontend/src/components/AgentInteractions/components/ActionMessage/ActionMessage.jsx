@@ -116,6 +116,8 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRerunMessage, onEditing
     onCellSelect(action.current_id);
   };
 
+
+
   return (
     <Card 
       className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''} ${selectedCellId === action.current_id ? 'selected' : ''}`}

@@ -111,6 +111,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     onCellSelect(message.current_id);
   };
 
+
   return (    
     <Box className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
       onClick={handleContainerClick}
