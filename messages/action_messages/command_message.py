@@ -25,17 +25,16 @@ class CommandMessage(CommandMessageInterface, ActionMessage):
     def parse_command(self) -> str:
         return extract_command(self._message, STOP_TOKEN)
 
-
-    def to_broadcast_dict(self) -> dict:
-        base_dict = super(ActionMessage, self).to_broadcast_dict()
+    def _merge_with_action_dict(self) -> dict:
+        """Helper to merge action_dict with base_dict and add the answer."""
+        base_dict = super().to_base_dict()
         action_dict = self.action_dict()
         action_dict.update({"command": self.command})
         action_dict.update(base_dict)
         return action_dict
+    
+    def to_broadcast_dict(self) -> dict:
+        return self._merge_with_action_dict()
 
     def to_log_dict(self) -> dict:
-        base_dict = super(ActionMessage, self).to_log_dict()
-        action_dict = self.action_dict()
-        action_dict.update({"command": self.command})
-        action_dict.update(base_dict)
-        return action_dict
+        return self._merge_with_action_dict()

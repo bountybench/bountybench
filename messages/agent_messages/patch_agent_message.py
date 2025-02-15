@@ -13,22 +13,18 @@ class PatchAgentMessage(AgentMessage):
     @property
     def patch_files_dir(self) -> str:
         return self._patch_files_dir
-
+    
+    def _merge_with_agent_dict(self) -> dict:
+        base_dict = super().to_base_dict()
+        agent_dict = {
+            "success": self.success,
+            "patch_files_dir": self.exploit_files_dir,
+        }
+        agent_dict.update(base_dict)
+        return agent_dict
 
     def to_broadcast_dict(self) -> dict:
-        base_dict = super(AgentMessage, self).to_broadcast_dict() 
-        agent_dict = {
-            "success": self.success,
-            "patch_files_dir": self.patch_files_dir
-        }
-        agent_dict.update(base_dict)
-        return agent_dict
-    
+        return self._merge_with_agent_dict()
+
     def to_log_dict(self) -> dict:
-        base_dict = super(AgentMessage, self).to_log_dict() 
-        agent_dict = {
-            "success": self.success,
-            "patch_files_dir": self.patch_files_dir
-        }
-        agent_dict.update(base_dict)
-        return agent_dict
+        return self._merge_with_agent_dict()
