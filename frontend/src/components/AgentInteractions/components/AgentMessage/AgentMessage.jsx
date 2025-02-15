@@ -11,7 +11,7 @@ import './AgentMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
+const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message?.message || '');
@@ -48,17 +48,17 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     }
   }, [message, editedMessage, onEditingChange, onUpdateMessageInput]);
 
-  const handleRerunClick = useCallback(async () => {
+  const handleRunClick = useCallback(async () => {
     if (!message.current_id) {
       console.error('Action id is undefined');
       return;
     }
     try {
-      await onRerunMessage(message.current_id);
+      await onRunMessage(message.current_id);
     } catch (error) {
-      console.error('Error rerunning action:', error);
+      console.error('Error running action:', error);
     }
-  }, [message, onRerunMessage]);
+  }, [message, onRunMessage]);
 
   useEffect(() => {
     setOriginalMessageContent(message?.message);
@@ -87,7 +87,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
           if (editing) {
             handleSaveClick();      // Call the save function
           } else {
-            handleRerunClick();
+            handleRunClick();
           }
         }
         else if (event.key === 'Enter' && !event.altKey && !editing) {
@@ -100,7 +100,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing, message, handleCancelEdit, handleEditClick, handleSaveClick, handleRerunClick, selectedCellId]);
+  }, [editing, message, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, selectedCellId]);
 
   if (!message) return null;
 
@@ -197,10 +197,10 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                     <Button
                       variant="outlined"
                       color="secondary"
-                      onClick={handleRerunClick}
+                      onClick={handleRunClick}
                       size="small"
-                      aria-label="rerun"
-                      className="rerun-button"
+                      aria-label="run"
+                      className="run-button"
                     >
                       <KeyboardArrowRightIcon />
                     </Button>
@@ -252,7 +252,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
                     index={index}
                     action={actionMessage}
                     onUpdateMessageInput={onUpdateMessageInput}
-                    onRerunMessage={onRerunMessage}
+                    onRunMessage={onRunMessage}
                     onEditingChange={onEditingChange}
                     isEditing={isEditing}                    
                     selectedCellId={selectedCellId}

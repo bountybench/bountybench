@@ -1,13 +1,14 @@
-import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
 import asyncio
+import unittest
+from unittest.mock import MagicMock, PropertyMock, patch
 
-from messages.agent_messages.agent_message import AgentMessage
-from messages.action_messages.action_message import ActionMessage
-from messages.message import Message
-from messages.rerun_manager import RerunManager
 from agents.agent_manager import AgentManager
+from messages.action_messages.action_message import ActionMessage
+from messages.agent_messages.agent_message import AgentMessage
+from messages.message import Message
+from messages.message_handler import MessageHandler
 from resources.resource_manager import ResourceManager
+
 
 class TestAgentMessage(unittest.TestCase):
 
@@ -48,16 +49,22 @@ class TestAgentMessage(unittest.TestCase):
         """
         agent_manager = MagicMock(spec=AgentManager)
         resource_manager = MagicMock(spec=ResourceManager)
-        rerun_manager = RerunManager(agent_manager, resource_manager)
+        message_handler = MessageHandler(agent_manager, resource_manager)
 
         agent_message = AgentMessage("test_id")
         action_msg1 = ActionMessage("test_id1", "test_msg1")
         action_msg4 = ActionMessage("test_id4", "test_msg4", prev=action_msg1)
         agent_message.add_child_message(action_msg1)
         agent_message.add_child_message(action_msg4)
-        action_msg2 = asyncio.run(rerun_manager.edit_message(action_msg1, "test_msg2"))
-        action_msg3 = asyncio.run(rerun_manager.edit_message(action_msg2, "test_msg3"))
-        action_msg5 = asyncio.run(rerun_manager.edit_message(action_msg4, "test_msg5"))
+        action_msg2 = asyncio.run(
+            message_handler.edit_message(action_msg1, "test_msg2")
+        )
+        action_msg3 = asyncio.run(
+            message_handler.edit_message(action_msg2, "test_msg3")
+        )
+        action_msg5 = asyncio.run(
+            message_handler.edit_message(action_msg4, "test_msg5")
+        )
         action_msg6 = ActionMessage("test_id6", "test_msg6", prev=action_msg3)
         action_msg3.parent.add_child_message(action_msg6)
         org_actions = agent_message.current_children
