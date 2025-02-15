@@ -21,11 +21,20 @@ class AnswerMessage(AnswerMessageInterface, ActionMessage):
             raise Exception("Answer is missing from message, cannot be a answer message.")
         return answer
 
-    def to_dict(self) -> dict:
+    def to_log_dict(self) -> dict:
+        base_dict = super(ActionMessage, self).to_log_dict() 
         action_dict = self.action_dict()
         action_dict.update({
             "answer": self.answer
         })
-        base_dict = super(ActionMessage, self).to_dict() 
+        action_dict.update(base_dict)
+        return action_dict
+
+    def to_broadcast_dict(self) -> dict:
+        base_dict = super(ActionMessage, self).to_broadcast_dict() 
+        action_dict = self.action_dict()
+        action_dict.update({
+            "answer": self.answer
+        })
         action_dict.update(base_dict)
         return action_dict

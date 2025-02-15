@@ -77,10 +77,10 @@ class WorkflowMessage(Message):
             "task": self.task,
         }
 
-    def to_dict(self) -> dict:
+    def to_log_dict(self) -> dict:
         return {
             "workflow_metadata": self.metadata_dict(),
-            "phase_messages": [phase_message.to_dict() for phase_message in self.phase_messages],
+            "phase_messages": [phase_message.to_log_dict() for phase_message in self.phase_messages],
             "agents_used": self.agents_used,
             "resources_used": self.resources_used,
             "start_time": self._start_time,
@@ -93,11 +93,7 @@ class WorkflowMessage(Message):
         self._end_time = datetime.now().isoformat()
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        logs = self.to_dict()
-        for phase_message in logs["phase_messages"]:
-            for agent_message in phase_message["agent_messages"]:
-                agent_message.pop('current_children', None)
-            phase_message.pop('current_children', None)
+        logs = self.to_log_dict()
 
         with open(self.log_file, 'w') as f:
             json.dump(logs, f, indent=4, default=self._json_serializable)

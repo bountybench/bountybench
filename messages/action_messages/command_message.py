@@ -26,9 +26,16 @@ class CommandMessage(CommandMessageInterface, ActionMessage):
         return extract_command(self._message, STOP_TOKEN)
 
 
-    def to_dict(self) -> dict:
+    def to_broadcast_dict(self) -> dict:
+        base_dict = super(ActionMessage, self).to_broadcast_dict()
         action_dict = self.action_dict()
         action_dict.update({"command": self.command})
-        base_dict = super(ActionMessage, self).to_dict()
+        action_dict.update(base_dict)
+        return action_dict
+
+    def to_log_dict(self) -> dict:
+        base_dict = super(ActionMessage, self).to_log_dict()
+        action_dict = self.action_dict()
+        action_dict.update({"command": self.command})
         action_dict.update(base_dict)
         return action_dict

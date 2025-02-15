@@ -72,7 +72,7 @@ class Message(ABC):
         """
         return self.__class__.__name__
 
-    def to_dict(self) -> dict:
+    def to_base_dict(self) -> dict:
             result = {}
             result["message_type"] = self.message_type
             if self.prev is not None:
@@ -90,7 +90,12 @@ class Message(ABC):
                 result["parent"] = self.parent.id
                 
             result["timestamp"] = self.timestamp
-            
-        
             return result
+    
+    def to_broadcast_dict(self) -> dict: 
+        return self.to_base_dict()
+
+    def to_log_dict(self) -> dict:
+        return self.to_base_dict()
+
         
