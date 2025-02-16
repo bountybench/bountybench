@@ -32,7 +32,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
       onEditingChange(true);
       setEditedMessage(originalMessageContent);
     }
-  }, [originalMessageContent, onEditingChange]);
+  }, [originalMessageContent, onEditingChange, message]);
 
   const handleSaveClick = useCallback(async () => {
     if (!message.current_id) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Box, CircularProgress, Alert, Typography, IconButton } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -140,7 +140,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   useEffect(() => {
     fetchResources();
-  }, [phaseMessages]);
+  }, [phaseMessages, fetchResources]);
 
   const toggleResourcePanel = () => {
     setIsResourcePanelOpen(!isResourcePanelOpen);
@@ -271,6 +271,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       }
 
       const result = await response.json();
+      console.log(`Toggle version: ${result}`);
       // Updating messages should be triggered by call
     } catch (error) {
       console.error('Error toggling version:', error);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, Typography, CircularProgress, Button } from '@mui/material';
+import { Box, CircularProgress, Button } from '@mui/material';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import StopIcon from '@mui/icons-material/Stop';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
