@@ -5,18 +5,29 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import './ResourceDict.css';
 
 const ResourceConfigItem = ({ label, value }) => {
+  // Convert value to a displayable format
   let displayValue = value;
 
   if (typeof value === 'object' && value !== null) {
     displayValue = JSON.stringify(value, null, 2);
+  } else if (typeof value === 'boolean') {
+    displayValue = value ? 'true' : 'false';
   }
 
   return (
     <ListItem>
       <ListItemText
-        primary={<Typography variant="subtitle2" color="textSecondary">{label}</Typography>}
+        primary={
+          <Typography variant="subtitle2" color="textSecondary">
+            {label}
+          </Typography>
+        }
         secondary={
-          <Typography variant="body2" component="pre" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          <Typography
+            variant="body2"
+            component="pre"
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+          >
             {displayValue}
           </Typography>
         }
