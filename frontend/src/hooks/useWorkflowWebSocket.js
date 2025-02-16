@@ -41,7 +41,7 @@ export const useWorkflowWebSocket = (workflowId) => {
 
       return newPhaseMessages;
     });
-  })
+  }, [])
 
   const handleUpdatedAgentMessage = useCallback((updatedAgentMessage) => {
     const updatedMessages = Array.isArray(updatedAgentMessage) ? updatedAgentMessage : [updatedAgentMessage];
@@ -242,7 +242,7 @@ export const useWorkflowWebSocket = (workflowId) => {
         lastHeartbeat.current = Date.now();
       };
     }, backoff);
-  }, [workflowId, maxReconnectAttempts]);
+  }, [workflowId, maxReconnectAttempts, handleWebSocketMessage]);
 
   useEffect(() => {
     if (workflowId) {
