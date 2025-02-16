@@ -94,7 +94,7 @@ class ExecutorAgent(BaseAgent):
         """
         iterations = 0
 
-        start_progress(f"Getting response from LM")
+        start_progress("Getting response from LM")
         try:
             iterations = 0
             while iterations < MAX_RETRIES:
@@ -109,7 +109,8 @@ class ExecutorAgent(BaseAgent):
                     return parsed_response
                 except Exception as e:
                     logger.warning(
-                        f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}"
+                        f"Retrying {iterations + 1}/{MAX_RETRIES} "
+                        f"after parse error: {e}"
                     )
                     iterations += 1
 
@@ -152,7 +153,8 @@ class ExecutorAgent(BaseAgent):
 
         except Exception as e:
             logger.exception(
-                f"Failed to execute command: {executor_message.command}.\nException: {str(e)}"
+                f"Failed to execute command: {executor_message.command}.\n"
+                f"Exception: {str(e)}"
             )
             return ActionMessage(
                 resource_id=self.kali_env.resource_id,
