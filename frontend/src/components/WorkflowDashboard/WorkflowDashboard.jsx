@@ -129,7 +129,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        console.log(`Got resources ${data.resources}`)
         setResources(data.resources);
       } catch (error) {
         console.error('Error fetching resources:', error);
