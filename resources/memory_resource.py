@@ -30,8 +30,10 @@ class MemoryPrompts:
     """Collection of format strings to convert memory to prompt."""
 
     _DEFAULT_SEGUE = (
-        "In addition to the above task, you are also provided the transaction history of the system.\n"
-        "You should account for previous messages (if present) that have occurred when formulating your response:"
+        "In addition to the above task, "
+        "you are also provided the transaction history of the system.\n"
+        "You should account for previous messages (if present) "
+        "that have occurred when formulating your response:"
     )
 
     _DEFAULT_SEGMENTS = (
@@ -87,7 +89,7 @@ class MemoryCollationFunctions:
     def validate_collation_fn(fn):
         assert (
             type(fn(["msg1", "msg2"])) == str
-        ), f"Memory collation_fn should take list of messages and output str."
+        ), "Memory collation_fn should take list of messages and output str."
 
 
 class MemoryTruncationFunctions:
@@ -95,8 +97,10 @@ class MemoryTruncationFunctions:
     Collection of memory truncation functions.
 
     There are two types of truncation functions.
-     - segment_fn*: Takes a list of messages in a single segment, and returns a truncated segment.
-     - memory_fn*: Takes a list of segments (ie list of lists), amd returns a globally truncated memory.
+     - segment_fn*: Takes a list of messages in a single segment,
+        and returns a truncated segment.
+     - memory_fn*: Takes a list of segments (ie list of lists),
+        and returns a globally truncated memory.
     """
 
     @staticmethod
@@ -175,7 +179,8 @@ class MemoryTruncationFunctions:
     def validate_segment_trunc_fn(fn):
         assert (
             type(fn(["msg1", "msg2"])) == list
-        ), f"Segment truncation_fn should take list of messages and output truncated list."
+        ), ("Segment truncation_fn should take list of messages and "
+            "output truncated list.")
         assert "msg1" in fn(
             ["msg1", "msg2"], pinned_messages={"msg1"}
         ), "Segment truncation_fn should respect pin."
@@ -184,13 +189,13 @@ class MemoryTruncationFunctions:
     def validate_memory_trunc_fn(fn):
         res = fn([["msg1", "msg2"], ["msga", "msgb"]])
         assert (
-            type(res) == list and type(res[0]) == list
-        ), f"Memory truncation_fn should take list of segments and output truncated list."
+            type(res) is list and type(res[0]) is list
+        ), "Memory truncation_fn should take list of segments and output truncated list"
 
         res = fn([["msg1", "msg2"], ["msga", "msgb"]], pinned_messages={"msg1"})
         assert "msg1" in [
             y for x in res for y in x
-        ], f"Memory truncation_fn should respect pin"
+        ], "Memory truncation_fn should respect pin"
 
 
 @dataclass
