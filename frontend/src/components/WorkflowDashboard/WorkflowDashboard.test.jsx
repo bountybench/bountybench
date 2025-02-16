@@ -4,6 +4,8 @@ import { WorkflowDashboard } from './WorkflowDashboard';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import '@testing-library/jest-dom/extend-expect';
 import { MemoryRouter as Router, Routes, Route } from 'react-router';
+import { darkTheme } from '../../theme';
+import { ThemeProvider } from '@mui/material/styles'; 
 
 // Mock the dependencies
 jest.mock('../../hooks/useWorkflowWebSocket');
@@ -19,21 +21,14 @@ describe('WorkflowDashboard Component', () => {
 
     const renderWithRouter = (mockSelectedWorkflow, mockInteractiveMode, mockOnWorkflowStateUpdate, mockShowInvalidWorkflowToast) => {
       return render(
-        <Router initialEntries={[`/workflow/${mockSelectedWorkflow.id}`]}>
-          <Routes>
-            <Route path="/workflow/:workflowId" 
-              element={
-                <WorkflowDashboard
-                  selectedWorkflow={mockSelectedWorkflow}
-                  interactiveMode={mockInteractiveMode}
-                  onWorkflowStateUpdate={mockOnWorkflowStateUpdate}
-                  showInvalidWorkflowToast={mockShowInvalidWorkflowToast}
-                />
-              }
-            />
-          </Routes>
-        </Router>
-      );
+				<ThemeProvider theme={darkTheme}>
+					<Router initialEntries={[`/workflow/${mockSelectedWorkflow.id}`]}>
+						<Routes>
+							<Route path='/workflow/:workflowId' element={<WorkflowDashboard selectedWorkflow={mockSelectedWorkflow} interactiveMode={mockInteractiveMode} onWorkflowStateUpdate={mockOnWorkflowStateUpdate} showInvalidWorkflowToast={mockShowInvalidWorkflowToast} />} />
+						</Routes>
+					</Router>
+				</ThemeProvider>
+			);
     };
 
     beforeEach(() => {
@@ -133,14 +128,12 @@ describe('WorkflowDashboard Component', () => {
         });
 
         render(
-          <Router>
-            <WorkflowDashboard
-                selectedWorkflow={mockSelectedWorkflow}
-                interactiveMode={mockInteractiveMode}
-                onWorkflowStateUpdate={mockOnWorkflowStateUpdate}
-            />
-          </Router>
-        );
+					<ThemeProvider theme={darkTheme}>
+						<Router>
+							<WorkflowDashboard selectedWorkflow={mockSelectedWorkflow} interactiveMode={mockInteractiveMode} onWorkflowStateUpdate={mockOnWorkflowStateUpdate} />
+						</Router>
+					</ThemeProvider>
+				);
 
         expect(screen.getByText(/Message 1/)).toBeInTheDocument();
         expect(screen.getByText(/Message 2/)).toBeInTheDocument();
