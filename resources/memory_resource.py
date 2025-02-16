@@ -5,6 +5,7 @@ from functools import partial
 from typing import Callable, List
 
 from messages.agent_messages.agent_message import ActionMessage, AgentMessage
+from messages.parse_message import extract_memory
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResource, BaseResourceConfig
@@ -253,7 +254,7 @@ class MemoryResource(BaseResource):
         self.segment_trunc_fn = self._resource_config.segment_trunc_fn
         self.memory_trunc_fn = self._resource_config.memory_trunc_fn
 
-        self.pinned_messages = set()
+        self.pinned_messages = []
 
     def parse_message(self, message: ActionMessage | AgentMessage | PhaseMessage):
         """Given a message, parse into prev_{phase | agent | action} messages.
@@ -358,10 +359,10 @@ class MemoryResource(BaseResource):
 
         # truncate each segment
         trunc_segments = [
-            self.segment_trunc_fn(x, self.pinned_messages) for x in segments
+            self.segment_trunc_fn(x, set(self.pinned_messages)) for x in segments
         ]
         # truncate all memory
-        trunc_segments = self.memory_trunc_fn(trunc_segments, self.pinned_messages)
+        trunc_segments = self.memory_trunc_fn(trunc_segments, set(self.pinned_messages))
         start = 1
         collated_segments = []
         for segment in trunc_segments:
@@ -417,7 +418,37 @@ class MemoryResource(BaseResource):
 
         Currently, pin is content-based.
         """
-        self.pinned_messages.add(message_str.strip())
+        self.pinned_messages.append(message_str)
+
+    def unpin(self, indices: List[int]):
+        """
+        Unpins message.
+        """
+        self.pinned_messages = [
+            msg for i, msg in enumerate(self.pinned_messages) if i + 1 not in indices
+        ]
+
+    def update_pin(
+        self,
+        message: ActionMessage,
+        new_messages: List[str],
+    ) -> None:
+        """
+        Updates pin based on to_pin and to_unpin.
+        """
+        msg_dict = extract_memory(message.message)
+        if msg_dict is None:
+            return
+        to_pin = msg_dict.get("to_pin", [])
+        to_unpin = msg_dict.get("to_unpin", [])
+        logger.info(
+            f"Pinning messages with id: {to_pin} "
+            f"and unpinning messages with id: {to_unpin}"
+        )
+        self.unpin(to_unpin)
+        for idx, msg in enumerate(new_messages):
+            if idx + 1 in to_pin:
+                self.pin(msg)
 
     def stop(self):
         logger.debug(

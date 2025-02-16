@@ -105,6 +105,7 @@ class ExecutorAgent(BaseAgent):
                     model_output: ActionMessage = await asyncio.to_thread(
                         self.model.run, input_message=lm_input_message
                     )
+                    self.executor_agent_memory.update_pin(model_output)
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
                 except Exception as e:
