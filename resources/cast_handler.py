@@ -21,5 +21,5 @@ class CastHandler:
         """
         return [
             resource_type for resource_type in available_resources
-            if resource_type.can_handle_message(message)
+            if resource_type.can_cast_message(message)
         ]
