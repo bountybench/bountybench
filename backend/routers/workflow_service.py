@@ -377,9 +377,6 @@ async def show_possible_actions(workflow_id: str, request: Request):
     workflow = active_workflows[workflow_id]["instance"]
     last_action = await workflow.get_last_message()
     resource_manager = workflow.resource_manager
-    resources = resource_manager.get_resources()
-    
-    for resource_id, resource in resources.items():
 
 
 
