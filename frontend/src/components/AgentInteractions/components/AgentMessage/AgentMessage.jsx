@@ -12,7 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AddIcon from '@mui/icons-material/Add';
 
-const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
+const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion, onShowPossibleActionList }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message?.message || '');
@@ -60,6 +60,21 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
       console.error('Error running action:', error);
     }
   }, [message, onRunMessage]);
+
+
+
+  const handlePossibleActionList = useCallback(async () => {
+    if (!message.current_id) {
+      console.error('Message id is undefined');
+      return;
+    }
+    try {
+      await onShowPossibleActionList(message.current_id);
+    } catch (error) {
+      console.error('Error adding action:', error);
+    }
+  }, [message, onShowPossibleActionList]);
+
 
   useEffect(() => {
     setOriginalMessageContent(message?.message);
@@ -266,6 +281,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     aria-label="action add"
                     size="small"
                     className="add-action-button"
+                    onClick={handlePossibleActionList} 
                   >
                     <AddIcon />
                   </Button>

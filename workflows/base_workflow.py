@@ -249,6 +249,12 @@ class BaseWorkflow(ABC):
     async def get_last_message(self) -> str:
         result = self._current_phase.last_agent_message
         return result.message if result else ""
+    
+    async def get_last_action(self) -> str:
+        result = self._current_phase.last_agent_message.current_children[-1]
+        return result
+    
+    
 
     async def set_last_message(self, message_id: str):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})

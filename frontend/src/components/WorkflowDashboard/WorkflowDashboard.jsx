@@ -285,6 +285,33 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     );
   }
 
+
+
+  const handlePossibleActionList = async (parentMessageId) => {
+    if (workflowId) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/show-possible-action-list`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ parent_message_id: parentMessageId }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Action added successfully', data);
+      } catch (error) {
+        console.error('Error adding action:', error);
+      }
+    } else {
+      console.error('Workflow ID is not available');
+    }
+  };
+
   if (workflowState.status === WorkflowState.LOADING || 
       workflowState.status === WorkflowState.CONNECTING ||
       workflowState.status === WorkflowState.STARTING) {
@@ -314,6 +341,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
           onTriggerNextIteration={triggerNextIteration}
           onStopWorkflow={handleStopWorkflow}
           onToggleVersion={handleToggleVersion}
+          onShowPossibleActionList={handlePossibleActionList} 
         />
       </Box>
       <Box className={`resource-panel ${isResourcePanelOpen ? 'open' : ''}`}>

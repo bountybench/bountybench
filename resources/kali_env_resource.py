@@ -10,9 +10,10 @@ import time
 import docker
 from docker.models.containers import Container
 
+from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
-from resources.base_resource import BaseResource
+from resources.runnable_base_resource import RunnableBaseResource
 from resources.utils import get_stdout_text
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
@@ -20,6 +21,8 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 import os
 from resources.base_resource import BaseResourceConfig
+from messages.parse_message import extract_command
+
 
 
 # Configure logging
@@ -71,7 +74,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
                     raise ValueError(f"Invalid volume host path parent directory: {parent_dir}")
 
                 
-class KaliEnvResource(BaseResource):
+class KaliEnvResource(RunnableBaseResource):
     """Kali Linux Environment Resource"""
 
     def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
@@ -221,6 +224,41 @@ class KaliEnvResource(BaseResource):
         except Exception as e:
             logger.error(f"Error cleaning up Docker container: {e}")
 
+
+    def can_cast_message(self, message: ActionMessage) -> bool:
+        """
+        Check if this resource can handle the given ActionMessage by verifying it has
+        the necessary properties to be cast to a CommandMessage.
+        
+        A message can be handled if:
+        1. It has a non-empty message string
+        2. The message can be parsed into a valid command
+        
+        Args:
+            message: ActionMessage to check
+            
+        Returns:
+            bool: True if the message has the required properties
+        """
+        try:
+            # Check if message exists and is string
+            if not isinstance(message.message, str):
+                return False
+                
+            # Check if message has content
+            if not message.message.strip():
+                return False
+                
+            # Check if we can extract a command
+            try: 
+                command = extract_command(message.message, STOP_TOKEN)
+                return True
+            except Exception: 
+                return False
+                
+        except Exception:
+            return False
+        
     def run(self, command_message: CommandMessage) -> ActionMessage:
         command_str = command_message.command
         stdout, stderr = self.run_command(command_str, TIMEOUT_PER_COMMAND)
@@ -494,6 +532,7 @@ class KaliEnvResource(BaseResource):
                 "Failure to connect for one or more target hosts.")
         else:
             logger.info("All target hosts can be connected to.")
+    
 
     def to_dict(self) -> dict:
         """

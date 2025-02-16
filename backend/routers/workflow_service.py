@@ -366,4 +366,24 @@ async def get_workflow_resources(workflow_id: str, request: Request):
         resource_list.append(resource_info)
 
     return {"resources": resource_list}
-  
+
+
+@workflow_service_router.get("/workflow/{workflow_id}/show-possible-action-list")
+async def show_possible_actions(workflow_id: str, request: Request):
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        return {"error": "Workflow not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+    last_action = await workflow.get_last_message()
+    resource_manager = workflow.resource_manager
+    resources = resource_manager.get_resources()
+    
+    for resource_id, resource in resources.items():
+
+
+
+
+
+
+    return {"message_type": "last_message", "content": last_message_str}

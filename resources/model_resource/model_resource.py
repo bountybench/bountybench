@@ -5,14 +5,14 @@ import tiktoken
 
 from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
-from messages.action_messages.command_message import CommandMessage
 from messages.message import Message
-from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.base_resource import BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
 from resources.model_resource.model_utils import truncate_input_to_max_tokens
+from resources.runnable_base_resource import RunnableBaseResource
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -58,7 +58,7 @@ class ModelResourceConfig(BaseResourceConfig):
         verify_and_auth_api_key(self.model, self.use_helm)
 
 
-class ModelResource(BaseResource):
+class ModelResource(RunnableBaseResource):
     """ModelResource"""
 
     def __init__(self, resource_id: str, config: ModelResourceConfig):
@@ -124,6 +124,44 @@ class ModelResource(BaseResource):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.decode(tokens)
 
+
+
+    def can_cast_message(self, message: ActionMessage) -> bool:
+        """
+        Check if this resource can handle the given ActionMessage by verifying it has
+        the necessary properties required for model processing.
+        
+        A message can be handled if:
+        1. It has a message attribute that is a string
+        2. It has a memory attribute that is not None
+        
+        Args:
+            message: ActionMessage to check
+            
+        Returns:
+            bool: True if the message has the required properties
+        """
+        try:
+            # Check if message exists and is string
+            if not isinstance(message.message, str):
+                return False
+                
+            # Memory must exist and not be None
+            if not hasattr(message, 'memory'):
+                return False
+                
+            if message.memory is None:
+                return False
+                
+            # Memory must be a string
+            if not isinstance(message.memory, str):
+                return False
+                
+            return True
+            
+        except Exception:
+            return False
+        
     def run(self, input_message: Message) -> ActionMessage:
         """
         Send a query to the specified model and get a response.
