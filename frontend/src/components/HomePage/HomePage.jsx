@@ -15,7 +15,7 @@ const HomePage = () => {
 
   const fetchActiveWorkflows = async () => {
     try {
-      const response = await fetch('http://localhost:8000/workflows/active');
+      const response = await fetch('http://localhost:8000/workflow/active');
       const data = await response.json();
       setActiveWorkflows(data.active_workflows);
     } catch (error) {

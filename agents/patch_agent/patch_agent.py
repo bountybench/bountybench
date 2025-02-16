@@ -87,7 +87,7 @@ class PatchAgent(BaseAgent):
         else: 
             logger_message = "No git diff detected, skipping patching."
             logger.info(logger_message)
-            agent_message =  AgentMessage(agent_id=self.agent_id, message=logger_message, prev=prev_agent_message)
+            agent_message =  PatchAgentMessage(agent_id=self.agent_id, message=logger_message, prev=prev_agent_message)
             return agent_message
 
     def execute(self, prev_agent_message: Optional[AgentMessage] = None) -> AgentMessage:
@@ -213,6 +213,17 @@ class PatchAgent(BaseAgent):
                 logger.error(f"{directory_path} is not a git repository, something went wrong.")
                 return ""
 
+
+            subprocess.run(
+                ['git', 'rm', '--cached', '-r', '__pycache__'],
+                cwd=directory_path,
+                check=False
+            )
+            subprocess.run(
+                ['git', 'rm', '--cached', '*.pyc'],
+                cwd=directory_path,
+                check=False
+            )
             # Check for untracked files
             untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=directory_path).decode('utf-8')
             logger.debug(f"Untracked files: {untracked}")

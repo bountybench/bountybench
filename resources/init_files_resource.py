@@ -98,7 +98,18 @@ class InitFilesResource(BaseResource):
                     check=True,
                     text=True
                 )
+
+            bountyagent_dir = os.getcwd()
             logger.info("Cleaning up the working directory before checkout.")
+            if os.path.exists(os.path.join(bountyagent_dir, ".git")):
+                subprocess.run(
+                    ["find", ".git", "-type", "f", "-name", "index.lock", "-exec", "rm", "-f", "{}", ";"],
+                    cwd=bountyagent_dir,
+                    stdout=sys.stdout,
+                    stderr=sys.stderr,
+                    check=True,
+                    text=True
+                )
             subprocess.run(
                 ["git", "clean", "-fdx"],
                 cwd=self.files_dir,
@@ -107,6 +118,7 @@ class InitFilesResource(BaseResource):
                 check=True,
                 text=True
             )
+    
             logger.info(
                 f"Checking out {self.vulnerable_commit}")
             subprocess.run(

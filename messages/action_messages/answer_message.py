@@ -4,28 +4,22 @@ from messages.parse_message import parse_field
 
 class AnswerMessage(AnswerMessageInterface, ActionMessage):
     def __init__(self, message: str) -> None:
-        self._message = message
-        self._answer = self.parse_answer()
- 
-    @property
-    def message(self) -> str:
-        return self._message
+        super().__init__(resource_id="", message=message)  
+        self._answer = self._parse_answer()
 
     @property
     def answer(self) -> str:
         return self._answer
-    
-    def parse_answer(self) -> str:
-        answer = parse_field(self._message, "Answer: ")
+
+    def _parse_answer(self) -> str:
+        """Extracts the answer from the message text."""
+        answer = parse_field(self.message, "Answer: ")  
         if not answer:
-            raise Exception("Answer is missing from message, cannot be a answer message.")
+            raise ValueError("Answer is missing from message, cannot be a answer message.")
         return answer
 
-    def to_dict(self) -> dict:
-        action_dict = self.action_dict()
-        action_dict.update({
-            "answer": self.answer
-        })
-        base_dict = super(ActionMessage, self).to_dict() 
-        action_dict.update(base_dict)
+    def action_dict(self) -> dict:
+        """Extend the action_dict with the answer field."""
+        action_dict = super().action_dict()
+        action_dict["answer"] = self.answer
         return action_dict

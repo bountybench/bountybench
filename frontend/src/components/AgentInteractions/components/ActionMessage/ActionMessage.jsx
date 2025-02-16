@@ -9,10 +9,7 @@ import { formatData } from '../../utils/messageFormatters';
 import { CopyButton } from '../buttons/CopyButton';
 import './ActionMessage.css';
 
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-
-const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onChildUpdate, displayedIndex, versionLength }) => {
+const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(action?.message || '');
@@ -52,17 +49,17 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     }
   }, [action, editedMessage, onEditingChange, onUpdateMessageInput]);
 
-  const handleRerunClick = useCallback(async () => {
+  const handleRunClick = useCallback(async () => {
     if (!action.current_id) {
       console.error('Action id is undefined');
       return;
     }
     try {
-      await onRerunMessage(action.current_id);
+      await onRunMessage(action.current_id);
     } catch (error) {
-      console.error('Error rerunning action:', error);
+      console.error('Error running action:', error);
     }
-  }, [action, onRerunMessage]);
+  }, [action, onRunMessage]);
 
   const textFieldRef = useRef(null);
 
@@ -93,7 +90,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
           if (editing) {
             handleSaveClick();      // Call the save function
           } else {
-            handleRerunClick();
+            handleRunClick();
           }
         }
         else if (event.key === 'Enter' && !event.altKey && !editing) {
@@ -106,19 +103,13 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRerunClick, onUpdateMessageInput, selectedCellId]);
+  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, selectedCellId]);
 
   if (!action) return null;
   
   const handleToggleMetadata = (event) => {
     event.stopPropagation();
     setMetadataExpanded(!metadataExpanded);
-  };
-
-  const handleToggleVersion = (num) => {
-    if (onChildUpdate) {
-      onChildUpdate(num); // Notify parent of the update
-    }
   };
 
   const handleExpandClick = (e) => {
@@ -130,6 +121,8 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
     e.stopPropagation();
     onCellSelect(action.current_id);
   };
+
+
 
 
   return (
@@ -145,7 +138,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
               {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
             </Typography>
             {action.timestamp && (
-              <Typography className="action-message-timestamp">
+              <Typography className="message-timestamp">
                 {new Date(action.timestamp).toLocaleTimeString()}
               </Typography>
             )}
@@ -160,110 +153,74 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRerunMessage, on
           </IconButton>
         </Box>
 
-      <Collapse in={expanded}>
-        {editing ? (
-          <>
-          <Box className="editing-message-content">
-            <TextField className="action-message-text message-edit-field"
-              inputRef={textFieldRef}
-              multiline
-              minRows={3}
-              maxRows={10}
-              value={editedMessage}
-              onChange={(e) => setEditedMessage(e.target.value)}
-              fullWidth
-            />
-          </Box>
-          <Box className="message-buttons" sx={{ display: 'flex' }}>
+        <Collapse in={expanded}>
+          {editing ? (
+            <>
+              <Box className="editing-message-content">
+                <TextField className="action-message-text message-edit-field"
+                  inputRef={textFieldRef}
+                  multiline
+                  minRows={3}
+                  maxRows={10}
+                  value={editedMessage}
+                  onChange={(e) => setEditedMessage(e.target.value)}
+                  fullWidth
+                />
+              </Box>
+              <Box className="message-buttons" sx={{ display: 'flex' }}>
             <CopyButton onClick={handleCopyClick} />
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={handleCancelEdit}
-              size="small"
-              aria-label="cancel"
-              className="cancel-button"
-            >
-              <CloseIcon/>
-            </Button>
-            <Button
-              variant="outlined"
-              color="primary"
-              onClick={handleSaveClick}
-              size="small"
-              aria-label="save"
-              className="save-button"
-              sx={{ mr: 1 }}
-            >
-              <KeyboardArrowRightIcon/>
-            </Button>           
-          </Box>
-        </>
-        ) : (
-          <>
-            <Box className="action-message-content">
-              <Typography className="action-message-text">
-                {originalMessageContent}
-              </Typography>
-            </Box>
-            <Box className="message-buttons" sx={{ display: 'flex' }}>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleCancelEdit}
+                  size="small"
+                  aria-label="cancel"
+                  className="cancel-button"
+                >
+                  <CloseIcon/>
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleSaveClick}
+                  size="small"
+                  aria-label="save"
+                  className="save-button"
+                  sx={{ mr: 1 }}
+                >
+                  <KeyboardArrowRightIcon/>
+                </Button>           
+              </Box>
+            </>
+          ) : (
+            <>
+              <Box className="action-message-content">
+                <Typography className="action-message-text">
+                  {originalMessageContent}
+                </Typography>
+              </Box>
+              <Box className="message-buttons" sx={{ display: 'flex' }}>
             <CopyButton onClick={handleCopyClick} />
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={handleEditClick}
-                size="small"
-                aria-label="edit"
-                className="edit-button"
-              >
-                <EditIcon />
-              </Button>
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleRerunClick}
-                size="small"
-                aria-label="rerun"
-                className="rerun-button"
-              >
-                <KeyboardArrowRightIcon />
-              </Button>
-
-                  {/* Toggle Version Arrows */}
-                  { versionLength > 1 && index === 0 && (
-                  <>
-                    <Typography variant="caption" sx={{ mx: 1 }}>
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      {/* Arrow Buttons */}
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <IconButton
-                          aria-label="arrow back"
-                          onClick={() => handleToggleVersion(-1)}
-                          disabled={displayedIndex === 1}
-                          sx={{ color: 'black' }}
-                          size="small"
-                        >
-                          <ArrowBackIcon />
-                        </IconButton>
-                        <IconButton
-                          aria-label="arrow forward"
-                          onClick={() => handleToggleVersion(1)}
-                          disabled={displayedIndex === versionLength}
-                          sx={{ color: 'black' }}
-                          size="small"
-                        >
-                          <ArrowForwardIcon />
-                        </IconButton>
-                      </Box>
-
-                      {/* Version Number */}
-                      <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
-                        {displayedIndex}/{versionLength}
-                      </Typography>
-                    </Box>
-                  </>
-                )}               
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleEditClick}
+                  size="small"
+                  aria-label="edit"
+                  className="edit-button"
+                >
+                  <EditIcon />
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleRunClick}
+                  size="small"
+                  aria-label="run"
+                  className="run-button"
+                >
+                  <KeyboardArrowRightIcon />
+                </Button>
               </Box>
             </>
           )}
