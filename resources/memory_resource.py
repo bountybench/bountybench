@@ -383,14 +383,20 @@ class MemoryResource(BaseResource):
         while len(messages) < len(kwargs):
             messages.append("")
 
-        messages = [x if x else "N/A" for x in messages]
-        kwargs = {k: m for k, m in zip(kwargs, messages)}
+        # Only include sections that have content
+        non_empty_sections = [(k, m) for k, m in zip(kwargs, messages) if m]
+        
+        if not non_empty_sections:
+            # If no messages present, only include system message
+            message.memory = system_message
+            return message
 
-        memory_str = self.fmt.format(**kwargs)
+        # Format memory string with only non-empty sections
+        memory_sections = [f"{m}" for _, m in non_empty_sections]
+        memory_str = (f"{MemoryPrompts._DEFAULT_SEGUE}\n"
+                     f"{chr(10).join(memory_sections)}")
 
-        memory_str = f"{system_message}\n\n" + memory_str
-
-        message.memory = memory_str
+        message.memory = f"{system_message}\n\n{memory_str}"
         return message
 
     def pin(self, message_str: str):
