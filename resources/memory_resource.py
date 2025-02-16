@@ -79,9 +79,9 @@ class MemoryCollationFunctions:
     """
 
     @staticmethod
-    def collate_ordered(segment):
+    def collate_ordered(segment, start=1):
         """Join each message and prepend enumeration."""
-        return "\n".join(f"{i+1}) {message}" for i, message in enumerate(segment))
+        return "\n".join(f"{i+start}) {message}" for i, message in enumerate(segment))
 
     @staticmethod
     def validate_collation_fn(fn):
@@ -357,7 +357,13 @@ class MemoryResource(BaseResource):
         ]
         # truncate all memory
         trunc_segments = self.memory_trunc_fn(trunc_segments, self.pinned_messages)
-        trunc_segments = [self.collate_fn(x) for x in trunc_segments]
+        start = 1
+        collated_segments = []
+        for segment in trunc_segments:
+            collated_segment = self.collate_fn(segment, start=start)
+            collated_segments.append(collated_segment)
+            start += len(segment)
+        trunc_segments = collated_segments
 
         return trunc_segments, system_messages
 
