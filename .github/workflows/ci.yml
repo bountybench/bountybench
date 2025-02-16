@@ -123,6 +123,13 @@ jobs:
         working-directory: ./frontend
         run: npm install
 
+      - name: Build React app
+        working-directory: ./frontend
+        run: |
+          CI=true npm run build
+        env:
+          CI: true
+
       - name: Run frontend tests
         working-directory: ./frontend
         run: npm test -- --watchAll=false
