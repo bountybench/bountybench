@@ -1,4 +1,20 @@
 from typing import List, Optional
+import json
+
+
+def parse_json(text: str) -> Optional[dict]:
+    """Parses a string to a JSON object.
+
+    Args:
+        text: The string to parse.
+
+    Returns:
+        A JSON object if the string is valid JSON, otherwise None.
+    """
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
 
 
 def parse_field(
@@ -55,3 +71,12 @@ def extract_command(message: str, stop_str: str) -> List[str]:
         raise Exception("Command is missing from message, cannot be a command message.")
     command = command.lstrip().lstrip("*").lstrip()
     return command
+
+
+def extract_memory(message: str, stop_str: str = "Command:") -> Optional[dict]:
+    memory = parse_field(message, "Memory:", stop_str=stop_str)
+    if not memory:
+        return None
+    memory = memory.lstrip().lstrip("*").strip()
+    memory_dict = parse_json(memory)
+    return memory_dict
