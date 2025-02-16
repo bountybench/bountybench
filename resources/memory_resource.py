@@ -391,7 +391,7 @@ class MemoryResource(BaseResource):
 
         # Only include sections that have content
         non_empty_sections = [(k, m) for k, m in zip(kwargs, messages) if m]
-        
+
         if not non_empty_sections:
             # If no messages present, only include system message
             message.memory = system_message
@@ -399,8 +399,9 @@ class MemoryResource(BaseResource):
 
         # Format memory string with only non-empty sections
         memory_sections = [f"{m}" for _, m in non_empty_sections]
-        memory_str = (f"{MemoryPrompts._DEFAULT_SEGUE}\n"
-                     f"{chr(10).join(memory_sections)}")
+        memory_str = (
+            f"{MemoryPrompts._DEFAULT_SEGUE}\n" f"{chr(10).join(memory_sections)}"
+        )
 
         message.memory = f"{system_message}\n\n{memory_str}"
         return message
