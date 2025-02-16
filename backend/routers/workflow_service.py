@@ -176,7 +176,7 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
             workflow_message = workflow_data.get("workflow_message")
             if workflow_message and hasattr(workflow_message, "phase_messages"):
                 for phase_message in workflow_message.phase_messages:
-                    await websocket.send_json(phase_message.to_dict())
+                    await websocket.send_json(phase_message.to_broadcast_dict())
 
             if current_status not in ["running", "completed", "stopped"]:
                 print(f"Auto-starting workflow {workflow_id}")
@@ -342,6 +342,7 @@ async def toggle_version(workflow_id: str, data: dict, request: Request):
         error_traceback = traceback.format_exc()
         return {"error": str(e), "traceback": error_traceback}
 
+
 @workflow_service_router.get("/workflow/{workflow_id}/resources")
 async def get_workflow_resources(workflow_id: str, request: Request):
     active_workflows = request.app.state.active_workflows
@@ -366,4 +367,3 @@ async def get_workflow_resources(workflow_id: str, request: Request):
         resource_list.append(resource_info)
 
     return {"resources": resource_list}
-  
