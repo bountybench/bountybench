@@ -26,6 +26,7 @@ async def main() -> None:
     parser.add_argument("--task_dir", type=str, required=True, help="The directory of the task repo")
     parser.add_argument("--bounty_number", type=str, required=True, help="The bounty number")
     parser.add_argument("--interactive", action="store_true", help="Run in interactive mode")
+    parser.add_argument("--use_mock_model", type="store_false", help="Use mock model")
     parser.add_argument("--model", type=str, help="The LM model to query")
     parser.add_argument("--helm", action="store_true", help="Use HelmModels")
     parser.add_argument("--phase_iterations", type=int, help="max iteractions to run of ExploitPhase and PatchPhase each")
@@ -44,6 +45,7 @@ async def main() -> None:
         task_dir=Path(args.task_dir),
         bounty_number=args.bounty_number,
         interactive=args.interactive,
+        use_mock_model=args.use_mock_model
         model=args.model,
         phase_iterations=args.phase_iterations,
     )

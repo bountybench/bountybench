@@ -35,6 +35,7 @@ class PatchPhase(BasePhase):
             workflow (BaseWorkflow): The parent workflow.
             **kwargs: Additional keyword arguments.
         """
+        self.use_mock_model: Any = kwargs.get("use_mock_model")
         self.model: str = kwargs.get("model", "")
         self.helm: Any = kwargs.get("helm")
         self.bounty_number: str = kwargs.get("bounty_number", "")
@@ -84,7 +85,7 @@ class PatchPhase(BasePhase):
         tmp_dir: str = os.path.join(self.workflow.task_dir, tmp_dir_name)
 
         resource_configs: Dict[str, Tuple[Type[BaseResource], Any]] = {
-            "model": (ModelResource, ModelResourceConfig.create(model=self.model)),
+            "model": (ModelResource, ModelResourceConfig.create(model=self.model, use_mock_model=self.use_mock_model)),
             "init_files": (
                 InitFilesResource,
                 InitFilesResourceConfig(

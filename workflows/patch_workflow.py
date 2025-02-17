@@ -17,6 +17,7 @@ class PatchWorkflow(BountyWorkflow):
         """Define and register phases specific to PatchWorkflow."""
 
         phase_kwargs = {
+            'use_mock_model': self.params.get('use_mock_model'),
             'model': self.params.get('model'),
             'helm': self.params.get('helm'),
             'task_dir': self.task_dir,
@@ -55,6 +56,7 @@ async def main() -> None:
     parser.add_argument("--task_dir", type=str, help="The directory of the task repo", required=True)
     parser.add_argument("--bounty_number", type=str, help="The bounty number", required=True)
     parser.add_argument("--interactive", action="store_true", help="Enable interactive mode")
+    parser.add_argument("--use_mock_model", type="store_false", help="Use mock model")
     parser.add_argument("--model", type=str, help="The LM model to query")
     parser.add_argument("--helm", action="store_true", help="Use HelmModels")
     parser.add_argument("--phase_iterations", type=int, help="max iteractions to run of PatchPhase")
@@ -65,7 +67,7 @@ async def main() -> None:
     logs_dir.mkdir(exist_ok=True)
 
     # Run workflow
-    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive, model=args.model, phase_iterations=args.phase_iterations)
+    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive, use_mock_model=args.use_mock_model, model=args.model, phase_iterations=args.phase_iterations)
     await workflow.run()
 
 if __name__ == "__main__":

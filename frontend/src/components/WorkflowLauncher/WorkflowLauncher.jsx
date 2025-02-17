@@ -36,6 +36,8 @@ const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
   const navigate = useNavigate();
+
+  const[mockMode, setMockMode] = useState(false); 
   
   const [launcherState, setLauncherState] = useState({
     status: LauncherState.CHECKING_SERVER,
@@ -148,6 +150,32 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       });
     }
   }, [topLevelSelection]);  
+
+
+  useEffect(() => {
+    if (mockMode) {
+      const enableMockMode = async () => {
+        try {
+          const response = await fetch('http://localhost:8000/workflow/mock-model', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ use_mock: true }),
+          });
+  
+          if (!response.ok) {
+            throw new Error("Failed to enable Mock Mode");
+          }
+  
+          console.log("Mock Mode enabled successfully");
+        } catch (err) {
+          console.error("Error enabling Mock Mode:", err.message);
+        }
+      };
+  
+      enableMockMode();
+    }
+  }, [mockMode]);
+  
   
   const fetchApiKeys = useCallback(async () => { 
     try {
@@ -188,7 +216,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           interactive: interactiveMode,
           iterations: formData.iterations,
           model: formData.model,
-          use_helm: formData.use_helm
+          use_helm: formData.use_helm,
+          use_mock: formData.use_mock,
         }),
       });
       
@@ -406,135 +435,125 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           placeholder="e.g., 10"
         />
 
-        <TextField
-          select
-          fullWidth
-          label="Model Type"
-          name="type"
-          value={topLevelSelection}
-          onChange={handleTopLevelChange}
-          margin="normal"
-        >
-          <MenuItem value="HELM">HELM</MenuItem>
-          <MenuItem value="Non-HELM">Non-HELM</MenuItem>
-        </TextField>
-
-        {/* Conditionally render the second dropdown based on top-level selection */}
-        {selectedModels && (
+      {!mockMode && (
+        <>
           <TextField
             select
             fullWidth
-            label="Model Name"
-            name="model"
-            value={formData.model}
-            onChange={handleInputChange}
+            label="Model Type"
+            name="type"
+            value={topLevelSelection}
+            onChange={handleTopLevelChange}
             margin="normal"
           >
-            {selectedModels.map((model) => (
-            <MenuItem key={model.name} value={model.name}>
-              <Box display="flex" flexDirection="column">
-                <Typography>{model.name}</Typography>
-              </Box>
-            </MenuItem>
-          ))}
+            <MenuItem value="HELM">HELM</MenuItem>
+            <MenuItem value="Non-HELM">Non-HELM</MenuItem>
           </TextField>
-          )}
 
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={5}>
+          {/* Conditionally show Model Name selection */}
+          {selectedModels.length > 0 && (
             <TextField
-              select={!isCustomApiKey} // Turns into input when "Enter new key" is selected
+              select
               fullWidth
-              label="API Key Name"
-              name="api_key_name"
-              value={formData.api_key_name || ""}
+              label="Model Name"
+              name="model"
+              value={formData.model}
               onChange={handleInputChange}
-              required
               margin="normal"
-              InputProps={{
-                endAdornment: (
-                  <IconButton onClick={() => {
-                    if (isCustomApiKey) {
-                      setIsCustomApiKey(!isCustomApiKey);
-
-                      handleInputChange({ // Reset to default
-                        target: {
-                          name: "api_key_name",
-                          value: "HELM_API_KEY",
-                        },
-                      });
-                    }
-                  }}>
-                    {isCustomApiKey ? <ListIcon /> : null}
-                  </IconButton>
-                )
-              }}
             >
-              {Object.keys(apiKeys).map((key) => (
-                <MenuItem key={key} value={key}>
-                  {key}
+              {selectedModels.map((model) => (
+                <MenuItem key={model.name} value={model.name}>
+                  <Box display="flex" flexDirection="column">
+                    <Typography>{model.name}</Typography>
+                  </Box>
                 </MenuItem>
               ))}
-              <Divider />
-              <MenuItem onClick={() => {
-                setIsCustomApiKey(true);
-                setFormData((prev) => ({
-                  ...prev,
-                  api_key_name: "my_custom_key",
-                }));
-                
-              }}>
-                Enter a New API Key:
-              </MenuItem>
             </TextField>
-          </Grid>
+          )}
 
-          <Grid item xs={5.5}>
-            <TextField
-              fullWidth
-              type={showApiKey ? 'text' : 'password'}
-              label="API Key Value"
-              name="api_key_value"
-              value={formData.api_key_value}
-              onChange={handleInputChange}
-              required
-              margin="normal"
-              placeholder="Enter API key"
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={handleRevealToggle} size="large">
-                      {showApiKey ? <Visibility /> : <VisibilityOff />}
+          {/* API Key Section */}
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={5}>
+              <TextField
+                select={!isCustomApiKey}
+                fullWidth
+                label="API Key Name"
+                name="api_key_name"
+                value={formData.api_key_name || ""}
+                onChange={handleInputChange}
+                required
+                margin="normal"
+                InputProps={{
+                  endAdornment: (
+                    <IconButton onClick={() => {
+                      if (isCustomApiKey) {
+                        setIsCustomApiKey(!isCustomApiKey);
+                        handleInputChange({
+                          target: { name: "api_key_name", value: "HELM_API_KEY" },
+                        });
+                      }
+                    }}>
+                      {isCustomApiKey ? <ListIcon /> : null}
                     </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-
-          <Grid item xs={1}>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleApiKeyChange}
-                size="small"
+                  )
+                }}
               >
-                Update
-              </Button>
-            </Box>
+                {Object.keys(apiKeys).map((key) => (
+                  <MenuItem key={key} value={key}>
+                    {key}
+                  </MenuItem>
+                ))}
+                <Divider />
+                <MenuItem onClick={() => {
+                  setIsCustomApiKey(true);
+                  setFormData((prev) => ({ ...prev, api_key_name: "my_custom_key" }));
+                }}>
+                  Enter a New API Key:
+                </MenuItem>
+              </TextField>
+            </Grid>
+
+            <Grid item xs={5.5}>
+              <TextField
+                fullWidth
+                type={showApiKey ? 'text' : 'password'}
+                label="API Key Value"
+                name="api_key_value"
+                value={formData.api_key_value}
+                onChange={handleInputChange}
+                required
+                margin="normal"
+                placeholder="Enter API key"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={handleRevealToggle} size="large">
+                        {showApiKey ? <Visibility /> : <VisibilityOff />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={1}>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Button variant="contained" color="primary" onClick={handleApiKeyChange} size="small">
+                  Update
+                </Button>
+              </Box>
+            </Grid>
+
+            <Grid item xs={10}>
+              {apiStatus.message && (
+                <Alert severity={apiStatus.type} className="launcher-alert" sx={{ whiteSpace: "pre-line" }}>
+                  {apiStatus.message}
+                </Alert>
+              )}
+            </Grid>
           </Grid>
-
-          <Grid item xs={10}>
-            {apiStatus.message && (
-              <Alert severity={apiStatus.type} className="launcher-alert" sx={{ whiteSpace: "pre-line" }}>
-                {apiStatus.message}
-              </Alert>
-            )}
-          </Grid>
-
-
-        </Grid>
+        </>
+      )}
 
           <FormControlLabel
           control={
@@ -548,6 +567,17 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           label="Interactive Mode"
           />
 
+        <FormControlLabel
+          control={
+            <Switch
+              checked={mockMode}
+              onChange={(e) => setMockMode(e.target.checked)}
+              name="mockMode"
+              color="primary"
+            />
+          }
+          label="Mock Model Mode"
+        />
         <Button
           type="submit"
           variant="contained"

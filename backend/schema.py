@@ -14,7 +14,9 @@ class StartWorkflowInput(BaseModel):
     )
     iterations: int = Field(..., gt=0, description="Number of phase iterations")
     model: str = Field(..., description="Name of the model")
+    use_mock: bool = Field(..., description="Mock Model")
     use_helm: bool = Field(..., description="Using HELM vs. Non-Helm")
+
 
 class MessageInputData(BaseModel):
     message_id: str

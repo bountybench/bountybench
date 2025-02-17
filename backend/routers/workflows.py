@@ -68,7 +68,8 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
             interactive=workflow_data.interactive,
             phase_iterations=workflow_data.iterations,
             model=workflow_data.model,
-            use_helm=workflow_data.use_helm,
+            use_mock=workflow_data.use_mock,
+            use_helm=workflow_data.use_helm
         )
         workflow_id = workflow.workflow_message.workflow_id
         active_workflows[workflow_id] = {

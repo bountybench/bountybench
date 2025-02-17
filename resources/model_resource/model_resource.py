@@ -37,6 +37,8 @@ class ModelResourceConfig(BaseResourceConfig):
     use_helm: bool = field(default=False)
     temperature: float = field(default=0.5)
     stop_sequences: List[str] = field(default_factory=lambda: [STOP_TOKEN])
+    use_mock_model: bool = field(default=False)
+
 
     @classmethod
     def create(cls, **kwargs):
@@ -73,6 +75,7 @@ class ModelResource(BaseResource):
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
         self.model_provider: ModelProvider = self.get_model_provider()
+        self.use_mock_model = self._resource_config.use_mock_model
 
     def get_model_provider(self) -> ModelProvider:
         """
@@ -139,6 +142,11 @@ class ModelResource(BaseResource):
         assert input_message.memory is not None, "Message to model.run() should contain memory."
         model_input = input_message.memory
         model_input = truncate_input_to_max_tokens(max_input_tokens=self.max_input_tokens, model_input=model_input, model=self.model, use_helm=self.helm)
+
+
+        if self.use_mock_model: 
+            return ActionMessage(resource_id=self.resource_id, message=input_message.message, additional_metadata=None, prev=prev_action_message)
+
 
         model_response = self.model_provider.make_request(
             model=self.model,
