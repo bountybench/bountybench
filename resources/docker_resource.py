@@ -16,7 +16,8 @@ from docker.errors import (
     NotFound,
 )
 
-from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.base_resource import BaseResourceConfig
+from resources.runnable_base_resource import RunnableBaseResource
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -35,7 +36,7 @@ class DockerResourceConfig(BaseResourceConfig):
         pass
 
 
-class DockerResource(BaseResource):
+class DockerResource(RunnableBaseResource):
     """
     Docker Resource to manage Docker containers.
     """
