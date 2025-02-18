@@ -56,6 +56,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   }, [isAvailable, isChecking]);
 
   const [workflows, setWorkflows] = useState([]);
+  const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
   
   const [formData, setFormData] = useState({
     workflow_name: '',
@@ -178,6 +179,19 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   }, []);
 
+  useEffect(() => {
+    const fetchVulnerabilityTypes = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/workflow/vulnerability-types');
+        const data = await response.json();
+        setVulnerabilityTypes(data.vulnerability_types);
+      } catch (error) {
+        console.error('Failed to fetch vulnerability types:', error);
+      }
+    };
+
+    fetchVulnerabilityTypes();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -410,16 +424,23 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           />
         )}
         
+
         {shouldShowVulnerabilityType(formData.workflow_name) && (
-        <TextField
-          fullWidth
-          label="Vulnerability Type (Optional)"
-          name="vulnerability_type"
-          value={formData.vulnerability_type}
-          onChange={handleInputChange}
-          margin="normal"
-          placeholder="e.g., idor"
-        />
+          <TextField
+            select
+            fullWidth
+            label="Vulnerability Type"
+            name="vulnerability_type"
+            value={formData.vulnerability_type}
+            onChange={handleInputChange}
+            margin="normal"
+          >
+            {vulnerabilityTypes.map((type) => (
+              <MenuItem key={type.value} value={type.value}>
+                {type.name}
+              </MenuItem>
+            ))}
+          </TextField>
         )}
 
         <TextField

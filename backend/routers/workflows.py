@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 
 from backend.schema import StartWorkflowInput
+from prompts.vulnerability_prompts import VulnerabilityType
 from resources.model_resource.model_mapping import NonHELMMapping, TokenizerMapping
 
 workflows_router = APIRouter()
@@ -113,3 +114,12 @@ async def list_helm_models():
     )
     nonhelm_mapping = [{"name": model} for model in nonhelm_models]
     return {"helmModels": helm_mapping, "nonHelmModels": nonhelm_mapping}
+
+
+@workflows_router.get("/workflow/vulnerability-types")
+async def list_vulnerability_types():
+    return {
+        "vulnerability_types": [
+            {"name": vt.name, "value": vt.value} for vt in VulnerabilityType
+        ]
+    }
