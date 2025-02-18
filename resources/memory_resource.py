@@ -401,7 +401,7 @@ class MemoryResource(BaseResource):
         if not non_empty_sections:
             # If no messages present, only include system message
             message.memory = system_message
-            return message
+            return message, []
 
         # Format memory string with only non-empty sections
         memory_sections = [f"{m}" for _, m in non_empty_sections]
