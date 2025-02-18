@@ -261,6 +261,9 @@ class BasePhase(ABC):
             else ""
         )
 
+        if self.params.get("vulnerability_type"):
+            self.params["vulnerability_type"] += " "
+
         self._last_agent_message = AgentMessage(
             agent_id="system",
             message=self.params.get("initial_prompt").format(**self.params),
