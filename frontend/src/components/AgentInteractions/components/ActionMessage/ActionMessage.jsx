@@ -6,6 +6,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
+import { CopyButton } from '../buttons/CopyButton';
 import './ActionMessage.css';
 
 const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
@@ -15,6 +16,11 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   const [originalMessageContent, setOriginalMessageContent] = useState(formatData(action?.message || ''));
+
+  const handleCopyClick = () => {
+    const message = formatData(editedMessage)
+		navigator.clipboard.writeText(message);
+	};
 
   const handleCancelEdit = useCallback(() => {
     setEditing(false);
@@ -118,6 +124,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
 
 
 
+
   return (
     <Card 
       className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''} ${selectedCellId === action.current_id ? 'selected' : ''}`}
@@ -154,13 +161,14 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
                   inputRef={textFieldRef}
                   multiline
                   minRows={3}
-                  maxRows={10}
+                  maxRows={20}
                   value={editedMessage}
                   onChange={(e) => setEditedMessage(e.target.value)}
                   fullWidth
                 />
               </Box>
-              <Box className="message-buttons">
+              <Box className="message-buttons" sx={{ display: 'flex' }}>
+            <CopyButton onClick={handleCopyClick} />
                 <Button
                   variant="outlined"
                   color="secondary"
@@ -191,7 +199,8 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
                   {originalMessageContent}
                 </Typography>
               </Box>
-              <Box className="message-buttons">
+              <Box className="message-buttons" sx={{ display: 'flex' }}>
+            <CopyButton onClick={handleCopyClick} />
                 <Button
                   variant="outlined"
                   color="primary"

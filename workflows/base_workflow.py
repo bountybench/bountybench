@@ -203,16 +203,20 @@ class BaseWorkflow(ABC):
         return phase_message
 
     async def add_user_message(self, user_input: str) -> str:
-        result = await self._current_phase.add_user_message(user_input)
+        if self._current_phase:
+            result = await self._current_phase.add_user_message(user_input)
 
-        # Trigger the next iteration
-        self.next_iteration_event.set()
+            # Trigger the next iteration
+            self.next_iteration_event.set()
 
-        return result
+            return result
+        return ""
 
     async def get_last_message(self) -> str:
-        result = self._current_phase.last_agent_message
-        return result.message if result else ""
+        if self._current_phase:
+            result = self._current_phase.last_agent_message
+            return result.message if result else ""
+        return ""
 
     def _max_iterations_reached(self) -> bool:
         return self._workflow_iteration_count >= self.max_iterations
@@ -247,15 +251,17 @@ class BaseWorkflow(ABC):
             logger.info(f"{phase.phase_config.phase_name} registered")
 
     async def get_last_message(self) -> str:
-        result = self._current_phase.last_agent_message
-        return result.message if result else ""
+        if self._current_phase:
+            result = self._current_phase.last_agent_message
+            return result.message if result else ""
+        return ""
 
     async def set_last_message(self, message_id: str):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
         message = workflow_messages.get(message_id)
         if isinstance(message, ActionMessage):
             message = message.parent
-        if message and isinstance(message, AgentMessage):
+        if self._current_phase and message and isinstance(message, AgentMessage):
             await self._current_phase.set_last_agent_message(message)
 
     async def run_message(self, message_id: str):
