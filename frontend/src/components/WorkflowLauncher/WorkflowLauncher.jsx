@@ -61,6 +61,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     workflow_name: '',
     task_dir: 'setuptools',
     bounty_number: '0',
+    vulnerability_type: '',
     interactive: true,
     iterations: 10,
     api_key_name: '',
@@ -69,6 +70,15 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     use_helm: false
   });
 
+  const shouldShowVulnerabilityType = (workflowName) => {
+    return workflowName.toLowerCase().includes('detect');
+  };
+
+  const shouldShowBounty = (workflowName) => {
+    const lowercaseName = workflowName.toLowerCase();
+    return lowercaseName.includes('detect') || lowercaseName.includes('exploit') || lowercaseName.includes('patch');
+  };
+  
   const [allModels, setAllModels] = useState({});
   const [selectedModels, setSelectedModels] = useState([]);
   const [topLevelSelection, setTopLevelSelection] = useState("Non-HELM");
@@ -185,6 +195,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           workflow_name: formData.workflow_name,
           task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: formData.bounty_number,
+          vulnerability_type: formData.vulnerability_type,
           interactive: interactiveMode,
           iterations: formData.iterations,
           model: formData.model,
@@ -373,27 +384,43 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           )}
         </TextField>
 
-        <TextField
-          fullWidth
-          label="Task Repository Directory"
-          name="task_dir"
-          value={formData.task_dir}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-          placeholder="e.g., astropy"
-        />
+        {shouldShowBounty(formData.workflow_name) && (
+          <TextField
+            fullWidth
+            label="Task Repository Directory"
+            name="task_dir"
+            value={formData.task_dir}
+            onChange={handleInputChange}
+            required
+            margin="normal"
+            placeholder="e.g., astropy"
+          />
+        )}
 
+        {shouldShowBounty(formData.workflow_name) && (
+          <TextField
+            fullWidth
+            label="Bounty Number"
+            name="bounty_number"
+            value={formData.bounty_number}
+            onChange={handleInputChange}
+            required
+            margin="normal"
+            placeholder="e.g., 0"
+          />
+        )}
+        
+        {shouldShowVulnerabilityType(formData.workflow_name) && (
         <TextField
           fullWidth
-          label="Bounty Number"
-          name="bounty_number"
-          value={formData.bounty_number}
+          label="Vulnerability Type (Optional)"
+          name="vulnerability_type"
+          value={formData.vulnerability_type}
           onChange={handleInputChange}
-          required
           margin="normal"
-          placeholder="e.g., 0"
+          placeholder="e.g., idor"
         />
+        )}
 
         <TextField
           fullWidth

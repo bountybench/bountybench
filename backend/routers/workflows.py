@@ -65,6 +65,7 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
         workflow = workflow_factory[workflow_data.workflow_name](
             task_dir=Path(workflow_data.task_dir),
             bounty_number=workflow_data.bounty_number,
+            vulnerability_type=workflow_data.vulnerability_type,
             interactive=workflow_data.interactive,
             phase_iterations=workflow_data.iterations,
             model=workflow_data.model,
