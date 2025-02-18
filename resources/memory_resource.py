@@ -410,7 +410,7 @@ class MemoryResource(BaseResource):
         )
 
         message.memory = f"{system_message}\n\n{memory_str}"
-        return message
+        return message, memory_sections
 
     def pin(self, message_str: str):
         """

@@ -99,13 +99,13 @@ class ExecutorAgent(BaseAgent):
             iterations = 0
             while iterations < MAX_RETRIES:
                 try:
-                    lm_input_message = self.executor_agent_memory.get_memory(
+                    lm_input_message, memory_sections = self.executor_agent_memory.get_memory(
                         lm_input_message
                     )
                     model_output: ActionMessage = await asyncio.to_thread(
                         self.model.run, input_message=lm_input_message
                     )
-                    self.executor_agent_memory.update_pin(model_output)
+                    self.executor_agent_memory.update_pin(model_output, memory_sections)
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
                 except Exception as e:
