@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 
 export const AppHeader = ({
   onInteractiveModeToggle,
+  mockMode,
   interactiveMode,
   selectedWorkflow,
   workflowStatus,
@@ -90,7 +91,7 @@ export const AppHeader = ({
         Workflow Agent
       </Typography>
       <Box display="flex" alignItems="center">
-        {selectedWorkflow && (
+        {selectedWorkflow && !mockMode && (
           <>
             {selectedWorkflow.model && (
               <>

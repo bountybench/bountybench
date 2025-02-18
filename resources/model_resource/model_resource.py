@@ -57,7 +57,8 @@ class ModelResourceConfig(BaseResourceConfig):
             raise ValueError("max_input_tokens must be positive")
         if self.max_output_tokens <= 0:
             raise ValueError("max_output_tokens must be positive")
-        verify_and_auth_api_key(self.model, self.use_helm)
+        if not self.use_mock_model: 
+            verify_and_auth_api_key(self.model, self.use_helm)
 
 
 class ModelResource(BaseResource):

@@ -18,6 +18,7 @@ function App() {
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
   const toastIdRef = useRef({});
+  const [mockMode, setMockMode] = useState(false)
 
   const handleWorkflowStart = (workflowId, model, isInteractive) => {
     setSelectedWorkflow({ id: workflowId, model: model });
@@ -116,6 +117,7 @@ function App() {
         <AppHeader
           onInteractiveModeToggle={handleInteractiveModeToggle}
           interactiveMode={interactiveMode}
+          mockMode={mockMode}
           selectedWorkflow={selectedWorkflow}
           workflowStatus={workflowStatus}
           currentPhase={currentPhase}
@@ -124,7 +126,7 @@ function App() {
         <Box flexGrow={1} overflow='auto'>
           <Routes>
             <Route path='/' element={<HomePage/>} />
-            <Route path='/create-workflow' element={<WorkflowLauncher onWorkflowStart={handleWorkflowStart} interactiveMode={interactiveMode} setInteractiveMode={setInteractiveMode} />} />
+            <Route path='/create-workflow' element={<WorkflowLauncher onWorkflowStart={handleWorkflowStart} interactiveMode={interactiveMode} setInteractiveMode={setInteractiveMode} mockMode={mockMode} setMockMode={setMockMode} />} />
             <Route path='/workflow' element={<Navigate to="/" />} />
             <Route path='/workflow/:workflowId' 
               element={

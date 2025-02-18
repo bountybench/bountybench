@@ -260,7 +260,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     onCellSelect={onCellSelect}
                   />
                 ))}
-                <Box className="add-action-button-container">
+                {/* <Box className="add-action-button-container">
                   <Button
                     variant="outlined"
                     aria-label="action add"
@@ -269,7 +269,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                   >
                     <AddIcon />
                   </Button>
-                </Box>
+                </Box> */}
               </Box>
               
               <>

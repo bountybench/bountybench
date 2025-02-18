@@ -152,31 +152,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   }, [topLevelSelection]);  
 
 
-  useEffect(() => {
-    if (mockMode) {
-      const enableMockMode = async () => {
-        try {
-          const response = await fetch('http://localhost:8000/workflow/mock-model', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ use_mock: true }),
-          });
-  
-          if (!response.ok) {
-            throw new Error("Failed to enable Mock Mode");
-          }
-  
-          console.log("Mock Mode enabled successfully");
-        } catch (err) {
-          console.error("Error enabling Mock Mode:", err.message);
-        }
-      };
-  
-      enableMockMode();
-    }
-  }, [mockMode]);
-  
-  
   const fetchApiKeys = useCallback(async () => { 
     try {
       const response = await fetch('http://localhost:8000/service/api-service/get');
@@ -196,6 +171,17 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   }, []);
 
+
+  const handleMockModeToggle = (event) => {
+    const isMockEnabled = event.target.checked;
+    setMockMode(isMockEnabled);
+    
+    // ✅ Also update formData to ensure it reflects the change
+    setFormData(prev => ({
+        ...prev,
+        use_mock_model: isMockEnabled
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -217,7 +203,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           iterations: formData.iterations,
           model: formData.model,
           use_helm: formData.use_helm,
-          use_mock: formData.use_mock,
+          use_mock_model: mockMode,
         }),
       });
       
@@ -571,7 +557,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           control={
             <Switch
               checked={mockMode}
-              onChange={(e) => setMockMode(e.target.checked)}
+              onChange={handleMockModeToggle}
               name="mockMode"
               color="primary"
             />
