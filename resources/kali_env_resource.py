@@ -2,7 +2,6 @@ import atexit
 import os
 import sys
 import time
-import select
 from typing import Dict, Optional, Tuple
 import time
 from typing import Callable, Optional, Any, Type
@@ -73,7 +72,7 @@ class KaliEnvResource(BaseResource):
         self.util = KaliEnvResourceUtil()
         self.client = docker.from_env()
         self.container = self._start(self.resource_id, self._resource_config.volumes)
-        self._validate_container_status()
+        self.util.validate_container_status(self.container, logger)
         self.target_host = self._resource_config.target_host
         self.socket = None # Socket for writing to the pseudo-terminal
         self._initialize_bounty_directory()
@@ -145,12 +144,6 @@ class KaliEnvResource(BaseResource):
             return "", f"Unexpected error: {str(e)}"
         finally:
             stop_progress()
-    
-    def _validate_container_status(self):
-        if self.container.status != "running":
-            logs = self.container.logs().decode("utf-8")
-            logger.error(f"Container exited unexpectedly. Logs:\n{logs}")
-            raise RuntimeError("Container exited unexpectedly after creation.")
 
     def _initialize_bounty_directory(self):
         if self._resource_config.task_dir and self._resource_config.bounty_number:
@@ -216,7 +209,7 @@ class KaliEnvResource(BaseResource):
             logger.error(f"Error cleaning up tmp files: {e}")
 
     def _run_non_tty_command(self, command: str, workdir: Optional[str]) -> Tuple[str, str]:
-        exec_id = self._create_exec(command, workdir, tty=False)
+        exec_id = self.create_exec(command, workdir, tty=False)
         output = self.client.api.exec_start(exec_id, stream=False, demux=True)
         stdout, stderr = output or (None, None)
         stdout_text = get_stdout_text(stdout)
@@ -228,13 +221,20 @@ class KaliEnvResource(BaseResource):
         if not self.socket:
             self._initialize_tty_socket(workdir)
 
-        self._prepare_tty_command(command)
-        output = self._read_tty_output()
+        self.util.prepare_tty_command(self.socket, logger, command)
+        output = self.util.read_tty_output(self.socket)
         stdout_text = self.util.process_tty_output(output, command)
         logger.info(f"Command executed successfully in [pty-mode].\nstdout: {stdout_text}\n")
         return stdout_text, ""
+
+    def _initialize_tty_socket(self, workdir: Optional[str]):
+        exec_id = self.create_exec("", workdir, tty=True)
+        self.socket = self.client.api.exec_start(
+            exec_id=exec_id, stream=True, demux=False, socket=True, tty=True
+        )
+        self.util.send_to_bash(self.socket,logger, 'export PS1="$"\n')
     
-    def _create_exec(self, command: str, workdir: Optional[str], tty: bool) -> str:
+    def create_exec(self, command: str, workdir: Optional[str], tty: bool) -> str:
         exec_params = {
             "container": self.container.id,
             "cmd": ["/bin/bash", "-c", command] if not tty else ["/bin/bash"],
@@ -245,95 +245,6 @@ class KaliEnvResource(BaseResource):
             "tty": tty,
         }
         return self.client.api.exec_create(**exec_params)["Id"]
-
-    def _initialize_tty_socket(self, workdir: Optional[str]):
-        exec_id = self._create_exec("", workdir, tty=True)
-        self.socket = self.client.api.exec_start(
-            exec_id=exec_id, stream=True, demux=False, socket=True, tty=True
-        )
-        self._send_to_bash('export PS1="$"\n')
-        time.sleep(1)
-    
-    def _prepare_tty_command(self, command: str):
-        self._clear_bash_output_buffer()
-        num_new_lines = self.util.count_trailing_new_lines(command)
-        command = command.strip()
-        if self.util.is_single_control_character(command):
-            command = command.strip().encode('utf-8').decode('unicode_escape')
-        
-        self._send_to_bash(command)
-        self._clear_bash_output_buffer()
-
-        for _ in range(num_new_lines):
-            self._send_to_bash('\n')
-    
-    def _read_tty_output(self) -> bytes:
-        output = b''
-        sock_timeout = 30
-        end_time = time.time() + sock_timeout
-        last_data_time = time.time()
-        max_inactivity = 3  # seconds
-
-        while time.time() < end_time:
-            rlist, _, _ = select.select([self.socket.fileno()], [], [], 1)
-            
-            if self.socket.fileno() in rlist:
-                chunk = self.socket._sock.recv(1024)
-                if not chunk:
-                    break
-                output += chunk
-                last_data_time = time.time()
-            else:
-                break
-
-            if output and time.time() - last_data_time > max_inactivity:
-                break
-
-        return output
-        
-    def _send_to_bash(self, input_str: str):
-        self.socket._sock.sendall(input_str.encode())  # why socket.write() does not work?  
-    
-    def _clear_bash_output_buffer(self, timeout: float = 2.0):
-        """
-        Clears the bash output buffer by reading until no more data is available
-        or until the timeout is reached.
-
-        Copied from 
-        """
-        start_time = time.time()
-        try:
-            while time.time() - start_time < timeout:
-                rlist, _, _ = select.select([self.socket.fileno()], [], [], 0.1)
-                if self.socket.fileno() in rlist:
-                    try:
-                        chunk = self.socket._sock.recv(1024)
-                    except OSError as e:
-                        logger.error(f"Error while clearing bash buffer: {str(e)}")
-                        break
-                else:
-                    # No data ready; buffer is clear
-                    break
-        except Exception as e:
-            logger.error(f"Unexpected error while clearing bash buffer: {str(e)}")
-
-    def parse_target_host(self, target_host: str) -> Tuple[str, int]:
-        """
-        Parse the target host string into hostname and port.
-
-        Args:
-            target_host (str): The target host in the format hostname:port.
-
-        Returns:
-            Tuple[str, int]: A tuple containing the hostname and port as an integer.
-        """
-        try:
-            hostname, port = target_host.split(":")
-            return hostname, int(port)
-        except ValueError:
-            logger.error(
-                f"Invalid target_host format: {target_host}. Expected format: hostname:port")
-            sys.exit(1)
 
     def connect_to_target_hosts_check(self, target_hosts: str) -> None:
         """

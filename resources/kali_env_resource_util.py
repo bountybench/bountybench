@@ -1,5 +1,3 @@
-import atexit
-import os
 import sys
 import time
 import select
@@ -16,6 +14,7 @@ from resources.utils import get_stdout_text
 import os
 
 TIMEOUT_PER_COMMAND = 120
+SOCKET_OP_DEFAULT_TIMEOUT = 2
 MAX_RETRIES = 3
 RETRY_DELAY = 5
 
@@ -114,11 +113,91 @@ class KaliEnvResourceUtil:
             func()
         except Exception as e:
             logger.error(f"Error during {operation_name}: {e}")
-
+    
     @staticmethod
-    def count_trailing_new_lines(input_str: str) -> int:
+    def validate_container_status(container, logger):
+        if container.status != "running":
+            logs = container.logs().decode("utf-8")
+            logger.error(f"Container exited unexpectedly. Logs:\n{logs}")
+            raise RuntimeError("Container exited unexpectedly after creation.")
+    
+    @staticmethod
+    def read_tty_output(socket) -> bytes:
+        output = b''
+        sock_timeout = 30
+        end_time = time.time() + sock_timeout
+        last_data_time = time.time()
+        max_inactivity = 3  # seconds
+
+        while time.time() < end_time:
+            rlist, _, _ = select.select([socket], [], [], 1)
+            
+            if socket in rlist:
+                chunk = socket._sock.recv(1024)
+                if not chunk:
+                    break
+                output += chunk
+                last_data_time = time.time()
+            else:
+                break
+
+            if output and time.time() - last_data_time > max_inactivity:
+                break
+
+        return output
+
+    def count_trailing_new_lines(self,input_str: str) -> int:
         input_str = input_str.rstrip(' ')
         return len(input_str) - len(input_str.rstrip('\n'))
+    
+    def send_to_bash(self, socket, logger, input_str: str, timeout: int = SOCKET_OP_DEFAULT_TIMEOUT):
+        """
+        Wait for the socket to be ready for writing and then sends the input string.
+        """
+        start_time = time.time()
+        try:
+            while time.time() - start_time < timeout:
+                _, wlist, _ = select.select([], [socket], [], 1)
+                if socket in wlist: # Socket is ready for writing
+                    socket._sock.sendall(input_str.encode())
+                    break
+        except TimeoutError:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while waiting for socket: {e}")
+            raise
+    
+    def clear_bash_output_buffer(self, socket, logger, timeout: int = SOCKET_OP_DEFAULT_TIMEOUT):
+        """
+        Clears the bash output buffer by reading until no more data is available
+        or until the timeout is reached.
+        """
+        start_time = time.time()
+        try:
+            while time.time() - start_time < timeout:
+                rlist, _, _ = select.select([socket], [], [], 1)
+                if socket in rlist:
+                    data = socket._sock.recv(1024)
+                    if len(data) == 0: # Buffer is confirmed empty, so we can stop here
+                        break
+        except TimeoutError:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while clearing bash buffer: {str(e)}")
+            raise
+
+    def prepare_tty_command(self, socket, logger, command: str):
+        self.clear_bash_output_buffer(socket,logger)
+        num_new_lines = self.count_trailing_new_lines(command)
+        command = command.strip()
+        if self.is_single_control_character(command):
+            command = command.strip().encode('utf-8').decode('unicode_escape')
+        
+        self.send_to_bash(socket, logger, command)
+        self.clear_bash_output_buffer(socket,logger)
+
+        for _ in range(num_new_lines):
+            self.send_to_bash(socket, logger, '\n')
     
     def process_tty_output(self, output: bytes, command: str) -> str:
         if not output:
