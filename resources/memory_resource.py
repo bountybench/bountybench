@@ -406,7 +406,11 @@ class MemoryResource(BaseResource):
         # Format memory string with only non-empty sections
         memory_sections = [f"{m}" for _, m in non_empty_sections]
         memory_str = (
-            f"{MemoryPrompts._DEFAULT_SEGUE}\n" f"{chr(10).join(memory_sections)}"
+            f"{MemoryPrompts._DEFAULT_SEGUE}\n"
+            f"==============Start of Pined Messages==============\n"
+            f"{chr(10).join(f'{i+1}) {msg}' for i, msg in enumerate(self.pinned_messages))}"
+            f"==============End of Pined Messages==============\n"
+            f"{chr(10).join(memory_sections)}"
         )
 
         message.memory = f"{system_message}\n\n{memory_str}"
