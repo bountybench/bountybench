@@ -66,11 +66,11 @@ class DockerResource(RunnableBaseResource):
         network = docker_message.network
         volumes = docker_message.volumes
 
-        output, exit_code = self.execute(docker_image, command, network, volumes=volumes)
+        output, exit_code = await self.execute(docker_image, command, network, volumes=volumes)
 
         return ActionMessage(
             resource_id=self.resource_id,
-            message=f"Execution completed with exit code {exit_code}. Output:\n{output}",
+            message=f"Output:\n{output}",
             additional_metadata={
                 "docker_image": docker_image,
                 "command": command,
@@ -82,7 +82,7 @@ class DockerResource(RunnableBaseResource):
         )
     
 
-    def execute(
+    async def execute(
         self,
         docker_image: str,
         command: str,
