@@ -10,6 +10,7 @@ from messages.message import Message
 from messages.message_utils import log_message
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
+from prompts.vulnerability_prompts import get_specialized_instructions
 from resources.base_resource import BaseResource, BaseResourceConfig
 from utils.logger import get_main_logger
 
@@ -253,6 +254,13 @@ class BasePhase(ABC):
                 text=True,
             ).stdout
             self.params["codebase"] = "$ tree -L 4\n" + codebase_structure
+
+        self.params["specialized_instructions"] = (
+            get_specialized_instructions(self.params.get("vulnerability_type"))
+            if self.params.get("vulnerability_type")
+            else ""
+        )
+
         self._last_agent_message = AgentMessage(
             agent_id="system",
             message=self.params.get("initial_prompt").format(**self.params),
