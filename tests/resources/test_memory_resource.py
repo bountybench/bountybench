@@ -69,7 +69,7 @@ def message_tree():
 
     config = MemoryResourceConfig(
         fmt="{prev_phase_messages}!!{prev_agent_messages}!!{prev_action_messages}",
-        collate_fn=lambda x: " ".join(x),
+        collate_fn=lambda x, start=0: " ".join(x),
         segment_trunc_fn=MemoryTruncationFunctions.segment_fn_noop,
         memory_trunc_fn=MemoryTruncationFunctions.memory_fn_noop,
     )
