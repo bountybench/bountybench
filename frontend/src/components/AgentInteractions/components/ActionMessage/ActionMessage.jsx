@@ -154,7 +154,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
                   inputRef={textFieldRef}
                   multiline
                   minRows={3}
-                  maxRows={10}
+                  maxRows={20}
                   value={editedMessage}
                   onChange={(e) => setEditedMessage(e.target.value)}
                   fullWidth
