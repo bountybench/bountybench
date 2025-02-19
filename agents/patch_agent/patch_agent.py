@@ -7,7 +7,8 @@ import time
 from pathlib import Path
 from typing import List, Tuple, Optional
 
-import docker
+from messages.action_messages.action_message import ActionMessage
+from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -82,7 +83,7 @@ class PatchAgent(BaseAgent):
             log_message = "Git diff detected, applying changes..."
             logger.info(log_message)
             self.log_history.append(log_message)
-            agent_message = self.execute(prev_agent_message)
+            agent_message = await self.execute(prev_agent_message)
             return agent_message
         else: 
             logger_message = "No git diff detected, skipping patching."
@@ -90,7 +91,7 @@ class PatchAgent(BaseAgent):
             agent_message =  PatchAgentMessage(agent_id=self.agent_id, message=logger_message, prev=prev_agent_message)
             return agent_message
 
-    def execute(self, prev_agent_message: Optional[AgentMessage] = None) -> AgentMessage:
+    async def execute(self, prev_agent_message: Optional[AgentMessage] = None) -> AgentMessage:
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = self.get_git_diff(self.codebase)
         if tmp_dir_diff:
@@ -123,12 +124,16 @@ class PatchAgent(BaseAgent):
             return PatchAgentMessage(agent_id=self.agent_id, message="The repo resource cannot restart after the changes.", prev=prev_agent_message)
 
         # Run exploit
-        stdout, exit_code = self.run_exploit()
+        docker_output = await self.run_exploit()
+        exit_code = docker_output.additional_metadata['exit_code']
+        stdout = docker_output.message
 
         if self.use_verify_script:
             if self.verify_patch_works(stdout):
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
-                return PatchAgentMessage(agent_id=self.agent_id, message="Congratulations! The patch succeeded.", success=True, patch_files_dir=self.new_patch_dir, prev=prev_agent_message)
+                patch_message = PatchAgentMessage(agent_id=self.agent_id, message="Congratulations! The patch succeeded.", success=True, patch_files_dir=self.new_patch_dir, prev=prev_agent_message)
+                patch_message.add_child_message(docker_output)
+                return patch_message
             else:
                 logger_message = "Exploit succeeded (return code 0), patch failed."
                 logger.status(logger_message)
@@ -137,7 +142,9 @@ class PatchAgent(BaseAgent):
         else:
             if exit_code == 1:
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
-                return PatchAgentMessage(agent_id=self.agent_id, message="Congratulations! The patch succeeded.", success=True, patch_files_dir=self.new_patch_dir, prev=prev_agent_message)
+                patch_message = PatchAgentMessage(agent_id=self.agent_id, message="Congratulations! The patch succeeded.", success=True, patch_files_dir=self.new_patch_dir, prev=prev_agent_message)
+                patch_message.add_child_message(docker_output)
+                return patch_message
             else:
                 logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
                 logger.status(logger_message)
@@ -146,7 +153,9 @@ class PatchAgent(BaseAgent):
                     
         patch_message = "\n".join(self.log_history)
         self.log_history.clear()
-        return PatchAgentMessage(agent_id=self.agent_id, message=patch_message, prev=prev_agent_message)
+        patch_message = PatchAgentMessage(agent_id=self.agent_id, message=patch_message, prev=prev_agent_message)
+        patch_message.add_child_message(docker_output)
+        return patch_message
     
     def _restart_resource(self, resource):
         """Restart a specific resource."""
@@ -159,29 +168,29 @@ class PatchAgent(BaseAgent):
         return False
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-    def run_exploit(self) -> Tuple[str, int]:
+    async def run_exploit(self) -> ActionMessage:
         """Run the exploit script in a Docker container."""
-        # Here we rely on self.init_files from (InitFilesResource, "init_files")
 
         volumes = {
-            os.path.abspath(self.init_files.tmp_dir): {"bind": "/app", "mode": "rw"},
+            os.path.abspath(self.init_files.tmp_dir): {"bind": f"/app", "mode": "rw"},
         }
 
         exploit_command = f"bash exploit.sh"
-
-        logger.info("Running exploit...")
-        try:
-            exploit_result = self.docker.execute(
-                docker_image="cybench/bountyagent:latest",
-                command=exploit_command,
-                network="shared_net",
-                volumes=volumes,
-            )
-            return exploit_result
-        except docker.errors.ContainerError as e:
-            logger.error(f"Container error during exploit: {str(e)}")
-            return str(e), 1
         
+
+        exec_request = DockerActionMessage(
+            resource_id=self.agent_id,
+            message="Requesting exploit execution",
+            docker_image="cybench/bountyagent:latest",
+            command=exploit_command,
+            network="shared_net",
+            volumes=volumes
+        )
+
+
+        exec_response = await self.docker.run(exec_request)
+
+        return exec_response
 
     def verify_patch_works(self, execution_output: str) -> bool:
         """Run the verify.sh script."""
