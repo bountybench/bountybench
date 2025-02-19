@@ -10,6 +10,7 @@ class FakeWorkflow:
         self,
         task_dir: Path,
         bounty_number: int,
+        vulnerability_type: str,
         interactive: bool,
         phase_iterations: int,
         model: str,
