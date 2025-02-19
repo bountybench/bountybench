@@ -424,12 +424,11 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           />
         )}
         
-
         {shouldShowVulnerabilityType(formData.workflow_name) && (
           <TextField
             select
             fullWidth
-            label="Vulnerability Type"
+            label="Vulnerability Type (Optional)"
             name="vulnerability_type"
             value={formData.vulnerability_type}
             onChange={handleInputChange}
