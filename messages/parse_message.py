@@ -50,3 +50,12 @@ def extract_command(message: str, stop_str: str) -> List[str]:
         )
     command = command.lstrip().lstrip("*").lstrip()
     return command
+
+def extract_answer(message: str, stop_str: str) -> str:
+    answer = parse_field(message, "Answer:", stop_str=stop_str)
+    if not answer:
+        raise Exception(
+            "Answer is missing from message, cannot be a answer message."
+        )
+    answer = answer.lstrip().lstrip("*").lstrip()
+    return answer
