@@ -9,6 +9,13 @@ logger = get_main_logger(__name__)
 class DetectPatchWorkflow(PatchWorkflow):
     """Workflow for detecting vulnerabilities"""
 
+    def __init__(self, *args, **kwargs):        
+        kwargs['use_agent_exploit'] = True
+        super().__init__(*args, **kwargs)
+
+
+    """Workflow for detecting vulnerabilities"""
+
     def _get_initial_prompt(self):
         """
         Provide the initial prompt for the workflow by reading the exploit report.
