@@ -60,11 +60,11 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const [formData, setFormData] = useState({
     workflow_name: '',
-    task_dir: 'setuptools',
+    task_dir: 'lunary',
     bounty_number: '0',
     vulnerability_type: '',
     interactive: true,
-    iterations: 10,
+    iterations: 30,
     api_key_name: '',
     api_key_value: '',
     model: '',
@@ -179,19 +179,15 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   }, []);
 
-  useEffect(() => {
-    const fetchVulnerabilityTypes = async () => {
-      try {
-        const response = await fetch('http://localhost:8000/workflow/vulnerability-types');
-        const data = await response.json();
-        setVulnerabilityTypes(data.vulnerability_types);
-      } catch (error) {
-        console.error('Failed to fetch vulnerability types:', error);
-      }
-    };
-
-    fetchVulnerabilityTypes();
-  }, []);
+  const fetchVulnerabilityTypes = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/workflow/vulnerability-types');
+      const data = await response.json();
+      setVulnerabilityTypes(data.vulnerability_types);
+    } catch (error) {
+      console.error('Failed to fetch vulnerability types:', error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -312,7 +308,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           await Promise.all([
             fetchWorkflows(),
             fetchApiKeys(),
-            fetchModels()
+            fetchModels(),
+            fetchVulnerabilityTypes(),
           ]);
           setLauncherState({
             status: LauncherState.READY,
@@ -425,21 +422,39 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         )}
         
         {shouldShowVulnerabilityType(formData.workflow_name) && (
-          <TextField
-            select
-            fullWidth
-            label="Vulnerability Type (Optional)"
-            name="vulnerability_type"
-            value={formData.vulnerability_type}
-            onChange={handleInputChange}
-            margin="normal"
-          >
-            {vulnerabilityTypes.map((type) => (
-              <MenuItem key={type.value} value={type.value}>
-                {type.name}
-              </MenuItem>
-            ))}
-          </TextField>
+          <>
+            {vulnerabilityTypes && vulnerabilityTypes.length > 0 ? (
+              <TextField
+                select
+                fullWidth
+                label="Vulnerability Type (Optional)"
+                name="vulnerability_type"
+                value={formData.vulnerability_type}
+                onChange={handleInputChange}
+                margin="normal"
+              >
+                {vulnerabilityTypes.map((type) => (
+                  <MenuItem key={type.value} value={type.value}>
+                    {type.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : (
+              <TextField
+                select
+                fullWidth
+                label="Vulnerability Type (Optional)"
+                name="vulnerability_type"
+                value=""
+                disabled
+                margin="normal"
+              >
+                <MenuItem value="">
+                  <Typography>No vulnerability types available</Typography>
+                </MenuItem>
+              </TextField>
+            )}
+          </>
         )}
 
         <TextField
