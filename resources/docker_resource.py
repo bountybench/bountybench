@@ -1,3 +1,4 @@
+import asyncio
 import atexit
 import json
 import os
@@ -66,7 +67,9 @@ class DockerResource(RunnableBaseResource):
         network = docker_message.network
         volumes = docker_message.volumes
 
-        output, exit_code = await self.execute(docker_image, command, network, volumes=volumes)
+        output, exit_code = await asyncio.to_thread(
+        self.execute, docker_image=docker_image, command=command, network=network, volumes=volumes
+        )
 
         return ActionMessage(
             resource_id=self.resource_id,
@@ -82,7 +85,7 @@ class DockerResource(RunnableBaseResource):
         )
     
 
-    async def execute(
+    def execute(
         self,
         docker_image: str,
         command: str,
