@@ -326,34 +326,18 @@ def test_apply_git_patch(bounty_setup, patch_agent, git_fixture):
     files_repo_path = env_path.CODEBASE_FILES_DIR
     agent.patch_id = 1
 
-    test_file_path = os.path.join(tmp_repo_path, TEST_FILE_NAME)
-    with open(test_file_path, 'w') as f:
+    with open(os.path.join(tmp_repo_path, TEST_FILE_NAME), 'w') as f:
         f.write("test_apply_git_patch")
-
+    
     diff = agent.get_git_diff(tmp_repo_path)
-    agent.create_git_patch(diff, agent.patch_dir)
+    patch_file = agent.create_git_patch(diff, agent.patch_dir)
     agent.create_git_commit(tmp_repo_path)
 
-    patch_file = Path(os.path.join(agent.patch_dir, f"patch_{agent.patch_id}.patch"))
-    
-    assert patch_file.exists(), f"Patch file {patch_file} was not created."
-
-    subprocess.check_call(['git', 'checkout', 'dev'], cwd=files_repo_path)
 
     success, message = agent.apply_git_patch(patch_file, files_repo_path, 'dev')
 
     assert success, message
-
-    expected_file_path = os.path.join(files_repo_path, TEST_FILE_NAME)
-    assert os.path.exists(expected_file_path), f"File {expected_file_path} not found after applying patch."
-
-    with open(expected_file_path) as f:
-        file_contents = f.read()
-    
-    assert "test_apply_git_patch" in file_contents, "Patch did not apply correctly."
-
-    subprocess.check_call(['git', 'clean', '-fdx'], cwd=env_path.TASK_DIR)
-
+    assert "test_apply_git_patch" in open(os.path.join(files_repo_path, TEST_FILE_NAME)).read()
 
 
 
