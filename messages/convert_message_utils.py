@@ -1,10 +1,12 @@
 from prompts.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
-from messages.parse_message import extract_command
+from messages.action_messages.answer_message import AnswerMessage
+from messages.parse_message import extract_command, extract_answer
 
 def cast_action_to_command(action: ActionMessage) -> CommandMessage:
     """
+    Casts an ActionMessage object to a CommandMessage object in place.
     Casts an ActionMessage object to a CommandMessage object in place.
     
     This modifies the class of the given object instead of creating a new instance.
@@ -24,3 +26,10 @@ def cast_action_to_command(action: ActionMessage) -> CommandMessage:
     return action
 
 
+def cast_action_to_answer(action: ActionMessage) -> AnswerMessage:
+
+    answer = extract_answer(action.message, STOP_TOKEN)
+
+    action.__class__ = AnswerMessage
+    action._answer = answer
+    return action
