@@ -71,7 +71,7 @@ class DockerResource(RunnableBaseResource):
 
         return ActionMessage(
             resource_id=self.resource_id,
-            message=f"Output:\n{output}",
+            message=f"{output}",
             additional_metadata={
                 "docker_image": docker_image,
                 "command": command,
