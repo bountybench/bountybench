@@ -34,6 +34,9 @@ class DockerResourceConfig(BaseResourceConfig):
         """Validate Docker configuration"""
         pass
 
+    def toJson(self):
+        return json.dumps(self, default=lambda o: o.__dict__)
+
 
 class DockerResource(BaseResource):
     """
@@ -83,10 +86,6 @@ class DockerResource(BaseResource):
         unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
         start_progress(f"Running command in Docker: {command}")
         try:
-            # If command is a string, convert it to a list
-            if isinstance(command, str):
-                command = ["/bin/bash", "-c", command]
-
             container = self.client.containers.run(
                 image=docker_image,
                 command=command,  # Pass command directly without additional formatting
@@ -129,7 +128,7 @@ class DockerResource(BaseResource):
 
     def copy_from_container(
         self, container_name: str, source_path: str, dest_path: str
-    ) -> None:
+    ) -> bool:
         """
         Copy a file or directory from a container to the host system.
 
@@ -137,15 +136,15 @@ class DockerResource(BaseResource):
             container_name (str): The name of the container to copy from.
             source_path (str): The path of the file or directory in the container.
             dest_path (str): The destination path on the host system.
+
+        Returns:
+            True if file/directory successfully copied, False otherwise
         """
         try:
             container = self.client.containers.get(container_name)
 
             # Get file/directory data from container
             bits, stat = container.get_archive(source_path)
-
-            # Ensure the destination directory exists
-            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
 
             # Write the file/directory data to the destination
             with open(dest_path, "wb") as f:
@@ -155,13 +154,17 @@ class DockerResource(BaseResource):
             logger.info(
                 f"Copied from container {container_name}: {source_path} -> {dest_path}"
             )
-        except docker.errors.NotFound:
-            logger.critical(f"Container not found: {container_name}")
-            sys.exit(1)
+
+            return True
+        except docker.errors.NotFound as e:
+            logger.critical(f"Container/file not found: {e}")
+            return False
         except docker.errors.APIError as e:
             logger.error(f"Docker API error while copying: {str(e)}")
+            return False
         except Exception as e:
             logger.error(f"Error copying from container: {e}")
+            return False
 
     def stop(self) -> None:
         """
@@ -172,17 +175,17 @@ class DockerResource(BaseResource):
     def handle_docker_exception(self, e: DockerException) -> RuntimeError:
         """Handle different Docker exceptions for clearer debugging and return appropriate runtime error."""
         error_message = ""
-
-        if isinstance(e, APIError):
-            error_message = "Docker API error: " + str(e)
+        
+        if isinstance(e, ImageNotFound):
+            error_message = "Image not found: " + str(e)
         elif isinstance(e, NotFound):
             error_message = "Not found error in Docker: " + str(e)
-        elif isinstance(e, ImageNotFound):
-            error_message = "Image not found: " + str(e)
         elif isinstance(e, ContainerError):
             error_message = "Container error: " + str(e)
         elif isinstance(e, BuildError):
             error_message = "Build error: " + str(e)
+        elif isinstance(e, APIError):
+            error_message = "Docker API error: " + str(e)
         else:
             error_message = "Error while connecting to Docker: " + str(e)
 
@@ -195,6 +198,7 @@ class DockerResource(BaseResource):
         return {
             "resource_id": self.resource_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "config": self._resource_config.toJson()
         }
 
     @classmethod
@@ -202,7 +206,7 @@ class DockerResource(BaseResource):
         """
         Creates a DockerResource instance from a serialized dictionary.
         """
-        return cls(name=data["resource_id"])
+        return cls(resource_id=data["resource_id"], config=data["config"])
 
     def save_to_file(self, filepath: str) -> None:
         """
