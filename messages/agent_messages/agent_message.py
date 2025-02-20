@@ -18,8 +18,9 @@ class AgentMessage(Message):
         self._agent_id = agent_id
         self._action_messages = []
         self._memory = None
+        super().__init__(prev=prev)
 
-        super().__init__(prev)
+
 
     @property
     def message(self) -> str:

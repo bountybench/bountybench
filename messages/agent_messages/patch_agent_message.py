@@ -1,10 +1,10 @@
 from messages.agent_messages.agent_message import AgentMessage
 
 class PatchAgentMessage(AgentMessage):
-    def __init__(self, agent_id: str, message: str, success: bool = False, patch_files_dir: str=None, prev: AgentMessage = None) -> None:
+    def __init__(self, agent_id: str, message: str, success: bool = False, patch_files_dir: str=None, prev: AgentMessage = None, iteration: int = -1) -> None:
+        super().__init__(agent_id=agent_id, message=message, prev=prev, iteration=iteration)
         self._success = success
         self._patch_files_dir = patch_files_dir
-        super().__init__(agent_id, message, prev)
     
     @property
     def success(self) -> bool:
