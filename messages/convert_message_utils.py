@@ -1,4 +1,4 @@
-from agents.prompts import STOP_TOKEN
+from prompts.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.parse_message import extract_command
