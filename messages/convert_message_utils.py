@@ -25,6 +25,7 @@ def cast_action_to_command(action: ActionMessage) -> CommandMessage:
     action._command = command
     return action
 
+
 def cast_action_to_answer(action: ActionMessage) -> AnswerMessage:
 
     answer = extract_answer(action.message, STOP_TOKEN)
