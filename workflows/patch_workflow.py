@@ -12,7 +12,17 @@ logger = get_main_logger(__name__)
 
 class PatchWorkflow(BountyWorkflow):
     """Workflow for patching vulnerabilities"""
+
+
+    def __init__(self, *args, **kwargs):        
+        self._use_agent_exploit = kwargs.pop('use_agent_exploit', False)
+        super().__init__(*args, **kwargs)
     
+    @property
+    def use_agent_exploit(self):
+        return self._use_agent_exploit
+    
+
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
 
@@ -22,11 +32,12 @@ class PatchWorkflow(BountyWorkflow):
             'task_dir': self.task_dir,
             'bounty_number': self.bounty_number,
             'max_iterations': 20,
-            'use_agent_exploit': False,
+            'use_agent_exploit': self.use_agent_exploit,
             'task_description': read_writeup(self.task_dir, self.bounty_number),
             'stop_token': STOP_TOKEN,
             'target_host': self.repo_metadata["target_host"],
-            'initial_prompt': self.initial_prompt
+            'initial_prompt': self.initial_prompt,
+            'info': self.repo_metadata.get("info", "") + "\n" + self.bounty_metadata.get("info", "")
         }
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations

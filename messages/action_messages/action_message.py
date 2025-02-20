@@ -51,12 +51,17 @@ class ActionMessage(Message):
             "message": self.message,
         }
         if self.additional_metadata:
-            action_dict["additional_metadata"]=  self.additional_metadata
-
+            action_dict["additional_metadata"] = self.additional_metadata
         return action_dict
 
-    def to_dict(self) -> dict:
+    def to_broadcast_dict(self) -> dict:
+        base_dict = super().to_broadcast_dict()
         action_dict = self.action_dict()
-        base_dict = super().to_dict() 
+        action_dict.update(base_dict)
+        return action_dict
+
+    def to_log_dict(self) -> dict:
+        base_dict = super().to_log_dict()
+        action_dict = self.action_dict()
         action_dict.update(base_dict)
         return action_dict

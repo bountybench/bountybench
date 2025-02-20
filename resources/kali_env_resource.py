@@ -130,6 +130,7 @@ class KaliEnvResource(BaseResource):
                     return self._run_non_tty_command(command, workdir)
                 else:
                     return self._run_tty_command(command, workdir)
+
         except TimeoutError:
             logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
             # We can't stop the execution, but we can log that it timed out
@@ -168,6 +169,7 @@ class KaliEnvResource(BaseResource):
         finally:
             stop_progress()
     
+
     def _force_remove_container(self, container: Container, name: str):
         try:
             container.remove(force=True)
