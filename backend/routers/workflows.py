@@ -34,6 +34,11 @@ async def list_workflows():
                 "name": "Chat Workflow",
                 "description": "Workflow for chatting",
             },
+            {
+                "id": "ctf",
+                "name": "CTF Workflow",
+                "description": "Workflow for CTF challenges",
+            },
         ]
     }
 

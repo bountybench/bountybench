@@ -9,6 +9,7 @@ from workflows.chat_workflow import ChatWorkflow
 from workflows.detect_patch_workflow import DetectPatchWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
+from workflows.ctf_workflow import CTFWorkflow
 
 
 def create_app(
@@ -23,6 +24,7 @@ def create_app(
             "Exploit and Patch Workflow": ExploitPatchWorkflow,
             "Patch Workflow": PatchWorkflow,
             "Chat Workflow": ChatWorkflow,
+            "CTF Workflow": CTFWorkflow,
         }
 
     app = FastAPI()
