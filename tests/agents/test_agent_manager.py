@@ -48,14 +48,14 @@ def alternative_agent_configs():
 
 @pytest.fixture(scope="module")
 def initialized_agent_manager(agent_configs):
-    am = AgentManager()
+    am = AgentManager(workflow_id=1)
     pConfig, eConfig = agent_configs
     am.initialize_phase_agents({"exploit_agent": (ExploitAgent, eConfig), "patch_agent": (PatchAgent, pConfig)})
     yield am
     am.deallocate_all_agents()
 
 def test_register_agent(agent_configs):
-    am = AgentManager()
+    am = AgentManager(workflow_id=1)
     am.register_agent("test", PatchAgent, agent_configs[0])
 
     assert len(am._agent_configs) == 1
@@ -68,7 +68,7 @@ def test_register_agent(agent_configs):
 
 
 def test_initialize_phase_agents_success(agent_configs, initialized_agent_manager):
-    am = AgentManager()
+    am = AgentManager(workflow_id=1)
     pConfig, eConfig = agent_configs
     agent_configs = {
         "exploit_agent": (ExploitAgent, eConfig),
@@ -90,7 +90,7 @@ def test_initialize_phase_agents_success(agent_configs, initialized_agent_manage
             assert False
 
 def test_initialize_phase_agents_mismatch(agent_configs, alternative_agent_configs, initialized_agent_manager):
-    am = AgentManager()
+    am = AgentManager(workflow_id=1)
     pConfig, eConfig = agent_configs
     pAltConfig, eAltConfig = alternative_agent_configs
     agent_configs = {
@@ -106,7 +106,7 @@ def test_initialize_phase_agents_mismatch(agent_configs, alternative_agent_confi
         am.initialize_phase_agents(agent_alt_configs)
 
 def test_initialize_phase_agents_mismatch(agent_configs, initialized_agent_manager):
-    am = AgentManager()
+    am = AgentManager(workflow_id=1)
     pConfig, eConfig = agent_configs
     agent_configs = {
         "exploit_agent": (ExploitAgent, eConfig),
@@ -128,7 +128,7 @@ def test_update_phase_agents_models_has_executor():
     ModelResource.__init__ = mock_model_resource
     ModelResource.to_dict = MagicMock()
 
-    am = AgentManager()
+    am = AgentManager(workflow_id=1)
     class Model:
         def to_dict(self):
             return ""
@@ -154,7 +154,7 @@ def test_update_phase_agents_models_no_executor():
     ModelResourceConfig.create = MagicMock(return_value=mock_model_resource_config)
     ModelResource.__init__ = model_resource_mock
 
-    am = AgentManager()
+    am = AgentManager(workflow_id=1)
     am._phase_agents = {"patch_agent": PatchAgent("update_phase_agents_no_executor", PatchAgentConfig("", "", False))}
 
     new_model = "new_model_value"
@@ -168,7 +168,7 @@ def test_update_phase_agents_models_no_executor():
 
 def test_create_agent(agent_configs, initialized_agent_manager):
     pConfig, _ = agent_configs
-    am = AgentManager()
+    am = AgentManager(workflow_id=1)
     agent = am.create_agent(".", PatchAgent, pConfig)
 
     assert isinstance(agent, PatchAgent)
@@ -180,7 +180,7 @@ def test_create_agent(agent_configs, initialized_agent_manager):
 
 def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
     pConfig, _ = agent_configs
-    am = AgentManager()
+    am = AgentManager(workflow_id=1)
     agent = PatchAgent(".", pConfig)
     am.bind_resources_to_agent(agent)
 
@@ -191,7 +191,7 @@ def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
 
 
 def test_parse_resource_entry():
-    am = AgentManager()
+    am = AgentManager(workflow_id=1)
 
     def generate_random_string(length=10):
         letters_and_digits = string.ascii_letters + string.digits
@@ -235,7 +235,7 @@ def test_get_agent(initialized_agent_manager):
     assert isinstance(am.get_agent("patch_agent"), PatchAgent)
 
 def test_deallocate_all_agents():
-    am: AgentManager = AgentManager()
+    am: AgentManager = AgentManager(workflow_id=1)
     am.deallocate_all_agents()
 
     am._agents = {"1": list(), "2": list(), "3": list()}

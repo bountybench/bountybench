@@ -31,7 +31,7 @@ def mock_restart_resource(return_value: bool = True):
 def patch_agent(bounty_setup):
     env_path: EnvPath = bounty_setup
     # Initialize agent
-    agent_manager = AgentManager(workflow_id="test_id")
+    agent_manager = AgentManager(workflow_id=1)
     patch_config = PatchAgentConfig(
         bounty_dir=env_path.BOUNTY_DIR_FROM_TASK_DIR,
         task_dir=env_path.TASK_DIR,
@@ -334,7 +334,7 @@ def test_apply_git_patch(bounty_setup, patch_agent, git_fixture):
     agent.create_git_patch(diff, agent.patch_dir)
     agent.create_git_commit(tmp_repo_path)
 
-    patch_file = Path(os.path.abspath(os.path.join(agent.patch_dir, f"patch_{agent.patch_id}.patch")))
+    patch_file = Path(os.path.join(agent.patch_dir, f"patch_{agent.patch_id}.patch"))
     
     assert patch_file.exists(), f"Patch file {patch_file} was not created."
 
