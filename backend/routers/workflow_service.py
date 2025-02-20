@@ -354,7 +354,7 @@ async def get_workflow_resources(workflow_id: str, request: Request):
 
     resources = resource_manager.get_resources()
     resource_list = []
-    for resource_id, resource in resources.items():
+    for resource_id, resource in resources[workflow_id].items():
         resource_info = {
             "id": resource_id,
             "type": type(resource).__name__,
