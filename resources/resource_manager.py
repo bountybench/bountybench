@@ -273,3 +273,6 @@ class ResourceManager:
         self._resource_registration.clear()
         self._phase_resources.clear()
         self._resource_lifecycle.clear()
+
+    def get_resources(self):
+        return self._resources.id_to_resource

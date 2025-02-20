@@ -1,8 +1,10 @@
+import traceback
 from pathlib import Path
 
 from fastapi import APIRouter, Request
 
 from backend.schema import StartWorkflowInput
+from prompts.vulnerability_prompts import VulnerabilityType
 from resources.model_resource.model_mapping import NonHELMMapping, TokenizerMapping
 
 workflows_router = APIRouter()
@@ -13,12 +15,12 @@ async def list_workflows():
     return {
         "workflows": [
             {
-                "id": "detect",
-                "name": "Detect Workflow",
-                "description": "Workflow for detecting and exploiting vulnerabilities",
+                "id": "detect_patch",
+                "name": "Detect Patch Workflow",
+                "description": "Workflow for detecting and patching vulnerabilities",
             },
             {
-                "id": "exploit_and_patch",
+                "id": "exploit_patch",
                 "name": "Exploit and Patch Workflow",
                 "description": "Workflow for exploiting and patching vulnerabilities",
             },
@@ -64,6 +66,7 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
         workflow = workflow_factory[workflow_data.workflow_name](
             task_dir=Path(workflow_data.task_dir),
             bounty_number=workflow_data.bounty_number,
+            vulnerability_type=workflow_data.vulnerability_type,
             interactive=workflow_data.interactive,
             phase_iterations=workflow_data.iterations,
             model=workflow_data.model,
@@ -81,6 +84,8 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
             "status": "initializing",
         }
     except Exception as e:
+        error_traceback = traceback.format_exc()
+        print(f"Error starting workflow: {str(e)}\n{error_traceback}")
         return {"error": str(e)}
 
 
@@ -109,3 +114,12 @@ async def list_helm_models():
     )
     nonhelm_mapping = [{"name": model} for model in nonhelm_models]
     return {"helmModels": helm_mapping, "nonHelmModels": nonhelm_mapping}
+
+
+@workflows_router.get("/workflow/vulnerability-types")
+async def list_vulnerability_types():
+    return {
+        "vulnerability_types": [
+            {"name": vt.name, "value": vt.value} for vt in VulnerabilityType
+        ]
+    }

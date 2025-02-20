@@ -1,20 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { Box, CircularProgress, Alert, Typography } from '@mui/material';
+import { Box, CircularProgress, Alert, Typography, IconButton } from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
+import ResourceDict from '../ResourceDict/ResourceDict';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
+
+const WorkflowState = {
+  LOADING: 'LOADING',
+  CONNECTING: 'CONNECTING',
+  STARTING: 'STARTING',
+  RUNNING: 'RUNNING',
+  COMPLETED: 'COMPLETED',
+  ERROR: 'ERROR',
+  STOPPED: 'STOPPED'
+};
 
 export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast }) => {
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
-  const [preservedMessages, setPreservedMessages] = useState([]);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Loading workflow instance..."); // Initial loading message
-  const [isLoading, setIsLoading] = useState(true); // State to manage loading visibility
+  const [preservedMessages, setPreservedMessages] = useState([]);
+  
+  const [resources, setResources] = useState([]);
+  const [isResourcePanelOpen, setIsResourcePanelOpen] = useState(false);
+
+  const [workflowState, setWorkflowState] = useState({
+    status: WorkflowState.LOADING,
+    message: "Loading workflow instance...",
+    error: null
+  });
 
   const navigate = useNavigate();
-  
+   
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
     const checkIfWorkflowExists = async () => {
@@ -37,40 +57,94 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     isConnected,
     workflowStatus,
     currentPhase,
-    currentIteration,
-    messages,
+    phaseMessages,
     error,
   } = useWorkflowWebSocket(workflowId);
-
-  // Update parent component with workflow state
-  useEffect(() => {
-    onWorkflowStateUpdate(workflowStatus, currentPhase);
-
-    // Update loading messages based on workflow status
-    if (workflowStatus === 'starting') {
-      setLoadingMessage('Starting workflow, setting up first phase...');
-    } else if (workflowStatus && workflowStatus !== 'starting') {
-      setIsLoading(false);
-    }
-
-  }, [workflowStatus, currentPhase, onWorkflowStateUpdate]);
   
   console.log('WebSocket state:', { 
     isConnected, 
     workflowStatus, 
-    currentPhase, 
-    currentIteration,
+    currentPhase,
     error,
-    messageCount: messages?.length 
-  }); // Debug log
+    phaseMessagesCount: phaseMessages?.length
+  });
+
+  const getTailMessageId = async () => {
+    if (phaseMessages?.length > 0 && phaseMessages[phaseMessages.length - 1].current_children?.length > 0) {
+      const lastMessage = phaseMessages[phaseMessages.length - 1].current_children[phaseMessages[phaseMessages.length - 1].current_children.length - 1];
+      return lastMessage.current_id;
+    }
+    return null;
+  };
+  
+  useEffect(() => {
+    if (error) {
+      setWorkflowState({
+        status: WorkflowState.ERROR,
+        message: "An error occurred",
+        error: error
+      });
+    } else if (!isConnected) {
+      setWorkflowState({
+        status: WorkflowState.CONNECTING,
+        message: "Connecting to workflow...",
+        error: null
+      });
+    } else if (workflowStatus === 'starting') {
+      setWorkflowState({
+        status: WorkflowState.STARTING,
+        message: "Starting workflow, setting up first phase...",
+        error: null
+      });
+    } else if (workflowStatus === 'completed') {
+      setWorkflowState({
+        status: WorkflowState.COMPLETED,
+        message: "Workflow completed",
+        error: null
+      });
+      setPreservedMessages(phaseMessages);
+    } else if (workflowStatus === 'stopped') {
+      setWorkflowState({
+        status: WorkflowState.STOPPED,
+        message: "Workflow stopped",
+        error: null
+      });
+    } else if (workflowStatus) {
+      setWorkflowState({
+        status: WorkflowState.RUNNING,
+        message: `Workflow ${workflowStatus}`,
+        error: null
+      });
+    }
+
+    console.log(`Workflow state updated to ${workflowStatus}`)
+    onWorkflowStateUpdate(workflowStatus, currentPhase);
+  }, [isConnected, workflowStatus, currentPhase, phaseMessages, error, onWorkflowStateUpdate]);
+
+  const fetchResources = useCallback(async () => {
+    if (workflowId) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/resources`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setResources(data.resources);
+      } catch (error) {
+        console.error('Error fetching resources:', error);
+      }
+    }
+  }, [workflowId]);
+
 
   useEffect(() => {
-    if (workflowStatus === 'completed') {
-      console.log('Workflow completed. Preserving messages:', messages);
-      setPreservedMessages(messages);
-    }
-  }, [workflowStatus, messages]);
-  
+    fetchResources();
+  }, [phaseMessages, fetchResources]);
+
+  const toggleResourcePanel = () => {
+    setIsResourcePanelOpen(!isResourcePanelOpen);
+  };
+
   const triggerNextIteration = async () => {
     if (workflowStatus === "stopped") {
       console.error("Cannot trigger next iteration: Workflow is stopped.");
@@ -79,8 +153,14 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     if (workflowId) {
       setIsNextDisabled(true);
       try {
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/next`, {
+        const currentMessageId = await getTailMessageId();
+        console.log(`Tail message id is ${currentMessageId}`)
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/run-message`, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message_id: currentMessageId }),
         });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -104,6 +184,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     console.log('Sending request to:', url);
     console.log('Request body:', JSON.stringify(requestBody));
   
+    setIsNextDisabled(true);
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -123,13 +204,16 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       console.log('Action updated successfully', data);
     } catch (error) {
       console.error('Error updating action:', error);
+    } finally {
+      setIsNextDisabled(false);
     }
   };
 
-  const handleRerunMessage = async (messageId) => {
+  const handleRunMessage = async (messageId) => {
     if (workflowId) {
+      setIsNextDisabled(true);
       try {
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/rerun-message`, {
+        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/run-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -138,27 +222,19 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         });
         const data = await response.json();
         if (data.error) {
-          console.error('Error rerunning action:', data.error);
+          console.error('Error running action:', data.error);
         } else {
-          console.log('Action rerun successfully', data);
+          console.log('Action run successfully', data);
         }
       } catch (error) {
-        console.error('Error rerunning action:', error);
+        console.error('Error running action:', error);
+      } finally {
+        setIsNextDisabled(false);
       }
     } else {
       console.error('Workflow ID is not available');
     }
   };
-  
-  console.log('Rendering WorkflowDashboard with messages:', workflowStatus === 'completed' ? preservedMessages : messages);
-
-  if (error) {
-    return (
-      <Box p={2}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
-  }
 
 
   const handleStopWorkflow = async () => {
@@ -179,41 +255,77 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   };
 
-  if (error) {
+  const handleToggleVersion = useCallback(async (messageId, direction) => {
+    try {
+      const response = await fetch(`http://localhost:8000/workflow/${workflowId}/toggle-version`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message_id: messageId, direction }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle version');
+      }
+
+      const result = await response.json();
+      console.log(`Toggle version: ${result}`);
+      // Updating messages should be triggered by call
+    } catch (error) {
+      console.error('Error toggling version:', error);
+    }
+  }, [workflowId]);
+
+  if (workflowState.status === WorkflowState.ERROR) {
     return (
       <Box p={2}>
-        <Alert severity="error">{error}</Alert>
+        <Alert severity="error">{workflowState.error || workflowState.message}</Alert>
       </Box>
     );
   }
 
-  if (!isConnected || isLoading) { // Show loading state
+  if (workflowState.status === WorkflowState.LOADING || 
+      workflowState.status === WorkflowState.CONNECTING ||
+      workflowState.status === WorkflowState.STARTING) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
         <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
           <CircularProgress />
-          <Typography>{loadingMessage}</Typography>
+          <Typography>{workflowState.message}</Typography>
         </Box>
       </Box>
     );
   }
 
-  const displayMessages = workflowStatus === 'completed' ? preservedMessages : messages;
+  const displayMessages = workflowState.status === WorkflowState.COMPLETED ? preservedMessages : phaseMessages;
 
   return (
-    <Box height="100%" overflow="auto">
-      <AgentInteractions
-        interactiveMode={interactiveMode}
-        workflowStatus={workflowStatus}  // Pass the workflow status
-        currentPhase={currentPhase}
-        currentIteration={currentIteration}
-        isNextDisabled={isNextDisabled}
-        messages={displayMessages}
-        onUpdateMessageInput={handleUpdateMessageInput}
-        onRerunMessage={handleRerunMessage}
-        onTriggerNextIteration={triggerNextIteration}
-        onStopWorkflow={handleStopWorkflow}
-      />
+    <Box height="100%" overflow="hidden" display="flex">
+      <Box flexGrow={1} overflow="auto">
+        <AgentInteractions
+          interactiveMode={interactiveMode}
+          workflowStatus={workflowStatus}
+          currentPhase={currentPhase}
+          isNextDisabled={isNextDisabled}
+          phaseMessages={displayMessages}
+          onUpdateMessageInput={handleUpdateMessageInput}
+          onRunMessage={handleRunMessage}
+          onTriggerNextIteration={triggerNextIteration}
+          onStopWorkflow={handleStopWorkflow}
+          onToggleVersion={handleToggleVersion}
+        />
+      </Box>
+      <Box className={`resource-panel ${isResourcePanelOpen ? 'open' : ''}`}>
+        <IconButton
+          className="toggle-panel"
+          onClick={toggleResourcePanel}
+          size="small"
+        >
+          {isResourcePanelOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+        </IconButton>
+        <ResourceDict resources={resources} />
+      </Box>
     </Box>
   );
 };

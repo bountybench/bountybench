@@ -23,93 +23,180 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ListIcon from '@mui/icons-material/List';
 import './WorkflowLauncher.css';
 
-export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
-  // 1. Use the hook to poll for server availability
-  const { isServerAvailable, isChecking } = useServerAvailability(() => {
-    console.log('Server is available!');
-  });
+const LauncherState = {
+  CHECKING_SERVER: 'CHECKING_SERVER',
+  SERVER_ERROR: 'SERVER_ERROR',
+  LOADING_DATA: 'LOADING_DATA',
+  READY: 'READY',
+  CREATING_WORKFLOW: 'CREATING_WORKFLOW',
+};
 
+const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-14';
+const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
+
+export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
   const navigate = useNavigate();
   
+  const [launcherState, setLauncherState] = useState({
+    status: LauncherState.CHECKING_SERVER,
+    message: "Checking server availability...",
+    error: null
+  });
+
+  const { isAvailable, isChecking, error: serverError } = useServerAvailability();
+  
+  useEffect(() => {
+    if (isAvailable && !isChecking) {
+      setLauncherState({
+        status: LauncherState.LOADING_DATA,
+        message: "Loading workflows...",
+        error: null
+      });
+    }
+  }, [isAvailable, isChecking]);
+
   const [workflows, setWorkflows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
   
   const [formData, setFormData] = useState({
     workflow_name: '',
-    task_dir: '',
+    task_dir: 'lunary',
     bounty_number: '0',
+    vulnerability_type: '',
     interactive: true,
-    iterations: 10,
-    api_key_name: 'HELM_API_KEY',
+    iterations: 30,
+    api_key_name: '',
     api_key_value: '',
-    model: 'openai/o3-mini-2025-01-14',
+    model: '',
     use_helm: false
   });
+
+  const shouldShowVulnerabilityType = (workflowName) => {
+    return workflowName.toLowerCase().includes('detect');
+  };
+
+  const shouldShowBounty = (workflowName) => {
+    const lowercaseName = workflowName.toLowerCase();
+    return lowercaseName.includes('detect') || lowercaseName.includes('exploit') || lowercaseName.includes('patch');
+  };
+  
   const [allModels, setAllModels] = useState({});
   const [selectedModels, setSelectedModels] = useState([]);
-  const [topLevelSelection, setTopLevelSelection] = useState("");
+  const [topLevelSelection, setTopLevelSelection] = useState("Non-HELM");
+
+  const setDefaultModel = (modelList, defaultModelName) => {
+    return modelList.find(m => m.name === defaultModelName) || modelList[0];
+  };
 
   const handleTopLevelChange = (event) => {
     const { value } = event.target;
     setTopLevelSelection(value);
-    // Set the model field based on top-level selection
-    if (value === "Non-HELM") {
-      setSelectedModels(allModels.nonHelmModels);
-    } else {
-      handleInputChange({ target: { name: 'use_helm', value: true } });
-      setSelectedModels(allModels.helmModels);
-    }
+    
+    const isHelmModel = value === "HELM";
+    const modelList = isHelmModel ? allModels.helmModels : allModels.nonHelmModels;
+    const defaultModelName = isHelmModel ? DEFAULT_HELM_MODEL : DEFAULT_NON_HELM_MODEL;
+    
+    const defaultModel = setDefaultModel(modelList, defaultModelName);
+    
+    setSelectedModels(modelList);
+    setFormData(prev => ({
+      ...prev,
+      model: defaultModel ? defaultModel.name : '',
+      use_helm: isHelmModel
+    }));
   };
 
-  const [apiKeys, setApiKeys] = useState({"HELM_API_KEY": ""});
+  const [apiKeys, setApiKeys] = useState({});
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
   const [isCustomApiKey, setIsCustomApiKey] = useState(false);
-  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
 
-  const fetchWorkflows = async () => {
-    setLoading(true);
+  const fetchWorkflows = useCallback(async () => {
     try {
       const response = await fetch('http://localhost:8000/workflow/list');
       const data = await response.json();
       setWorkflows(data.workflows);
+      
+      // Set default workflow_name
+      const defaultWorkflow = data.workflows.find(w => w.name === "Detect Patch Workflow") || data.workflows[0];
+      setFormData(prev => ({
+        ...prev,
+        workflow_name: defaultWorkflow ? defaultWorkflow.name : ''
+      }));
     } catch (err) {
-      console.error('Failed to fetch workflows. Make sure the backend server is running.');
-    } finally {
-      setLoading(false);
+      setLauncherState({
+        status: LauncherState.SERVER_ERROR,
+        message: "Failed to fetch workflows",
+        error: err.message
+      });
+    } 
+  }, []);
+  
+  const fetchModels = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:8000/workflow/models');
+      const models = await response.json();
+      setAllModels(models);
+      
+      // Set default model
+      const isHelmModel = topLevelSelection === "HELM";
+      const modelList = isHelmModel ? models.helmModels : models.nonHelmModels;
+      const defaultModelName = isHelmModel ? DEFAULT_HELM_MODEL : DEFAULT_NON_HELM_MODEL;
+      
+      const defaultModel = setDefaultModel(modelList, defaultModelName);
+      
+      setSelectedModels(modelList);
+      setFormData(prev => ({
+        ...prev,
+        model: defaultModel ? defaultModel.name : '',
+        use_helm: isHelmModel
+      }));
+    } catch (err) {
+      setLauncherState({
+        status: LauncherState.SERVER_ERROR,
+        message: "Failed to fetch models",
+        error: err.message
+      });
     }
-  };
+  }, [topLevelSelection]);  
   
   const fetchApiKeys = useCallback(async () => { 
     try {
       const response = await fetch('http://localhost:8000/service/api-service/get');
       const data = await response.json();
       setApiKeys(data);
+      
+      // Get the first API key name
+      const firstApiKeyName = Object.keys(data)[0] || '';
+      
       setFormData((prev) => ({
         ...prev,
-        api_key_value: data[formData.api_key_name] || '',
+        api_key_name: firstApiKeyName,
+        api_key_value: data[firstApiKeyName] || '',
       }));
     } catch (err) {
       console.error('Failed to fetch API keys:', err);
     }
-  }, [formData.api_key_name]);
- 
-  const fetchModels = async () => {
+  }, []);
+
+  const fetchVulnerabilityTypes = async () => {
     try {
-      const response = await fetch('http://localhost:8000/workflow/models');
-      const models = await response.json();
-      setAllModels(models);
-      setSelectedModels(models.nonHelmModels);
-      setTopLevelSelection("Non-HELM");
-    } catch (err) {
-      console.error('Failed to fetch models. Make sure the backend server is running.');
+      const response = await fetch('http://localhost:8000/workflow/vulnerability-types');
+      const data = await response.json();
+      setVulnerabilityTypes(data.vulnerability_types);
+    } catch (error) {
+      console.error('Failed to fetch vulnerability types:', error);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsCreatingWorkflow(true); // Set loading state
-
+    setLauncherState({
+      status: LauncherState.CREATING_WORKFLOW,
+      message: "Creating workflow instance...",
+      error: null
+    });
+  
     try {
       const response = await fetch('http://localhost:8000/workflow/start', {
         method: 'POST',
@@ -118,6 +205,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           workflow_name: formData.workflow_name,
           task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: formData.bounty_number,
+          vulnerability_type: formData.vulnerability_type,
           interactive: interactiveMode,
           iterations: formData.iterations,
           model: formData.model,
@@ -125,38 +213,25 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         }),
       });
       
-      if (!response) {
-        throw new Error('Failed to get response from server');
-      }
-
       if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();        
-        } catch {
-          throw new Error('Failed to parse error response');
-        }
+        const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to start workflow');
       }
-
-      let data;
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error('Failed to parse response data');
-      }
-      
+  
+      const data = await response.json();
+  
       if (data.error) {
-        console.error(data.error);
+        throw new Error(data.error);
       } else {
-        onWorkflowStart(data.workflow_id, data.model, interactiveMode);
-        navigate(`/workflow/${data.workflow_id}`); // Navigate to workflow page after start
-        setIsCreatingWorkflow(false); // Reset loading state
+        await onWorkflowStart(data.workflow_id, data.model, interactiveMode);
+        navigate(`/workflow/${data.workflow_id}`);
       }
     } catch (err) {
-      // Handle error
-      setIsCreatingWorkflow(false); // Reset loading state on error   
-      console.error(err.message || 'Failed to start workflow. Make sure the backend server is running.');
+      setLauncherState({
+        status: LauncherState.SERVER_ERROR,
+        message: "Failed to create workflow",
+        error: err.message
+      });
     }
   };
 
@@ -164,16 +239,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     const { name, value, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'interactive' ? checked : value
+      [name]: name === 'interactive' ? checked : value,
+      ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
     }));
-
-
-    if (name === 'api_key_name') {
-      setFormData((prev) => ({
-        ...prev,
-        api_key_value: apiKeys[value] || '',
-      }));
-    }
   };
 
   const handleRevealToggle = () => {
@@ -222,53 +290,70 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   // 2. Fetch workflows only once server is confirmed available
   useEffect(() => {
-    if (!isChecking && isServerAvailable) {
-      fetchWorkflows();
-      fetchApiKeys(); 
-      fetchModels();
+    if (isChecking) {
+      setLauncherState({
+        status: LauncherState.CHECKING_SERVER,
+        message: "Checking server availability...",
+        error: null
+      });
+    } else if (!isAvailable) {
+      setLauncherState({
+        status: LauncherState.SERVER_ERROR,
+        message: "Cannot reach server",
+        error: serverError || "Server is not responding. Please check if the backend is running and refresh the page."
+      });
+    } else if (launcherState.status === LauncherState.LOADING_DATA) {
+      const loadData = async () => {
+        try {
+          await Promise.all([
+            fetchWorkflows(),
+            fetchApiKeys(),
+            fetchModels(),
+            fetchVulnerabilityTypes(),
+          ]);
+          setLauncherState({
+            status: LauncherState.READY,
+            message: "",
+            error: null
+          });
+        } catch (error) {
+          setLauncherState({
+            status: LauncherState.SERVER_ERROR,
+            message: "Failed to load necessary data",
+            error: error.message || "An error occurred while loading data. Please try again."
+          });
+        }
+      };
+  
+      loadData();
     }
-  }, [isChecking, isServerAvailable, fetchApiKeys])
-
-  // While still checking server
-  if (isChecking) {
+  }, [isChecking, isAvailable, serverError, launcherState.status, fetchApiKeys, fetchWorkflows, fetchModels]);
+  
+  if (launcherState.status === LauncherState.CHECKING_SERVER || launcherState.status === LauncherState.LOADING_DATA) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-          <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
-            <CircularProgress />
-            <Typography>Checking server availability...</Typography>
-          </Box>
+        <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
+          <CircularProgress />
+          <Typography>{launcherState.message}</Typography>
         </Box>
-      );
+      </Box>
+    );
   }
 
-  // Server not available (will keep polling in background)
-  if (!isServerAvailable) {
+  if (launcherState.status === LauncherState.SERVER_ERROR) {
     return (
       <Alert severity="error" className="launcher-alert">
-        Cannot reach server. Retrying...
+        {launcherState.error}
       </Alert>
     );
   }
 
-  // Server available but workflows still loading
-  if (loading) {
+  if (launcherState.status === LauncherState.CREATING_WORKFLOW) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-          <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
-            <CircularProgress />
-            <Typography>Loading workflows...</Typography>
-          </Box>
-        </Box>
-      );
-  }
-
-  // Show loading message while creating workflow
-  if (isCreatingWorkflow) {
-  return (
-    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
         <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
           <CircularProgress />
-          <Typography>Creating workflow instance...</Typography>
+          <Typography>{launcherState.message}</Typography>
         </Box>
       </Box>
     );
@@ -292,7 +377,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
         >
-        {(workflows.length > 0) ? (
+        {(workflows?.length > 0) ? (
           workflows.map((workflow) => (
               <MenuItem key={workflow.name} value={workflow.name}>
                 <Box display="flex" flexDirection="column">
@@ -310,27 +395,67 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           )}
         </TextField>
 
-        <TextField
-          fullWidth
-          label="Task Repository Directory"
-          name="task_dir"
-          value={formData.task_dir}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-          placeholder="e.g., astropy"
-        />
+        {shouldShowBounty(formData.workflow_name) && (
+          <TextField
+            fullWidth
+            label="Task Repository Directory"
+            name="task_dir"
+            value={formData.task_dir}
+            onChange={handleInputChange}
+            required
+            margin="normal"
+            placeholder="e.g., astropy"
+          />
+        )}
 
-        <TextField
-          fullWidth
-          label="Bounty Number"
-          name="bounty_number"
-          value={formData.bounty_number}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-          placeholder="e.g., 0"
-        />
+        {shouldShowBounty(formData.workflow_name) && (
+          <TextField
+            fullWidth
+            label="Bounty Number"
+            name="bounty_number"
+            value={formData.bounty_number}
+            onChange={handleInputChange}
+            required
+            margin="normal"
+            placeholder="e.g., 0"
+          />
+        )}
+        
+        {shouldShowVulnerabilityType(formData.workflow_name) && (
+          <>
+            {vulnerabilityTypes && vulnerabilityTypes.length > 0 ? (
+              <TextField
+                select
+                fullWidth
+                label="Vulnerability Type (Optional)"
+                name="vulnerability_type"
+                value={formData.vulnerability_type}
+                onChange={handleInputChange}
+                margin="normal"
+              >
+                {vulnerabilityTypes.map((type) => (
+                  <MenuItem key={type.value} value={type.value}>
+                    {type.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : (
+              <TextField
+                select
+                fullWidth
+                label="Vulnerability Type (Optional)"
+                name="vulnerability_type"
+                value=""
+                disabled
+                margin="normal"
+              >
+                <MenuItem value="">
+                  <Typography>No vulnerability types available</Typography>
+                </MenuItem>
+              </TextField>
+            )}
+          </>
+        )}
 
         <TextField
           fullWidth

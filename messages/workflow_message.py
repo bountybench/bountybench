@@ -58,9 +58,11 @@ class WorkflowMessage(Message):
     def set_summary(self, summary: str):
         self._summary = summary
 
-    def add_phase_message(self, phase_message: PhaseMessage):
+    def add_child_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
         phase_message.set_parent(self)
+        from messages.message_utils import log_message
+        log_message(phase_message)
 
     def add_agent(self, agent_name: str, agent) -> None:        
         if agent_name not in self.agents_used and hasattr(agent, 'to_dict'):
@@ -77,10 +79,10 @@ class WorkflowMessage(Message):
             "task": self.task,
         }
 
-    def to_dict(self) -> dict:
+    def to_log_dict(self) -> dict:
         return {
             "workflow_metadata": self.metadata_dict(),
-            "phase_messages": [phase_message.to_dict() for phase_message in self.phase_messages],
+            "phase_messages": [phase_message.to_log_dict() for phase_message in self.phase_messages],
             "agents_used": self.agents_used,
             "resources_used": self.resources_used,
             "start_time": self._start_time,
@@ -93,11 +95,7 @@ class WorkflowMessage(Message):
         self._end_time = datetime.now().isoformat()
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        logs = self.to_dict()
-        for phase_message in logs["phase_messages"]:
-            for agent_message in phase_message["agent_messages"]:
-                agent_message.pop('current_children', None)
-            phase_message.pop('current_children', None)
+        logs = self.to_log_dict()
 
         with open(self.log_file, 'w') as f:
             json.dump(logs, f, indent=4, default=self._json_serializable)
