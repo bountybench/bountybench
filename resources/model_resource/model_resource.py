@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import tiktoken
 
-from agents.prompts import STOP_TOKEN
+from prompts.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.message import Message
@@ -12,6 +12,7 @@ from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
+from resources.model_resource.model_utils import truncate_input_to_max_tokens
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -31,7 +32,7 @@ class ModelResourceConfig(BaseResourceConfig):
 
     model: str = field(default="openai/o3-mini-2025-01-14")
     max_output_tokens: int = field(default=4096)
-    max_input_tokens: int = field(default=4096)
+    max_input_tokens: int = field(default=8192)
     max_iterations_stored_in_memory: int = field(default=3)
     use_helm: bool = field(default=False)
     temperature: float = field(default=0.5)
@@ -123,30 +124,6 @@ class ModelResource(BaseResource):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.decode(tokens)
 
-    def generate_memory(self, message: Message) -> str:
-        memory = []
-        if isinstance(message, ActionMessage):
-            while message:
-                memory.append(message.message)
-                message = message.prev
-            current_agent_message = message.parent
-            current_agent_message = current_agent_message.prev
-        else:
-            current_agent_message = message
-
-        while current_agent_message:
-            memory.append(current_agent_message.message)
-            current_agent_message = current_agent_message.prev
-
-        memory = list(reversed(memory))
-        initial_prompt = memory[0]
-        memory = memory[1:]
-        if len(memory) > 3:
-            memory = memory[-3:]
-
-        str_memory = initial_prompt + "\n" + "\n".join(memory)
-        return str_memory
-
     def run(self, input_message: Message) -> ActionMessage:
         """
         Send a query to the specified model and get a response.
@@ -161,6 +138,7 @@ class ModelResource(BaseResource):
 
         assert input_message.memory is not None, "Message to model.run() should contain memory."
         model_input = input_message.memory
+        model_input = truncate_input_to_max_tokens(max_input_tokens=self.max_input_tokens, model_input=model_input, model=self.model, use_helm=self.helm)
 
         model_response = self.model_provider.make_request(
             model=self.model,

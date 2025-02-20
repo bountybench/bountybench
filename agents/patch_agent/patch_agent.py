@@ -85,9 +85,9 @@ class PatchAgent(BaseAgent):
             agent_message = self.execute(prev_agent_message)
             return agent_message
         else: 
-            logger_message = "No git diff detected, skipping patching."
+            logger_message = "No git diff detected, skipping patch validation."
             logger.info(logger_message)
-            agent_message =  AgentMessage(agent_id=self.agent_id, message=logger_message, prev=prev_agent_message)
+            agent_message =  PatchAgentMessage(agent_id=self.agent_id, message=logger_message, prev=prev_agent_message)
             return agent_message
 
     def execute(self, prev_agent_message: Optional[AgentMessage] = None) -> AgentMessage:

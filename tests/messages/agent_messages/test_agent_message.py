@@ -1,19 +1,20 @@
-import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
 import asyncio
+import unittest
+from unittest.mock import MagicMock, PropertyMock, patch
 
-from messages.agent_messages.agent_message import AgentMessage
-from messages.action_messages.action_message import ActionMessage
-from messages.message import Message
-from messages.rerun_manager import RerunManager
 from agents.agent_manager import AgentManager
+from messages.action_messages.action_message import ActionMessage
+from messages.agent_messages.agent_message import AgentMessage
+from messages.message import Message
+from messages.message_handler import MessageHandler
 from resources.resource_manager import ResourceManager
+
 
 class TestAgentMessage(unittest.TestCase):
 
     def setUp(self):
         """
-        Unit test ingredient.
+        Unit test setup.
         """
         # Mock log_message
         patcher = patch("messages.message_utils.log_message")
@@ -48,16 +49,22 @@ class TestAgentMessage(unittest.TestCase):
         """
         agent_manager = MagicMock(spec=AgentManager)
         resource_manager = MagicMock(spec=ResourceManager)
-        rerun_manager = RerunManager(agent_manager, resource_manager)
+        message_handler = MessageHandler(agent_manager, resource_manager)
 
         agent_message = AgentMessage("test_id")
         action_msg1 = ActionMessage("test_id1", "test_msg1")
         action_msg4 = ActionMessage("test_id4", "test_msg4", prev=action_msg1)
         agent_message.add_child_message(action_msg1)
         agent_message.add_child_message(action_msg4)
-        action_msg2 = asyncio.run(rerun_manager.edit_message(action_msg1, "test_msg2"))
-        action_msg3 = asyncio.run(rerun_manager.edit_message(action_msg2, "test_msg3"))
-        action_msg5 = asyncio.run(rerun_manager.edit_message(action_msg4, "test_msg5"))
+        action_msg2 = asyncio.run(
+            message_handler.edit_message(action_msg1, "test_msg2")
+        )
+        action_msg3 = asyncio.run(
+            message_handler.edit_message(action_msg2, "test_msg3")
+        )
+        action_msg5 = asyncio.run(
+            message_handler.edit_message(action_msg4, "test_msg5")
+        )
         action_msg6 = ActionMessage("test_id6", "test_msg6", prev=action_msg3)
         action_msg3.parent.add_child_message(action_msg6)
         org_actions = agent_message.current_children
@@ -99,44 +106,42 @@ class TestAgentMessage(unittest.TestCase):
 
     def test_agent_dict(self):
         """
-        Test agent_dict method.
+        Test broadcast_dict method.
         """
-        # Mock to_dict for action messages
-        with patch.object(AgentMessage, 'action_messages', new_callable=PropertyMock) as mock_action_messages, \
-             patch.object(AgentMessage, 'current_children', new_callable=PropertyMock) as mock_current_children:
-            
-            action_message = MagicMock(spec=ActionMessage)
-            action_message.to_dict.return_value = {"action": "msg"}
-            mock_action_messages.return_value = [action_message]
+        # Create an action message mock with to_broadcast_dict method
+        action_message = MagicMock(spec=ActionMessage)
+        action_message.to_broadcast_dict.return_value = {"action": "msg"}
+        
+        # Create an agent message and add the mocked action message
+        agent_message = AgentMessage("test_id", "test_msg")
+        agent_message._action_messages = [action_message]
+        
+        # Mock current_children to return our mocked action message
+        with patch.object(AgentMessage, 'current_children', new_callable=PropertyMock) as mock_current_children:
             mock_current_children.return_value = [action_message]
-
-            agent_message = AgentMessage("test_id", "test_msg")
-            agent_dict = agent_message.agent_dict()
+            broadcast_dict = agent_message.to_broadcast_dict()
 
             # Assertions
-            self.assertEqual(agent_dict["agent_id"], "test_id")
-            self.assertEqual(agent_dict["action_messages"], [{"action": "msg"}])
-            self.assertEqual(agent_dict["message"], "test_msg")
-            mock_action_messages.assert_called()
+            self.assertEqual(broadcast_dict["agent_id"], "test_id")
+            self.assertEqual(broadcast_dict["message"], "test_msg")
+            self.assertEqual(broadcast_dict["current_children"], [{"action": "msg"}])
             mock_current_children.assert_called_once()
-            action_message.to_dict.assert_called()
-            self.assertIn("current_children", agent_dict)
+            action_message.to_broadcast_dict.assert_called_once()
 
-    def test_to_dict(self):
+    def test_to_log_dict(self):
         """
-        Test to_dict method.
+        Test to_log_dict method.
         """
-        with patch.object(Message, 'to_dict') as mock_super_to_dict, \
-             patch.object(AgentMessage, 'agent_dict') as mock_agent_dict:
-            
-            mock_super_to_dict.return_value = {"super_key": "super_value"}
-            mock_agent_dict.return_value = {"agent_key": "agent_value"}
-            
-            agent_message = AgentMessage("test_id", "test_msg")
-            agent_dict = agent_message.to_dict()
+        action_message = MagicMock(spec=ActionMessage)
+        action_message.to_log_dict.return_value = {"action": "msg"}
+        
+        agent_message = AgentMessage("test_id", "test_msg")
+        agent_message._action_messages = [action_message]
+        
+        log_dict = agent_message.to_log_dict()
 
-            # Assertions
-            self.assertEqual(agent_dict["super_key"], "super_value")
-            self.assertEqual(agent_dict["agent_key"], "agent_value")
-            mock_super_to_dict.assert_called_once()
-            mock_agent_dict.assert_called_once()
+        # Assertions
+        self.assertEqual(log_dict["agent_id"], "test_id")
+        self.assertEqual(log_dict["message"], "test_msg")
+        self.assertEqual(log_dict["action_messages"], [{"action": "msg"}])
+        action_message.to_log_dict.assert_called_once()
