@@ -13,7 +13,7 @@ from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from agents.base_agent import AgentConfig, BaseAgent
-from resources.resource_enum import Resource
+from resources.default_resource import DefaultResource
 from utils.logger import get_main_logger
 
 
@@ -31,18 +31,18 @@ class PatchAgent(BaseAgent):
     """
 
     REQUIRED_RESOURCES = [
-        Resource.INIT_FILES,
-        Resource.DOCKER,
+        DefaultResource.INIT_FILES,
+        DefaultResource.DOCKER,
     ]
     OPTIONAL_RESOURCES = [
-        Resource.BOUNTY_RESOURCE,
-        Resource.REPO_RESOURCE,
+        DefaultResource.BOUNTY_RESOURCE,
+        DefaultResource.REPO_RESOURCE,
     ]
     ACCESSIBLE_RESOURCES = [
-        Resource.BOUNTY_RESOURCE,
-        Resource.REPO_RESOURCE,
-        Resource.INIT_FILES,
-        Resource.DOCKER,
+        DefaultResource.BOUNTY_RESOURCE,
+        DefaultResource.REPO_RESOURCE,
+        DefaultResource.INIT_FILES,
+        DefaultResource.DOCKER,
     ]
 
     def __init__(self, agent_id: str, agent_config: PatchAgentConfig):
@@ -74,7 +74,7 @@ class PatchAgent(BaseAgent):
         if len(messages) != 1:
             raise ValueError(f"Accepts only a single message, but received {len(messages)} messages")
         
-        init_files = Resource.INIT_FILES.get_resource(self)
+        init_files = DefaultResource.INIT_FILES.get_resource(self)
         prev_agent_message = messages[0]
         self.codebase = os.path.join(init_files.tmp_dir, init_files.files_dir_name)
         
@@ -142,7 +142,7 @@ class PatchAgent(BaseAgent):
         return PatchAgentMessage(agent_id=self.agent_id, message=patch_message, prev=prev_agent_message)
     
     def restart_setup_resources(self, prev_agent_message: Optional[AgentMessage] = None):
-        bounty_resource, repo_resource = Resource.BOUNTY_RESOURCE.get_resource(self), Resource.REPO_RESOURCE.get(self)
+        bounty_resource, repo_resource = DefaultResource.BOUNTY_RESOURCE.get_resource(self), DefaultResource.REPO_RESOURCE.get(self)
 
         if bounty_resource is not None:
             bounty_resource_restarted = self._restart_resource(bounty_resource)
@@ -171,8 +171,8 @@ class PatchAgent(BaseAgent):
     def run_exploit(self) -> Tuple[str, int]:
         """Run the exploit script in a Docker container."""
         # Here we rely on self.init_files from (InitFilesResource, "init_files")
-        init_files = Resource.INIT_FILES.get_resource(self)
-        docker_resource = Resource.DOCKER.get_resource(self)
+        init_files = DefaultResource.INIT_FILES.get_resource(self)
+        docker_resource = DefaultResource.DOCKER.get_resource(self)
 
         volumes = {
             os.path.abspath(init_files.tmp_dir): {"bind": "/app", "mode": "rw"},
@@ -196,7 +196,7 @@ class PatchAgent(BaseAgent):
 
     def verify_patch_works(self, execution_output: str) -> bool:
         """Run the verify.sh script."""
-        init_files = Resource.INIT_FILES.get_resource(self)
+        init_files = DefaultResource.INIT_FILES.get_resource(self)
 
         logger.info("Running verify.sh")
         result = subprocess.run(['./verify.sh', execution_output],

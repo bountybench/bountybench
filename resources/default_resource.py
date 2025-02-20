@@ -1,9 +1,7 @@
 from enum import Enum
-from typing import Type
+from typing import TYPE_CHECKING, Type
 
-from resources.base_resource import BaseResource
 from resources.resource_manager import resource_dict
-from agents.base_agent import BaseAgent
 
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
@@ -12,8 +10,12 @@ from resources.memory_resource import MemoryResource
 from resources.model_resource.model_resource import ModelResource
 from resources.setup_resource import SetupResource
 
+if TYPE_CHECKING:
+    from resources.base_resource import BaseResource
+    from agents.base_agent import BaseAgent
+
 class _Resource:
-    def __init__(self, resource_id: str, resource_class: Type[BaseResource]):
+    def __init__(self, resource_id: str, resource_class: Type["BaseResource"]):
         self.resource_id = resource_id
         self.resource_class = resource_class
     
@@ -23,7 +25,7 @@ class _Resource:
     def init(self):
         raise NotImplementedError
 
-    def get_resource(self, agent: BaseAgent):
+    def get_resource(self, agent: "BaseAgent"):
         if str(self) in agent.get_accessible_resources():
             # raise KeyError(f"Resource {self.resource_id} not registered/initialized by resource manager.")
             return resource_dict.get(self.resource_id, None)
@@ -32,7 +34,7 @@ class _Resource:
     def get_class(self):
         return self.resource_class
 
-class Resource(Enum):
+class DefaultResource(Enum):
     DOCKER = _Resource("docker", DockerResource)
     INIT_FILES = _Resource("init_files", InitFilesResource)
     KALI_ENV = _Resource("kali_env", KaliEnvResource)

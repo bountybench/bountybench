@@ -7,7 +7,7 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
-from resources.resource_enum import Resource
+from resources.default_resource import DefaultResource
 from messages.convert_message_utils import cast_action_to_command
 from messages.action_messages.command_message_interface import CommandMessageInterface
 from messages.message import Message
@@ -22,19 +22,19 @@ RETRY_DELAY = 30
 class ExecutorAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
-        Resource.INIT_FILES,
-        Resource.KALI_ENV,
-        Resource.MODEL,
-        Resource.MEMORY,
+        DefaultResource.INIT_FILES,
+        DefaultResource.KALI_ENV,
+        DefaultResource.MODEL,
+        DefaultResource.MEMORY,
     ]
     OPTIONAL_RESOURCES = [
-        Resource.REPO_RESOURCE,
-        Resource.BOUNTY_RESOURCE,
+        DefaultResource.REPO_RESOURCE,
+        DefaultResource.BOUNTY_RESOURCE,
     ]
     ACCESSIBLE_RESOURCES = [
-        Resource.KALI_ENV,
-        Resource.MODEL,
-        Resource.MEMORY,
+        DefaultResource.KALI_ENV,
+        DefaultResource.MODEL,
+        DefaultResource.MEMORY,
     ]
 
     async def run(self, messages: List[Message]) -> Message:
@@ -88,7 +88,7 @@ class ExecutorAgent(BaseAgent):
             iterations = 0 
             while iterations < MAX_RETRIES:
                 try:
-                    executor_agent_memory = Resource.MEMORY.get_resource(self)
+                    executor_agent_memory = DefaultResource.MEMORY.get_resource(self)
                     lm_input_message = executor_agent_memory.get_memory(lm_input_message)
                     model_output: ActionMessage = await asyncio.to_thread(self.model.run, input_message=lm_input_message)
                     parsed_response = self.parse_response(model_output)
@@ -127,7 +127,7 @@ class ExecutorAgent(BaseAgent):
         Executes the command in the environment using kali_env,
         captures the output, and returns an ActionMessage.
         """
-        kali_env = Resource.KALI_ENV.get_resource(self)
+        kali_env = DefaultResource.KALI_ENV.get_resource(self)
         try:
             kali_message = kali_env.run(executor_message)
             return kali_message

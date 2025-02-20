@@ -2,7 +2,8 @@ import pytest
 import random
 import string
 
-from agents.agent_manager import AgentManager, AgentConfig
+from agents.agent_manager import AgentManager
+from agents.base_agent import AgentConfig
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from agents.exploit_agent.exploit_agent import ExploitAgent, ExploitAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent

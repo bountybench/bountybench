@@ -1,24 +1,28 @@
-from typing import Dict, List, Optional, Tuple, Type, Union
-from agents.base_agent import BaseAgent, AgentConfig
+from typing import Dict, List, Optional, Tuple, Type
 from resources.resource_manager import resource_dict
 from utils.logger import get_main_logger
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
-from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.default_resource import DefaultResource
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agents.base_agent import BaseAgent, AgentConfig 
 
 logger = get_main_logger(__name__)
 
 class AgentManager:
     def __init__(self):
-        self._agents: Dict[str, BaseAgent] = {}
-        self._phase_agents: Dict[str, BaseAgent] = {}
-        self._agent_configs: Dict[str, Tuple[Type[BaseAgent], AgentConfig]] = {}
+        self._agents: Dict[str, "BaseAgent"] = {}
+        self._phase_agents: Dict[str, "BaseAgent"] = {}
+        self._agent_configs: Dict[str, Tuple[Type["BaseAgent"], "AgentConfig"]] = {}
         self.resource_dict = resource_dict
 
-    def register_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig):
+    def register_agent(self, agent_id: str, agent_class: Type["BaseAgent"], agent_config: "AgentConfig"):
         """Register an agent with its class and configuration."""
         self._agent_configs[agent_id] = (agent_class, agent_config)
 
-    def initialize_phase_agents(self, agent_configs: Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]) -> List[Tuple[str, BaseAgent]]:
+    def initialize_phase_agents(self, agent_configs: Dict[str, Tuple[Type["BaseAgent"], Optional["AgentConfig"]]]) -> List[Tuple[str, "BaseAgent"]]:
         """
         Initialize all agents for a phase in one batch operation.
         """
@@ -63,21 +67,22 @@ class AgentManager:
         for agent_id in self._phase_agents:
             agent = self._phase_agents[agent_id]
             if ModelResource in [resource[0] for resource in agent.ACCESSIBLE_RESOURCES]:
-                if not hasattr(agent, "model"):
+                model_attr_name = str(DefaultResource.MODEL)
+                if not hasattr(agent, model_attr_name):
                     raise AttributeError("Agent does not have a 'model' attribute")
                 logger.info(f"Updating agent: {agent}, {agent.model.to_dict()}")
                 resource_config = ModelResourceConfig.create(model=new_model)
-                resource = ModelResource("model", resource_config)
-                setattr(agent, "model", resource)
+                resource = ModelResource(model_attr_name, resource_config)
+                setattr(agent, model_attr_name, resource)
                 logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
 
-    def create_agent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> BaseAgent:
+    def create_agent(self, agent_id: str, agent_class: Type["BaseAgent"], agent_config: "AgentConfig") -> "BaseAgent":
         """Create a new agent and bind resources to it."""
         agent = agent_class(agent_id, agent_config)
         self.validate_agent_required_resources(agent)
         return agent
 
-    def validate_agent_required_resources(self, agent: BaseAgent):
+    def validate_agent_required_resources(self, agent: "BaseAgent"):
         """Verify that required resources are set."""
 
         for resource_entry in agent.REQUIRED_RESOURCES:
@@ -86,14 +91,14 @@ class AgentManager:
             if not resource:
                 raise ValueError(f"Required resource {resource.get_class().__name__} not found for agent {agent.__class__.__name__}")
 
-    def is_agent_equivalent(self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig) -> bool:
+    def is_agent_equivalent(self, agent_id: str, agent_class: Type["BaseAgent"], agent_config: "AgentConfig") -> bool:
         """Check if an agent with the given ID is equivalent to the provided class and config."""
         if agent_id not in self._agent_configs:
             return False
         registered_class, registered_config = self._agent_configs[agent_id]
         return registered_class == agent_class and registered_config == agent_config
 
-    def get_agent(self, agent_id: str) -> BaseAgent:
+    def get_agent(self, agent_id: str) -> "BaseAgent":
         """Retrieve an initialized agent by its ID."""
         if agent_id not in self._agents:
             raise KeyError(f"Agent '{agent_id}' not initialized")

@@ -3,11 +3,11 @@ from agents.chat_agent.chat_agent import ChatAgent
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource
-from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
-from resources.resource_enum import Resource
+from resources.model_resource.model_resource import ModelResourceConfig
+from resources.default_resource import DefaultResource
 from messages.action_messages.answer_message_interface import AnswerMessageInterface
 from messages.message import Message
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, Optional, Tuple, Type
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
 
@@ -37,7 +37,7 @@ class ChatPhase(BasePhase):
             Dict[str, Tuple[Type[BaseResource], Any]]: Mapping of resource_id to (ResourceClass, ResourceConfig).
         """
         return [
-            (Resource.MODEL, ModelResourceConfig.create(model=self.model))
+            (DefaultResource.MODEL, ModelResourceConfig.create(model=self.model))
         ]
 
     async def run_one_iteration(

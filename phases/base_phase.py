@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from functools import wraps
 import os
 import subprocess
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
@@ -15,9 +14,8 @@ from messages.message import Message
 from utils.logger import get_main_logger
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple, Type
-from agents.base_agent import AgentConfig, BaseAgent
 from resources.base_resource import BaseResource, BaseResourceConfig
-from resources.resource_enum import Resource
+from resources.default_resource import DefaultResource
 
 logger = get_main_logger(__name__)
 
@@ -85,7 +83,7 @@ class BasePhase(ABC):
             )
     
     @abstractmethod
-    def define_default_resources(self) -> List[Tuple[Resource, Optional[BaseResourceConfig]]]:
+    def define_default_resources(self) -> List[Tuple[DefaultResource, Optional[BaseResourceConfig]]]:
         """
         Define the predefined resources from resource_enum.py for this phase.
 

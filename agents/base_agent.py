@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-from functools import wraps
-from typing import List, Set, Tuple, Type, Union
+from typing import List, Set
 
 from messages.agent_messages.agent_message import AgentMessage
-from resources.base_resource import BaseResource
-from resources.resource_enum import Resource
+from resources.default_resource import DefaultResource
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -31,9 +29,9 @@ class BaseAgent(ABC):
     - A tuple (ResourceClass, "custom_attr_name")
     """
 
-    REQUIRED_RESOURCES: List[Resource] = []
-    OPTIONAL_RESOURCES: List[Resource] = []
-    ACCESSIBLE_RESOURCES: List[Resource] = []
+    REQUIRED_RESOURCES: List[DefaultResource] = []
+    OPTIONAL_RESOURCES: List[DefaultResource] = []
+    ACCESSIBLE_RESOURCES: List[DefaultResource] = []
 
     def __init__(self, agent_id: str, agent_config: AgentConfig):
         self._agent_id = agent_id

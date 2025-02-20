@@ -5,7 +5,7 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
-from resources.resource_enum import Resource
+from resources.default_resource import DefaultResource
 from messages.message import Message
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
@@ -18,11 +18,11 @@ RETRY_DELAY = 30
 class ChatAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
-        Resource.MODEL
+        DefaultResource.MODEL
     ]
     OPTIONAL_RESOURCES = []
     ACCESSIBLE_RESOURCES = [
-        Resource.MODEL
+        DefaultResource.MODEL
     ]
 
     
@@ -58,7 +58,7 @@ class ChatAgent(BaseAgent):
             iterations = 0 
             while iterations < MAX_RETRIES:
                 try:
-                    model = Resource.MODEL.get_resource(self)
+                    model = DefaultResource.MODEL.get_resource(self)
                     model_response = model.run(lm_input_message)
                     return model_response
                 except Exception as e:

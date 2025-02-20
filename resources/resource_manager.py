@@ -1,12 +1,14 @@
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Type
 
-from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
+
+if TYPE_CHECKING:
+    from phases.base_phase import BasePhase
 
 logger = get_main_logger(__name__)
 

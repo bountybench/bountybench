@@ -14,7 +14,7 @@ from messages.message import Message
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.memory_resource import MemoryResource, MemoryResourceConfig
-from resources.resource_enum import Resource
+from resources.default_resource import DefaultResource
 from typing import Any, Dict, List, Optional, Tuple, Type
 from resources.setup_resource import SetupResource, SetupResourceConfig
 import os
@@ -78,11 +78,11 @@ class PatchPhase(BasePhase):
 
         default_resources = [
             (
-               Resource.MODEL,
+               DefaultResource.MODEL,
                ModelResourceConfig.create(model=self.model), 
             ),
             (
-                Resource.INIT_FILES,
+                DefaultResource.INIT_FILES,
                 InitFilesResourceConfig(
                     task_dir=self.workflow.task_dir,
                     files_dir_name=files_dir_name,
@@ -93,7 +93,7 @@ class PatchPhase(BasePhase):
                 )
             ),
             (
-                Resource.KALI_ENV,
+                DefaultResource.KALI_ENV,
                 KaliEnvResourceConfig(
                     task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
@@ -104,11 +104,11 @@ class PatchPhase(BasePhase):
                 ),
             ),
             (
-                Resource.DOCKER,
+                DefaultResource.DOCKER,
                 DockerResourceConfig(),
             ),
             (
-                Resource.MEMORY,
+                DefaultResource.MEMORY,
                 MemoryResourceConfig(),
             )
         ]
@@ -117,7 +117,7 @@ class PatchPhase(BasePhase):
         if contains_setup(setup_repo_env_script):
             default_resources.append(
                 (
-                    Resource.REPO_RESOURCE,
+                    DefaultResource.REPO_RESOURCE,
                     SetupResourceConfig(
                         bounty_level_setup=False,
                         task_dir=self.workflow.task_dir,
@@ -129,7 +129,7 @@ class PatchPhase(BasePhase):
         if contains_setup(setup_bounty_env_script):
             default_resources.append(
                 (
-                    Resource.BOUNTY_RESOURCE,
+                    DefaultResource.BOUNTY_RESOURCE,
                     SetupResourceConfig(
                         bounty_level_setup=True,
                         task_dir=self.workflow.task_dir,
