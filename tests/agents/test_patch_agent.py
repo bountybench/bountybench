@@ -329,12 +329,9 @@ def test_apply_git_patch(bounty_setup, patch_agent, git_fixture):
         f.write("test_apply_git_patch")
     
     diff = agent.get_git_diff(tmp_repo_path)
-    agent.create_git_patch(diff, agent.patch_dir)
+    patch_file = agent.create_git_patch(diff, agent.patch_dir)
     agent.create_git_commit(tmp_repo_path)
 
-
-    patch_file = Path(os.path.join(agent.patch_dir, f"patch_{agent.patch_id}.patch"))
-    subprocess.check_call(['git', 'checkout', 'dev'], cwd=files_repo_path)
 
     success, message = agent.apply_git_patch(patch_file, files_repo_path, 'dev')
 
