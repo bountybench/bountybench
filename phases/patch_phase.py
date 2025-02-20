@@ -96,7 +96,7 @@ class PatchPhase(BasePhase):
                     vulnerable_commit=vulnerable_commit,
                 ),
             ),
-            "kali_env": (
+            f"kali_env_{self.workflow.workflow_message.workflow_id}": (
                 KaliEnvResource,
                 KaliEnvResourceConfig(
                     task_dir=self.workflow.task_dir,
