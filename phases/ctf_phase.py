@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.executor_agent.executor_agent import ExecutorAgent
 from messages.message import Message
-from messages.action_messages.answer_message import AnswerMessage
+from messages.action_messages.answer_message import AnswerMessageInterface
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource
@@ -170,11 +170,15 @@ class CTFPhase(BasePhase):
 
         message: Message = await agent_instance.run(input_list)
 
-        if isinstance(message, AnswerMessage):
-            if message.answer in self.flag:
-                logger.status("Successfully captured the flag!", True)
-                phase_message.set_summary("exploit_success")
-                phase_message.set_complete()
-                phase_message.set_success()
+        if len(message.action_messages) > 0:
+            last_action_message = message.action_messages[-1]
+            if issubclass(
+                last_action_message.__class__, AnswerMessageInterface
+            ):
+                if last_action_message.answer in self.flag:
+                    logger.status("Successfully captured the flag!", True)
+                    phase_message.set_summary("exploit_success")
+                    phase_message.set_complete()
+                    phase_message.set_success()
 
         return message
