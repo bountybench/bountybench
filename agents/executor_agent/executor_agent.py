@@ -5,10 +5,11 @@ from typing import Any, Dict, List, Optional, Union
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.answer_message import AnswerMessage
+from messages.action_messages.answer_message_interface import AnswerMessageInterface
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
-from messages.convert_message_utils import cast_action_to_command
+from messages.convert_message_utils import cast_action_to_command, cast_action_to_answer
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.model_resource.model_resource import ModelResource
@@ -52,11 +53,8 @@ class ExecutorAgent(BaseAgent):
             while prev_agent_message.version_next:
                 prev_agent_message = prev_agent_message.version_next
 
-
-
         agent_message = ExecutorAgentMessage(agent_id=self.agent_id, prev=prev_agent_message)
 
-        
         await self.execute(agent_message, prev_agent_message)
 
         return agent_message
@@ -72,6 +70,9 @@ class ExecutorAgent(BaseAgent):
         agent_message.add_child_message(model_action_message)
 
         logger.info(f"LM Response:\n{model_action_message.message}")
+        if issubclass(model_action_message.__class__, AnswerMessageInterface):
+            agent_message.add_child_message(model_action_message)
+            return model_action_message
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
@@ -117,9 +118,13 @@ class ExecutorAgent(BaseAgent):
         If parsing fails, return None so that the agent can still send an AgentMessage.
         """
         try:
-            # Convert ActionMessage to CommandMessage
-            command_message = cast_action_to_command(action_message)
-            return command_message
+            try:
+                answer_message = cast_action_to_answer(action_message)
+                return answer_message
+            except Exception:
+                # Convert ActionMessage to CommandMessage
+                command_message = cast_action_to_command(action_message)
+                return command_message
 
         except Exception as e:
             logger.info(f"LM responded with: {action_message.message}")
