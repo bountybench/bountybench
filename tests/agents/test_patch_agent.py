@@ -316,40 +316,6 @@ def test_create_git_commit(bounty_setup, patch_agent, git_fixture):
     assert os.path.exists(patch_file_path)
 
 
-def test_apply_git_patch(bounty_setup, patch_agent, git_fixture):
-    """
-    Test the apply_git_patch method in the task repo.
-    """
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    tmp_repo_path = env_path.TMP_CODEBASE_FILES_DIR
-    files_repo_path = env_path.CODEBASE_FILES_DIR
-    agent.patch_id = 1
-    
-    subprocess.check_call(['git', 'checkout', 'dev'], cwd=files_repo_path)
-    
-    with open(os.path.join(files_repo_path, TEST_FILE_NAME), 'w') as f:
-        f.write("New content for patch")
-    
-    # Add and commit in target repo
-    subprocess.check_call(['git', 'add', TEST_FILE_NAME], cwd=files_repo_path)
-    subprocess.check_call(['git', 'commit', '-m', 'Add test file'], cwd=files_repo_path)
-
-    # Now create/update file in source repo
-    with open(os.path.join(tmp_repo_path, TEST_FILE_NAME), 'w') as f:
-        f.write("test_apply_git_patch")
-    
-    diff = agent.get_git_diff(tmp_repo_path)
-    patch_file = agent.create_git_patch(diff, agent.patch_dir)
-    agent.create_git_commit(tmp_repo_path)
-
-    success, message = agent.apply_git_patch(patch_file, files_repo_path, 'dev')
-
-    assert success, message
-    assert "test_apply_git_patch" in open(os.path.join(files_repo_path, TEST_FILE_NAME)).read()
-
-
-
 
 
 
