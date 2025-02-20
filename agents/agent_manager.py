@@ -72,9 +72,9 @@ class AgentManager:
     def update_phase_agents_models(self, new_model: str):
         for agent_id in self._phase_agents:
             agent = self._phase_agents[agent_id]
-            if ModelResource in [
-                resource[0] for resource in agent.ACCESSIBLE_RESOURCES
-            ]:
+            if any(isinstance(resource, tuple) and resource[0] == ModelResource for resource in agent.ACCESSIBLE_RESOURCES) or \
+                any(resource == ModelResource for resource in agent.ACCESSIBLE_RESOURCES):
+
                 if not hasattr(agent, "model"):
                     raise AttributeError("Agent does not have a 'model' attribute")
                 logger.info(f"Updating agent: {agent}, {agent.model.to_dict()}")
