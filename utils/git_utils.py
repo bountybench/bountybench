@@ -315,7 +315,7 @@ def git_setup_dev_branch(directory_path: Path, commit: Optional[str] = "main"):
                 logger.info(f"Successfully checked out to commit {commit}")
             else:
                 logger.warning(
-                    f"Current commit ({current_commit.stdout.strip()}) does not match the intended vulnerable commit ({self.vulnerable_commit})"
+                    f"Current commit ({current_commit.stdout.strip()}) does not match the intended vulnerable commit ({commit})"
                 )
 
         else:

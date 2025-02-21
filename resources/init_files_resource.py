@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from resources.base_resource import BaseResource, BaseResourceConfig
@@ -128,7 +129,7 @@ class InitFilesResource(BaseResource):
 
             git_checkout(self.files_dir, self.vulnerable_commit)
 
-            tmp_destination_path = os.path.join(self.tmp_dir, self.files_dir_name)
+            tmp_destination_path = Path(self.tmp_dir) / self.files_dir_name
             self.copy_files(self.files_dir, tmp_destination_path)
             git_dir = os.path.join(tmp_destination_path, ".git")
 
