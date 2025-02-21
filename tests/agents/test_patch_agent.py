@@ -32,8 +32,6 @@ def patch_agent(bounty_setup):
         use_verify_script=True,
     )
     agent = agent_manager.create_agent("test_patch_agent", PatchAgent, patch_config)
-    verify_script_text = Path(env_path.VERIFY_SCRIPT_DIR).read_text()
-    exploit_script_text = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR).read_text()
 
     # agent's codebase parameter is initialized in the run function so we do it here
     agent.codebase = env_path.TMP_CODEBASE_FILES_DIR
@@ -119,10 +117,12 @@ async def test_restart_resource_check(patch_agent):
     If repo_resource fails to restart, error.
     """
     agent = patch_agent
+    
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+
     with patch.object(PatchAgent, "_restart_resource", return_value=False):
-        result = await agent.execute()
-        assert isinstance(result, PatchAgentMessage)
-        assert "cannot restart" in result.message.lower()
+        await agent.execute(patch_agent_message)
+        assert "cannot restart" in patch_agent_message.message.lower()
 
 @pytest.mark.asyncio
 async def test_no_verify_sh_exploit_returns_1(bounty_setup, patch_agent, execute_fixture):
@@ -138,9 +138,11 @@ async def test_no_verify_sh_exploit_returns_1(bounty_setup, patch_agent, execute
         exit_code=1,
     )
     agent.use_verify_script = False
-    result = await agent.execute()
-    assert isinstance(result, PatchAgentMessage)
-    assert "patch succeeded" in result.message.lower()
+    
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+
+    await agent.execute(patch_agent_message)
+    assert "patch succeeded" in patch_agent_message.message.lower()
 
 @pytest.mark.asyncio
 async def test_no_verify_sh_exploit_returns_0(bounty_setup, patch_agent, execute_fixture):
@@ -156,10 +158,9 @@ async def test_no_verify_sh_exploit_returns_0(bounty_setup, patch_agent, execute
     )
     agent.use_verify_script = False
 
-    # By default exploit_script returns exit 0 (from fixture)
-    result = await agent.execute()
-    assert isinstance(result, PatchAgentMessage)
-    assert "patch failed" in result.message.lower()
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+    await agent.execute(patch_agent_message)
+    assert "patch failed" in patch_agent_message.message.lower()
 
 @pytest.mark.asyncio
 async def test_no_verify_sh_exploit_invalid_exit_code(bounty_setup, patch_agent, execute_fixture):
@@ -176,13 +177,12 @@ async def test_no_verify_sh_exploit_invalid_exit_code(bounty_setup, patch_agent,
     )
     agent.use_verify_script = False
 
-    # If exploit returns code != 0 or 1, we want patch failed scenario.
-    # Since code 2 is not what we want, we treat it as exploit succeeded scenario (which means patch failed)
-    # or we can assert patch fails. Let's assume we treat any non-(0 or 1) as exploit=0 scenario.
-    result = await agent.execute()
+
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+
+    await agent.execute(patch_agent_message)
     # Should result in patch failed
-    assert isinstance(result, PatchAgentMessage)
-    assert "patch failed" in result.message.lower()
+    assert "patch failed" in patch_agent_message.message.lower()
 
 @pytest.mark.asyncio
 async def test_with_verify_sh_success(bounty_setup, patch_agent, execute_fixture):
@@ -199,9 +199,9 @@ async def test_with_verify_sh_success(bounty_setup, patch_agent, execute_fixture
         exit_code=1,
     )
     agent.use_verify_script = True
-    result = await agent.execute()
-    assert isinstance(result, PatchAgentMessage)
-    assert "patch succeeded" in result.message.lower()
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+    await agent.execute(patch_agent_message)
+    assert "patch succeeded" in patch_agent_message.message.lower()
 
 @pytest.mark.asyncio
 async def test_with_verify_sh_fail(bounty_setup, patch_agent):
@@ -217,9 +217,12 @@ async def test_with_verify_sh_fail(bounty_setup, patch_agent):
         exit_code=0,
     )
     agent.use_verify_script = True
-    result = await agent.execute()
-    assert isinstance(result, PatchAgentMessage)
-    assert "patch failed" in result.message.lower()
+    
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+
+    await agent.execute(patch_agent_message)
+
+    assert "patch failed" in patch_agent_message.message.lower()
 
 def test_verify_patch_works_success(bounty_setup, patch_agent):
     # patch works by default but for consistency change it anyway

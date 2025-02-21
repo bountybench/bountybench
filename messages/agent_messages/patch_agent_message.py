@@ -10,9 +10,15 @@ class PatchAgentMessage(AgentMessage):
     def success(self) -> bool:
         return self._success
     
+    def set_success_status(self, value: bool):
+        self._success = value
+
     @property
     def patch_files_dir(self) -> str:
         return self._patch_files_dir
+    
+    def set_patch_files_path(self, value: str):
+        self._patch_files_dir = value
     
     def to_broadcast_dict(self) -> dict:
         base_dict = super().to_broadcast_dict()
