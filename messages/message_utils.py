@@ -21,7 +21,8 @@ def broadcast_update(messages):
         messages = [messages]
 
     data_list = [msg.to_broadcast_dict() for msg in messages]
-    workflow_id = messages[0].workflow_id  # Assumes all messages are for the same workflow
+    # Assume all messages are for the same workflow
+    workflow_id = messages[0].workflow_id
 
     try:
         loop = asyncio.get_running_loop()
@@ -35,16 +36,19 @@ def broadcast_update(messages):
     except Exception as e:
         logger.error(f"Exception: {e}")
 
+
 async def _broadcast_update_async(workflow_id: str, data_list: List[dict]):
     try:
         await websocket_manager.broadcast(workflow_id, data_list)
     except Exception as e:
         logger.error(f"Exception: {e}")
 
-    
+
 def log_message(message: Message):
     if not message.workflow_id:
-        logger.debug(f"No associated workflow for {type(message)} message {message.id}, skipping logging")
+        logger.debug(
+            f"No associated workflow for {type(message)} message {message.id}, skipping logging"
+        )
         return
 
     # Initialize dict for new workflows
@@ -54,13 +58,14 @@ def log_message(message: Message):
     message_dict[message.workflow_id][message.id] = message
 
     broadcast_update(message)
-    if should_log(message):  
+    if should_log(message):
         workflow_id = message.workflow_id
         message_dict[workflow_id][workflow_id].save()
 
+
 def generate_subtree(message: Message) -> dict:
     """
-    This function generates the direct line including and beneath a given message. 
+    This function generates the direct line including and beneath a given message.
     Returns direct next, not necessarily most recent version
     """
     messages = []
