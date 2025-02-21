@@ -177,10 +177,10 @@ class MemoryTruncationFunctions:
 
     @staticmethod
     def validate_segment_trunc_fn(fn):
-        assert (
-            type(fn(["msg1", "msg2"])) == list
-        ), ("Segment truncation_fn should take list of messages and "
-            "output truncated list.")
+        assert type(fn(["msg1", "msg2"])) == list, (
+            "Segment truncation_fn should take list of messages and "
+            "output truncated list."
+        )
         assert "msg1" in fn(
             ["msg1", "msg2"], pinned_messages={"msg1"}
         ), "Segment truncation_fn should respect pin."

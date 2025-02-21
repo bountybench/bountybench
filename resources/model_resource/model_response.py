@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-
 HALLUCINATION_STRINGS = [
     "----------Message from assistant----------",
     "----------Message from system----------",
@@ -9,11 +8,13 @@ HALLUCINATION_STRINGS = [
     "----------Message from agent",
 ]
 
+
 @dataclass(frozen=True)
 class ModelResponse:
     """
     Dataclass of model response
     """
+
     content: str
     input_tokens: int
     output_tokens: int
@@ -27,10 +28,12 @@ class ModelResponse:
             if hallucination_index != -1:
                 response = response[:hallucination_index]
         return response.strip()
-    
+
     @staticmethod
     def from_dict(d: dict) -> "ModelResponse":
-        return ModelResponse(d["content"], d["input_tokens"], d["output_tokens"], d["time_taken_in_ms"])
+        return ModelResponse(
+            d["content"], d["input_tokens"], d["output_tokens"], d["time_taken_in_ms"]
+        )
 
     def to_dict(self):
         return {
