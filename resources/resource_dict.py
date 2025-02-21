@@ -68,6 +68,8 @@ class ResourceDict:
         Set a resource under the given workflow id and resource id.
         Also appends the resource to the list under its type.
         """
+        if workflow_id not in self.id_to_resource:
+            raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
         self.id_to_resource[workflow_id][resource_id] = resource
         self.resource_type_to_resources[workflow_id][type(resource).__name__].append(resource)  
         
