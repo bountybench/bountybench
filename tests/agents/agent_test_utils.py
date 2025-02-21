@@ -1,20 +1,22 @@
-from collections import defaultdict
-from dataclasses import dataclass
 import os
 import stat
+from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
+
 import pytest
 
-from resources.resource_manager import ResourceManager
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
-from resources.setup_resource import SetupResource, SetupResourceConfig
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
+from resources.resource_manager import ResourceManager
+from resources.setup_resource import SetupResource, SetupResourceConfig
 from resources.utils import read_bounty_metadata, read_repo_metadata
 from workflows.utils import setup_shared_network
 
 EXPLOIT_SCRIPT_NAME = "exploit.sh"
 VERIFY_SCRIPT_NAME = "verify.sh"
+
 
 def _subtract_paths(path1: Path, path2: Path):
     # Convert both paths to absolute paths for reliable comparison
@@ -26,8 +28,10 @@ def _subtract_paths(path1: Path, path2: Path):
         return remaining_path
     except ValueError:
         raise ValueError(f"{path2} is not a subset of {path1}")
+
+
 @dataclass
-class EnvPath():
+class EnvPath:
     """
     Initialize the "enum" using the following params.
 
@@ -49,8 +53,9 @@ class EnvPath():
 
     Conventions <-> Examples in codebase:
     - 'dir_name' <-> 'tmp'
-    - 'dir' <-> usually absolute path or relative path (from pwd) 
+    - 'dir' <-> usually absolute path or relative path (from pwd)
     """
+
     TASK_DIR = ""
     BOUNTY_DIR = ""
     TMP_DIR = ""
@@ -107,15 +112,16 @@ class EnvPath():
         cls.CODEBASE_FILES_DIR_NAME = codebase_files_dir_name
         cls.EXPLOIT_FILES_DIR_NAME = exploit_files_dir_name
 
+
 # Setup bounties and initialize needed resources for all agent tests once
 def bounty_setup(
-        repo_name: str,
-        bounty_number: int,
-        init_files=True,
-        repo_resource=True,
-        bounty_resource=True,
-        kali_env_resource=True,
-        docker=True,
+    repo_name: str,
+    bounty_number: int,
+    init_files=True,
+    repo_resource=True,
+    bounty_resource=True,
+    kali_env_resource=True,
+    docker=True,
 ) -> EnvPath:
     # Initialize EnvPath enum for use in tests
     env_path = EnvPath(repo_name, bounty_number)
@@ -126,10 +132,9 @@ def bounty_setup(
     setup_shared_network()
     bounty_metadata = read_bounty_metadata(env_path.TASK_DIR, bounty_number)
     repo_metadata = read_repo_metadata(env_path.TASK_DIR)
-    vulnerable_commit = bounty_metadata['vulnerable_commit']
+    vulnerable_commit = bounty_metadata["vulnerable_commit"]
 
-
-    # Initialize resources 
+    # Initialize resources
     resources = []
 
     resource_manager = ResourceManager(workflow_id="1")
@@ -144,45 +149,48 @@ def bounty_setup(
         )
         resources.append("init_files")
         resource_manager.register_resource("init_files", InitFilesResource, init_config)
-    
+
     if repo_resource:
         repo_config = SetupResourceConfig(
             bounty_level_setup=False,
             task_dir=env_path.TASK_DIR,
-            bounty_number=bounty_number
+            bounty_number=bounty_number,
         )
         resources.append("repo_resource")
         resource_manager.register_resource("repo_resource", SetupResource, repo_config)
-    
+
     if bounty_resource:
         bounty_config = SetupResourceConfig(
             bounty_level_setup=True,
             task_dir=env_path.TASK_DIR,
-            bounty_number=bounty_number
+            bounty_number=bounty_number,
         )
         resources.append("bounty_resource")
-        resource_manager.register_resource("bounty_resource", SetupResource, bounty_config)
-    
+        resource_manager.register_resource(
+            "bounty_resource", SetupResource, bounty_config
+        )
+
     if kali_env_resource:
         kali_env_config = KaliEnvResourceConfig(
             task_dir=env_path.TASK_DIR,
             bounty_number=bounty_number,
-            volumes= {
+            volumes={
                 os.path.abspath(env_path.TMP_DIR): {"bind": "/app", "mode": "rw"},
-            }, 
-            target_host= repo_metadata["target_host"],
+            },
+            target_host=repo_metadata["target_host"],
         )
         resources.append("kali_env")
         resource_manager.register_resource("kali_env", KaliEnvResource, kali_env_config)
-    
+
     if docker:
         docker_config = DockerResourceConfig()
         resources.append("docker")
         resource_manager.register_resource("docker", DockerResource, docker_config)
-    
+
     resource_manager.initialize_phase_resources(0, resources)
 
     return env_path
+
 
 @pytest.fixture(scope="session")
 def lunary_bounty_0_setup():
