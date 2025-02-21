@@ -12,7 +12,6 @@ logger = get_main_logger(__name__)
 def _run_git_command(
     directory: Path,
     args: list[str],
-    check: bool = True,
     capture_output: bool = False,
     log_error: bool = True,
 ) -> Optional[subprocess.CompletedProcess]:
@@ -21,18 +20,15 @@ def _run_git_command(
         result = subprocess.run(
             ["git"] + args,
             cwd=directory,
-            check=check,
+            check=True,
             capture_output=capture_output,
             text=True,
         )
         logger.debug(f"Git command succeeded: git {' '.join(args)}")
         return result
     except subprocess.CalledProcessError as e:
-        if log_error:
-            logger.error(f"Git command failed: git {' '.join(args)} - {e.stderr}")
-        if check:
-            raise
-        return None
+        logger.error(f"Git command failed: git {' '.join(args)} - {e.stderr}")
+        raise
 
 
 def _checkout_branch(directory: Path, branch_name: Optional[str]) -> None:
@@ -64,7 +60,7 @@ def git_commit(
         return True
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to create commit: {e}")
-        return False
+        raise
 
 
 def git_reset(directory_path: str | Path, branch_name: Optional[str] = None) -> None:
@@ -76,6 +72,7 @@ def git_reset(directory_path: str | Path, branch_name: Optional[str] = None) -> 
         logger.info(f"Reset successful in {directory}")
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to reset repository: {e}")
+        raise
 
 
 def git_checkout(directory_path: str | Path, commit: str) -> None:
@@ -102,7 +99,7 @@ def git_init_repo(directory_path: str | Path) -> None:
     directory = Path(directory_path)
     if not directory.exists():
         logger.critical(f"Directory does not exist: {directory}")
-        sys.exit(1)
+        raise RuntimeError(f"Directory does not exist: {directory}")
 
     if (directory / ".git").exists():
         logger.warning(f"Repository already exists in {directory}")
@@ -137,6 +134,7 @@ def git_commit_changes(directory_path: str | Path) -> None:
         )
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to commit changes: {e}")
+        raise
 
 
 def git_has_changes(directory_path: str | Path) -> bool:
@@ -161,7 +159,7 @@ def git_submodule_update(directory_path: str | Path) -> None:
 def git_delete_branch(directory_path: str | Path, branch_name: str) -> None:
     """Delete a git branch."""
     directory = Path(directory_path)
-    _run_git_command(directory, ["branch", "-D", branch_name], check=False)
+    _run_git_command(directory, ["branch", "-D", branch_name])
     logger.info(f"Deleted branch {branch_name} in {directory}")
 
 
@@ -175,16 +173,20 @@ def git_diff(directory_path: str | Path) -> str:
             logger.error(f"{directory} is not a git repository")
             return ""
 
-        # Clean cached pycache files
-        _run_git_command(
-            directory,
-            ["rm", "--cached", "-r", "__pycache__"],
-            check=False,
-            log_error=False,
-        )
-        _run_git_command(
-            directory, ["rm", "--cached", "*.pyc"], check=False, log_error=False
-        )
+        # Check if __pycache__ exists and clean it if it does
+        pycache_dir = directory / "__pycache__"
+        if pycache_dir.is_dir():
+            _run_git_command(directory, ["rm", "--cached", "-r", "__pycache__"])
+            logger.info(f"Removed cached __pycache__ in {directory}")
+
+        # Clean .pyc files, use a safe approach in case there are no .pyc files
+        try:
+            _run_git_command(directory, ["rm", "--cached", "*.pyc"], log_error=False)
+            logger.info("Removed cached .pyc files")
+        except subprocess.CalledProcessError as e:
+            logger.info(
+                "No .pyc files to remove or encountered an error, handled gracefully."
+            )
 
         # Check untracked files
         untracked_result = _run_git_command(
@@ -253,3 +255,4 @@ def git_setup_dev_branch(directory_path: str | Path, commit: str = "main") -> No
 
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to setup dev branch: {e}")
+        raise

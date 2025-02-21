@@ -147,3 +147,93 @@ def test_git_delete_branch(tmp_git_repo):
         ["git", "branch"], cwd=tmp_git_repo, capture_output=True, text=True
     )
     assert "test_branch" not in result.stdout
+
+
+def test_git_commit_no_changes(tmp_git_repo):
+    """Test committing when there are no changes."""
+    # Initial commit to create a clean state
+    (tmp_git_repo / "dummy.txt").write_text("dummy")
+    git_commit(tmp_git_repo, "Initial commit")
+
+    # Try to commit with no changes
+    result = git_commit(tmp_git_repo, "Empty commit")
+    assert not result, "Should return False when no changes to commit"
+
+
+def test_git_diff_non_repo(tmp_path):
+    """Test git_diff on non-repository directory."""
+    non_repo_dir = tmp_path / "non_repo"
+    non_repo_dir.mkdir()
+    (non_repo_dir / "file.txt").write_text("test")
+
+    diff = git_diff(non_repo_dir)
+    assert diff == "", "Should return empty string for non-git directory"
+
+
+def test_git_apply_invalid_patch(tmp_git_repo):
+    """Test applying invalid patch."""
+    invalid_patch = tmp_git_repo / "invalid.patch"
+    invalid_patch.write_text("@@ Invalid Patch Content @@")
+
+    success, msg = git_apply_patch(invalid_patch, tmp_git_repo)
+    assert not success
+    assert "Failed to apply patch" in msg
+
+
+def test_git_reset_no_previous_commit(tmp_git_repo):
+    """Test reset when there's no previous commit."""
+    (tmp_git_repo / "file.txt").write_text("Initial content")
+    git_commit(tmp_git_repo, "Initial commit")
+
+    with pytest.raises(subprocess.CalledProcessError):
+        git_reset(tmp_git_repo)
+
+
+def test_git_checkout_invalid_commit(tmp_git_repo):
+    """Test checking out non-existent commit."""
+    with pytest.raises(subprocess.CalledProcessError):
+        git_checkout(tmp_git_repo, "invalid_commit_hash")
+
+
+def test_git_delete_nonexistent_branch(tmp_git_repo):
+    """Test deleting branch that doesn't exist."""
+    with pytest.raises(subprocess.CalledProcessError):
+        git_delete_branch(tmp_git_repo, "non_existent_branch")
+
+
+def test_git_init_nonexistent_directory():
+    """Test initializing repo in non-existent directory."""
+    non_existent_dir = Path("/non/existent/path")
+    with pytest.raises(RuntimeError):
+        git_init_repo(non_existent_dir)
+
+
+def test_git_setup_dev_branch_non_repo(tmp_path):
+    """Test setup_dev_branch in non-repository directory."""
+    non_repo_dir = tmp_path / "non_repo"
+    non_repo_dir.mkdir()
+
+    with pytest.raises(subprocess.CalledProcessError):
+        git_setup_dev_branch(non_repo_dir)
+
+
+def test_git_clean_no_untracked(tmp_git_repo):
+    """Test cleaning when no untracked files exist."""
+    git_clean_untracked(tmp_git_repo)  # Should complete without errors
+    assert True  # Just verifying no exceptions are raised
+
+
+def test_git_has_no_changes(tmp_git_repo):
+    """Test has_changes when working tree is clean."""
+    (tmp_git_repo / "file.txt").write_text("content")
+    git_commit(tmp_git_repo, "Initial commit")
+
+    assert not git_has_changes(tmp_git_repo)
+
+
+def test_git_commit_invalid_branch(tmp_git_repo):
+    """Test committing to non-existent branch."""
+    (tmp_git_repo / "file.txt").write_text("content")
+
+    with pytest.raises(subprocess.CalledProcessError):
+        git_commit(tmp_git_repo, "Test commit", "non_existent_branch")
