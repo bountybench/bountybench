@@ -19,6 +19,9 @@ from resources.init_files_resource import InitFilesResource
 from resources.setup_resource import SetupResource
 from utils.git_utils import git_apply_patch, git_checkout_main, git_commit, git_diff
 from utils.logger import get_main_logger
+from utils.git_utils import (
+    git_diff
+)
 
 logger = get_main_logger(__name__)
 
@@ -97,7 +100,7 @@ class PatchAgent(BaseAgent):
         
         self.codebase = os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)
         
-        if self.get_git_diff(self.codebase):
+        if git_diff(self.codebase):
             combined_log = self._log("Git diff detected, applying changes...")
             await self.execute(patch_agent_message, prev_agent_message)
         else:
@@ -154,8 +157,11 @@ class PatchAgent(BaseAgent):
 
         # Run exploit
         docker_output = await self.run_exploit()
+        patch_agent_message.add_child_message(docker_output)
+
         exit_code = docker_output.additional_metadata['exit_code']
         stdout = docker_output.message
+
 
         if self.use_verify_script:
             if self.verify_patch_works(stdout):
@@ -183,7 +189,6 @@ class PatchAgent(BaseAgent):
             patch_agent_message.set_message(combined_log)
         
         self.log_history.clear()
-        patch_agent_message.add_child_message(docker_output)
 
     def _restart_resource(self, resource):
         """Restart a specific resource."""

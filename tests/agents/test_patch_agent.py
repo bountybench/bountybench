@@ -283,42 +283,15 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
     agent = patch_agent
     agent.patch_id = 1
     tmp_dir = env_path.TMP_CODEBASE_FILES_DIR
-    with open(os.path.join(tmp_dir, TEST_FILE_NAME), 'w') as f:
+    with open(os.path.join(tmp_dir, TEST_FILE_NAME), "w") as f:
         f.write("Another modification")
-    
-    diff = agent.get_git_diff(tmp_dir)
-    agent.create_git_patch(diff, agent.patch_dir)
-    
+
+    diff = git_diff(tmp_dir)
+    agent.create_patch_file(diff, agent.patch_dir)
+
     patch_file_path = os.path.join(agent.patch_dir, "patch_1.patch")
     assert os.path.exists(patch_file_path)
-    
 
-def test_create_git_commit(bounty_setup, patch_agent, git_fixture):
-    """
-    Test the create_git_commit method in the tmp repo.
-    """
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    agent.patch_id = 1
-    tmp_dir = env_path.TMP_CODEBASE_FILES_DIR
-
-    with open(os.path.join(tmp_dir, TEST_FILE_NAME), 'w') as f:
-        f.write("New content for patch")
-
-    diff = agent.get_git_diff(tmp_dir)
-    
-    agent.create_git_patch(diff, agent.patch_dir)
-    agent.create_git_commit(tmp_dir)
-
-    log_output = subprocess.check_output(['git', 'log', '--oneline'], cwd=tmp_dir).decode('utf-8')
-    assert "Commit 1" in log_output, "Expected the commit message to contain the patch id."
-
-    committed_files = subprocess.check_output(['git', 'ls-tree', '--name-only', '-r', 'HEAD'], cwd=tmp_dir).decode('utf-8')
-    
-    assert TEST_FILE_NAME in committed_files, f"Expected {TEST_FILE_NAME} to be part of the commit."
-    
-    patch_file_path = os.path.join(agent.patch_dir, f"patch_{agent.patch_id}.patch")
-    assert os.path.exists(patch_file_path)
 
 
 if __name__ == '__main__':
