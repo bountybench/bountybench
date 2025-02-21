@@ -1,5 +1,6 @@
 import asyncio
 import atexit
+import subprocess
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, Type
@@ -11,7 +12,6 @@ from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from utils.logger import get_main_logger
 from workflows.interactive_controller import InteractiveController
-import subprocess
 
 logger = get_main_logger(__name__)
 
@@ -129,7 +129,9 @@ class BaseWorkflow(ABC):
         logger.info("Setup agent manager")
 
     def _setup_resource_manager(self):
-        self.resource_manager = ResourceManager(workflow_id=self.workflow_message.workflow_id)
+        self.resource_manager = ResourceManager(
+            workflow_id=self.workflow_message.workflow_id
+        )
         logger.info("Setup resource manager")
 
     def _setup_interactive_controller(self):
@@ -146,7 +148,7 @@ class BaseWorkflow(ABC):
         # Check Docker Desktop availability
         try:
             subprocess.run(
-                ['docker', 'info'],
+                ["docker", "info"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=True,
