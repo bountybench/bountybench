@@ -205,4 +205,5 @@ def lunary_bounty_0_setup():
 def write_to_file_and_make_executable(script_path: Path, exit_code: int):
     file_text = f"#!/usr/bin/env bash\nexit {exit_code}\n"
     script_path.write_text(file_text)
-    script_path.chmod(script_path.stat().mode | stat.S_IXUSR)
+    current_mode = script_path.stat().st_mode
+    script_path.chmod(current_mode | stat.S_IXUSR)

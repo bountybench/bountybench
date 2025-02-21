@@ -28,7 +28,7 @@ def _run_git_command(
         logger.debug(f"Git command succeeded: git {' '.join(args)}")
         return result
     except subprocess.CalledProcessError as e:
-        logger.error(f"Git command failed: git {' '.join(args)} - {e.stderr}")
+        logger.warning(f"Git command failed: git {' '.join(args)} - {e.stderr}")
         raise
 
 
@@ -182,7 +182,7 @@ def git_diff(directory_path: PathLike) -> str:
 
         # Clean .pyc files, use a safe approach in case there are no .pyc files
         try:
-            _run_git_command(directory, ["rm", "--cached", "*.pyc"], log_error=False)
+            _run_git_command(directory, ["rm", "--cached", "*.pyc"])
             logger.info("Removed cached .pyc files")
         except subprocess.CalledProcessError:
             logger.info(
