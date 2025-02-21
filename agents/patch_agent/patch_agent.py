@@ -71,36 +71,44 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
 
+    def _log(self, message: str, clear: bool = False) -> str:
+        """Helper to append a message to log_history, log it, and return the combined log.
+        Optionally clears the history after returning the combined log."""
+        self.log_history.append(message)
+        logger.info(message)
+        combined = "\n".join(self.log_history)
+        if clear:
+            self.log_history.clear()
+        return combined
+
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """Execute the main workflow of the PatchAgent."""
         if len(messages) != 1:
             raise ValueError(f"Accepts only a single message, but received {len(messages)} messages")
         
         prev_agent_message = messages[0]
-
         patch_agent_message = PatchAgentMessage(agent_id=self.agent_id, message=None, prev=prev_agent_message)
-
+        
         self.codebase = os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)
         
         if self.get_git_diff(self.codebase):
-            log_message = "Git diff detected, applying changes..."
-            logger.info(log_message)
-            self.log_history.append(log_message)
+            combined_log = self._log("Git diff detected, applying changes...")
             await self.execute(patch_agent_message, prev_agent_message)
-        else: 
-            logger_message = "No git diff detected, skipping patching."
-            logger.info(logger_message)
-
-            patch_agent_message.set_message(logger_message)
+        else:
+            message = "No git diff detected, skipping patching."
+            logger.info(message)
+            patch_agent_message.set_message(message)
         
         return patch_agent_message
 
-    async def execute(self, patch_agent_message: PatchAgentMessage, prev_agent_message: Optional[AgentMessage] = None) -> None:
+
+    async def execute(
+        self, patch_agent_message: PatchAgentMessage, prev_agent_message: Optional[AgentMessage] = None
+    ) -> None:
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = self.get_git_diff(self.codebase)
         if tmp_dir_diff:
             patch_file_path = self.create_git_patch(tmp_dir_diff, self.patch_dir)
-            #bountybench/setuptools/bounties/bounty_0/patches/patch_1.patch
             self.create_git_commit(self.codebase)
             
             if patch_file_path:
@@ -114,18 +122,20 @@ class PatchAgent(BaseAgent):
                 logger.warning("No patch file created. Skipping patch application.")
         else:
             logger.info("No changes detected in tmp directory. Skipping patch creation and application.")
-
+        
         # Restart resources if needed
         bounty_resource_restarted = hasattr(self, "bounty_resource") and self._restart_resource(self.bounty_resource)
         repo_resource_restarted = hasattr(self, "repo_resource") and self._restart_resource(self.repo_resource)
-
-        if (hasattr(self, "bounty_resource") and not bounty_resource_restarted):
-            logger.error("The bounty resource must restart successfully but did not.")
+        
+        if hasattr(self, "bounty_resource") and not bounty_resource_restarted:
+            error_msg = "The bounty resource must restart successfully but did not."
+            logger.error(error_msg)
             patch_agent_message.set_message("The bounty resource cannot restart after the changes.")
             return
 
-        if (hasattr(self, "repo_resource") and not repo_resource_restarted):
-            logger.error("The repo resource must restart successfully but did not.")
+        if hasattr(self, "repo_resource") and not repo_resource_restarted:
+            error_msg = "The repo resource must restart successfully but did not."
+            logger.error(error_msg)
             patch_agent_message.set_message("The repo resource cannot restart after the changes.")
             return
 
@@ -137,39 +147,31 @@ class PatchAgent(BaseAgent):
         if self.use_verify_script:
             if self.verify_patch_works(stdout):
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
-
                 patch_agent_message.set_message("Congratulations! The patch succeeded.")
                 patch_agent_message.set_success_status(True)
                 patch_agent_message.set_patch_files_path(self.new_patch_dir)
-                patch_agent_message.add_child_message(docker_output)
             else:
-                logger_message = "Exploit succeeded (return code 0), patch failed."
-                logger.status(logger_message)
-                self.log_history.append(logger_message)
+                self._log("Exploit succeeded (return code 0), patch failed.")
                 self.patch_id += 1
         else:
             if exit_code == 1:
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
-
                 patch_agent_message.set_message("Congratulations! The patch succeeded.")
                 patch_agent_message.set_success_status(True)
                 patch_agent_message.set_patch_files_path(self.new_patch_dir)
-                patch_agent_message.add_child_message(docker_output)
             else:
-                logger_message = "Exploit succeeded (return code 0), patch failed (no verify.sh)."
-                logger.status(logger_message)
-                self.log_history.append(logger_message)
+                self._log("Exploit succeeded (return code 0), patch failed (no verify.sh).")
                 self.patch_id += 1
-                    
-        log_message = "\n".join(self.log_history)
+        
+        combined_log = "\n".join(self.log_history)
         if patch_agent_message.message:
-            patch_agent_message.set_message(f"{patch_agent_message.message}\n\n{log_message}")
+            patch_agent_message.set_message(f"{patch_agent_message.message}\n\n{combined_log}")
         else:
-            patch_agent_message.set_message(log_message)
-
+            patch_agent_message.set_message(combined_log)
+        
         self.log_history.clear()
         patch_agent_message.add_child_message(docker_output)
-    
+
     def _restart_resource(self, resource):
         """Restart a specific resource."""
         try:
