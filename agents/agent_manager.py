@@ -100,10 +100,10 @@ class AgentManager:
 
             resource = None
             if attr_name:
-                if attr_name in self.resource_dict:
-                    resource = self.resource_dict[attr_name]
+                if self.resource_dict.contains(self.workflow_id, attr_name):
+                    resource = self.resource_dict.get(self.workflow_id, attr_name)
             else:
-                resources = self.resource_dict.resources_by_type(resource_type)
+                resources = self.resource_dict.resources_by_type(self.workflow_id, resource_type)
 
                 attr_name = self._generate_attr_name(resource_type)
                 if resources:

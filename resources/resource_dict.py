@@ -28,16 +28,20 @@ class ResourceDict:
             if not self.resource_type_to_resources[workflow_id][resource_type]:
                 del self.resource_type_to_resources[workflow_id][resource_type]
 
-    def resources_by_type(self, resource_type):
+    def resources_by_type(self, workflow_id: str, resource_type):
+        if workflow_id not in self.id_to_resource:
+            raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
         resource_name = resource_type.__name__
-        if resource_name in self.resource_type_to_resources:
-            return self.resource_type_to_resources[resource_name]
+        if resource_name in self.resource_type_to_resources[workflow_id]:
+            return self.resource_type_to_resources[workflow_id][resource_name]
         return []
 
-    def delete_items_of_resource_type(self, resource_type):
+    def delete_items_of_resource_type(self, workflow_id: str, resource_type):
+        if workflow_id not in self.id_to_resource:
+            raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
         resource_name = resource_type.__name__
-        if resource_name in self.resource_type_to_resources:
-            for resource in self.resource_type_to_resources[resource_name]:
+        if resource_name in self.resource_type_to_resources[workflow_id]:
+            for resource in self.resource_type_to_resources[workflow_id][resource_name]:
                 resource_id = resource.resource_id
                 if resource_id in self.id_to_resource[workflow_id]:
                     del self.id_to_resource[workflow_id][resource_id]

@@ -275,4 +275,4 @@ class ResourceManager:
         self._resource_lifecycle.clear()
 
     def get_resources(self):
-        return self._resources.id_to_resource
+        return self._resources.id_to_resource[self.workflow_id]
