@@ -49,9 +49,9 @@ def patch_agent(bounty_setup):
     agent = agent_manager.create_agent("test_patch_agent", PatchAgent, patch_config)
 
     # agent's codebase parameter is initialized in the run function so we do it here
-    agent.codebase = env_path.TMP_DIR
+    agent.codebase = env_path.TMP_CODEBASE_FILES_DIR
 
-    mocks = [mock_patch_agent_message(), mock_restart_resource()]
+    mocks = [mock_restart_resource()]
     store_patch_mock = mock_store_patch()
 
     [mock.start() for mock in mocks]
@@ -99,8 +99,8 @@ def test_check_repo_and_bounty_are_different(patch_agent):
     if hasattr(patch_agent, "bounty_resource") and hasattr(agent, "repo_resource"):
         assert agent.bounty_resource is not agent.repo_resource
 
-
-def test_run_exploit(bounty_setup, patch_agent):
+@pytest.mark.asyncio
+async def test_run_exploit(bounty_setup, patch_agent):
     env_path: EnvPath = bounty_setup
     agent = patch_agent
     exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
@@ -108,36 +108,38 @@ def test_run_exploit(bounty_setup, patch_agent):
         script_path=exploit_script_dir,
         exit_code=1,
     )
-    exploit_result = agent.run_exploit()
-    assert exploit_result[1] == 1
+    exploit_result = await agent.run_exploit()
+    assert exploit_result.additional_metadata['exit_code'] == 1
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         exit_code=0,
     )
-    exploit_result = agent.run_exploit()
-    assert exploit_result[1] == 0
+    exploit_result = await agent.run_exploit()
+    assert exploit_result.additional_metadata['exit_code'] == 0
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         exit_code=2,
     )
-    exploit_result = agent.run_exploit()
-    assert exploit_result[1] == 2
+    exploit_result = await agent.run_exploit()
+    assert exploit_result.additional_metadata['exit_code'] == 2
 
-
-def test_restart_resource_check(patch_agent):
+@pytest.mark.asyncio
+async def test_restart_resource_check(patch_agent):
     """
     If repo_resource fails to restart, error.
     """
     agent = patch_agent
+    
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+
     with patch.object(PatchAgent, "_restart_resource", return_value=False):
-        result = agent.execute()
-        assert isinstance(result, PatchAgentMessage)
-        assert "cannot restart" in result.message.lower()
+        await agent.execute(patch_agent_message)
+        assert "cannot restart" in patch_agent_message.message.lower()
 
-
-def test_no_verify_sh_exploit_returns_1(bounty_setup, patch_agent, execute_fixture):
+@pytest.mark.asyncio
+async def test_no_verify_sh_exploit_returns_1(bounty_setup, patch_agent, execute_fixture):
     """
     No verify.sh used. Exploit should return 0 or 1.
     If exploit returns 1 → Patch succeeded.
@@ -150,12 +152,14 @@ def test_no_verify_sh_exploit_returns_1(bounty_setup, patch_agent, execute_fixtu
         exit_code=1,
     )
     agent.use_verify_script = False
-    result = agent.execute()
-    assert isinstance(result, PatchAgentMessage)
-    assert "patch succeeded" in result.message.lower()
+    
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
 
+    await agent.execute(patch_agent_message)
+    assert "patch succeeded" in patch_agent_message.message.lower()
 
-def test_no_verify_sh_exploit_returns_0(bounty_setup, patch_agent, execute_fixture):
+@pytest.mark.asyncio
+async def test_no_verify_sh_exploit_returns_0(bounty_setup, patch_agent, execute_fixture):
     """
     No verify.sh used. Exploit returns 0 → patch failed.
     """
@@ -168,15 +172,12 @@ def test_no_verify_sh_exploit_returns_0(bounty_setup, patch_agent, execute_fixtu
     )
     agent.use_verify_script = False
 
-    # By default exploit_script returns exit 0 (from fixture)
-    result = agent.execute()
-    assert isinstance(result, PatchAgentMessage)
-    assert "patch failed" in result.message.lower()
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+    await agent.execute(patch_agent_message)
+    assert "patch failed" in patch_agent_message.message.lower()
 
-
-def test_no_verify_sh_exploit_invalid_exit_code(
-    bounty_setup, patch_agent, execute_fixture
-):
+@pytest.mark.asyncio
+async def test_no_verify_sh_exploit_invalid_exit_code(bounty_setup, patch_agent, execute_fixture):
     """
     No verify.sh used. Exploit must return 0 or 1.
     If it returns something else, we consider that patch failed.
@@ -190,16 +191,15 @@ def test_no_verify_sh_exploit_invalid_exit_code(
     )
     agent.use_verify_script = False
 
-    # If exploit returns code != 0 or 1, we want patch failed scenario.
-    # Since code 2 is not what we want, we treat it as exploit succeeded scenario (which means patch failed)
-    # or we can assert patch fails. Let's assume we treat any non-(0 or 1) as exploit=0 scenario.
-    result = agent.execute()
+
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+
+    await agent.execute(patch_agent_message)
     # Should result in patch failed
-    assert isinstance(result, PatchAgentMessage)
-    assert "patch failed" in result.message.lower()
+    assert "patch failed" in patch_agent_message.message.lower()
 
-
-def test_with_verify_sh_success(bounty_setup, patch_agent, execute_fixture):
+@pytest.mark.asyncio
+async def test_with_verify_sh_success(bounty_setup, patch_agent, execute_fixture):
     """
     Using verify.sh. Exploit can return any exit code or message.
     Success is determined by verify.sh returning 1.
@@ -213,12 +213,12 @@ def test_with_verify_sh_success(bounty_setup, patch_agent, execute_fixture):
         exit_code=1,
     )
     agent.use_verify_script = True
-    result = agent.execute()
-    assert isinstance(result, PatchAgentMessage)
-    assert "patch succeeded" in result.message.lower()
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+    await agent.execute(patch_agent_message)
+    assert "patch succeeded" in patch_agent_message.message.lower()
 
-
-def test_with_verify_sh_fail(bounty_setup, patch_agent):
+@pytest.mark.asyncio
+async def test_with_verify_sh_fail(bounty_setup, patch_agent):
     """
     Using verify.sh. If verify.sh returns 0, patch failed.
     No 'Success' in output → verify.sh returns 0.
@@ -231,10 +231,12 @@ def test_with_verify_sh_fail(bounty_setup, patch_agent):
         exit_code=0,
     )
     agent.use_verify_script = True
-    result = agent.execute()
-    assert isinstance(result, PatchAgentMessage)
-    assert "patch failed" in result.message.lower()
+    
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
 
+    await agent.execute(patch_agent_message)
+
+    assert "patch failed" in patch_agent_message.message.lower()
 
 def test_verify_patch_works_success(bounty_setup, patch_agent):
     # patch works by default but for consistency change it anyway
@@ -280,7 +282,7 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
     env_path: EnvPath = bounty_setup
     agent = patch_agent
     agent.patch_id = 1
-    tmp_dir = env_path.TMP_DIR
+    tmp_dir = env_path.TMP_CODEBASE_FILES_DIR
     with open(os.path.join(tmp_dir, TEST_FILE_NAME), "w") as f:
         f.write("Another modification")
 
@@ -290,5 +292,7 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
     patch_file_path = os.path.join(agent.patch_dir, "patch_1.patch")
     assert os.path.exists(patch_file_path)
 
-if __name__ == "__main__":
+
+
+if __name__ == '__main__':
     unittest.main()
