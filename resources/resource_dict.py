@@ -10,9 +10,13 @@ class ResourceDict:
         return sum(len(res_dict) for res_dict in self.id_to_resource.values())
 
     def contains(self, workflow_id: str, resource_id: str) -> bool:
+        if workflow_id not in self.id_to_resource: 
+            raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
         return resource_id in self.id_to_resource[workflow_id]
 
     def delete_items(self, workflow_id: str, resource_id: str):
+        if workflow_id not in self.id_to_resource:
+            raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
         if resource_id in self.id_to_resource[workflow_id]:
             resource = self.id_to_resource[workflow_id][resource_id]
             resource_type = type(resource).__name__
@@ -26,6 +30,8 @@ class ResourceDict:
         """
         Delete all resources of a given type from a specific workflow.
         """
+        if workflow_id not in self.resource_type_to_resources:
+            raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
         if resource_type in self.resource_type_to_resources[workflow_id]:
             # Get a list copy to avoid modifying while iterating.
             for resource in list(self.resource_type_to_resources[workflow_id][resource_type]):
@@ -36,6 +42,8 @@ class ResourceDict:
 
     def get(self, workflow_id: str, resource_id: str):
         """Retrieve a resource by workflow id and resource id."""
+        if workflow_id not in self.id_to_resource:
+            raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
         return self.id_to_resource[workflow_id].get(resource_id)
 
     def set(self, workflow_id: str, resource_id: str, resource: BaseResource):
