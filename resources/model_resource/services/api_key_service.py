@@ -1,8 +1,9 @@
-import requests
 import os
-from typing import Tuple, Optional, Callable    
-from dotenv import find_dotenv, load_dotenv, set_key
 from pathlib import Path
+from typing import Callable, Optional, Tuple
+
+import requests
+from dotenv import find_dotenv, load_dotenv, set_key
 
 
 def _model_provider_lookup(model_name: str, helm: bool) -> str:
@@ -66,7 +67,9 @@ AUTH_SERVICE = {
 }
 
 
-def verify_and_auth_api_key(model_name: str, helm: bool, auth_service: Optional[Callable] = None):
+def verify_and_auth_api_key(
+    model_name: str, helm: bool, auth_service: Optional[Callable] = None
+):
     requested_api_key: str = _model_provider_lookup(
         model_name, helm
     )  # Get the API key name
@@ -102,7 +105,7 @@ def verify_and_auth_api_key(model_name: str, helm: bool, auth_service: Optional[
         print("[API Service] Received new API key.")
         _new_key_requested = True
         _ok, _message = auth_service(requested_api_value)
-    
+
     print("[API Service] API key authentication successful.")
     # Ask user if they want to save the API key to the .env file
     if _new_key_requested:

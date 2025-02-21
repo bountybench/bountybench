@@ -4,10 +4,9 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.executor_agent.executor_agent import ExecutorAgent
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
-from messages.action_messages.answer_message_interface import AnswerMessageInterface
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
-from phases.base_phase import BasePhase
+from phases.bounty_phase import BountyPhase
 from resources.base_resource import BaseResource
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
@@ -22,7 +21,7 @@ from workflows.base_workflow import BaseWorkflow
 logger = get_main_logger(__name__)
 
 
-class PatchPhase(BasePhase):
+class PatchPhase(BountyPhase):
     """Phase responsible for patching vulnerabilities."""
 
     AGENT_CLASSES: List[Type[BaseAgent]] = [PatchAgent, ExecutorAgent]
@@ -96,7 +95,7 @@ class PatchPhase(BasePhase):
                     vulnerable_commit=vulnerable_commit,
                 ),
             ),
-            "kali_env": (
+            f"kali_env_{self.workflow.workflow_message.workflow_id}": (
                 KaliEnvResource,
                 KaliEnvResourceConfig(
                     task_dir=self.workflow.task_dir,

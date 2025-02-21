@@ -1,5 +1,6 @@
 from messages.agent_messages.agent_message import AgentMessage
 
+
 class PatchAgentMessage(AgentMessage):
     def __init__(self, agent_id: str, message: str, success: bool = False, patch_files_dir: str=None, prev: AgentMessage = None, iteration: int = -1) -> None:
         super().__init__(agent_id=agent_id, message=message, prev=prev, iteration=iteration)
@@ -22,16 +23,20 @@ class PatchAgentMessage(AgentMessage):
     
     def to_broadcast_dict(self) -> dict:
         base_dict = super().to_broadcast_dict()
-        base_dict.update({
-            "success": self.success,
-            "patch_files_dir": self.patch_files_dir,
-        })
+        base_dict.update(
+            {
+                "success": self.success,
+                "patch_files_dir": self.patch_files_dir,
+            }
+        )
         return base_dict
 
     def to_log_dict(self) -> dict:
         base_dict = super().to_log_dict()
-        base_dict.update({
-            "success": self.success,
-            "patch_files_dir": self.patch_files_dir,
-        })
+        base_dict.update(
+            {
+                "success": self.success,
+                "patch_files_dir": self.patch_files_dir,
+            }
+        )
         return base_dict
