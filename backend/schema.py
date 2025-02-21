@@ -9,6 +9,9 @@ class StartWorkflowInput(BaseModel):
     bounty_number: str = Field(
         ..., description="Bounty number associated with the workflow"
     )
+    vulnerability_type: str = Field(
+        ..., description="Vulnerability type to detect"
+    )
     interactive: bool = Field(
         default=False, description="Whether the workflow is interactive"
     )
