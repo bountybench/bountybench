@@ -111,13 +111,15 @@ class TestAgentMessage(unittest.TestCase):
         # Create an action message mock with to_broadcast_dict method
         action_message = MagicMock(spec=ActionMessage)
         action_message.to_broadcast_dict.return_value = {"action": "msg"}
-        
+
         # Create an agent message and add the mocked action message
         agent_message = AgentMessage("test_id", "test_msg")
         agent_message._action_messages = [action_message]
-        
+
         # Mock current_children to return our mocked action message
-        with patch.object(AgentMessage, 'current_children', new_callable=PropertyMock) as mock_current_children:
+        with patch.object(
+            AgentMessage, "current_children", new_callable=PropertyMock
+        ) as mock_current_children:
             mock_current_children.return_value = [action_message]
             broadcast_dict = agent_message.to_broadcast_dict()
 
@@ -134,10 +136,10 @@ class TestAgentMessage(unittest.TestCase):
         """
         action_message = MagicMock(spec=ActionMessage)
         action_message.to_log_dict.return_value = {"action": "msg"}
-        
+
         agent_message = AgentMessage("test_id", "test_msg")
         agent_message._action_messages = [action_message]
-        
+
         log_dict = agent_message.to_log_dict()
 
         # Assertions

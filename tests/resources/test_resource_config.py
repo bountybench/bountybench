@@ -33,6 +33,7 @@ def test_init_files_resource(test_config):
     assert Path(resource.tmp_dir).exists()
 
 
+
 def test_setup_resource(test_config):
     setup_repo_config = SetupResourceConfig(
         bounty_level_setup=False,

@@ -10,7 +10,7 @@ class ResourceDict:
 
     def count_total_resources_across_workflows(self):
         return sum(len(res_dict) for res_dict in self.id_to_resource.values())
-    
+
     def count_resources_in_workflow(self, workflow_id: str) -> int:
         """Return the number of resources for a given workflow."""
         if workflow_id not in self.id_to_resource:
@@ -22,7 +22,7 @@ class ResourceDict:
         return len(self.id_to_resource)
 
     def contains(self, workflow_id: str, resource_id: str) -> bool:
-        if workflow_id not in self.id_to_resource: 
+        if workflow_id not in self.id_to_resource:
             raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
         return resource_id in self.id_to_resource[workflow_id]
 
@@ -34,7 +34,9 @@ class ResourceDict:
             resource_type = type(resource).__name__
             del self.id_to_resource[workflow_id][resource_id]
             if resource in self.resource_type_to_resources[workflow_id][resource_type]:
-                self.resource_type_to_resources[workflow_id][resource_type].remove(resource)
+                self.resource_type_to_resources[workflow_id][resource_type].remove(
+                    resource
+                )
             if not self.resource_type_to_resources[workflow_id][resource_type]:
                 del self.resource_type_to_resources[workflow_id][resource_type]
 
@@ -71,6 +73,9 @@ class ResourceDict:
         if workflow_id not in self.id_to_resource:
             raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
         self.id_to_resource[workflow_id][resource_id] = resource
-        self.resource_type_to_resources[workflow_id][type(resource).__name__].append(resource)  
-        
+        self.resource_type_to_resources[workflow_id][type(resource).__name__].append(
+            resource
+        )
+
+
 resource_dict = ResourceDict()
