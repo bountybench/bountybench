@@ -11,6 +11,7 @@ from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from utils.logger import get_main_logger
 from workflows.interactive_controller import InteractiveController
+import subprocess
 
 logger = get_main_logger(__name__)
 
@@ -50,6 +51,7 @@ class BaseWorkflow(ABC):
             additional_metadata=self._get_metadata(),
         )
 
+        self._check_docker_desktop_availability()
         self._setup_resource_manager()
         self._setup_agent_manager()
         self._setup_interactive_controller()
@@ -139,6 +141,20 @@ class BaseWorkflow(ABC):
 
     def _get_metadata(self) -> Dict[str, Any]:
         return {}
+
+    def _check_docker_desktop_availability(self):
+        # Check Docker Desktop availability
+        try:
+            subprocess.run(
+                ['docker', 'info'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+        except subprocess.CalledProcessError:
+            raise RuntimeError(
+                "Docker Desktop is not running. Please start Docker Desktop before starting the workflow"
+            )
 
     async def run(self) -> None:
         """Execute the entire workflow by running all phases in sequence."""
