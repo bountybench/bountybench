@@ -1,6 +1,9 @@
 import time
+
 import pytest
-from utils.progress_logger import start_progress, stop_progress, log_progress
+
+from utils.progress_logger import log_progress, start_progress, stop_progress
+
 
 def test_long_running_task():
     start_progress("Simulating a long-running task")
@@ -11,10 +14,12 @@ def test_long_running_task():
     finally:
         stop_progress()
 
+
 def test_quick_task():
     start_progress("Simulating a quick task")
     time.sleep(0.5)
     stop_progress()
+
 
 def test_error_case():
     start_progress("Simulating an error case")
@@ -25,6 +30,7 @@ def test_error_case():
         log_progress(f"An error occurred: {str(e)}")
     finally:
         stop_progress()
+
 
 if __name__ == "__main__":
     pytest.main()
