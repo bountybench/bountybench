@@ -1,8 +1,8 @@
 import atexit
-import os
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from queue import Queue
 from typing import List, Optional
 
@@ -19,12 +19,12 @@ class SetupResourceConfig(BaseResourceConfig):
     """Configuration for SetupResource"""
 
     bounty_level_setup: bool
-    task_dir: str
+    task_dir: Path
     bounty_number: Optional[str] = None
 
     def validate(self) -> None:
         """Validate Setup configuration"""
-        if not os.path.exists(self.task_dir):
+        if not self.task_dir.exists():
             raise ValueError(f"Invalid task_dir: {self.task_dir}")
 
 
@@ -35,7 +35,7 @@ class SetupResource(BaseResource):
         # Call the superclass constructor first
         super().__init__(resource_id, config)
 
-        self.task_dir = str(self._resource_config.task_dir)
+        self.task_dir = self._resource_config.task_dir
 
         # Access the configuration
         self.bounty_level_setup = self._resource_config.bounty_level_setup
@@ -44,10 +44,10 @@ class SetupResource(BaseResource):
         if self.bounty_level_setup:
             if not self._resource_config.bounty_number:
                 raise ValueError("Bounty number is required for bounty_resource setup.")
-            self.bounty_dir = os.path.join(
-                self.task_dir,
-                "bounties",
-                f"bounty_{self._resource_config.bounty_number}",
+            self.bounty_dir = (
+                self.task_dir
+                / "bounties"
+                / f"bounty_{self._resource_config.bounty_number}"
             )
         else:
             self.bounty_dir = None
@@ -65,14 +65,13 @@ class SetupResource(BaseResource):
 
         atexit.register(self.stop)
 
-    def fix_script_format(self, script_path: str) -> None:
+    def fix_script_format(self, script_path: Path) -> None:
         """Fix common script formatting issues."""
-        if not os.path.exists(script_path):
+        if not script_path.exists():
             return
 
         # Read the content of the script
-        with open(script_path, "rb") as file:
-            content = file.read()
+        content = script_path.read_bytes()
 
         # Convert CRLF to LF if present
         content = content.replace(b"\r\n", b"\n")
@@ -82,11 +81,10 @@ class SetupResource(BaseResource):
             content = b"#!/bin/bash\n" + content
 
         # Write the fixed content back
-        with open(script_path, "wb") as file:
-            file.write(content)
+        script_path.write_bytes(content)
 
         # Make the script executable
-        os.chmod(script_path, 0o755)
+        script_path.chmod(0o755)
 
     def _start(self) -> None:
         """Start the environment by running the appropriate setup script."""
@@ -94,12 +92,12 @@ class SetupResource(BaseResource):
             "setup_bounty_env.sh" if self.bounty_level_setup else "setup_repo_env.sh"
         )
         work_dir = (
-            os.path.join(self.bounty_dir, "setup_files")
+            self.bounty_dir / "setup_files"
             if self.bounty_level_setup
             else self.task_dir
         )
 
-        if not os.path.exists(work_dir):
+        if not work_dir.exists():
             raise FileNotFoundError(f"Work directory does not exist: {work_dir}")
 
         try:
@@ -108,8 +106,8 @@ class SetupResource(BaseResource):
 
             try:
                 # Fix and prepare the script
-                script_path = os.path.join(work_dir, setup_script)
-                if not os.path.exists(script_path):
+                script_path = work_dir / setup_script
+                if not script_path.exists():
                     raise FileNotFoundError(f"Setup script not found: {script_path}")
 
                 # Fix script format and make executable
@@ -118,7 +116,7 @@ class SetupResource(BaseResource):
                 # On macOS, try running with bash explicitly if direct execution fails
                 try:
                     result = run_command(
-                        command=[f"./{setup_script}"], work_dir=work_dir
+                        command=[f"./{setup_script}"], work_dir=str(work_dir)
                     )
                 except OSError as e:
                     if e.errno == 8:  # Exec format error
@@ -126,7 +124,8 @@ class SetupResource(BaseResource):
                             f"Direct execution failed, trying with explicit bash for {setup_script}"
                         )
                         result = run_command(
-                            command=["bash", f"./{setup_script}"], work_dir=work_dir
+                            command=["bash", f"./{setup_script}"],
+                            work_dir=str(work_dir),
                         )
                     else:
                         raise  # Re-raise if it's not an exec format error
@@ -183,17 +182,17 @@ class SetupResource(BaseResource):
     def stop(self) -> None:
         """Stop the environment by running 'stop_docker.sh'."""
         work_dir = (
-            os.path.join(self.bounty_dir, "setup_files")
+            self.bounty_dir / "setup_files"
             if self.bounty_level_setup
             else self.task_dir
         )
-        docker_compose_file = os.path.join(work_dir, "docker-compose.yml")
+        docker_compose_file = work_dir / "docker-compose.yml"
 
-        if os.path.exists(docker_compose_file):
+        if docker_compose_file.exists():
             logger.info(f"Stopping docker in {work_dir}")
             try:
                 run_command(
-                    command=["docker", "compose", "down", "-v"], work_dir=work_dir
+                    command=["docker", "compose", "down", "-v"], work_dir=str(work_dir)
                 )
                 logger.info(f"Stopped environment at {self.resource_id}.")
             except Exception as e:
@@ -289,8 +288,8 @@ class SetupResource(BaseResource):
         """
         return {
             "bounty_level_setup": self.bounty_level_setup,
-            "task_dir": self.task_dir,
-            "bounty_dir": self.bounty_dir,
+            "task_dir": str(self.task_dir),
+            "bounty_dir": str(self.bounty_dir) if self.bounty_dir else None,
             "resource_id": self.resource_id,
             "role": self.role,
             "container_names": self.container_names,
@@ -302,33 +301,36 @@ class SetupResource(BaseResource):
         """
         Creates a SetupResource instance from a serialized dictionary.
         """
-        bounty_number = os.path.basename(data["bounty_dir"]).replace("bounty_", "")
+        bounty_number = (
+            Path(data["bounty_dir"]).name.replace("bounty_", "")
+            if data["bounty_dir"]
+            else None
+        )
 
-        instance = cls(
+        config = SetupResourceConfig(
             bounty_level_setup=data["bounty_level_setup"],
-            task_dir=data["task_dir"],
+            task_dir=Path(data["task_dir"]),
             bounty_number=bounty_number,
         )
+        instance = cls(data["resource_id"], config)
         instance.container_names = data["container_names"]
         return instance
 
-    def save_to_file(self, filepath: str) -> None:
+    def save_to_file(self, filepath: Path) -> None:
         """
         Saves the resource state to a JSON file.
         """
         import json
 
         state = self.to_dict()
-        with open(filepath, "w") as f:
-            json.dump(state, f, indent=2)
+        filepath.write_text(json.dumps(state, indent=2))
 
     @classmethod
-    def load_from_file(cls, filepath: str, **kwargs) -> "SetupResource":
+    def load_from_file(cls, filepath: Path, **kwargs) -> "SetupResource":
         """
         Loads a resource state from a JSON file.
         """
         import json
 
-        with open(filepath, "r") as f:
-            data = json.load(f)
+        data = json.loads(filepath.read_text())
         return cls.from_dict(data, **kwargs)
