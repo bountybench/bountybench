@@ -1,12 +1,14 @@
 import os
 import subprocess
 from abc import ABC
-from typing import List, Type
+from pathlib import Path
+from typing import Any, List, Type
 
 from agents.base_agent import BaseAgent
 from phases.base_phase import BasePhase
 from prompts.vulnerability_prompts import get_specialized_instructions
 from utils.logger import get_main_logger
+from workflows.base_workflow import BaseWorkflow
 
 logger = get_main_logger(__name__)
 
@@ -14,12 +16,32 @@ logger = get_main_logger(__name__)
 class BountyPhase(BasePhase, ABC):
     AGENT_CLASSES: List[Type[BaseAgent]] = []
 
+    def __init__(self, workflow: "BaseWorkflow", **kwargs):
+        """
+        Initialize the PatchPhase.
+
+        Args:
+            workflow (BaseWorkflow): The parent workflow.
+            **kwargs: Additional keyword arguments.
+        """
+        self.model: str = kwargs.get("model", "")
+        self.helm: Any = kwargs.get("helm")
+        self.bounty_number: str = kwargs.get("bounty_number", "")
+
+        self._initial_prompt: str = kwargs.get("initial_prompt", "")
+        self.bounty_dir: Path = Path("bounties") / f"bounty_{self.bounty_number}"
+
+        self.tmp_dir_name: str = "tmp"
+        self.tmp_dir: Path = self.workflow.task_dir / self.tmp_dir_name
+
+        super().__init__(workflow, **kwargs)
+
     def _create_initial_agent_message(self) -> None:
         """Create the initial agent message for the bounty phase."""
         if self.params.get("task_dir"):
             codebase_structure = subprocess.run(
                 ["tree", "-L", "4"],
-                cwd=os.path.join(self.params.get("task_dir"), "tmp"),
+                cwd=str(self.tmp_dir),
                 capture_output=True,
                 text=True,
             ).stdout
