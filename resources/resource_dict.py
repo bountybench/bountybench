@@ -1,5 +1,7 @@
 from collections import defaultdict
-from resources.base_resource import BaseResource 
+
+from resources.base_resource import BaseResource
+
 
 class ResourceDict:
     def __init__(self):
@@ -26,15 +28,16 @@ class ResourceDict:
             if not self.resource_type_to_resources[workflow_id][resource_type]:
                 del self.resource_type_to_resources[workflow_id][resource_type]
 
-    def delete_items_of_resource_type(self, workflow_id: str, resource_type: str):
-        """
-        Delete all resources of a given type from a specific workflow.
-        """
-        if workflow_id not in self.resource_type_to_resources:
-            raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
-        if resource_type in self.resource_type_to_resources[workflow_id]:
-            # Get a list copy to avoid modifying while iterating.
-            for resource in list(self.resource_type_to_resources[workflow_id][resource_type]):
+    def resources_by_type(self, resource_type):
+        resource_name = resource_type.__name__
+        if resource_name in self.resource_type_to_resources:
+            return self.resource_type_to_resources[resource_name]
+        return []
+
+    def delete_items_of_resource_type(self, resource_type):
+        resource_name = resource_type.__name__
+        if resource_name in self.resource_type_to_resources:
+            for resource in self.resource_type_to_resources[resource_name]:
                 resource_id = resource.resource_id
                 if resource_id in self.id_to_resource[workflow_id]:
                     del self.id_to_resource[workflow_id][resource_id]

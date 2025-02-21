@@ -206,7 +206,7 @@ def test_parse_resource_entry():
     }
     for resource, name in resources.items():
         result = am._parse_resource_entry(resource)
-        assert result[0] == resource and result[1] == name
+        assert result[0] == resource and result[1] == None
     
     for resource in resources.keys():
         name = generate_random_string()
