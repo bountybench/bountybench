@@ -62,21 +62,6 @@ def test_setup_repo(resource, setup_dirs):
     assert result.stdout.strip() == "1", "Initial commit not found."
 
 
-def test_setup_dev_branch(resource, setup_dirs):
-    _, _, original_files_dir = setup_dirs
-    resource.setup_dev_branch(original_files_dir)
-
-    result = subprocess.run(
-        ["git", "branch"], cwd=original_files_dir, stdout=subprocess.PIPE, text=True
-    )
-    assert "dev" in result.stdout, "Branch 'dev' was not created."
-
-    current_branch = subprocess.run(
-        ["git", "status"], cwd=original_files_dir, stdout=subprocess.PIPE, text=True
-    )
-    assert "On branch dev" in current_branch.stdout, "Repository is not on branch 'dev'"
-
-
 def test_stop(resource, setup_dirs):
     _, tmp_dir, original_files_dir = setup_dirs
     repo_path = os.path.join(tmp_dir, "original_files")

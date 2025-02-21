@@ -4,10 +4,10 @@ from typing import Any, Dict, List, Optional, Union
 import tiktoken
 
 from messages.action_messages.action_message import ActionMessage
-from messages.action_messages.command_message import CommandMessage
+from resources.runnable_base_resource import RunnableBaseResource
 from messages.message import Message
 from prompts.prompts import STOP_TOKEN
-from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.base_resource import BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_utils import truncate_input_to_max_tokens
@@ -58,7 +58,7 @@ class ModelResourceConfig(BaseResourceConfig):
         verify_and_auth_api_key(self.model, self.use_helm)
 
 
-class ModelResource(BaseResource):
+class ModelResource(RunnableBaseResource):
     """ModelResource"""
 
     def __init__(self, resource_id: str, config: ModelResourceConfig):

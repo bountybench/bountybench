@@ -1,3 +1,4 @@
+import asyncio
 import atexit
 import json
 import os
@@ -16,7 +17,9 @@ from docker.errors import (
     NotFound,
 )
 
-from resources.base_resource import BaseResource, BaseResourceConfig
+from messages.action_messages.docker_action_message import DockerActionMessage
+from resources.base_resource import ActionMessage, BaseResourceConfig
+from resources.runnable_base_resource import RunnableBaseResource
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -35,7 +38,7 @@ class DockerResourceConfig(BaseResourceConfig):
         pass
 
 
-class DockerResource(BaseResource):
+class DockerResource(RunnableBaseResource):
     """
     Docker Resource to manage Docker containers.
     """
@@ -55,6 +58,30 @@ class DockerResource(BaseResource):
             ) from e
 
         atexit.register(self.stop)
+    
+    async def run(self, docker_message: DockerActionMessage) -> ActionMessage:
+        """Execute a command inside Docker using DockerActionMessage."""
+
+        docker_image = docker_message.docker_image
+        command = docker_message.command
+        network = docker_message.network
+        volumes = docker_message.volumes
+
+        output, exit_code = self.execute(docker_image=docker_image, command=command, network=network, volumes=volumes)
+
+        return ActionMessage(
+            resource_id=self.resource_id,
+            message=f"{output}",
+            additional_metadata={
+                "docker_image": docker_image,
+                "command": command,
+                "exit_code": exit_code,
+                "output": output,
+                "success": (exit_code == 0),
+            },
+            prev=docker_message
+        )
+    
 
     def execute(
         self,

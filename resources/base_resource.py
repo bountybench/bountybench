@@ -67,9 +67,6 @@ class BaseResource(ABC):
         self._resource_config = resource_config
         self._last_action_message = None
 
-    def run(self, message: Message) -> ActionMessage:
-        pass
-
     def __enter__(self):
         return self
 
