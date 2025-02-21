@@ -25,9 +25,6 @@ class FakeWorkflow:
         # Simulate some asynchronous work
         await asyncio.sleep(0.1)
 
-    async def add_user_message(self, content: str) -> str:
-        return "Fake user message response."
-
     async def run_next_message(self) -> Any:
         return type("obj", (object,), {"id": "fake-message-id"})()
 

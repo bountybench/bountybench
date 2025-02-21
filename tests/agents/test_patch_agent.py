@@ -39,15 +39,14 @@ def mock_restart_resource(return_value: bool = True):
 def patch_agent(bounty_setup):
     env_path: EnvPath = bounty_setup
     # Initialize agent
-    agent_manager = AgentManager()
+
+    agent_manager = AgentManager(workflow_id="1")
     patch_config = PatchAgentConfig(
         bounty_dir=env_path.BOUNTY_DIR_FROM_TASK_DIR,
         task_dir=env_path.TASK_DIR,
         use_verify_script=True,
     )
     agent = agent_manager.create_agent("test_patch_agent", PatchAgent, patch_config)
-    verify_script_text = Path(env_path.VERIFY_SCRIPT_DIR).read_text()
-    exploit_script_text = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR).read_text()
 
     # agent's codebase parameter is initialized in the run function so we do it here
     agent.codebase = env_path.TMP_DIR
@@ -84,7 +83,7 @@ def execute_fixture(bounty_setup, patch_agent):
 def git_fixture(bounty_setup):
     env_path: EnvPath = bounty_setup
     files_to_delete = [
-        Path(env_path.CODEBASE_FILES_DIR) / TEST_FILE_NAME,
+        Path(env_path.TMP_CODEBASE_FILES_DIR) / TEST_FILE_NAME,
         Path(env_path.AGENT_PATCHES_DIR) / "patch_1.patch",
     ]
     yield
@@ -290,7 +289,6 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
 
     patch_file_path = os.path.join(agent.patch_dir, "patch_1.patch")
     assert os.path.exists(patch_file_path)
-
 
 if __name__ == "__main__":
     unittest.main()
