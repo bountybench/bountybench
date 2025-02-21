@@ -276,7 +276,11 @@ class PatchAgent(BaseAgent):
             )
             if self.patch_dir.exists() and self.patch_dir.is_dir():
                 if any(self.patch_dir.iterdir()):
-                    shutil.move(str(self.patch_dir), str(self.new_patch_dir))
+                    shutil.copytree(
+                        str(self.patch_dir),
+                        str(self.new_patch_dir),
+                        ignore=shutil.ignore_patterns("codebase"),
+                    )
                     logger.info(f"Patches successfully moved to {self.new_patch_dir}.")
                 else:
                     logger.info("Patches directory is empty. No need to move.")
@@ -286,7 +290,7 @@ class PatchAgent(BaseAgent):
 
         except Exception as e:
             logger.error(f"Failed to move patches directory: {e}")
-
+    
     def to_dict(self) -> dict:
         """
         Serializes the PatchAgent state to a dictionary.
