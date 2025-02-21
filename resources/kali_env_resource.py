@@ -12,7 +12,7 @@ from docker.models.containers import Container
 
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
-from resources.base_resource import BaseResource
+from resources.runnable_base_resource import RunnableBaseResource
 from resources.utils import get_stdout_text
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
@@ -72,7 +72,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
                     raise ValueError(f"Invalid volume host path parent directory: {parent_dir}")
 
                 
-class KaliEnvResource(BaseResource):
+class KaliEnvResource(RunnableBaseResource):
     """Kali Linux Environment Resource"""
 
     def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
