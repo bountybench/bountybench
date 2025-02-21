@@ -8,8 +8,18 @@ class ResourceDict:
         self.id_to_resource = defaultdict(dict)
         self.resource_type_to_resources = defaultdict(lambda: defaultdict(list))
 
-    def __len__(self):
+    def count_total_resources_across_workflows(self):
         return sum(len(res_dict) for res_dict in self.id_to_resource.values())
+    
+    def count_resources_in_workflow(self, workflow_id: str) -> int:
+        """Return the number of resources for a given workflow."""
+        if workflow_id not in self.id_to_resource:
+            raise KeyError(f"Workflow ID '{workflow_id}' does not exist.")
+        return len(self.id_to_resource[workflow_id])
+
+    def count_workflows(self) -> int:
+        """Return the total number of workflows."""
+        return len(self.id_to_resource)
 
     def contains(self, workflow_id: str, resource_id: str) -> bool:
         if workflow_id not in self.id_to_resource: 
