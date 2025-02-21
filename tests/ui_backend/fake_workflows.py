@@ -1,15 +1,31 @@
-from typing import Dict, List, Any
-from fastapi import WebSocket
-from pathlib import Path
 import asyncio
+from pathlib import Path
+from typing import Any, Dict, List
+
+from fastapi import WebSocket
+
+from workflows.interactive_controller import InteractiveController
+
 
 class FakeWorkflow:
-    def __init__(self, task_dir: Path, bounty_number: int, interactive: bool, phase_iterations: int, model: str, use_helm: bool):
-        self.workflow_message = type('obj', (object,), {'workflow_id': f'fake-{bounty_number}'})
+    def __init__(
+        self,
+        task_dir: Path,
+        bounty_number: int,
+        vulnerability_type: str,
+        interactive: bool,
+        phase_iterations: int,
+        model: str,
+        use_helm: bool,
+    ):
+        self.workflow_message = type(
+            "obj", (object,), {"workflow_id": f"fake-{bounty_number}"}
+        )
         self.interactive = interactive
         self.phase_iterations = phase_iterations
-        self.resource_manager = type('obj', (object,), {'resources': {}})()
-        self.agent_manager = type('obj', (object,), {'agents': {}})()
+        self.resource_manager = type("obj", (object,), {"resources": {}})()
+        self.agent_manager = type("obj", (object,), {"agents": {}})()
+        self.interactive_controller = FakeInteractiveController(self)
         self.status = "running"  # Simulating a workflow status
         self.next_iteration_event = asyncio.Event()
         self.initial_prompt = "This is a fake initial prompt."
@@ -19,27 +35,14 @@ class FakeWorkflow:
         """Return a fake task representation."""
         return {"description": "Fake task for testing", "id": "fake-task-id"}
 
+    @property
+    def current_phase(self):
+        """Return a fake phase representation."""
+        return None
+
     async def run(self):
         """Simulate running workflow asynchronously."""
         await asyncio.sleep(0.1)
-
-    async def add_user_message(self, content: str) -> str:
-        return "Fake user message response."
-
-    async def run_next_message(self) -> Any:
-        return type('obj', (object,), {'id': 'fake-message-id'})()
-
-    async def rerun_message(self, message_id: str) -> Any:
-        return type('obj', (object,), {'id': 'fake-rerun-message-id'})()
-
-    async def edit_one_message(self, message_id: str, new_input_data: str) -> Any:
-        return type('obj', (object,), {'id': 'fake-edited-message-id'})()
-
-    async def set_interactive_mode(self, mode: bool):
-        self.interactive = mode
-
-    async def get_last_message(self) -> str:
-        return "This is the last fake message."
 
     async def stop(self):
         """Simulate stopping a workflow properly."""
@@ -61,14 +64,34 @@ class FakeWorkflow:
 
 
 # Define specific fake workflows if behavior varies
-class FakeDetectWorkflow(FakeWorkflow):
+class FakeDetectPatchWorkflow(FakeWorkflow):
     pass
 
-class FakeExploitAndPatchWorkflow(FakeWorkflow):
+
+class FakeExploitPatchWorkflow(FakeWorkflow):
     pass
+
 
 class FakePatchWorkflow(FakeWorkflow):
     pass
 
+
 class FakeChatWorkflow(FakeWorkflow):
     pass
+
+
+class FakeInteractiveController(InteractiveController):
+    async def run_next_message(self) -> Any:
+        return type("obj", (object,), {"id": "fake-message-id"})()
+
+    async def run_message(self, message_id: str) -> Any:
+        return type("obj", (object,), {"id": "fake-run-message-id"})()
+
+    async def edit_one_message(self, message_id: str, new_input_data: str) -> Any:
+        return type("obj", (object,), {"id": "fake-edited-message-id"})()
+
+    async def set_interactive_mode(self, mode: bool):
+        self.interactive = mode
+
+    async def get_last_message(self) -> str:
+        return "This is the last fake message."

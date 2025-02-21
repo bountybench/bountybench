@@ -9,14 +9,47 @@ function error_exit {
     exit 1
 }
 
+# Parse command line arguments
+INIT_ALL=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --all)
+            INIT_ALL=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
 # 1. Check if the Python version is 3.11
 echo "Checking Python version..."
 PYTHON_VERSION=$(python --version 2>&1)
 
-if [[ $PYTHON_VERSION == "Python 3.11"* ]]; then
-    echo "✅ Python version is 3.11."
+if [[ "$PYTHON_VERSION" != *"3.11"* ]]; then
+    error_exit "Python 3.11 is required. Please install it first."
+fi
+
+# 2. Install tree command if missing
+echo "Checking for 'tree' command..."
+if ! command -v tree &> /dev/null; then
+    echo "⏳ Installing tree utility..."
+    
+    # Detect package manager
+    if command -v brew &> /dev/null; then
+        brew install tree || error_exit "Failed to install tree via Homebrew"
+    elif command -v apt-get &> /dev/null; then
+        sudo apt-get update && sudo apt-get install -y tree || error_exit "Failed to install tree via apt-get"
+    else
+        error_exit "Could not detect supported package manager (brew/apt-get) for tree installation"
+    fi
+    
+    echo "✅ Successfully installed tree"
 else
-    error_exit "Python 3.11 is required. Current version: $PYTHON_VERSION"
+    echo "✅ tree already installed"
 fi
 
 # 2. Set up a virtual environment and install requirements
@@ -45,7 +78,23 @@ git submodule update --init || error_exit "Failed to initialize submodules."
 if [ -d "bountybench" ]; then
     echo "🔗 Initializing submodules within 'bountybench'..."
     cd bountybench
-    git submodule update --init || error_exit "Failed to initialize submodules in 'bountybench'."
+    if [ "$INIT_ALL" = true ]; then
+        git submodule update --init || error_exit "Failed to initialize all submodules in 'bountybench'."
+    else
+        echo "⚠️ Initializing test submodules..."
+        TEST_SUBMODULES=(
+            "astropy"
+            "lunary"
+            "gunicorn"
+            "setuptools"
+        )
+        
+        if [ ${#TEST_SUBMODULES[@]} -eq 0 ]; then
+            echo "⚠️ No test submodules specified. Skipping initialization."
+        else
+            git submodule update --init "${TEST_SUBMODULES[@]}" || error_exit "Failed to initialize test submodules in 'bountybench'."
+        fi
+    fi
     cd ..
 else
     echo "⚠️ Directory 'bountybench' does not exist."

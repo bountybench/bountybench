@@ -1,7 +1,7 @@
 import os
+import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
-import threading
 from time import sleep
 from typing import List
 
@@ -97,9 +97,9 @@ class ModelProvider(ABC):
             - Returns the ModelResponse once the thread is done.
         """
 
-        done_flag = [False]         # Shared boolean to signal completion
-        response_holder = [None]    # Holds the ModelResponse when done
-        error_holder = [None]       # Holds exception info if something goes wrong
+        done_flag = [False]  # Shared boolean to signal completion
+        response_holder = [None]  # Holds the ModelResponse when done
+        error_holder = [None]  # Holds exception info if something goes wrong
 
         def run_request():
             try:
@@ -119,7 +119,9 @@ class ModelProvider(ABC):
         time = 0
         # Periodically log heartbeat until request completes or fails
         while not done_flag[0]:
-            logger.info(f"{time}s has passed. Still waiting for LLM provider to respond...")
+            logger.info(
+                f"{time}s has passed. Still waiting for LLM provider to respond..."
+            )
             sleep(logging_interval)
             time += logging_interval
 
