@@ -36,11 +36,11 @@ class WorkflowMessage(Message):
                     components.append(
                         str(value.name if isinstance(value, Path) else value)
                     )
+        self._workflow_id = workflow_id if workflow_id else str(id(self))
         self.log_file = (
             self.logs_dir
-            / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            / f"{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
         )
-        self._workflow_id = workflow_id if workflow_id else str(id(self))
 
         # Metadata
         self.workflow_name = workflow_name
