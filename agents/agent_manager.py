@@ -73,8 +73,12 @@ class AgentManager:
     def update_phase_agents_models(self, new_model: str):
         for agent_id in self._phase_agents:
             agent = self._phase_agents[agent_id]
-            if any(isinstance(resource, tuple) and resource[0] == ModelResource for resource in agent.ACCESSIBLE_RESOURCES) or \
-                any(resource == ModelResource for resource in agent.ACCESSIBLE_RESOURCES):
+            if any(
+                isinstance(resource, tuple) and resource[0] == ModelResource
+                for resource in agent.ACCESSIBLE_RESOURCES
+            ) or any(
+                resource == ModelResource for resource in agent.ACCESSIBLE_RESOURCES
+            ):
 
                 if not hasattr(agent, "model"):
                     raise AttributeError("Agent does not have a 'model' attribute")
@@ -103,7 +107,9 @@ class AgentManager:
                 if self.resource_dict.contains(self.workflow_id, attr_name):
                     resource = self.resource_dict.get(self.workflow_id, attr_name)
             else:
-                resources = self.resource_dict.resources_by_type(self.workflow_id, resource_type)
+                resources = self.resource_dict.resources_by_type(
+                    self.workflow_id, resource_type
+                )
 
                 attr_name = self._generate_attr_name(resource_type)
                 if resources:

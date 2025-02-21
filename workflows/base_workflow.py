@@ -127,7 +127,9 @@ class BaseWorkflow(ABC):
         logger.info("Setup agent manager")
 
     def _setup_resource_manager(self):
-        self.resource_manager = ResourceManager(workflow_id=self.workflow_message.workflow_id)
+        self.resource_manager = ResourceManager(
+            workflow_id=self.workflow_message.workflow_id
+        )
         logger.info("Setup resource manager")
 
     def _setup_interactive_controller(self):
