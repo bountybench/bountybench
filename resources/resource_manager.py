@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
 
 from phases.base_phase import BasePhase
@@ -15,6 +16,12 @@ class ResourceManager:
     def __init__(self, workflow_id: str):
         self.workflow_id = workflow_id
         self._resources = resource_dict
+
+        if workflow_id not in self._resources.id_to_resource:
+            self._resources.id_to_resource[workflow_id] = {}
+            self._resources.resource_type_to_resources[workflow_id] = defaultdict(list)
+        
+
         self._resource_registration: Dict[
             str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]
         ] = {}

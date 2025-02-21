@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass
 import os
 import stat
@@ -130,7 +131,8 @@ def bounty_setup(
 
     # Initialize resources 
     resources = []
-    resource_manager = ResourceManager(workflow_id=1)
+
+    resource_manager = ResourceManager(workflow_id="1")
     if init_files:
         init_config = InitFilesResourceConfig(
             task_dir=env_path.TASK_DIR,

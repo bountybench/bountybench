@@ -31,15 +31,14 @@ def mock_restart_resource(return_value: bool = True):
 def patch_agent(bounty_setup):
     env_path: EnvPath = bounty_setup
     # Initialize agent
-    agent_manager = AgentManager(workflow_id=1)
+
+    agent_manager = AgentManager(workflow_id="1")
     patch_config = PatchAgentConfig(
         bounty_dir=env_path.BOUNTY_DIR_FROM_TASK_DIR,
         task_dir=env_path.TASK_DIR,
         use_verify_script=True,
     )
     agent = agent_manager.create_agent("test_patch_agent", PatchAgent, patch_config)
-    verify_script_text = Path(env_path.VERIFY_SCRIPT_DIR).read_text()
-    exploit_script_text = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR).read_text()
 
     # agent's codebase parameter is initialized in the run function so we do it here
     agent.codebase = env_path.TMP_DIR
