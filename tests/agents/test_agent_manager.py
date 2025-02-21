@@ -173,47 +173,11 @@ def test_create_agent(agent_configs, initialized_agent_manager):
     agent = am.create_agent(".", PatchAgent, pConfig)
 
     assert isinstance(agent, PatchAgent)
-    assert hasattr(agent, "init_files")
-    assert hasattr(agent, "docker")
-    assert hasattr(agent, "repo_resource")
-    assert not hasattr(agent, "bounty_resource")
-
-
-def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
-    pConfig, _ = agent_configs
-    am = AgentManager()
-    agent = PatchAgent(".", pConfig)
-    am.bind_resources_to_agent(agent)
-
-    assert hasattr(agent, "init_files")
-    assert hasattr(agent, "docker")
-    assert hasattr(agent, "repo_resource")
-    assert not hasattr(agent, "bounty_resource")
-
-
-def test_parse_resource_entry():
-    am = AgentManager()
-
-    def generate_random_string(length=10):
-        letters_and_digits = string.ascii_letters + string.digits
-        random_string = ''.join(random.choice(letters_and_digits) for i in range(length))
-        return random_string
-
-    resources = {
-        BaseResource: "baseresource",
-        DockerResource: "dockerresource",
-        InitFilesResource: "initfilesresource",
-        KaliEnvResource: "kalienvresource",
-    }
-    for resource, name in resources.items():
-        result = am._parse_resource_entry(resource)
-        assert result[0] == resource and result[1] == name
-    
-    for resource in resources.keys():
-        name = generate_random_string()
-        result = am._parse_resource_entry((resource, name))
-        assert result[0] == resource and result[1] == name
-
+    for resource_entry in agent.ACCESSIBLE_RESOURCES:
+        if str(resource_entry) == "bounty_resource":
+            assert resource_entry.get_resource(agent) is None
+        else:
+            assert resource_entry.get_resource(agent) is not None
 
 def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
     pConfig, eConfig = agent_configs

@@ -1,5 +1,4 @@
 from collections import defaultdict
-from resources.base_resource import BaseResource
 
 class ResourceDict(dict):
     def __init__(self):
@@ -30,6 +29,11 @@ class ResourceDict(dict):
                 self.resource_type_to_resources[resource_type].remove(resource)
                 if not self.resource_type_to_resources[resource_type]:
                     del self.resource_type_to_resources[resource_type]
+
+    def get(self, key, default=None):
+        if key in self.id_to_resource:
+            return self.id_to_resource[key]
+        return default
 
     def __getitem__(self, id):
         return self.id_to_resource[id]

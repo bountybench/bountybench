@@ -43,8 +43,20 @@ class DefaultResource(Enum):
     BOUNTY_RESOURCE = _Resource("bounty_resource", SetupResource)
     REPO_RESOURCE = _Resource("repo_resource", SetupResource)
 
+    def __str__(self):
+        return str(self.value)
+
+    def get_resource(self, agent: "BaseAgent"):
+        return self.value.get_resource(agent)
+    
+    def get_class(self):
+        return self.value.get_class()
+
 
 """
+DENIS' TODO
+tests/agents/test_base_agent.py
+add test for setup_resources in patch/exploit. and fix them
 TODO: Remove duplicate functions in agent classes.
 TODO: Patch/Exploit kali env
 """

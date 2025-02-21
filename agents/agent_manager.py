@@ -66,7 +66,7 @@ class AgentManager:
     def update_phase_agents_models(self, new_model: str):
         for agent_id in self._phase_agents:
             agent = self._phase_agents[agent_id]
-            if ModelResource in [resource[0] for resource in agent.ACCESSIBLE_RESOURCES]:
+            if str(DefaultResource.MODEL) in agent.get_accessible_resources():
                 model_attr_name = str(DefaultResource.MODEL)
                 if not hasattr(agent, model_attr_name):
                     raise AttributeError("Agent does not have a 'model' attribute")
@@ -81,7 +81,7 @@ class AgentManager:
         agent = agent_class(agent_id, agent_config)
         self.validate_agent_required_resources(agent)
         return agent
-
+    
     def validate_agent_required_resources(self, agent: "BaseAgent"):
         """Verify that required resources are set."""
 
@@ -89,7 +89,7 @@ class AgentManager:
             resource_name = str(resource_entry)
             resource = self.resource_dict.get(resource_name, None)
             if not resource:
-                raise ValueError(f"Required resource {resource.get_class().__name__} not found for agent {agent.__class__.__name__}")
+                raise ValueError(f"Required resource {resource_entry.get_class().__name__} not found for agent {agent.__class__.__name__}")
 
     def is_agent_equivalent(self, agent_id: str, agent_class: Type["BaseAgent"], agent_config: "AgentConfig") -> bool:
         """Check if an agent with the given ID is equivalent to the provided class and config."""

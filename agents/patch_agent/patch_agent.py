@@ -142,7 +142,7 @@ class PatchAgent(BaseAgent):
         return PatchAgentMessage(agent_id=self.agent_id, message=patch_message, prev=prev_agent_message)
     
     def restart_setup_resources(self, prev_agent_message: Optional[AgentMessage] = None):
-        bounty_resource, repo_resource = DefaultResource.BOUNTY_RESOURCE.get_resource(self), DefaultResource.REPO_RESOURCE.get(self)
+        bounty_resource, repo_resource = DefaultResource.BOUNTY_RESOURCE.get_resource(self), DefaultResource.REPO_RESOURCE.get_resource(self)
 
         if bounty_resource is not None:
             bounty_resource_restarted = self._restart_resource(bounty_resource)

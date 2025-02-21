@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agents.base_agent import BaseAgent
-from phases.base_phase import BasePhase, PhaseConfig
+from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.resource_manager import ResourceManager
 
@@ -39,6 +39,9 @@ class MockAgent2(BaseAgent):
 class MockPhase1(BasePhase):
     REQUIRED_AGENTS = [MockAgent1]
 
+    def define_default_resources(self):
+        pass
+
     def define_resources(self):
         return {
             "resource1": (MockResource, MockResourceConfig()),
@@ -58,6 +61,9 @@ class MockPhase1(BasePhase):
 
 class MockPhase2(BasePhase):
     REQUIRED_AGENTS = [MockAgent1, MockAgent2]
+
+    def define_default_resources(self):
+        pass
 
     def define_resources(self):
         return {
