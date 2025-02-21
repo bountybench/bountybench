@@ -124,3 +124,13 @@ async def list_vulnerability_types():
             {"name": vt.name, "value": vt.value} for vt in VulnerabilityType
         ]
     }
+
+
+@workflows_router.get("/workflow/{workflow_id}/mock-status")
+async def get_mock_model_status(workflow_id: str, request: Request):
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+    
+    workflow = active_workflows[workflow_id]["instance"]
+    return {"use_mock_model": workflow.use_mock_model}

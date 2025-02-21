@@ -367,3 +367,21 @@ async def get_workflow_resources(workflow_id: str, request: Request):
         resource_list.append(resource_info)
 
     return {"resources": resource_list}
+
+
+@workflow_service_router.post("/workflow/{workflow_id}/toggle-mock-model")
+async def toggle_mock_model(workflow_id: str, data: dict, request: Request):
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        return {"error": f"Workflow {workflow_id} not found"}
+
+    workflow = active_workflows[workflow_id]["instance"]
+    
+    new_mock_model_status = data.get("use_mock_model") 
+
+    try:
+        workflow.use_mock_model = new_mock_model_status  # Update the setting
+        return {"status": "updated", "use_mock_model": new_mock_model_status}
+    except Exception as e:
+        error_traceback = traceback.format_exc()
+        return {"error": str(e), "traceback": error_traceback}

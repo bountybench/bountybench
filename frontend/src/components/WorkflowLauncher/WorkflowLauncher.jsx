@@ -192,16 +192,35 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   };
 
-  const handleMockModeToggle = (event) => {
-    const isMockEnabled = event.target.checked;
-    setMockMode(isMockEnabled);
-    
-    // ✅ Also update formData to ensure it reflects the change
-    setFormData(prev => ({
-        ...prev,
-        use_mock_model: isMockEnabled
-    }));
-  };
+// Fetch the current mock model status for the workflow
+useEffect(() => {
+  if (!formData.workflow_name) return; // Only fetch if a workflow is selected
+  fetch(`http://localhost:8000/workflow/${formData.workflow_name}/mock-status`)
+    .then(res => res.json())
+    .then(data => setMockMode(data.use_mock_model))
+    .catch(err => console.error("Error fetching mock model status:", err));
+}, [formData.workflow_name]);
+
+// Toggle function to update `use_mock_model`
+const handleMockModeToggle = async (event) => {
+  const isMockEnabled = event.target.checked;
+  setMockMode(isMockEnabled);
+  
+  try {
+    const response = await fetch(`http://localhost:8000/workflow/${formData.workflow_name}/toggle-mock-model`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ use_mock_model: isMockEnabled }),
+    });
+
+    const data = await response.json();
+    if (data.status !== "updated") {
+      console.error("Failed to update mock model status:", data.error);
+    }
+  } catch (err) {
+    console.error("Error toggling mock model:", err);
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();

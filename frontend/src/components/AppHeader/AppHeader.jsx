@@ -17,11 +17,13 @@ export const AppHeader = ({
   // State for currently selected values
   const [selectedModelType, setSelectedModelType] = useState('');
   const [selectedModelName, setSelectedModelName] = useState('');
-  
+
 
   // Initialize navigate
   const navigate = useNavigate();
 
+
+  
   // Fetch available models
   useEffect(() => {
     const fetchModels = async () => {
@@ -145,6 +147,18 @@ export const AppHeader = ({
             disabled={!interactiveMode} // Disable when not in interactive mode
           />
         </Box>
+
+
+        <Box display="flex" alignItems="center" mr={2}>
+          <Typography variant="body2" sx={{ mr: 1 }}>Mock Model:</Typography>
+          <Switch
+            checked={mockMode}
+            onChange={handleMockModeToggle}  
+            color="primary"
+            size="small"
+          />
+        </Box>
+
       </Box>
     </Box>
   );
