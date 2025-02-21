@@ -10,10 +10,11 @@ logger = get_main_logger(__name__)
 
 
 class AgentManager:
-    def __init__(self):
+    def __init__(self, workflow_id: str):
         self._agents: Dict[str, BaseAgent] = {}
         self._phase_agents: Dict[str, BaseAgent] = {}
         self._agent_configs: Dict[str, Tuple[Type[BaseAgent], AgentConfig]] = {}
+        self.workflow_id = workflow_id
         self.resource_dict = resource_dict
 
     def register_agent(
@@ -99,10 +100,10 @@ class AgentManager:
 
             resource = None
             if attr_name:
-                if attr_name in self.resource_dict:
-                    resource = self.resource_dict[attr_name]
+                if self.resource_dict.contains(self.workflow_id, attr_name):
+                    resource = self.resource_dict.get(self.workflow_id, attr_name)
             else:
-                resources = self.resource_dict.resources_by_type(resource_type)
+                resources = self.resource_dict.resources_by_type(self.workflow_id, resource_type)
 
                 attr_name = self._generate_attr_name(resource_type)
                 if resources:
