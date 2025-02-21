@@ -2,18 +2,19 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
+
+PathLike = Union[Path, str]
 
 
 def _run_git_command(
     directory: Path,
     args: list[str],
     capture_output: bool = False,
-    log_error: bool = True,
 ) -> Optional[subprocess.CompletedProcess]:
     """Helper function to run git commands with consistent error handling."""
     try:
@@ -27,7 +28,7 @@ def _run_git_command(
         logger.debug(f"Git command succeeded: git {' '.join(args)}")
         return result
     except subprocess.CalledProcessError as e:
-        logger.error(f"Git command failed: git {' '.join(args)} - {e.stderr}")
+        logger.warning(f"Git command failed: git {' '.join(args)} - {e.stderr}")
         raise
 
 
@@ -39,7 +40,7 @@ def _checkout_branch(directory: Path, branch_name: Optional[str]) -> None:
 
 
 def git_commit(
-    directory_path: str | Path, commit_info: str, branch_name: Optional[str] = None
+    directory_path: PathLike, commit_info: str, branch_name: Optional[str] = None
 ) -> bool:
     """Create a git commit in the specified branch."""
     try:
@@ -63,7 +64,7 @@ def git_commit(
         raise
 
 
-def git_reset(directory_path: str | Path, branch_name: Optional[str] = None) -> None:
+def git_reset(directory_path: PathLike, branch_name: Optional[str] = None) -> None:
     """Reset repository to previous commit."""
     try:
         directory = Path(directory_path)
@@ -75,7 +76,7 @@ def git_reset(directory_path: str | Path, branch_name: Optional[str] = None) -> 
         raise
 
 
-def git_checkout(directory_path: str | Path, commit: str) -> None:
+def git_checkout(directory_path: PathLike, commit: str) -> None:
     """Checkout a specific commit and clean repository."""
     directory = Path(directory_path)
     _run_git_command(directory, ["clean", "-fdx"])
@@ -83,18 +84,18 @@ def git_checkout(directory_path: str | Path, commit: str) -> None:
     _run_git_command(directory, ["checkout", commit])
 
 
-def git_checkout_main(directory_path: str | Path) -> None:
+def git_checkout_main(directory_path: PathLike) -> None:
     """Checkout main branch."""
     git_checkout(directory_path, "main")
 
 
-def git_clean_untracked(directory_path: str | Path) -> None:
+def git_clean_untracked(directory_path: PathLike) -> None:
     """Clean untracked files from repository."""
     directory = Path(directory_path)
     _run_git_command(directory, ["clean", "-fd"])
 
 
-def git_init_repo(directory_path: str | Path) -> None:
+def git_init_repo(directory_path: PathLike) -> None:
     """Initialize git repository if it doesn't exist."""
     directory = Path(directory_path)
     if not directory.exists():
@@ -123,7 +124,7 @@ def git_init_repo(directory_path: str | Path) -> None:
         raise
 
 
-def git_commit_changes(directory_path: str | Path) -> None:
+def git_commit_changes(directory_path: PathLike) -> None:
     """Commit all changes in the repository."""
     directory = Path(directory_path)
     try:
@@ -137,7 +138,7 @@ def git_commit_changes(directory_path: str | Path) -> None:
         raise
 
 
-def git_has_changes(directory_path: str | Path) -> bool:
+def git_has_changes(directory_path: PathLike) -> bool:
     """Check if repository has uncommitted changes."""
     directory = Path(directory_path)
     try:
@@ -150,20 +151,20 @@ def git_has_changes(directory_path: str | Path) -> bool:
         return True
 
 
-def git_submodule_update(directory_path: str | Path) -> None:
+def git_submodule_update(directory_path: PathLike) -> None:
     """Update git submodules."""
     directory = Path(directory_path)
     _run_git_command(directory, ["submodule", "update", "--init", "."])
 
 
-def git_delete_branch(directory_path: str | Path, branch_name: str) -> None:
+def git_delete_branch(directory_path: PathLike, branch_name: str) -> None:
     """Delete a git branch."""
     directory = Path(directory_path)
     _run_git_command(directory, ["branch", "-D", branch_name])
     logger.info(f"Deleted branch {branch_name} in {directory}")
 
 
-def git_diff(directory_path: str | Path) -> str:
+def git_diff(directory_path: PathLike) -> str:
     """Get git diff of the repository."""
     try:
         directory = Path(directory_path)
@@ -181,9 +182,9 @@ def git_diff(directory_path: str | Path) -> str:
 
         # Clean .pyc files, use a safe approach in case there are no .pyc files
         try:
-            _run_git_command(directory, ["rm", "--cached", "*.pyc"], log_error=False)
+            _run_git_command(directory, ["rm", "--cached", "*.pyc"])
             logger.info("Removed cached .pyc files")
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             logger.info(
                 "No .pyc files to remove or encountered an error, handled gracefully."
             )
@@ -214,23 +215,24 @@ def git_diff(directory_path: str | Path) -> str:
 
 
 def git_apply_patch(
-    patch_file: Path, directory_path: str | Path, branch_name: Optional[str] = None
+    patch_file: PathLike, directory_path: PathLike, branch_name: Optional[str] = None
 ) -> Tuple[bool, str]:
     """Apply a git patch to the repository."""
     try:
         directory = Path(directory_path)
+        patch_path = Path(patch_file)
         _checkout_branch(directory, branch_name)
-        _run_git_command(directory, ["apply", str(patch_file.resolve())])
-        msg = f"Applied patch {patch_file.name} successfully"
+        _run_git_command(directory, ["apply", str(patch_path.resolve())])
+        msg = f"Applied patch {patch_path.name} successfully"
         logger.info(msg)
         return True, msg
     except subprocess.CalledProcessError as e:
-        msg = f"Failed to apply patch {patch_file.name}: {e}"
+        msg = f"Failed to apply patch {Path(patch_file).name}: {e}"
         logger.error(msg)
         return False, msg
 
 
-def git_setup_dev_branch(directory_path: str | Path, commit: str = "main") -> None:
+def git_setup_dev_branch(directory_path: PathLike, commit: str = "main") -> None:
     """Set up dev branch from specified commit."""
     directory = Path(directory_path)
     try:

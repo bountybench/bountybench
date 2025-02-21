@@ -1,4 +1,3 @@
-import os
 import stat
 from collections import defaultdict
 from dataclasses import dataclass
@@ -56,24 +55,24 @@ class EnvPath:
     - 'dir' <-> usually absolute path or relative path (from pwd)
     """
 
-    TASK_DIR = ""
-    BOUNTY_DIR = ""
-    TMP_DIR = ""
-    CODEBASE_FILES_DIR = ""
-    TMP_CODEBASE_FILES_DIR = ""
-    VERIFY_SCRIPT_DIR = ""
-    TMP_EXPLOIT_SCRIPT_DIR = ""
-    EXPLOIT_FILES_DIR = ""
-    AGENT_PATCHES_DIR = ""
+    TASK_DIR: Path = Path()
+    BOUNTY_DIR: Path = Path()
+    TMP_DIR: Path = Path()
+    CODEBASE_FILES_DIR: Path = Path()
+    TMP_CODEBASE_FILES_DIR: Path = Path()
+    VERIFY_SCRIPT_DIR: Path = Path()
+    TMP_EXPLOIT_SCRIPT_DIR: Path = Path()
+    EXPLOIT_FILES_DIR: Path = Path()
+    AGENT_PATCHES_DIR: Path = Path()
 
-    BOUNTY_DIR_FROM_TASK_DIR = ""
+    BOUNTY_DIR_FROM_TASK_DIR: Path = Path()
 
-    TMP_DIR_NAME = ""
-    CODEBASE_FILES_DIR_NAME = ""
-    EXPLOIT_FILES_DIR_NAME = ""
+    TMP_DIR_NAME: str = ""
+    CODEBASE_FILES_DIR_NAME: str = ""
+    EXPLOIT_FILES_DIR_NAME: str = ""
 
     def __init__(
-        cls,
+        self,
         repo_name: str,
         bounty_number: int,
         tmp_dir_name: str = "tmp",
@@ -83,7 +82,7 @@ class EnvPath:
         """
         Initializes all paths dynamically using the provided repo_name and bounty_number.
         """
-        task_dir = Path(os.path.abspath(os.path.join("bountybench", repo_name)))
+        task_dir = Path("bountybench") / repo_name
         bounty_dir = task_dir / "bounties" / f"bounty_{bounty_number}"
         tmp_dir = task_dir / tmp_dir_name
         codebase_files_dir = task_dir / codebase_files_dir_name
@@ -96,21 +95,22 @@ class EnvPath:
         bounty_dir_from_task_dir = _subtract_paths(bounty_dir, task_dir)
 
         # Setting the actual value of each enum member
-        cls.TASK_DIR = str(task_dir)
-        cls.BOUNTY_DIR = str(bounty_dir)
-        cls.TMP_DIR = str(tmp_dir)
-        cls.CODEBASE_FILES_DIR = str(codebase_files_dir)
-        cls.TMP_CODEBASE_FILES_DIR = str(tmp_codebase_files_dir)
-        cls.VERIFY_SCRIPT_DIR = str(verify_script_dir)
-        cls.TMP_EXPLOIT_SCRIPT_DIR = str(tmp_exploit_script_dir)
-        cls.EXPLOIT_FILES_DIR = str(exploit_files_dir)
-        cls.AGENT_PATCHES_DIR = str(agent_patches_dir)
+        self.TASK_DIR = task_dir.resolve()
+        self.BOUNTY_DIR = bounty_dir
+        self.TMP_DIR = tmp_dir
+        self.CODEBASE_FILES_DIR = codebase_files_dir
+        self.TMP_CODEBASE_FILES_DIR = tmp_codebase_files_dir
+        self.VERIFY_SCRIPT_DIR = verify_script_dir
+        self.TMP_EXPLOIT_SCRIPT_DIR = tmp_exploit_script_dir
+        self.EXPLOIT_FILES_DIR = exploit_files_dir
+        self.AGENT_PATCHES_DIR = agent_patches_dir
 
-        cls.BOUNTY_DIR_FROM_TASK_DIR = str(bounty_dir_from_task_dir)
+        self.BOUNTY_DIR_FROM_TASK_DIR = bounty_dir_from_task_dir
 
-        cls.TMP_DIR_NAME = tmp_dir_name
-        cls.CODEBASE_FILES_DIR_NAME = codebase_files_dir_name
-        cls.EXPLOIT_FILES_DIR_NAME = exploit_files_dir_name
+        self.TMP_DIR_NAME = tmp_dir_name
+        self.CODEBASE_FILES_DIR_NAME = codebase_files_dir_name
+        self.EXPLOIT_FILES_DIR_NAME = exploit_files_dir_name
+
 
 
 # Setup bounties and initialize needed resources for all agent tests once
@@ -175,7 +175,7 @@ def bounty_setup(
             task_dir=env_path.TASK_DIR,
             bounty_number=bounty_number,
             volumes={
-                os.path.abspath(env_path.TMP_DIR): {"bind": "/app", "mode": "rw"},
+                str(env_path.TMP_DIR.resolve()): {"bind": "/app", "mode": "rw"},
             },
             target_host=repo_metadata["target_host"],
         )
@@ -206,4 +206,5 @@ def lunary_bounty_0_setup():
 def write_to_file_and_make_executable(script_path: Path, exit_code: int):
     file_text = f"#!/usr/bin/env bash\nexit {exit_code}\n"
     script_path.write_text(file_text)
-    script_path.chmod(script_path.stat().st_mode | stat.S_IXUSR)
+    current_mode = script_path.stat().st_mode
+    script_path.chmod(current_mode | stat.S_IXUSR)

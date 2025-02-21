@@ -9,10 +9,8 @@ class BountyWorkflow(BaseWorkflow, ABC):
     def _initialize(self):
         self.task_dir = self.params["task_dir"]
         self.bounty_number = self.params["bounty_number"]
-        self.repo_metadata = read_repo_metadata(str(self.task_dir))
-        self.bounty_metadata = read_bounty_metadata(
-            str(self.task_dir), self.bounty_number
-        )
+        self.repo_metadata = read_repo_metadata(self.task_dir)
+        self.bounty_metadata = read_bounty_metadata(self.task_dir, self.bounty_number)
 
         setup_shared_network()
 

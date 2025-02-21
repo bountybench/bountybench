@@ -1,5 +1,6 @@
 import random
 import string
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -168,7 +169,7 @@ def test_update_phase_agents_models_no_executor():
     am = AgentManager(workflow_id=1)
     am._phase_agents = {
         "patch_agent": PatchAgent(
-            "update_phase_agents_no_executor", PatchAgentConfig("", "", False)
+            "update_phase_agents_no_executor", PatchAgentConfig(Path(), Path(), False)
         )
     }
 
@@ -239,10 +240,14 @@ def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
     assert not am.is_agent_equivalent("bad agent", PatchAgent, pConfig)
     assert not am.is_agent_equivalent("bad agent", ExploitAgent, eConfig)
     assert not am.is_agent_equivalent(
-        "exploit_agent", ExploitAgent, ExploitAgentConfig("hi", "hi")
+        "exploit_agent",
+        ExploitAgent,
+        ExploitAgentConfig(Path("bountyagent"), Path("bountyagent")),
     )
     assert not am.is_agent_equivalent(
-        "patch_agent", PatchAgent, PatchAgentConfig("hi", "hi", False)
+        "patch_agent",
+        PatchAgent,
+        PatchAgentConfig(Path("bountyagent"), Path("bountyagent"), False),
     )
     assert am.is_agent_equivalent("patch_agent", PatchAgent, pConfig)
     assert am.is_agent_equivalent("exploit_agent", ExploitAgent, eConfig)

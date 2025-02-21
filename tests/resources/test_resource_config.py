@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import pytest
@@ -30,8 +29,9 @@ def test_init_files_resource(test_config):
     resource = InitFilesResource("test-init", init_files_config)
 
     assert resource.resource_id == "test-init"
-    assert resource.task_dir == os.path.abspath(test_config["task_dir"])
-    assert os.path.exists(resource.tmp_dir)
+    assert Path(resource.task_dir) == test_config["task_dir"]
+    assert Path(resource.tmp_dir).exists()
+
 
 
 def test_setup_resource(test_config):
