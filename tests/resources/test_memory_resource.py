@@ -8,10 +8,10 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.memory_resource import (
+    MemoryPrompts,
     MemoryResource,
     MemoryResourceConfig,
     MemoryTruncationFunctions,
-    MemoryPrompts,
 )
 
 
@@ -107,7 +107,9 @@ def test_get_memory_from_last_phase_message(message_tree):
         "[phase_0_agent_1/phase_0_agent_1_action] phase_0_agent_1_action",
     ]
 
-    expected_memory = MemoryPrompts._DEFAULT_SEGUE + "\n" + ' '.join(expected_prev_phases)
+    expected_memory = (
+        MemoryPrompts._DEFAULT_SEGUE + "\n" + " ".join(expected_prev_phases)
+    )
 
     assert memory_without_prompt == expected_memory
 
@@ -176,8 +178,10 @@ def test_get_memory_from_last_action_message(message_tree):
     expected_prev_agents = [
         "[phase_1_agent_0/phase_1_agent_0_action] phase_1_agent_0_action",
     ]
-    expected_prev_actions = ["[phase_1_agent_1/phase_1_agent_1_action] phase_1_agent_1_action"]
-    
+    expected_prev_actions = [
+        "[phase_1_agent_1/phase_1_agent_1_action] phase_1_agent_1_action"
+    ]
+
     expected_memory = (
         f"{MemoryPrompts._DEFAULT_SEGUE}\n"
         f"{' '.join(expected_prev_phases)}\n"
@@ -258,8 +262,12 @@ def test_memory_truncation_by_token(message_tree):
 
     og_memory = mem_resource.get_memory(last_action_message).memory
     memory_without_prompt = "".join(og_memory.split("\n\n")[1:])
-    memory_lines = [line.strip() for line in memory_without_prompt.split('\n') if line.strip()]
-    memory_lines = [line for line in memory_lines if line.startswith('[')]  # Only keep message lines
+    memory_lines = [
+        line.strip() for line in memory_without_prompt.split("\n") if line.strip()
+    ]
+    memory_lines = [
+        line for line in memory_lines if line.startswith("[")
+    ]  # Only keep message lines
 
     # Check that at least one line has multiple tokens
     assert any(len(line.split()) > 1 for line in memory_lines)
@@ -271,8 +279,12 @@ def test_memory_truncation_by_token(message_tree):
         MemoryResource("memory_1", config).get_memory(last_action_message).memory
     )
     trunc_memory_without_prompt = "".join(trunc_memory.split("\n\n")[1:])
-    trunc_memory_lines = [line.strip() for line in trunc_memory_without_prompt.split('\n') if line.strip()]
-    trunc_memory_lines = [line for line in trunc_memory_lines if line.startswith('[')]  # Only keep message lines
+    trunc_memory_lines = [
+        line.strip() for line in trunc_memory_without_prompt.split("\n") if line.strip()
+    ]
+    trunc_memory_lines = [
+        line for line in trunc_memory_lines if line.startswith("[")
+    ]  # Only keep message lines
 
     # Check that each line has exactly one token after the bullet point
     assert all(len(line.split()) == 1 for line in trunc_memory_lines)
@@ -320,9 +332,9 @@ def test_pin(message_tree):
 
     # Get initial memory and check that phase_0_agent_0_action is not present
     memory = trunc_memory.get_memory(last_action_message).memory
-    memory_lines = [line.strip() for line in memory.split('\n') if line.strip()]
-    memory_lines = [line for line in memory_lines if line.startswith(' * ')]
-    assert not any('phase_0_agent_0_action' in line for line in memory_lines)
+    memory_lines = [line.strip() for line in memory.split("\n") if line.strip()]
+    memory_lines = [line for line in memory_lines if line.startswith(" * ")]
+    assert not any("phase_0_agent_0_action" in line for line in memory_lines)
 
     # Pin the message and verify it appears in memory
     # trunc_memory.pin("phase_0_agent_0_action")
@@ -347,14 +359,14 @@ def test_pin_non_truncated(message_tree):
 
     # Get initial memory and check that phase_0_agent_0_action is present
     memory = mem_resource.get_memory(last_action_message).memory
-    memory_lines = [line.strip() for line in memory.split('\n') if line.strip()]
-    assert any('phase_0_agent_0_action' in line for line in memory_lines)
+    memory_lines = [line.strip() for line in memory.split("\n") if line.strip()]
+    assert any("phase_0_agent_0_action" in line for line in memory_lines)
 
     # Pin the message and verify it appears exactly once
     mem_resource.pin("phase_0_agent_0_action")
     memory = mem_resource.get_memory(last_action_message).memory
-    memory_lines = [line.strip() for line in memory.split('\n') if line.strip()]
-    assert sum('phase_0_agent_0_action' in line for line in memory_lines) == 1
+    memory_lines = [line.strip() for line in memory.split("\n") if line.strip()]
+    assert sum("phase_0_agent_0_action" in line for line in memory_lines) == 1
 
 
 def test_agent_message_no_duplicates(message_tree):

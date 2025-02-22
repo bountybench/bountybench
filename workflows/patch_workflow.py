@@ -1,51 +1,51 @@
 import asyncio
 from pathlib import Path
 
-from prompts.prompts import TARGET_HOST_PATCH_PROMPT, PATCH_PROMPT, STOP_TOKEN
 from phases.patch_phase import PatchPhase
+from prompts.prompts import PATCH_PROMPT, STOP_TOKEN, TARGET_HOST_PATCH_PROMPT
 from resources.utils import read_writeup
+from utils.logger import get_main_logger
 from workflows.bounty_workflow import BountyWorkflow
 
-from utils.logger import get_main_logger
-
 logger = get_main_logger(__name__)
+
 
 class PatchWorkflow(BountyWorkflow):
     """Workflow for patching vulnerabilities"""
 
-
-    def __init__(self, *args, **kwargs):        
-        self._use_agent_exploit = kwargs.pop('use_agent_exploit', False)
+    def __init__(self, *args, **kwargs):
+        self._use_agent_exploit = kwargs.pop("use_agent_exploit", False)
         super().__init__(*args, **kwargs)
-    
+
     @property
     def use_agent_exploit(self):
         return self._use_agent_exploit
-    
 
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
 
         phase_kwargs = {
             'use_mock_model': self.params.get('use_mock_model'),
-            'model': self.params.get('model'),
-            'helm': self.params.get('helm'),
-            'task_dir': self.task_dir,
-            'bounty_number': self.bounty_number,
-            'vulnerability_type': self.params.get('vulnerability_type'),
-            'max_iterations': 20,
-            'use_agent_exploit': self.use_agent_exploit,
-            'task_description': read_writeup(self.task_dir, self.bounty_number),
-            'stop_token': STOP_TOKEN,
-            'target_host': self.repo_metadata["target_host"],
-            'initial_prompt': self.initial_prompt,
-            'info': self.repo_metadata.get("info", "") + "\n" + self.bounty_metadata.get("info", "")
+            "model": self.params.get("model"),
+            "helm": self.params.get("helm"),
+            "task_dir": self.task_dir,
+            "bounty_number": self.bounty_number,
+            "vulnerability_type": self.params.get("vulnerability_type"),
+            "max_iterations": 20,
+            "use_agent_exploit": self.use_agent_exploit,
+            "task_description": read_writeup(self.task_dir, self.bounty_number),
+            "stop_token": STOP_TOKEN,
+            "target_host": self.repo_metadata["target_host"],
+            "initial_prompt": self.initial_prompt,
+            "info": self.repo_metadata.get("info", "")
+            + "\n"
+            + self.bounty_metadata.get("info", ""),
         }
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations
 
         phase_kwargs["interactive"] = self.interactive
-        
+
         patch_phase = PatchPhase(workflow=self, **phase_kwargs)
 
         self._register_root_phase(patch_phase)
@@ -57,20 +57,33 @@ class PatchWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
-        return TARGET_HOST_PATCH_PROMPT if self.repo_metadata["target_host"] else PATCH_PROMPT
+        return (
+            TARGET_HOST_PATCH_PROMPT
+            if self.repo_metadata["target_host"]
+            else PATCH_PROMPT
+        )
+
 
 async def main() -> None:
     """Main entry point"""
     import argparse
 
     parser = argparse.ArgumentParser(description="Run the patch workflow")
-    parser.add_argument("--task_dir", type=str, help="The directory of the task repo", required=True)
-    parser.add_argument("--bounty_number", type=str, help="The bounty number", required=True)
-    parser.add_argument("--interactive", action="store_true", help="Enable interactive mode")
+    parser.add_argument(
+        "--task_dir", type=str, help="The directory of the task repo", required=True
+    )
+    parser.add_argument(
+        "--bounty_number", type=str, help="The bounty number", required=True
+    )
+    parser.add_argument(
+        "--interactive", action="store_true", help="Enable interactive mode"
+    )
     parser.add_argument("--use_mock_model", action="store_true", help="Use mock model")
     parser.add_argument("--model", type=str, help="The LM model to query")
     parser.add_argument("--helm", action="store_true", help="Use HelmModels")
-    parser.add_argument("--phase_iterations", type=int, help="max iteractions to run of PatchPhase")
+    parser.add_argument(
+        "--phase_iterations", type=int, help="max iteractions to run of PatchPhase"
+    )
     args = parser.parse_args()
 
     # Create logs directory
@@ -78,8 +91,15 @@ async def main() -> None:
     logs_dir.mkdir(exist_ok=True)
 
     # Run workflow
-    workflow = PatchWorkflow(task_dir=Path(args.task_dir), bounty_number=args.bounty_number, interactive=args.interactive, use_mock_model=args.use_mock_model, model=args.model, phase_iterations=args.phase_iterations)
+    workflow = PatchWorkflow(
+        task_dir=Path(args.task_dir),
+        bounty_number=args.bounty_number,
+        interactive=args.interactive,
+        use_mock_model=args.use_mock_model, model=args.model,
+        phase_iterations=args.phase_iterations,
+    )
     await workflow.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

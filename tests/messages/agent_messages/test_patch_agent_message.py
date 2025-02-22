@@ -1,11 +1,11 @@
 import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
-
-from messages.agent_messages.agent_message import AgentMessage
-from messages.agent_messages.patch_agent_message import PatchAgentMessage
+from unittest.mock import MagicMock, PropertyMock, patch
 
 from messages.action_messages.action_message import ActionMessage
+from messages.agent_messages.agent_message import AgentMessage
+from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from messages.message import Message
+
 
 class TestPatchAgentMessage(unittest.TestCase):
 
@@ -31,7 +31,9 @@ class TestPatchAgentMessage(unittest.TestCase):
         Test PatchAgentMessage Initialization.
         """
         prev_message = MagicMock(spec=AgentMessage)
-        patch_agent_message = PatchAgentMessage("test_id", "test_msg", True, "/patch", prev_message)
+        patch_agent_message = PatchAgentMessage(
+            "test_id", "test_msg", True, "/patch", prev_message
+        )
 
         # Assertions
         self.assertEqual(patch_agent_message.agent_id, "test_id")
@@ -46,12 +48,9 @@ class TestPatchAgentMessage(unittest.TestCase):
         """
         # Create a patch agent message
         patch_agent_message = PatchAgentMessage(
-            "test_id", 
-            "test_msg", 
-            success=True, 
-            patch_files_dir="/patch"
+            "test_id", "test_msg", success=True, patch_files_dir="/patch"
         )
-        
+
         # Call to_broadcast_dict
         broadcast_dict = patch_agent_message.to_broadcast_dict()
 
@@ -69,16 +68,13 @@ class TestPatchAgentMessage(unittest.TestCase):
         # Create action message mock with to_log_dict method
         action_message = MagicMock(spec=ActionMessage)
         action_message.to_log_dict.return_value = {"action": "msg"}
-        
+
         # Create patch agent message
         patch_agent_message = PatchAgentMessage(
-            "test_id", 
-            "test_msg", 
-            success=True, 
-            patch_files_dir="/patch"
+            "test_id", "test_msg", success=True, patch_files_dir="/patch"
         )
         patch_agent_message._action_messages = [action_message]
-        
+
         # Call to_log_dict
         log_dict = patch_agent_message.to_log_dict()
 

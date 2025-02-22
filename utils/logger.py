@@ -1,8 +1,8 @@
 import logging
-import os
 import queue
 import sys
 from logging.handlers import QueueHandler, QueueListener
+from pathlib import Path
 
 import colorlog
 
@@ -44,14 +44,14 @@ class CustomColoredFormatter(colorlog.ColoredFormatter):
         super().__init__(
             fmt, datefmt=datefmt, log_colors=log_colors, reset=reset, style=style
         )
-        self.base_dir = os.getcwd()  # Define the base directory for relative paths
+        self.base_dir = Path.cwd()  # Define the base directory for relative paths
 
     def format(self, record):
         """Compute the relative path of the log source."""
         try:
-            record.relative_path = os.path.relpath(record.pathname, self.base_dir)
+            record.relative_path = Path(record.pathname).relative_to(self.base_dir)
         except ValueError:
-            # If relpath fails, fallback to pathname
+            # If relative_to fails, fallback to pathname
             logging.warning(f"Failed to compute relative path for: {record.pathname}")
             record.relative_path = record.pathname
 

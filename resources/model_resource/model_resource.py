@@ -3,15 +3,16 @@ from typing import Any, Dict, List, Optional, Union
 
 import tiktoken
 
-from prompts.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
+from resources.runnable_base_resource import RunnableBaseResource
 from messages.message import Message
-from resources.base_resource import BaseResource, BaseResourceConfig
+from prompts.prompts import STOP_TOKEN
+from resources.base_resource import BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
+from resources.model_resource.model_utils import truncate_input_to_max_tokens
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
-from resources.model_resource.model_utils import truncate_input_to_max_tokens
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -60,7 +61,7 @@ class ModelResourceConfig(BaseResourceConfig):
             verify_and_auth_api_key(self.model, self.use_helm)
 
 
-class ModelResource(BaseResource):
+class ModelResource(RunnableBaseResource):
     """ModelResource"""
 
     def __init__(self, resource_id: str, config: ModelResourceConfig):
@@ -97,7 +98,6 @@ class ModelResource(BaseResource):
             if hallucination_index != -1:
                 response = response[:hallucination_index]
         return response.strip()
-
 
     def tokenize(self, message: str) -> List[int]:
         """
@@ -139,9 +139,16 @@ class ModelResource(BaseResource):
         if isinstance(input_message, ActionMessage):
             prev_action_message = input_message
 
-        assert input_message.memory is not None, "Message to model.run() should contain memory."
+        assert (
+            input_message.memory is not None
+        ), "Message to model.run() should contain memory."
         model_input = input_message.memory
-        model_input = truncate_input_to_max_tokens(max_input_tokens=self.max_input_tokens, model_input=model_input, model=self.model, use_helm=self.helm)
+        model_input = truncate_input_to_max_tokens(
+            max_input_tokens=self.max_input_tokens,
+            model_input=model_input,
+            model=self.model,
+            use_helm=self.helm,
+        )
 
 
         if self.use_mock_model: 
@@ -171,9 +178,12 @@ class ModelResource(BaseResource):
             },
         )
 
-
-        return ActionMessage(resource_id=self.resource_id, message=lm_response, additional_metadata=metadata, prev=prev_action_message)
-
+        return ActionMessage(
+            resource_id=self.resource_id,
+            message=lm_response,
+            additional_metadata=metadata,
+            prev=prev_action_message,
+        )
 
     def stop(self) -> None:
         """

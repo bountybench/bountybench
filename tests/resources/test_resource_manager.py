@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Tuple, Union
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from agents.base_agent import BaseAgent
@@ -79,7 +80,7 @@ class MockPhase2(BasePhase):
 
 @pytest.fixture
 def resource_manager():
-    return ResourceManager()
+    return ResourceManager(workflow_id=1)
 
 
 @pytest.fixture
@@ -99,7 +100,7 @@ def test_resource_lifecycle(mock_logger, resource_manager, mock_workflow):
         )
 
     phases = [MockPhase1(mock_workflow), MockPhase2(mock_workflow)]
-    
+
     # Compute schedule
     resource_manager.compute_schedule(phases)
 
@@ -110,26 +111,33 @@ def test_resource_lifecycle(mock_logger, resource_manager, mock_workflow):
 
     # Initialize resources for Phase1
     resource_manager.initialize_phase_resources(0, MockPhase1.get_required_resources())
-    assert "resource1" in resource_manager._resources
-    assert "resource2" in resource_manager._resources
-    assert "resource3" not in resource_manager._resources
+    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource1")
+    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource2")
+    assert not resource_manager._resources.contains(
+        workflow_id=1, resource_id="resource3"
+    )
 
     # Deallocate resources after Phase1
     resource_manager.deallocate_phase_resources(0)
-    assert "resource1" in resource_manager._resources
-    assert "resource2" in resource_manager._resources
-
+    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource1")
+    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource2")
     # Initialize resources for Phase2
     resource_manager.initialize_phase_resources(1, MockPhase2.get_required_resources())
-    assert "resource1" in resource_manager._resources
-    assert "resource2" in resource_manager._resources
-    assert "resource3" in resource_manager._resources
+    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource1")
+    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource2")
+    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource3")
 
     # Deallocate resources after Phase2
     resource_manager.deallocate_phase_resources(1)
-    assert "resource1" not in resource_manager._resources
-    assert "resource2" not in resource_manager._resources
-    assert "resource3" not in resource_manager._resources
+    assert not resource_manager._resources.contains(
+        workflow_id=1, resource_id="resource1"
+    )
+    assert not resource_manager._resources.contains(
+        workflow_id=1, resource_id="resource2"
+    )
+    assert not resource_manager._resources.contains(
+        workflow_id=1, resource_id="resource3"
+    )
 
 
 @patch("utils.logger.get_main_logger")
