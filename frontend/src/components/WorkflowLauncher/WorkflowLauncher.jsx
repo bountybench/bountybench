@@ -16,10 +16,17 @@ import {
   InputAdornment,
   IconButton,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from '@mui/material';
+import { formDataToYaml } from './utils/formDataToYaml'
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import SaveIcon from '@mui/icons-material/Save';
 import ListIcon from '@mui/icons-material/List';
 import './WorkflowLauncher.css';
 
@@ -58,6 +65,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [workflows, setWorkflows] = useState([]);
   const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
   
+  const [openSaveDialog, setOpenSaveDialog] = useState(false);
+  const [fileName, setFileName] = useState('workflow_config.yaml'); 
+  const [saveStatus, setSaveStatus] = useState(null);
+
   const [formData, setFormData] = useState({
     workflow_name: '',
     task_dir: 'lunary',
@@ -285,6 +296,46 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       fetchApiKeys();
     } catch (err) {
       console.log(err.message);
+    }
+  };
+
+  const handleSaveConfiguration = () => {
+    setOpenSaveDialog(true);
+  };
+
+  const handleSaveDialogClose = () => {
+    setOpenSaveDialog(false);
+  };
+
+  const handleFileNameChange = (event) => {
+    setFileName(event.target.value);
+  };
+
+  
+  const handleSaveConfirm = async () => {
+    const yamlConfig = formDataToYaml(formData);
+    const saveFileName = fileName.endsWith('.yaml') ? fileName : `${fileName}.yaml`;
+
+    try {
+      const response = await fetch('http://localhost:8000/workflow/save-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: saveFileName,
+          config: yamlConfig,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save configuration');
+      }
+
+      const result = await response.json();
+      setSaveStatus({ type: 'success', message: result.message });
+    } catch (error) {
+      setSaveStatus({ type: 'error', message: error.message });
     }
   };
 
@@ -618,7 +669,44 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         >
           Start Workflow
         </Button>
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={handleSaveConfiguration}
+          startIcon={<SaveIcon />}
+        >
+          Save Configuration
+        </Button>
       </form>
+
+      <Dialog open={openSaveDialog} onClose={handleSaveDialogClose}>
+        <DialogTitle>Save Configuration</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Please enter a name for your configuration file:
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            id="name"
+            label="File Name"
+            type="text"
+            fullWidth
+            variant="standard"
+            value={fileName}
+            onChange={handleFileNameChange}
+          />
+          {saveStatus && (
+            <Alert severity={saveStatus.type} sx={{ mt: 2 }}>
+              {saveStatus.message}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleSaveDialogClose}>Close</Button>
+          <Button onClick={handleSaveConfirm}>Save</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

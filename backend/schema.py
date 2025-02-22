@@ -34,3 +34,8 @@ class UpdateInteractiveModeInput(BaseModel):
 class ApiKeyInput(BaseModel):
     api_key_name: str
     api_key_value: str
+
+
+class SaveConfigRequest(BaseModel):
+    fileName: str
+    config: str
