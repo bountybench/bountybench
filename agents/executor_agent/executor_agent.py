@@ -107,6 +107,8 @@ class ExecutorAgent(BaseAgent):
                     model_output: ActionMessage = await asyncio.to_thread(
                         self.model.run, input_message=lm_input_message
                     )
+                    if self.model.use_mock_model: 
+                        return model_output
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
                 except Exception as e:
