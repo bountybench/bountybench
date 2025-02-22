@@ -1,5 +1,6 @@
 import asyncio
 import atexit
+import subprocess
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, Type
@@ -50,6 +51,7 @@ class BaseWorkflow(ABC):
             additional_metadata=self._get_metadata(),
         )
 
+        self._check_docker_desktop_availability()
         self._setup_resource_manager()
         self._setup_agent_manager()
         self._setup_interactive_controller()
@@ -127,7 +129,9 @@ class BaseWorkflow(ABC):
         logger.info("Setup agent manager")
 
     def _setup_resource_manager(self):
-        self.resource_manager = ResourceManager(workflow_id=self.workflow_message.workflow_id)
+        self.resource_manager = ResourceManager(
+            workflow_id=self.workflow_message.workflow_id
+        )
         logger.info("Setup resource manager")
 
     def _setup_interactive_controller(self):
@@ -139,6 +143,20 @@ class BaseWorkflow(ABC):
 
     def _get_metadata(self) -> Dict[str, Any]:
         return {}
+
+    def _check_docker_desktop_availability(self):
+        # Check Docker Desktop availability
+        try:
+            subprocess.run(
+                ["docker", "info"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+        except subprocess.CalledProcessError:
+            raise RuntimeError(
+                "Docker Desktop is not running. Please start Docker Desktop before starting the workflow"
+            )
 
     async def run(self) -> None:
         """Execute the entire workflow by running all phases in sequence."""

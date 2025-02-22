@@ -58,7 +58,7 @@ class DockerResource(RunnableBaseResource):
             ) from e
 
         atexit.register(self.stop)
-    
+
     async def run(self, docker_message: DockerActionMessage) -> ActionMessage:
         """Execute a command inside Docker using DockerActionMessage."""
 
@@ -67,7 +67,9 @@ class DockerResource(RunnableBaseResource):
         network = docker_message.network
         volumes = docker_message.volumes
 
-        output, exit_code = self.execute(docker_image=docker_image, command=command, network=network, volumes=volumes)
+        output, exit_code = self.execute(
+            docker_image=docker_image, command=command, network=network, volumes=volumes
+        )
 
         return ActionMessage(
             resource_id=self.resource_id,
@@ -79,9 +81,8 @@ class DockerResource(RunnableBaseResource):
                 "output": output,
                 "success": (exit_code == 0),
             },
-            prev=docker_message
+            prev=docker_message,
         )
-    
 
     def execute(
         self,
@@ -153,42 +154,6 @@ class DockerResource(RunnableBaseResource):
                 container.remove(force=True)
             except:
                 pass  # If container removal fails, just ignore it
-
-    def copy_from_container(
-        self, container_name: str, source_path: str, dest_path: str
-    ) -> None:
-        """
-        Copy a file or directory from a container to the host system.
-
-        Args:
-            container_name (str): The name of the container to copy from.
-            source_path (str): The path of the file or directory in the container.
-            dest_path (str): The destination path on the host system.
-        """
-        try:
-            container = self.client.containers.get(container_name)
-
-            # Get file/directory data from container
-            bits, stat = container.get_archive(source_path)
-
-            # Ensure the destination directory exists
-            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-
-            # Write the file/directory data to the destination
-            with open(dest_path, "wb") as f:
-                for chunk in bits:
-                    f.write(chunk)
-
-            logger.info(
-                f"Copied from container {container_name}: {source_path} -> {dest_path}"
-            )
-        except docker.errors.NotFound:
-            logger.critical(f"Container not found: {container_name}")
-            sys.exit(1)
-        except docker.errors.APIError as e:
-            logger.error(f"Docker API error while copying: {str(e)}")
-        except Exception as e:
-            logger.error(f"Error copying from container: {e}")
 
     def stop(self) -> None:
         """

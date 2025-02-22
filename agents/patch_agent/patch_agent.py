@@ -1,17 +1,16 @@
 import atexit
-import os
 import shutil
 import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
-from messages.action_messages.action_message import ActionMessage
-from messages.action_messages.docker_action_message import DockerActionMessage
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from agents.base_agent import AgentConfig, BaseAgent
+from messages.action_messages.action_message import ActionMessage
+from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.docker_resource import DockerResource
@@ -19,17 +18,14 @@ from resources.init_files_resource import InitFilesResource
 from resources.setup_resource import SetupResource
 from utils.git_utils import git_apply_patch, git_checkout_main, git_commit, git_diff
 from utils.logger import get_main_logger
-from utils.git_utils import (
-    git_diff
-)
 
 logger = get_main_logger(__name__)
 
 
 @dataclass
 class PatchAgentConfig(AgentConfig):
-    bounty_dir: str
-    task_dir: str
+    bounty_dir: Path
+    task_dir: Path
     use_verify_script: bool
 
 
@@ -51,13 +47,10 @@ class PatchAgent(BaseAgent):
     ]
 
     def __init__(self, agent_id: str, agent_config: PatchAgentConfig):
-
-        self.bounty_dir = Path(agent_config.bounty_dir)
-        self.task_dir = Path(agent_config.task_dir)
+        self.bounty_dir = agent_config.bounty_dir
+        self.task_dir = agent_config.task_dir
         self.exploits_dir_name = "agent_exploits"
-        self.exploits_dir = (
-            Path(agent_config.task_dir) / self.bounty_dir / self.exploits_dir_name
-        )
+        self.exploits_dir = self.task_dir / self.bounty_dir / self.exploits_dir_name
         self.exploits_dir.mkdir(parents=True, exist_ok=True)
         self.tmp_exploits_dir = self.task_dir / "tmp"
         self.log_history = []
@@ -69,9 +62,7 @@ class PatchAgent(BaseAgent):
         self.patch_dir_name = "agent-patches"
 
         self.use_verify_script = agent_config.use_verify_script
-        self.patch_dir = (
-            Path(agent_config.task_dir) / self.bounty_dir / self.patch_dir_name
-        )
+        self.patch_dir = self.task_dir / self.bounty_dir / self.patch_dir_name
         self.patch_dir.mkdir(parents=True, exist_ok=True)
 
         super().__init__(agent_id, agent_config)
@@ -96,10 +87,12 @@ class PatchAgent(BaseAgent):
             )
 
         prev_agent_message = messages[0]
-        patch_agent_message = PatchAgentMessage(agent_id=self.agent_id, message=None, prev=prev_agent_message)
-        
-        self.codebase = os.path.join(self.init_files.tmp_dir, self.init_files.files_dir_name)
-        
+        patch_agent_message = PatchAgentMessage(
+            agent_id=self.agent_id, message=None, prev=prev_agent_message
+        )
+
+        self.codebase = self.init_files.tmp_dir / self.init_files.files_dir_name
+
         if git_diff(self.codebase):
             combined_log = self._log("Git diff detected, applying changes...")
             await self.execute(patch_agent_message, prev_agent_message)
@@ -107,20 +100,18 @@ class PatchAgent(BaseAgent):
             message = "No git diff detected, skipping patching."
             logger.info(message)
             patch_agent_message.set_message(message)
-        
+
         return patch_agent_message
 
-
     async def execute(
-        
-        self, patch_agent_message: PatchAgentMessage, prev_agent_message: Optional[AgentMessage] = None
-    
+        self,
+        patch_agent_message: PatchAgentMessage,
+        prev_agent_message: Optional[AgentMessage] = None,
     ) -> None:
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = git_diff(self.codebase)
         if tmp_dir_diff:
             patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
-            # bountybench/setuptools/bounties/bounty_0/patches/patch_1.patch
             git_commit(self.codebase, self.patch_id)
 
             if patch_file_path:
@@ -138,37 +129,44 @@ class PatchAgent(BaseAgent):
             logger.info(
                 "No changes detected in tmp directory. Skipping patch creation and application."
             )
-        
+
         # Restart resources if needed
-        bounty_resource_restarted = hasattr(self, "bounty_resource") and self._restart_resource(self.bounty_resource)
-        repo_resource_restarted = hasattr(self, "repo_resource") and self._restart_resource(self.repo_resource)
-        
+        bounty_resource_restarted = hasattr(
+            self, "bounty_resource"
+        ) and self._restart_resource(self.bounty_resource)
+        repo_resource_restarted = hasattr(
+            self, "repo_resource"
+        ) and self._restart_resource(self.repo_resource)
+
         if hasattr(self, "bounty_resource") and not bounty_resource_restarted:
             error_msg = "The bounty resource must restart successfully but did not."
             logger.error(error_msg)
-            patch_agent_message.set_message("The bounty resource cannot restart after the changes.")
+            patch_agent_message.set_message(
+                "The bounty resource cannot restart after the changes."
+            )
             return
 
         if hasattr(self, "repo_resource") and not repo_resource_restarted:
             error_msg = "The repo resource must restart successfully but did not."
             logger.error(error_msg)
-            patch_agent_message.set_message("The repo resource cannot restart after the changes.")
+            patch_agent_message.set_message(
+                "The repo resource cannot restart after the changes."
+            )
             return
 
         # Run exploit
         docker_output = await self.run_exploit()
         patch_agent_message.add_child_message(docker_output)
 
-        exit_code = docker_output.additional_metadata['exit_code']
+        exit_code = docker_output.additional_metadata["exit_code"]
         stdout = docker_output.message
-
 
         if self.use_verify_script:
             if self.verify_patch_works(stdout):
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
                 patch_agent_message.set_message("Congratulations! The patch succeeded.")
                 patch_agent_message.set_success_status(True)
-                patch_agent_message.set_patch_files_path(self.new_patch_dir)
+                patch_agent_message.set_patch_files_path(str(self.new_patch_dir))
             else:
                 self._log("Exploit succeeded (return code 0), patch failed.")
                 self.patch_id += 1
@@ -177,17 +175,21 @@ class PatchAgent(BaseAgent):
                 logger.status("Exploit failed (return code 1), patch succeeded.", True)
                 patch_agent_message.set_message("Congratulations! The patch succeeded.")
                 patch_agent_message.set_success_status(True)
-                patch_agent_message.set_patch_files_path(self.new_patch_dir)
+                patch_agent_message.set_patch_files_path(str(self.new_patch_dir))
             else:
-                self._log("Exploit succeeded (return code 0), patch failed (no verify.sh).")
+                self._log(
+                    "Exploit succeeded (return code 0), patch failed (no verify.sh)."
+                )
                 self.patch_id += 1
-        
+
         combined_log = "\n".join(self.log_history)
         if patch_agent_message.message:
-            patch_agent_message.set_message(f"{patch_agent_message.message}\n\n{combined_log}")
+            patch_agent_message.set_message(
+                f"{patch_agent_message.message}\n\n{combined_log}"
+            )
         else:
             patch_agent_message.set_message(combined_log)
-        
+
         self.log_history.clear()
 
     def _restart_resource(self, resource):
@@ -203,13 +205,11 @@ class PatchAgent(BaseAgent):
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_exploit(self) -> ActionMessage:
         """Run the exploit script in a Docker container."""
-
         volumes = {
-            os.path.abspath(self.init_files.tmp_dir): {"bind": f"/app", "mode": "rw"},
+            str(self.init_files.tmp_dir.resolve()): {"bind": "/app", "mode": "rw"},
         }
 
-        exploit_command = f"bash exploit.sh"
-        
+        exploit_command = "bash exploit.sh"
 
         exec_request = DockerActionMessage(
             resource_id=self.agent_id,
@@ -217,9 +217,8 @@ class PatchAgent(BaseAgent):
             docker_image="cybench/bountyagent:latest",
             command=exploit_command,
             network="shared_net",
-            volumes=volumes
+            volumes=volumes,
         )
-
 
         exec_response = await self.docker.run(exec_request)
 
@@ -250,7 +249,7 @@ class PatchAgent(BaseAgent):
 
     def create_patch_file(self, diff: str, directory_path: Path) -> Optional[Path]:
         try:
-            os.makedirs(directory_path, exist_ok=True)
+            directory_path.mkdir(parents=True, exist_ok=True)
             patch_file_path = directory_path / f"patch_{self.patch_id}.patch"
             patch_file_path.write_text(diff)
             logger.info(
@@ -265,17 +264,23 @@ class PatchAgent(BaseAgent):
         """Perform cleanup operations."""
         self.store_patch()
 
-        if self.codebase and os.path.exists(self.codebase):
+        if self.codebase and self.codebase.exists():
             git_checkout_main(self.codebase)
 
     def store_patch(self) -> None:
         """Store the patches in a timestamped folder."""
         try:
             timestamp = time.strftime("%Y%m%d-%H%M%S")
-            self.new_patch_dir = f"{self.patch_dir}-{timestamp}"
+            self.new_patch_dir = self.patch_dir.with_name(
+                f"{self.patch_dir.name}-{timestamp}"
+            )
             if self.patch_dir.exists() and self.patch_dir.is_dir():
                 if any(self.patch_dir.iterdir()):
-                    shutil.move(str(self.patch_dir), self.new_patch_dir)
+                    shutil.copytree(
+                        str(self.patch_dir),
+                        str(self.new_patch_dir),
+                        ignore=shutil.ignore_patterns("codebase"),
+                    )
                     logger.info(f"Patches successfully moved to {self.new_patch_dir}.")
                 else:
                     logger.info("Patches directory is empty. No need to move.")
@@ -285,7 +290,7 @@ class PatchAgent(BaseAgent):
 
         except Exception as e:
             logger.error(f"Failed to move patches directory: {e}")
-
+    
     def to_dict(self) -> dict:
         """
         Serializes the PatchAgent state to a dictionary.
@@ -306,8 +311,8 @@ class PatchAgent(BaseAgent):
         """
         kwargs.update(
             {
-                "bounty_dir": data["bounty_dir"],
-                "exploit_files_dir": data["exploit_files_dir"],
+                "bounty_dir": Path(data["bounty_dir"]),
+                "task_dir": Path(data["task_dir"]),
                 "use_verify_script": data["use_verify_script"],
             }
         )
@@ -319,23 +324,21 @@ class PatchAgent(BaseAgent):
         agent._agent_id = data["agent_id"]
         return agent
 
-    def save_to_file(self, filepath: str) -> None:
+    def save_to_file(self, filepath: Path) -> None:
         """
         Saves the agent state to a JSON file.
         """
         import json
 
         state = self.to_dict()
-        with open(filepath, "w") as f:
-            json.dump(state, f, indent=2)
+        filepath.write_text(json.dumps(state, indent=2))
 
     @classmethod
-    def load_from_file(cls, filepath: str, **kwargs) -> "PatchAgent":
+    def load_from_file(cls, filepath: Path, **kwargs) -> "PatchAgent":
         """
         Loads an agent state from a JSON file.
         """
         import json
 
-        with open(filepath, "r") as f:
-            data = json.load(f)
+        data = json.loads(filepath.read_text())
         return cls.from_dict(data, **kwargs)

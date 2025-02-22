@@ -20,7 +20,6 @@ class ResourceManager:
         if workflow_id not in self._resources.id_to_resource:
             self._resources.id_to_resource[workflow_id] = {}
             self._resources.resource_type_to_resources[workflow_id] = defaultdict(list)
-        
 
         self._resource_registration: Dict[
             str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]
@@ -202,7 +201,8 @@ class ResourceManager:
             _, term_phase = self._resource_lifecycle[resource_id]
             if (
                 phase_index == term_phase
-                and resource_id in self._resources.id_to_resource.get(self.workflow_id, {})
+                and resource_id
+                in self._resources.id_to_resource.get(self.workflow_id, {})
             ):
                 resource = self._resources.get(self.workflow_id, resource_id)
                 if isinstance(resource, InitFilesResource):
@@ -262,7 +262,9 @@ class ResourceManager:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for resource in self._resources.id_to_resource.get(self.workflow_id, {}).values():
+        for resource in self._resources.id_to_resource.get(
+            self.workflow_id, {}
+        ).values():
             resource.stop()
         if self.workflow_id in self._resources.id_to_resource:
             del self._resources.id_to_resource[self.workflow_id]
@@ -271,7 +273,9 @@ class ResourceManager:
 
     def deallocate_all_resources(self):
         """Deallocate all resources for the current workflow."""
-        for resource in list(self._resources.id_to_resource.get(self.workflow_id, {}).values()):
+        for resource in list(
+            self._resources.id_to_resource.get(self.workflow_id, {}).values()
+        ):
             resource.stop()
         if self.workflow_id in self._resources.id_to_resource:
             del self._resources.id_to_resource[self.workflow_id]

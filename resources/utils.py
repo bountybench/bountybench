@@ -1,9 +1,11 @@
 import html
 import json
-import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import List, Union
+import select
+
 
 from bs4 import BeautifulSoup
 
@@ -15,10 +17,10 @@ logger = get_main_logger(__name__)
 def run_command(command, work_dir=None):
     """
     Runs a shell command while capturing output in real-time.
-
+    
     :param command: List of command arguments.
     :param work_dir: Working directory to execute the command in.
-    :return: stdout and stderr as strings.
+    :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
     try:
         process = subprocess.Popen(
@@ -27,27 +29,42 @@ def run_command(command, work_dir=None):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=1,  # Ensures line buffering for real-time output
-            universal_newlines=True,
+            bufsize=1,
+            universal_newlines=True
         )
 
         stdout_lines = []
         stderr_lines = []
 
-        # Read output in real-time
-        for stdout_line in iter(process.stdout.readline, ""):
-            sys.stdout.write(stdout_line)  # Print to console immediately
-            sys.stdout.flush()  # Force immediate print
-            stdout_lines.append(stdout_line)  # Store in variable
+        fds = [process.stdout, process.stderr]
+        while process.poll() is None:  # While process is still running
+            readable, _, _ = select.select(fds, [], [], 0.1)
+            for fd in readable:
+                line = fd.readline()
+                if line:
+                    if fd == process.stdout:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                        stdout_lines.append(line)
+                    else:
+                        sys.stderr.write(line) 
+                        sys.stderr.flush()
+                        stderr_lines.append(line)
 
-        for stderr_line in iter(process.stderr.readline, ""):
-            sys.stderr.write(stderr_line)  # Print errors to console immediately
-            sys.stderr.flush()  # Force immediate print
-            stderr_lines.append(stderr_line)  # Store in variable
+        for fd in fds:
+            for line in fd:
+                if fd == process.stdout:
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+                    stdout_lines.append(line)
+                else:
+                    sys.stderr.write(line)
+                    sys.stderr.flush()
+                    stderr_lines.append(line)
 
         process.stdout.close()
         process.stderr.close()
-        process.wait()  # Ensure process completes
+        process.wait()
 
         return subprocess.CompletedProcess(
             args=command,
@@ -56,12 +73,14 @@ def run_command(command, work_dir=None):
             stderr="".join(stderr_lines),
         )
 
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         logger.error(
             f"Command '{' '.join(command)}' failed with return code {e.returncode}"
         )
         logger.error(f"stdout: {e.stdout}")
         logger.error(f"stderr: {e.stderr}")
+        sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+        sys.stderr.flush()
         raise
 
 
@@ -92,41 +111,41 @@ def docker_network_exists(network_name):
     return exists
 
 
-def read_repo_metadata(task_dir: str) -> dict[str, Union[str, dict]]:
-    repo_metadata_file_path = os.path.join(task_dir, "metadata.json")
-    if not os.path.exists(repo_metadata_file_path):
+def read_repo_metadata(task_dir: Path) -> dict[str, Union[str, dict]]:
+    repo_metadata_file_path = task_dir / "metadata.json"
+    if not repo_metadata_file_path.exists():
         logger.error("Repository metadata file not found")
         sys.exit(1)
 
-    with open(repo_metadata_file_path, "r") as metadata_file:
+    with repo_metadata_file_path.open("r") as metadata_file:
         repo_metadata = json.load(metadata_file)
 
     return repo_metadata
 
 
 def read_bounty_metadata(
-    task_dir: str, bounty_number: str
+    task_dir: Path, bounty_number: str
 ) -> dict[str, Union[str, dict]]:
-    bounty_metadata_file_path = os.path.join(
-        task_dir + "/bounties/bounty_" + bounty_number, "bounty_metadata.json"
+    bounty_metadata_file_path = (
+        task_dir / "bounties" / f"bounty_{bounty_number}" / "bounty_metadata.json"
     )
-    if not os.path.exists(bounty_metadata_file_path):
+    if not bounty_metadata_file_path.exists():
         logger.error("Bounty metadata file not found")
         sys.exit(1)
 
-    with open(bounty_metadata_file_path, "r") as metadata_file:
+    with bounty_metadata_file_path.open("r") as metadata_file:
         bounty_metadata = json.load(metadata_file)
 
     return bounty_metadata
 
 
-def read_writeup(task_dir: str, bounty_number: str) -> str:
-    bounty_dir = os.path.join("bounties", f"bounty_{bounty_number}")
-    report_path = os.path.join(task_dir, bounty_dir, "writeup", "writeup.html")
+def read_writeup(task_dir: Path, bounty_number: str) -> str:
+    report_path = (
+        task_dir / "bounties" / f"bounty_{bounty_number}" / "writeup" / "writeup.html"
+    )
     try:
-        with open(report_path, "r", encoding="utf-8") as f:
-            writeup = f.read()
-            writeup = format_writeup(writeup)
+        writeup = report_path.read_text(encoding="utf-8")
+        writeup = format_writeup(writeup)
     except FileNotFoundError:
         logger.warning(f"Writeup not found at: {report_path}")
         writeup = ""
@@ -157,19 +176,19 @@ def get_stdout_text(process_output: bytes) -> str:
         )
 
 
-def parse_shell_script(script_path: str) -> List[str]:
+def parse_shell_script(script_path: Path) -> List[str]:
     """
     Parse a shell script into individual commands.
     Args:
-        script_path (str): Path to the shell script.
+        script_path (Path): Path to the shell script.
     Returns:
         List[str]: A list of commands to execute.
     """
-    if not os.path.isfile(script_path):
+    if not script_path.is_file():
         raise FileNotFoundError(f"Shell script not found at {script_path}")
 
     commands = []
-    with open(script_path, "r") as script_file:
+    with script_path.open("r") as script_file:
         for idx, line in enumerate(script_file, start=1):
             # Remove leading/trailing whitespace
             stripped_line = line.strip()
@@ -218,9 +237,9 @@ def format_writeup(writeup: str) -> str:
     return writeup
 
 
-def contains_setup(setup_resource_file_path):
-    if os.path.exists(setup_resource_file_path):
-        with open(setup_resource_file_path, "r") as file:
+def contains_setup(setup_resource_file_path: Path):
+    if setup_resource_file_path.exists():
+        with setup_resource_file_path.open("r") as file:
             for line in file:
                 # Remove leading and trailing whitespace
                 stripped_line = line.strip()
