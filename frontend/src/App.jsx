@@ -118,6 +118,7 @@ function App() {
           onInteractiveModeToggle={handleInteractiveModeToggle}
           interactiveMode={interactiveMode}
           mockMode={mockMode}
+          setMockMode={setMockMode}
           selectedWorkflow={selectedWorkflow}
           workflowStatus={workflowStatus}
           currentPhase={currentPhase}

@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router';
 
 export const AppHeader = ({
   onInteractiveModeToggle,
-  mockMode,
+  mockMode={mockMode},
+  setMockMode={setMockMode},
   interactiveMode,
   selectedWorkflow,
   workflowStatus,
@@ -22,7 +23,26 @@ export const AppHeader = ({
   // Initialize navigate
   const navigate = useNavigate();
 
-
+  const handleMockModeToggle = async (event) => {
+    const isMockEnabled = event.target.checked;
+    setMockMode(isMockEnabled); // ✅ Use setMockMode from props
+  
+    try {
+      const response = await fetch(`http://localhost:8000/workflow/${selectedWorkflow.id}/toggle-mock-model`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ use_mock_model: isMockEnabled }),
+      });
+  
+      const data = await response.json();
+      if (data.status !== "updated") {
+        console.error("Failed to update mock model status:", data.error);
+      }
+    } catch (err) {
+      console.error("Error toggling mock model:", err);
+    }
+  };
+  
   
   // Fetch available models
   useEffect(() => {
