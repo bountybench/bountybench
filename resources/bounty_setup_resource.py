@@ -34,12 +34,14 @@ class BountySetupResource(BaseSetupResource):
     """BountySetupResource for initializing and managing bounty-level containers."""
 
     def __init__(self, resource_id: str, config: BountySetupResourceConfig):
-        # Call the superclass constructor
+        # Call the superclass constructor first
         super().__init__(resource_id, config)
 
+        # Set required properties
         self.task_dir = self._resource_config.task_dir
         self.bounty_number = self._resource_config.bounty_number
         self.role = "bounty_resource"
+        self.setup_script_name = "setup_bounty_env.sh"
         
         # Initialize bounty directory
         self.bounty_dir = (
@@ -50,96 +52,9 @@ class BountySetupResource(BaseSetupResource):
         
         # Set work_dir for bounty setup
         self.work_dir = self.bounty_dir / "setup_files"
-
-        try:
-            self._start()
-        except Exception as e:
-            logger.error(f"Failed to initialize bounty setup resource '{resource_id}': {e}")
-            self.stop()  # Ensure we clean up resources in case of failure
-            raise
-
-        atexit.register(self.stop)
-
-    def _start(self) -> None:
-        """Start the bounty environment by running the bounty setup script."""
-        setup_script = "setup_bounty_env.sh"
-
-        if not self.work_dir.exists():
-            raise FileNotFoundError(f"Work directory does not exist: {self.work_dir}")
-
-        try:
-            start_progress(f"Executing {setup_script} in {self.work_dir}")
-            result = None  # Initialize result variable
-
-            try:
-                # Fix and prepare the script
-                script_path = self.work_dir / setup_script
-                if not script_path.exists():
-                    raise FileNotFoundError(f"Setup script not found: {script_path}")
-
-                # Fix script format and make executable
-                self.fix_script_format(script_path)
-
-                # On macOS, try running with bash explicitly if direct execution fails
-                try:
-                    result = run_command(
-                        command=[f"./{setup_script}"], work_dir=str(self.work_dir)
-                    )
-                except OSError as e:
-                    if e.errno == 8:  # Exec format error
-                        logger.warning(
-                            f"Direct execution failed, trying with explicit bash for {setup_script}"
-                        )
-                        result = run_command(
-                            command=["bash", f"./{setup_script}"],
-                            work_dir=str(self.work_dir),
-                        )
-                    else:
-                        raise  # Re-raise if it's not an exec format error
-
-                if result.returncode != 0:
-                    raise RuntimeError(
-                        f"Bounty setup script failed with return code {result.returncode}"
-                    )
-
-            except Exception as e:
-                logger.error(
-                    f"Unable to successfully execute {setup_script} at {self.resource_id}: {e}"
-                )
-                raise RuntimeError(
-                    f"Unable to successfully execute {setup_script} at {self.resource_id}: {e}"
-                )
-            finally:
-                stop_progress()
-
-            if (
-                result and result.stdout
-            ):  # Only process output if result exists and has stdout
-                logger.info(f"Bounty environment setup complete for {self.resource_id}")
-                self.container_names = self.extract_container_names(
-                    result.stdout, result.stderr
-                )
-
-                if self.container_names:
-                    try:
-                        success = self.wait_until_all_containers_healthy()
-                        if not success:
-                            raise RuntimeError(
-                                f"Wait until all containers healthy returned {success}"
-                            )
-                    except Exception as e:
-                        raise RuntimeError(
-                            f"Failed to wait until all containers healthy: {e}"
-                        )
-            else:
-                raise RuntimeError(f"No output from bounty setup script {setup_script}")
-
-        except FileNotFoundError as e:
-            logger.error(str(e))
-            raise
-        except Exception as e:
-            logger.error(f"Unable to set up bounty environment at {self.resource_id}: {e}")
-            raise
+        
+        # Run the setup process
+        self.setup()
 
     def to_dict(self) -> dict:
         """

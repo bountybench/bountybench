@@ -13,16 +13,50 @@ from utils.progress_logger import start_progress, stop_progress
 logger = get_main_logger(__name__)
 
 
+import atexit
+import re
+import time
+from abc import ABC, abstractmethod
+from pathlib import Path
+from queue import Queue
+from typing import List, Optional
+
+from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.utils import run_command
+from utils.logger import get_main_logger
+from utils.progress_logger import start_progress, stop_progress
+
+logger = get_main_logger(__name__)
+
+
 class BaseSetupResource(BaseResource, ABC):
     """Base class for setup resources with common functionality."""
 
-    def __init__(self, resource_id: str, config):
+    def __init__(self, resource_id: str, config: BaseResourceConfig):
         super().__init__(resource_id, config)
         
         # Initialize container management
         self.container_names: List[str] = []
         self.health_check_timeout = 120
-        self.work_dir = None  
+        
+        # Properties to be set by subclasses before calling setup()
+        self.task_dir = None
+        self.work_dir = None
+        self.role = None
+        self.setup_script_name = None
+        
+        # Subclasses will call setup() after initializing their specific properties
+        
+    def setup(self):
+        """Common setup method to be called by subclasses after initializing properties."""
+        try:
+            self._start()
+        except Exception as e:
+            logger.error(f"Failed to initialize {self.role} resource '{self.resource_id}': {e}")
+            self.stop()  # Ensure we clean up resources in case of failure
+            raise
+
+        atexit.register(self.stop)
 
     def fix_script_format(self, script_path: Path) -> None:
         """Fix common script formatting issues."""
@@ -45,10 +79,84 @@ class BaseSetupResource(BaseResource, ABC):
         # Make the script executable
         script_path.chmod(0o755)
 
-    @abstractmethod
     def _start(self) -> None:
-        """Start the environment by running the appropriate setup script. To be implemented by subclasses."""
-        pass
+        """Start the environment by running the appropriate setup script."""
+        if not self.work_dir.exists():
+            raise FileNotFoundError(f"Work directory does not exist: {self.work_dir}")
+
+        try:
+            start_progress(f"Executing {self.setup_script_name} in {self.work_dir}")
+            result = None  # Initialize result variable
+
+            try:
+                # Fix and prepare the script
+                script_path = self.work_dir / self.setup_script_name
+                if not script_path.exists():
+                    raise FileNotFoundError(f"Setup script not found: {script_path}")
+
+                # Fix script format and make executable
+                self.fix_script_format(script_path)
+
+                # On macOS, try running with bash explicitly if direct execution fails
+                try:
+                    result = run_command(
+                        command=[f"./{self.setup_script_name}"], work_dir=str(self.work_dir)
+                    )
+                except OSError as e:
+                    if e.errno == 8:  # Exec format error
+                        logger.warning(
+                            f"Direct execution failed, trying with explicit bash for {self.setup_script_name}"
+                        )
+                        result = run_command(
+                            command=["bash", f"./{self.setup_script_name}"],
+                            work_dir=str(self.work_dir),
+                        )
+                    else:
+                        raise  # Re-raise if it's not an exec format error
+
+                if result.returncode != 0:
+                    raise RuntimeError(
+                        f"{self.role} setup script failed with return code {result.returncode}"
+                    )
+
+            except Exception as e:
+                logger.error(
+                    f"Unable to successfully execute {self.setup_script_name} at {self.resource_id}: {e}"
+                )
+                raise RuntimeError(
+                    f"Unable to successfully execute {self.setup_script_name} at {self.resource_id}: {e}"
+                )
+            finally:
+                stop_progress()
+
+            if (
+                result and result.stdout
+            ):  # Only process output if result exists and has stdout
+                logger.info(f"{self.role} environment setup complete for {self.resource_id}")
+                self.container_names = self.extract_container_names(
+                    result.stdout, result.stderr
+                )
+
+                if self.container_names:
+                    try:
+                        success = self.wait_until_all_containers_healthy()
+                        if not success:
+                            raise RuntimeError(
+                                f"Wait until all containers healthy returned {success}"
+                            )
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"Failed to wait until all containers healthy: {e}"
+                        )
+            else:
+                raise RuntimeError(f"No output from {self.role} setup script {self.setup_script_name}")
+
+        except FileNotFoundError as e:
+            logger.error(str(e))
+            raise
+        except Exception as e:
+            logger.error(f"Unable to set up {self.role} environment at {self.resource_id}: {e}")
+            raise
 
     def restart(self) -> None:
         """Restart the environment by stopping and then starting it again."""
@@ -174,3 +282,20 @@ class BaseSetupResource(BaseResource, ABC):
 
         data = json.loads(filepath.read_text())
         return cls.from_dict(data, **kwargs)
+        
+    @abstractmethod
+    def to_dict(self) -> dict:
+        """
+        Serializes the resource state to a dictionary.
+        To be implemented by subclasses.
+        """
+        pass
+        
+    @classmethod
+    @abstractmethod
+    def from_dict(cls, data: dict, **kwargs):
+        """
+        Creates a resource instance from a serialized dictionary.
+        To be implemented by subclasses.
+        """
+        pass

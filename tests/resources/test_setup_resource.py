@@ -213,5 +213,5 @@ def test_error_handling(temp_dir):
     invalid_script_path.write_text("exit 1")  # Always failing script
     invalid_script_path.chmod(0o755)
 
-    with pytest.raises(RuntimeError, match="Task setup script failed with return code 1"):
+    with pytest.raises(RuntimeError, match="Unable to successfully execute"):
         RepoSetupResource("test_invalid_script", RepoSetupResourceConfig(temp_dir))
