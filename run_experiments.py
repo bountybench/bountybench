@@ -6,7 +6,9 @@ import platform
 import shlex
 import shutil
 import sys
+from collections import defaultdict
 from pathlib import Path
+from time import sleep
 from typing import Dict, List, Optional
 
 import yaml
@@ -165,6 +167,7 @@ class ExperimentRunner:
             ("konsole", ["--hold", "-e"]),
             ("mate-terminal", ["--disable-factory", "-x"]),
             ("lxterminal", ["--command"]),
+            # Consolidated xterm options to single entry
             ("xterm", ["-fa", "Monospace", "-fs", "12", "-hold", "-e"]),
         ]
 
@@ -173,65 +176,89 @@ class ExperimentRunner:
         if not self.close_terminals:
             cmd_str += "; exec bash"  # Keep terminal open after command completes
 
-        # Try available terminals
-        last_error = None
+        # Try available terminals with early exit on success
         for terminal, args in terminal_options:
             try:
-                # Special handling for GNOME Terminal to avoid D-Bus issues
-                if terminal == "gnome-terminal":
-                    # Check if we're in a proper desktop environment
-                    if not os.environ.get("DISPLAY"):
-                        continue  # Skip GNOME Terminal if no display available
+                if terminal == "gnome-terminal" and not os.environ.get("DISPLAY"):
+                    continue  # Skip if no X display available
 
-                    # Try launching with dbus-launch if available
-                    if shutil.which("dbus-launch"):
-                        full_cmd = ["dbus-launch", terminal, *args, cmd_str]
-                    else:
-                        full_cmd = [terminal, *args, cmd_str]
-                else:
-                    full_cmd = [terminal, *args, cmd_str]
+                # Build full command array
+                full_cmd = [terminal, *args, cmd_str]
 
-                # Launch the terminal
+                # Try to launch the terminal
                 proc = await asyncio.create_subprocess_exec(*full_cmd)
-                await asyncio.sleep(1)  # Give the terminal time to launch
-                if proc.returncode is None:  # Process is still running
-                    return proc
-                else:
-                    continue  # Try next terminal
-            except Exception as e:
-                last_error = e
-                continue
 
-        raise RuntimeError(
-            "Failed to launch terminal. Last error: {}\n"
-            "Please ensure you have a terminal emulator installed (e.g., xterm, gnome-terminal).".format(
-                last_error
+                # Verify process started successfully
+                await asyncio.sleep(0.5)  # Reduced wait time
+                if proc.returncode is None:  # Process is still running
+                    return proc  # Success - exit the loop
+
+            except (FileNotFoundError, PermissionError):
+                continue  # Try next terminal if this one fails
+
+        # If all options failed, try default xterm as last resort
+        try:
+            proc = await asyncio.create_subprocess_exec("xterm", "-hold", "-e", cmd_str)
+            await asyncio.sleep(0.5)
+            return proc
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to launch any terminal. Last error: {str(e)}\n"
+                "Please ensure you have a terminal emulator installed (e.g., xterm, gnome-terminal)."
             )
-        )
+
+    def _get_task_dir_from_command(self, command: List[str]) -> str:
+        """Extract task_dir from command arguments"""
+        try:
+            task_dir_index = command.index("--task_dir") + 1
+            return command[task_dir_index]
+        except ValueError:
+            return "default"
+
+    async def run_all(self):
+        """Run experiments with proper task_dir sequencing"""
+        commands = self.generate_commands()
+
+        # Group commands by task_dir
+        task_groups = defaultdict(list)
+        for cmd in commands:
+            task_dir = self._get_task_dir_from_command(cmd)
+            task_groups[task_dir].append(cmd)
+
+        # Run task groups sequentially
+        results = []
+        for task_dir, cmds in task_groups.items():
+            print(f"Processing task directory: {task_dir}")
+            task_results = await self.run_task_dir(task_dir, cmds)
+            results.extend(task_results)
+
+        print("\nExperiment Summary:")
+        success_count = sum(1 for code in results if code == 0)
+        print(f"Successfully launched {success_count}/{len(commands)} experiments")
+        print(f"Failed: {len(commands) - success_count}")
+
+    async def run_task_dir(self, task_dir: str, commands: List[List[str]]):
+        """Run commands for a task_dir with proper sequencing"""
+        results = []
+        for cmd in commands:
+            # Wait for terminal to close before proceeding
+            result = await self.run_experiment(cmd)
+            results.append(result)
+        return results
 
     async def run_experiment(self, command: List[str]):
-        """Run a single experiment with proper terminal handling"""
+        """Run a single experiment and wait for completion"""
         try:
             handler = self.terminal_handlers.get(self.os_type)
             if not handler:
                 raise NotImplementedError(f"Unsupported OS: {self.os_type}")
 
             proc = await handler(command)
-            return 0
+            return_code = await proc.wait()
+            return 0 if return_code == 0 else 1
         except Exception as e:
             print(f"Failed to launch experiment: {e}", file=sys.stderr)
             return 1
-
-    async def run_all(self):
-        """Run all experiments with proper terminal spawning"""
-        commands = self.generate_commands()
-        tasks = [self.run_experiment(cmd) for cmd in commands]
-        results = await asyncio.gather(*tasks)
-
-        print("\nExperiment Summary:")
-        success_count = sum(1 for code in results if code == 0)
-        print(f"Successfully launched {success_count}/{len(commands)} experiments")
-        print(f"Failed: {len(commands) - success_count}")
 
 
 if __name__ == "__main__":
