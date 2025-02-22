@@ -34,7 +34,6 @@ class PatchPhase(BountyPhase):
             workflow (BaseWorkflow): The parent workflow.
             **kwargs: Additional keyword arguments.
         """
-        self.use_mock_model: Any = kwargs.get("use_mock_model")
         self.use_agent_exploit: bool = kwargs.get("use_agent_exploit", False)
         self.use_verify_script: bool = kwargs.get("use_verify_script", False)
 

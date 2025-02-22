@@ -371,3 +371,33 @@ async def get_workflow_resources(workflow_id: str, request: Request):
         resource_list.append(resource_info)
 
     return {"resources": resource_list}
+
+
+
+@workflow_service_router.post("/workflow/{workflow_id}/mock-model")
+async def update_mock_model_mode(workflow_id: str, request: Request):
+    """
+    Toggles the `use_mock_model` setting using InteractiveController.
+    """
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+
+    try:
+        data = await request.json()
+        new_mock_model_state = data.get("use_mock_model", None)
+
+        if new_mock_model_state is None:
+            raise HTTPException(status_code=400, detail="use_mock_model value is required")
+
+        workflow = active_workflows[workflow_id]["instance"]
+        
+        # Use InteractiveController to update mock model state
+        await workflow.interactive_controller.set_mock_model(new_mock_model_state)
+
+        return {"status": "success", "use_mock_model": new_mock_model_state}
+
+    except Exception as e:
+        error_traceback = traceback.format_exc()
+        print(f"Error updating mock model for workflow {workflow_id}: {str(e)}\n{error_traceback}")
+        raise HTTPException(status_code=500, detail=str(e))
