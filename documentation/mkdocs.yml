@@ -1,0 +1,11 @@
+site_name: BountyAgent Documentation
+theme: readthedocs
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Usage: usage.md
+  - System Architecture: system-architecture.md
+  - Development: development.md
+  - Code Quality: code-quality.md
+  - Testing: testing.md
