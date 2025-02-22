@@ -4,13 +4,14 @@ import { useNavigate } from 'react-router';
 
 export const AppHeader = ({
   onInteractiveModeToggle,
-  mockMode={mockMode},
-  setMockMode={setMockMode},
   interactiveMode,
   selectedWorkflow,
   workflowStatus,
   currentPhase,
-  onModelChange
+  onModelChange,
+  onMockModelToggle, // New handler
+  useMockModel, // New state
+
 }) => {
   // Example options
   const [modelMapping, setModelMapping] = useState([]);
@@ -18,32 +19,11 @@ export const AppHeader = ({
   // State for currently selected values
   const [selectedModelType, setSelectedModelType] = useState('');
   const [selectedModelName, setSelectedModelName] = useState('');
-
+  
 
   // Initialize navigate
   const navigate = useNavigate();
 
-  const handleMockModeToggle = async (event) => {
-    const isMockEnabled = event.target.checked;
-    setMockMode(isMockEnabled); // ✅ Use setMockMode from props
-  
-    try {
-      const response = await fetch(`http://localhost:8000/workflow/${selectedWorkflow.id}/toggle-mock-model`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ use_mock_model: isMockEnabled }),
-      });
-  
-      const data = await response.json();
-      if (data.status !== "updated") {
-        console.error("Failed to update mock model status:", data.error);
-      }
-    } catch (err) {
-      console.error("Error toggling mock model:", err);
-    }
-  };
-  
-  
   // Fetch available models
   useEffect(() => {
     const fetchModels = async () => {
@@ -113,7 +93,7 @@ export const AppHeader = ({
         Workflow Agent
       </Typography>
       <Box display="flex" alignItems="center">
-        {selectedWorkflow && !mockMode && (
+        {selectedWorkflow && (
           <>
             {selectedWorkflow.model && (
               <>
@@ -157,6 +137,7 @@ export const AppHeader = ({
             )}
           </>
         )}
+        
         <Box display="flex" alignItems="center" mr={2}>
           <Typography variant="body2" sx={{ mr: 1 }}>Interactive:</Typography>
           <Switch
@@ -168,16 +149,16 @@ export const AppHeader = ({
           />
         </Box>
 
-
         <Box display="flex" alignItems="center" mr={2}>
-          <Typography variant="body2" sx={{ mr: 1 }}>Mock Model:</Typography>
-          <Switch
-            checked={mockMode}
-            onChange={handleMockModeToggle}  
-            color="primary"
-            size="small"
-          />
-        </Box>
+              <Typography variant="body2" sx={{ mr: 1 }}>Mock Model:</Typography>
+              <Switch
+                checked={useMockModel}
+                onChange={onMockModelToggle}
+                color="primary"
+                size="small"
+              />
+            </Box>
+
 
       </Box>
     </Box>

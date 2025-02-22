@@ -15,10 +15,10 @@ import HomePage from './components/HomePage/HomePage';
 function App() {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [interactiveMode, setInteractiveMode] = useState(true);
+  const [useMockModel, setUseMockModel] = useState(false); 
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
   const toastIdRef = useRef({});
-  const [mockMode, setMockMode] = useState(false)
 
   const handleWorkflowStart = (workflowId, model, isInteractive) => {
     setSelectedWorkflow({ id: workflowId, model: model });
@@ -50,24 +50,61 @@ function App() {
     }
   };
 
-  const handleModelChange = async (name) => {
+
+  
+
+  const handleModelChange = async (name, mockModel) => {
+    if (!selectedWorkflow) return;
+    
     const url = `http://localhost:8000/workflow/${selectedWorkflow.id}/model-change`;
-    const requestBody = { new_model_name: name };
+    const requestBody = { 
+      new_model_name: name,
+      use_mock_model: mockModel 
+    };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response body:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    } 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      setUseMockModel(mockModel); // Update state if successful
+    } catch (error) {
+      console.error('Error updating model:', error);
+    }
   };
+
+  const handleMockModelToggle = async () => {
+    const newMockState = !useMockModel;
+    setUseMockModel(newMockState);
+
+    if (selectedWorkflow) {
+      try {
+        const response = await fetch(`http://localhost:8000/workflow/${selectedWorkflow.id}/mock-model`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ use_mock_model: newMockState }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update mock model setting');
+        }
+
+        console.log('Mock model updated successfully:', newMockState);
+      } catch (error) {
+        console.error('Error updating mock model:', error);
+        setUseMockModel(!newMockState); // Revert on error
+      }
+    }
+  };
+
 
   const handleWorkflowStateUpdate = (status, phase) => {
     setWorkflowStatus(status);
@@ -117,17 +154,18 @@ function App() {
         <AppHeader
           onInteractiveModeToggle={handleInteractiveModeToggle}
           interactiveMode={interactiveMode}
-          mockMode={mockMode}
-          setMockMode={setMockMode}
           selectedWorkflow={selectedWorkflow}
           workflowStatus={workflowStatus}
           currentPhase={currentPhase}
           onModelChange={handleModelChange}
+          onMockModelToggle={handleMockModelToggle} // Pass function
+          useMockModel={useMockModel} // Pass state
+
         />
         <Box flexGrow={1} overflow='auto'>
           <Routes>
             <Route path='/' element={<HomePage/>} />
-            <Route path='/create-workflow' element={<WorkflowLauncher onWorkflowStart={handleWorkflowStart} interactiveMode={interactiveMode} setInteractiveMode={setInteractiveMode} mockMode={mockMode} setMockMode={setMockMode} />} />
+            <Route path='/create-workflow' element={<WorkflowLauncher onWorkflowStart={handleWorkflowStart} interactiveMode={interactiveMode} setInteractiveMode={setInteractiveMode} useMockModel={useMockModel} setUseMockModel={setUseMockModel}  />} />
             <Route path='/workflow' element={<Navigate to="/" />} />
             <Route path='/workflow/:workflowId' 
               element={
@@ -135,6 +173,8 @@ function App() {
                   interactiveMode={interactiveMode} 
                   onWorkflowStateUpdate={handleWorkflowStateUpdate} 
                   showInvalidWorkflowToast={showInvalidWorkflowToast}
+                  useMockModel={useMockModel} // Pass state
+                  setUseMockModel={setUseMockModel} // Pass setter function
                 />} 
             />
             {/* Fallback route */}

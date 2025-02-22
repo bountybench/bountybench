@@ -5,7 +5,6 @@ import tiktoken
 
 from prompts.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
-from messages.action_messages.command_message import CommandMessage
 from messages.message import Message
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
@@ -200,5 +199,6 @@ class ModelResource(BaseResource):
                 "helm": self.helm,
                 "temperature": self.temperature,
                 "stop_sequences": self.stop_sequences,
+                "use_mock_model": self.use_mock_model
             },
         }
