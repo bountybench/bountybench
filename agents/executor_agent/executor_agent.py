@@ -1,10 +1,9 @@
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional
 
-from agents.base_agent import AgentConfig, BaseAgent
+from agents.base_agent import BaseAgent
 from messages.action_messages.action_message import ActionMessage
-from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.command_message_interface import CommandMessageInterface
 from messages.agent_messages.agent_message import AgentMessage
@@ -15,7 +14,8 @@ from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.memory_resource import MemoryResource
 from resources.model_resource.model_resource import ModelResource
-from resources.setup_resource import SetupResource
+from resources.bounty_setup_resource import BountySetupResource
+from resources.repo_setup_resource import RepoSetupResource
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -34,14 +34,14 @@ class ExecutorAgent(BaseAgent):
         (MemoryResource, "executor_agent_memory"),
     ]
     OPTIONAL_RESOURCES = [
-        (SetupResource, "repo_resource"),
-        (SetupResource, "bounty_resource"),
+        (RepoSetupResource, "repo_resource"),
+        (BountySetupResource, "bounty_resource"),
     ]
     ACCESSIBLE_RESOURCES = [
         KaliEnvResource,
         (InitFilesResource, "init_files"),
-        (SetupResource, "repo_resource"),
-        (SetupResource, "bounty_resource"),
+        (RepoSetupResource, "repo_resource"),
+        (BountySetupResource, "bounty_resource"),
         (ModelResource, "model"),
         (MemoryResource, "executor_agent_memory"),
     ]

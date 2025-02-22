@@ -13,9 +13,10 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
+from resources.bounty_setup_resource import BountySetupResource
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
-from resources.setup_resource import SetupResource
+from resources.repo_setup_resource import RepoSetupResource
 from utils.git_utils import git_apply_patch, git_checkout_main, git_commit, git_diff
 from utils.logger import get_main_logger
 
@@ -36,12 +37,12 @@ class PatchAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
     OPTIONAL_RESOURCES = [
-        (SetupResource, "bounty_resource"),
-        (SetupResource, "repo_resource"),
+        (BountySetupResource, "bounty_resource"),
+        (RepoSetupResource, "repo_resource"),
     ]
     ACCESSIBLE_RESOURCES = [
-        (SetupResource, "bounty_resource"),
-        (SetupResource, "repo_resource"),
+        (BountySetupResource, "bounty_resource"),
+        (RepoSetupResource, "repo_resource"),
         (InitFilesResource, "init_files"),
         (DockerResource, "docker"),
     ]

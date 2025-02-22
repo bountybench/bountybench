@@ -10,7 +10,6 @@ from messages.message import Message
 from messages.message_utils import log_message
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
-from prompts.vulnerability_prompts import get_specialized_instructions
 from resources.base_resource import BaseResource, BaseResourceConfig
 from utils.logger import get_main_logger
 

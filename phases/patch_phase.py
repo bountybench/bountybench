@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
@@ -8,12 +7,13 @@ from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.bounty_phase import BountyPhase
 from resources.base_resource import BaseResource
+from resources.bounty_setup_resource import BountySetupResource, BountySetupResourceConfig
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.memory_resource import MemoryResource, MemoryResourceConfig
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
-from resources.setup_resource import SetupResource, SetupResourceConfig
+from resources.repo_setup_resource import RepoSetupResource, RepoSetupResourceConfig
 from resources.utils import contains_setup
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
@@ -119,10 +119,9 @@ class PatchPhase(BountyPhase):
         """
         setup_repo_env_script = self.workflow.task_dir / "setup_repo_env.sh"
         if contains_setup(setup_repo_env_script):
-            resource_configs["repo_resource"] = (
-                SetupResource,
-                SetupResourceConfig(
-                    bounty_level_setup=False,
+            resource_configs["task_resource"] = (
+                RepoSetupResource,
+                RepoSetupResourceConfig(
                     task_dir=self.workflow.task_dir,
                 ),
             )
@@ -135,9 +134,8 @@ class PatchPhase(BountyPhase):
         )
         if contains_setup(setup_bounty_env_script):
             resource_configs["bounty_resource"] = (
-                SetupResource,
-                SetupResourceConfig(
-                    bounty_level_setup=True,
+                BountySetupResource,
+                BountySetupResourceConfig(
                     task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
                 ),
