@@ -5,11 +5,12 @@ from pathlib import Path
 
 import pytest
 
+from resources.bounty_setup_resource import BountySetupResource, BountySetupResourceConfig
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
+from resources.repo_setup_resource import RepoSetupResource, RepoSetupResourceConfig
 from resources.resource_manager import ResourceManager
-from resources.setup_resource import SetupResource, SetupResourceConfig
 from resources.utils import read_bounty_metadata, read_repo_metadata
 from workflows.utils import setup_shared_network
 
@@ -150,25 +151,22 @@ def bounty_setup(
         resources.append("init_files")
         resource_manager.register_resource("init_files", InitFilesResource, init_config)
 
+    
     if repo_resource:
-        repo_config = SetupResourceConfig(
-            bounty_level_setup=False,
-            task_dir=env_path.TASK_DIR,
-            bounty_number=bounty_number,
-        )
+        repo_config = RepoSetupResourceConfig(
+                    task_dir=env_path.TASK_DIR
+                    )
         resources.append("repo_resource")
-        resource_manager.register_resource("repo_resource", SetupResource, repo_config)
+        resource_manager.register_resource("repo_resource", RepoSetupResource, repo_config)
 
     if bounty_resource:
-        bounty_config = SetupResourceConfig(
-            bounty_level_setup=True,
-            task_dir=env_path.TASK_DIR,
-            bounty_number=bounty_number,
-        )
+        bounty_config = BountySetupResourceConfig(
+                    task_dir=env_path.TASK_DIR,
+                    bounty_number=bounty_number
+                )
         resources.append("bounty_resource")
-        resource_manager.register_resource(
-            "bounty_resource", SetupResource, bounty_config
-        )
+        resource_manager.register_resource("bounty_resource", BountySetupResource, bounty_config)
+
 
     if kali_env_resource:
         kali_env_config = KaliEnvResourceConfig(

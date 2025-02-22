@@ -7,7 +7,10 @@ from unittest.mock import patch
 import docker
 import pytest
 
-from resources.setup_resource import SetupResource, SetupResourceConfig
+from resources.base_setup_resource import BaseSetupResource
+from resources.bounty_setup_resource import BountySetupResource, BountySetupResourceConfig
+from resources.repo_setup_resource import RepoSetupResource, RepoSetupResourceConfig
+
 
 
 @pytest.fixture
@@ -70,7 +73,7 @@ def test_start_and_stop_setup(temp_dir):
     )
     test_file_path.chmod(0o755)
 
-    resource = SetupResource("test", SetupResourceConfig(False, temp_dir))
+    resource = RepoSetupResource("test", RepoSetupResourceConfig(temp_dir))
     resource.stop()
     verify_docker_containers_stopped("test_nginx_server")
 
@@ -85,7 +88,7 @@ def test_start_and_stop_setup_multi_container(temp_dir):
     )
     test_file_path.chmod(0o755)
 
-    resource = SetupResource("test2", SetupResourceConfig(False, temp_dir))
+    resource = RepoSetupResource("test2", RepoSetupResourceConfig(temp_dir))
     resource.stop()
     verify_docker_containers_stopped("test_redis_server")
 
@@ -101,7 +104,7 @@ def test_resource_restart(temp_dir):
     test_file_path.chmod(0o755)
 
     client = docker.from_env()
-    resource = SetupResource("test_restart", SetupResourceConfig(False, temp_dir))
+    resource = RepoSetupResource("test_restart", RepoSetupResourceConfig(temp_dir))
 
     initial_container = client.containers.get("test_nginx_server")
     initial_id = initial_container.id
@@ -132,7 +135,7 @@ def test_health_check(temp_dir):
     )
     test_file_path.chmod(0o755)
 
-    resource = SetupResource("test_health", SetupResourceConfig(False, temp_dir))
+    resource = RepoSetupResource("test_health", RepoSetupResourceConfig(temp_dir))
 
     client = docker.from_env()
     container = client.containers.get("test_redis_server")
@@ -146,38 +149,63 @@ def test_health_check(temp_dir):
     ], f"Unexpected health status: {health_status}"
 
 
-@patch("resources.setup_resource.SetupResource.wait_until_all_containers_healthy")
-def test_cleanup_on_initialization_failure(
-    mock_wait_until_all_containers_healthy, temp_dir
-):
+def test_cleanup_on_initialization_failure(temp_dir):
     """Test that cleanup happens if a runtime error occurs during initialization."""
     resource_id = "test_resource"
-    mock_wait_until_all_containers_healthy.return_value = False
+    test_container_name = "test_container_cleanup_test"
+    
+    # Make sure the container is not running at the start of the test
+    subprocess.run(["docker", "stop", test_container_name], capture_output=True)
+    subprocess.run(["docker", "rm", test_container_name], capture_output=True)
 
-    with pytest.raises(RuntimeError) as exc_info:
-        SetupResource(
-            resource_id,
-            SetupResourceConfig(
-                bounty_level_setup=False,
-                task_dir=Path("bountybench/lunary"),
-                bounty_number="0",
-            ),
-        )
+    try:
+        # Create a test directory structure for the bounty setup
+        bounty_dir = Path(temp_dir) / "bounties" / "bounty_0" / "setup_files"
+        bounty_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Add a test setup script that doesn't actually create a container
+        # We'll mock the container creation
+        setup_script = bounty_dir / "setup_bounty_env.sh"
+        setup_script.write_text(f"""
+            echo "Container {test_container_name} Started"
+            exit 0
+        """)
+        setup_script.chmod(0o755)
 
-    assert "Failed to wait until all containers healthy" in str(exc_info.value)
-    result = subprocess.run(["docker", "ps"], capture_output=True, text=True)
-    assert (
-        "lunary-app" not in result.stdout and "lunary-postgres" not in result.stdout
-    ), "Containers were not cleaned up properly."
+        with patch.object(BaseSetupResource, 'stop') as mock_stop:
+            with patch.object(BaseSetupResource, 'extract_container_names', return_value=[test_container_name]):
+                with patch.object(BaseSetupResource, 'wait_until_all_containers_healthy') as mock_health_check:
+                    mock_health_check.side_effect = RuntimeError("Failed to wait until all containers healthy")
+                    
+                    # The test should raise the expected RuntimeError
+                    with pytest.raises(RuntimeError) as exc_info:
+                        BountySetupResource(
+                            resource_id,
+                            BountySetupResourceConfig(
+                                task_dir=temp_dir,
+                                bounty_number="0",
+                            ),
+                        )
 
+                    assert "Failed to wait until all containers healthy" in str(exc_info.value)
+                    
+                    # Verify that stop was called to clean up containers
+                    assert mock_stop.called, "The stop method was not called to clean up containers"
+    
+    finally:
+        # Ensure cleanup even if the test fails
+        subprocess.run(["docker", "stop", test_container_name], capture_output=True)
+        subprocess.run(["docker", "rm", test_container_name], capture_output=True)
+
+    
 
 def test_error_handling(temp_dir):
     """Test error scenarios for SetupResource."""
     # Test with non-existent directory
     with pytest.raises(ValueError, match="Invalid task_dir"):
-        SetupResource(
+        RepoSetupResource(
             "test_error",
-            SetupResourceConfig(False, Path("/path/to/nonexistent/directory")),
+            RepoSetupResourceConfig(Path("/path/to/nonexistent/directory")),
         )
 
     # Test with invalid setup script
@@ -185,5 +213,5 @@ def test_error_handling(temp_dir):
     invalid_script_path.write_text("exit 1")  # Always failing script
     invalid_script_path.chmod(0o755)
 
-    with pytest.raises(RuntimeError, match="Setup script failed with return code 1"):
-        SetupResource("test_invalid_script", SetupResourceConfig(False, temp_dir))
+    with pytest.raises(RuntimeError, match="Task setup script failed with return code 1"):
+        RepoSetupResource("test_invalid_script", RepoSetupResourceConfig(temp_dir))

@@ -3,8 +3,7 @@ from pathlib import Path
 import pytest
 
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
-from resources.setup_resource import SetupResource, SetupResourceConfig
-from resources.utils import read_bounty_metadata, read_repo_metadata
+from resources.repo_setup_resource import RepoSetupResource, RepoSetupResourceConfig
 
 
 # Fixture to set up common test data
@@ -35,11 +34,9 @@ def test_init_files_resource(test_config):
 
 
 def test_setup_resource(test_config):
-    setup_repo_config = SetupResourceConfig(
-        bounty_level_setup=False,
+    setup_repo_config = RepoSetupResourceConfig(
         task_dir=test_config["task_dir"],
     )
-    repo_resource = SetupResource(test_config["repo"], setup_repo_config)
+    repo_resource = RepoSetupResource(test_config["repo"], setup_repo_config)
 
     assert repo_resource.resource_id == test_config["repo"]
-    assert repo_resource.bounty_level_setup is False
