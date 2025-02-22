@@ -119,7 +119,7 @@ class PatchPhase(BountyPhase):
         """
         setup_repo_env_script = self.workflow.task_dir / "setup_repo_env.sh"
         if contains_setup(setup_repo_env_script):
-            resource_configs["task_resource"] = (
+            resource_configs["repo_resource"] = (
                 RepoSetupResource,
                 RepoSetupResourceConfig(
                     task_dir=self.workflow.task_dir,
