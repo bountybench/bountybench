@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 from typing import List, Union
+import select
+
 
 from bs4 import BeautifulSoup
 
@@ -11,7 +13,6 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-import select
 
 def run_command(command, work_dir=None):
     """
@@ -73,6 +74,11 @@ def run_command(command, work_dir=None):
         )
 
     except Exception as e:
+        logger.error(
+            f"Command '{' '.join(command)}' failed with return code {e.returncode}"
+        )
+        logger.error(f"stdout: {e.stdout}")
+        logger.error(f"stderr: {e.stderr}")
         sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
         sys.stderr.flush()
         raise
