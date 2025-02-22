@@ -160,51 +160,60 @@ class ExperimentRunner:
         )
 
     async def _run_linux(self, command: List[str]):
-        """Run command in new Linux terminal with robust fallback handling"""
-        terminal_options = [
-            ("gnome-terminal", ["--", "bash", "-c"]),
-            ("xfce4-terminal", ["--disable-server", "--command"]),
-            ("konsole", ["--hold", "-e"]),
-            ("mate-terminal", ["--disable-factory", "-x"]),
-            ("lxterminal", ["--command"]),
-            # Consolidated xterm options to single entry
-            ("xterm", ["-fa", "Monospace", "-fs", "12", "-hold", "-e"]),
-        ]
-
-        # Build the command string with proper persistence
+        """Robust Linux terminal handling with font fallbacks"""
         cmd_str = " ".join(shlex.quote(arg) for arg in command)
         if not self.close_terminals:
-            cmd_str += "; exec bash"  # Keep terminal open after command completes
+            cmd_str += "; exec bash"
 
-        # Try available terminals with early exit on success
-        for terminal, args in terminal_options:
+        # Configure xterm with safe font fallbacks
+        terminals = [
+            ("xterm", ["-fa", "Monospace", "-fs", "12", "-hold", "-e"]),
+            ("xfce4-terminal", ["--disable-server", "--command"]),
+            ("mate-terminal", ["--disable-factory", "-x"]),
+            ("lxterminal", ["--command"]),
+            ("konsole", ["--hold", "-e"]),
+        ]
+
+        # Try terminals with improved error suppression
+        for terminal, args in terminals:
+            if not shutil.which(terminal):
+                continue
+
             try:
-                if terminal == "gnome-terminal" and not os.environ.get("DISPLAY"):
-                    continue  # Skip if no X display available
+                proc = await asyncio.create_subprocess_exec(
+                    terminal,
+                    *args,
+                    cmd_str,
+                    stderr=asyncio.subprocess.DEVNULL,  # Suppress terminal errors
+                )
+                await asyncio.sleep(0.5)
+                if proc.returncode is None:
+                    return proc
+            except Exception:
+                continue
 
-                # Build full command array
-                full_cmd = [terminal, *args, cmd_str]
+        # Fallback with basic xterm configuration
+        return await self._run_fallback(cmd_str)
 
-                # Try to launch the terminal
-                proc = await asyncio.create_subprocess_exec(*full_cmd)
-
-                # Verify process started successfully
-                await asyncio.sleep(0.5)  # Reduced wait time
-                if proc.returncode is None:  # Process is still running
-                    return proc  # Success - exit the loop
-
-            except (FileNotFoundError, PermissionError):
-                continue  # Try next terminal if this one fails
-
-        # If all options failed, try default xterm as last resort
+    async def _run_fallback(self, cmd_str: str):
+        """Final fallback with error suppression"""
         try:
-            proc = await asyncio.create_subprocess_exec("xterm", "-hold", "-e", cmd_str)
-            await asyncio.sleep(0.5)
-            return proc
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to launch any terminal. Last error: {str(e)}\n"
-                "Please ensure you have a terminal emulator installed (e.g., xterm, gnome-terminal)."
+            return await asyncio.create_subprocess_exec(
+                "xterm",
+                "-fa",
+                "DejaVu Sans Mono",  # Widely available font
+                "-fs",
+                "12",
+                "-hold",
+                "-e",
+                cmd_str,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+        except Exception:
+            return await asyncio.create_subprocess_shell(
+                cmd_str,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
             )
 
     def _get_task_dir_from_command(self, command: List[str]) -> str:
@@ -225,12 +234,17 @@ class ExperimentRunner:
             task_dir = self._get_task_dir_from_command(cmd)
             task_groups[task_dir].append(cmd)
 
-        # Run task groups sequentially
-        results = []
+        # Create tasks for each task_dir group
+        tasks = []
         for task_dir, cmds in task_groups.items():
-            print(f"Processing task directory: {task_dir}")
-            task_results = await self.run_task_dir(task_dir, cmds)
-            results.extend(task_results)
+            print(f"Preparing task group for directory: {task_dir}")
+            tasks.append(self.run_task_dir(task_dir, cmds))
+
+        # Run all task groups in parallel
+        all_results = await asyncio.gather(*tasks)
+
+        # Flatten results
+        results = [result for group_result in all_results for result in group_result]
 
         print("\nExperiment Summary:")
         success_count = sum(1 for code in results if code == 0)
