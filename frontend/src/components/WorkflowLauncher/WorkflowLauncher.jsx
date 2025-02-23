@@ -16,11 +16,6 @@ import {
   InputAdornment,
   IconButton,
   Divider,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
 } from '@mui/material';
 import { formDataToYaml } from './utils/formDataToYaml'
 import Visibility from '@mui/icons-material/Visibility';
