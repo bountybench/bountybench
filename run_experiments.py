@@ -41,7 +41,7 @@ class ExperimentRunner:
         vulnerability_types = self._ensure_list(
             self.config.get("vulnerability_type", [])
         )
-
+        mock_model = self.config.get("use_mock_model", False)
         # Prepare parameters for itertools.product
         params = [tasks, models, phase_iterations]
 
@@ -61,6 +61,7 @@ class ExperimentRunner:
                     task["bounty_number"],
                     model["name"],
                     model.get("helm", False),
+                    mock_model,
                     iterations,
                     vuln_type,
                 )
@@ -79,6 +80,7 @@ class ExperimentRunner:
         bounty_number: str,
         model_name: str,
         use_helm: bool,
+        use_mock_model: bool,
         phase_iterations: int,
         vulnerability_type: Optional[str] = None,
     ) -> List[str]:
@@ -99,6 +101,9 @@ class ExperimentRunner:
 
         if use_helm:
             cmd.append("--helm")
+
+        if use_mock_model:
+            cmd.append("--mock_model")
 
         if vulnerability_type and workflow_type.startswith("detect_"):
             cmd.extend(["--vulnerability_type", vulnerability_type])
