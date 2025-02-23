@@ -12,7 +12,6 @@
     "frontend": "npm start --prefix frontend"
   },
   "dependencies": {
-    "buffer": "^6.0.3",
     "react-toastify": "^11.0.3"
   }
 }
