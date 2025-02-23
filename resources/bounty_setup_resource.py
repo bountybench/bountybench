@@ -7,8 +7,8 @@ from queue import Queue
 from typing import List, Optional
 
 from resources.base_resource import BaseResourceConfig
-from resources.utils import run_command
 from resources.base_setup_resource import BaseSetupResource
+from resources.utils import run_command
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -41,17 +41,13 @@ class BountySetupResource(BaseSetupResource):
         self.task_dir = self._resource_config.task_dir
         self.bounty_number = self._resource_config.bounty_number
         self.setup_script_name = "setup_bounty_env.sh"
-        
+
         # Initialize bounty directory
-        self.bounty_dir = (
-            self.task_dir
-            / "bounties"
-            / f"bounty_{self.bounty_number}"
-        )
-        
+        self.bounty_dir = self.task_dir / "bounties" / f"bounty_{self.bounty_number}"
+
         # Set work_dir for bounty setup
         self.work_dir = self.bounty_dir / "setup_files"
-        
+
         # Run the setup process
         self.setup()
 

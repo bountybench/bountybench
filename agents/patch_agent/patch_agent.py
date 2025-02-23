@@ -291,7 +291,7 @@ class PatchAgent(BaseAgent):
 
         except Exception as e:
             logger.error(f"Failed to move patches directory: {e}")
-    
+
     def to_dict(self) -> dict:
         """
         Serializes the PatchAgent state to a dictionary.

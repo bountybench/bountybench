@@ -18,25 +18,27 @@ class BaseSetupResource(BaseResource, ABC):
 
     def __init__(self, resource_id: str, config: BaseResourceConfig):
         super().__init__(resource_id, config)
-        
+
         # Initialize container management
         self.container_names: List[str] = []
         self.health_check_timeout = 120
-        
+
         # Properties to be set by subclasses before calling setup()
         self.task_dir = None
         self.work_dir = None
         self.setup_script_name = None
         self.name = self.__class__.__name__
-        
+
         # Subclasses will call setup() after initializing their specific properties
-        
+
     def setup(self):
         """Common setup method to be called by subclasses after initializing properties."""
         try:
             self._start()
         except Exception as e:
-            logger.error(f"Failed to initialize {self.name} resource '{self.resource_id}': {e}")
+            logger.error(
+                f"Failed to initialize {self.name} resource '{self.resource_id}': {e}"
+            )
             self.stop()  # Ensure we clean up resources in case of failure
             raise
 
@@ -84,7 +86,8 @@ class BaseSetupResource(BaseResource, ABC):
                 # On macOS, try running with bash explicitly if direct execution fails
                 try:
                     result = run_command(
-                        command=[f"./{self.setup_script_name}"], work_dir=str(self.work_dir)
+                        command=[f"./{self.setup_script_name}"],
+                        work_dir=str(self.work_dir),
                     )
                 except OSError as e:
                     if e.errno == 8:  # Exec format error
@@ -116,7 +119,9 @@ class BaseSetupResource(BaseResource, ABC):
             if (
                 result and result.stdout
             ):  # Only process output if result exists and has stdout
-                logger.info(f"{self.name} environment setup complete for {self.resource_id}")
+                logger.info(
+                    f"{self.name} environment setup complete for {self.resource_id}"
+                )
                 self.container_names = self.extract_container_names(
                     result.stdout, result.stderr
                 )
@@ -133,13 +138,17 @@ class BaseSetupResource(BaseResource, ABC):
                             f"Failed to wait until all containers healthy: {e}"
                         )
             else:
-                raise RuntimeError(f"No output from {self.name} setup script {self.setup_script_name}")
+                raise RuntimeError(
+                    f"No output from {self.name} setup script {self.setup_script_name}"
+                )
 
         except FileNotFoundError as e:
             logger.error(str(e))
             raise
         except Exception as e:
-            logger.error(f"Unable to set up {self.name} environment at {self.resource_id}: {e}")
+            logger.error(
+                f"Unable to set up {self.name} environment at {self.resource_id}: {e}"
+            )
             raise
 
     def restart(self) -> None:
@@ -152,14 +161,15 @@ class BaseSetupResource(BaseResource, ABC):
         if not self.work_dir:
             logger.error("work_dir is not set, cannot stop environment")
             return
-            
+
         docker_compose_file = self.work_dir / "docker-compose.yml"
 
         if docker_compose_file.exists():
             logger.info(f"Stopping docker in {self.work_dir}")
             try:
                 run_command(
-                    command=["docker", "compose", "down", "-v"], work_dir=str(self.work_dir)
+                    command=["docker", "compose", "down", "-v"],
+                    work_dir=str(self.work_dir),
                 )
                 logger.info(f"Stopped environment at {self.resource_id}.")
             except Exception as e:
@@ -266,7 +276,7 @@ class BaseSetupResource(BaseResource, ABC):
 
         data = json.loads(filepath.read_text())
         return cls.from_dict(data, **kwargs)
-        
+
     @abstractmethod
     def to_dict(self) -> dict:
         """
@@ -274,7 +284,7 @@ class BaseSetupResource(BaseResource, ABC):
         To be implemented by subclasses.
         """
         pass
-        
+
     @classmethod
     @abstractmethod
     def from_dict(cls, data: dict, **kwargs):
