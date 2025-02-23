@@ -3,21 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import LogViewer from './LogViewer';
 import '@testing-library/jest-dom';
 import { MemoryRouter, Router } from 'react-router';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-
-const theme = createTheme({
-    palette: {
-      primary: {
-        main: '#000000',
-      },
-      secondary: {
-        main: '#111111', 
-      },
-      background: {
-        default: '#222222',
-      },
-    },
-  });  
+import { ThemeProvider } from '@mui/material/styles';
+import { darkTheme } from '../../theme';
 
 // Mock data for testing
 const mockLogFiles = [
@@ -180,7 +167,7 @@ describe('LogViewer Component', () => {
     });
 
     render(
-        <ThemeProvider theme={theme}>
+        <ThemeProvider theme={darkTheme}>
           <LogViewer />
         </ThemeProvider>
     );
@@ -201,7 +188,7 @@ describe('LogViewer Component', () => {
     });
 
     render(
-        <ThemeProvider theme={theme}>
+        <ThemeProvider theme={darkTheme}>
           <LogViewer />
         </ThemeProvider>
     );
@@ -237,7 +224,7 @@ describe('LogViewer Component', () => {
     );
 
     render(
-        <ThemeProvider theme={theme}>
+        <ThemeProvider theme={darkTheme}>
           <LogViewer />
         </ThemeProvider>
     );
@@ -256,7 +243,7 @@ describe('LogViewer Component', () => {
     fetch.mockRejectedValueOnce(new Error('Failed to fetch logs'));
 
     render(
-        <ThemeProvider theme={theme}>
+        <ThemeProvider theme={darkTheme}>
           <LogViewer />
         </ThemeProvider>
     );
@@ -278,7 +265,7 @@ describe('LogViewer Component', () => {
     fetch.mockRejectedValueOnce(new Error('Failed to fetch log content'));
 
     render(
-        <ThemeProvider theme={theme}>
+        <ThemeProvider theme={darkTheme}>
           <LogViewer />
         </ThemeProvider>
     );
