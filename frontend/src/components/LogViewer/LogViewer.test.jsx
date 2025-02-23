@@ -1,8 +1,10 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import LogViewer from './LogViewer';
 import '@testing-library/jest-dom';
 
+const theme = createTheme();
 
 // Mock data for testing
 const mockLogFiles = [
@@ -164,7 +166,12 @@ describe('LogViewer Component', () => {
       json: jest.fn().mockResolvedValue(mockLogFiles),
     });
 
-    render(<LogViewer />);
+    render(
+        <ThemeProvider theme={theme}>
+          <LogViewer />
+        </ThemeProvider>
+      );
+      
 
     await waitFor(() => {
       expect(screen.getByText(/Chat/i)).toBeInTheDocument();
@@ -180,7 +187,12 @@ describe('LogViewer Component', () => {
         json: jest.fn().mockResolvedValue(mockLogContent),
     });
 
-    render(<LogViewer />);
+    render(
+        <ThemeProvider theme={theme}>
+          <LogViewer />
+        </ThemeProvider>
+      );
+      
 
     await waitFor(() => expect(screen.getByText(/ExploitAndPatch/i)).toBeInTheDocument());
 
@@ -211,7 +223,12 @@ describe('LogViewer Component', () => {
       )
     );
 
-    render(<LogViewer />);
+    render(
+        <ThemeProvider theme={theme}>
+          <LogViewer />
+        </ThemeProvider>
+      );
+      
 
     await waitFor(() => fireEvent.click(screen.getByText(/ExploitAndPatch/i)));
     fireEvent.click(screen.getByText(/Codebase1/i));
@@ -225,7 +242,12 @@ describe('LogViewer Component', () => {
   it('handles errors when fetching logs', async () => {
     fetch.mockRejectedValueOnce(new Error('Failed to fetch logs'));
 
-    render(<LogViewer />);
+    render(
+        <ThemeProvider theme={theme}>
+          <LogViewer />
+        </ThemeProvider>
+      );
+      
 
     await waitFor(() => {
       expect(screen.queryByText(/Chat/i)).not.toBeInTheDocument();
@@ -242,7 +264,12 @@ describe('LogViewer Component', () => {
 
     fetch.mockRejectedValueOnce(new Error('Failed to fetch log content'));
 
-    render(<LogViewer />);
+    render(
+        <ThemeProvider theme={theme}>
+          <LogViewer />
+        </ThemeProvider>
+      );
+      
 
     await waitFor(() => fireEvent.click(screen.getByText(/ExploitAndPatch/i)));
     fireEvent.click(screen.getByText(/Codebase1/i));
