@@ -62,8 +62,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const [formData, setFormData] = useState({
     workflow_name: '',
-    task_dir: 'lunary',
-    bounty_number: '0',
+    tasks: [{ task_dir: 'lunary', bounty_number: '0' }],
     vulnerability_type: '',
     interactive: true,
     iterations: 30,
@@ -201,13 +200,14 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     });
   
     try {
+      const firstTask = formData.tasks[0]; // Get the first task
       const response = await fetch('http://localhost:8000/workflow/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflow_name: formData.workflow_name,
-          task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
-          bounty_number: formData.bounty_number,
+          task_dir: `bountybench/${firstTask.task_dir.replace(/^bountybench\//, '')}`,
+          bounty_number: firstTask.bounty_number,
           vulnerability_type: formData.vulnerability_type,
           interactive: interactiveMode,
           iterations: formData.iterations,
@@ -242,13 +242,23 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === 'interactive' ? checked : value,
-      ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
-    }));
+    if (name.startsWith('tasks[')) {
+      const [, index, field] = name.match(/tasks\[(\d+)\]\.(.+)/);
+      setFormData((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((task, i) => 
+          i === parseInt(index) ? { ...task, [field]: value } : task
+        ),
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: name === 'interactive' ? checked : value,
+        ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
+      }));
+    }
   };
-  
+
   const handleRevealToggle = () => {
     setShowApiKey((prev) => !prev);
   };
@@ -306,9 +316,22 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     setFileName(event.target.value);
   };
 
-  
+  const addTask = () => {
+    setFormData((prev) => ({
+      ...prev,
+      tasks: [...prev.tasks, { task_dir: '', bounty_number: '' }],
+    }));
+  };
+
+  const removeTask = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      tasks: prev.tasks.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSaveConfirm = async () => {
-    const yamlConfig = formDataToYaml(formData);
+    const yamlConfig = formDataToYaml(formData, useMockModel);
     const saveFileName = fileName.endsWith('.yaml') ? fileName : `${fileName}.yaml`;
 
     try {
@@ -447,6 +470,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           shouldShowBounty={shouldShowBounty}
           shouldShowVulnerabilityType={shouldShowVulnerabilityType}
           vulnerabilityTypes={vulnerabilityTypes}
+          addTask={addTask}
+          removeTask={removeTask}
         />
 
         <TextField
@@ -460,7 +485,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           placeholder="e.g., 10"
         />
 
-        <FormControlLabel
+<FormControlLabel
                 control={
                   <Switch
                     checked={useMockModel} 
@@ -519,7 +544,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           Save Configuration
         </Button>
       </form>
-
+      
       <SaveConfigDialog
         open={openSaveDialog}
         onClose={handleSaveDialogClose}
