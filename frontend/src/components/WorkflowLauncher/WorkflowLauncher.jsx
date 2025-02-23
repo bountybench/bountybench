@@ -12,10 +12,6 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
-  Grid,
-  InputAdornment,
-  IconButton,
-  Divider,
 } from '@mui/material';
 import { formDataToYaml } from './utils/formDataToYaml'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
