@@ -35,7 +35,6 @@ class RepoSetupResource(BaseSetupResource):
 
         # Set required properties
         self.task_dir = self._resource_config.task_dir
-        self.role = "task_resource"
         self.setup_script_name = "setup_repo_env.sh"
         
         # Set work_dir for task setup (directly the task directory)
@@ -51,7 +50,6 @@ class RepoSetupResource(BaseSetupResource):
         return {
             "task_dir": str(self.task_dir),
             "resource_id": self.resource_id,
-            "role": self.role,
             "container_names": self.container_names,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         }

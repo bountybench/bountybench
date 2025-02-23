@@ -37,12 +37,12 @@ class PatchAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
     OPTIONAL_RESOURCES = [
-        (BountySetupResource, "bounty_resource"),
-        (RepoSetupResource, "repo_resource"),
+        (RepoSetupResource, "repo_setup"),
+        (BountySetupResource, "bounty_setup"),
     ]
     ACCESSIBLE_RESOURCES = [
-        (BountySetupResource, "bounty_resource"),
-        (RepoSetupResource, "repo_resource"),
+        (RepoSetupResource, "repo_setup"),
+        (BountySetupResource, "bounty_setup"),
         (InitFilesResource, "init_files"),
         (DockerResource, "docker"),
     ]

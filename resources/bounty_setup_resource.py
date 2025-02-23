@@ -40,7 +40,6 @@ class BountySetupResource(BaseSetupResource):
         # Set required properties
         self.task_dir = self._resource_config.task_dir
         self.bounty_number = self._resource_config.bounty_number
-        self.role = "bounty_resource"
         self.setup_script_name = "setup_bounty_env.sh"
         
         # Initialize bounty directory
@@ -64,7 +63,6 @@ class BountySetupResource(BaseSetupResource):
             "task_dir": str(self.task_dir),
             "bounty_dir": str(self.bounty_dir),
             "resource_id": self.resource_id,
-            "role": self.role,
             "bounty_number": self.bounty_number,
             "container_names": self.container_names,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),

@@ -5,22 +5,6 @@ from pathlib import Path
 from queue import Queue
 from typing import List, Optional
 
-from resources.base_resource import BaseResource
-from resources.utils import run_command
-from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
-
-logger = get_main_logger(__name__)
-
-
-import atexit
-import re
-import time
-from abc import ABC, abstractmethod
-from pathlib import Path
-from queue import Queue
-from typing import List, Optional
-
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.utils import run_command
 from utils.logger import get_main_logger
@@ -42,8 +26,8 @@ class BaseSetupResource(BaseResource, ABC):
         # Properties to be set by subclasses before calling setup()
         self.task_dir = None
         self.work_dir = None
-        self.role = None
         self.setup_script_name = None
+        self.name = self.__class__.__name__
         
         # Subclasses will call setup() after initializing their specific properties
         
@@ -52,7 +36,7 @@ class BaseSetupResource(BaseResource, ABC):
         try:
             self._start()
         except Exception as e:
-            logger.error(f"Failed to initialize {self.role} resource '{self.resource_id}': {e}")
+            logger.error(f"Failed to initialize {self.name} resource '{self.resource_id}': {e}")
             self.stop()  # Ensure we clean up resources in case of failure
             raise
 
@@ -116,7 +100,7 @@ class BaseSetupResource(BaseResource, ABC):
 
                 if result.returncode != 0:
                     raise RuntimeError(
-                        f"{self.role} setup script failed with return code {result.returncode}"
+                        f"{self.name} setup script failed with return code {result.returncode}"
                     )
 
             except Exception as e:
@@ -132,7 +116,7 @@ class BaseSetupResource(BaseResource, ABC):
             if (
                 result and result.stdout
             ):  # Only process output if result exists and has stdout
-                logger.info(f"{self.role} environment setup complete for {self.resource_id}")
+                logger.info(f"{self.name} environment setup complete for {self.resource_id}")
                 self.container_names = self.extract_container_names(
                     result.stdout, result.stderr
                 )
@@ -149,13 +133,13 @@ class BaseSetupResource(BaseResource, ABC):
                             f"Failed to wait until all containers healthy: {e}"
                         )
             else:
-                raise RuntimeError(f"No output from {self.role} setup script {self.setup_script_name}")
+                raise RuntimeError(f"No output from {self.name} setup script {self.setup_script_name}")
 
         except FileNotFoundError as e:
             logger.error(str(e))
             raise
         except Exception as e:
-            logger.error(f"Unable to set up {self.role} environment at {self.resource_id}: {e}")
+            logger.error(f"Unable to set up {self.name} environment at {self.resource_id}: {e}")
             raise
 
     def restart(self) -> None:
