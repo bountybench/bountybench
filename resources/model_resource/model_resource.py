@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List
 
 import tiktoken
 
@@ -143,6 +143,9 @@ class ModelResource(RunnableBaseResource):
             input_message.memory is not None
         ), "Message to model.run() should contain memory."
         model_input = input_message.memory
+        if self.use_mock_model: 
+            return ActionMessage(resource_id=self.resource_id, message=model_input, additional_metadata=None, prev=prev_action_message)
+
         model_input = truncate_input_to_max_tokens(
             max_input_tokens=self.max_input_tokens,
             model_input=model_input,
@@ -151,8 +154,6 @@ class ModelResource(RunnableBaseResource):
         )
 
 
-        if self.use_mock_model: 
-            return ActionMessage(resource_id=self.resource_id, message=input_message.message, additional_metadata=None, prev=prev_action_message)
 
 
         model_response = self.model_provider.make_request(
@@ -194,14 +195,17 @@ class ModelResource(RunnableBaseResource):
         """
         logger.debug(f"Stopping LLM resource {self.resource_id} (no cleanup required)")
 
+
+    
     def to_dict(self) -> dict:
         """
         Serialize the ModelResource to a dictionary.
         Includes both instance state and configuration.
         """
-        return {
-            "resource_id": self.resource_id,
-            "config": {
+        base_dict = {"resource_id": self.resource_id}
+
+        if not self.use_mock_model:
+            base_dict["config"] = {
                 "model": self.model,
                 "max_output_tokens": self.max_output_tokens,
                 "max_input_tokens": self.max_input_tokens,
@@ -209,6 +213,11 @@ class ModelResource(RunnableBaseResource):
                 "helm": self.helm,
                 "temperature": self.temperature,
                 "stop_sequences": self.stop_sequences,
+                "use_mock_model": self.use_mock_model,
+            }
+        else:
+            base_dict["config"] = {
                 "use_mock_model": self.use_mock_model
-            },
-        }
+            }
+
+        return base_dict

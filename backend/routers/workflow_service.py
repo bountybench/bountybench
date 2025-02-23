@@ -358,6 +358,7 @@ async def get_workflow_resources(workflow_id: str, request: Request):
 
     resources = resource_manager.get_resources()
     resource_list = []
+
     for resource_id, resource in resources.items():
         resource_info = {
             "id": resource_id,
@@ -368,6 +369,10 @@ async def get_workflow_resources(workflow_id: str, request: Request):
                 else None
             ),
         }
+
+        if resource_info["config"] and resource_info["config"].get("use_mock_model"):
+            resource_info["config"] = {"use_mock_model": True}
+
         resource_list.append(resource_info)
 
     return {"resources": resource_list}
