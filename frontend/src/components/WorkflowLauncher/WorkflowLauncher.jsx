@@ -29,6 +29,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SaveIcon from '@mui/icons-material/Save';
 import ListIcon from '@mui/icons-material/List';
 import './WorkflowLauncher.css';
+import { SaveConfigDialog } from './SaveConfigDialog';
 
 const LauncherState = {
   CHECKING_SERVER: 'CHECKING_SERVER',
@@ -305,6 +306,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleSaveDialogClose = () => {
     setOpenSaveDialog(false);
+    setSaveStatus(false);
   };
 
   const handleFileNameChange = (event) => {
@@ -679,34 +681,14 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         </Button>
       </form>
 
-      <Dialog open={openSaveDialog} onClose={handleSaveDialogClose}>
-        <DialogTitle>Save Configuration</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Please enter a name for your configuration file:
-          </DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            id="name"
-            label="File Name"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={fileName}
-            onChange={handleFileNameChange}
-          />
-          {saveStatus && (
-            <Alert severity={saveStatus.type} sx={{ mt: 2 }}>
-              {saveStatus.message}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleSaveDialogClose}>Close</Button>
-          <Button onClick={handleSaveConfirm}>Save</Button>
-        </DialogActions>
-      </Dialog>
+      <SaveConfigDialog
+        open={openSaveDialog}
+        onClose={handleSaveDialogClose}
+        fileName={fileName}
+        onFileNameChange={handleFileNameChange}
+        onSave={handleSaveConfirm}
+        saveStatus={saveStatus}
+      />
     </Box>
   );
 };
