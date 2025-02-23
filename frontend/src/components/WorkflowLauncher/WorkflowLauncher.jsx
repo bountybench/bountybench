@@ -17,10 +17,7 @@ import {
   IconButton,
   Divider,
 } from '@mui/material';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import ListIcon from '@mui/icons-material/List';
 import './WorkflowLauncher.css';
 
 const LauncherState = {
