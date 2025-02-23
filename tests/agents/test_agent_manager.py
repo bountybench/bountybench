@@ -28,6 +28,7 @@ def agent_configs(lunary_bounty_0_setup):
     eConfig = ExploitAgentConfig(
         bounty_dir=env_setup.BOUNTY_DIR_FROM_TASK_DIR,
         task_dir=env_setup.TASK_DIR,
+        tmp_dir=env_setup.TMP_DIR,
     )
     return pConfig, eConfig
 
@@ -36,12 +37,14 @@ def agent_configs(lunary_bounty_0_setup):
 def alternative_agent_configs():
     bounty_dir = "bounties/bounty0"
     task_dir = "lunary"
+    tmp_dir = "lunary/bounties/bounty0/tmp_1"
     pConfig = PatchAgentConfig(
         bounty_dir=bounty_dir, task_dir=task_dir, use_verify_script=False
     )
     eConfig = ExploitAgentConfig(
         bounty_dir=bounty_dir,
         task_dir=task_dir,
+        tmp_dir=tmp_dir
     )
     return pConfig, eConfig
 
@@ -242,7 +245,7 @@ def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
     assert not am.is_agent_equivalent(
         "exploit_agent",
         ExploitAgent,
-        ExploitAgentConfig(Path("bountyagent"), Path("bountyagent")),
+        ExploitAgentConfig(Path("bountyagent"), Path("bountyagent"), Path("bountyagent")),
     )
     assert not am.is_agent_equivalent(
         "patch_agent",

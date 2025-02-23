@@ -28,7 +28,7 @@ def setup_dirs():
     config = InitFilesResourceConfig(
         task_dir=task_repo_dir,
         files_dir_name="original_files",
-        tmp_dir_name=tmp_dir_name,
+        tmp_dir=tmp_dir,
         bounty_number="1234",
         vulnerable_commit="HEAD",
     )

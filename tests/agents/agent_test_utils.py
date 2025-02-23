@@ -67,7 +67,7 @@ class EnvPath:
 
     BOUNTY_DIR_FROM_TASK_DIR: Path = Path()
 
-    TMP_DIR_NAME: str = ""
+    TMP_DIR: Path = Path()
     CODEBASE_FILES_DIR_NAME: str = ""
     EXPLOIT_FILES_DIR_NAME: str = ""
 
@@ -75,7 +75,7 @@ class EnvPath:
         self,
         repo_name: str,
         bounty_number: int,
-        tmp_dir_name: str = "tmp",
+        workflow_id: str = "1",
         codebase_files_dir_name: str = "codebase",
         exploit_files_dir_name: str = "exploit_files",
     ):
@@ -84,7 +84,7 @@ class EnvPath:
         """
         task_dir = Path("bountybench") / repo_name
         bounty_dir = task_dir / "bounties" / f"bounty_{bounty_number}"
-        tmp_dir = task_dir / tmp_dir_name
+        tmp_dir = task_dir / "bounties" / f"bounty_{bounty_number}" / Path("tmp_"+workflow_id)
         codebase_files_dir = task_dir / codebase_files_dir_name
         tmp_codebase_files_dir = tmp_dir / codebase_files_dir_name
         verify_script_dir = bounty_dir / VERIFY_SCRIPT_NAME
@@ -107,7 +107,6 @@ class EnvPath:
 
         self.BOUNTY_DIR_FROM_TASK_DIR = bounty_dir_from_task_dir
 
-        self.TMP_DIR_NAME = tmp_dir_name
         self.CODEBASE_FILES_DIR_NAME = codebase_files_dir_name
         self.EXPLOIT_FILES_DIR_NAME = exploit_files_dir_name
 
@@ -142,7 +141,7 @@ def bounty_setup(
         init_config = InitFilesResourceConfig(
             task_dir=env_path.TASK_DIR,
             files_dir_name=env_path.CODEBASE_FILES_DIR_NAME,
-            tmp_dir_name=env_path.TMP_DIR_NAME,
+            tmp_dir=env_path.TMP_DIR,
             bounty_number=bounty_number,
             exploit_files_dir_name=env_path.EXPLOIT_FILES_DIR_NAME,
             vulnerable_commit=vulnerable_commit,
