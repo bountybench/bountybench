@@ -12,9 +12,10 @@ import yaml
 
 
 class ExperimentRunner:
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str, hold_terminals: bool = False):
         self.config = self._load_config(config_path)
         self.os_type = platform.system()
+        self.hold_terminals = hold_terminals
         self.terminal_handlers = {
             "Darwin": self._run_macos,
             "Linux": self._run_linux,
@@ -123,7 +124,7 @@ class ExperimentRunner:
         return await asyncio.create_subprocess_exec(
             "start",
             "cmd",
-            "/c",
+            "/k" if not self.hold_terminals else "/c",
             *command,
             shell=True,
         )
@@ -133,13 +134,22 @@ class ExperimentRunner:
         cmd_str = " ".join(shlex.quote(arg) for arg in command)
 
         # Handle the various terminal options
-        terminals = [
-            ("xterm", ["-fa", "Monospace", "-fs", "12", "-e"]),
-            ("xfce4-terminal", ["--disable-server", "--command"]),
-            ("mate-terminal", ["--disable-factory", "-e"]),
-            ("lxterminal", ["--command"]),
-            ("konsole", ["-e"]),
-        ]
+        if self.hold_terminals:
+            terminals = [
+                ("xterm", ["-fa", "Monospace", "-fs", "12", "-e"]),
+                ("xfce4-terminal", ["--disable-server", "--command"]),
+                ("mate-terminal", ["--disable-factory", "-e"]),
+                ("lxterminal", ["--command"]),
+                ("konsole", ["-e"]),
+            ]
+        else:
+            terminals = [
+                ("xterm", ["-fa", "Monospace", "-fs", "12", "-hold", "-e"]),
+                ("xfce4-terminal", ["--disable-server", "--command"]),
+                ("mate-terminal", ["--disable-factory", "-x"]),
+                ("lxterminal", ["--command"]),
+                ("konsole", ["--hold", "-e"]),
+            ]
 
         for terminal, args in terminals:
             if not shutil.which(terminal):
@@ -169,7 +179,7 @@ class ExperimentRunner:
                 "DejaVu Sans Mono",  # Widely available font
                 "-fs",
                 "12",
-                "-e",
+                "-hold -e" if self.hold_terminals else "-e",
                 cmd_str,
                 stderr=asyncio.subprocess.DEVNULL,
             )
@@ -242,8 +252,13 @@ class ExperimentRunner:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Experiment Runner")
     parser.add_argument("config", help="Path to YAML config file")
-
+    parser.add_argument(
+        "--hold-terminals",
+        action="store_false",
+        help="Keep terminals open after completion",
+    )
     args = parser.parse_args()
 
-    runner = ExperimentRunner(args.config)
+    runner = ExperimentRunner(args.config, args.hold_terminals)
+
     asyncio.run(runner.run_all())
