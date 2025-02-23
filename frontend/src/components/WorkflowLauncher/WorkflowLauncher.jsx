@@ -103,7 +103,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   };
 
   const [apiKeys, setApiKeys] = useState({});
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiKey] = useState(false);
   const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
   const [isCustomApiKey, setIsCustomApiKey] = useState(false);
 
