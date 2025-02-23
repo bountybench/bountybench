@@ -13,8 +13,6 @@ import {
   CircularProgress,
   Alert,
   Grid,
-  InputAdornment,
-  IconButton,
   Divider,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -244,9 +242,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }));
   };
 
-  const handleRevealToggle = () => {
-    setShowApiKey((prev) => !prev);
-  };
 
   const handleApiKeyChange = async () => {
     try {
