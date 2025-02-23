@@ -4,7 +4,6 @@ from typing import Any, List
 import tiktoken
 
 from messages.action_messages.action_message import ActionMessage
-from resources.runnable_base_resource import RunnableBaseResource
 from messages.message import Message
 from prompts.prompts import STOP_TOKEN
 from resources.base_resource import BaseResourceConfig
@@ -13,6 +12,7 @@ from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_utils import truncate_input_to_max_tokens
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
+from resources.runnable_base_resource import RunnableBaseResource
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -39,7 +39,6 @@ class ModelResourceConfig(BaseResourceConfig):
     stop_sequences: List[str] = field(default_factory=lambda: [STOP_TOKEN])
     use_mock_model: bool = field(default=False)
 
-
     @classmethod
     def create(cls, **kwargs):
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
@@ -57,7 +56,7 @@ class ModelResourceConfig(BaseResourceConfig):
             raise ValueError("max_input_tokens must be positive")
         if self.max_output_tokens <= 0:
             raise ValueError("max_output_tokens must be positive")
-        if not self.use_mock_model: 
+        if not self.use_mock_model:
             verify_and_auth_api_key(self.model, self.use_helm)
 
 
@@ -143,8 +142,13 @@ class ModelResource(RunnableBaseResource):
             input_message.memory is not None
         ), "Message to model.run() should contain memory."
         model_input = input_message.memory
-        if self.use_mock_model: 
-            return ActionMessage(resource_id=self.resource_id, message=model_input, additional_metadata=None, prev=prev_action_message)
+        if self.use_mock_model:
+            return ActionMessage(
+                resource_id=self.resource_id,
+                message=input_message.message,
+                additional_metadata=None,
+                prev=prev_action_message,
+            )
 
         model_input = truncate_input_to_max_tokens(
             max_input_tokens=self.max_input_tokens,
@@ -152,9 +156,6 @@ class ModelResource(RunnableBaseResource):
             model=self.model,
             use_helm=self.helm,
         )
-
-
-
 
         model_response = self.model_provider.make_request(
             model=self.model,
@@ -195,8 +196,6 @@ class ModelResource(RunnableBaseResource):
         """
         logger.debug(f"Stopping LLM resource {self.resource_id} (no cleanup required)")
 
-
-    
     def to_dict(self) -> dict:
         """
         Serialize the ModelResource to a dictionary.
@@ -216,8 +215,6 @@ class ModelResource(RunnableBaseResource):
                 "use_mock_model": self.use_mock_model,
             }
         else:
-            base_dict["config"] = {
-                "use_mock_model": self.use_mock_model
-            }
+            base_dict["config"] = {"use_mock_model": self.use_mock_model}
 
         return base_dict

@@ -1,10 +1,8 @@
 import asyncio
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional
 
-from agents.base_agent import AgentConfig, BaseAgent
+from agents.base_agent import BaseAgent
 from messages.action_messages.action_message import ActionMessage
-from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.command_message_interface import CommandMessageInterface
 from messages.agent_messages.agent_message import AgentMessage
@@ -70,11 +68,10 @@ class ExecutorAgent(BaseAgent):
         prev_agent_message: Optional[AgentMessage] = None,
     ) -> Message:
         model_action_message = await self.call_lm(prev_agent_message)
-
-        # If the model couldn't generate a valid command, just return a failure message
         if not model_action_message:
             agent_message.set_message("Model failed to produce a valid response.")
             return agent_message
+
         agent_message.add_child_message(model_action_message)
 
         logger.info(f"LM Response:\n{model_action_message.message}")
@@ -89,7 +86,7 @@ class ExecutorAgent(BaseAgent):
 
     async def call_lm(
         self, lm_input_message: Optional[Message] = None
-    ) -> Optional[CommandMessage]:
+    ) -> Optional[ActionMessage]:
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
@@ -107,8 +104,6 @@ class ExecutorAgent(BaseAgent):
                     model_output: ActionMessage = await asyncio.to_thread(
                         self.model.run, input_message=lm_input_message
                     )
-                    if self.model.use_mock_model: 
-                        return model_output
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
                 except Exception as e:
@@ -129,10 +124,9 @@ class ExecutorAgent(BaseAgent):
         finally:
             stop_progress()
 
-    def parse_response(self, action_message: ActionMessage) -> Optional[CommandMessage]:
+    def parse_response(self, action_message: ActionMessage) -> ActionMessage:
         """
         Attempts to parse the ActionMessage into a CommandMessage.
-        If parsing fails, return None so that the agent can still send an AgentMessage.
         """
         try:
             # Convert ActionMessage to CommandMessage
@@ -142,7 +136,10 @@ class ExecutorAgent(BaseAgent):
         except Exception as e:
             logger.info(f"LM responded with: {action_message.message}")
             logger.debug(f"Could not parse response as CommandMessage. Error: {e}")
-            return None
+            action_message.set_message(
+                f"Could not parse response as CommandMessage. Error: {e}"
+            )
+            return action_message
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
         """
