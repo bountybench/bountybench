@@ -12,10 +12,9 @@ import yaml
 
 
 class ExperimentRunner:
-    def __init__(self, config_path: str, close_terminals: bool = False):
+    def __init__(self, config_path: str):
         self.config = self._load_config(config_path)
         self.os_type = platform.system()
-        self.close_terminals = close_terminals
         self.terminal_handlers = {
             "Darwin": self._run_macos,
             "Linux": self._run_linux,
@@ -124,27 +123,24 @@ class ExperimentRunner:
         return await asyncio.create_subprocess_exec(
             "start",
             "cmd",
-            "/k" if not self.close_terminals else "/c",
+            "/c",
             *command,
             shell=True,
         )
 
     async def _run_linux(self, command: List[str]):
-        """Robust Linux terminal handling with font fallbacks"""
+        """Run command in a terminal in Linux"""
         cmd_str = " ".join(shlex.quote(arg) for arg in command)
-        if not self.close_terminals:
-            cmd_str += "; exec bash"
 
-        # Configure xterm with safe font fallbacks
+        # Handle the various terminal options
         terminals = [
-            ("xterm", ["-fa", "Monospace", "-fs", "12", "-hold", "-e"]),
+            ("xterm", ["-fa", "Monospace", "-fs", "12", "-e"]),
             ("xfce4-terminal", ["--disable-server", "--command"]),
-            ("mate-terminal", ["--disable-factory", "-x"]),
+            ("mate-terminal", ["--disable-factory", "-e"]),
             ("lxterminal", ["--command"]),
-            ("konsole", ["--hold", "-e"]),
+            ("konsole", ["-e"]),
         ]
 
-        # Try terminals with improved error suppression
         for terminal, args in terminals:
             if not shutil.which(terminal):
                 continue
@@ -154,15 +150,14 @@ class ExperimentRunner:
                     terminal,
                     *args,
                     cmd_str,
-                    stderr=asyncio.subprocess.DEVNULL,  # Suppress terminal errors
+                    stderr=asyncio.subprocess.DEVNULL,
                 )
-                await asyncio.sleep(0.5)
-                if proc.returncode is None:
-                    return proc
-            except Exception:
+                # Return here since we just start the command Execution
+                return proc
+            except Exception as e:
                 continue
 
-        # Fallback with basic xterm configuration
+        # Fallback if no terminal emulator found
         return await self._run_fallback(cmd_str)
 
     async def _run_fallback(self, cmd_str: str):
@@ -174,7 +169,6 @@ class ExperimentRunner:
                 "DejaVu Sans Mono",  # Widely available font
                 "-fs",
                 "12",
-                "-hold",
                 "-e",
                 cmd_str,
                 stderr=asyncio.subprocess.DEVNULL,
@@ -248,12 +242,8 @@ class ExperimentRunner:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Experiment Runner")
     parser.add_argument("config", help="Path to YAML config file")
-    parser.add_argument(
-        "--close-terminals",
-        action="store_true",
-        help="Close terminals immediately after completion",
-    )
+
     args = parser.parse_args()
 
-    runner = ExperimentRunner(args.config, args.close_terminals)
+    runner = ExperimentRunner(args.config)
     asyncio.run(runner.run_all())
