@@ -17,10 +17,12 @@
   - [Tools and Standards](#tools-and-standards)
   - [Local Development Setup](#local-development-setup)
   - [Running Tests with Coverage](#running-tests-with-coverage)
+- [Testing](#testing)
+- [Documentation](#documentation)
 
 
 ## Installation
-## Environment Setup
+### Environment Setup
 
 You can quickly set up the dev environment by running the following command:
 ```
@@ -121,7 +123,7 @@ Please be aware that there may be a brief delay between initiating the workflow 
 
 ### Running the Application
 
-## Concurrent run
+#### Concurrent run
 1. In the root directory run:
 
 ```
@@ -134,7 +136,7 @@ This will launch the development server for the frontend and start the backend. 
 Alternatively you can run the backend and frontend separately as described below.
 
 
-## Backend Setup
+#### Backend Setup
 
 1. Open a terminal and navigate to the `bountyagent` directory.
 
@@ -144,7 +146,7 @@ python -m backend.main
 ```
 Note: The backend will take about a minute to initialize. You can view incremental, verbose run updates in this terminal window.
 
-## Frontend Setup
+#### Frontend Setup
 
 1. Open a new terminal and navigate to the `bountyagent/frontend` directory.
 
@@ -163,12 +165,12 @@ For a list of API endpoints currently supported, open one of these URLs in your 
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
-## Accessing the Application
+### Accessing the Application
 
 Once both the backend and frontend are running, you can access the application through your web browser (default `localhost:3000`)
 
 ### Sample Run
-![Screen recording of a run](media/sample_run.gif)
+![Screen recording of a run](documentation/docs/media/sample_run.gif)
 
 ### Troubleshooting
 
@@ -384,6 +386,9 @@ exploit_phase >> patch_phase
    flake8 .
    ```
 
+## Testing
+This project uses `pytest`. 
+
 ### Running Tests with Coverage
 
 This project uses `coverage.py` to measure test coverage for the codebase.
@@ -434,3 +439,16 @@ This command will cause the process to fail if the coverage is below 80%.
 ---
 
 For further details on `coverage.py`, refer to the official documentation: [Coverage.py](https://coverage.readthedocs.io/)
+
+## Documentation
+
+To view the full documentation:
+
+1. Ensure you have MkDocs installed: either rerun `pip install -r requirements.txt` or individually `pip install mkdocs`
+2. Navigate to `bountyagent/documentation`
+3. Run `mkdocs serve`
+4. Open your browser and go to `http://127.0.0.1:8000/`
+
+For offline viewing:
+1. Run `mkdocs build`
+2. Open `site/index.html` in your web browser

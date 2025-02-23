@@ -32,7 +32,7 @@ const LauncherState = {
 const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-14';
 const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
 
-export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
+export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode, useMockModel, setUseMockModel}) => {
   const navigate = useNavigate();
   
   const [launcherState, setLauncherState] = useState({
@@ -70,7 +70,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     api_key_name: '',
     api_key_value: '',
     model: '',
-    use_helm: false
+    use_helm: false,
   });
 
   const shouldShowVulnerabilityType = (workflowName) => {
@@ -104,7 +104,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     setFormData(prev => ({
       ...prev,
       model: defaultModel ? defaultModel.name : '',
-      use_helm: isHelmModel
+      use_helm: isHelmModel,
+      use_mock_model: prev.use_mock_model, // Preserve mock model selection
     }));
   };
 
@@ -211,7 +212,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           interactive: interactiveMode,
           iterations: formData.iterations,
           model: formData.model,
-          use_helm: formData.use_helm
+          use_helm: formData.use_helm,
+          use_mock_model: useMockModel
+
         }),
       });
       
@@ -245,7 +248,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
     }));
   };
-
+  
   const handleRevealToggle = () => {
     setShowApiKey((prev) => !prev);
   };
@@ -457,21 +460,34 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           placeholder="e.g., 10"
         />
 
+        <FormControlLabel
+                control={
+                  <Switch
+                    checked={useMockModel} 
+                    onChange={(e) => setUseMockModel(e.target.checked)} 
+                    name="use_mock_model"
+                    color="primary"
+                  />
+                }
+                label="Use Mock Model"
+         />
 
-        <ModelSelectionSection
-          formData={formData}
-          handleInputChange={handleInputChange}
-          topLevelSelection={topLevelSelection}
-          handleTopLevelChange={handleTopLevelChange}
-          selectedModels={selectedModels}
-          apiKeys={apiKeys}
-          isCustomApiKey={isCustomApiKey}
-          setIsCustomApiKey={setIsCustomApiKey}
-          showApiKey={showApiKey}
-          handleRevealToggle={handleRevealToggle}
-          handleApiKeyChange={handleApiKeyChange}
-          apiStatus={apiStatus}
-        />
+        {!useMockModel && (
+          <ModelSelectionSection
+            formData={formData}
+            handleInputChange={handleInputChange}
+            topLevelSelection={topLevelSelection}
+            handleTopLevelChange={handleTopLevelChange}
+            selectedModels={selectedModels}
+            apiKeys={apiKeys}
+            isCustomApiKey={isCustomApiKey}
+            setIsCustomApiKey={setIsCustomApiKey}
+            showApiKey={showApiKey}
+            handleRevealToggle={handleRevealToggle}
+            handleApiKeyChange={handleApiKeyChange}
+            apiStatus={apiStatus}
+          />
+        )}
 
           <FormControlLabel
           control={
@@ -484,6 +500,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           }
           label="Interactive Mode"
           />
+
 
         <Button
           type="submit"

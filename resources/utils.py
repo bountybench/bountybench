@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import List, Union
+import select
+
 
 from bs4 import BeautifulSoup
 
@@ -15,10 +17,10 @@ logger = get_main_logger(__name__)
 def run_command(command, work_dir=None):
     """
     Runs a shell command while capturing output in real-time.
-
+    
     :param command: List of command arguments.
     :param work_dir: Working directory to execute the command in.
-    :return: stdout and stderr as strings.
+    :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
     try:
         process = subprocess.Popen(
@@ -27,27 +29,42 @@ def run_command(command, work_dir=None):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=1,  # Ensures line buffering for real-time output
-            universal_newlines=True,
+            bufsize=1,
+            universal_newlines=True
         )
 
         stdout_lines = []
         stderr_lines = []
 
-        # Read output in real-time
-        for stdout_line in iter(process.stdout.readline, ""):
-            sys.stdout.write(stdout_line)  # Print to console immediately
-            sys.stdout.flush()  # Force immediate print
-            stdout_lines.append(stdout_line)  # Store in variable
+        fds = [process.stdout, process.stderr]
+        while process.poll() is None:  # While process is still running
+            readable, _, _ = select.select(fds, [], [], 0.1)
+            for fd in readable:
+                line = fd.readline()
+                if line:
+                    if fd == process.stdout:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                        stdout_lines.append(line)
+                    else:
+                        sys.stderr.write(line) 
+                        sys.stderr.flush()
+                        stderr_lines.append(line)
 
-        for stderr_line in iter(process.stderr.readline, ""):
-            sys.stderr.write(stderr_line)  # Print errors to console immediately
-            sys.stderr.flush()  # Force immediate print
-            stderr_lines.append(stderr_line)  # Store in variable
+        for fd in fds:
+            for line in fd:
+                if fd == process.stdout:
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+                    stdout_lines.append(line)
+                else:
+                    sys.stderr.write(line)
+                    sys.stderr.flush()
+                    stderr_lines.append(line)
 
         process.stdout.close()
         process.stderr.close()
-        process.wait()  # Ensure process completes
+        process.wait()
 
         return subprocess.CompletedProcess(
             args=command,
@@ -56,12 +73,14 @@ def run_command(command, work_dir=None):
             stderr="".join(stderr_lines),
         )
 
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         logger.error(
             f"Command '{' '.join(command)}' failed with return code {e.returncode}"
         )
         logger.error(f"stdout: {e.stdout}")
         logger.error(f"stderr: {e.stderr}")
+        sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+        sys.stderr.flush()
         raise
 
 

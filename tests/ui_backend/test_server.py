@@ -55,6 +55,7 @@ def test_start_workflow_success(client):
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200, "Expected status code 200"
@@ -100,6 +101,8 @@ def started_chat_workflow(client):
         "iterations": 2,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True
+
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -118,6 +121,7 @@ def started_patch_workflow(client):
         "iterations": 1,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -164,6 +168,7 @@ def started_detect_workflow(client):
         "iterations": 2,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -389,6 +394,7 @@ def test_stopping_multiple_workflows(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True
     }
 
     payload_2 = {
@@ -400,6 +406,7 @@ def test_stopping_multiple_workflows(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True
     }
 
     # Start two workflows
@@ -450,6 +457,7 @@ def test_restarting_workflow_with_same_bounty_number(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True
     }
 
     # Start the first workflow
@@ -484,6 +492,7 @@ def test_stopping_workflow_twice(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True
     }
 
     # Start the workflow
@@ -529,6 +538,7 @@ async def test_websocket_connection_success(client):
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True
     }
     start_response = client.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200
@@ -552,6 +562,7 @@ async def test_websocket_receive_status_update(client):
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True
     }
     start_response = client.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200
