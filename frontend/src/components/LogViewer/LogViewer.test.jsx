@@ -1,10 +1,23 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
 import LogViewer from './LogViewer';
 import '@testing-library/jest-dom';
+import { MemoryRouter, Router } from 'react-router';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 
-const theme = createTheme();
+const theme = createTheme({
+    palette: {
+      primary: {
+        main: '#000000',
+      },
+      secondary: {
+        main: '#111111', 
+      },
+      background: {
+        default: '#222222',
+      },
+    },
+  });  
 
 // Mock data for testing
 const mockLogFiles = [
@@ -170,7 +183,7 @@ describe('LogViewer Component', () => {
         <ThemeProvider theme={theme}>
           <LogViewer />
         </ThemeProvider>
-      );
+    );
       
 
     await waitFor(() => {
@@ -191,7 +204,7 @@ describe('LogViewer Component', () => {
         <ThemeProvider theme={theme}>
           <LogViewer />
         </ThemeProvider>
-      );
+    );
       
 
     await waitFor(() => expect(screen.getByText(/ExploitAndPatch/i)).toBeInTheDocument());
@@ -227,7 +240,7 @@ describe('LogViewer Component', () => {
         <ThemeProvider theme={theme}>
           <LogViewer />
         </ThemeProvider>
-      );
+    );
       
 
     await waitFor(() => fireEvent.click(screen.getByText(/ExploitAndPatch/i)));
@@ -246,7 +259,7 @@ describe('LogViewer Component', () => {
         <ThemeProvider theme={theme}>
           <LogViewer />
         </ThemeProvider>
-      );
+    );
       
 
     await waitFor(() => {
@@ -268,7 +281,7 @@ describe('LogViewer Component', () => {
         <ThemeProvider theme={theme}>
           <LogViewer />
         </ThemeProvider>
-      );
+    );
       
 
     await waitFor(() => fireEvent.click(screen.getByText(/ExploitAndPatch/i)));
