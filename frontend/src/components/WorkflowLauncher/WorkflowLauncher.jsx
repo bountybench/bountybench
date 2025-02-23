@@ -22,6 +22,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SaveIcon from '@mui/icons-material/Save';
 import './WorkflowLauncher.css';
 import { SaveConfigDialog } from './SaveConfigDialog';
+import { TaskSelectionSection } from './TaskSelectionSection';
 import { ModelSelectionSection } from './ModelSelectionSection';
 
 const LauncherState = {
@@ -441,67 +442,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           )}
         </TextField>
 
-        {shouldShowBounty(formData.workflow_name) && (
-          <TextField
-            fullWidth
-            label="Task Repository Directory"
-            name="task_dir"
-            value={formData.task_dir}
-            onChange={handleInputChange}
-            required
-            margin="normal"
-            placeholder="e.g., astropy"
-          />
-        )}
-
-        {shouldShowBounty(formData.workflow_name) && (
-          <TextField
-            fullWidth
-            label="Bounty Number"
-            name="bounty_number"
-            value={formData.bounty_number}
-            onChange={handleInputChange}
-            required
-            margin="normal"
-            placeholder="e.g., 0"
-          />
-        )}
-        
-        {shouldShowVulnerabilityType(formData.workflow_name) && (
-          <>
-            {vulnerabilityTypes && vulnerabilityTypes.length > 0 ? (
-              <TextField
-                select
-                fullWidth
-                label="Vulnerability Type (Optional)"
-                name="vulnerability_type"
-                value={formData.vulnerability_type}
-                onChange={handleInputChange}
-                margin="normal"
-              >
-                {vulnerabilityTypes.map((type) => (
-                  <MenuItem key={type.value} value={type.value}>
-                    {type.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            ) : (
-              <TextField
-                select
-                fullWidth
-                label="Vulnerability Type (Optional)"
-                name="vulnerability_type"
-                value=""
-                disabled
-                margin="normal"
-              >
-                <MenuItem value="">
-                  <Typography>No vulnerability types available</Typography>
-                </MenuItem>
-              </TextField>
-            )}
-          </>
-        )}
+        <TaskSelectionSection
+          formData={formData}
+          handleInputChange={handleInputChange}
+          shouldShowBounty={shouldShowBounty}
+          shouldShowVulnerabilityType={shouldShowVulnerabilityType}
+          vulnerabilityTypes={vulnerabilityTypes}
+        />
 
         <TextField
           fullWidth
