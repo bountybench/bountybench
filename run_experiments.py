@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import itertools
-import os
 import platform
 import shlex
 import shutil
@@ -10,6 +9,12 @@ from collections import defaultdict
 from typing import Dict, List, Optional
 
 import yaml
+from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
+from rich.panel import Panel
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 
 class ExperimentRunner:
@@ -22,6 +27,8 @@ class ExperimentRunner:
             "Linux": self._run_linux,
             "Windows": self._run_windows,
         }
+        self.console = Console()
+        self.task_status = {}
 
     def _load_config(self, path: str) -> Dict:
         with open(path) as f:
@@ -104,7 +111,7 @@ class ExperimentRunner:
             cmd.append("--helm")
 
         if use_mock_model:
-            cmd.append("--mock_model")
+            cmd.append("--use_mock_model")
 
         if vulnerability_type and workflow_type.startswith("detect_"):
             cmd.extend(["--vulnerability_type", vulnerability_type])
@@ -211,9 +218,21 @@ class ExperimentRunner:
         except ValueError:
             return "default"
 
+    def _get_task_id(self, command: List[str]) -> str:
+        """Generate a unique task ID from the command"""
+        task_dir = self._get_task_dir_from_command(command)
+        model = command[command.index("--model") + 1]
+        phase_iterations = command[command.index("--phase_iterations") + 1]
+        return f"{task_dir}_{model}_{phase_iterations}"
+
     async def run_all(self):
-        """Run experiments with proper task_dir sequencing"""
+        """Run experiments with proper task_dir sequencing and status tracking"""
         commands = self.generate_commands()
+
+        # Initialize task status
+        for cmd in commands:
+            task_id = self._get_task_id(cmd)
+            self.task_status[task_id] = "Pending"
 
         # Group commands by task_dir
         task_groups = defaultdict(list)
@@ -224,26 +243,84 @@ class ExperimentRunner:
         # Create tasks for each task_dir group
         tasks = []
         for task_dir, cmds in task_groups.items():
-            print(f"Preparing task group for directory: {task_dir}")
+            self.console.print(f"Preparing task group for directory: {task_dir}")
             tasks.append(self.run_task_dir(task_dir, cmds))
 
-        # Run all task groups in parallel
-        all_results = await asyncio.gather(*tasks)
+        # Set up progress and layout
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        )
+        overall_task = progress.add_task("[cyan]Overall Progress", total=len(commands))
+
+        layout = Layout()
+        layout.split(Layout(Panel(progress), size=3), Layout(name="status_table"))
+
+        async def update_display():
+            while True:
+                layout["status_table"].update(
+                    Panel(self.generate_status_table(), title="Experiment Status")
+                )
+                await asyncio.sleep(0.5)
+
+        update_task = asyncio.create_task(update_display())
+
+        with Live(layout, refresh_per_second=4) as live:
+            all_results = await asyncio.gather(*tasks)
+            for result in all_results:
+                for _ in result:
+                    progress.update(overall_task, advance=1)
+
+            # Ensure final status update
+            await asyncio.sleep(1)
+            layout["status_table"].update(
+                Panel(self.generate_status_table(), title="Experiment Status")
+            )
+            live.refresh()
+
+        update_task.cancel()
+        try:
+            await update_task
+        except asyncio.CancelledError:
+            pass
 
         # Flatten results
         results = [result for group_result in all_results for result in group_result]
 
-        print("\nExperiment Summary:")
+        self.console.print("\nExperiment Summary:")
         success_count = sum(1 for code in results if code == 0)
-        print(f"Successfully launched {success_count}/{len(commands)} experiments")
-        print(f"Failed: {len(commands) - success_count}")
+        self.console.print(
+            f"Successfully completed {success_count}/{len(commands)} experiments"
+        )
+        self.console.print(f"Failed: {len(commands) - success_count}")
+
+    def generate_status_table(self) -> Table:
+        """Generate a rich Table with current task status"""
+        table = Table(title="Experiment Status")
+        table.add_column("Task ID", style="cyan")
+        table.add_column("Status", style="magenta")
+
+        for task_id, status in self.task_status.items():
+            table.add_row(task_id, status)
+
+        return table
 
     async def run_task_dir(self, task_dir: str, commands: List[List[str]]):
-        """Run commands for a task_dir with proper sequencing"""
+        """Run commands for a task_dir with proper sequencing and status updates"""
+
+        async def run_single_command(cmd):
+            task_id = self._get_task_id(cmd)
+            self.task_status[task_id] = "Running"
+            result = await self.run_experiment(cmd)
+            self.task_status[task_id] = "Completed" if result == 0 else "Failed"
+            return result
+
         results = []
         for cmd in commands:
             # Wait for terminal to close before proceeding
-            result = await self.run_experiment(cmd)
+            result = await run_single_command(cmd)
             results.append(result)
         return results
 
@@ -258,7 +335,7 @@ class ExperimentRunner:
             return_code = await proc.wait()
             return 0 if return_code == 0 else 1
         except Exception as e:
-            print(f"Failed to launch experiment: {e}", file=sys.stderr)
+            self.console.print(f"Failed to launch experiment: {e}", style="bold red")
             return 1
 
 
