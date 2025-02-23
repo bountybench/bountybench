@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import itertools
+import os
 import platform
 import shlex
 import shutil
@@ -107,17 +108,24 @@ class ExperimentRunner:
 
     async def _run_macos(self, command: List[str]):
         """Run command in new macOS Terminal window"""
+        # Get the current working directory
+        current_dir = os.getcwd()
+
+        # Construct the command with cd first
+        cd_cmd = f"cd {shlex.quote(current_dir)} && "
         cmd_str = " ".join(shlex.quote(arg) for arg in command)
-        apple_script = f"""
+        full_cmd = cd_cmd + cmd_str
+
+        mac_script = f"""
         tell application "Terminal"
             activate
-            do script "{cmd_str}"
+            do script "{full_cmd}"
         end tell
         """
         proc = await asyncio.create_subprocess_exec(
-            "osascript", "-e", apple_script.strip()
+            "osascript", "-e", mac_script.strip()
         )
-        return await proc.wait()
+        return proc
 
     async def _run_windows(self, command: List[str]):
         """Run command in new Windows cmd window"""
