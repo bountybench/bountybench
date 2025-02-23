@@ -13,14 +13,9 @@ import {
   CircularProgress,
   Alert,
   Grid,
-  InputAdornment,
-  IconButton,
   Divider,
 } from '@mui/material';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import ListIcon from '@mui/icons-material/List';
 import './WorkflowLauncher.css';
 
 const LauncherState = {
@@ -34,7 +29,7 @@ const LauncherState = {
 const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-14';
 const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
 
-export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
+export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode, useMockModel, setUseMockModel}) => {
   const navigate = useNavigate();
   
   const [launcherState, setLauncherState] = useState({
@@ -68,7 +63,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     api_key_name: '',
     api_key_value: '',
     model: '',
-    use_helm: false
+    use_helm: false,
   });
 
   const shouldShowVulnerabilityType = (workflowName) => {
@@ -102,12 +97,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     setFormData(prev => ({
       ...prev,
       model: defaultModel ? defaultModel.name : '',
-      use_helm: isHelmModel
+      use_helm: isHelmModel,
+      use_mock_model: prev.use_mock_model, // Preserve mock model selection
     }));
   };
 
   const [apiKeys, setApiKeys] = useState({});
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiKey] = useState(false);
   const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
   const [isCustomApiKey, setIsCustomApiKey] = useState(false);
 
@@ -209,7 +205,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           interactive: interactiveMode,
           iterations: formData.iterations,
           model: formData.model,
-          use_helm: formData.use_helm
+          use_helm: formData.use_helm,
+          use_mock_model: useMockModel
+
         }),
       });
       
@@ -244,9 +242,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }));
   };
 
-  const handleRevealToggle = () => {
-    setShowApiKey((prev) => !prev);
-  };
 
   const handleApiKeyChange = async () => {
     try {
@@ -468,135 +463,116 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           placeholder="e.g., 10"
         />
 
+        <FormControlLabel
+                control={
+                  <Switch
+                    checked={useMockModel} 
+                    onChange={(e) => setUseMockModel(e.target.checked)} 
+                    name="use_mock_model"
+                    color="primary"
+                  />
+                }
+                label="Use Mock Model"
+         />
+
+{!useMockModel && (
+  <>
+    <TextField
+      select
+      fullWidth
+      label="Model Type"
+      name="type"
+      value={topLevelSelection}
+      onChange={handleTopLevelChange}
+      margin="normal"
+    >
+      <MenuItem value="HELM">HELM</MenuItem>
+      <MenuItem value="Non-HELM">Non-HELM</MenuItem>
+    </TextField>
+
+    {selectedModels && (
+      <TextField
+        select
+        fullWidth
+        label="Model Name"
+        name="model"
+        value={formData.model}
+        onChange={handleInputChange}
+        margin="normal"
+      >
+        {selectedModels.map((model) => (
+          <MenuItem key={model.name} value={model.name}>
+            {model.name}
+          </MenuItem>
+        ))}
+      </TextField>
+    )}
+
+    <Grid container spacing={2} alignItems="center">
+      <Grid item xs={5}>
         <TextField
-          select
+          select={!isCustomApiKey} // Turns into input when "Enter new key" is selected
           fullWidth
-          label="Model Type"
-          name="type"
-          value={topLevelSelection}
-          onChange={handleTopLevelChange}
+          label="API Key Name"
+          name="api_key_name"
+          value={formData.api_key_name || ""}
+          onChange={handleInputChange}
+          required
           margin="normal"
         >
-          <MenuItem value="HELM">HELM</MenuItem>
-          <MenuItem value="Non-HELM">Non-HELM</MenuItem>
-        </TextField>
-
-        {/* Conditionally render the second dropdown based on top-level selection */}
-        {selectedModels && (
-          <TextField
-            select
-            fullWidth
-            label="Model Name"
-            name="model"
-            value={formData.model}
-            onChange={handleInputChange}
-            margin="normal"
-          >
-            {selectedModels.map((model) => (
-            <MenuItem key={model.name} value={model.name}>
-              <Box display="flex" flexDirection="column">
-                <Typography>{model.name}</Typography>
-              </Box>
+          {Object.keys(apiKeys).map((key) => (
+            <MenuItem key={key} value={key}>
+              {key}
             </MenuItem>
           ))}
-          </TextField>
-          )}
+          <Divider />
+          <MenuItem onClick={() => {
+            setIsCustomApiKey(true);
+            setFormData((prev) => ({
+              ...prev,
+              api_key_name: "my_custom_key",
+            }));
+          }}>
+            Enter a New API Key:
+          </MenuItem>
+        </TextField>
+      </Grid>
 
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={5}>
-            <TextField
-              select={!isCustomApiKey} // Turns into input when "Enter new key" is selected
-              fullWidth
-              label="API Key Name"
-              name="api_key_name"
-              value={formData.api_key_name || ""}
-              onChange={handleInputChange}
-              required
-              margin="normal"
-              InputProps={{
-                endAdornment: (
-                  <IconButton onClick={() => {
-                    if (isCustomApiKey) {
-                      setIsCustomApiKey(!isCustomApiKey);
+      <Grid item xs={5.5}>
+        <TextField
+          fullWidth
+          type={showApiKey ? 'text' : 'password'}
+          label="API Key Value"
+          name="api_key_value"
+          value={formData.api_key_value}
+          onChange={handleInputChange}
+          required
+          margin="normal"
+          placeholder="Enter API key"
+        />
+      </Grid>
 
-                      handleInputChange({ // Reset to default
-                        target: {
-                          name: "api_key_name",
-                          value: "HELM_API_KEY",
-                        },
-                      });
-                    }
-                  }}>
-                    {isCustomApiKey ? <ListIcon /> : null}
-                  </IconButton>
-                )
-              }}
-            >
-              {Object.keys(apiKeys).map((key) => (
-                <MenuItem key={key} value={key}>
-                  {key}
-                </MenuItem>
-              ))}
-              <Divider />
-              <MenuItem onClick={() => {
-                setIsCustomApiKey(true);
-                setFormData((prev) => ({
-                  ...prev,
-                  api_key_name: "my_custom_key",
-                }));
-                
-              }}>
-                Enter a New API Key:
-              </MenuItem>
-            </TextField>
-          </Grid>
+      <Grid item xs={1}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleApiKeyChange}
+          size="small"
+        >
+          Update
+        </Button>
+      </Grid>
 
-          <Grid item xs={5.5}>
-            <TextField
-              fullWidth
-              type={showApiKey ? 'text' : 'password'}
-              label="API Key Value"
-              name="api_key_value"
-              value={formData.api_key_value}
-              onChange={handleInputChange}
-              required
-              margin="normal"
-              placeholder="Enter API key"
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={handleRevealToggle} size="large">
-                      {showApiKey ? <Visibility /> : <VisibilityOff />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-
-          <Grid item xs={1}>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleApiKeyChange}
-                size="small"
-              >
-                Update
-              </Button>
-            </Box>
-          </Grid>
-
-          <Grid item xs={10}>
-            {apiStatus.message && (
-              <Alert severity={apiStatus.type} className="launcher-alert" sx={{ whiteSpace: "pre-line" }}>
-                {apiStatus.message}
-              </Alert>
-            )}
-          </Grid>
-
-
-        </Grid>
+      <Grid item xs={10}>
+        {apiStatus.message && (
+          <Alert severity={apiStatus.type} className="launcher-alert" sx={{ whiteSpace: "pre-line" }}>
+            {apiStatus.message}
+          </Alert>
+        )}
+      </Grid>
+    </Grid>
+  </>
+)}
 
           <FormControlLabel
           control={
@@ -609,6 +585,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           }
           label="Interactive Mode"
           />
+
 
         <Button
           type="submit"

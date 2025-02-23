@@ -32,6 +32,12 @@ class ActionMessage(Message):
     def message(self) -> str:
         return self._message
 
+    def set_message(self, value: str):
+        """
+        Setter for message property.
+        """
+        self._message = value
+
     @property
     def message_type(self) -> str:
         """

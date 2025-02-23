@@ -17,7 +17,9 @@ class FakeWorkflow:
         phase_iterations: int,
         model: str,
         use_helm: bool,
+        use_mock_model
     ):
+        self.use_mock_model = use_mock_model
         self.workflow_message = type(
             "obj", (object,), {"workflow_id": f"fake-{bounty_number}"}
         )
@@ -61,6 +63,7 @@ class FakeWorkflow:
     async def _finalize_workflow(self):
         """Simulate finalizing workflow - saves workflow state."""
         self.status = "INCOMPLETE"
+        
 
 
 # Define specific fake workflows if behavior varies

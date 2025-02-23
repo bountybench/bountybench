@@ -25,6 +25,7 @@ class PatchWorkflow(BountyWorkflow):
         """Define and register phases specific to PatchWorkflow."""
 
         phase_kwargs = {
+            'use_mock_model': self.params.get('use_mock_model'),
             "model": self.params.get("model"),
             "helm": self.params.get("helm"),
             "task_dir": self.task_dir,
@@ -77,6 +78,7 @@ async def main() -> None:
     parser.add_argument(
         "--interactive", action="store_true", help="Enable interactive mode"
     )
+    parser.add_argument("--use_mock_model", action="store_true", help="Use mock model")
     parser.add_argument("--model", type=str, help="The LM model to query")
     parser.add_argument("--helm", action="store_true", help="Use HelmModels")
     parser.add_argument(
@@ -93,7 +95,7 @@ async def main() -> None:
         task_dir=Path(args.task_dir),
         bounty_number=args.bounty_number,
         interactive=args.interactive,
-        model=args.model,
+        use_mock_model=args.use_mock_model, model=args.model,
         phase_iterations=args.phase_iterations,
     )
     await workflow.run()

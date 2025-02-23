@@ -51,6 +51,23 @@ class ResourceManager:
             resource = resource_class("model", resource_config)
             self._resources.set(self.workflow_id, "model", resource)
             logger.info(f"New model specifics: {resource}")
+    
+    def update_mock_model(self, use_mock_model: bool):
+        """
+        Updates the `use_mock_model` setting for the ModelResource.
+        """
+        if "model" in self._resource_registration:
+            resource_class, resource_config = ModelResource, ModelResourceConfig.create(
+                model=self._resource_registration["model"][1].model, 
+                use_mock_model=use_mock_model 
+            )
+            self._resource_registration["model"] = (resource_class, resource_config)
+
+            # Create and set the updated resource
+            resource = resource_class("model", resource_config)
+            self._resources.set(self.workflow_id, "model", resource)
+
+            logger.info(f"Updated ModelResource to use_mock_model={use_mock_model}")
 
     def compute_schedule(self, phases: List["BasePhase"]):
         """

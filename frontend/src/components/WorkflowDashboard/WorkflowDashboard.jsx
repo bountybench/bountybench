@@ -18,7 +18,8 @@ const WorkflowState = {
   STOPPED: 'STOPPED'
 };
 
-export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast }) => {
+export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast,   useMockModel,
+  setUseMockModel }) => {
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
@@ -139,7 +140,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   useEffect(() => {
     fetchResources();
-  }, [phaseMessages, fetchResources]);
+  }, [phaseMessages, useMockModel, fetchResources]);
 
   const toggleResourcePanel = () => {
     setIsResourcePanelOpen(!isResourcePanelOpen);
