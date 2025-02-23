@@ -10,7 +10,7 @@ export const formDataToYaml = (formData) => {
       }
     ],
     phase_iterations: parseInt(formData.iterations),
-    repetitions: 1, // Default to 1
+    trials_per_config: 1, // Default to 1
     models: [
       {
         name: formData.model,

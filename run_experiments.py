@@ -32,7 +32,7 @@ class ExperimentRunner:
 
         # Extract common parameters
         workflow_type = self.config["workflow_type"]
-        repetitions = self.config.get("repetitions", 1)
+        trials_per_config = self.config.get("trials_per_config", 1)
 
         # Extract and normalize parameters
         tasks = self.config.get("tasks", [])
@@ -54,7 +54,7 @@ class ExperimentRunner:
             task, model, iterations = combination[:3]
             vuln_type = combination[3] if len(combination) > 3 else None
 
-            for _ in range(repetitions):
+            for _ in range(trials_per_config):
                 cmd = self._build_command(
                     workflow_type,
                     task["task_dir"],
