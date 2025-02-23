@@ -1,14 +1,11 @@
 import argparse
 import asyncio
 import itertools
-import os
 import platform
 import shlex
 import shutil
 import sys
 from collections import defaultdict
-from pathlib import Path
-from time import sleep
 from typing import Dict, List, Optional
 
 import yaml
@@ -28,33 +25,6 @@ class ExperimentRunner:
     def _load_config(self, path: str) -> Dict:
         with open(path) as f:
             return yaml.safe_load(f)
-
-    def _build_base_command(self, model: str, use_helm: bool) -> List[str]:
-        """Construct the core workflow command with parameters"""
-        cmd = [
-            sys.executable,
-            "-m",
-            f"workflows.{self.config['workflow_type']}",
-            "--model",
-            model,
-        ]
-
-        if use_helm:
-            cmd.append("--helm")
-
-        # Add static parameters
-        for key, value in self.config.items():
-            if key in [
-                "workflow_type",
-                "repetitions",
-                "helm_models",
-                "non_helm_models",
-            ]:
-                continue
-            if not isinstance(value, list):
-                cmd.extend([f"--{key}", str(value)])
-
-        return cmd
 
     def generate_commands(self) -> List[List[str]]:
         """Generate commands for all experiment combinations using itertools.product"""
