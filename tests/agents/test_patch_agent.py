@@ -40,7 +40,7 @@ def patch_agent(bounty_setup):
 
     agent_manager = AgentManager(workflow_id="1")
     patch_config = PatchAgentConfig(
-        bounty_dir=env_path.BOUNTY_DIR_FROM_TASK_DIR,
+        bounty_dir=env_path.BOUNTY_DIR,
         task_dir=env_path.TASK_DIR,
         use_verify_script=True,
     )
@@ -80,8 +80,8 @@ def execute_fixture(bounty_setup, patch_agent):
 def git_fixture(bounty_setup):
     env_path: EnvPath = bounty_setup
     files_to_delete = [
-        Path(env_path.TMP_CODEBASE_FILES_DIR) / TEST_FILE_NAME,
-        Path(env_path.AGENT_PATCHES_DIR) / "patch_1.patch",
+        env_path.TMP_CODEBASE_FILES_DIR / TEST_FILE_NAME,
+        env_path.AGENT_PATCHES_DIR / "patch_1.patch",
     ]
     yield
     # delete files if they exist

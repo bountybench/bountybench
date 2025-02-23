@@ -21,12 +21,12 @@ from tests.agents.agent_test_utils import EnvPath, lunary_bounty_0_setup
 def agent_configs(lunary_bounty_0_setup):
     env_setup: EnvPath = lunary_bounty_0_setup
     pConfig = PatchAgentConfig(
-        bounty_dir=env_setup.BOUNTY_DIR_FROM_TASK_DIR,
+        bounty_dir=env_setup.BOUNTY_DIR,
         task_dir=env_setup.TASK_DIR,
         use_verify_script=False,
     )
     eConfig = ExploitAgentConfig(
-        bounty_dir=env_setup.BOUNTY_DIR_FROM_TASK_DIR,
+        bounty_dir=env_setup.BOUNTY_DIR,
         task_dir=env_setup.TASK_DIR,
         tmp_dir=env_setup.TMP_DIR,
     )

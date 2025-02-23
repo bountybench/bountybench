@@ -128,8 +128,7 @@ class PatchPhase(BountyPhase):
             )
 
         setup_bounty_env_script = (
-            self.workflow.task_dir
-            / self.bounty_dir
+            self.bounty_dir
             / "setup_files"
             / "setup_bounty_env.sh"
         )
