@@ -12,11 +12,14 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
-  Grid,
-  Divider,
 } from '@mui/material';
+import { formDataToYaml } from './utils/formDataToYaml'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import SaveIcon from '@mui/icons-material/Save';
 import './WorkflowLauncher.css';
+import { SaveConfigDialog } from './SaveConfigDialog';
+import { TaskSelectionSection } from './TaskSelectionSection';
+import { ModelSelectionSection } from './ModelSelectionSection';
 
 const LauncherState = {
   CHECKING_SERVER: 'CHECKING_SERVER',
@@ -53,6 +56,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [workflows, setWorkflows] = useState([]);
   const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
   
+  const [openSaveDialog, setOpenSaveDialog] = useState(false);
+  const [fileName, setFileName] = useState('workflow_config.yaml'); 
+  const [saveStatus, setSaveStatus] = useState(null);
+
   const [formData, setFormData] = useState({
     workflow_name: '',
     task_dir: 'lunary',
@@ -103,7 +110,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   };
 
   const [apiKeys, setApiKeys] = useState({});
-  const [showApiKey] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
   const [isCustomApiKey, setIsCustomApiKey] = useState(false);
 
@@ -241,7 +248,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
     }));
   };
-
+  
+  const handleRevealToggle = () => {
+    setShowApiKey((prev) => !prev);
+  };
 
   const handleApiKeyChange = async () => {
     try {
@@ -280,6 +290,47 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       fetchApiKeys();
     } catch (err) {
       console.log(err.message);
+    }
+  };
+
+  const handleSaveConfiguration = () => {
+    setOpenSaveDialog(true);
+  };
+
+  const handleSaveDialogClose = () => {
+    setOpenSaveDialog(false);
+    setSaveStatus(false);
+  };
+
+  const handleFileNameChange = (event) => {
+    setFileName(event.target.value);
+  };
+
+  
+  const handleSaveConfirm = async () => {
+    const yamlConfig = formDataToYaml(formData);
+    const saveFileName = fileName.endsWith('.yaml') ? fileName : `${fileName}.yaml`;
+
+    try {
+      const response = await fetch('http://localhost:8000/workflow/save-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: saveFileName,
+          config: yamlConfig,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save configuration');
+      }
+
+      const result = await response.json();
+      setSaveStatus({ type: 'success', message: result.message });
+    } catch (error) {
+      setSaveStatus({ type: 'error', message: error.message });
     }
   };
 
@@ -390,67 +441,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           )}
         </TextField>
 
-        {shouldShowBounty(formData.workflow_name) && (
-          <TextField
-            fullWidth
-            label="Task Repository Directory"
-            name="task_dir"
-            value={formData.task_dir}
-            onChange={handleInputChange}
-            required
-            margin="normal"
-            placeholder="e.g., astropy"
-          />
-        )}
-
-        {shouldShowBounty(formData.workflow_name) && (
-          <TextField
-            fullWidth
-            label="Bounty Number"
-            name="bounty_number"
-            value={formData.bounty_number}
-            onChange={handleInputChange}
-            required
-            margin="normal"
-            placeholder="e.g., 0"
-          />
-        )}
-        
-        {shouldShowVulnerabilityType(formData.workflow_name) && (
-          <>
-            {vulnerabilityTypes && vulnerabilityTypes.length > 0 ? (
-              <TextField
-                select
-                fullWidth
-                label="Vulnerability Type (Optional)"
-                name="vulnerability_type"
-                value={formData.vulnerability_type}
-                onChange={handleInputChange}
-                margin="normal"
-              >
-                {vulnerabilityTypes.map((type) => (
-                  <MenuItem key={type.value} value={type.value}>
-                    {type.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            ) : (
-              <TextField
-                select
-                fullWidth
-                label="Vulnerability Type (Optional)"
-                name="vulnerability_type"
-                value=""
-                disabled
-                margin="normal"
-              >
-                <MenuItem value="">
-                  <Typography>No vulnerability types available</Typography>
-                </MenuItem>
-              </TextField>
-            )}
-          </>
-        )}
+        <TaskSelectionSection
+          formData={formData}
+          handleInputChange={handleInputChange}
+          shouldShowBounty={shouldShowBounty}
+          shouldShowVulnerabilityType={shouldShowVulnerabilityType}
+          vulnerabilityTypes={vulnerabilityTypes}
+        />
 
         <TextField
           fullWidth
@@ -475,104 +472,22 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
                 label="Use Mock Model"
          />
 
-{!useMockModel && (
-  <>
-    <TextField
-      select
-      fullWidth
-      label="Model Type"
-      name="type"
-      value={topLevelSelection}
-      onChange={handleTopLevelChange}
-      margin="normal"
-    >
-      <MenuItem value="HELM">HELM</MenuItem>
-      <MenuItem value="Non-HELM">Non-HELM</MenuItem>
-    </TextField>
-
-    {selectedModels && (
-      <TextField
-        select
-        fullWidth
-        label="Model Name"
-        name="model"
-        value={formData.model}
-        onChange={handleInputChange}
-        margin="normal"
-      >
-        {selectedModels.map((model) => (
-          <MenuItem key={model.name} value={model.name}>
-            {model.name}
-          </MenuItem>
-        ))}
-      </TextField>
-    )}
-
-    <Grid container spacing={2} alignItems="center">
-      <Grid item xs={5}>
-        <TextField
-          select={!isCustomApiKey} // Turns into input when "Enter new key" is selected
-          fullWidth
-          label="API Key Name"
-          name="api_key_name"
-          value={formData.api_key_name || ""}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-        >
-          {Object.keys(apiKeys).map((key) => (
-            <MenuItem key={key} value={key}>
-              {key}
-            </MenuItem>
-          ))}
-          <Divider />
-          <MenuItem onClick={() => {
-            setIsCustomApiKey(true);
-            setFormData((prev) => ({
-              ...prev,
-              api_key_name: "my_custom_key",
-            }));
-          }}>
-            Enter a New API Key:
-          </MenuItem>
-        </TextField>
-      </Grid>
-
-      <Grid item xs={5.5}>
-        <TextField
-          fullWidth
-          type={showApiKey ? 'text' : 'password'}
-          label="API Key Value"
-          name="api_key_value"
-          value={formData.api_key_value}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-          placeholder="Enter API key"
-        />
-      </Grid>
-
-      <Grid item xs={1}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleApiKeyChange}
-          size="small"
-        >
-          Update
-        </Button>
-      </Grid>
-
-      <Grid item xs={10}>
-        {apiStatus.message && (
-          <Alert severity={apiStatus.type} className="launcher-alert" sx={{ whiteSpace: "pre-line" }}>
-            {apiStatus.message}
-          </Alert>
+        {!useMockModel && (
+          <ModelSelectionSection
+            formData={formData}
+            handleInputChange={handleInputChange}
+            topLevelSelection={topLevelSelection}
+            handleTopLevelChange={handleTopLevelChange}
+            selectedModels={selectedModels}
+            apiKeys={apiKeys}
+            isCustomApiKey={isCustomApiKey}
+            setIsCustomApiKey={setIsCustomApiKey}
+            showApiKey={showApiKey}
+            handleRevealToggle={handleRevealToggle}
+            handleApiKeyChange={handleApiKeyChange}
+            apiStatus={apiStatus}
+          />
         )}
-      </Grid>
-    </Grid>
-  </>
-)}
 
           <FormControlLabel
           control={
@@ -595,7 +510,24 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         >
           Start Workflow
         </Button>
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={handleSaveConfiguration}
+          startIcon={<SaveIcon />}
+        >
+          Save Configuration
+        </Button>
       </form>
+
+      <SaveConfigDialog
+        open={openSaveDialog}
+        onClose={handleSaveDialogClose}
+        fileName={fileName}
+        onFileNameChange={handleFileNameChange}
+        onSave={handleSaveConfirm}
+        saveStatus={saveStatus}
+      />
     </Box>
   );
 };

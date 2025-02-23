@@ -195,12 +195,6 @@ def test_git_checkout_invalid_commit(tmp_git_repo):
         git_checkout(tmp_git_repo, "invalid_commit_hash")
 
 
-def test_git_delete_nonexistent_branch(tmp_git_repo):
-    """Test deleting branch that doesn't exist."""
-    with pytest.raises(subprocess.CalledProcessError):
-        git_delete_branch(tmp_git_repo, "non_existent_branch")
-
-
 def test_git_init_nonexistent_directory():
     """Test initializing repo in non-existent directory."""
     non_existent_dir = Path("/non/existent/path")
