@@ -31,12 +31,20 @@ class BountyPhase(BasePhase, ABC):
 
 
         self._initial_prompt: str = kwargs.get("initial_prompt", "")
-        self.bounty_dir: Path = Path("bounties") / f"bounty_{self.bounty_number}"
+        self.bounty_dir: Path = (
+            workflow.task_dir
+            / "bounties"
+            / f"bounty_{self.bounty_number}"
+        )
+        
+        self.tmp_dir: Path = (
+            workflow.task_dir
+            / "bounties"
+            / f"bounty_{self.bounty_number}"
+            / f"tmp_{workflow.workflow_message.workflow_id}"
+        )
 
         super().__init__(workflow, **kwargs)
-
-        self.tmp_dir_name: str = "tmp"
-        self.tmp_dir: Path = self.workflow.task_dir / self.tmp_dir_name
 
     def _create_initial_agent_message(self) -> None:
         """Create the initial agent message for the bounty phase."""

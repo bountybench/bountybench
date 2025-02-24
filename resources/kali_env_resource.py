@@ -5,7 +5,7 @@ import time
 import select
 from typing import Dict, Optional, Tuple
 import time
-
+from pathlib import Path
 
 import docker
 from docker.models.containers import Container
@@ -56,14 +56,14 @@ class DockerContainerStartError(Exception):
 @dataclass
 class KaliEnvResourceConfig(BaseResourceConfig):
     """Configuration for KaliEnvResource"""
-    task_dir: Optional[str] = None
+    task_dir: Optional[Path] = None
     bounty_number: Optional[str] = None
     volumes: Optional[Dict[str, Dict[str, str]]] = None
     target_host: Optional[str] = None
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
-        if self.task_dir and not os.path.exists(self.task_dir):
+        if self.task_dir and not self.task_dir.exists():
             raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if self.volumes:
             for host_path in self.volumes.keys():
@@ -93,10 +93,10 @@ class KaliEnvResource(RunnableBaseResource):
         
         # Initialize bounty directory if task_dir and bounty_number provided
         if self._resource_config.task_dir and self._resource_config.bounty_number:
-            self.bounty_dir = os.path.join(
-                str(self._resource_config.task_dir),
-                "bounties",
-                f"bounty_{self._resource_config.bounty_number}"
+            self.bounty_dir = (
+                self._resource_config.task_dir
+                / "bounties"
+                / f"bounty_{self._resource_config.bounty_number}"
             )
         
         if self.target_host:
@@ -520,8 +520,16 @@ class KaliEnvResource(RunnableBaseResource):
         """
         Creates a KaliEnvResource instance from a serialized dictionary.
         """
-        task_dir = os.path.dirname(os.path.dirname(data['bounty_dir']))
-        bounty_number = os.path.basename(data['bounty_dir']).replace('bounty_', '')
+        task_dir = (
+            Path(data["bounty_dir"]).parent.parent
+            if data["bounty_dir"]
+            else None
+        )
+        bounty_number = (
+            Path(data["bounty_dir"]).name.replace("bounty_", "")
+            if data["bounty_dir"]
+            else None
+        )
         
         return cls(
             name=data['resource_id'],

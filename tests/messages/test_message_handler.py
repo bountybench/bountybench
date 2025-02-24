@@ -76,7 +76,7 @@ def test_dir(tmp_path):
 def kali_env(test_dir):
     """Setup real KaliEnv resource"""
     config = KaliEnvResourceConfig(
-        task_dir=str(test_dir),
+        task_dir=test_dir,
         bounty_number="0",
         volumes={
             str(test_dir): {"bind": "/app", "mode": "rw"},
