@@ -1,19 +1,21 @@
 import argparse
 import asyncio
 import itertools
+import os
 import platform
 import shlex
 import shutil
 import sys
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import yaml
-from rich.console import Console
+from rich.console import Console, Group
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+from rich.style import Style
 from rich.table import Table
 
 
@@ -34,9 +36,10 @@ class ExperimentRunner:
         with open(path) as f:
             return yaml.safe_load(f)
 
-    def generate_commands(self) -> List[List[str]]:
+    def generate_commands(self) -> List[Tuple[int, List[str]]]:
         """Generate commands for all experiment combinations using itertools.product"""
         commands = []
+        task_id = 0
 
         # Extract common parameters
         workflow_type = self.config["workflow_type"]
@@ -73,7 +76,8 @@ class ExperimentRunner:
                     iterations,
                     vuln_type,
                 )
-                commands.append(cmd)
+                commands.append((task_id, cmd))
+                task_id += 1
 
         return commands
 
@@ -218,110 +222,101 @@ class ExperimentRunner:
         except ValueError:
             return "default"
 
-    def _get_task_id(self, command: List[str]) -> str:
-        """Generate a unique task ID from the command"""
-        task_dir = self._get_task_dir_from_command(command)
-        model = command[command.index("--model") + 1]
-        phase_iterations = command[command.index("--phase_iterations") + 1]
-        return f"{task_dir}_{model}_{phase_iterations}"
+    def _get_bounty_from_command(self, command: List[str]) -> str:
+        """Extract bounty number from command arguments"""
+        try:
+            bounty_index = command.index("--bounty_number") + 1
+            return command[bounty_index]
+        except ValueError:
+            return "unknown"
 
     async def run_all(self):
-        """Run experiments with proper task_dir sequencing and status tracking"""
         commands = self.generate_commands()
+        total_tasks = len(commands)
 
         # Initialize task status
-        for cmd in commands:
-            task_id = self._get_task_id(cmd)
-            self.task_status[task_id] = "Pending"
+        for task_id, cmd in commands:
+            self.task_status[task_id] = {
+                "status": "Waiting",
+                "task_dir": self._get_task_dir_from_command(cmd),
+                "bounty": self._get_bounty_from_command(cmd),
+                "command": " ".join(cmd),
+            }
 
         # Group commands by task_dir
         task_groups = defaultdict(list)
-        for cmd in commands:
+        for task_id, cmd in commands:
             task_dir = self._get_task_dir_from_command(cmd)
-            task_groups[task_dir].append(cmd)
+            task_groups[task_dir].append((task_id, cmd))
 
-        # Create tasks for each task_dir group
-        tasks = []
-        for task_dir, cmds in task_groups.items():
-            self.console.print(f"Preparing task group for directory: {task_dir}")
-            tasks.append(self.run_task_dir(task_dir, cmds))
-
-        # Set up progress and layout
+        # Set up progress
         progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
         )
-        overall_task = progress.add_task("[cyan]Overall Progress", total=len(commands))
+        overall_task = progress.add_task("[cyan]Overall Progress", total=total_tasks)
 
-        layout = Layout()
-        layout.split(Layout(Panel(progress), size=3), Layout(name="status_table"))
+        async def run_task_group(task_dir, cmds):
+            return await self.run_task_dir(task_dir, cmds, progress, overall_task)
 
-        async def update_display():
-            while True:
-                layout["status_table"].update(
-                    Panel(self.generate_status_table(), title="Experiment Status")
+        display_group = Group(
+            Panel(progress),
+            Panel(self.generate_status_table(), title="Experiment Status"),
+        )
+
+        all_results = []
+        with Live(display_group, refresh_per_second=4) as live:
+            tasks = [
+                asyncio.create_task(run_task_group(task_dir, cmds))
+                for task_dir, cmds in task_groups.items()
+            ]
+
+            while tasks:
+                done, tasks = await asyncio.wait(
+                    tasks, timeout=0.5, return_when=asyncio.FIRST_COMPLETED
                 )
-                await asyncio.sleep(0.5)
+                for task in done:
+                    all_results.extend(task.result())
+                live.update(Group(progress, self.generate_status_table()))
 
-        update_task = asyncio.create_task(update_display())
-
-        with Live(layout, refresh_per_second=4) as live:
-            all_results = await asyncio.gather(*tasks)
-            for result in all_results:
-                for _ in result:
-                    progress.update(overall_task, advance=1)
-
-            # Ensure final status update
-            await asyncio.sleep(1)
-            layout["status_table"].update(
-                Panel(self.generate_status_table(), title="Experiment Status")
-            )
-            live.refresh()
-
-        update_task.cancel()
-        try:
-            await update_task
-        except asyncio.CancelledError:
-            pass
-
-        # Flatten results
-        results = [result for group_result in all_results for result in group_result]
+            # Ensure we catch the final state
+            await asyncio.sleep(0.5)
+            live.update(Group(progress, self.generate_status_table()))
 
         self.console.print("\nExperiment Summary:")
-        success_count = sum(1 for code in results if code == 0)
+        success_count = sum(1 for result in all_results if result == 0)
         self.console.print(
-            f"Successfully completed {success_count}/{len(commands)} experiments"
+            f"Successfully completed {success_count}/{total_tasks} experiments"
         )
-        self.console.print(f"Failed: {len(commands) - success_count}")
+        self.console.print(f"Failed: {total_tasks - success_count}")
 
-    def generate_status_table(self) -> Table:
-        """Generate a rich Table with current task status"""
-        table = Table(title="Experiment Status")
-        table.add_column("Task ID", style="cyan")
-        table.add_column("Status", style="magenta")
-
-        for task_id, status in self.task_status.items():
-            table.add_row(task_id, status)
-
-        return table
-
-    async def run_task_dir(self, task_dir: str, commands: List[List[str]]):
+    async def run_task_dir(
+        self,
+        task_dir: str,
+        commands: List[Tuple[int, List[str]]],
+        progress: Progress,
+        overall_task,
+    ):
         """Run commands for a task_dir with proper sequencing and status updates"""
-
-        async def run_single_command(cmd):
-            task_id = self._get_task_id(cmd)
-            self.task_status[task_id] = "Running"
-            result = await self.run_experiment(cmd)
-            self.task_status[task_id] = "Completed" if result == 0 else "Failed"
-            return result
-
         results = []
-        for cmd in commands:
-            # Wait for terminal to close before proceeding
-            result = await run_single_command(cmd)
+        for task_id, cmd in commands:
+            self.task_status[task_id]["status"] = "Running"
+            result = await self.run_experiment(cmd)
+            self.task_status[task_id]["status"] = (
+                "Completed" if result == 0 else "Failed"
+            )
             results.append(result)
+            progress.update(overall_task, advance=1)
+
+            # Update status of waiting tasks
+            for waiting_id, waiting_cmd in commands:
+                if (
+                    waiting_id > task_id
+                    and self.task_status[waiting_id]["status"] == "Waiting"
+                ):
+                    self.task_status[waiting_id]["status"] = "Waiting"
         return results
 
     async def run_experiment(self, command: List[str]):
@@ -333,10 +328,57 @@ class ExperimentRunner:
 
             proc = await handler(command)
             return_code = await proc.wait()
-            return 0 if return_code == 0 else 1
+            return return_code
         except Exception as e:
             self.console.print(f"Failed to launch experiment: {e}", style="bold red")
             return 1
+
+    def generate_status_table(self) -> Table:
+        """Generate a rich Table with current task status"""
+        table = Table(title="Experiment Status", expand=True)
+        table.add_column("ID")
+        table.add_column("Task Dir")
+        table.add_column("Bounty")
+        table.add_column("Status")
+        table.add_column("Command")
+
+        status_styles = {
+            "Completed": Style(color="magenta"),
+            "Failed": Style(color="red"),
+            "Running": Style(color="green"),
+            "Waiting": Style(color="yellow"),
+            "Pending": Style(color="white"),  # Default color for any other status
+        }
+
+        for task_id, task_info in self.task_status.items():
+            full_command = task_info["command"]
+            workflows_index = full_command.index("workflows.")
+            truncated_command = full_command[workflows_index:]
+
+            # Remove task_dir and bounty_number from the command
+            command_parts = truncated_command.split()
+            simplified_command = [
+                part
+                for i, part in enumerate(command_parts)
+                if part not in ["--task_dir", "--bounty_number"]
+                and i > 0
+                and command_parts[i - 1] not in ["--task_dir", "--bounty_number"]
+            ]
+            simplified_command = " ".join(simplified_command)
+
+            status = task_info["status"]
+            row_style = status_styles.get(status, Style(color="white"))
+
+            table.add_row(
+                str(task_id),
+                task_info["task_dir"],
+                task_info["bounty"],
+                status,
+                simplified_command,
+                style=row_style,
+            )
+
+        return table
 
 
 if __name__ == "__main__":
