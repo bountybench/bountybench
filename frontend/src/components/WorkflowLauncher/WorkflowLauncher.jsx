@@ -70,6 +70,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     api_key_value: '',
     model: '',
     use_helm: false,
+    max_input_tokens: '',
+    max_output_tokens: '',
   });
 
   const shouldShowVulnerabilityType = (workflowName) => {
@@ -213,8 +215,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           iterations: formData.iterations,
           model: formData.model,
           use_helm: formData.use_helm,
-          use_mock_model: useMockModel
-
+          use_mock_model: useMockModel,
+          max_input_tokens: formData.max_input_tokens ? parseInt(formData.max_input_tokens) : undefined,
+          max_output_tokens: formData.max_output_tokens ? parseInt(formData.max_output_tokens) : undefined
         }),
       });
       
