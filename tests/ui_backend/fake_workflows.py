@@ -17,9 +17,7 @@ class FakeWorkflow:
         phase_iterations: int,
         model: str,
         use_helm: bool,
-        use_mock_model,
-        max_input_tokens: int = 4096,
-        max_output_tokens: int = 2048,
+        use_mock_model
     ):
         self.use_mock_model = use_mock_model
         self.workflow_message = type(
@@ -33,8 +31,6 @@ class FakeWorkflow:
         self.status = "running"  # Simulating a workflow status
         self.next_iteration_event = asyncio.Event()
         self.initial_prompt = "This is a fake initial prompt."
-        self.max_input_tokens = max_input_tokens
-        self.max_output_tokens = max_output_tokens
 
     @property
     def task(self) -> Dict[str, Any]:
@@ -67,6 +63,7 @@ class FakeWorkflow:
     async def _finalize_workflow(self):
         """Simulate finalizing workflow - saves workflow state."""
         self.status = "INCOMPLETE"
+        
 
 
 # Define specific fake workflows if behavior varies

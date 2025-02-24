@@ -73,8 +73,6 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
             model=workflow_data.model,
             use_helm=workflow_data.use_helm,
             use_mock_model=workflow_data.use_mock_model,
-            max_input_tokens=workflow_data.max_input_tokens,
-            max_output_tokens=workflow_data.max_output_tokens,
         )
         workflow_id = workflow.workflow_message.workflow_id
         active_workflows[workflow_id] = {
