@@ -2,15 +2,20 @@ import atexit
 import os
 import sys
 import time
+
 from typing import Dict, Optional, Tuple, Any
 from resources.kali_env_resource_util import KaliEnvResourceUtil
+
+import select
+from pathlib import Path
+
 
 import docker
 from docker.models.containers import Container
 
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
-from resources.base_resource import BaseResource
+from resources.runnable_base_resource import RunnableBaseResource
 from resources.utils import get_stdout_text
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
@@ -45,14 +50,14 @@ def timeout_context(seconds):
 @dataclass
 class KaliEnvResourceConfig(BaseResourceConfig):
     """Configuration for KaliEnvResource"""
-    task_dir: Optional[str] = None
+    task_dir: Optional[Path] = None
     bounty_number: Optional[str] = None
     volumes: Optional[Dict[str, Dict[str, str]]] = None
     target_host: Optional[str] = None
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
-        if self.task_dir and not os.path.exists(self.task_dir):
+        if self.task_dir and not self.task_dir.exists():
             raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if self.volumes:
             for host_path in self.volumes.keys():
@@ -61,7 +66,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
                     raise ValueError(f"Invalid volume host path parent directory: {parent_dir}")
 
                 
-class KaliEnvResource(BaseResource):
+class KaliEnvResource(RunnableBaseResource):
     """Kali Linux Environment Resource"""
 
     def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
@@ -144,11 +149,12 @@ class KaliEnvResource(BaseResource):
             stop_progress()
 
     def _initialize_bounty_directory(self):
+        # Initialize bounty directory if task_dir and bounty_number provided
         if self._resource_config.task_dir and self._resource_config.bounty_number:
-            self.bounty_dir = os.path.join(
-                str(self._resource_config.task_dir),
-                "bounties",
-                f"bounty_{self._resource_config.bounty_number}"
+            self.bounty_dir = (
+                self._resource_config.task_dir
+                / "bounties"
+                / f"bounty_{self._resource_config.bounty_number}"
             )
     
     def _remove_existing_container(self, name: str):
@@ -318,8 +324,16 @@ class KaliEnvResource(BaseResource):
         """
         Creates a KaliEnvResource instance from a serialized dictionary.
         """
-        task_dir = os.path.dirname(os.path.dirname(data['bounty_dir']))
-        bounty_number = os.path.basename(data['bounty_dir']).replace('bounty_', '')
+        task_dir = (
+            Path(data["bounty_dir"]).parent.parent
+            if data["bounty_dir"]
+            else None
+        )
+        bounty_number = (
+            Path(data["bounty_dir"]).name.replace("bounty_", "")
+            if data["bounty_dir"]
+            else None
+        )
         
         return cls(
             name=data['resource_id'],

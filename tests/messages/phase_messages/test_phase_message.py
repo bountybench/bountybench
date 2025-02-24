@@ -1,8 +1,8 @@
+from unittest.mock import MagicMock, PropertyMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
-from messages.workflow_message import WorkflowMessage
-from messages.phase_messages.phase_message import PhaseMessage
-from messages.agent_messages.agent_message import AgentMessage
+
+from agents.agent_manager import AgentManager
 from messages.action_messages.action_message import ActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
@@ -10,7 +10,6 @@ from messages.message_handler import MessageHandler
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.resource_manager import ResourceManager
-from agents.agent_manager import AgentManager
 
 
 @pytest.fixture
@@ -139,10 +138,7 @@ def test_to_broadcast_dict(mocker):
     mock_current_children = mocker.patch.object(
         PhaseMessage, "current_children", new_callable=PropertyMock
     )
-    mock_super_broadcast = mocker.patch.object(
-        Message, 
-        'to_broadcast_dict'
-    )
+    mock_super_broadcast = mocker.patch.object(Message, "to_broadcast_dict")
 
     agent_msg_mock = MagicMock(spec=AgentMessage)
     agent_msg_mock.to_broadcast_dict.return_value = {"agent_key": "agent_value"}
@@ -169,14 +165,9 @@ def test_to_log_dict(mocker):
     Test the to_log_dict method for PhaseMessage.
     """
     mock_agent_messages = mocker.patch.object(
-        PhaseMessage, 
-        'agent_messages', 
-        new_callable=PropertyMock
+        PhaseMessage, "agent_messages", new_callable=PropertyMock
     )
-    mock_super_log = mocker.patch.object(
-        Message, 
-        'to_log_dict'
-    )
+    mock_super_log = mocker.patch.object(Message, "to_log_dict")
 
     agent_msg_mock = MagicMock(spec=AgentMessage)
     agent_msg_mock.to_log_dict.return_value = {"agent_key": "agent_value"}

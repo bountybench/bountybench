@@ -1,13 +1,12 @@
-import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.executor_agent.executor_agent import ExecutorAgent
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
-from messages.action_messages.answer_message_interface import AnswerMessageInterface
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
-from phases.base_phase import BasePhase
+from phases.bounty_phase import BountyPhase
 from resources.base_resource import BaseResource
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
@@ -22,7 +21,7 @@ from workflows.base_workflow import BaseWorkflow
 logger = get_main_logger(__name__)
 
 
-class PatchPhase(BasePhase):
+class PatchPhase(BountyPhase):
     """Phase responsible for patching vulnerabilities."""
 
     AGENT_CLASSES: List[Type[BaseAgent]] = [PatchAgent, ExecutorAgent]
@@ -35,13 +34,8 @@ class PatchPhase(BasePhase):
             workflow (BaseWorkflow): The parent workflow.
             **kwargs: Additional keyword arguments.
         """
-        self.model: str = kwargs.get("model", "")
-        self.helm: Any = kwargs.get("helm")
-        self.bounty_number: str = kwargs.get("bounty_number", "")
         self.use_agent_exploit: bool = kwargs.get("use_agent_exploit", False)
         self.use_verify_script: bool = kwargs.get("use_verify_script", False)
-        self._initial_prompt: str = kwargs.get("initial_prompt", "")
-        self.bounty_dir: str = os.path.join("bounties", f"bounty_{self.bounty_number}")
 
         super().__init__(workflow, **kwargs)
 
@@ -80,29 +74,27 @@ class PatchPhase(BasePhase):
         vulnerable_commit: str = self.workflow.bounty_metadata.get(
             "vulnerable_commit", "main"
         )
-        tmp_dir_name: str = "tmp"
-        tmp_dir: str = os.path.join(self.workflow.task_dir, tmp_dir_name)
 
         resource_configs: Dict[str, Tuple[Type[BaseResource], Any]] = {
-            "model": (ModelResource, ModelResourceConfig.create(model=self.model)),
+            "model": (ModelResource, ModelResourceConfig.create(model=self.model, use_mock_model=self.use_mock_model)),
             "init_files": (
                 InitFilesResource,
                 InitFilesResourceConfig(
                     task_dir=self.workflow.task_dir,
                     files_dir_name=files_dir_name,
-                    tmp_dir_name=tmp_dir_name,
+                    tmp_dir=self.tmp_dir,
                     bounty_number=self.bounty_number,
                     exploit_files_dir_name=exploit_files_dir_name,
                     vulnerable_commit=vulnerable_commit,
                 ),
             ),
-            "kali_env": (
+            f"kali_env_{self.workflow.workflow_message.workflow_id}": (
                 KaliEnvResource,
                 KaliEnvResourceConfig(
                     task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
                     volumes={
-                        os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
+                        str(self.tmp_dir.resolve()): {"bind": "/app", "mode": "rw"},
                     },
                     target_host=self.workflow.repo_metadata["target_host"],
                 ),
@@ -125,9 +117,7 @@ class PatchPhase(BasePhase):
         Args:
             resource_configs (Dict[str, Tuple[Type[BaseResource], Any]]): The current resource configurations.
         """
-        setup_repo_env_script = os.path.join(
-            str(self.workflow.task_dir), "setup_repo_env.sh"
-        )
+        setup_repo_env_script = self.workflow.task_dir / "setup_repo_env.sh"
         if contains_setup(setup_repo_env_script):
             resource_configs["repo_resource"] = (
                 SetupResource,
@@ -137,11 +127,10 @@ class PatchPhase(BasePhase):
                 ),
             )
 
-        setup_bounty_env_script = os.path.join(
-            str(self.workflow.task_dir),
-            self.bounty_dir,
-            "setup_files",
-            "setup_bounty_env.sh",
+        setup_bounty_env_script = (
+            self.bounty_dir
+            / "setup_files"
+            / "setup_bounty_env.sh"
         )
         if contains_setup(setup_bounty_env_script):
             resource_configs["bounty_resource"] = (

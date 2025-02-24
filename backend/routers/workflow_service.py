@@ -69,9 +69,9 @@ async def run_message(workflow_id: str, data: MessageData, request: Request):
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
-        result = await workflow.run_message(data.message_id)
+        result = await workflow.interactive_controller.run_message(data.message_id)
         if not result:
-            await workflow.set_last_message(data.message_id)
+            await workflow.interactive_controller.set_last_message(data.message_id)
             result = await next_iteration(workflow_id, active_workflows)
             return result
         return {"status": "updated", "result": result.id}
@@ -91,11 +91,11 @@ async def edit_action_input(workflow_id: str, data: MessageInputData, request: R
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
-        result = await workflow.edit_and_run_message(
+        result = await workflow.interactive_controller.edit_and_run_message(
             data.message_id, data.new_input_data
         )
         if not result:
-            await workflow.set_last_message(data.message_id)
+            await workflow.interactive_controller.set_last_message(data.message_id)
             result = await next_iteration(workflow_id, active_workflows)
             return result
         return {"status": "updated", "result": result.id}
@@ -128,7 +128,7 @@ async def update_interactive_mode(
             )
 
         print(f"Attempting to set interactive mode to {new_interactive_mode}")
-        await workflow.set_interactive_mode(new_interactive_mode)
+        await workflow.interactive_controller.set_interactive_mode(new_interactive_mode)
         print(f"Interactive mode successfully set to {new_interactive_mode}")
 
         return {"status": "success", "interactive": new_interactive_mode}
@@ -147,7 +147,7 @@ async def last_message(workflow_id: str, request: Request):
         return {"error": "Workflow not found"}
 
     workflow = active_workflows[workflow_id]["instance"]
-    last_message_str = await workflow.get_last_message()
+    last_message_str = await workflow.interactive_controller.get_last_message()
     return {"message_type": "last_message", "content": last_message_str}
 
 
@@ -315,7 +315,9 @@ async def change_model(workflow_id: str, data: dict, request: Request):
     print(f"Changing Model for Workflow: {workflow_id}, New Name: {data}")
     workflow = active_workflows[workflow_id]["instance"]
     try:
-        result = await workflow.change_current_model(data["new_model_name"])
+        result = await workflow.interactive_controller.change_current_model(
+            data["new_model_name"]
+        )
         return {"status": "updated", "result": result.id}
     except Exception as e:
         error_traceback = traceback.format_exc()
@@ -334,7 +336,9 @@ async def toggle_version(workflow_id: str, data: dict, request: Request):
     direction = data.get("direction")  # "prev" or "next"
 
     try:
-        result = await workflow.toggle_version(message_id, direction)
+        result = await workflow.interactive_controller.toggle_version(
+            message_id, direction
+        )
         if result:
             return {"status": "updated", "result": result.id}
         return {"error": f"Message {direction} for {message_id} not found"}
@@ -354,6 +358,7 @@ async def get_workflow_resources(workflow_id: str, request: Request):
 
     resources = resource_manager.get_resources()
     resource_list = []
+
     for resource_id, resource in resources.items():
         resource_info = {
             "id": resource_id,
@@ -364,6 +369,40 @@ async def get_workflow_resources(workflow_id: str, request: Request):
                 else None
             ),
         }
+
+        if resource_info["config"] and resource_info["config"].get("use_mock_model"):
+            resource_info["config"] = {"use_mock_model": True}
+
         resource_list.append(resource_info)
 
     return {"resources": resource_list}
+
+
+
+@workflow_service_router.post("/workflow/{workflow_id}/mock-model")
+async def update_mock_model_mode(workflow_id: str, request: Request):
+    """
+    Toggles the `use_mock_model` setting using InteractiveController.
+    """
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+
+    try:
+        data = await request.json()
+        new_mock_model_state = data.get("use_mock_model", None)
+
+        if new_mock_model_state is None:
+            raise HTTPException(status_code=400, detail="use_mock_model value is required")
+
+        workflow = active_workflows[workflow_id]["instance"]
+        
+        # Use InteractiveController to update mock model state
+        await workflow.interactive_controller.set_mock_model(new_mock_model_state)
+
+        return {"status": "success", "use_mock_model": new_mock_model_state}
+
+    except Exception as e:
+        error_traceback = traceback.format_exc()
+        print(f"Error updating mock model for workflow {workflow_id}: {str(e)}\n{error_traceback}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -12,16 +12,14 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
-  Grid,
-  InputAdornment,
-  IconButton,
-  Divider,
 } from '@mui/material';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import { formDataToYaml } from './utils/formDataToYaml'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import ListIcon from '@mui/icons-material/List';
+import SaveIcon from '@mui/icons-material/Save';
 import './WorkflowLauncher.css';
+import { SaveConfigDialog } from './SaveConfigDialog';
+import { TaskSelectionSection } from './TaskSelectionSection';
+import { ModelSelectionSection } from './ModelSelectionSection';
 
 const LauncherState = {
   CHECKING_SERVER: 'CHECKING_SERVER',
@@ -34,7 +32,7 @@ const LauncherState = {
 const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-14';
 const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
 
-export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode }) => {
+export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode, useMockModel, setUseMockModel}) => {
   const navigate = useNavigate();
   
   const [launcherState, setLauncherState] = useState({
@@ -56,19 +54,33 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   }, [isAvailable, isChecking]);
 
   const [workflows, setWorkflows] = useState([]);
+  const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
   
+  const [openSaveDialog, setOpenSaveDialog] = useState(false);
+  const [fileName, setFileName] = useState('workflow_config.yaml'); 
+  const [saveStatus, setSaveStatus] = useState(null);
+
   const [formData, setFormData] = useState({
     workflow_name: '',
-    task_dir: 'setuptools',
-    bounty_number: '0',
+    tasks: [{ task_dir: 'lunary', bounty_number: '0' }],
+    vulnerability_type: '',
     interactive: true,
-    iterations: 10,
+    iterations: 30,
     api_key_name: '',
     api_key_value: '',
     model: '',
-    use_helm: false
+    use_helm: false,
   });
 
+  const shouldShowVulnerabilityType = (workflowName) => {
+    return workflowName.toLowerCase().includes('detect');
+  };
+
+  const shouldShowBounty = (workflowName) => {
+    const lowercaseName = workflowName.toLowerCase();
+    return lowercaseName.includes('detect') || lowercaseName.includes('exploit') || lowercaseName.includes('patch');
+  };
+  
   const [allModels, setAllModels] = useState({});
   const [selectedModels, setSelectedModels] = useState([]);
   const [topLevelSelection, setTopLevelSelection] = useState("Non-HELM");
@@ -91,7 +103,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     setFormData(prev => ({
       ...prev,
       model: defaultModel ? defaultModel.name : '',
-      use_helm: isHelmModel
+      use_helm: isHelmModel,
+      use_mock_model: prev.use_mock_model, // Preserve mock model selection
     }));
   };
 
@@ -168,6 +181,15 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   }, []);
 
+  const fetchVulnerabilityTypes = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/workflow/vulnerability-types');
+      const data = await response.json();
+      setVulnerabilityTypes(data.vulnerability_types);
+    } catch (error) {
+      console.error('Failed to fetch vulnerability types:', error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -178,17 +200,21 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     });
   
     try {
+      const firstTask = formData.tasks[0]; // Get the first task
       const response = await fetch('http://localhost:8000/workflow/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflow_name: formData.workflow_name,
-          task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
-          bounty_number: formData.bounty_number,
+          task_dir: `bountybench/${firstTask.task_dir.replace(/^bountybench\//, '')}`,
+          bounty_number: firstTask.bounty_number,
+          vulnerability_type: formData.vulnerability_type,
           interactive: interactiveMode,
           iterations: formData.iterations,
           model: formData.model,
-          use_helm: formData.use_helm
+          use_helm: formData.use_helm,
+          use_mock_model: useMockModel
+
         }),
       });
       
@@ -216,11 +242,21 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === 'interactive' ? checked : value,
-      ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
-    }));
+    if (name.startsWith('tasks[')) {
+      const [, index, field] = name.match(/tasks\[(\d+)\]\.(.+)/);
+      setFormData((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((task, i) => 
+          i === parseInt(index) ? { ...task, [field]: value } : task
+        ),
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: name === 'interactive' ? checked : value,
+        ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
+      }));
+    }
   };
 
   const handleRevealToggle = () => {
@@ -267,6 +303,60 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   };
 
+  const handleSaveConfiguration = () => {
+    setOpenSaveDialog(true);
+  };
+
+  const handleSaveDialogClose = () => {
+    setOpenSaveDialog(false);
+    setSaveStatus(false);
+  };
+
+  const handleFileNameChange = (event) => {
+    setFileName(event.target.value);
+  };
+
+  const addTask = () => {
+    setFormData((prev) => ({
+      ...prev,
+      tasks: [...prev.tasks, { task_dir: '', bounty_number: '' }],
+    }));
+  };
+
+  const removeTask = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      tasks: prev.tasks.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSaveConfirm = async () => {
+    const yamlConfig = formDataToYaml(formData, useMockModel);
+    const saveFileName = fileName.endsWith('.yaml') ? fileName : `${fileName}.yaml`;
+
+    try {
+      const response = await fetch('http://localhost:8000/workflow/save-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: saveFileName,
+          config: yamlConfig,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save configuration');
+      }
+
+      const result = await response.json();
+      setSaveStatus({ type: 'success', message: result.message });
+    } catch (error) {
+      setSaveStatus({ type: 'error', message: error.message });
+    }
+  };
+
   // 2. Fetch workflows only once server is confirmed available
   useEffect(() => {
     if (isChecking) {
@@ -287,7 +377,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           await Promise.all([
             fetchWorkflows(),
             fetchApiKeys(),
-            fetchModels()
+            fetchModels(),
+            fetchVulnerabilityTypes(),
           ]);
           setLauncherState({
             status: LauncherState.READY,
@@ -373,26 +464,14 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           )}
         </TextField>
 
-        <TextField
-          fullWidth
-          label="Task Repository Directory"
-          name="task_dir"
-          value={formData.task_dir}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-          placeholder="e.g., astropy"
-        />
-
-        <TextField
-          fullWidth
-          label="Bounty Number"
-          name="bounty_number"
-          value={formData.bounty_number}
-          onChange={handleInputChange}
-          required
-          margin="normal"
-          placeholder="e.g., 0"
+        <TaskSelectionSection
+          formData={formData}
+          handleInputChange={handleInputChange}
+          shouldShowBounty={shouldShowBounty}
+          shouldShowVulnerabilityType={shouldShowVulnerabilityType}
+          vulnerabilityTypes={vulnerabilityTypes}
+          addTask={addTask}
+          removeTask={removeTask}
         />
 
         <TextField
@@ -406,135 +485,34 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           placeholder="e.g., 10"
         />
 
-        <TextField
-          select
-          fullWidth
-          label="Model Type"
-          name="type"
-          value={topLevelSelection}
-          onChange={handleTopLevelChange}
-          margin="normal"
-        >
-          <MenuItem value="HELM">HELM</MenuItem>
-          <MenuItem value="Non-HELM">Non-HELM</MenuItem>
-        </TextField>
+<FormControlLabel
+                control={
+                  <Switch
+                    checked={useMockModel} 
+                    onChange={(e) => setUseMockModel(e.target.checked)} 
+                    name="use_mock_model"
+                    color="primary"
+                  />
+                }
+                label="Use Mock Model"
+         />
 
-        {/* Conditionally render the second dropdown based on top-level selection */}
-        {selectedModels && (
-          <TextField
-            select
-            fullWidth
-            label="Model Name"
-            name="model"
-            value={formData.model}
-            onChange={handleInputChange}
-            margin="normal"
-          >
-            {selectedModels.map((model) => (
-            <MenuItem key={model.name} value={model.name}>
-              <Box display="flex" flexDirection="column">
-                <Typography>{model.name}</Typography>
-              </Box>
-            </MenuItem>
-          ))}
-          </TextField>
-          )}
-
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={5}>
-            <TextField
-              select={!isCustomApiKey} // Turns into input when "Enter new key" is selected
-              fullWidth
-              label="API Key Name"
-              name="api_key_name"
-              value={formData.api_key_name || ""}
-              onChange={handleInputChange}
-              required
-              margin="normal"
-              InputProps={{
-                endAdornment: (
-                  <IconButton onClick={() => {
-                    if (isCustomApiKey) {
-                      setIsCustomApiKey(!isCustomApiKey);
-
-                      handleInputChange({ // Reset to default
-                        target: {
-                          name: "api_key_name",
-                          value: "HELM_API_KEY",
-                        },
-                      });
-                    }
-                  }}>
-                    {isCustomApiKey ? <ListIcon /> : null}
-                  </IconButton>
-                )
-              }}
-            >
-              {Object.keys(apiKeys).map((key) => (
-                <MenuItem key={key} value={key}>
-                  {key}
-                </MenuItem>
-              ))}
-              <Divider />
-              <MenuItem onClick={() => {
-                setIsCustomApiKey(true);
-                setFormData((prev) => ({
-                  ...prev,
-                  api_key_name: "my_custom_key",
-                }));
-                
-              }}>
-                Enter a New API Key:
-              </MenuItem>
-            </TextField>
-          </Grid>
-
-          <Grid item xs={5.5}>
-            <TextField
-              fullWidth
-              type={showApiKey ? 'text' : 'password'}
-              label="API Key Value"
-              name="api_key_value"
-              value={formData.api_key_value}
-              onChange={handleInputChange}
-              required
-              margin="normal"
-              placeholder="Enter API key"
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={handleRevealToggle} size="large">
-                      {showApiKey ? <Visibility /> : <VisibilityOff />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-
-          <Grid item xs={1}>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleApiKeyChange}
-                size="small"
-              >
-                Update
-              </Button>
-            </Box>
-          </Grid>
-
-          <Grid item xs={10}>
-            {apiStatus.message && (
-              <Alert severity={apiStatus.type} className="launcher-alert" sx={{ whiteSpace: "pre-line" }}>
-                {apiStatus.message}
-              </Alert>
-            )}
-          </Grid>
-
-
-        </Grid>
+        {!useMockModel && (
+          <ModelSelectionSection
+            formData={formData}
+            handleInputChange={handleInputChange}
+            topLevelSelection={topLevelSelection}
+            handleTopLevelChange={handleTopLevelChange}
+            selectedModels={selectedModels}
+            apiKeys={apiKeys}
+            isCustomApiKey={isCustomApiKey}
+            setIsCustomApiKey={setIsCustomApiKey}
+            showApiKey={showApiKey}
+            handleRevealToggle={handleRevealToggle}
+            handleApiKeyChange={handleApiKeyChange}
+            apiStatus={apiStatus}
+          />
+        )}
 
           <FormControlLabel
           control={
@@ -548,6 +526,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           label="Interactive Mode"
           />
 
+
         <Button
           type="submit"
           variant="contained"
@@ -556,7 +535,24 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         >
           Start Workflow
         </Button>
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={handleSaveConfiguration}
+          startIcon={<SaveIcon />}
+        >
+          Save Configuration
+        </Button>
       </form>
+      
+      <SaveConfigDialog
+        open={openSaveDialog}
+        onClose={handleSaveDialogClose}
+        fileName={fileName}
+        onFileNameChange={handleFileNameChange}
+        onSave={handleSaveConfirm}
+        saveStatus={saveStatus}
+      />
     </Box>
   );
 };

@@ -10,6 +10,7 @@ from messages.message import Message
 from messages.message_utils import log_message
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
+from prompts.vulnerability_prompts import get_specialized_instructions
 from resources.base_resource import BaseResource, BaseResourceConfig
 from utils.logger import get_main_logger
 
@@ -245,14 +246,6 @@ class BasePhase(ABC):
 
     def _create_initial_agent_message(self) -> None:
         """Create the initial agent message for the phase."""
-        if self.params.get("task_dir"):
-            codebase_structure = subprocess.run(
-                ["tree", "-L", "4"],
-                cwd=os.path.join(self.params.get("task_dir"), "tmp"),
-                capture_output=True,
-                text=True,
-            ).stdout
-            self.params["codebase"] = "$ tree -L 4\n" + codebase_structure
         self._last_agent_message = AgentMessage(
             agent_id="system",
             message=self.params.get("initial_prompt").format(**self.params),

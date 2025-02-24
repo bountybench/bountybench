@@ -1,16 +1,20 @@
-import pytest
 import shutil
 import tempfile
-from unittest.mock import patch, MagicMock
-import docker
 from pathlib import Path
+
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 from resources.kali_env_resource_util import DockerContainerStartError
+from unittest.mock import MagicMock, patch
+
+import docker
+import pytest
+
 
 VOLUME = {
     Path(__file__).parent.resolve() / "test_files": {"bind": "/app/", "mode": "rw"}
 }
 CONTAINER_NAME = "test_container"
+
 
 @pytest.fixture(scope="module")
 def kali_env_resource():
@@ -23,12 +27,15 @@ def kali_env_resource():
         f.write("TEST{RANDOM_WORDS}")
 
     volume = {str(test_files_dir): {"bind": "/app", "mode": "rw"}}
-    resource = KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=volume))
-    
+    resource = KaliEnvResource(
+        resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=volume)
+    )
+
     yield resource
     resource.stop()
     shutil.rmtree(temp_dir)
     print(f"Removed temporary test directory: {temp_dir}")
+
 
 def test_docker_api_error_on_start():
     """Test if Docker API error is handled when starting the container."""
@@ -39,6 +46,7 @@ def test_docker_api_error_on_start():
         mock_client.containers = mock_containers
         mock_containers.run.side_effect = docker.errors.APIError("API error")
         MockDocker.return_value = mock_client
+
 
         # Patch the _remove_existing_container method to do nothing
         with patch.object(KaliEnvResource, "_remove_existing_container") as mock_remove:
@@ -76,10 +84,18 @@ def test_container_removal_error():
         existing_container = MagicMock()
         mock_client.containers.get.return_value = existing_container
         # The error should be raised here when tried to remove
-        existing_container.remove.side_effect = docker.errors.APIError("Failed to remove container")
-        
-        with pytest.raises(DockerContainerStartError, match="Docker API error: Failed to remove container"):
-            KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME))
+        existing_container.remove.side_effect = docker.errors.APIError(
+            "Failed to remove container"
+        )
+
+        with pytest.raises(
+            DockerContainerStartError,
+            match="Docker API error: Failed to remove container",
+        ):
+            KaliEnvResource(
+                resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME)
+            )
+
 
 def test_run_simple_command(kali_env_resource):
     command = "echo Hello"
@@ -87,17 +103,20 @@ def test_run_simple_command(kali_env_resource):
     assert stdout.strip() == "Hello"
     assert stderr.strip() == ""
 
+
 def test_run_multiple_commands(kali_env_resource):
     command = "echo Hello\n echo World"
     stdout, stderr = kali_env_resource.run_command(command)
     assert stdout.strip() == "Hello\nWorld"
     assert stderr.strip() == ""
 
+
 def test_command_with_error(kali_env_resource):
     command = "ls /nonexistent_directory"
     stdout, stderr = kali_env_resource.run_command(command)
     assert stdout.strip() == ""
     assert "No such file or directory" in stderr
+
 
 def test_command_with_volume(kali_env_resource):
     file_path = "/app/test.txt"
@@ -106,11 +125,13 @@ def test_command_with_volume(kali_env_resource):
     assert "TEST{RANDOM_WORDS}" in stdout.strip()
     assert stderr == ""
 
+
 def test_command_with_timeout(kali_env_resource):
     command = "sleep 120"
     stdout, stderr = kali_env_resource.run_command(command, timeout=2)
     assert "timed out after 2 seconds" in stdout
     assert stderr.strip() == ""
+
 
 def test_working_directory(kali_env_resource):
     command = "pwd"
@@ -118,6 +139,7 @@ def test_working_directory(kali_env_resource):
     stdout, stderr = kali_env_resource.run_command(command, workdir=workdir)
     assert stdout.strip() == workdir
     assert stderr.strip() == ""
+
 
 def test_write_and_read_file(kali_env_resource):
     file_path = "testfile.txt"
@@ -130,11 +152,13 @@ def test_write_and_read_file(kali_env_resource):
     assert stderr.strip() == ""
     kali_env_resource.run_command(f"rm {file_path}")
 
+
 def test_invalid_command(kali_env_resource):
     command = "invalid_command_that_does_not_exist"
     stdout, stderr = kali_env_resource.run_command(command)
     assert stdout.strip() == ""
     assert "command not found" in stderr
+
 
 def test_container_persistence(kali_env_resource):
     file_path = "persistent_testfile.txt"
