@@ -4,7 +4,6 @@ import select
 from typing import Dict, Optional, Tuple
 import time
 import re
-from typing import Callable, Optional, Any, Type
 
 
 import docker
@@ -88,7 +87,7 @@ class KaliEnvResourceUtil:
         except ValueError:
             logger.error(
                 f"Invalid target_host format: {target_host}. Expected format: hostname:port")
-            sys.exit(1)
+            raise ValueError(f"Invalid target_host format: {target_host}. Expected format: hostname:port")
 
     @staticmethod
     def print_docker_log(container: Container, timeout=120) -> None:

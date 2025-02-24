@@ -2,9 +2,7 @@ import atexit
 import os
 import sys
 import time
-from typing import Dict, Optional, Tuple
-import time
-from typing import Callable, Optional, Any, Type
+from typing import Dict, Optional, Tuple, Any
 from resources.kali_env_resource_util import KaliEnvResourceUtil
 
 import docker
@@ -17,7 +15,6 @@ from resources.utils import get_stdout_text
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 from dataclasses import dataclass
-from typing import Dict, Optional
 import os
 from resources.base_resource import BaseResourceConfig
 import signal
@@ -178,7 +175,7 @@ class KaliEnvResource(BaseResource):
             logger.error(f"Force removal failed: {e}")
             raise
     
-    def _create_and_start_container(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]], attempt:int) -> Container:
+    def _create_and_start_container(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]], attempt:int) -> Optional[Container]:
         start_progress(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
         try:
             print(self.client.containers)
