@@ -76,7 +76,15 @@ class PatchPhase(BountyPhase):
         )
 
         resource_configs: Dict[str, Tuple[Type[BaseResource], Any]] = {
-            "model": (ModelResource, ModelResourceConfig.create(model=self.model, use_mock_model=self.use_mock_model)),
+            "model": (
+                ModelResource,
+                ModelResourceConfig.create(
+                    model=self.model,
+                    use_mock_model=self.use_mock_model,
+                    max_input_tokens=self.params.get("max_input_tokens"),
+                    max_output_tokens=self.params.get("max_output_tokens"),
+                ),
+            ),
             "init_files": (
                 InitFilesResource,
                 InitFilesResourceConfig(
