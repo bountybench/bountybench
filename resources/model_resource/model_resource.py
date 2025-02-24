@@ -173,7 +173,6 @@ class ModelResource(RunnableBaseResource):
                 "model": self.model,
                 "temperature": self.temperature,
                 "max_input_tokens": self.max_input_tokens,
-                "max_output_tokens": self.max_output_tokens,
                 "stop_sequences": self.stop_sequences,
                 "input_tokens": model_response.input_tokens,
                 "output_tokens": model_response.output_tokens,

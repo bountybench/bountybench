@@ -17,12 +17,6 @@ class StartWorkflowInput(BaseModel):
     model: str = Field(..., description="Name of the model")
     use_mock_model: bool = Field(default=False, description="Mock Model")
     use_helm: bool = Field(..., description="Using HELM vs. Non-Helm")
-    max_input_tokens: int = Field(
-        gt=0, description="Maximum input tokens for the model"
-    )
-    max_output_tokens: int = Field(
-        gt=0, description="Maximum output tokens for the model"
-    )
 
 
 class MessageInputData(BaseModel):
