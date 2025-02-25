@@ -49,8 +49,7 @@ class PatchAgent(BaseAgent):
     def __init__(self, agent_id: str, agent_config: PatchAgentConfig):
         self.bounty_dir = agent_config.bounty_dir
         self.task_dir = agent_config.task_dir
-        self.exploits_dir_name = "agent_exploits"
-        self.exploits_dir = self.task_dir / self.bounty_dir / self.exploits_dir_name
+        self.exploits_dir = self.bounty_dir / "agent_exploits"
         self.exploits_dir.mkdir(parents=True, exist_ok=True)
         self.tmp_exploits_dir = self.task_dir / "tmp"
         self.log_history = []
@@ -59,10 +58,9 @@ class PatchAgent(BaseAgent):
         self.new_patch_dir = None
 
         self.patch_id = 1
-        self.patch_dir_name = "agent-patches"
 
         self.use_verify_script = agent_config.use_verify_script
-        self.patch_dir = self.task_dir / self.bounty_dir / self.patch_dir_name
+        self.patch_dir = self.bounty_dir / "agent-patches"
         self.patch_dir.mkdir(parents=True, exist_ok=True)
 
         super().__init__(agent_id, agent_config)
@@ -229,7 +227,7 @@ class PatchAgent(BaseAgent):
         logger.info("Running verify.sh")
         result = subprocess.run(
             ["./verify.sh", execution_output],
-            cwd=self.init_files.task_dir / self.bounty_dir,
+            cwd=self.bounty_dir,
             capture_output=True,
             text=True,
         )

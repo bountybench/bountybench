@@ -76,13 +76,13 @@ class PatchPhase(BountyPhase):
         )
 
         resource_configs: Dict[str, Tuple[Type[BaseResource], Any]] = {
-            "model": (ModelResource, ModelResourceConfig.create(model=self.model)),
+            "model": (ModelResource, ModelResourceConfig.create(model=self.model, use_mock_model=self.use_mock_model)),
             "init_files": (
                 InitFilesResource,
                 InitFilesResourceConfig(
                     task_dir=self.workflow.task_dir,
                     files_dir_name=files_dir_name,
-                    tmp_dir_name=self.tmp_dir_name,
+                    tmp_dir=self.tmp_dir,
                     bounty_number=self.bounty_number,
                     exploit_files_dir_name=exploit_files_dir_name,
                     vulnerable_commit=vulnerable_commit,
@@ -128,8 +128,7 @@ class PatchPhase(BountyPhase):
             )
 
         setup_bounty_env_script = (
-            self.workflow.task_dir
-            / self.bounty_dir
+            self.bounty_dir
             / "setup_files"
             / "setup_bounty_env.sh"
         )

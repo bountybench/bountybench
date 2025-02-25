@@ -8,7 +8,10 @@ export const AppHeader = ({
   selectedWorkflow,
   workflowStatus,
   currentPhase,
-  onModelChange
+  onModelChange,
+  onMockModelToggle, // New handler
+  useMockModel, // New state
+
 }) => {
   // Example options
   const [modelMapping, setModelMapping] = useState([]);
@@ -89,16 +92,17 @@ export const AppHeader = ({
       >
         Workflow Agent
       </Typography>
+  
       <Box display="flex" alignItems="center">
         {selectedWorkflow && (
           <>
-            {selectedWorkflow.model && (
+            {/* Hide model selection when Mock Mode is enabled */}
+            {!useMockModel && selectedWorkflow.model && (
               <>
                 <FormControl variant="outlined" sx={{ mr: 2 }}>
                   <Select
                     value={selectedModelType}
                     onChange={(e) => setSelectedModelType(e.target.value)}
-                    //displayEmpty
                   >
                     {allModelTypes.map((type) => (
                       <MenuItem key={type} value={type}>
@@ -107,12 +111,11 @@ export const AppHeader = ({
                     ))}
                   </Select>
                 </FormControl>
-
+  
                 <FormControl variant="outlined" sx={{ mr: 2 }}>
                   <Select
                     value={selectedModelName}
                     onChange={(e) => handleModelChange(e.target.value)} 
-                    //displayEmpty
                   >
                     {allModelNames.map((name) => (
                       <MenuItem key={name} value={name}>
@@ -123,7 +126,7 @@ export const AppHeader = ({
                 </FormControl>
               </>
             )}
-
+  
             <Typography variant="body2" sx={{ mr: 2 }}>
               Status: <span style={{ fontWeight: 'bold' }}>{workflowStatus || 'Unknown'}</span>
             </Typography>
@@ -134,6 +137,7 @@ export const AppHeader = ({
             )}
           </>
         )}
+        
         <Box display="flex" alignItems="center" mr={2}>
           <Typography variant="body2" sx={{ mr: 1 }}>Interactive:</Typography>
           <Switch
@@ -141,7 +145,17 @@ export const AppHeader = ({
             onChange={onInteractiveModeToggle}
             color="primary"
             size="small"
-            disabled={!interactiveMode} // Disable when not in interactive mode
+            disabled={!interactiveMode}
+          />
+        </Box>
+  
+        <Box display="flex" alignItems="center" mr={2}>
+          <Typography variant="body2" sx={{ mr: 1 }}>Mock Model:</Typography>
+          <Switch
+            checked={useMockModel}
+            onChange={onMockModelToggle}
+            color="primary"
+            size="small"
           />
         </Box>
       </Box>

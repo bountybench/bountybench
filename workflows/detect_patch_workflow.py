@@ -36,6 +36,7 @@ async def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Run the exploit and patch workflow")
+    parser.add_argument("--use_mock_model", action="store_true", help="Use mock model")
     parser.add_argument(
         "--task_dir", type=str, required=True, help="The directory of the task repo"
     )
@@ -71,6 +72,7 @@ async def main() -> None:
         bounty_number=args.bounty_number,
         vulnerability_type=args.vulnerability_type,
         interactive=args.interactive,
+        use_mock_model=args.use_mock_model,
         model=args.model,
         phase_iterations=args.phase_iterations,
     )

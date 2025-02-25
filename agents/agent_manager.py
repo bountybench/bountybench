@@ -87,6 +87,34 @@ class AgentManager:
                 resource = ModelResource("model", resource_config)
                 setattr(agent, "model", resource)
                 logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
+    
+
+    def update_phase_agents_mock_model(self, use_mock_model: bool):
+        """
+        Ensures all agents update their ModelResource with the new `use_mock_model` setting.
+        """
+        for agent_id, agent in self._phase_agents.items():
+            if any(
+                isinstance(resource, tuple) and resource[0] == ModelResource
+                for resource in agent.ACCESSIBLE_RESOURCES
+            ) or any(
+                resource == ModelResource for resource in agent.ACCESSIBLE_RESOURCES
+            ):
+                if not hasattr(agent, "model"):
+                    raise AttributeError("Agent does not have a 'model' attribute")
+
+                existing_model_name = agent.model.model
+                logger.info(f"Updating agent {agent_id} to use_mock_model={use_mock_model}")
+
+                resource_config = ModelResourceConfig.create(
+                    model=existing_model_name,  
+                    use_mock_model=use_mock_model  
+                )
+
+                resource = ModelResource("model", resource_config)
+                setattr(agent, "model", resource)
+
+                logger.info(f"Agent {agent_id} updated: {agent.model.to_dict()}")
 
     def create_agent(
         self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig
