@@ -10,7 +10,7 @@
     - [2. Create a Virtual Environment](#2-create-a-virtual-environment)
     - [3. Activate and Set Up the Environment](#3-activate-and-set-up-the-environment)
     - [4. Configure the .env File](#4-configure-the-env-file)
-    - [5. Setup Docker Desktop App.](#5-setup-docker-desktop-app)
+    - [5. Setup Docker Desktop App](#5-setup-docker-desktop-app)
       - [Docker Setup](#docker-setup)
         - [Ensure your Docker Desktop has proper sharing permissions](#ensure-your-docker-desktop-has-proper-sharing-permissions)
   - [Usage](#usage)
@@ -32,7 +32,7 @@
     - [Phase Architecture](#phase-architecture)
       - [**BasePhase Overview**](#basephase-overview)
         - [**Core Responsibilities:**](#core-responsibilities)
-        - [Key Methods:](#key-methods)
+        - [Key Methods](#key-methods)
       - [ExploitPhase](#exploitphase)
         - [Key Features](#key-features-1)
       - [PatchPhase](#patchphase)
@@ -53,7 +53,6 @@
         - [2. **Generate an HTML Coverage Report**](#2-generate-an-html-coverage-report)
       - [**Enforcing Minimum Coverage**](#enforcing-minimum-coverage)
   - [Documentation](#documentation)
-
 
 ## Installation
 
@@ -134,11 +133,11 @@ GOOGLE_API_KEY={GOOGLE_API_KEY}
 TOGETHER_API_KEY={TOGETHER_API_KEY}
 ```
 
-Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...). You only need to fill in whichever keys you will use. 
+Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...). You only need to fill in whichever keys you will use.
 
-### 5. Setup Docker Desktop App. 
+### 5. Setup Docker Desktop App
 
-Make sure that you have started up your Docker Desktop App before proceeding with running a workflow. 
+Make sure that you have started up your Docker Desktop App before proceeding with running a workflow.
 
 #### Docker Setup
 
@@ -228,8 +227,8 @@ This will launch the development server for the frontend.
 
 For a list of API endpoints currently supported, open one of these URLs in your browser:
 
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
 
 ### Accessing the Application
 
@@ -350,7 +349,7 @@ The phase architecture in our workflow system is designed to be **modular, exten
    - Manages communication between agents.  
    - Tracks messages across iterations to maintain context.  
 
-##### Key Methods:
+##### Key Methods
 
 - `define_agents()`: Abstract method to define the agents required for the phase.
 - `define_resources()`: Abstract method to define the resources needed for the phase.
