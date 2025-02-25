@@ -1,14 +1,17 @@
-import sys
 import os
 import subprocess
+import sys
+
 import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 experiment_router = APIRouter()
 
+
 class ExperimentConfig(BaseModel):
     config: str  # The YAML config as a string
+
 
 @experiment_router.post("/workflow/parallel-run")
 async def start_parallel_run(experiment_config: ExperimentConfig):
@@ -23,7 +26,9 @@ async def start_parallel_run(experiment_config: ExperimentConfig):
         yaml_data = yaml.safe_load(experiment_config.config)
 
         # Define a temporary YAML file path
-        temp_config_path = os.path.join(os.getcwd(), "configs", "temp_workflow_config.yaml")
+        temp_config_path = os.path.join(
+            os.getcwd(), "configs", "temp_workflow_config.yaml"
+        )
 
         # Save the parsed YAML as a file
         with open(temp_config_path, "w") as file:
@@ -38,10 +43,14 @@ async def start_parallel_run(experiment_config: ExperimentConfig):
             [sys.executable, script_path, temp_config_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
         )
 
-        return {"status": "started", "pid": process.pid, "config_path": temp_config_path}
+        return {
+            "status": "started",
+            "pid": process.pid,
+            "config_path": temp_config_path,
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -70,7 +70,6 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
 
         print("----------")
 
-
         workflow = workflow_factory[workflow_data.workflow_name](
             task_dir=Path(workflow_data.task_dir),
             bounty_number=workflow_data.bounty_number,
