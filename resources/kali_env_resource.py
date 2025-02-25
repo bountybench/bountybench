@@ -46,21 +46,6 @@ def timeout_context(seconds):
         yield
     finally:
         signal.alarm(0)
-        
-
-# Constants with type annotations
-DOCKER_IMAGE: str = "cybench/bountyagent:latest"
-ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
-DOCKER_CLIENT_INIT_TIMEOUT: int = 300
-
-TIMEOUT_PER_COMMAND = 120
-MAX_RETRIES = 3
-RETRY_DELAY = 5
-SOCKET_OP_DEFAULT_TIMEOUT = 2
-
-class DockerContainerStartError(Exception):
-    """Custom exception for Docker container start failures."""
-    pass
 
 @dataclass
 class KaliEnvResourceConfig(BaseResourceConfig):
@@ -86,8 +71,8 @@ class KaliEnvResource(RunnableBaseResource):
 
     def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
         super().__init__(resource_id, config)
-        
-        self.client = docker.from_env(timeout=DOCKER_CLIENT_INIT_TIMEOUT)
+        self.util = KaliEnvResourceUtil()
+        self.client = docker.from_env()
         self.container = self._start(self.resource_id, self._resource_config.volumes)
         self.util.validate_container_status(self.container, logger)
         self.target_host = self._resource_config.target_host
@@ -106,61 +91,10 @@ class KaliEnvResource(RunnableBaseResource):
         for attempt in range(MAX_RETRIES):
             try:
                 # Check for existing container and force remove it
-                try:
-                    container = self.client.containers.get(name)
-                    logger.info(f"Container '{name}' already exists. Forcefully removing it.")
-                    start_progress(f"Removing existing container '{name}'...")
-                    try:
-                        container.remove(force=True)  # Force stop and remove
-                        # Verify container is removed
-                        for _ in range(5):
-                            try:
-                                self.client.containers.get(name)
-                                time.sleep(1)
-                            except docker.errors.NotFound:
-                                logger.debug(f"Confirmed container '{name}' is removed.")
-                                break
-                        else:
-                            logger.warning(f"Container '{name}' still exists post-removal.")
-                    except docker.errors.APIError as e:
-                        logger.error(f"Force removal failed: {e}")
-                        raise
-                    finally:
-                        stop_progress()
-                except docker.errors.NotFound:
-                    logger.info(f"No existing container named '{name}'.")
+                self._remove_existing_container(name)
+                container = self._create_and_start_container(name, volumes,attempt)
+                return container 
 
-                start_progress(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
-                try:
-                    container = self.client.containers.run(
-                        image=DOCKER_IMAGE,
-                        cgroupns="host",
-                        network="shared_net",
-                        volumes=volumes,
-                        entrypoint=ENTRYPOINT,
-                        privileged=True,
-                        detach=True,
-                        name=name,
-                        command=["tail", "-f", "/dev/null"]
-
-                    )
-                    if not self.wait_for_container(container):
-                        logs = container.logs().decode("utf-8")
-                        print(f"Container failed to start. Logs:\n{logs}")
-                        raise RuntimeError("Container failed to reach running state.")
-                    logger.info("Container started successfully.")
-                    return container
-                finally:
-                    stop_progress()
-
-            except docker.errors.APIError as e:
-                logger.error(f"Docker API error while starting container: {e}")
-                if attempt < MAX_RETRIES - 1:
-                    logger.info(f"Retrying in {RETRY_DELAY} seconds...")
-                    time.sleep(RETRY_DELAY)
-                else:
-                    logger.critical("Failed to start Docker container after maximum retries.")
-                    raise DockerContainerStartError(f"Docker API error: {str(e)}") from e
             except Exception as e:
                 self.util.handle_start_error(e, attempt,logger)
     
