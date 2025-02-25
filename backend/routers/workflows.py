@@ -64,6 +64,13 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
         workflow_factory = request.app.state.workflow_factory
         active_workflows = request.app.state.active_workflows
 
+        print("----------")
+
+        print(workflow_data.workflow_name)
+
+        print("----------")
+
+
         workflow = workflow_factory[workflow_data.workflow_name](
             task_dir=Path(workflow_data.task_dir),
             bounty_number=workflow_data.bounty_number,
