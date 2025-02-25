@@ -240,6 +240,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   };
 
+
+  
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
     if (name.startsWith('tasks[')) {
@@ -330,6 +332,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }));
   };
 
+
   const handleSaveConfirm = async () => {
     const yamlConfig = formDataToYaml(formData, useMockModel);
     const saveFileName = fileName.endsWith('.yaml') ? fileName : `${fileName}.yaml`;
@@ -354,6 +357,38 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setSaveStatus({ type: 'success', message: result.message });
     } catch (error) {
       setSaveStatus({ type: 'error', message: error.message });
+    }
+  };
+
+  const startParallelRun = async () => {
+    const yamlConfig = formDataToYaml(formData, useMockModel);
+
+    try {
+
+      console.log(yamlConfig)
+      const response = await fetch('http://localhost:8000/workflow/parallel-run', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          config: yamlConfig
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save configuration');
+      }
+
+      
+      const data = await response.json();
+      if (data.error) {
+        console.error("Failed to start parallel run:", data.error);
+      } else {
+        console.log("Parallel run started successfully:", data);
+      }
+    } catch (error) {
+      console.error("Error starting parallel run:", error);
     }
   };
 
@@ -544,6 +579,15 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           Save Configuration
         </Button>
       </form>
+
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={startParallelRun}
+        startIcon={<PlayArrowIcon />}
+      >
+        Start Parallel Run
+      </Button>
       
       <SaveConfigDialog
         open={openSaveDialog}
@@ -554,5 +598,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         saveStatus={saveStatus}
       />
     </Box>
+
+    
   );
 };
