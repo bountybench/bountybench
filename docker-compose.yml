@@ -9,6 +9,7 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
+      - dind-data:/var/lib/docker
     networks:
       - app-network
     environment:
@@ -37,3 +38,7 @@ services:
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  dind-data:
+    external: true
