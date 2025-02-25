@@ -1,12 +1,24 @@
 services:
+  nginx:
+      image: nginx:alpine
+      container_name: nginx-proxy
+      ports:
+        - "80:80"  # Main port users will access
+      volumes:
+        - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      depends_on:
+        - frontend
+        - backend
+      networks:
+        - app-network
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     container_name: backend-service
     privileged: true
-    ports:
-      - "8000:8000"
+    # ports:
+    #   - "8000:8000"
     volumes:
       - dind-data:/var/lib/docker
     networks:
@@ -25,8 +37,8 @@ services:
       context: .
       dockerfile: frontend/Dockerfile.frontend
     container_name: frontend-service
-    ports:
-      - "3000:3000"
+    # ports:
+    #   - "3000:3000"
     volumes:
       - ./frontend:/app
     environment:

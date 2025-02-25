@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, Switch, FormControl, Select, MenuItem } from '@mui/material';
 import { useNavigate } from 'react-router';
 
+import { API_BASE_URL } from '../../config';
+
 export const AppHeader = ({
   onInteractiveModeToggle,
   interactiveMode,
@@ -28,7 +30,7 @@ export const AppHeader = ({
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch('http://localhost:8000/workflow/allmodels');
+        const response = await fetch(`${API_BASE_URL}/workflow/allmodels`);
         const models = await response.json();
 
         setModelMapping(models.allModels);

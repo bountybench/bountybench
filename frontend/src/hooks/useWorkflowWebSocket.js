@@ -209,7 +209,7 @@ export const useWorkflowWebSocket = (workflowId) => {
 
     const backoff = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
     connectionTimeout.current = setTimeout(() => {
-      const wsUrl = `ws://localhost:8000/ws/${workflowId}`;
+      const wsUrl = `ws://${window.location.host}/ws/${workflowId}`;
       ws.current = new WebSocket(wsUrl);
 
       ws.current.onopen = () => {
