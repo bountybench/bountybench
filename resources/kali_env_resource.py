@@ -28,6 +28,7 @@ from contextlib import contextmanager
 # Constants with type annotations
 DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
+DOCKER_CLIENT_INIT_TIMEOUT: int = 300
 
 TIMEOUT_PER_COMMAND = 120
 MAX_RETRIES = 3
@@ -72,7 +73,7 @@ class KaliEnvResource(RunnableBaseResource):
     def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
         super().__init__(resource_id, config)
         self.util = KaliEnvResourceUtil()
-        self.client = docker.from_env()
+        self.client = docker.from_env(timeout=DOCKER_CLIENT_INIT_TIMEOUT)
         self.container = self._start(self.resource_id, self._resource_config.volumes)
         self.util.validate_container_status(self.container, logger)
         self.target_host = self._resource_config.target_host
@@ -193,8 +194,10 @@ class KaliEnvResource(RunnableBaseResource):
                 network="shared_net",
                 volumes=volumes,
                 entrypoint=ENTRYPOINT,
+                privileged=True,
                 detach=True,
-                name=name
+                name=name,
+                command=["tail", "-f", "/dev/null"]
             )
             self.util.safe_execute(lambda: self.util.print_docker_log(container), "printing docker log")
             if not self.util.wait_for_container(container):
