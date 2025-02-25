@@ -8,7 +8,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
       - dind-data:/var/lib/docker
     networks:
       - app-network
