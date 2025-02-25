@@ -208,7 +208,9 @@ class BaseWorkflow(ABC):
         for (
             resource_id,
             resource,
-        ) in phase_instance.resource_manager._resources.id_to_resource.items():
+        ) in phase_instance.resource_manager._resources.id_to_resource.get(
+            self.workflow_message.workflow_id, {}
+        ).items():
             self.workflow_message.add_resource(resource_id, resource)
 
         phase_message = await phase_instance.run(
