@@ -7,6 +7,8 @@ import { MemoryRouter as Router, Routes, Route } from 'react-router';
 import { darkTheme } from '../../theme';
 import { ThemeProvider } from '@mui/material/styles'; 
 
+const BASE_URL=`http://localhost:7999`
+
 // Mock the dependencies
 jest.mock('../../hooks/useWorkflowWebSocket');
 
@@ -169,7 +171,7 @@ describe('WorkflowDashboard Component', () => {
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
     expect(global.fetch).toHaveBeenCalledWith(
-      `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/run-message`, 
+      `${BASE_URL}/workflow/${mockSelectedWorkflow.id}/run-message`, 
       { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -210,7 +212,7 @@ describe('WorkflowDashboard Component', () => {
 
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
         expect(global.fetch).toHaveBeenCalledWith(
-          `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/run-message`, 
+          `${BASE_URL}/workflow/${mockSelectedWorkflow.id}/run-message`, 
           { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -330,7 +332,7 @@ describe('WorkflowDashboard Component', () => {
         // Assertion for the fetch call
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
         expect(global.fetch).toHaveBeenCalledWith(
-        `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/edit-message`,
+        `${BASE_URL}/workflow/${mockSelectedWorkflow.id}/edit-message`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -450,7 +452,7 @@ describe('WorkflowDashboard Component', () => {
         // Assertion for the fetch call
         await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
         expect(global.fetch).toHaveBeenCalledWith(
-        `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/edit-message`,
+        `${BASE_URL}/workflow/${mockSelectedWorkflow.id}/edit-message`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
