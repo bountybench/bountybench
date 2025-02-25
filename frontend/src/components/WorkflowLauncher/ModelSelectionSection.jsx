@@ -64,6 +64,39 @@ export const ModelSelectionSection = ({
         </TextField>
       )}
 
+<Grid container spacing={2}>
+        <Grid item xs={6}>
+          <TextField
+            fullWidth
+            type="number"
+            label="Max Input Tokens"
+            name="max_input_tokens"
+            value={formData.max_input_tokens || ''}
+            onChange={handleInputChange}
+            margin="normal"
+            helperText="Leave blank for model default"
+            InputProps={{
+              inputProps: { min: 1 }
+            }}
+          />
+        </Grid>
+        <Grid item xs={6}>
+          <TextField
+            fullWidth
+            type="number"
+            label="Max Output Tokens" 
+            name="max_output_tokens"
+            value={formData.max_output_tokens || ''}
+            onChange={handleInputChange}
+            margin="normal"
+            helperText="Leave blank for model default"
+            InputProps={{
+              inputProps: { min: 1 }
+            }}
+          />
+        </Grid>
+      </Grid>
+
       <Grid container spacing={2} alignItems="center">
         <Grid item xs={5}>
           <TextField
