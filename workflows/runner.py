@@ -17,6 +17,17 @@ from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 
 console = Console(record=True)
 
+import signal
+
+
+def signal_handler(signum, frame):
+    console.print(f"[bold red]Received signal {signum}. Exiting with error.[/]")
+    sys.exit(1)
+
+
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+
 
 class WorkflowRunner:
     """Centralized workflow runner with error handling and dynamic argument parsing."""
@@ -123,7 +134,7 @@ class WorkflowRunner:
             # Create error report
             self.create_error_report(e)
 
-            return 1
+            sys.exit(1)
 
     def check_workflow_completion(self) -> bool:
         """Check if the workflow is marked as complete in the log file."""
@@ -200,12 +211,6 @@ class WorkflowRunner:
                     f.write(f"Log file not found: {log_file_path}\n")
                 f.write("\n" + "=" * 50 + "\n\n")
 
-            f.write("Error Details:\n")
-            f.write("-" * 50 + "\n")
-            f.write(f"{error.__class__.__name__}: {str(error)}\n\n")
-            f.write("Traceback:\n")
-            f.write(traceback.format_exc())
-            f.write("\n" + "=" * 50 + "\n\n")
             f.write("Console Output:\n")
             f.write("-" * 50 + "\n")
             f.write(console.export_text())
@@ -224,9 +229,9 @@ async def main() -> int:
         console.print(f"[bold red]Initialization error:[/] {e}")
         console.print(Traceback())
         runner.create_error_report(e)
-        return 1
+        sys.exit(1)
     except SystemExit:
-        return 0  # Handle argparse's system exit gracefully
+        raise
 
 
 if __name__ == "__main__":
