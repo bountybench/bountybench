@@ -102,7 +102,9 @@ class WorkflowRunner:
             console.print(f"[bold green]*" * 40)
             await self.workflow.run()
 
-            # ensure workflow is "complete" here
+            # Check if the workflow is complete
+            if not self.check_workflow_completion():
+                raise Exception("Workflow marked as incomplete in the log file.")
 
             console.print(f"[bold green]*" * 40)
             console.print(
@@ -122,6 +124,31 @@ class WorkflowRunner:
             self.create_error_report(e)
 
             return 1
+
+    def check_workflow_completion(self) -> bool:
+        """Check if the workflow is marked as complete in the log file."""
+        try:
+            log_file_path = Path(self.workflow.workflow_message.log_file)
+            if not log_file_path.exists():
+                console.print(
+                    f"[bold yellow]Warning: Log file not found: {log_file_path}[/]"
+                )
+                return False
+
+            with log_file_path.open("r") as log_file:
+                log_data = json.load(log_file)
+                workflow_summary = log_data.get("workflow_metadata", {}).get(
+                    "workflow_summary", ""
+                )
+                if workflow_summary.lower() == "incomplete":
+                    console.print(
+                        "[bold red]Workflow marked as incomplete in the log file.[/]"
+                    )
+                    return False
+                return True
+        except Exception as e:
+            console.print(f"[bold red]Error checking workflow completion: {e}[/]")
+            return False
 
     def create_error_report(self, error: Exception) -> None:
         """Create an error report file with the error details and console output."""
