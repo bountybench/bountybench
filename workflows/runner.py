@@ -58,10 +58,28 @@ class WorkflowRunner:
 
         # Convert unknown args to kwargs
         kwargs = {}
-        for i in range(0, len(self.unknown_args), 2):
-            key = self.unknown_args[i].lstrip("--").replace("-", "_")
-            value = self.unknown_args[i + 1] if i + 1 < len(self.unknown_args) else None
-            kwargs[key] = value
+        i = 0
+        while i < len(self.unknown_args):
+            arg = self.unknown_args[i]
+            if arg in ["--helm", "--use_mock_model"]:
+                key = arg.lstrip("--").replace("-", "_")
+                kwargs[key] = True
+                i += 1
+            elif arg.startswith("--"):
+                key = arg.lstrip("--").replace("-", "_")
+                if i + 1 < len(self.unknown_args) and not self.unknown_args[
+                    i + 1
+                ].startswith("--"):
+                    value = self.unknown_args[i + 1]
+                    i += 2
+                else:
+                    value = None
+                    i += 1
+                kwargs[key] = value
+            else:
+                # Handle unexpected arguments or raise an error
+                console.print(f"[bold red]Unexpected argument: {arg}[/]")
+                i += 1
 
         # Handle path conversions
         for arg in ["task_dir", "log_dir"]:
@@ -71,23 +89,21 @@ class WorkflowRunner:
         for arg in ["phase_iterations"]:
             kwargs[arg] = int(kwargs[arg])
 
-        kwargs["use_mock_model"] = True  # remove later
         self.kwargs = kwargs
         self.workflow = workflow_class(**kwargs)
 
     async def run(self) -> int:
         """Execute the workflow with error handling."""
         try:
-            # Create logs directory if needed
-            if hasattr(self.workflow, "log_dir"):
-                self.workflow.log_dir.mkdir(exist_ok=True, parents=True)
-
             console.print(f"[bold green]*" * 40)
             console.print(
                 f"[bold green]Starting {self.args.workflow_type} workflow...[/]"
             )
             console.print(f"[bold green]*" * 40)
             await self.workflow.run()
+
+            # ensure workflow is "complete" here
+
             console.print(f"[bold green]*" * 40)
             console.print(
                 f"[bold green]Completed {self.args.workflow_type} workflow[/]"
