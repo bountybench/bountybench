@@ -2,13 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, Switch, FormControl, Select, MenuItem } from '@mui/material';
 import { useNavigate } from 'react-router';
 
+const BASE_URL=`http://localhost:7999`
+
 export const AppHeader = ({
   onInteractiveModeToggle,
   interactiveMode,
   selectedWorkflow,
   workflowStatus,
   currentPhase,
-  onModelChange
+  onModelChange,
+  onMockModelToggle, // New handler
+  useMockModel, // New state
+
 }) => {
   // Example options
   const [modelMapping, setModelMapping] = useState([]);
@@ -25,7 +30,7 @@ export const AppHeader = ({
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch('http://localhost:8000/workflow/allmodels');
+        const response = await fetch(`${BASE_URL}/workflow/allmodels`);
         const models = await response.json();
 
         setModelMapping(models.allModels);
@@ -89,16 +94,17 @@ export const AppHeader = ({
       >
         Workflow Agent
       </Typography>
+  
       <Box display="flex" alignItems="center">
         {selectedWorkflow && (
           <>
-            {selectedWorkflow.model && (
+            {/* Hide model selection when Mock Mode is enabled */}
+            {!useMockModel && selectedWorkflow.model && (
               <>
                 <FormControl variant="outlined" sx={{ mr: 2 }}>
                   <Select
                     value={selectedModelType}
                     onChange={(e) => setSelectedModelType(e.target.value)}
-                    //displayEmpty
                   >
                     {allModelTypes.map((type) => (
                       <MenuItem key={type} value={type}>
@@ -107,12 +113,11 @@ export const AppHeader = ({
                     ))}
                   </Select>
                 </FormControl>
-
+  
                 <FormControl variant="outlined" sx={{ mr: 2 }}>
                   <Select
                     value={selectedModelName}
                     onChange={(e) => handleModelChange(e.target.value)} 
-                    //displayEmpty
                   >
                     {allModelNames.map((name) => (
                       <MenuItem key={name} value={name}>
@@ -123,7 +128,7 @@ export const AppHeader = ({
                 </FormControl>
               </>
             )}
-
+  
             <Typography variant="body2" sx={{ mr: 2 }}>
               Status: <span style={{ fontWeight: 'bold' }}>{workflowStatus || 'Unknown'}</span>
             </Typography>
@@ -134,6 +139,7 @@ export const AppHeader = ({
             )}
           </>
         )}
+        
         <Box display="flex" alignItems="center" mr={2}>
           <Typography variant="body2" sx={{ mr: 1 }}>Interactive:</Typography>
           <Switch
@@ -141,7 +147,17 @@ export const AppHeader = ({
             onChange={onInteractiveModeToggle}
             color="primary"
             size="small"
-            disabled={!interactiveMode} // Disable when not in interactive mode
+            disabled={!interactiveMode}
+          />
+        </Box>
+  
+        <Box display="flex" alignItems="center" mr={2}>
+          <Typography variant="body2" sx={{ mr: 1 }}>Mock Model:</Typography>
+          <Switch
+            checked={useMockModel}
+            onChange={onMockModelToggle}
+            color="primary"
+            size="small"
           />
         </Box>
       </Box>

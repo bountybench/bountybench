@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AgentMessage from '../AgentMessage/AgentMessage';
 import './PhaseMessage.css'
 
-const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
+const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
@@ -75,22 +75,20 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRerunMessage, onEditing
               Summary: {message.phase_summary || '(no summary)'}
             </Typography>
             
-            {agentsVersionChain && agentsVersionChain.length > 0 && (
+            {message.current_children?.length > 0 && (
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
-                {agentsVersionChain.map((messages, index) => (
+                {message.current_children.map((agentMessage, index) => (
                   <AgentMessage 
-                    key={index} 
-                    message={messages['versionChain'][messages['index'] - 1]} 
+                    key={agentMessage.current_id} 
+                    message={agentMessage} 
                     onUpdateMessageInput={onUpdateMessageInput}
-                    onRerunMessage={onRerunMessage}
+                    onRunMessage={onRunMessage}
                     onEditingChange={onEditingChange}
                     isEditing={isEditing}                      
                     selectedCellId={selectedCellId}
                     onCellSelect={onCellSelect}
-                    onPhaseChildUpdate={handleChildUpdate}
-                    phaseDisplayedIndex={messages['index']}
-                    phaseVersionLength={messages['versionChain'].length}
+                    onToggleVersion={onToggleVersion}
                   />
                 ))}
               </Box>

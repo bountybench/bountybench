@@ -1,0 +1,44 @@
+.workflow-resources {
+  padding: 15px;
+  background-color: #266798;
+  border-left: 1px solid #215a85;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.workflow-resources .MuiPaper-root {
+  background-color: #1c537c !important;
+  color: white !important;
+  border: 1px solid white;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  margin-bottom: 15px;
+}
+
+.workflow-resources .MuiTypography-root {
+  color: white !important;
+}
+
+.workflow-resources .MuiIconButton-root {
+  color: white !important;
+}
+
+.workflow-resources .MuiListItem-root {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.workflow-resources .MuiListItemText-secondary {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.workflow-resources .MuiTypography-subtitle2 {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.workflow-resources .MuiTypography-body2 pre {
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+}

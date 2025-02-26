@@ -1,10 +1,12 @@
+import sys
 import threading
 import time
-import sys
+
 from utils.logger import get_main_logger
 
 CYAN = "\033[36m"
 RESET = "\033[0m"
+
 
 class ProgressLogger:
     def __init__(self, description, update_interval=0.5):
@@ -17,11 +19,13 @@ class ProgressLogger:
         self.last_message = None
 
     def _progress_indicator(self):
-        indicators = ['|', '/', '-', '\\']
+        indicators = ["|", "/", "-", "\\"]
         i = 0
         while self.is_running:
             with self.lock:
-                message = f"\r{CYAN}{self.description} {indicators[i]} (in progress){RESET}"
+                message = (
+                    f"\r{CYAN}{self.description} {indicators[i]} (in progress){RESET}"
+                )
                 sys.stdout.write(message)
                 sys.stdout.flush()
             time.sleep(self.update_interval)
@@ -37,23 +41,31 @@ class ProgressLogger:
         if self.thread:
             self.thread.join()
         with self.lock:
-            sys.stdout.write(f"\r{CYAN}{self.description} (completed){RESET}{'  '*10}\n")
+            sys.stdout.write(
+                f"\r{CYAN}{self.description} (completed){RESET}{'  '*10}\n"
+            )
             sys.stdout.flush()
 
     def log(self, message):
         with self.lock:
-            if message != self.last_message:  # Only log if the message is different from the last one
-                sys.stdout.write('\r' + ' '*80 + '\r')  # Clear the current line
-                sys.stdout.write('\n')  # Move to the next line
+            if (
+                message != self.last_message
+            ):  # Only log if the message is different from the last one
+                sys.stdout.write("\r" + " " * 80 + "\r")  # Clear the current line
+                sys.stdout.write("\n")  # Move to the next line
                 sys.stdout.flush()
                 self.logger.info(message)
-                sys.stdout.write('\n')  # Add another newline after the log message
-                sys.stdout.write(f"{CYAN}{self.description} (in progress){RESET}")  # Rewrite the progress message
+                sys.stdout.write("\n")  # Add another newline after the log message
+                sys.stdout.write(
+                    f"{CYAN}{self.description} (in progress){RESET}"
+                )  # Rewrite the progress message
                 sys.stdout.flush()
                 self.last_message = message
 
+
 # Global progress logger instance
 current_progress = None
+
 
 def start_progress(description):
     global current_progress
@@ -62,11 +74,13 @@ def start_progress(description):
     current_progress = ProgressLogger(description)
     current_progress.start()
 
+
 def stop_progress():
     global current_progress
     if current_progress:
         current_progress.stop()
         current_progress = None
+
 
 def log_progress(message):
     global current_progress
