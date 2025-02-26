@@ -277,7 +277,7 @@ class BaseWorkflow(ABC):
 
         self._setup_resource_manager()
         self._setup_agent_manager()
-        self._setup_rerun_manager() 
+        self._setup_interactive_controller()
         self._compute_resource_schedule()
 
         self.next_iteration_event = asyncio.Event()

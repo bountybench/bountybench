@@ -18,7 +18,7 @@ const WorkflowState = {
   COMPLETED: 'COMPLETED',
   ERROR: 'ERROR',
   STOPPED: 'STOPPED',
-  RESTARTING: 'RESTARTING',
+  RESTARTING: 'RESTARTING'
 };
 
 export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast,   useMockModel,
@@ -30,7 +30,8 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   
   const [resources, setResources] = useState([]);
   const [isResourcePanelOpen, setIsResourcePanelOpen] = useState(false);
-const [restart, setRestart] = useState(0);
+  const [restart, setRestart] = useState(0);
+
   const [workflowState, setWorkflowState] = useState({
     status: WorkflowState.LOADING,
     message: "Loading workflow instance...",
@@ -100,6 +101,12 @@ const [restart, setRestart] = useState(0);
         message: "Starting workflow, setting up first phase...",
         error: null
       });
+    } else if (workflowStatus === 'restarting') {
+      setWorkflowState({
+        status: WorkflowState.RESTARTING,
+        message: "Workflow restarting",
+        error: null
+      });
     } else if (workflowStatus === 'completed') {
       setWorkflowState({
         status: WorkflowState.COMPLETED,
@@ -111,12 +118,6 @@ const [restart, setRestart] = useState(0);
       setWorkflowState({
         status: WorkflowState.STOPPED,
         message: "Workflow stopped",
-        error: null
-      });
-    } else if (workflowStatus === 'restarting') {
-      setWorkflowState({
-        status: WorkflowState.RESTARTING,
-        message: "Workflow restarting",
         error: null
       });
     } else if (workflowStatus) {
@@ -131,6 +132,22 @@ const [restart, setRestart] = useState(0);
     onWorkflowStateUpdate(workflowStatus, currentPhase);
   }, [isConnected, workflowStatus, currentPhase, phaseMessages, error, onWorkflowStateUpdate]);
 
+  const handleRestart = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/workflow/restart/${workflowId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      console.log('Workflow restarted successfully');
+    } catch (error) {
+      console.error('Error restarting workflow:', error);
+    } finally {
+      setRestart((prev) => prev + 1);
+    }
+  };
+
   const fetchResources = useCallback(async () => {
     if (workflowId) {
       try {
@@ -139,6 +156,7 @@ const [restart, setRestart] = useState(0);
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        console.log("resources: ", data)
         setResources(data.resources);
       } catch (error) {
         console.error('Error fetching resources:', error);
@@ -219,22 +237,7 @@ const [restart, setRestart] = useState(0);
     }
   };
 
-  const handleRestart = async () => {
-    try {
-      const response = await fetch(`http://localhost:8000/workflow/restart/${workflowId}`, {
-        method: 'POST',
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      console.log('Workflow restarted successfully');
-    } catch (error) {
-      console.error('Error restarting workflow:', error);
-    } finally {
-      setRestart((prev) => prev + 1);
-    }
-  };
-  const handleRerunMessage = async (messageId) => {
+  const handleRunMessage = async (messageId) => {
     if (workflowId) {
       setIsNextDisabled(true);
       try {
@@ -327,20 +330,32 @@ const [restart, setRestart] = useState(0);
   const displayMessages = workflowState.status === WorkflowState.COMPLETED ? preservedMessages : phaseMessages;
 
   return (
-    <Box height="100%" overflow="auto">
-      <AgentInteractions
-        interactiveMode={interactiveMode}
-        workflowStatus={workflowStatus}  // Pass the workflow status
-        currentPhase={currentPhase}
-        currentIteration={currentIteration}
-        isNextDisabled={isNextDisabled}
-        messages={displayMessages}
-        onUpdateMessageInput={handleUpdateMessageInput}
-        onRerunMessage={handleRerunMessage}
-        onTriggerNextIteration={triggerNextIteration}
-        onStopWorkflow={handleStopWorkflow}
-        onRestart={handleRestart}
-      />
+    <Box height="100%" overflow="hidden" display="flex">
+      <Box flexGrow={1} overflow="auto">
+        <AgentInteractions
+          interactiveMode={interactiveMode}
+          workflowStatus={workflowStatus}
+          currentPhase={currentPhase}
+          isNextDisabled={isNextDisabled}
+          phaseMessages={displayMessages}
+          onUpdateMessageInput={handleUpdateMessageInput}
+          onRunMessage={handleRunMessage}
+          onTriggerNextIteration={triggerNextIteration}
+          onStopWorkflow={handleStopWorkflow}
+          onRestart={handleRestart}
+          onToggleVersion={handleToggleVersion}
+        />
+      </Box>
+      <Box className={`resource-panel ${isResourcePanelOpen ? 'open' : ''}`}>
+        <IconButton
+          className="toggle-panel"
+          onClick={toggleResourcePanel}
+          size="small"
+        >
+          {isResourcePanelOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+        </IconButton>
+        <ResourceDict resources={resources} />
+      </Box>
     </Box>
   );
 };

@@ -12,47 +12,6 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
 
-  const [agentsVersionChain, setAgentsVersionChain] = useState([]);
-
-  useEffect(() => {
-    if (message.current_children){
-      const children = message.current_children;
-      if (children.length === 0) return;
-      const all_messages = [];
-      let curr_index = 0;
-      for (const msg of message.agent_messages) {
-        const agentId = msg.agent_id;
-        if (curr_index === 0 || (agentId !== 'system' && curr_index === all_messages.length)) {
-            all_messages.push({ agent: agentId, versionChain: [msg], index: 1 });
-            curr_index += 1;
-        } else {
-            // When agent is seen (indicating multiple versions) we build upon the version chain
-            if (agentId === 'system'){
-              curr_index = 0;
-            }
-            all_messages[curr_index]['versionChain'].push(msg);
-            all_messages[curr_index]['index'] += 1;
-            curr_index += 1;
-        }
-      }
-      setAgentsVersionChain(all_messages);
-      return;
-    }
-  }, [message.current_children]);
-
-  const handleChildUpdate = (id, num) => {
-    if (id !== 'executor_agent'){
-      const chain_copy = [...agentsVersionChain]; 
-      const agent_index = chain_copy.findIndex(item => item.agent === id);
-      chain_copy[agent_index]['index'] += num;
-      // If followed by executor agent, also change the displayed index of the executor's output
-      if (agent_index + 1 < chain_copy.length){
-        chain_copy[agent_index+1]['index'] += num;
-      }
-      setAgentsVersionChain(chain_copy);
-    }
-  };
-
   return (
     <Box className="message-container phase">
       <Card className="message-bubble phase-bubble">

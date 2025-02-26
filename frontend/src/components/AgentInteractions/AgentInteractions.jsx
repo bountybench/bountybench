@@ -53,7 +53,7 @@ const AgentInteractions = ({
     setStopped(true);
   };
 
-  const handleRestart = async (w) => {
+  const handleRestart = async () => {
     await onRestart();
   };
 

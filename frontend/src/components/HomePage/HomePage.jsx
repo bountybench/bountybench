@@ -33,7 +33,7 @@ const HomePage = () => {
 
   const handleWorkflowClick = async (workflowId) => {
     try {
-      const response = await fetch(`http://localhost:8000/workflow/restart/${workflowId}`, {
+      const response = await fetch(`${BASE_URL}/workflow/restart/${workflowId}`, {
         method: 'POST',
       });
       if (!response.ok) {
