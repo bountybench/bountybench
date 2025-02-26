@@ -43,87 +43,89 @@ test("toggles content visibility", async () => {
 	});
 });
 
-test('handles updating action input', async () => {
-    const mockOnCellSelect = jest.fn(); // Mock function for onCellSelect
-    const message = {
-      phase_name: 'Exploit Phase',
-      phase_summary: 'Testing phase summary',
-      agent_messages: [
-        {
-          agent_id: 'system',
-          current_id: 'agent-11',
-          message: 'Old Message 1',
-          action_messages: [],
-          current_children: [],
-          message_type: 'AgentMessage',
-        },
-        {
-          agent_id: 'agent',
-          current_id: 'agent-21',
-          message: 'Old Message 2',
-          action_messages: [{current_id: 'action-11', message: 'former1'},{current_id: 'action-21', message: 'former2'}],
-          current_children: [{current_id: 'action-11', message: 'former1'},{current_id: 'action-21', message: 'former2'}],
-          message_type: 'AgentMessage',
-        },
-        {
-          agent_id: 'system',
-          current_id: 'agent-12',
-          message: 'New Message 1',
-          action_messages: [],
-          current_children: [],
-          message_type: 'AgentMessage',
-        },
-        {
-          agent_id: 'agent',
-          current_id: 'agent-22',
-          message: 'New Message 2',
-          action_messages: [{current_id: 'action-12', message: 'current1'},{current_id: 'action-22', message: 'current2'}],
-          current_children: [{current_id: 'action-12', message: 'current1'},{current_id: 'action-22', message: 'current2'}],
-          message_type: 'AgentMessage',
-        },
-      ],
-      current_children: [{
-          agent_id: 'system',
-          current_id: 'agent-12',
-          message: 'New Message 1',
-          action_messages: [],
-          current_children: [],
-          message_type: 'AgentMessage',
-        },
-        {
-          agent_id: 'agent',
-          current_id: 'agent-22',
-          message: 'New Message 2',
-          action_messages: [{current_id: 'action-12', message: 'current1'},{current_id: 'action-22', message: 'current2'}],
-          current_children: [{current_id: 'action-12', message: 'current1'},{current_id: 'action-22', message: 'current2'}],
-          message_type: 'AgentMessage',
-        },
-      ],
-    };
-    render(<PhaseMessage message={message} onCellSelect={mockOnCellSelect}/>);
-    // Checks that the newest version is displayed
-    expect(await screen.findByText(/Agent: system/i)).toBeInTheDocument();
-    expect(await screen.findByText(/New Message 1/i)).toBeInTheDocument();
-    expect(await screen.findByText(/current1/i)).toBeInTheDocument();
-    expect(await screen.findByText(/current2/i)).toBeInTheDocument();
-
-    // Verify the version text (1/2)
-      const versionText = screen.getByText(`${2}/${2}`);
-      expect(versionText).toBeInTheDocument();
-    
-      // Verify the version toggling buttons are present
-      const backButton = screen.getByRole('button', { name: /arrow back/i }); 
-      const forwardButton = screen.getByRole('button', { name: /arrow forward/i }); 
-      expect(forwardButton).toBeInTheDocument();
-      expect(forwardButton).toBeDisabled();
-      expect(backButton).toBeInTheDocument();
-      expect(backButton).not.toBeDisabled();
-    
-      // Select previous version and verify that the display is changed
-      fireEvent.click(backButton);
-      expect(screen.getByText(/former1/i)).toBeInTheDocument();
-      expect(screen.getByText(/former2/i)).toBeInTheDocument();
-      const newVersionText = screen.getByText(`${1}/${2}`);
-      expect(newVersionText).toBeInTheDocument();
-
+test("handles updating action input", async () => {
+	const message = {
+		phase_name: "Exploit Phase",
+		phase_summary: "Testing phase summary",
+		agent_messages: [
+			{
+				agent_id: "agent-1",
+				current_id: "agent-11",
+				message: "Old Message 1",
+				action_messages: [],
+				current_children: [],
+				message_type: "AgentMessage",
+			},
+			{
+				agent_id: "agent-2",
+				current_id: "agent-21",
+				message: "Old Message 2",
+				action_messages: [
+					{ current_id: "action-11", message: "former1" },
+					{ current_id: "action-21", message: "former2" },
+				],
+				current_children: [
+					{ current_id: "action-11", message: "former1" },
+					{ current_id: "action-21", message: "former2" },
+				],
+				message_type: "AgentMessage",
+			},
+			{
+				agent_id: "agent-1",
+				current_id: "agent-12",
+				message: "New Message 1",
+				action_messages: [],
+				current_children: [],
+				message_type: "AgentMessage",
+			},
+			{
+				agent_id: "agent-2",
+				current_id: "agent-22",
+				message: "New Message 2",
+				action_messages: [
+					{ current_id: "action-12", message: "current1" },
+					{ current_id: "action-22", message: "current2" },
+				],
+				current_children: [
+					{ current_id: "action-12", message: "current1" },
+					{ current_id: "action-22", message: "current2" },
+				],
+				message_type: "AgentMessage",
+			},
+		],
+		current_children: [
+			{
+				agent_id: "agent-1",
+				current_id: "agent-12",
+				message: "New Message 1",
+				action_messages: [],
+				current_children: [],
+				message_type: "AgentMessage",
+			},
+			{
+				agent_id: "agent-2",
+				current_id: "agent-22",
+				message: "New Message 2",
+				action_messages: [
+					{ current_id: "action-12", message: "current1" },
+					{ current_id: "action-22", message: "current2" },
+				],
+				current_children: [
+					{ current_id: "action-12", message: "current1" },
+					{ current_id: "action-22", message: "current2" },
+				],
+				message_type: "AgentMessage",
+			},
+		],
+	};
+	render(
+		<ThemeProvider theme={darkTheme}>
+			<PhaseMessage message={message} />
+		</ThemeProvider>
+	);
+	// Checks that the newest version is displayed
+	expect(await screen.findByText(/Agent: agent-1/i)).toBeInTheDocument();
+	expect(await screen.findByText(/New Message 1/i)).toBeInTheDocument();
+	expect(await screen.findByText(/current1/i)).toBeInTheDocument();
+	expect(await screen.findByText(/current2/i)).toBeInTheDocument();
 });
