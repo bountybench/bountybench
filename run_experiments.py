@@ -310,13 +310,6 @@ class ExperimentRunner:
             results.append(result)
             progress.update(overall_task, advance=1)
 
-            # Update status of waiting tasks
-            for waiting_id, waiting_cmd in commands:
-                if (
-                    waiting_id > task_id
-                    and self.task_status[waiting_id]["status"] == "Waiting"
-                ):
-                    self.task_status[waiting_id]["status"] = "Waiting"
         return results
 
     async def run_experiment(self, command: List[str]):
