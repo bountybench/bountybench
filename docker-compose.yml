@@ -39,6 +39,8 @@ services:
       - ./frontend:/app
     environment:
       - CHOKIDAR_USEPOLLING=true
+      - API_BASE_URL= # Keep value empty for nginx proxy
+      - WS_BASE_URL=
     networks:
       - app-network
 
