@@ -10,7 +10,6 @@ import { formatData } from '../../utils/messageFormatters';
 import './AgentMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import AddIcon from '@mui/icons-material/Add';
 import { CopyButton } from '../buttons/CopyButton';
 
 const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
@@ -272,7 +271,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     onCellSelect={onCellSelect}
                   />
                 ))}
-                <Box className="add-action-button-container">
+                {/* <Box className="add-action-button-container">
                   <Button
                     variant="outlined"
                     aria-label="action add"
@@ -281,7 +280,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                   >
                     <AddIcon />
                   </Button>
-                </Box>
+                </Box> */}
               </Box>
               
               <>

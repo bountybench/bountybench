@@ -8,6 +8,8 @@ import ResourceDict from '../ResourceDict/ResourceDict';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
+const BASE_URL=`http://localhost:7999`
+
 const WorkflowState = {
   LOADING: 'LOADING',
   CONNECTING: 'CONNECTING',
@@ -18,7 +20,8 @@ const WorkflowState = {
   STOPPED: 'STOPPED'
 };
 
-export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast }) => {
+export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast,   useMockModel,
+  setUseMockModel }) => {
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
@@ -38,7 +41,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
     const checkIfWorkflowExists = async () => {
-      const response = await fetch('http://localhost:8000/workflow/active');
+      const response = await fetch(`${BASE_URL}/workflow/active`);
       const data = await response.json();
 
       if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
@@ -124,7 +127,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const fetchResources = useCallback(async () => {
     if (workflowId) {
       try {
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/resources`);
+        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/resources`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -139,7 +142,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   useEffect(() => {
     fetchResources();
-  }, [phaseMessages, fetchResources]);
+  }, [phaseMessages, useMockModel, fetchResources]);
 
   const toggleResourcePanel = () => {
     setIsResourcePanelOpen(!isResourcePanelOpen);
@@ -155,7 +158,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       try {
         const currentMessageId = await getTailMessageId();
         console.log(`Tail message id is ${currentMessageId}`)
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/run-message`, {
+        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/run-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -178,7 +181,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   };
 
   const handleUpdateMessageInput = async (messageId, newInputData) => {
-    const url = `http://localhost:8000/workflow/${workflowId}/edit-message`;
+    const url = `${BASE_URL}/workflow/${workflowId}/edit-message`;
     const requestBody = { message_id: messageId, new_input_data: newInputData };
     
     console.log('Sending request to:', url);
@@ -213,7 +216,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     if (workflowId) {
       setIsNextDisabled(true);
       try {
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/run-message`, {
+        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/run-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -240,7 +243,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const handleStopWorkflow = async () => {
     if (workflowId) {
       try {
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/stop`, {
+        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/stop`, {
           method: 'POST',
         });
         if (!response.ok) {
@@ -257,7 +260,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   const handleToggleVersion = useCallback(async (messageId, direction) => {
     try {
-      const response = await fetch(`http://localhost:8000/workflow/${workflowId}/toggle-version`, {
+      const response = await fetch(`${BASE_URL}/workflow/${workflowId}/toggle-version`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

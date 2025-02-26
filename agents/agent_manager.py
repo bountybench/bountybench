@@ -10,10 +10,11 @@ logger = get_main_logger(__name__)
 
 
 class AgentManager:
-    def __init__(self):
+    def __init__(self, workflow_id: str):
         self._agents: Dict[str, BaseAgent] = {}
         self._phase_agents: Dict[str, BaseAgent] = {}
         self._agent_configs: Dict[str, Tuple[Type[BaseAgent], AgentConfig]] = {}
+        self.workflow_id = workflow_id
         self.resource_dict = resource_dict
 
     def register_agent(
@@ -72,8 +73,12 @@ class AgentManager:
     def update_phase_agents_models(self, new_model: str):
         for agent_id in self._phase_agents:
             agent = self._phase_agents[agent_id]
-            if any(isinstance(resource, tuple) and resource[0] == ModelResource for resource in agent.ACCESSIBLE_RESOURCES) or \
-                any(resource == ModelResource for resource in agent.ACCESSIBLE_RESOURCES):
+            if any(
+                isinstance(resource, tuple) and resource[0] == ModelResource
+                for resource in agent.ACCESSIBLE_RESOURCES
+            ) or any(
+                resource == ModelResource for resource in agent.ACCESSIBLE_RESOURCES
+            ):
 
                 if not hasattr(agent, "model"):
                     raise AttributeError("Agent does not have a 'model' attribute")
@@ -82,6 +87,34 @@ class AgentManager:
                 resource = ModelResource("model", resource_config)
                 setattr(agent, "model", resource)
                 logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
+    
+
+    def update_phase_agents_mock_model(self, use_mock_model: bool):
+        """
+        Ensures all agents update their ModelResource with the new `use_mock_model` setting.
+        """
+        for agent_id, agent in self._phase_agents.items():
+            if any(
+                isinstance(resource, tuple) and resource[0] == ModelResource
+                for resource in agent.ACCESSIBLE_RESOURCES
+            ) or any(
+                resource == ModelResource for resource in agent.ACCESSIBLE_RESOURCES
+            ):
+                if not hasattr(agent, "model"):
+                    raise AttributeError("Agent does not have a 'model' attribute")
+
+                existing_model_name = agent.model.model
+                logger.info(f"Updating agent {agent_id} to use_mock_model={use_mock_model}")
+
+                resource_config = ModelResourceConfig.create(
+                    model=existing_model_name,  
+                    use_mock_model=use_mock_model  
+                )
+
+                resource = ModelResource("model", resource_config)
+                setattr(agent, "model", resource)
+
+                logger.info(f"Agent {agent_id} updated: {agent.model.to_dict()}")
 
     def create_agent(
         self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig
@@ -99,10 +132,12 @@ class AgentManager:
 
             resource = None
             if attr_name:
-                if attr_name in self.resource_dict:
-                    resource = self.resource_dict[attr_name]
+                if self.resource_dict.contains(self.workflow_id, attr_name):
+                    resource = self.resource_dict.get(self.workflow_id, attr_name)
             else:
-                resources = self.resource_dict.resources_by_type(resource_type)
+                resources = self.resource_dict.resources_by_type(
+                    self.workflow_id, resource_type
+                )
 
                 attr_name = self._generate_attr_name(resource_type)
                 if resources:

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
 
 from phases.base_phase import BasePhase
@@ -12,8 +13,14 @@ logger = get_main_logger(__name__)
 
 
 class ResourceManager:
-    def __init__(self):
+    def __init__(self, workflow_id: str):
+        self.workflow_id = workflow_id
         self._resources = resource_dict
+
+        if workflow_id not in self._resources.id_to_resource:
+            self._resources.id_to_resource[workflow_id] = {}
+            self._resources.resource_type_to_resources[workflow_id] = defaultdict(list)
+
         self._resource_registration: Dict[
             str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]
         ] = {}
@@ -42,8 +49,25 @@ class ResourceManager:
             )
             self._resource_registration["model"] = (resource_class, resource_config)
             resource = resource_class("model", resource_config)
-            self._resources["model"] = resource
+            self._resources.set(self.workflow_id, "model", resource)
             logger.info(f"New model specifics: {resource}")
+    
+    def update_mock_model(self, use_mock_model: bool):
+        """
+        Updates the `use_mock_model` setting for the ModelResource.
+        """
+        if "model" in self._resource_registration:
+            resource_class, resource_config = ModelResource, ModelResourceConfig.create(
+                model=self._resource_registration["model"][1].model, 
+                use_mock_model=use_mock_model 
+            )
+            self._resource_registration["model"] = (resource_class, resource_config)
+
+            # Create and set the updated resource
+            resource = resource_class("model", resource_config)
+            self._resources.set(self.workflow_id, "model", resource)
+
+            logger.info(f"Updated ModelResource to use_mock_model={use_mock_model}")
 
     def compute_schedule(self, phases: List["BasePhase"]):
         """
@@ -150,7 +174,7 @@ class ResourceManager:
 
     def _initialize_single_resource(self, resource_id: str, phase_index: int):
         """Initialize a single resource."""
-        if resource_id in self._resources.id_to_resource:
+        if resource_id in self._resources.id_to_resource.get(self.workflow_id, {}):
             logger.info(f"Resource '{resource_id}' already initialized. Skipping.")
             return
 
@@ -165,7 +189,7 @@ class ResourceManager:
         )
         try:
             resource = resource_class(resource_id, resource_config)
-            self._resources[resource_id] = resource
+            self._resources.set(self.workflow_id, resource_id, resource)
             logger.info(f"Successfully initialized resource '{resource_id}'")
         except Exception as e:
             logger.error(f"Failed to initialize resource '{resource_id}': {str(e)}")
@@ -194,9 +218,10 @@ class ResourceManager:
             _, term_phase = self._resource_lifecycle[resource_id]
             if (
                 phase_index == term_phase
-                and resource_id in self._resources.id_to_resource
+                and resource_id
+                in self._resources.id_to_resource.get(self.workflow_id, {})
             ):
-                resource = self._resources[resource_id]
+                resource = self._resources.get(self.workflow_id, resource_id)
                 if isinstance(resource, InitFilesResource):
                     init_files_resource = (resource_id, resource)
                 else:
@@ -207,7 +232,7 @@ class ResourceManager:
             try:
                 logger.debug(f"Stopping resource '{resource_id}'")
                 resource.stop()
-                self._resources.delete_items(resource_id)
+                self._resources.delete_items(self.workflow_id, resource_id)
                 logger.info(f"Deallocated resource '{resource_id}'")
             except Exception as e:
                 logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
@@ -219,7 +244,7 @@ class ResourceManager:
             try:
                 logger.debug(f"Stopping InitFilesResource '{resource_id}'")
                 resource.stop()
-                self._resources.delete_items(resource_id)
+                self._resources.delete_items(self.workflow_id, resource_id)
                 logger.info(f"Deallocated InitFilesResource '{resource_id}'")
             except Exception as e:
                 logger.error(
@@ -231,9 +256,9 @@ class ResourceManager:
 
     def get_resource(self, resource_id: str) -> BaseResource:
         """Retrieve an initialized resource by its ID."""
-        if resource_id not in self._resources.id_to_resource:
+        if resource_id not in self._resources.id_to_resource.get(self.workflow_id, {}):
             raise KeyError(f"Resource '{resource_id}' not initialized")
-        return self._resources[resource_id]
+        return self._resources.get(self.workflow_id, resource_id)
 
     def get_phase_resources(self, phase_index: int) -> Dict[str, BaseResource]:
         """Retrieve resources used by a phase by its ID."""
@@ -254,19 +279,28 @@ class ResourceManager:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for resource in self._resources.id_to_resource.values():
+        for resource in self._resources.id_to_resource.get(
+            self.workflow_id, {}
+        ).values():
             resource.stop()
-        self._resources.id_to_resource.clear()
-        self._resources.resource_type_to_resources.clear()
+        if self.workflow_id in self._resources.id_to_resource:
+            del self._resources.id_to_resource[self.workflow_id]
+        if self.workflow_id in self._resources.resource_type_to_resources:
+            del self._resources.resource_type_to_resources[self.workflow_id]
 
     def deallocate_all_resources(self):
-        for resource in self._resources.id_to_resource.values():
+        """Deallocate all resources for the current workflow."""
+        for resource in list(
+            self._resources.id_to_resource.get(self.workflow_id, {}).values()
+        ):
             resource.stop()
-        self._resources.id_to_resource.clear()
-        self._resources.resource_type_to_resources.clear()
+        if self.workflow_id in self._resources.id_to_resource:
+            del self._resources.id_to_resource[self.workflow_id]
+        if self.workflow_id in self._resources.resource_type_to_resources:
+            del self._resources.resource_type_to_resources[self.workflow_id]
         self._resource_registration.clear()
         self._phase_resources.clear()
         self._resource_lifecycle.clear()
 
     def get_resources(self):
-        return self._resources.id_to_resource
+        return self._resources.id_to_resource[self.workflow_id]

@@ -164,3 +164,6 @@ node_modules
 
 # Filesystem-specific metadata files
 .DS_Store
+
+# MKDocs
+documentation/site
