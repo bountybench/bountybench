@@ -208,7 +208,7 @@ class BasePhase(ABC):
 
         logger.info(f"running Phase {self.name} starting at iteration {self.iteration_count}")
 
-        if self.iteration_count == 0:           
+        if self.iteration_count == 0 and (not hasattr(self, '_phase_message') or not self._phase_message):
             self._phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
             workflow_message.add_child_message(self._phase_message)
 
