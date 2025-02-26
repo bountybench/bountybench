@@ -562,33 +562,37 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           />
 
 
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          startIcon={<PlayArrowIcon />}
-        >
-          Start Workflow
-        </Button>
-        <Button
-          variant="outlined"
-          color="secondary"
-          onClick={handleSaveConfiguration}
-          startIcon={<SaveIcon />}
-        >
-          Save Configuration
-        </Button>
-      </form>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={handleSaveConfiguration}
+            startIcon={<SaveIcon />}
+          >
+            Save Configuration
+          </Button>
+          </form>
 
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={startParallelRun}
-        startIcon={<PlayArrowIcon />}
-      >
-        Start Parallel Run
-      </Button>
-      
+          <Box display="flex" flexDirection="column" gap={2} mt={2}> 
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              startIcon={<PlayArrowIcon />}
+            >
+              Run Single Workflow
+            </Button>
+
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={startParallelRun}
+              startIcon={<PlayArrowIcon />}
+            >
+              Run Workflows in Parallel
+            </Button>
+          </Box>
+
+
       <SaveConfigDialog
         open={openSaveDialog}
         onClose={handleSaveDialogClose}
@@ -597,6 +601,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         onSave={handleSaveConfirm}
         saveStatus={saveStatus}
       />
+
     </Box>
 
     

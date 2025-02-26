@@ -40,3 +40,6 @@ class ApiKeyInput(BaseModel):
 class SaveConfigRequest(BaseModel):
     fileName: str
     config: str
+
+class ExperimentConfig(BaseModel):
+    config: str  # The YAML config as a string

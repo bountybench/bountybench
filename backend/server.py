@@ -35,12 +35,12 @@ class Server:
         from backend.routers.api_service import api_service_router
         from backend.routers.workflow_service import workflow_service_router
         from backend.routers.workflows import workflows_router
-        from backend.routers.experiments import experiment_router
+        from backend.routers.parallel_runs import parallel_run_router
 
         self.app.include_router(api_service_router)
         self.app.include_router(workflows_router)
         self.app.include_router(workflow_service_router)
-        self.app.include_router(experiment_router)
+        self.app.include_router(parallel_run_router)
 
 
     async def shutdown(self):
