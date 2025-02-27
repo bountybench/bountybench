@@ -19,6 +19,7 @@ services:
     privileged: true
     volumes:
       - dind-data:/var/lib/docker
+      - ./logs:/app/logs
     networks:
       - app-network
     environment:
