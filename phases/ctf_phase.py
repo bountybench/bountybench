@@ -175,7 +175,7 @@ class CTFPhase(BasePhase):
             if issubclass(
                 last_action_message.__class__, AnswerMessageInterface
             ):
-                if last_action_message.answer in self.flag:
+                if self.flag in last_action_message.answer:
                     logger.status("Successfully captured the flag!", True)
                     phase_message.set_summary("exploit_success")
                     phase_message.set_complete()

@@ -77,7 +77,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const shouldShowBounty = (workflowName) => {
     const lowercaseName = workflowName.toLowerCase();
-    return lowercaseName.includes('detect') || lowercaseName.includes('exploit') || lowercaseName.includes('patch');
+    return lowercaseName.includes('detect') || lowercaseName.includes('exploit') || lowercaseName.includes('patch') || lowercaseName.includes('ctf');
   };
   
   const [allModels, setAllModels] = useState({});

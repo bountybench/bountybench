@@ -1,6 +1,6 @@
 import asyncio
 from pathlib import Path
-from agents.prompts import CTF_PROMPT, STOP_TOKEN # Add CTF prompt
+from prompts.prompts import CTF_PROMPT, STOP_TOKEN # Add CTF prompt
 from phases.ctf_phase import CTFPhase
 from resources.utils import read_writeup
 from utils.logger import get_main_logger
