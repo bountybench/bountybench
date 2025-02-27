@@ -347,7 +347,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       console.log(payload)
   
       // Send the request
-      const response = await fetch(`${BASE_URL}/workflow/parallel-run', {
+      const response = await fetch(`${BASE_URL}/workflow/parallel-run`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -404,7 +404,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   // Helper function to set up WebSocket connections
   const setupWorkflowWebSocket = (workflowId) => {
-    const ws = new WebSocket(`ws://localhost:8000/ws/${workflowId}`);
+    const ws = new WebSocket(`${BASE_URL.replace('http://', 'ws://')}/ws/${workflowId}`);
     
     ws.onopen = () => {
       console.log(`WebSocket connection established for workflow ${workflowId}`);
