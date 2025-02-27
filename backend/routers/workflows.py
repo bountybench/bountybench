@@ -72,7 +72,6 @@ async def start_parallel_run(workflow_data: ExperimentConfig, request: Request):
         if workflow_type not in workflow_factory:
             return {"error": f"Workflow '{workflow_type}' not found"}
 
-
         # Prepare data for combinations
         tasks = workflow_data.tasks
         models = workflow_data.models

@@ -54,25 +54,29 @@ def test_parallel_run_workflow_success(client):
         "interactive": True,
         "phase_iterations": [5],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
     response = client.post("/workflow/parallel-run", json=payload)
     assert response.status_code == 200, "Expected status code 200"
     data = response.json()
-    
+
     # Check for single workflow response
     if "workflow_id" in data:
         assert "workflow_id" in data, "Response should contain 'workflow_id'"
         assert "status" in data, "Response should contain 'status'"
         assert data["status"] == "initializing", "Status should be 'initializing'"
-        assert data["workflow_id"] == "fake-123", "Workflow ID does not match expected fake ID"
+        assert (
+            data["workflow_id"] == "fake-123"
+        ), "Workflow ID does not match expected fake ID"
     # Check for multiple workflow response
     else:
         assert "status" in data, "Response should contain 'status'"
         assert data["status"] == "started", "Status should be 'started'"
         assert "workflows" in data, "Response should contain 'workflows'"
         assert len(data["workflows"]) == 1, "Should have 1 workflow started"
-        assert data["workflows"][0]["workflow_id"] == "fake-123", "Workflow ID does not match expected fake ID"
+        assert (
+            data["workflows"][0]["workflow_id"] == "fake-123"
+        ), "Workflow ID does not match expected fake ID"
 
 
 def test_parallel_run_workflow_invalid_name(client):
@@ -85,13 +89,15 @@ def test_parallel_run_workflow_invalid_name(client):
         "interactive": True,
         "phase_iterations": [5],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
     response = client.post("/workflow/parallel-run", json=payload)
     assert response.status_code == 200, "Expected status code 200 even on error"
     data = response.json()
     assert "error" in data, "Response should contain 'error' key"
-    assert "Unknown Workflow" in data["error"], "Error message should indicate unknown workflow"
+    assert (
+        "Unknown Workflow" in data["error"]
+    ), "Error message should indicate unknown workflow"
 
 
 @pytest.fixture
@@ -105,7 +111,7 @@ def started_chat_workflow(client):
         "interactive": True,
         "phase_iterations": [2],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
     response = client.post("/workflow/parallel-run", json=payload)
     assert response.status_code == 200
@@ -127,7 +133,7 @@ def started_patch_workflow(client):
         "interactive": False,
         "phase_iterations": [1],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
     response = client.post("/workflow/parallel-run", json=payload)
     assert response.status_code == 200
@@ -149,7 +155,9 @@ def test_run_message_success(client, started_patch_workflow):
     assert "status" in data, "Response should contain 'status'"
     assert data["status"] == "updated", "Status should be 'updated'"
     assert "result" in data, "Response should contain 'result'"
-    assert data["result"] == "fake-run-message-id", "Result ID does not match expected fake run message ID"
+    assert (
+        data["result"] == "fake-run-message-id"
+    ), "Result ID does not match expected fake run message ID"
 
 
 def test_run_message_workflow_not_found(client):
@@ -159,7 +167,9 @@ def test_run_message_workflow_not_found(client):
     assert response.status_code == 200, "Expected status code 200 even on error"
     data = response.json()
     assert "error" in data, "Response should contain 'error' key"
-    assert data["error"] == "Workflow nonexistent-id not found", "Error message should indicate workflow not found"
+    assert (
+        data["error"] == "Workflow nonexistent-id not found"
+    ), "Error message should indicate workflow not found"
 
 
 @pytest.fixture
@@ -173,7 +183,7 @@ def started_detect_workflow(client):
         "interactive": False,
         "phase_iterations": [2],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
     response = client.post("/workflow/parallel-run", json=payload)
     assert response.status_code == 200
@@ -190,7 +200,9 @@ def test_update_interactive_mode_success(client, started_detect_workflow):
     response = client.post(
         f"/workflow/{started_detect_workflow}/interactive", json=payload
     )
-    assert response.status_code == 200, "Expected status code 200 for updating interactive mode"
+    assert (
+        response.status_code == 200
+    ), "Expected status code 200 for updating interactive mode"
     data = response.json()
     assert "status" in data, "Response should contain 'status'"
     assert data["status"] == "success", "Status should be 'success'"
@@ -208,7 +220,7 @@ def test_parallel_run_workflow_missing_fields(client):
         "interactive": True,
         "phase_iterations": [5],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
     response = client.post("/workflow/parallel-run", json=payload)
     assert response.status_code == 422, "Expected status code 422 for validation error"
@@ -229,7 +241,7 @@ def test_workflow_restart_creates_new_workflow(client):
         "interactive": True,
         "phase_iterations": [3],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
 
     new_payload = {
@@ -240,35 +252,59 @@ def test_workflow_restart_creates_new_workflow(client):
         "interactive": True,
         "phase_iterations": [3],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
 
     # Step 1: Start the first workflow
     start_response_1 = client.post("/workflow/parallel-run", json=start_payload)
-    assert start_response_1.status_code == 200, "Expected status code 200 for first workflow start"
+    assert (
+        start_response_1.status_code == 200
+    ), "Expected status code 200 for first workflow start"
     data_1 = start_response_1.json()
-    workflow_id_1 = data_1["workflow_id"] if "workflow_id" in data_1 else data_1["workflows"][0]["workflow_id"]
+    workflow_id_1 = (
+        data_1["workflow_id"]
+        if "workflow_id" in data_1
+        else data_1["workflows"][0]["workflow_id"]
+    )
 
     # Step 2: Stop the first workflow
     stop_response = client.post(f"/workflow/{workflow_id_1}/stop")
-    assert stop_response.status_code == 200, "Expected status code 200 for stopping workflow"
+    assert (
+        stop_response.status_code == 200
+    ), "Expected status code 200 for stopping workflow"
     assert "status" in stop_response.json(), "Response should contain 'status'"
-    assert stop_response.json()["status"] == "stopped", "Workflow should be marked as stopped"
+    assert (
+        stop_response.json()["status"] == "stopped"
+    ), "Workflow should be marked as stopped"
 
     # Step 3: Verify that the stopped workflow still exists in active workflows
     active_workflows_before_restart = client.get("/workflow/active").json()
     found_workflow = next(
-        (w for w in active_workflows_before_restart["active_workflows"] if w["id"] == workflow_id_1),
+        (
+            w
+            for w in active_workflows_before_restart["active_workflows"]
+            if w["id"] == workflow_id_1
+        ),
         None,
     )
-    assert found_workflow is not None, "Stopped workflow should still be in active workflows"
-    assert found_workflow["status"] == "stopped", "Stopped workflow should have status 'stopped'"
+    assert (
+        found_workflow is not None
+    ), "Stopped workflow should still be in active workflows"
+    assert (
+        found_workflow["status"] == "stopped"
+    ), "Stopped workflow should have status 'stopped'"
 
     # Step 4: Start a new workflow
     start_response_2 = client.post("/workflow/parallel-run", json=new_payload)
-    assert start_response_2.status_code == 200, "Expected status code 200 for second workflow start"
+    assert (
+        start_response_2.status_code == 200
+    ), "Expected status code 200 for second workflow start"
     data_2 = start_response_2.json()
-    workflow_id_2 = data_2["workflow_id"] if "workflow_id" in data_2 else data_2["workflows"][0]["workflow_id"]
+    workflow_id_2 = (
+        data_2["workflow_id"]
+        if "workflow_id" in data_2
+        else data_2["workflows"][0]["workflow_id"]
+    )
 
     # Step 5: Ensure the new workflow ID is different
     assert workflow_id_1 != workflow_id_2, "New workflow should have a different ID"
@@ -282,16 +318,26 @@ def test_workflow_restart_creates_new_workflow(client):
 
     # Step 7: Ensure the old workflow is still stopped and the new workflow is initializing
     old_workflow = next(
-        (w for w in active_workflows_after_restart["active_workflows"] if w["id"] == workflow_id_1),
+        (
+            w
+            for w in active_workflows_after_restart["active_workflows"]
+            if w["id"] == workflow_id_1
+        ),
         None,
     )
     new_workflow = next(
-        (w for w in active_workflows_after_restart["active_workflows"] if w["id"] == workflow_id_2),
+        (
+            w
+            for w in active_workflows_after_restart["active_workflows"]
+            if w["id"] == workflow_id_2
+        ),
         None,
     )
 
     assert old_workflow["status"] == "stopped", "Old workflow should remain stopped"
-    assert new_workflow["status"] == "initializing", "New workflow should be in 'initializing' state"
+    assert (
+        new_workflow["status"] == "initializing"
+    ), "New workflow should be in 'initializing' state"
 
 
 def test_stopping_multiple_workflows(client):
@@ -307,7 +353,7 @@ def test_stopping_multiple_workflows(client):
         "interactive": True,
         "phase_iterations": [3],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
 
     payload_2 = {
@@ -318,32 +364,48 @@ def test_stopping_multiple_workflows(client):
         "interactive": True,
         "phase_iterations": [3],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
 
     # Start two workflows
     start_response_1 = client.post("/workflow/parallel-run", json=payload_1)
     data_1 = start_response_1.json()
-    workflow_id_1 = data_1["workflow_id"] if "workflow_id" in data_1 else data_1["workflows"][0]["workflow_id"]
+    workflow_id_1 = (
+        data_1["workflow_id"]
+        if "workflow_id" in data_1
+        else data_1["workflows"][0]["workflow_id"]
+    )
 
     start_response_2 = client.post("/workflow/parallel-run", json=payload_2)
     data_2 = start_response_2.json()
-    workflow_id_2 = data_2["workflow_id"] if "workflow_id" in data_2 else data_2["workflows"][0]["workflow_id"]
+    workflow_id_2 = (
+        data_2["workflow_id"]
+        if "workflow_id" in data_2
+        else data_2["workflows"][0]["workflow_id"]
+    )
 
     # Stop both workflows
     stop_response_1 = client.post(f"/workflow/{workflow_id_1}/stop")
     stop_response_2 = client.post(f"/workflow/{workflow_id_2}/stop")
 
-    assert stop_response_1.status_code == 200, "Expected status code 200 for stopping first workflow"
-    assert stop_response_2.status_code == 200, "Expected status code 200 for stopping second workflow"
+    assert (
+        stop_response_1.status_code == 200
+    ), "Expected status code 200 for stopping first workflow"
+    assert (
+        stop_response_2.status_code == 200
+    ), "Expected status code 200 for stopping second workflow"
 
     # Verify that both workflows still exist but are marked as 'stopped'
     active_workflows = client.get("/workflow/active").json()
     workflow_1_status = next(
-        w["status"] for w in active_workflows["active_workflows"] if w["id"] == workflow_id_1
+        w["status"]
+        for w in active_workflows["active_workflows"]
+        if w["id"] == workflow_id_1
     )
     workflow_2_status = next(
-        w["status"] for w in active_workflows["active_workflows"] if w["id"] == workflow_id_2
+        w["status"]
+        for w in active_workflows["active_workflows"]
+        if w["id"] == workflow_id_2
     )
 
     assert workflow_1_status == "stopped", "First workflow should be marked as stopped"
@@ -362,24 +424,36 @@ def test_restarting_workflow_with_same_bounty_number(client):
         "interactive": True,
         "phase_iterations": [3],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
 
     # Start the first workflow
     start_response_1 = client.post("/workflow/parallel-run", json=payload)
     data_1 = start_response_1.json()
-    workflow_id_1 = data_1["workflow_id"] if "workflow_id" in data_1 else data_1["workflows"][0]["workflow_id"]
+    workflow_id_1 = (
+        data_1["workflow_id"]
+        if "workflow_id" in data_1
+        else data_1["workflows"][0]["workflow_id"]
+    )
 
     # Stop the first workflow
     stop_response = client.post(f"/workflow/{workflow_id_1}/stop")
-    assert stop_response.status_code == 200, "Expected status code 200 for stopping workflow"
+    assert (
+        stop_response.status_code == 200
+    ), "Expected status code 200 for stopping workflow"
 
     # Restart with the same bounty number
     start_response_2 = client.post("/workflow/parallel-run", json=payload)
     data_2 = start_response_2.json()
-    workflow_id_2 = data_2["workflow_id"] if "workflow_id" in data_2 else data_2["workflows"][0]["workflow_id"]
+    workflow_id_2 = (
+        data_2["workflow_id"]
+        if "workflow_id" in data_2
+        else data_2["workflows"][0]["workflow_id"]
+    )
 
-    assert workflow_id_1 == workflow_id_2, "New workflow should have same ID with the same bounty number"
+    assert (
+        workflow_id_1 == workflow_id_2
+    ), "New workflow should have same ID with the same bounty number"
 
 
 def test_stopping_workflow_twice(client):
@@ -394,26 +468,36 @@ def test_stopping_workflow_twice(client):
         "interactive": True,
         "phase_iterations": [3],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
 
     # Start the workflow
     start_response = client.post("/workflow/parallel-run", json=payload)
     data = start_response.json()
-    workflow_id = data["workflow_id"] if "workflow_id" in data else data["workflows"][0]["workflow_id"]
+    workflow_id = (
+        data["workflow_id"]
+        if "workflow_id" in data
+        else data["workflows"][0]["workflow_id"]
+    )
 
     # Stop the workflow once
     stop_response_1 = client.post(f"/workflow/{workflow_id}/stop")
-    assert stop_response_1.status_code == 200, "Expected status code 200 for stopping workflow the first time"
+    assert (
+        stop_response_1.status_code == 200
+    ), "Expected status code 200 for stopping workflow the first time"
 
     # Stop the workflow again
     stop_response_2 = client.post(f"/workflow/{workflow_id}/stop")
-    assert stop_response_2.status_code == 200, "Expected status code 200 even for repeated stop"
+    assert (
+        stop_response_2.status_code == 200
+    ), "Expected status code 200 even for repeated stop"
 
     # Verify that the workflow is still present in active workflows with 'stopped' status
     active_workflows = client.get("/workflow/active").json()
     workflow_status = next(
-        w["status"] for w in active_workflows["active_workflows"] if w["id"] == workflow_id
+        w["status"]
+        for w in active_workflows["active_workflows"]
+        if w["id"] == workflow_id
     )
 
     assert workflow_status == "stopped", "Workflow should still be in 'stopped' status"
@@ -434,12 +518,16 @@ async def test_websocket_connection_success(client):
         "interactive": True,
         "phase_iterations": [5],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
     start_response = client.post("/workflow/parallel-run", json=start_payload)
     assert start_response.status_code == 200
     data = start_response.json()
-    workflow_id = data["workflow_id"] if "workflow_id" in data else data["workflows"][0]["workflow_id"]
+    workflow_id = (
+        data["workflow_id"]
+        if "workflow_id" in data
+        else data["workflows"][0]["workflow_id"]
+    )
 
     with client.websocket_connect(f"/ws/{workflow_id}") as websocket:
         initial_state = websocket.receive_json()
@@ -458,12 +546,16 @@ async def test_websocket_receive_status_update(client):
         "interactive": True,
         "phase_iterations": [5],
         "use_mock_model": True,
-        "trials_per_config": 1
+        "trials_per_config": 1,
     }
     start_response = client.post("/workflow/parallel-run", json=start_payload)
     assert start_response.status_code == 200
     data = start_response.json()
-    workflow_id = data["workflow_id"] if "workflow_id" in data else data["workflows"][0]["workflow_id"]
+    workflow_id = (
+        data["workflow_id"]
+        if "workflow_id" in data
+        else data["workflows"][0]["workflow_id"]
+    )
 
     with client.websocket_connect(f"/ws/{workflow_id}") as websocket:
         # Verify connection establishment
