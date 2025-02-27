@@ -296,10 +296,9 @@ class BaseWorkflow(ABC):
         logger.status(f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
 
         self._workflow_iteration_count += 1
-        prev_phase_message = self._current_phase
         next_phases = self._phase_graph.get(self._current_phase, [])
         self._current_phase = next_phases[0] if next_phases else None
-
+        
         # Continue running the remaining phases (if any)
         if self._current_phase:
             try:
@@ -308,12 +307,6 @@ class BaseWorkflow(ABC):
             except asyncio.CancelledError:
                 logger.info("workflow phases run was cancelled")
                 raise
-
-        else:
-            if prev_phase_message.success:
-                self.workflow_message.set_summary(WorkflowStatus.COMPLETED_SUCCESS.value)
-            else:
-                self.workflow_message.set_summary(WorkflowStatus.COMPLETED_FAILURE.value)
 
     @property
     def name(self):
