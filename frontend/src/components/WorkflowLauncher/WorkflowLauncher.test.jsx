@@ -207,7 +207,7 @@ describe('WorkflowLauncher Component', () => {
     fireEvent.click(screen.getByText('model3'));
   
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
+      fireEvent.click(screen.getByText('Run Workflow(s)'));
     });
   
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
@@ -234,7 +234,7 @@ describe('WorkflowLauncher Component', () => {
       .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
       .mockResolvedValueOnce({ 
         ok: false, 
-        json: () => Promise.resolve({ error: 'Failed to start workflow' })
+        json: () => Promise.resolve({ error: 'Failed to start parallel workflows' })
       });
     
     await act(async () => {
@@ -276,10 +276,10 @@ describe('WorkflowLauncher Component', () => {
     fireEvent.click(screen.getByText('model3'));
   
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
+      fireEvent.click(screen.getByText('Run Workflow(s)'));
     });
   
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
-    expect(screen.getByText('Failed to start workflow')).toBeInTheDocument();
+    expect(screen.getByText('Failed to start parallel workflows')).toBeInTheDocument();
   });
 });

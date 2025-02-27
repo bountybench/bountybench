@@ -40,7 +40,6 @@ class Server:
         self.app.include_router(workflows_router)
         self.app.include_router(workflow_service_router)
 
-
     async def shutdown(self):
         """Gracefully shutdown the server with proper cleanup"""
         # Close all active websocket connections
