@@ -191,57 +191,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLauncherState({
-      status: LauncherState.CREATING_WORKFLOW,
-      message: "Creating workflow instance...",
-      error: null
-    });
-  
-    try {
-      const firstTask = formData.tasks[0]; // Get the first task
-      const response = await fetch('http://localhost:8000/workflow/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workflow_name: formData.workflow_name,
-          task_dir: `bountybench/${firstTask.task_dir.replace(/^bountybench\//, '')}`,
-          bounty_number: firstTask.bounty_number,
-          vulnerability_type: formData.vulnerability_type,
-          interactive: interactiveMode,
-          iterations: formData.iterations,
-          model: formData.model,
-          use_helm: formData.use_helm,
-          use_mock_model: useMockModel
-
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start workflow');
-      }
-  
-      const data = await response.json();
-  
-      if (data.error) {
-        throw new Error(data.error);
-      } else {
-        await onWorkflowStart(data.workflow_id, data.model, interactiveMode);
-        navigate(`/workflow/${data.workflow_id}`);
-      }
-    } catch (err) {
-      setLauncherState({
-        status: LauncherState.SERVER_ERROR,
-        message: "Failed to create workflow",
-        error: err.message
-      });
-    }
-  };
 
 
-  
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
     if (name.startsWith('tasks[')) {
@@ -360,36 +311,119 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   };
 
-  const startParallelRun = async () => {
-    const yamlConfig = formDataToYaml(formData, useMockModel);
-
+  const startParallelRun = async (e) => {
+    e.preventDefault();
+    setLauncherState({
+      status: LauncherState.CREATING_WORKFLOW,
+      message: "Creating workflow instance...",
+      error: null
+    });
     try {
+      // Prepare the necessary data (tasks, models, etc.)
+      const tasks = formData.tasks.map(task => ({
+        task_dir: task.task_dir.replace(/^bountybench\//, ''),
+        bounty_number: task.bounty_number
+      }));
+  
+      const models = [{
+        name: formData.model,
+        use_helm: formData.use_helm
+      }];
+  
+      // Create the request payload
+      const payload = {
+        workflow_name: formData.workflow_name,
+        tasks: tasks,
+        models: models,
+        vulnerability_type: formData.vulnerability_type,
+        interactive: interactiveMode,
+        phase_iterations: [parseInt(formData.iterations)],
+        use_mock_model: useMockModel,
+        trials_per_config: 1
+      };
 
-      console.log(yamlConfig)
+
+      console.log(payload)
+  
+      // Send the request
       const response = await fetch('http://localhost:8000/workflow/parallel-run', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          config: yamlConfig
-        }),
+        body: JSON.stringify(payload),
       });
-
+  
       if (!response.ok) {
-        throw new Error('Failed to save configuration');
+        throw new Error('Failed to start parallel workflows');
       }
-
       
       const data = await response.json();
+      
       if (data.error) {
         console.error("Failed to start parallel run:", data.error);
+        return;
+      }
+      
+      // Check if we got a single workflow or multiple workflows response
+      if (data.workflow_id) {
+        // Single workflow response - navigate to it
+        await onWorkflowStart(data.workflow_id, data.model, interactiveMode);
+        navigate(`/workflow/${data.workflow_id}`);
+      } else if (data.workflows && data.workflows.length > 0) {
+        // Multiple workflows - navigate to the first one
+        const firstWorkflow = data.workflows[0];
+        
+        // Setup WebSocket connections for all workflows in the background
+        data.workflows.forEach(workflow => {
+          setupWorkflowWebSocket(workflow.workflow_id);
+        });
+        
+        // But only navigate to the first one
+        await onWorkflowStart(firstWorkflow.workflow_id, firstWorkflow.model, interactiveMode);
+        navigate(`/workflow/${firstWorkflow.workflow_id}`);
+        
+        // Optional: show a notification about multiple workflows
+        const otherWorkflowsCount = data.workflows.length - 1;
+        if (otherWorkflowsCount > 0) {
+          alert(`Started ${data.workflows.length} workflows in parallel. You are viewing the first one. ${otherWorkflowsCount} other workflows are running in the background.`);
+        }
       } else {
-        console.log("Parallel run started successfully:", data);
+        console.error("Invalid response format", data);
       }
     } catch (error) {
       console.error("Error starting parallel run:", error);
+      setLauncherState({
+        status: LauncherState.SERVER_ERROR,
+        message: "Failed to create workflows",
+        error: error.message
+      });
     }
+  };
+  
+  // Helper function to set up WebSocket connections
+  const setupWorkflowWebSocket = (workflowId) => {
+    const ws = new WebSocket(`ws://localhost:8000/ws/${workflowId}`);
+    
+    ws.onopen = () => {
+      console.log(`WebSocket connection established for workflow ${workflowId}`);
+    };
+    
+    ws.onmessage = (event) => {
+      // Handle messages (can be used to update a global state if needed)
+      console.log(`Received message from workflow ${workflowId}`);
+    };
+    
+    ws.onerror = (error) => {
+      console.error(`WebSocket error for workflow ${workflowId}:`, error);
+    };
+    
+    ws.onclose = () => {
+      console.log(`WebSocket connection closed for workflow ${workflowId}`);
+    };
+    
+    // Optionally store the WebSocket instances if you need to close them later
+    // e.g., in a useRef array or similar
   };
 
   // 2. Fetch workflows only once server is confirmed available
@@ -470,7 +504,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         Start New Workflow
       </Typography>
 
-      <form onSubmit={handleSubmit} className="launcher-form">
+      <form onSubmit={startParallelRun} className="launcher-form">
         <TextField
           select
           fullWidth
@@ -570,7 +604,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           >
             Save Configuration
           </Button>
-          </form>
+
 
           <Box display="flex" flexDirection="column" gap={2} mt={2}> 
             <Button
@@ -579,18 +613,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
               color="primary"
               startIcon={<PlayArrowIcon />}
             >
-              Run Single Workflow
-            </Button>
-
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={startParallelRun}
-              startIcon={<PlayArrowIcon />}
-            >
-              Run Workflows in Parallel
+             Run Workflow(s)
             </Button>
           </Box>
+          </form>
 
 
       <SaveConfigDialog

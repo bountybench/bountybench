@@ -1,10 +1,11 @@
+import itertools
 import os
 import traceback
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 
-from backend.schema import SaveConfigRequest, StartWorkflowInput
+from backend.schema import ExperimentConfig, SaveConfigRequest
 from prompts.vulnerability_prompts import VulnerabilityType
 from resources.model_resource.model_mapping import NonHELMMapping, TokenizerMapping
 
@@ -58,44 +59,91 @@ async def list_active_workflows(request: Request):
     return {"active_workflows": active_workflows_list}
 
 
-@workflows_router.post("/workflow/start")
-async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
+
+@workflows_router.post("/workflow/parallel-run")
+async def start_parallel_run(workflow_data: ExperimentConfig, request: Request):
+    """Unified endpoint for starting one or more workflows."""
     try:
         workflow_factory = request.app.state.workflow_factory
         active_workflows = request.app.state.active_workflows
+        
+        # Get workflow name in proper format
+        workflow_type = workflow_data.workflow_name
 
-        print("----------")
-
-        print(workflow_data.workflow_name)
-
-        print("----------")
-
-        workflow = workflow_factory[workflow_data.workflow_name](
-            task_dir=Path(workflow_data.task_dir),
-            bounty_number=workflow_data.bounty_number,
-            vulnerability_type=workflow_data.vulnerability_type,
-            interactive=workflow_data.interactive,
-            phase_iterations=workflow_data.iterations,
-            model=workflow_data.model,
-            use_helm=workflow_data.use_helm,
-            use_mock_model=workflow_data.use_mock_model,
-        )
-        workflow_id = workflow.workflow_message.workflow_id
-        active_workflows[workflow_id] = {
-            "instance": workflow,
-            "status": "initializing",
-            "workflow_message": workflow.workflow_message,
-        }
+        
+        # Prepare data for combinations
+        tasks = workflow_data.tasks
+        models = workflow_data.models
+        vulnerability_type = [workflow_data.vulnerability_type] if workflow_data.vulnerability_type else [""]
+        phase_iterations = workflow_data.phase_iterations
+        trials_per_config = workflow_data.trials_per_config
+        interactive = workflow_data.interactive
+        use_mock_model = workflow_data.use_mock_model
+        
+        # Build parameter combinations
+        params = [tasks, models, phase_iterations]
+        if vulnerability_type[0] and workflow_type.lower().startswith("detect"):
+            params.append(vulnerability_type)
+        
+        # Store workflow IDs
+        workflow_ids = []
+        
+        # Generate all workflows from parameter combinations
+        for combination in itertools.product(*params):
+            task, model, iterations = combination[:3]
+            vuln_type = combination[3] if len(combination) > 3 else ""
+            
+            # Run each configuration the specified number of trials
+            for _ in range(trials_per_config):
+                try:
+                    # Create workflow instance using your existing factory
+                    workflow = workflow_factory[workflow_type](
+                        task_dir=Path(f"bountybench/{task.task_dir}"),
+                        bounty_number=task.bounty_number,
+                        vulnerability_type=vuln_type,
+                        interactive=interactive,
+                        phase_iterations=iterations,
+                        model=model.name,
+                        use_helm=model.use_helm,
+                        use_mock_model=use_mock_model,
+                    )
+                    
+                    # Store workflow in active workflows
+                    workflow_id = workflow.workflow_message.workflow_id
+                    active_workflows[workflow_id] = {
+                        "instance": workflow,
+                        "status": "initializing",
+                        "workflow_message": workflow.workflow_message,
+                    }
+                    
+                    workflow_ids.append({
+                        "workflow_id": workflow_id,
+                        "model": model.name,
+                        "status": "initializing",
+                    })
+                    
+                    print(f"Started workflow {workflow_id} with model {model.name}")
+                    
+                except Exception as e:
+                    error_traceback = traceback.format_exc()
+                    print(f"Error starting individual workflow: {str(e)}\n{error_traceback}")
+                    # Continue with other workflows even if one fails
+        
+        # For backward compatibility, if only one workflow was started, return its details
+        if len(workflow_ids) == 1:
+            return workflow_ids[0]
+        
+        # Otherwise return all workflow IDs
         return {
-            "workflow_id": workflow_id,
-            "model": workflow_data.model,
-            "status": "initializing",
+            "status": "started",
+            "workflows": workflow_ids,
+            "total_workflows": len(workflow_ids),
         }
+        
     except Exception as e:
         error_traceback = traceback.format_exc()
-        print(f"Error starting workflow: {str(e)}\n{error_traceback}")
+        print(f"Error in parallel run: {str(e)}\n{error_traceback}")
         return {"error": str(e)}
-
 
 @workflows_router.get("/workflow/allmodels")
 async def list_all_models():
