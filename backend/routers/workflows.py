@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from backend.schema import SaveConfigRequest, StartWorkflowInput
 from prompts.vulnerability_prompts import VulnerabilityType
 from resources.model_resource.model_mapping import NonHELMMapping, TokenizerMapping
+from resources.model_resource.model_resource import ModelResourceConfig
 
 workflows_router = APIRouter()
 
@@ -126,6 +127,27 @@ async def list_vulnerability_types():
         "vulnerability_types": [
             {"name": vt.name, "value": vt.value} for vt in VulnerabilityType
         ]
+    }
+
+
+@workflows_router.get("/workflow/config-defaults")
+async def get_config_defaults():
+    """Return default configuration values for the UI"""
+    # Get defaults from the class fields
+    max_input_tokens = next(
+        field.default
+        for field in ModelResourceConfig.__dataclass_fields__.values()
+        if field.name == "max_input_tokens"
+    )
+    max_output_tokens = next(
+        field.default
+        for field in ModelResourceConfig.__dataclass_fields__.values()
+        if field.name == "max_output_tokens"
+    )
+
+    return {
+        "max_input_tokens": max_input_tokens,
+        "max_output_tokens": max_output_tokens,
     }
 
 

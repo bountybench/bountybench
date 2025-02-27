@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   TextField,
   MenuItem,
@@ -27,8 +27,19 @@ export const ModelSelectionSection = ({
   showApiKey,
   handleRevealToggle,
   handleApiKeyChange,
-  apiStatus
+  apiStatus,
+  configDefaults,
+  setFormData
 }) => {
+  useEffect(() => {
+    if (configDefaults && configDefaults.max_input_tokens && configDefaults.max_output_tokens) {
+      setFormData(prev => ({
+        ...prev,
+        max_input_tokens: prev.max_input_tokens === '' ? configDefaults.max_input_tokens : prev.max_input_tokens,
+        max_output_tokens: prev.max_output_tokens === '' ? configDefaults.max_output_tokens : prev.max_output_tokens
+      }));
+    }
+  }, [configDefaults, setFormData]);
   return (
     <>
       <TextField
@@ -71,10 +82,9 @@ export const ModelSelectionSection = ({
             type="number"
             label="Max Input Tokens"
             name="max_input_tokens"
-            value={formData.max_input_tokens || ''}
+            value={formData.max_input_tokens}
             onChange={handleInputChange}
             margin="normal"
-            helperText="Leave blank for model default"
             InputProps={{
               inputProps: { min: 1 }
             }}
@@ -86,10 +96,9 @@ export const ModelSelectionSection = ({
             type="number"
             label="Max Output Tokens" 
             name="max_output_tokens"
-            value={formData.max_output_tokens || ''}
+            value={formData.max_output_tokens}
             onChange={handleInputChange}
             margin="normal"
-            helperText="Leave blank for model default"
             InputProps={{
               inputProps: { min: 1 }
             }}
