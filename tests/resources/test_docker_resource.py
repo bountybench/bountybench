@@ -81,14 +81,3 @@ class DockerResourceTest(unittest.TestCase):
         last_line, exit_code = docker_resource.execute('alpine', 'some invalid command')
         self.assertEqual(-1, exit_code)
 
-    def test_copy_from_container(self):
-        docker_resource_config = DockerResourceConfig()
-        docker_resource = DockerResource("test_docker_resource", docker_resource_config)
-        
-        container = docker_resource.client.containers.run("alpine", detach=True, command="tail -f /dev/null")
-        container.exec_run("touch test.txt")
-        self.assertTrue(docker_resource.copy_from_container(container.name, "test.txt", "test.txt"))
-
-        self.assertFalse(docker_resource.copy_from_container(container.name, "test2.txt", "test.txt"))
-
-

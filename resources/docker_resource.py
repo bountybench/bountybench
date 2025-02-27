@@ -126,46 +126,6 @@ class DockerResource(BaseResource):
             except:
                 pass  # If container removal fails, just ignore it
 
-    def copy_from_container(
-        self, container_name: str, source_path: str, dest_path: str
-    ) -> bool:
-        """
-        Copy a file or directory from a container to the host system.
-
-        Args:
-            container_name (str): The name of the container to copy from.
-            source_path (str): The path of the file or directory in the container.
-            dest_path (str): The destination path on the host system.
-
-        Returns:
-            True if file/directory successfully copied, False otherwise
-        """
-        try:
-            container = self.client.containers.get(container_name)
-
-            # Get file/directory data from container
-            bits, stat = container.get_archive(source_path)
-
-            # Write the file/directory data to the destination
-            with open(dest_path, "wb") as f:
-                for chunk in bits:
-                    f.write(chunk)
-
-            logger.info(
-                f"Copied from container {container_name}: {source_path} -> {dest_path}"
-            )
-
-            return True
-        except docker.errors.NotFound as e:
-            logger.critical(f"Container/file not found: {e}")
-            return False
-        except docker.errors.APIError as e:
-            logger.error(f"Docker API error while copying: {str(e)}")
-            return False
-        except Exception as e:
-            logger.error(f"Error copying from container: {e}")
-            return False
-
     def stop(self) -> None:
         """
         Stop the Docker client by closing the connection.
