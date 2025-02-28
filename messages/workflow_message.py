@@ -123,7 +123,10 @@ class WorkflowMessage(Message):
             for _, value in self.task.items():
                 if value:
                     components.append(str(value.name if isinstance(value, Path) else value))
-        self.log_file = self.logs_dir / f"{'_'.join(components)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        self.log_file = (
+            self.logs_dir
+            / f"{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        )
         logger.status(f"Creating new log file at: {self.log_file}")
         self.save()
 
