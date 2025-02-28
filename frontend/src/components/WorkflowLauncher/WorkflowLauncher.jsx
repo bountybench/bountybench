@@ -172,7 +172,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const fetchConfigDefaults = useCallback(async () => {
     try {
-      const response = await fetch(`${BASE_URL}/workflow/config-defaults`);
+      const response = await fetch(`${API_BASE_URL}/workflow/config-defaults`);
       const data = await response.json();
       setConfigDefaults(data);
     } catch (err) {
