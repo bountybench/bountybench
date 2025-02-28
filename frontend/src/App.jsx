@@ -15,8 +15,6 @@ import LogViewer from './components/LogViewer/LogViewer';
 
 import { API_BASE_URL } from './config';
 
-const BASE_URL=`http://localhost:7999`
-
 function App() {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [interactiveMode, setInteractiveMode] = useState(true);
