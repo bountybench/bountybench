@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useServerAvailability } from '../../hooks/useServerAvailability';
+import { toast } from "react-toastify";
 import {
   Box,
   Button,
@@ -387,7 +388,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         // Optional: show a notification about multiple workflows
         const otherWorkflowsCount = data.workflows.length - 1;
         if (otherWorkflowsCount > 0) {
-          alert(`Started ${data.workflows.length} workflows in parallel. You are viewing the first one. ${otherWorkflowsCount} other workflows are running in the background.`);
+          toast.info(`Started ${data.workflows.length} workflows in parallel. You are viewing the first one. ${otherWorkflowsCount} other workflows are running in the background.`);
         }
       } else {
         console.error("Invalid response format", data);
