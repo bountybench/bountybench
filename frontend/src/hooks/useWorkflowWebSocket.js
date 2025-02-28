@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const WS_URL=`ws://localhost:7999`
+import { WS_BASE_URL } from '../config'; 
 
 export const useWorkflowWebSocket = (workflowId, reconnect) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -213,7 +213,7 @@ export const useWorkflowWebSocket = (workflowId, reconnect) => {
     }
     const backoff = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
     connectionTimeout.current = setTimeout(() => {
-      const wsUrl = `${WS_URL}/ws/${workflowId}`;
+      const wsUrl = `${WS_BASE_URL}/ws/${workflowId}`;
       ws.current = new WebSocket(wsUrl);
 
       ws.current.onopen = () => {
