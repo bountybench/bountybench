@@ -127,20 +127,42 @@ class ExperimentRunner:
         # Get the current working directory
         current_dir = os.getcwd()
 
-        # Construct the command with cd first
-        cd_cmd = f"cd {shlex.quote(current_dir)} && "
+        # Method 1: Use a temporary file to track completion
+        import tempfile
+        
+        # Create a unique marker file
+        marker_file = tempfile.mktemp(suffix='.done')
+        
+        # Modify the command to touch the marker file when done
         cmd_str = " ".join(shlex.quote(arg) for arg in command)
-        full_cmd = cd_cmd + cmd_str
-
+        full_cmd = f"cd {shlex.quote(current_dir)} && {cmd_str}; RESULT=$?; touch {marker_file}; exit $RESULT"
+        
         mac_script = f"""
         tell application "Terminal"
             activate
             do script "{full_cmd}"
         end tell
         """
+        
+        # Launch the terminal
         proc = await asyncio.create_subprocess_exec(
             "osascript", "-e", mac_script.strip()
         )
+        
+        # Wait for the osascript to complete (launches Terminal)
+        await proc.wait()
+        
+        # Now wait for the marker file to appear
+        while not os.path.exists(marker_file):
+            await asyncio.sleep(1)
+        
+        # Clean up marker file
+        try:
+            os.remove(marker_file)
+        except:
+            pass
+        
+        # Return 0 to indicate success
         return proc
 
     async def _run_windows(self, command: List[str]):
