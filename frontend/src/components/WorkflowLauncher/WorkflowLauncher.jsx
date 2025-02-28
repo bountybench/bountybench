@@ -348,7 +348,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       console.log(payload)
   
       // Send the request
-      const response = await fetch(`${BASE_URL}/workflow/parallel-run`, {
+      const response = await fetch(`${BASE_URL}/workflow/start-workflow`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
