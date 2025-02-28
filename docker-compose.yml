@@ -3,7 +3,7 @@ services:
       image: nginx:alpine
       container_name: nginx-proxy
       ports:
-        - "3000:80"  # Host port 80 to Container port 80
+        - "3000:80"  # Host port 3000 to Container port 80
       volumes:
         - ./nginx.conf:/etc/nginx/conf.d/default.conf
       depends_on:
@@ -40,7 +40,7 @@ services:
       - ./frontend:/app
     environment:
       - CHOKIDAR_USEPOLLING=true
-      - REACT_APP_USE_NGINX_PROXY=true
+      - REACT_APP_USE_NGINX_PROXY=true # The REACT_APP_ prefix exposes the variable to the frontend JS code
     networks:
       - app-network
 
