@@ -76,7 +76,15 @@ class PatchPhase(BountyPhase):
         )
 
         resource_configs: Dict[str, Tuple[Type[BaseResource], Any]] = {
-            "model": (ModelResource, ModelResourceConfig.create(model=self.model, use_mock_model=self.use_mock_model)),
+            "model": (
+                ModelResource,
+                ModelResourceConfig.create(
+                    model=self.model,
+                    use_mock_model=self.use_mock_model,
+                    max_input_tokens=self.params.get("max_input_tokens"),
+                    max_output_tokens=self.params.get("max_output_tokens"),
+                ),
+            ),
             "init_files": (
                 InitFilesResource,
                 InitFilesResourceConfig(
@@ -128,9 +136,7 @@ class PatchPhase(BountyPhase):
             )
 
         setup_bounty_env_script = (
-            self.bounty_dir
-            / "setup_files"
-            / "setup_bounty_env.sh"
+            self.bounty_dir / "setup_files" / "setup_bounty_env.sh"
         )
         if contains_setup(setup_bounty_env_script):
             resource_configs["bounty_resource"] = (

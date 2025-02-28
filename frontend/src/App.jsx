@@ -33,7 +33,7 @@ function App() {
     setInteractiveMode(newInteractiveMode);
     if (selectedWorkflow) {
       try {
-        const response = await fetch(`${API_BASE_URL}/workflow/${selectedWorkflow.id}/interactive`, {
+          const response = await fetch(`${API_BASE_URL}/workflow/${selectedWorkflow.id}/interactive`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

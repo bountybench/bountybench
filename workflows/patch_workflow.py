@@ -25,7 +25,7 @@ class PatchWorkflow(BountyWorkflow):
         """Define and register phases specific to PatchWorkflow."""
 
         phase_kwargs = {
-            'use_mock_model': self.params.get('use_mock_model'),
+            "use_mock_model": self.params.get("use_mock_model"),
             "model": self.params.get("model"),
             "helm": self.params.get("helm"),
             "task_dir": self.task_dir,
@@ -40,6 +40,8 @@ class PatchWorkflow(BountyWorkflow):
             "info": self.repo_metadata.get("info", "")
             + "\n"
             + self.bounty_metadata.get("info", ""),
+            "max_input_tokens": self.params.get("max_input_tokens"),
+            "max_output_tokens": self.params.get("max_output_tokens"),
         }
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations
@@ -82,6 +84,12 @@ async def main() -> None:
     parser.add_argument("--model", type=str, help="The LM model to query")
     parser.add_argument("--helm", action="store_true", help="Use HelmModels")
     parser.add_argument(
+        "--max_input_tokens", type=int, help="Max input tokens to pass into model"
+    )
+    parser.add_argument(
+        "--max_output_tokens", type=int, help="Max output tokens to pass into model"
+    )
+    parser.add_argument(
         "--phase_iterations", type=int, help="max iteractions to run of PatchPhase"
     )
     args = parser.parse_args()
@@ -95,7 +103,10 @@ async def main() -> None:
         task_dir=Path(args.task_dir),
         bounty_number=args.bounty_number,
         interactive=args.interactive,
-        use_mock_model=args.use_mock_model, model=args.model,
+        use_mock_model=args.use_mock_model,
+        model=args.model,
+        max_input_tokens=args.max_input_tokens,
+        max_output_tokens=args.max_output_tokens,
         phase_iterations=args.phase_iterations,
     )
     await workflow.run()
