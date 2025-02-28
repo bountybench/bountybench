@@ -239,11 +239,17 @@ Once both the backend and frontend are running, you can access the application t
 
 1. Open the Docker Desktop app and ensure it's running.
 
-2. Navigate to the `bountyagent` directory and run:
+2. Create a Docker volume for DinD data
 
-```bash
-docker compose up --build -d
-```
+   ```bash
+   docker volume create dind-data
+   ```
+
+3. Navigate to the `bountyagent` directory and run:
+
+   ```bash
+   docker compose up --build -d
+   ```
 
 Once built, the frontend will be running at http://localhost:3000/, and everything should be the same as in non-dockerized versions.
 
