@@ -34,10 +34,6 @@ class DockerResourceConfig(BaseResourceConfig):
         """Validate Docker configuration"""
         pass
 
-    def toJson(self):
-        return json.dumps(self, default=lambda o: o.__dict__)
-
-
 class DockerResource(BaseResource):
     """
     Docker Resource to manage Docker containers.
@@ -158,7 +154,7 @@ class DockerResource(BaseResource):
         return {
             "resource_id": self.resource_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            "config": self._resource_config.toJson()
+            "config": self._resource_config.to_dict()
         }
 
     @classmethod
