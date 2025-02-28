@@ -21,7 +21,7 @@ import { SaveConfigDialog } from './SaveConfigDialog';
 import { TaskSelectionSection } from './TaskSelectionSection';
 import { ModelSelectionSection } from './ModelSelectionSection';
 
-const BASE_URL=`http://localhost:7999`
+import { API_BASE_URL } from '../../config';
 
 const LauncherState = {
   CHECKING_SERVER: 'CHECKING_SERVER',
@@ -123,7 +123,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const fetchWorkflows = useCallback(async () => {
     try {
-      const response = await fetch(`${BASE_URL}/workflow/list`);
+      const response = await fetch(`${API_BASE_URL}/workflow/list`);
       const data = await response.json();
       setWorkflows(data.workflows);
       
@@ -144,7 +144,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const fetchModels = useCallback(async () => {
     try {
-      const response = await fetch(`${BASE_URL}/workflow/models`);
+      const response = await fetch(`${API_BASE_URL}/workflow/models`);
       const models = await response.json();
       setAllModels(models);
       
@@ -182,7 +182,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const fetchApiKeys = useCallback(async () => { 
     try {
-      const response = await fetch(`${BASE_URL}/service/api-service/get`);
+      const response = await fetch(`${API_BASE_URL}/service/api-service/get`);
       const data = await response.json();
       setApiKeys(data);
       
@@ -201,7 +201,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const fetchVulnerabilityTypes = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/workflow/vulnerability-types`);
+      const response = await fetch(`${API_BASE_URL}/workflow/vulnerability-types`);
       const data = await response.json();
       setVulnerabilityTypes(data.vulnerability_types);
     } catch (error) {
@@ -219,7 +219,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
     try {
       const firstTask = formData.tasks[0]; // Get the first task
-      const response = await fetch(`${BASE_URL}/workflow/start`, {
+      const response = await fetch(`${API_BASE_URL}/workflow/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -284,7 +284,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleApiKeyChange = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/service/api-service/update`, {
+      const response = await fetch(`${API_BASE_URL}/service/api-service/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -354,7 +354,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     const saveFileName = fileName.endsWith('.yaml') ? fileName : `${fileName}.yaml`;
 
     try {
-      const response = await fetch(`${BASE_URL}/workflow/save-config`, {
+      const response = await fetch(`${API_BASE_URL}/workflow/save-config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -447,6 +447,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       </Box>
     );
   }
+
 
   // All good: show the form
   return (

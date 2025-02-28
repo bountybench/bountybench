@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from '../config';
 
 const BASE_URL=`http://localhost:7999`
 
@@ -25,7 +26,7 @@ export const useServerAvailability = (onAvailable) => {
 
     const checkServer = async () => {
       try {
-        const response = await fetch(`${BASE_URL}/workflow/list`);
+        const response = await fetch(`${API_BASE_URL}/workflow/list`);
         if (response.ok) {
           setServerStatus({
             isAvailable: true,

@@ -11,6 +11,9 @@ import { AppHeader } from './components/AppHeader/AppHeader';
 import { darkTheme } from './theme';
 import './App.css';
 import HomePage from './components/HomePage/HomePage';
+import LogViewer from './components/LogViewer/LogViewer';
+
+import { API_BASE_URL } from './config';
 
 const BASE_URL=`http://localhost:7999`
 
@@ -32,7 +35,7 @@ function App() {
     setInteractiveMode(newInteractiveMode);
     if (selectedWorkflow) {
       try {
-        const response = await fetch(`${BASE_URL}/workflow/${selectedWorkflow.id}/interactive`, {
+          const response = await fetch(`${API_BASE_URL}/workflow/${selectedWorkflow.id}/interactive`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -58,7 +61,7 @@ function App() {
   const handleModelChange = async (name, mockModel) => {
     if (!selectedWorkflow) return;
     
-    const url = `${BASE_URL}/workflow/${selectedWorkflow.id}/model-change`;
+    const url = `${API_BASE_URL}/workflow/${selectedWorkflow.id}/model-change`;
     const requestBody = { 
       new_model_name: name,
       use_mock_model: mockModel 
@@ -89,7 +92,7 @@ function App() {
 
     if (selectedWorkflow) {
       try {
-        const response = await fetch(`${BASE_URL}/workflow/${selectedWorkflow.id}/mock-model`, {
+        const response = await fetch(`${API_BASE_URL}/workflow/${selectedWorkflow.id}/mock-model`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ use_mock_model: newMockState }),
@@ -179,6 +182,7 @@ function App() {
                   setUseMockModel={setUseMockModel} // Pass setter function
                 />} 
             />
+            <Route path="/history-logs" element={<LogViewer />} />
             {/* Fallback route */}
             <Route path='*' element={<Navigate to="/" />} />
           </Routes>
