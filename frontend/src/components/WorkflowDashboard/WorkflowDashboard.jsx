@@ -134,7 +134,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   const handleRestart = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/workflow/restart/${workflowId}`, {
+      const response = await fetch(`${API_BASE_URL}/workflow/restart/${workflowId}`, {
         method: 'POST',
       });
       if (!response.ok) {
