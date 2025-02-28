@@ -230,6 +230,43 @@ class ExperimentRunner:
         except ValueError:
             return "unknown"
 
+    def _get_ports(self, task_dir):
+        from utils.get_task_ports import get_ports_for_directory
+
+        return get_ports_for_directory(task_dir)
+
+    def task_groups_port_constraints(self, task_groups):
+        """
+        Note that this grouping logic does a single pass grouping, does not handle
+        mixed conflict grouping (e.g. [8000], [9000], [8000, 9000] would result in
+        two groups assuming [8000, 9000] isn't evaluated first/second - since conflict
+        won't be known between [8000] and [9000]). However, this is still likely
+        sufficient for our purposes based on current bounties.
+        """
+
+        port_map = {}
+        new_task_groups = defaultdict(list)
+
+        for task_dir, cmds in task_groups.items():
+            ports = self._get_ports(task_dir)
+            conflicting_group = None
+            for port in ports:
+                if port in port_map:
+                    conflicting_group = port_map[port]
+                    break
+
+            group_key = conflicting_group
+            if conflicting_group:
+                new_task_groups[conflicting_group].extend(cmds)
+            else:
+                group_key = f"group_{len(new_task_groups)}"
+                new_task_groups[group_key].extend(cmds)
+
+            for port in ports:
+                port_map[port] = group_key
+
+        return dict(new_task_groups)
+
     async def run_all(self):
         commands = self.generate_commands()
         total_tasks = len(commands)
@@ -248,6 +285,8 @@ class ExperimentRunner:
         for task_id, cmd in commands:
             task_dir = self._get_task_dir_from_command(cmd)
             task_groups[task_dir].append((task_id, cmd))
+
+        task_groups = self.task_groups_port_constraints(task_groups)
 
         # Set up progress
         progress = Progress(
