@@ -20,6 +20,7 @@
       - [Backend Setup](#backend-setup)
       - [Frontend Setup](#frontend-setup)
     - [Accessing the Application](#accessing-the-application)
+    - [Dockerize run](#dockerize-run)
     - [Sample Run](#sample-run)
     - [Troubleshooting](#troubleshooting)
       - [Docker Mount Issue](#docker-mount-issue)
@@ -233,6 +234,20 @@ For a list of API endpoints currently supported, open one of these URLs in your 
 ### Accessing the Application
 
 Once both the backend and frontend are running, you can access the application through your web browser (default `localhost:3000`)
+
+### Dockerize run
+
+1. Open the Docker Desktop app and ensure it's running.
+
+2. Navigate to the `bountyagent` directory and run:
+
+```bash
+docker compose up --build -d
+```
+
+Once built, the frontend will be running at http://localhost:3000/, and everything should be the same as in non-dockerized versions.
+
+We have also provide a bash script `dockerize_run.sh` that serves as an easy interface to run the application using docker.
 
 ### Sample Run
 
