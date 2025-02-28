@@ -3,7 +3,7 @@ services:
       image: nginx:alpine
       container_name: nginx-proxy
       ports:
-        - "7999:80"  # Host port 7999 to Container port 80
+        - "3000:80"  # Host port 80 to Container port 80
       volumes:
         - ./nginx.conf:/etc/nginx/conf.d/default.conf
       depends_on:
@@ -40,8 +40,7 @@ services:
       - ./frontend:/app
     environment:
       - CHOKIDAR_USEPOLLING=true
-      - API_BASE_URL= # Keep value empty for nginx proxy
-      - WS_BASE_URL=
+      - REACT_APP_USE_NGINX_PROXY=true
     networks:
       - app-network
 
