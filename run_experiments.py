@@ -162,7 +162,7 @@ class ExperimentRunner:
         except:
             pass
         
-        # Return 0 to indicate success (actual command result can't be retrieved easily)
+        # Return 0 to indicate success
         return proc
 
     async def _run_windows(self, command: List[str]):
