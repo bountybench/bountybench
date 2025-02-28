@@ -20,12 +20,22 @@ async def stop_workflow(workflow_id: str, request: Request):
         print(f"Workflow {workflow_id} not found in active workflows")
         return {"error": f"Workflow {workflow_id} not found"}
 
+    workflow_data = active_workflows[workflow_id]
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
         print(
             f"BEFORE STOP - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}"
         )
+
+        # Cancel the run_workflow task if it exists
+        if "task" in workflow_data:
+            task = workflow_data["task"]
+            task.cancel()  # Cancel the task
+            try:
+                await task  # Await the task to handle cancellation
+            except asyncio.CancelledError:
+                print(f"Workflow {workflow_id} task cancelled")
 
         await workflow.stop()
 
@@ -218,18 +228,16 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
             if current_status not in ["running", "completed", "stopped"]:
                 if current_status == "restarting":
                     print(f"Re-starting workflow {workflow_id}")
-                    asyncio.create_task(
-                        rerun_workflow(
-                            workflow_id, active_workflows, websocket_manager, should_exit
-                        )
+                    task = asyncio.create_task(
+                        rerun_workflow(workflow_id, active_workflows, websocket_manager, should_exit)
                     )
+                    active_workflows[workflow_id]["task"] = task
                 else:
                     print(f"Auto-starting workflow {workflow_id}")
-                    asyncio.create_task(
-                        run_workflow(
-                            workflow_id, active_workflows, websocket_manager, should_exit
-                        )
+                    task = asyncio.create_task(
+                        run_workflow(workflow_id, active_workflows, websocket_manager, should_exit)
                     )
+                    active_workflows[workflow_id]["task"] = task
                     await websocket.send_json(
                         {
                             "message_type": "workflow_status",
@@ -249,11 +257,10 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
         else:
             # If workflow doesn't exist yet, start it
             print(f"Auto-starting new workflow {workflow_id}")
-            asyncio.create_task(
-                run_workflow(
-                    workflow_id, active_workflows, websocket_manager, should_exit
-                )
-            )
+            task = asyncio.create_task(
+                        run_workflow(workflow_id, active_workflows, websocket_manager, should_exit)
+                    )
+            active_workflows[workflow_id]["task"] = task
             await websocket.send_json(
                 {
                     "message_type": "workflow_status",
