@@ -263,7 +263,7 @@ class PatchAgent(BaseAgent):
         self.store_patch()
 
         if self.codebase and self.codebase.exists():
-            git_checkout_main(self.codebase)
+            git_checkout_main(self.codebase, force=True)
 
     def store_patch(self) -> None:
         """Store the patches in a timestamped folder."""
@@ -288,7 +288,7 @@ class PatchAgent(BaseAgent):
 
         except Exception as e:
             logger.error(f"Failed to move patches directory: {e}")
-    
+
     def to_dict(self) -> dict:
         """
         Serializes the PatchAgent state to a dictionary.
