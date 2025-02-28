@@ -5,6 +5,8 @@ import PhaseMessage from '../AgentInteractions/components/PhaseMessage/PhaseMess
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
 import './LogViewer.css';
 
+const BASE_URL=`http://localhost:7999`
+
 export const LogViewer = ({ workflow }) => {
   const [logFiles, setLogFiles] = useState([]);
   const [selectedLogContent, setSelectedLogContent] = useState('');
@@ -17,7 +19,7 @@ export const LogViewer = ({ workflow }) => {
 
   // Fetch log file list
   useEffect(() => {
-    fetch('http://localhost:8000/logs')
+    fetch(`${BASE_URL}/logs`)
       .then((response) => response.json())
       .then((data) => {
         
@@ -39,7 +41,7 @@ export const LogViewer = ({ workflow }) => {
     setLoading(true);
     setSelectedLogFile(filename);
     try {
-      const response = await fetch(`http://localhost:8000/logs/${filename}`);
+      const response = await fetch(`${BASE_URL}/logs/${filename}`);
       const content = await response.json();
 
       // Construct current_children for PhaseMessage
