@@ -41,7 +41,7 @@ class InteractiveController:
     async def run_message(self, message_id: str):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
         message = workflow_messages.get(message_id)
-        if message.next:
+        if message.next or isinstance(message, ActionMessage):
             message = await self.message_handler.run_message(message)
             return message
         return None
@@ -72,7 +72,7 @@ class InteractiveController:
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
         message = workflow_messages.get(message_id)
         message = await self.message_handler.edit_message(message, new_message_data)
-        if message.next:
+        if message.next or isinstance(message, ActionMessage):
             message = await self.message_handler.run_message(message)
             return message
         return None
@@ -118,9 +118,9 @@ class InteractiveController:
             target_message = message.version_next
         else:
             raise ValueError("Invalid direction. Must be 'prev' or 'next'")
-
+       # logger.info(f"toggling to {target_message.message}")
         from messages.message_utils import generate_subtree
 
         subtree = generate_subtree(target_message)
-
+        logger.info(f"subtree {subtree}")
         return subtree

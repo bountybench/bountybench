@@ -70,8 +70,10 @@ class MessageHandler:
         self, old_message: Message, input_message: Message
     ) -> Message:
         agent = self.agent_manager.get_agent(old_message.agent_id)
+        logger.info(f"running agent message with agent {agent}")
         new_message = await agent.run([input_message])
-        self.update_version_links(old_message, new_message)
+        logger.info(f"message output: {new_message.message}")
+        self.update_version_links(old_message, new_message, set_version=False)
         return new_message
 
     def _clone_message(
@@ -100,8 +102,10 @@ class MessageHandler:
         self, old_message: ActionMessage, parent_message: AgentMessage, edit: str
     ) -> Message:
         new_parent_message = self._clone_message(parent_message)
+        logger.info(f"new_parent_message prev: {parent_message.prev}")
         new_parent_message.set_prev(parent_message.prev)
         self.update_version_links(parent_message, new_parent_message)
+        logger.info(f"new_parent_message next: {parent_message.next}")
 
         new_prev_action = self._clone_action_chain(
             parent_message.current_children, old_message, new_parent_message
@@ -111,7 +115,7 @@ class MessageHandler:
         # Maintain the next link so workflow can handle the run message
         if old_message.next:
             new_message.set_next(old_message.next)
-
+        logger.info(f"new_parent_message current children: {new_parent_message.current_children}")
         self.update_version_links(
             old_message,
             new_message,
@@ -122,7 +126,7 @@ class MessageHandler:
         logger.info(
             f"Parent AgentMessage edited, ID: {old_message.id} to ID: {new_message.id}"
         )
-
+        logger.info(f"new_message: {new_message}")
         return new_message
 
     def _clone_action_chain(
@@ -192,7 +196,11 @@ class MessageHandler:
         if set_version:
             parent_message = old_message.parent
             new_message.set_version_prev(old_message)
+        logger.info(
+            f"old_message: {old_message.message}, ID: {old_message.id} with prev {old_message.prev} and next: {old_message.next}"
+        )
         new_message.set_next(old_message.next)
+
         if not parent_message:
             parent_message = old_message.parent
         if parent_message:
