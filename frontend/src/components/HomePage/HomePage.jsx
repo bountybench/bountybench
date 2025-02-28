@@ -35,6 +35,10 @@ const HomePage = () => {
     navigate(`/workflow/${workflowId}`);
   };
 
+  const handleViewHistoryLogs = () => {
+    navigate('/history-logs');
+  };
+
   // Helper function to render workflow buttons
   const renderWorkflowButton = (workflow) => {
     let buttonColor;
@@ -85,11 +89,18 @@ const HomePage = () => {
         variant="contained"
         color="primary"
         onClick={handleNewWorkflowClick}
-        style={{ marginBottom: '20px' }}
+        style={{ marginBottom: '20px', width: '180px'}}
       >
         New Workflow
       </Button>
-
+      <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleViewHistoryLogs} 
+          style={{ marginBottom: '20px', width: '180px'}}
+        >
+          View History Logs
+        </Button>
       {loading ? (
         <CircularProgress />
       ) : (

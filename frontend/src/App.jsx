@@ -11,6 +11,7 @@ import { AppHeader } from './components/AppHeader/AppHeader';
 import { darkTheme } from './theme';
 import './App.css';
 import HomePage from './components/HomePage/HomePage';
+import LogViewer from './components/LogViewer/LogViewer';
 
 import { API_BASE_URL } from './config';
 
@@ -179,6 +180,7 @@ function App() {
                   setUseMockModel={setUseMockModel} // Pass setter function
                 />} 
             />
+            <Route path="/history-logs" element={<LogViewer />} />
             {/* Fallback route */}
             <Route path='*' element={<Navigate to="/" />} />
           </Routes>
