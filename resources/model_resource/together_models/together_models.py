@@ -36,17 +36,17 @@ class TogetherModels(ModelProvider):
 
         end_time = datetime.now()
 
-        response_request_duration = (
-            end_time - start_time).total_seconds() * 1000
+        response_request_duration = (end_time - start_time).total_seconds() * 1000
 
-        return ModelResponse(content=response.choices[0].message.content,
-                             input_tokens=response.usage.prompt_tokens,
-                             output_tokens=response.usage.completion_tokens,
-                             time_taken_in_ms=response_request_duration)
+        return ModelResponse(
+            content=response.choices[0].message.content,
+            input_tokens=response.usage.prompt_tokens,
+            output_tokens=response.usage.completion_tokens,
+            time_taken_in_ms=response_request_duration,
+        )
 
     def tokenize(self, model: str, message: str) -> List[int]:
-        raise NotImplementedError(
-            "Tokenization is not supported for Together models")
+        raise NotImplementedError("Tokenization is not supported for Together models")
 
     def decode(self, model: str, tokens: List[int]) -> str:
         raise NotImplementedError(

@@ -1,4 +1,5 @@
 import asyncio
+
 from starlette.middleware.cors import CORSMiddleware
 
 
@@ -20,7 +21,6 @@ class Server:
         self.setup_routes()
 
         self.app.add_event_handler("shutdown", self.shutdown)
-
 
     def setup_middleware(self):
         self.app.add_middleware(
@@ -60,6 +60,6 @@ class Server:
             try:
                 await task
             except asyncio.CancelledError:
-                pass #intentionally passing when shutting down, you intentionally cancel tasks (task.cancel()). This means asyncio.CancelledError is a natural consequence, not an error that needs escalation.
+                pass  # intentionally passing when shutting down, you intentionally cancel tasks (task.cancel()). This means asyncio.CancelledError is a natural consequence, not an error that needs escalation.
             except Exception as e:
                 raise e

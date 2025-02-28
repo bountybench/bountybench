@@ -1,11 +1,12 @@
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, asdict
-from functools import wraps
-from typing import Dict, Any
-from abc import ABC
 import json
+from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass
+from functools import wraps
+from typing import Any, Dict
+
 from messages.action_messages.action_message import ActionMessage
 from messages.message import Message
+
 
 @dataclass
 class BaseResourceConfig(ABC):
@@ -14,13 +15,12 @@ class BaseResourceConfig(ABC):
     Provides common functionality for configuration management.
     """
 
-
     def __post_init__(self):
         """
         Automatically validate the configuration after initialization.
         """
         self.validate()
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert the configuration to a dictionary.
@@ -34,14 +34,14 @@ class BaseResourceConfig(ABC):
         return json.dumps(self.to_dict(), indent=2)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'BaseResourceConfig':
+    def from_dict(cls, data: Dict[str, Any]) -> "BaseResourceConfig":
         """
         Create a configuration instance from a dictionary.
         """
         return cls(**data)
 
     @classmethod
-    def from_json(cls, json_str: str) -> 'BaseResourceConfig':
+    def from_json(cls, json_str: str) -> "BaseResourceConfig":
         """
         Create a configuration instance from a JSON string.
         """
@@ -56,6 +56,7 @@ class BaseResourceConfig(ABC):
         """
         pass
 
+
 class BaseResource(ABC):
     @abstractmethod
     def stop(*args, **kwargs):
@@ -65,9 +66,6 @@ class BaseResource(ABC):
         self._resource_id = resource_id
         self._resource_config = resource_config
         self._last_action_message = None
-
-    def run(self, message: Message) -> ActionMessage:
-        pass
 
     def __enter__(self):
         return self

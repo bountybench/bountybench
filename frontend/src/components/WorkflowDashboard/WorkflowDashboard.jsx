@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { Box, CircularProgress, Alert, Typography } from '@mui/material';
+import { Box, CircularProgress, Alert, Typography, IconButton } from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
+import ResourceDict from '../ResourceDict/ResourceDict';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
+
+const BASE_URL=`http://localhost:7999`
 
 const WorkflowState = {
   LOADING: 'LOADING',
@@ -15,12 +20,16 @@ const WorkflowState = {
   STOPPED: 'STOPPED'
 };
 
-export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast }) => {
+export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast,   useMockModel,
+  setUseMockModel }) => {
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
-  const [preservedMessages, setPreservedMessages] = useState([]);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
+  const [preservedMessages, setPreservedMessages] = useState([]);
   
+  const [resources, setResources] = useState([]);
+  const [isResourcePanelOpen, setIsResourcePanelOpen] = useState(false);
+
   const [workflowState, setWorkflowState] = useState({
     status: WorkflowState.LOADING,
     message: "Loading workflow instance...",
@@ -28,11 +37,11 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   });
 
   const navigate = useNavigate();
-  
+   
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
     const checkIfWorkflowExists = async () => {
-      const response = await fetch('http://localhost:8000/workflow/active');
+      const response = await fetch(`${BASE_URL}/workflow/active`);
       const data = await response.json();
 
       if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
@@ -51,20 +60,26 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     isConnected,
     workflowStatus,
     currentPhase,
-    currentIteration,
-    messages,
+    phaseMessages,
     error,
   } = useWorkflowWebSocket(workflowId);
   
   console.log('WebSocket state:', { 
     isConnected, 
     workflowStatus, 
-    currentPhase, 
-    currentIteration,
+    currentPhase,
     error,
-    messageCount: messages?.length 
-  }); // Debug log
+    phaseMessagesCount: phaseMessages?.length
+  });
 
+  const getTailMessageId = async () => {
+    if (phaseMessages?.length > 0 && phaseMessages[phaseMessages.length - 1].current_children?.length > 0) {
+      const lastMessage = phaseMessages[phaseMessages.length - 1].current_children[phaseMessages[phaseMessages.length - 1].current_children.length - 1];
+      return lastMessage.current_id;
+    }
+    return null;
+  };
+  
   useEffect(() => {
     if (error) {
       setWorkflowState({
@@ -90,7 +105,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         message: "Workflow completed",
         error: null
       });
-      setPreservedMessages(messages);
+      setPreservedMessages(phaseMessages);
     } else if (workflowStatus === 'stopped') {
       setWorkflowState({
         status: WorkflowState.STOPPED,
@@ -107,7 +122,31 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
     console.log(`Workflow state updated to ${workflowStatus}`)
     onWorkflowStateUpdate(workflowStatus, currentPhase);
-  }, [isConnected, workflowStatus, currentPhase, messages, error, onWorkflowStateUpdate]);
+  }, [isConnected, workflowStatus, currentPhase, phaseMessages, error, onWorkflowStateUpdate]);
+
+  const fetchResources = useCallback(async () => {
+    if (workflowId) {
+      try {
+        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/resources`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setResources(data.resources);
+      } catch (error) {
+        console.error('Error fetching resources:', error);
+      }
+    }
+  }, [workflowId]);
+
+
+  useEffect(() => {
+    fetchResources();
+  }, [phaseMessages, useMockModel, fetchResources]);
+
+  const toggleResourcePanel = () => {
+    setIsResourcePanelOpen(!isResourcePanelOpen);
+  };
 
   const triggerNextIteration = async () => {
     if (workflowStatus === "stopped") {
@@ -117,8 +156,14 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     if (workflowId) {
       setIsNextDisabled(true);
       try {
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/next`, {
+        const currentMessageId = await getTailMessageId();
+        console.log(`Tail message id is ${currentMessageId}`)
+        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/run-message`, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message_id: currentMessageId }),
         });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -136,7 +181,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   };
 
   const handleUpdateMessageInput = async (messageId, newInputData) => {
-    const url = `http://localhost:8000/workflow/${workflowId}/edit-message`;
+    const url = `${BASE_URL}/workflow/${workflowId}/edit-message`;
     const requestBody = { message_id: messageId, new_input_data: newInputData };
     
     console.log('Sending request to:', url);
@@ -167,11 +212,11 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   };
 
-  const handleRerunMessage = async (messageId) => {
+  const handleRunMessage = async (messageId) => {
     if (workflowId) {
       setIsNextDisabled(true);
       try {
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/rerun-message`, {
+        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/run-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -180,12 +225,12 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         });
         const data = await response.json();
         if (data.error) {
-          console.error('Error rerunning action:', data.error);
+          console.error('Error running action:', data.error);
         } else {
-          console.log('Action rerun successfully', data);
+          console.log('Action run successfully', data);
         }
       } catch (error) {
-        console.error('Error rerunning action:', error);
+        console.error('Error running action:', error);
       } finally {
         setIsNextDisabled(false);
       }
@@ -193,11 +238,12 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       console.error('Workflow ID is not available');
     }
   };
-  
+
+
   const handleStopWorkflow = async () => {
     if (workflowId) {
       try {
-        const response = await fetch(`http://localhost:8000/workflow/${workflowId}/stop`, {
+        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/stop`, {
           method: 'POST',
         });
         if (!response.ok) {
@@ -211,6 +257,28 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       console.error('Workflow ID is not available');
     }
   };
+
+  const handleToggleVersion = useCallback(async (messageId, direction) => {
+    try {
+      const response = await fetch(`${BASE_URL}/workflow/${workflowId}/toggle-version`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message_id: messageId, direction }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle version');
+      }
+
+      const result = await response.json();
+      console.log(`Toggle version: ${result}`);
+      // Updating messages should be triggered by call
+    } catch (error) {
+      console.error('Error toggling version:', error);
+    }
+  }, [workflowId]);
 
   if (workflowState.status === WorkflowState.ERROR) {
     return (
@@ -233,22 +301,34 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     );
   }
 
-  const displayMessages = workflowState.status === WorkflowState.COMPLETED ? preservedMessages : messages;
+  const displayMessages = workflowState.status === WorkflowState.COMPLETED ? preservedMessages : phaseMessages;
 
   return (
-    <Box height="100%" overflow="auto">
-      <AgentInteractions
-        interactiveMode={interactiveMode}
-        workflowStatus={workflowStatus}  // Pass the workflow status
-        currentPhase={currentPhase}
-        currentIteration={currentIteration}
-        isNextDisabled={isNextDisabled}
-        messages={displayMessages}
-        onUpdateMessageInput={handleUpdateMessageInput}
-        onRerunMessage={handleRerunMessage}
-        onTriggerNextIteration={triggerNextIteration}
-        onStopWorkflow={handleStopWorkflow}
-      />
+    <Box height="100%" overflow="hidden" display="flex">
+      <Box flexGrow={1} overflow="auto">
+        <AgentInteractions
+          interactiveMode={interactiveMode}
+          workflowStatus={workflowStatus}
+          currentPhase={currentPhase}
+          isNextDisabled={isNextDisabled}
+          phaseMessages={displayMessages}
+          onUpdateMessageInput={handleUpdateMessageInput}
+          onRunMessage={handleRunMessage}
+          onTriggerNextIteration={triggerNextIteration}
+          onStopWorkflow={handleStopWorkflow}
+          onToggleVersion={handleToggleVersion}
+        />
+      </Box>
+      <Box className={`resource-panel ${isResourcePanelOpen ? 'open' : ''}`}>
+        <IconButton
+          className="toggle-panel"
+          onClick={toggleResourcePanel}
+          size="small"
+        >
+          {isResourcePanelOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+        </IconButton>
+        <ResourceDict resources={resources} />
+      </Box>
     </Box>
   );
 };

@@ -4,6 +4,10 @@ import { WorkflowDashboard } from './WorkflowDashboard';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import '@testing-library/jest-dom/extend-expect';
 import { MemoryRouter as Router, Routes, Route } from 'react-router';
+import { darkTheme } from '../../theme';
+import { ThemeProvider } from '@mui/material/styles'; 
+
+const BASE_URL=`http://localhost:7999`
 
 // Mock the dependencies
 jest.mock('../../hooks/useWorkflowWebSocket');
@@ -19,21 +23,14 @@ describe('WorkflowDashboard Component', () => {
 
     const renderWithRouter = (mockSelectedWorkflow, mockInteractiveMode, mockOnWorkflowStateUpdate, mockShowInvalidWorkflowToast) => {
       return render(
-        <Router initialEntries={[`/workflow/${mockSelectedWorkflow.id}`]}>
-          <Routes>
-            <Route path="/workflow/:workflowId" 
-              element={
-                <WorkflowDashboard
-                  selectedWorkflow={mockSelectedWorkflow}
-                  interactiveMode={mockInteractiveMode}
-                  onWorkflowStateUpdate={mockOnWorkflowStateUpdate}
-                  showInvalidWorkflowToast={mockShowInvalidWorkflowToast}
-                />
-              }
-            />
-          </Routes>
-        </Router>
-      );
+				<ThemeProvider theme={darkTheme}>
+					<Router initialEntries={[`/workflow/${mockSelectedWorkflow.id}`]}>
+						<Routes>
+							<Route path='/workflow/:workflowId' element={<WorkflowDashboard selectedWorkflow={mockSelectedWorkflow} interactiveMode={mockInteractiveMode} onWorkflowStateUpdate={mockOnWorkflowStateUpdate} showInvalidWorkflowToast={mockShowInvalidWorkflowToast} />} />
+						</Routes>
+					</Router>
+				</ThemeProvider>
+			);
     };
 
     beforeEach(() => {
@@ -45,10 +42,8 @@ describe('WorkflowDashboard Component', () => {
             isConnected: false,
             workflowStatus: null,
             currentPhase: null,
-            currentIteration: null,
-            messages: [],
+            phaseMessages: [],
             error: null,
-            sendMessage: jest.fn(),
         });
 
         render(
@@ -70,10 +65,8 @@ describe('WorkflowDashboard Component', () => {
             isConnected: false,
             workflowStatus: null,
             currentPhase: null,
-            currentIteration: null,
-            messages: [],
+            phaseMessages: [],
             error: mockError,
-            sendMessage: jest.fn(),
         });
 
         render(
@@ -94,8 +87,7 @@ describe('WorkflowDashboard Component', () => {
             isConnected: true,
             workflowStatus: 'in-progress',
             currentPhase: 'phase-1',
-            currentIteration: 1,
-            messages: 
+            phaseMessages: 
             [
               {
                   "phase_id": "ExploitPhase",
@@ -135,18 +127,15 @@ describe('WorkflowDashboard Component', () => {
               },
             ],
             error: null,
-            sendMessage: jest.fn(),
         });
 
         render(
-          <Router>
-            <WorkflowDashboard
-                selectedWorkflow={mockSelectedWorkflow}
-                interactiveMode={mockInteractiveMode}
-                onWorkflowStateUpdate={mockOnWorkflowStateUpdate}
-            />
-          </Router>
-        );
+					<ThemeProvider theme={darkTheme}>
+						<Router>
+							<WorkflowDashboard selectedWorkflow={mockSelectedWorkflow} interactiveMode={mockInteractiveMode} onWorkflowStateUpdate={mockOnWorkflowStateUpdate} />
+						</Router>
+					</ThemeProvider>
+				);
 
         expect(screen.getByText(/Message 1/)).toBeInTheDocument();
         expect(screen.getByText(/Message 2/)).toBeInTheDocument();
@@ -171,10 +160,8 @@ describe('WorkflowDashboard Component', () => {
       isConnected: true,
       workflowStatus: 'in-progress',
       currentPhase: 'phase-1',
-      currentIteration: 1,
-      messages: [],
+      phaseMessages: [{}],
       error: null,
-      sendMessage: jest.fn(),
     });
 
     renderWithRouter(mockSelectedWorkflow, mockInteractiveMode, mockOnWorkflowStateUpdate, mockShowInvalidWorkflowToast);
@@ -182,8 +169,15 @@ describe('WorkflowDashboard Component', () => {
     const triggerNextIterationButton = screen.getByRole('button', { name: 'Continue' });
     fireEvent.click(triggerNextIterationButton);
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-    expect(global.fetch).toHaveBeenCalledWith(`http://localhost:8000/workflow/${mockSelectedWorkflow.id}/next`, { method: 'POST' });
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+    expect(global.fetch).toHaveBeenCalledWith(
+      `${BASE_URL}/workflow/${mockSelectedWorkflow.id}/run-message`, 
+      { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: null })
+      }
+    );
   });
 
     test('displays error message when triggering next iteration fails', async () => {
@@ -206,10 +200,8 @@ describe('WorkflowDashboard Component', () => {
             isConnected: true,
             workflowStatus: 'in-progress',
             currentPhase: 'phase-1',
-            currentIteration: 1,
-            messages: [],
+            phaseMessages: [{}],
             error: null,
-            sendMessage: jest.fn(),
         });
 
         renderWithRouter(mockSelectedWorkflow, mockInteractiveMode, mockOnWorkflowStateUpdate, mockShowInvalidWorkflowToast);
@@ -218,8 +210,15 @@ describe('WorkflowDashboard Component', () => {
         const triggerNextIterationButton = screen.getByRole('button', { name: 'Continue' });
         fireEvent.click(triggerNextIterationButton);
 
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-        expect(global.fetch).toHaveBeenCalledWith(`http://localhost:8000/workflow/${mockSelectedWorkflow.id}/next`, { method: 'POST' });
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+        expect(global.fetch).toHaveBeenCalledWith(
+          `${BASE_URL}/workflow/${mockSelectedWorkflow.id}/run-message`, 
+          { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message_id: null })
+          }
+        );
 
         // Additional checks can be added here to verify if any UI updates reflect the error
     });
@@ -243,8 +242,7 @@ describe('WorkflowDashboard Component', () => {
           isConnected: true,
           workflowStatus: 'in-progress',
           currentPhase: 'phase-1',
-          currentIteration: 1,
-          messages: [
+          phaseMessages: [
             {
               phase_id: 'ExploitPhase',
               agent_messages: [
@@ -313,7 +311,6 @@ describe('WorkflowDashboard Component', () => {
             },
           ],
           error: null,
-          sendMessage: jest.fn(),
         });
 
         renderWithRouter(mockSelectedWorkflow, mockInteractiveMode, mockOnWorkflowStateUpdate, mockShowInvalidWorkflowToast);
@@ -333,9 +330,9 @@ describe('WorkflowDashboard Component', () => {
         fireEvent.click(saveButton);
 
         // Assertion for the fetch call
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
         expect(global.fetch).toHaveBeenCalledWith(
-        `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/edit-message`,
+        `${BASE_URL}/workflow/${mockSelectedWorkflow.id}/edit-message`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -364,8 +361,7 @@ describe('WorkflowDashboard Component', () => {
           isConnected: true,
           workflowStatus: 'in-progress',
           currentPhase: 'phase-1',
-          currentIteration: 1,
-          messages: [
+          phaseMessages: [
             {
               phase_id: 'ExploitPhase',
               agent_messages: [
@@ -434,7 +430,6 @@ describe('WorkflowDashboard Component', () => {
             },
           ],
           error: null,
-          sendMessage: jest.fn(),
         });
 
         renderWithRouter(mockSelectedWorkflow, mockInteractiveMode, mockOnWorkflowStateUpdate, mockShowInvalidWorkflowToast);
@@ -455,9 +450,9 @@ describe('WorkflowDashboard Component', () => {
         fireEvent.click(saveButton);
 
         // Assertion for the fetch call
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
         expect(global.fetch).toHaveBeenCalledWith(
-        `http://localhost:8000/workflow/${mockSelectedWorkflow.id}/edit-message`,
+        `${BASE_URL}/workflow/${mockSelectedWorkflow.id}/edit-message`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

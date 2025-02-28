@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router';
 import { Box, Button, Typography, CircularProgress } from '@mui/material';
 import './HomePage.css';
 
+const BASE_URL=`http://localhost:7999`
+
 const HomePage = () => {
   const navigate = useNavigate();
   const [activeWorkflows, setActiveWorkflows] = useState([]);
@@ -15,7 +17,7 @@ const HomePage = () => {
 
   const fetchActiveWorkflows = async () => {
     try {
-      const response = await fetch('http://localhost:8000/workflow/active');
+      const response = await fetch(`${BASE_URL}/workflow/active`);
       const data = await response.json();
       setActiveWorkflows(data.active_workflows);
     } catch (error) {

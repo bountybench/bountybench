@@ -1,17 +1,20 @@
 import http
 from typing import List
+
 from requests.exceptions import ConnectionError, HTTPError, Timeout
-from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                      wait_exponential)
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
-from utils.logger import get_main_logger
-from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.helm_models.helm_models import HelmModels
+from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.openai_models.openai_models import OpenAIModels
-
+from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
-
 
 
 def get_model_provider(use_helm: bool = False) -> ModelProvider:
@@ -26,6 +29,7 @@ def get_model_provider(use_helm: bool = False) -> ModelProvider:
     else:
         model_provider = OpenAIModels()
     return model_provider
+
 
 def get_num_tokens(model_input: str, model: str, use_helm: bool = False) -> int:
     """
@@ -72,7 +76,9 @@ def tokenize_input(model_input: str, model: str, use_helm: bool = False) -> List
         (HTTPError, ConnectionError, Timeout, http.client.RemoteDisconnected)
     ),
 )
-def decode_tokenized_inputs(tokens: List[int], model: str, use_helm: bool = False) -> str:
+def decode_tokenized_inputs(
+    tokens: List[int], model: str, use_helm: bool = False
+) -> str:
     """
     Decodes the list of token IDs back into a string.
     Retries up to 30 times in case of certain connection errors.
@@ -87,7 +93,10 @@ def decode_tokenized_inputs(tokens: List[int], model: str, use_helm: bool = Fals
     """
     return get_model_provider(use_helm).decode(model, tokens)
 
-def truncate_input_to_max_tokens(max_input_tokens: int, model_input: str, model: str, use_helm: bool = False) -> str:
+
+def truncate_input_to_max_tokens(
+    max_input_tokens: int, model_input: str, model: str, use_helm: bool = False
+) -> str:
     num_input_tokens = get_num_tokens(model_input, model, use_helm)
     truncation_alert = "\n...TRUNCATED...\n"
     num_tokens_in_truncation_alert = get_num_tokens(truncation_alert, model, use_helm)
@@ -102,8 +111,9 @@ def truncate_input_to_max_tokens(max_input_tokens: int, model_input: str, model:
         beginning_tokens = tokens[:half_tokens_to_keep]
         end_tokens = tokens[-half_tokens_to_keep:]
         truncated_tokens = (
-            beginning_tokens +
-            tokenize_input(truncation_alert, model, use_helm) + end_tokens
+            beginning_tokens
+            + tokenize_input(truncation_alert, model, use_helm)
+            + end_tokens
         )
         truncated_input = decode_tokenized_inputs(truncated_tokens, model, use_helm)
         return truncated_input

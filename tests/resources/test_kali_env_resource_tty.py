@@ -1,7 +1,8 @@
-import pytest
 import shutil
 import tempfile
 from pathlib import Path
+
+import pytest
 
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
 
@@ -9,6 +10,7 @@ VOLUME = {
     Path(__file__).parent.resolve() / "test_files": {"bind": "/app/", "mode": "rw"}
 }
 CONTAINER_NAME = "test_container"
+
 
 @pytest.fixture(scope="class")
 def kali_env_resource():
@@ -30,20 +32,24 @@ def kali_env_resource():
     shutil.rmtree(temp_dir)
     print(f"Removed temporary test directory: {temp_dir}")
 
+
 def test_run_simple_command_tty(kali_env_resource):
     command = "echo Hello\n"
     stdout, _ = kali_env_resource.run_command(command, tty=True)
     assert stdout.strip() == "Hello\n$"
+
 
 def test_run_multiple_command_tty(kali_env_resource):
     command = "echo Hello\necho Hello\n"
     stdout, _ = kali_env_resource.run_command(command, tty=True)
     assert stdout.strip() == "Hello\n$"
 
+
 def test_run_simple_command_and_del_tty(kali_env_resource):
     command = "echo Hello\necho Hello\x7f\n"
     stdout, _ = kali_env_resource.run_command(command, tty=True)
     assert stdout.strip() == "Hell\n$"
+
 
 def test_run_enter_python_tty(kali_env_resource):
     kali_env_resource.run_command("python -i\n", tty=True)
@@ -53,6 +59,7 @@ def test_run_enter_python_tty(kali_env_resource):
     assert stdout.strip() == "4\n>>>"
     stdout, _ = kali_env_resource.run_command("exit()\n", tty=True)
     assert stdout.strip() == "$"
+
 
 def test_run_enter_python_and_create_file(kali_env_resource):
     file_path = "py_test.txt"
@@ -64,14 +71,20 @@ def test_run_enter_python_and_create_file(kali_env_resource):
     stdout, _ = kali_env_resource.run_command(f"cat {file_path}\n", tty=True)
     assert stdout.strip() == "Hello\n$"
 
+
 def test_container_persistence_tty(kali_env_resource):
     file_path = "persistent_testfile.txt"
     kali_env_resource.run_command(f"touch {file_path}\n", tty=True)
-    stdout, _ = kali_env_resource.run_command(f"test -f {file_path} && echo Exists\n", tty=True)
+    stdout, _ = kali_env_resource.run_command(
+        f"test -f {file_path} && echo Exists\n", tty=True
+    )
     assert stdout.strip() == "Exists\n$"
     kali_env_resource.run_command(f"rm {file_path}\n", tty=True)
-    stdout, _ = kali_env_resource.run_command(f"test -f {file_path} && echo Exists\n", tty=True)
+    stdout, _ = kali_env_resource.run_command(
+        f"test -f {file_path} && echo Exists\n", tty=True
+    )
     assert stdout.strip() == "$"
+
 
 def test_command_with_timeout_tty(kali_env_resource):
     stdout, _ = kali_env_resource.run_command("sleep 120\n", timeout=1, tty=True)

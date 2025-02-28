@@ -9,15 +9,20 @@
   - [Running the Workflow](#running-the-workflow)
   - [Running the Application](#running-the-application)
   - [Concurrent run](#concurrent-run)
+- [System Architecture](#system-architecture)
+  - [Workflow System](#workflow-system)
+  - [Phase Architecture](#phase-architecture)
 - [Development](#development)
 - [Code Quality](#code-quality)
   - [Tools and Standards](#tools-and-standards)
   - [Local Development Setup](#local-development-setup)
   - [Running Tests with Coverage](#running-tests-with-coverage)
+- [Testing](#testing)
+- [Documentation](#documentation)
 
 
 ## Installation
-## Environment Setup
+### Environment Setup
 
 You can quickly set up the dev environment by running the following command:
 ```
@@ -118,7 +123,7 @@ Please be aware that there may be a brief delay between initiating the workflow 
 
 ### Running the Application
 
-## Concurrent run
+#### Concurrent run
 1. In the root directory run:
 
 ```
@@ -131,7 +136,7 @@ This will launch the development server for the frontend and start the backend. 
 Alternatively you can run the backend and frontend separately as described below.
 
 
-## Backend Setup
+#### Backend Setup
 
 1. Open a terminal and navigate to the `bountyagent` directory.
 
@@ -141,7 +146,7 @@ python -m backend.main
 ```
 Note: The backend will take about a minute to initialize. You can view incremental, verbose run updates in this terminal window.
 
-## Frontend Setup
+#### Frontend Setup
 
 1. Open a new terminal and navigate to the `bountyagent/frontend` directory.
 
@@ -160,12 +165,12 @@ For a list of API endpoints currently supported, open one of these URLs in your 
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
-## Accessing the Application
+### Accessing the Application
 
 Once both the backend and frontend are running, you can access the application through your web browser (default `localhost:3000`)
 
 ### Sample Run
-![Screen recording of a run](media/sample_run.gif)
+![Screen recording of a run](documentation/docs/media/sample_run.gif)
 
 ### Troubleshooting
 
@@ -251,6 +256,90 @@ This workflow system is designed to execute multi-phase tasks in a modular and e
 - **Agent System**: Flexible agent management across phases.
 - **Logging**: Logging at workflow, phase, and iteration levels.
 
+### Phase Architecture
+
+The phase architecture in our workflow system is designed to be **modular, extensible, and easy to customize**. At its core, it revolves around the `BasePhase` class, which defines the structure and execution flow for all phases in the system.
+
+#### **BasePhase Overview**
+
+`BasePhase` serves as an abstract base class that standardizes how phases operate within a workflow. Each phase represents a **logical unit of execution**, where **agents interact, process information, and iterate** toward a goal.
+
+##### **Core Responsibilities:**
+
+1. **Agent Management**  
+   - Defines and manages the agents required for the phase.  
+   - Initializes agents based on configurations.  
+   
+2. **Resource Management**  
+   - Defines and provisions resources required for execution.  
+   - Ensures proper allocation and deallocation of resources.  
+
+3. **Iteration Control**  
+   - Manages multiple execution cycles (iterations) within a phase.  
+   - Supports interactive and automated execution modes.  
+
+4. **Message Handling**  
+   - Manages communication between agents.  
+   - Tracks messages across iterations to maintain context.  
+
+##### Key Methods:
+
+- `define_agents()`: Abstract method to define the agents required for the phase.
+- `define_resources()`: Abstract method to define the resources needed for the phase.
+- `run_one_iteration()`: Abstract method to execute a single iteration of the phase.
+- `setup()`: Initializes and registers resources and agents for the phase.
+- `run()`: Executes the phase by running its iterations.
+
+#### ExploitPhase
+
+`ExploitPhase` is a concrete implementation of `BasePhase` focused on exploiting vulnerabilities.
+
+##### Key Features:
+
+- Uses `ExecutorAgent` to execute commands in the environment and `ExploitAgent` to validate exploit success and terminate the phase upon conditional completion.
+- Defines specific resources like `ModelResource`, `InitFilesResource`, `KaliEnvResource`, etc.
+- Implements logic to determine successful exploitation.
+
+#### PatchPhase
+
+`PatchPhase` is another concrete implementation of `BasePhase` designed to patch identified vulnerabilities.
+
+##### Key Features:
+
+- Uses `ExecutorAgent` to execute commands in the environment and `PatchAgent` to validate patch success and terminate the phase upon conditional completion.
+- Similar resource setup to `ExploitPhase` but with patch-specific configurations.
+- Implements logic to determine successful patching.
+
+#### Phase Execution Flow
+
+1. **Initialization**: The phase is initialized with workflow context and configuration.
+2. **Setup**: Resources and agents are set up using `setup()` method.
+3. **Iteration**: The `run()` method executes multiple iterations:
+   - Each iteration calls `run_one_iteration()` with the current agent.
+   - Messages are processed and added to the phase message.
+   - Success conditions are checked after each iteration.
+4. **Completion**: The phase completes when success conditions are met or max iterations are reached.
+5. **Cleanup**: Resources are deallocated using `deallocate_resources()`.
+
+#### Customizing Phases
+
+To create a new phase:
+
+1. Subclass `BasePhase`.
+2. Implement `define_agents()`, `define_resources()`, and `run_one_iteration()`.
+3. Override other methods as needed for specific functionality.
+
+#### Integration with Workflow
+
+Phases are integrated into the workflow (`self` in example) by first defining the root phase, then using the `>>` operator, which defines the sequence of phases:
+
+```python
+exploit_phase = ExploitPhase(workflow=self, **phase_kwargs)
+patch_phase = PatchPhase(workflow=self, **phase_kwargs)
+self._register_root_phase(exploit_phase)
+exploit_phase >> patch_phase
+```
+
 ## Development
 
 1. To create a new workflow:
@@ -296,6 +385,9 @@ This workflow system is designed to execute multi-phase tasks in a modular and e
    # Run Flake8 linting
    flake8 .
    ```
+
+## Testing
+This project uses `pytest`. 
 
 ### Running Tests with Coverage
 
@@ -347,3 +439,16 @@ This command will cause the process to fail if the coverage is below 80%.
 ---
 
 For further details on `coverage.py`, refer to the official documentation: [Coverage.py](https://coverage.readthedocs.io/)
+
+## Documentation
+
+To view the full documentation:
+
+1. Ensure you have MkDocs installed: either rerun `pip install -r requirements.txt` or individually `pip install mkdocs`
+2. Navigate to `bountyagent/documentation`
+3. Run `mkdocs serve`
+4. Open your browser and go to `http://127.0.0.1:8000/`
+
+For offline viewing:
+1. Run `mkdocs build`
+2. Open `site/index.html` in your web browser
