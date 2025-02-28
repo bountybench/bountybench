@@ -22,7 +22,7 @@ import { SaveConfigDialog } from './SaveConfigDialog';
 import { TaskSelectionSection } from './TaskSelectionSection';
 import { ModelSelectionSection } from './ModelSelectionSection';
 
-const BASE_URL=`http://localhost:7999`
+import { API_BASE_URL } from '../../config';
 
 const LauncherState = {
   CHECKING_SERVER: 'CHECKING_SERVER',
@@ -118,7 +118,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const fetchWorkflows = useCallback(async () => {
     try {
-      const response = await fetch(`${BASE_URL}/workflow/list`);
+      const response = await fetch(`${API_BASE_URL}/workflow/list`);
       const data = await response.json();
       setWorkflows(data.workflows);
       
@@ -139,7 +139,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const fetchModels = useCallback(async () => {
     try {
-      const response = await fetch(`${BASE_URL}/workflow/models`);
+      const response = await fetch(`${API_BASE_URL}/workflow/models`);
       const models = await response.json();
       setAllModels(models);
       
@@ -167,7 +167,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const fetchApiKeys = useCallback(async () => { 
     try {
-      const response = await fetch(`${BASE_URL}/service/api-service/get`);
+      const response = await fetch(`${API_BASE_URL}/service/api-service/get`);
       const data = await response.json();
       setApiKeys(data);
       
@@ -186,7 +186,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const fetchVulnerabilityTypes = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/workflow/vulnerability-types`);
+      const response = await fetch(`${API_BASE_URL}/workflow/vulnerability-types`);
       const data = await response.json();
       setVulnerabilityTypes(data.vulnerability_types);
     } catch (error) {
@@ -220,7 +220,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleApiKeyChange = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/service/api-service/update`, {
+      const response = await fetch(`${API_BASE_URL}/service/api-service/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -291,7 +291,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     const saveFileName = fileName.endsWith('.yaml') ? fileName : `${fileName}.yaml`;
 
     try {
-      const response = await fetch(`${BASE_URL}/workflow/save-config`, {
+      const response = await fetch(`${API_BASE_URL}/workflow/save-config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -313,7 +313,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   };
 
-  const startParallelRun = async (e) => {
+  const startRun = async (e) => {
     e.preventDefault();
     setLauncherState({
       status: LauncherState.CREATING_WORKFLOW,
@@ -348,7 +348,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       console.log(payload)
   
       // Send the request
-      const response = await fetch(`${BASE_URL}/workflow/start-workflow`, {
+      const response = await fetch(`${API_BASE_URL}/workflow/start-workflow`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -374,6 +374,15 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         navigate(`/workflow/${data.workflow_id}`);
       } else if (data.workflows && data.workflows.length > 0) {
         // Multiple workflows - navigate to the first one
+
+        // Set up WebSocket connections for all workflows FIRST
+        const setupPromises = data.workflows.map(workflow => 
+          setupWorkflowWebSocket(workflow.workflow_id)
+        );
+
+        // Wait for all websocket connections to be established
+        await Promise.all(setupPromises);
+
         const firstWorkflow = data.workflows[0];
         
         // Setup WebSocket connections for all workflows in the background
@@ -405,7 +414,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   // Helper function to set up WebSocket connections
   const setupWorkflowWebSocket = (workflowId) => {
-    const ws = new WebSocket(`${BASE_URL.replace('http://', 'ws://')}/ws/${workflowId}`);
+    const ws = new WebSocket(`${API_BASE_URL.replace('http://', 'ws://')}/ws/${workflowId}`);
     
     ws.onopen = () => {
       console.log(`WebSocket connection established for workflow ${workflowId}`);
@@ -499,6 +508,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     );
   }
 
+
   // All good: show the form
   return (
     <Box className="launcher-container">
@@ -506,7 +516,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         Start New Workflow
       </Typography>
 
-      <form onSubmit={startParallelRun} className="launcher-form">
+      <form onSubmit={startRun} className="launcher-form">
         <TextField
           select
           fullWidth

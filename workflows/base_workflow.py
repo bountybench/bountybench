@@ -194,6 +194,7 @@ class BaseWorkflow(ABC):
                 self.workflow_message.set_summary(
                     WorkflowStatus.COMPLETED_FAILURE.value
                 )
+            self.workflow_message.save()
 
         except Exception as e:
             self._handle_workflow_exception(e)
@@ -259,9 +260,6 @@ class BaseWorkflow(ABC):
             logger.info(f"{phase.phase_config.phase_name} registered")
 
     async def stop(self):
-        # Set the status to stopped
-        self.status = WorkflowStatus.INCOMPLETE
-
         # Deallocate agents and resources
         self.agent_manager.deallocate_all_agents()
         self.resource_manager.deallocate_all_resources()
