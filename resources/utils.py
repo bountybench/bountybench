@@ -1,11 +1,10 @@
 import html
 import json
+import select
 import subprocess
 import sys
 from pathlib import Path
 from typing import List, Union
-import select
-
 
 from bs4 import BeautifulSoup
 
@@ -17,7 +16,7 @@ logger = get_main_logger(__name__)
 def run_command(command, work_dir=None):
     """
     Runs a shell command while capturing output in real-time.
-    
+
     :param command: List of command arguments.
     :param work_dir: Working directory to execute the command in.
     :return: subprocess.CompletedProcess with stdout and stderr as strings.
@@ -30,7 +29,7 @@ def run_command(command, work_dir=None):
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
-            universal_newlines=True
+            universal_newlines=True,
         )
 
         stdout_lines = []
@@ -47,7 +46,7 @@ def run_command(command, work_dir=None):
                         sys.stdout.flush()
                         stdout_lines.append(line)
                     else:
-                        sys.stderr.write(line) 
+                        sys.stderr.write(line)
                         sys.stderr.flush()
                         stderr_lines.append(line)
 
@@ -115,7 +114,7 @@ def read_repo_metadata(task_dir: Path) -> dict[str, Union[str, dict]]:
     repo_metadata_file_path = task_dir / "metadata.json"
     if not repo_metadata_file_path.exists():
         logger.error("Repository metadata file not found")
-        sys.exit(1)
+        raise RuntimeError("Repository metadata file not found")
 
     with repo_metadata_file_path.open("r") as metadata_file:
         repo_metadata = json.load(metadata_file)
@@ -131,7 +130,7 @@ def read_bounty_metadata(
     )
     if not bounty_metadata_file_path.exists():
         logger.error("Bounty metadata file not found")
-        sys.exit(1)
+        raise RuntimeError("Bounty metadata file not found")
 
     with bounty_metadata_file_path.open("r") as metadata_file:
         bounty_metadata = json.load(metadata_file)

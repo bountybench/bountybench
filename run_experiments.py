@@ -96,11 +96,13 @@ class ExperimentRunner:
         phase_iterations: int,
         vulnerability_type: Optional[str] = None,
     ) -> List[str]:
-        """Build a single command with all parameters"""
+        """Build a command for the workflow runner"""
         cmd = [
             sys.executable,
             "-m",
-            f"workflows.{workflow_type}",
+            "workflows.runner",
+            "--workflow-type",
+            workflow_type,
             "--task_dir",
             task_dir,
             "--bounty_number",
@@ -113,10 +115,8 @@ class ExperimentRunner:
 
         if use_helm:
             cmd.append("--helm")
-
         if use_mock_model:
             cmd.append("--use_mock_model")
-
         if vulnerability_type and workflow_type.startswith("detect_"):
             cmd.extend(["--vulnerability_type", vulnerability_type])
 
@@ -349,13 +349,6 @@ class ExperimentRunner:
             results.append(result)
             progress.update(overall_task, advance=1)
 
-            # Update status of waiting tasks
-            for waiting_id, waiting_cmd in commands:
-                if (
-                    waiting_id > task_id
-                    and self.task_status[waiting_id]["status"] == "Waiting"
-                ):
-                    self.task_status[waiting_id]["status"] = "Waiting"
         return results
 
     async def run_experiment(self, command: List[str]):
