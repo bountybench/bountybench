@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../config';
 
-const BASE_URL=`http://localhost:7999`
-
 export const useServerAvailability = (onAvailable) => {
   const [serverStatus, setServerStatus] = useState({
     isAvailable: false,
