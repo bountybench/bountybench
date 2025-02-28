@@ -228,8 +228,8 @@ This will launch the development server for the frontend.
 
 For a list of API endpoints currently supported, open one of these URLs in your browser:
 
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+- Swagger UI: `http://localhost:7999/docs`
+- ReDoc: `http://localhost:7999/redoc`
 
 ### Accessing the Application
 
