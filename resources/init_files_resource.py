@@ -140,7 +140,7 @@ class InitFilesResource(BaseResource):
             # Log error details if the script execution fails
             logger.error(f"Init script stdout: {e.stdout}")
             logger.error(f"Init script stderr: {e.stderr}")
-            sys.exit(1)
+            raise RuntimeError(str(e))
         # Set up git repos
 
         git_setup_dev_branch(self.files_dir, self.vulnerable_commit)
