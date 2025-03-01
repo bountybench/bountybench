@@ -13,11 +13,20 @@ logger = get_main_logger(__name__)
 class WebscraperAgentConfig(AgentConfig):
     website: str
 
+    def __post_init__(self):
+        """Validate config after initialization"""
+        if not self.website:
+            raise ValueError("Website URL cannot be empty")
+        if not self.website.startswith(("https://huntr.com/bounties", "https://hackerone.com/reports/")):
+            raise ValueError("Unsupported website. Must be either Huntr or HackerOne URL.")
+
     def to_dict(self) -> dict:
         return {"website": self.website}
 
     @classmethod
-    def from_dict(cls, data: dict) -> "WebscraperAgentConfig":
+    def from_dict(cls, data: dict):
+        if "website" not in data:
+            raise ValueError("Website URL is required")
         return cls(website=data["website"])
 
 class WebscraperAgent(BaseAgent):
@@ -44,11 +53,14 @@ class WebscraperAgent(BaseAgent):
                 latest_urls = self.handler.get_latest_report_urls()
                 new_urls = []
 
+                # Use a set to remove duplicates while preserving order
+                seen = set()
                 for url in latest_urls:
                     if url == last_bounty_link:
                         break
-                    if url not in known_urls:
+                    if url not in known_urls and url not in seen:
                         new_urls.append(url)
+                        seen.add(url)
                         logger.info(f"Found new report: {url}")
                 
                 if new_urls:

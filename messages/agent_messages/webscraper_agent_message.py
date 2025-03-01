@@ -3,6 +3,11 @@ from typing import List
 
 class WebscraperMessage(AgentMessage):
     def __init__(self, agent_id: str, message: str, website: str, bounty_links: List[str], prev: AgentMessage = None, success: bool = False) -> None:
+        if bounty_links is None:
+            raise ValueError("bounty_links cannot be None")
+        if not isinstance(bounty_links, list):
+            raise ValueError("bounty_links must be a list")
+            
         self._success = success
         self._bounty_links = bounty_links
         self._website = website
