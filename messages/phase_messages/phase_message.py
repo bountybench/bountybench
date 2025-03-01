@@ -104,6 +104,7 @@ class PhaseMessage(Message):
                 if self.agent_messages
                 else None
             ),
+            "success": self.success,
         }
         log_dict.update(base_dict)
         return log_dict
