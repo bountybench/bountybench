@@ -40,6 +40,7 @@ class BaseWorkflow(ABC):
         self._phase_graph = {}  # Stores phase relationships
         self._root_phase = None
         self._current_phase = None
+        self._score = 0
 
         self._initialize()
 
@@ -190,10 +191,12 @@ class BaseWorkflow(ABC):
                 self.workflow_message.set_summary(
                     WorkflowStatus.COMPLETED_SUCCESS.value
                 )
+                self._score = 1
             else:
                 self.workflow_message.set_summary(
                     WorkflowStatus.COMPLETED_FAILURE.value
                 )
+                self._score = 0
             self.workflow_message.save()
 
         except Exception as e:
