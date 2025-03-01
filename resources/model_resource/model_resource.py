@@ -1,17 +1,18 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List
 
 import tiktoken
 
-from agents.prompts import STOP_TOKEN
 from messages.action_messages.action_message import ActionMessage
-from messages.action_messages.command_message import CommandMessage
 from messages.message import Message
-from resources.base_resource import BaseResource, BaseResourceConfig
+from prompts.prompts import STOP_TOKEN
+from resources.base_resource import BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
+from resources.model_resource.model_utils import truncate_input_to_max_tokens
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
+from resources.runnable_base_resource import RunnableBaseResource
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -31,11 +32,12 @@ class ModelResourceConfig(BaseResourceConfig):
 
     model: str = field(default="openai/o3-mini-2025-01-14")
     max_output_tokens: int = field(default=4096)
-    max_input_tokens: int = field(default=4096)
+    max_input_tokens: int = field(default=8192)
     max_iterations_stored_in_memory: int = field(default=3)
     use_helm: bool = field(default=False)
     temperature: float = field(default=0.5)
     stop_sequences: List[str] = field(default_factory=lambda: [STOP_TOKEN])
+    use_mock_model: bool = field(default=False)
 
     @classmethod
     def create(cls, **kwargs):
@@ -54,10 +56,11 @@ class ModelResourceConfig(BaseResourceConfig):
             raise ValueError("max_input_tokens must be positive")
         if self.max_output_tokens <= 0:
             raise ValueError("max_output_tokens must be positive")
-        verify_and_auth_api_key(self.model, self.use_helm)
+        if not self.use_mock_model:
+            verify_and_auth_api_key(self.model, self.use_helm)
 
 
-class ModelResource(BaseResource):
+class ModelResource(RunnableBaseResource):
     """ModelResource"""
 
     def __init__(self, resource_id: str, config: ModelResourceConfig):
@@ -72,6 +75,7 @@ class ModelResource(BaseResource):
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
         self.model_provider: ModelProvider = self.get_model_provider()
+        self.use_mock_model = self._resource_config.use_mock_model
 
     def get_model_provider(self) -> ModelProvider:
         """
@@ -93,7 +97,6 @@ class ModelResource(BaseResource):
             if hallucination_index != -1:
                 response = response[:hallucination_index]
         return response.strip()
-
 
     def tokenize(self, message: str) -> List[int]:
         """
@@ -123,30 +126,6 @@ class ModelResource(BaseResource):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.decode(tokens)
 
-    def generate_memory(self, message: Message) -> str:
-        memory = []
-        if isinstance(message, ActionMessage):
-            while message:
-                memory.append(message.message)
-                message = message.prev
-            current_agent_message = message.parent
-            current_agent_message = current_agent_message.prev
-        else:
-            current_agent_message = message
-
-        while current_agent_message:
-            memory.append(current_agent_message.message)
-            current_agent_message = current_agent_message.prev
-
-        memory = list(reversed(memory))
-        initial_prompt = memory[0]
-        memory = memory[1:]
-        if len(memory) > 3:
-            memory = memory[-3:]
-
-        str_memory = initial_prompt + "\n" + "\n".join(memory)
-        return str_memory
-
     def run(self, input_message: Message) -> ActionMessage:
         """
         Send a query to the specified model and get a response.
@@ -159,8 +138,24 @@ class ModelResource(BaseResource):
         if isinstance(input_message, ActionMessage):
             prev_action_message = input_message
 
-        assert input_message.memory is not None, "Message to model.run() should contain memory."
+        assert (
+            input_message.memory is not None
+        ), "Message to model.run() should contain memory."
         model_input = input_message.memory
+        if self.use_mock_model:
+            return ActionMessage(
+                resource_id=self.resource_id,
+                message=input_message.message,
+                additional_metadata=None,
+                prev=prev_action_message,
+            )
+
+        model_input = truncate_input_to_max_tokens(
+            max_input_tokens=self.max_input_tokens,
+            model_input=model_input,
+            model=self.model,
+            use_helm=self.helm,
+        )
 
         model_response = self.model_provider.make_request(
             model=self.model,
@@ -178,6 +173,7 @@ class ModelResource(BaseResource):
                 "model": self.model,
                 "temperature": self.temperature,
                 "max_input_tokens": self.max_input_tokens,
+                "max_output_tokens": self.max_output_tokens,
                 "stop_sequences": self.stop_sequences,
                 "input_tokens": model_response.input_tokens,
                 "output_tokens": model_response.output_tokens,
@@ -185,9 +181,12 @@ class ModelResource(BaseResource):
             },
         )
 
-
-        return ActionMessage(resource_id=self.resource_id, message=lm_response, additional_metadata=metadata, prev=prev_action_message)
-
+        return ActionMessage(
+            resource_id=self.resource_id,
+            message=lm_response,
+            additional_metadata=metadata,
+            prev=prev_action_message,
+        )
 
     def stop(self) -> None:
         """
@@ -203,9 +202,10 @@ class ModelResource(BaseResource):
         Serialize the ModelResource to a dictionary.
         Includes both instance state and configuration.
         """
-        return {
-            "resource_id": self.resource_id,
-            "config": {
+        base_dict = {"resource_id": self.resource_id}
+
+        if not self.use_mock_model:
+            base_dict["config"] = {
                 "model": self.model,
                 "max_output_tokens": self.max_output_tokens,
                 "max_input_tokens": self.max_input_tokens,
@@ -213,5 +213,9 @@ class ModelResource(BaseResource):
                 "helm": self.helm,
                 "temperature": self.temperature,
                 "stop_sequences": self.stop_sequences,
-            },
-        }
+                "use_mock_model": self.use_mock_model,
+            }
+        else:
+            base_dict["config"] = {"use_mock_model": self.use_mock_model}
+
+        return base_dict

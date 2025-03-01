@@ -1,11 +1,13 @@
+import asyncio
+import logging
+from datetime import datetime, timedelta
 from typing import Dict, List, Set
+
 from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
-import logging
-import asyncio
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
 
 class WebSocketManager:
     _instance = None
@@ -33,26 +35,26 @@ class WebSocketManager:
         """Connect a new WebSocket client with heartbeat monitoring"""
         try:
             await websocket.accept()
-            
+
             # Initialize workflow-specific dictionaries if needed
             if workflow_id not in self.active_connections:
                 self.active_connections[workflow_id] = []
                 self.last_heartbeat[workflow_id] = {}
                 self.connection_status[workflow_id] = {}
-            
+
             self.active_connections[workflow_id].append(websocket)
             self.last_heartbeat[workflow_id][websocket] = datetime.now()
             self.connection_status[workflow_id][websocket] = True
-            
+
             # Start heartbeat monitoring
             heartbeat_task = asyncio.create_task(
                 self._monitor_connection(workflow_id, websocket)
             )
             heartbeat_task.add_done_callback(self.heartbeat_tasks.discard)
             self.heartbeat_tasks.add(heartbeat_task)
-            
+
             logger.info(f"WebSocket connected to workflow {workflow_id}")
-            
+
         except Exception as e:
             logger.error(f"Error during WebSocket connection: {e}")
             await self._handle_connection_error(workflow_id, websocket)
@@ -74,27 +76,32 @@ class WebSocketManager:
             async with self.lock:
                 if workflow_id in self.active_connections:
                     self.active_connections[workflow_id] = [
-                        conn for conn in self.active_connections[workflow_id]
+                        conn
+                        for conn in self.active_connections[workflow_id]
                         if conn != websocket
                     ]
-                    
+
                     # Remove empty workflow entries
                     if not self.active_connections[workflow_id]:
                         del self.active_connections[workflow_id]
                         del self.last_heartbeat[workflow_id]
                         del self.connection_status[workflow_id]
-                    
+
                     logger.info(f"WebSocket disconnected from workflow {workflow_id}")
-                    
+
     async def broadcast(self, workflow_id: str, message: dict):
         """Broadcast a message to all connected clients with retry mechanism"""
         if workflow_id not in self.active_connections:
             return
 
         failed_connections = []
-        for connection in self.active_connections[workflow_id][:]:  # Create a copy to iterate
+        for connection in self.active_connections[workflow_id][
+            :
+        ]:  # Create a copy to iterate
             if not self.connection_status.get(workflow_id, {}).get(connection, False):
-                logger.warning(f"Skipping broadcast to inactive connection in workflow {workflow_id}")
+                logger.warning(
+                    f"Skipping broadcast to inactive connection in workflow {workflow_id}"
+                )
                 continue
 
             success = False
@@ -105,13 +112,17 @@ class WebSocketManager:
                     break
                 except Exception as e:
                     if attempt == self.MAX_RETRY_ATTEMPTS - 1:
-                        logger.error(f"Failed to send message after {self.MAX_RETRY_ATTEMPTS} attempts: {e}")
+                        logger.error(
+                            f"Failed to send message after {self.MAX_RETRY_ATTEMPTS} attempts: {e}"
+                        )
                         failed_connections.append(connection)
                     else:
                         await asyncio.sleep(0.5 * (attempt + 1))
 
             if not success:
-                logger.error(f"Failed to send message to connection in workflow {workflow_id}")
+                logger.error(
+                    f"Failed to send message to connection in workflow {workflow_id}"
+                )
 
         # Clean up failed connections
         for connection in failed_connections:
@@ -124,7 +135,7 @@ class WebSocketManager:
         try:
             while self.connection_status[workflow_id].get(websocket, False):
                 await asyncio.sleep(self.HEARTBEAT_INTERVAL)
-                
+
                 # Only send ping without timeout checks
                 try:
                     await websocket.send_json({"message_type": "ping"})
@@ -134,7 +145,7 @@ class WebSocketManager:
 
         except asyncio.CancelledError as e:
             logger.info(f"Heartbeat monitor cancelled for workflow {workflow_id}")
-            raise e 
+            raise e
         except Exception as e:
             logger.error(f"Error in heartbeat monitor: {e}")
         finally:
@@ -143,9 +154,12 @@ class WebSocketManager:
     async def _handle_connection_error(self, workflow_id: str, websocket: WebSocket):
         """Handle connection errors and cleanup"""
         try:
-            if workflow_id in self.connection_status and websocket in self.connection_status[workflow_id]:
+            if (
+                workflow_id in self.connection_status
+                and websocket in self.connection_status[workflow_id]
+            ):
                 self.connection_status[workflow_id][websocket] = False
-            
+
             try:
                 await websocket.close()
             except RuntimeError as e:
@@ -153,49 +167,56 @@ class WebSocketManager:
                     logger.error(f"Error closing websocket: {e}")
             except Exception as e:
                 logger.error(f"Unexpected error closing websocket: {e}")
-                
+
         finally:
             await self.disconnect(workflow_id, websocket)
 
     async def close_all_connections(self):
         """Close all active WebSocket connections and cleanup"""
         logger.info("Closing all WebSocket connections")
-        
+
         # Close all connections
         for workflow_id in list(self.active_connections.keys()):
             for connection in list(self.active_connections[workflow_id]):
                 await self._handle_connection_error(workflow_id, connection)
-        
+
         # Cancel all heartbeat tasks
         for task in self.heartbeat_tasks:
             task.cancel()
-        
+            try:
+                await task  # Await cancellation to ensure it properly exits
+            except asyncio.CancelledError:
+                pass  # Silently ignore CancelledError since it's expected
+            except Exception as e:
+                logger.error(f"Unhandled exception in heartbeat task: {e}")
+
         # Wait for all tasks to complete
         if self.heartbeat_tasks:
             await asyncio.gather(*self.heartbeat_tasks, return_exceptions=True)
-        
+
         # Clear all tracking dictionaries
         self.active_connections.clear()
         self.last_heartbeat.clear()
         self.connection_status.clear()
         self.heartbeat_tasks.clear()
-        
+
         logger.info("All WebSocket connections closed")
-    
+
     def get_active_connections(self):
         """Get dictionary of active connections"""
         return self.active_connections
-    
+
     async def disconnect_all(self, workflow_id: str):
         """Disconnects all WebSockets associated with a given workflow."""
         if workflow_id not in self.active_connections:
             return
 
         print(f"Disconnecting all WebSockets for workflow {workflow_id}")
-        
+
         for connection in list(self.active_connections[workflow_id]):  # Iterate safely
             await self.disconnect(workflow_id, connection)
 
         print(f"All WebSockets disconnected for workflow {workflow_id}")
+
 
 websocket_manager = WebSocketManager()

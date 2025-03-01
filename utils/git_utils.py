@@ -1,0 +1,276 @@
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Optional, Tuple, Union
+
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
+
+PathLike = Union[Path, str]
+
+
+def _run_git_command(
+    directory: Path,
+    args: list[str],
+    capture_output: bool = False,
+) -> Optional[subprocess.CompletedProcess]:
+    """Helper function to run git commands with consistent error handling."""
+    try:
+        result = subprocess.run(
+            ["git"] + args,
+            cwd=directory,
+            check=True,
+            capture_output=capture_output,
+            text=True,
+        )
+        logger.debug(f"Git command succeeded: git {' '.join(args)}")
+        return result
+    except subprocess.CalledProcessError as e:
+        logger.warning(f"Git command failed: git {' '.join(args)} - {e.stderr}")
+        raise
+
+
+def _checkout_branch(directory: Path, branch_name: Optional[str]) -> None:
+    """Helper function to checkout a branch if specified."""
+    if branch_name:
+        _run_git_command(directory, ["checkout", branch_name])
+        logger.info(f"Checked out to branch '{branch_name}'.")
+
+
+def git_commit(
+    directory_path: PathLike, commit_info: str, branch_name: Optional[str] = None
+) -> bool:
+    """Create a git commit in the specified branch."""
+    try:
+        directory = Path(directory_path)
+        _checkout_branch(directory, branch_name)
+
+        # Check repository status
+        status_result = _run_git_command(
+            directory, ["status", "--porcelain"], capture_output=True
+        )
+        if not status_result.stdout.strip():
+            logger.info(f"No changes to commit in {directory}")
+            return False
+
+        _run_git_command(directory, ["add", "."])
+        _run_git_command(directory, ["commit", "-m", f"Commit {commit_info}"])
+        logger.info(f"Commit {commit_info} created successfully")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to create commit: {e}")
+        raise
+
+
+def git_reset(directory_path: PathLike, branch_name: Optional[str] = None) -> None:
+    """Reset repository to previous commit."""
+    try:
+        directory = Path(directory_path)
+        _checkout_branch(directory, branch_name)
+        _run_git_command(directory, ["reset", "--hard", "HEAD~1"])
+        logger.info(f"Reset successful in {directory}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to reset repository: {e}")
+        raise
+
+
+def git_checkout(directory_path: PathLike, commit: str, force=False) -> None:
+    """Checkout a specific commit and clean repository."""
+    directory = Path(directory_path)
+    logger.info(f"Checking out {commit}")
+    if force:
+        _run_git_command(directory, ["checkout", "--force", commit])
+    else:
+        _run_git_command(directory, ["clean", "-fdx"])
+        _run_git_command(directory, ["checkout", commit])
+
+
+def git_checkout_main(directory_path: PathLike, force=False) -> None:
+    """Checkout main branch."""
+    git_checkout(directory_path, "main", force)
+
+
+def git_clean_untracked(directory_path: PathLike) -> None:
+    """Clean untracked files from repository."""
+    directory = Path(directory_path)
+    _run_git_command(directory, ["clean", "-fd"])
+
+
+def git_init_repo(directory_path: PathLike) -> None:
+    """Initialize git repository if it doesn't exist."""
+    directory = Path(directory_path)
+    if not directory.exists():
+        logger.critical(f"Directory does not exist: {directory}")
+        raise RuntimeError(f"Directory does not exist: {directory}")
+
+    if (directory / ".git").exists():
+        logger.warning(f"Repository already exists in {directory}")
+        return
+
+    try:
+        _run_git_command(directory, ["init"])
+        _run_git_command(directory, ["branch", "-m", "main"])
+
+        # Create basic .gitignore
+        gitignore = directory / ".gitignore"
+        if not gitignore.exists():
+            gitignore.write_text("*.log\n.DS_Store\n")
+
+        # Initial commit
+        _run_git_command(directory, ["add", "."])
+        _run_git_command(directory, ["commit", "-m", "Initial commit"])
+        logger.info(f"Initialized repository in {directory}")
+    except subprocess.CalledProcessError as e:
+        logger.critical(f"Failed to initialize repository: {e}")
+        raise
+
+
+def git_commit_changes(directory_path: PathLike) -> None:
+    """Commit all changes in the repository."""
+    directory = Path(directory_path)
+    try:
+        _run_git_command(directory, ["add", "."])
+        _run_git_command(
+            directory,
+            ["commit", "-m", f'Update files at {time.strftime("%Y-%m-%d %H:%M:%S")}'],
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to commit changes: {e}")
+        raise
+
+
+def git_has_changes(directory_path: PathLike) -> bool:
+    """Check if repository has uncommitted changes."""
+    directory = Path(directory_path)
+    try:
+        result = _run_git_command(
+            directory, ["status", "--porcelain"], capture_output=True
+        )
+        return bool(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        logger.error("Failed to check repository status")
+        return True
+
+
+def git_submodule_update(directory_path: PathLike) -> None:
+    """Update git submodules."""
+    directory = Path(directory_path)
+    _run_git_command(directory, ["submodule", "update", "--init", "."])
+
+
+def git_delete_branch(directory_path: PathLike, branch_name: str) -> None:
+    """Delete a git branch if it exists."""
+    directory = Path(directory_path)
+
+    # Check if the branch exists
+    result = _run_git_command(
+        directory, ["branch", "--list", branch_name], capture_output=True
+    )
+    branches = result.stdout.strip() if result else ""
+    branch_exists = branch_name in branches
+
+    if branch_exists:
+        _run_git_command(directory, ["branch", "-D", branch_name])
+        logger.info(f"Deleted branch {branch_name} in {directory}")
+    else:
+        logger.info(
+            f"Branch {branch_name} does not exist in {directory}, skipping deletion."
+        )
+
+
+def git_diff(directory_path: PathLike) -> str:
+    """Get git diff of the repository."""
+    try:
+        directory = Path(directory_path)
+        logger.info(f"Checking for git diff in directory: {directory}")
+
+        if not (directory / ".git").is_dir():
+            logger.error(f"{directory} is not a git repository")
+            return ""
+
+        # Check if __pycache__ exists and clean it if it does
+        pycache_dir = directory / "__pycache__"
+        if pycache_dir.is_dir():
+            _run_git_command(directory, ["rm", "--cached", "-r", "__pycache__"])
+            logger.info(f"Removed cached __pycache__ in {directory}")
+
+        # Clean .pyc files, use a safe approach in case there are no .pyc files
+        try:
+            _run_git_command(directory, ["rm", "--cached", "*.pyc"])
+            logger.info("Removed cached .pyc files")
+        except subprocess.CalledProcessError:
+            logger.info(
+                "No .pyc files to remove or encountered an error, handled gracefully."
+            )
+
+        # Check untracked files
+        untracked_result = _run_git_command(
+            directory,
+            ["ls-files", "--others", "--exclude-standard"],
+            capture_output=True,
+        )
+        logger.debug(
+            f"Untracked files: {untracked_result.stdout if untracked_result else ''}"
+        )
+
+        # Stage all changes
+        _run_git_command(directory, ["add", "-A"])
+
+        # Get staged diff
+        diff_result = _run_git_command(
+            directory, ["diff", "--cached"], capture_output=True
+        )
+        diff = diff_result.stdout if diff_result else ""
+        logger.debug(f"Git diff: {diff}")
+        return diff
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to get git diff: {e}")
+        return ""
+
+
+def git_apply_patch(
+    patch_file: PathLike, directory_path: PathLike, branch_name: Optional[str] = None
+) -> Tuple[bool, str]:
+    """Apply a git patch to the repository."""
+    try:
+        directory = Path(directory_path)
+        patch_path = Path(patch_file)
+        _checkout_branch(directory, branch_name)
+        _run_git_command(directory, ["apply", str(patch_path.resolve())])
+        msg = f"Applied patch {patch_path.name} successfully"
+        logger.info(msg)
+        return True, msg
+    except subprocess.CalledProcessError as e:
+        msg = f"Failed to apply patch {Path(patch_file).name}: {e}"
+        logger.error(msg)
+        return False, msg
+
+
+def git_setup_dev_branch(directory_path: PathLike, commit: str = "main") -> None:
+    """Set up dev branch from specified commit."""
+    directory = Path(directory_path)
+    try:
+        # Verify valid repository
+        result = _run_git_command(
+            directory, ["rev-parse", "--is-inside-work-tree"], capture_output=True
+        )
+        if result.stdout.strip() != "true":
+            raise ValueError(f"Not a git repository: {directory}")
+
+        # Checkout base commit
+        _run_git_command(directory, ["checkout", "-f", commit])
+
+        # Delete existing dev branch
+        branches = _run_git_command(directory, ["branch"], capture_output=True)
+        if "dev" in branches.stdout:
+            _run_git_command(directory, ["branch", "-D", "dev"])
+
+        # Create new dev branch
+        _run_git_command(directory, ["checkout", "-b", "dev"])
+        logger.info(f"Created dev branch in {directory}")
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to setup dev branch: {e}")
+        raise

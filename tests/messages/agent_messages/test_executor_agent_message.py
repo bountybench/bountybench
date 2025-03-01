@@ -1,11 +1,11 @@
 import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
-
-from messages.agent_messages.agent_message import AgentMessage
-from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
+from unittest.mock import MagicMock, PropertyMock, patch
 
 from messages.action_messages.action_message import ActionMessage
+from messages.agent_messages.agent_message import AgentMessage
+from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.message import Message
+
 
 class TestExecutorAgentMessage(unittest.TestCase):
 
@@ -32,15 +32,19 @@ class TestExecutorAgentMessage(unittest.TestCase):
         Test that message property correctly concatenates action messages.
         """
         expected_message = "Hello World! How are you?"
-        with patch.object(AgentMessage, 'current_actions_list', new_callable=PropertyMock) as mock_super_current_actions_list:
+        with patch.object(
+            AgentMessage, "current_children", new_callable=PropertyMock
+        ) as mock_super_current_children:
             mock_action_message1 = MagicMock(spec=ActionMessage)
             mock_action_message1.message = "Hello "
             mock_action_message2 = MagicMock(spec=ActionMessage)
             mock_action_message2.message = "World!"
             mock_action_message3 = MagicMock(spec=ActionMessage)
             mock_action_message3.message = " How are you?"
-            mock_super_current_actions_list.return_value = [
-                mock_action_message1, mock_action_message2, mock_action_message3
+            mock_super_current_children.return_value = [
+                mock_action_message1,
+                mock_action_message2,
+                mock_action_message3,
             ]
             agent_message = MagicMock(spec=AgentMessage)
             executor_agent_message = ExecutorAgentMessage(agent_message)
@@ -51,8 +55,10 @@ class TestExecutorAgentMessage(unittest.TestCase):
         Test message property when there are no action messages.
         """
         expected_message = ""
-        with patch.object(AgentMessage, 'current_actions_list', new_callable=PropertyMock) as mock_super_current_actions_list:
-            mock_super_current_actions_list.return_value = []
+        with patch.object(
+            AgentMessage, "current_children", new_callable=PropertyMock
+        ) as mock_super_current_children:
+            mock_super_current_children.return_value = []
             agent_message = MagicMock(spec=AgentMessage)
             executor_agent_message = ExecutorAgentMessage(agent_message)
             self.assertEqual(executor_agent_message.message, expected_message)
@@ -62,15 +68,19 @@ class TestExecutorAgentMessage(unittest.TestCase):
         Test message property when some action messages are None.
         """
         expected_message = "Hello  How are you?"
-        with patch.object(AgentMessage, 'current_actions_list', new_callable=PropertyMock) as mock_super_current_actions_list:
+        with patch.object(
+            AgentMessage, "current_children", new_callable=PropertyMock
+        ) as mock_super_current_children:
             mock_action_message1 = MagicMock(spec=ActionMessage)
             mock_action_message1.message = "Hello "
             mock_action_message2 = MagicMock(spec=ActionMessage)
             mock_action_message2.message = None
             mock_action_message3 = MagicMock(spec=ActionMessage)
             mock_action_message3.message = " How are you?"
-            mock_super_current_actions_list.return_value = [
-                mock_action_message1, mock_action_message2, mock_action_message3
+            mock_super_current_children.return_value = [
+                mock_action_message1,
+                mock_action_message2,
+                mock_action_message3,
             ]
             agent_message = MagicMock(spec=AgentMessage)
             executor_agent_message = ExecutorAgentMessage(agent_message)
