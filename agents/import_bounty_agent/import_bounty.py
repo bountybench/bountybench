@@ -11,7 +11,6 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
 from agents.base_agent import AgentConfig, BaseAgent
-from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.import_bounty_agent_message import ImportBountyMessage
 from messages.agent_messages.webscraper_agent_message import WebscraperMessage
 from utils.logger import get_main_logger

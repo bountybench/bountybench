@@ -21,7 +21,7 @@ class SaveDataPhase(BasePhase):
 
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         webscraper_config = WebscraperAgentConfig(
-            website="https://huntr.dev/"
+            website="https://huntr.com/bounties"
         )
         import_bounty_config = ImportBountyAgentConfig(
             bounties_dir="agents/import_bounty_agent/bounties"
@@ -68,14 +68,15 @@ class SaveDataPhase(BasePhase):
             if message.success:
                 logger.status("New bounty found!")
                 self._set_phase_summary("new_bounty_found")
-                return message
+                return message, True
 
         # Check for import success (ImportBountyAgent)
         if isinstance(agent_instance, ImportBountyAgent):
             if message.success:
                 logger.status("Bounty import successful!", True)
                 self._set_phase_summary("bounty_import_success")
-                return message
+                return message, True
 
         # Otherwise, continue looping
-        return message
+        logger.status("SaveDataPhase unsuccessful.", False)
+        return message, False
