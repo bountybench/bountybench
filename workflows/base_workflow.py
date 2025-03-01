@@ -269,6 +269,43 @@ class BaseWorkflow(ABC):
 
         self._finalize_workflow()
 
+    async def restart(self): 
+        self.status = WorkflowStatus.INCOMPLETE
+        self._initialize()
+
+        self._setup_resource_manager()
+        self._setup_agent_manager()
+        self._setup_interactive_controller()
+        self._compute_resource_schedule()
+
+        self.next_iteration_event = asyncio.Event()
+        self.workflow_message.new_log()
+        logger.info(f"Restarted workflow {self.name}")
+        
+    async def run_restart(self): 
+        logger.info(f"Running restarted workflow {self.name}")
+        # pick up running from current phase
+        self._current_phase.setup()
+        agent_configs =  self._current_phase.define_agents()
+        self.agent_manager.initialize_phase_agents(agent_configs)
+        
+        phase_message = await self._current_phase.run(self.workflow_message, None)
+
+        logger.status(f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
+
+        self._workflow_iteration_count += 1
+        next_phases = self._phase_graph.get(self._current_phase, [])
+        self._current_phase = next_phases[0] if next_phases else None
+        
+        # Continue running the remaining phases (if any)
+        if self._current_phase:
+            try:
+                async for _ in self._run_phases():
+                    continue
+            except asyncio.CancelledError:
+                logger.info("workflow phases run was cancelled")
+                raise
+
     @property
     def name(self):
         return self.__class__.__name__

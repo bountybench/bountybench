@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { WS_BASE_URL } from '../config'; 
 
-export const useWorkflowWebSocket = (workflowId) => {
+export const useWorkflowWebSocket = (workflowId, reconnect) => {
   const [isConnected, setIsConnected] = useState(false);
   const [phaseMessages, setPhaseMessages] = useState([]);
   const [error, setError] = useState(null);
@@ -208,7 +208,9 @@ export const useWorkflowWebSocket = (workflowId) => {
 
   const connect = useCallback(() => {
     if (reconnectAttempts.current >= maxReconnectAttempts) return;
-
+    if (reconnect > 0){ 
+      setWorkflowStatus('restarting');
+    }
     const backoff = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
     connectionTimeout.current = setTimeout(() => {
       const wsUrl = `${WS_BASE_URL}/ws/${workflowId}`;
@@ -244,7 +246,7 @@ export const useWorkflowWebSocket = (workflowId) => {
         lastHeartbeat.current = Date.now();
       };
     }, backoff);
-  }, [workflowId, maxReconnectAttempts, handleWebSocketMessage]);
+  }, [workflowId, maxReconnectAttempts, handleWebSocketMessage, reconnect]);
 
   useEffect(() => {
     if (workflowId) {
