@@ -194,8 +194,8 @@ def test_create_agent(agent_configs, initialized_agent_manager):
     assert isinstance(agent, PatchAgent)
     assert hasattr(agent, "init_files")
     assert hasattr(agent, "docker")
-    assert hasattr(agent, "repo_resource")
-    assert not hasattr(agent, "bounty_resource")
+    assert hasattr(agent, "repo_setup")
+    assert not hasattr(agent, "bounty_setup")
 
 
 def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
@@ -206,8 +206,8 @@ def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
 
     assert hasattr(agent, "init_files")
     assert hasattr(agent, "docker")
-    assert hasattr(agent, "repo_resource")
-    assert not hasattr(agent, "bounty_resource")
+    assert hasattr(agent, "repo_setup")
+    assert not hasattr(agent, "bounty_setup")
 
 
 def test_parse_resource_entry():

@@ -136,16 +136,16 @@ def bounty_setup(
         repo_config = RepoSetupResourceConfig(
                     task_dir=env_path.TASK_DIR
                     )
-        resources.append("repo_resource")
-        resource_manager.register_resource("repo_resource", RepoSetupResource, repo_config)
+        resources.append("repo_setup")
+        resource_manager.register_resource("repo_setup", RepoSetupResource, repo_config)
 
     if bounty_resource:
         bounty_config = BountySetupResourceConfig(
                     task_dir=env_path.TASK_DIR,
                     bounty_number=bounty_number
                 )
-        resources.append("bounty_resource")
-        resource_manager.register_resource("bounty_resource", BountySetupResource, bounty_config)
+        resources.append("bounty_setup")
+        resource_manager.register_resource("bounty_setup", BountySetupResource, bounty_config)
 
 
     if kali_env_resource:

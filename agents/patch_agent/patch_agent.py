@@ -130,14 +130,14 @@ class PatchAgent(BaseAgent):
             )
 
         # Restart resources if needed
-        bounty_resource_restarted = hasattr(
-            self, "bounty_resource"
-        ) and self._restart_resource(self.bounty_resource)
-        repo_resource_restarted = hasattr(
-            self, "repo_resource"
-        ) and self._restart_resource(self.repo_resource)
+        bounty_setup_restarted = hasattr(
+            self, "bounty_setup"
+        ) and self._restart_resource(self.bounty_setup)
+        repo_setup_restarted = hasattr(
+            self, "repo_setup"
+        ) and self._restart_resource(self.repo_setup)
 
-        if hasattr(self, "bounty_resource") and not bounty_resource_restarted:
+        if hasattr(self, "bounty_setup") and not bounty_setup_restarted:
             error_msg = "The bounty resource must restart successfully but did not."
             logger.error(error_msg)
             patch_agent_message.set_message(
@@ -145,7 +145,7 @@ class PatchAgent(BaseAgent):
             )
             return
 
-        if hasattr(self, "repo_resource") and not repo_resource_restarted:
+        if hasattr(self, "repo_setup") and not repo_setup_restarted:
             error_msg = "The repo resource must restart successfully but did not."
             logger.error(error_msg)
             patch_agent_message.set_message(

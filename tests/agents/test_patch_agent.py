@@ -93,8 +93,8 @@ def git_fixture(bounty_setup):
 # probably a temporary test but currently failing due to issues with initializing resources
 def test_check_repo_and_bounty_are_different(patch_agent):
     agent = patch_agent
-    if hasattr(patch_agent, "bounty_resource") and hasattr(agent, "repo_resource"):
-        assert agent.bounty_resource is not agent.repo_resource
+    if hasattr(patch_agent, "bounty_setup") and hasattr(agent, "repo_setup"):
+        assert agent.bounty_setup is not agent.repo_setup
 
 
 @pytest.mark.asyncio
