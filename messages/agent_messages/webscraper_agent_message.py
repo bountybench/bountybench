@@ -24,14 +24,25 @@ class WebscraperMessage(AgentMessage):
     @property
     def website(self) -> str:
         return self._website
-
-    def to_dict(self) -> dict:
-        agent_dict = self.agent_dict()
-        agent_dict.update({
-            "success": self.success,
-            "bounty_links": self.bounty_links,
-            "website": self.website
-        })
-        base_dict = super(AgentMessage, self).to_dict() 
-        agent_dict.update(base_dict)
-        return agent_dict
+    
+    def to_broadcast_dict(self) -> dict:
+        base_dict = super().to_broadcast_dict()
+        base_dict.update(
+            {
+                "success": self.success,
+                "bounty_links": self.bounty_links,
+                "website": self.website
+            }
+        )
+        return base_dict
+    
+    def to_log_dict(self) -> dict:
+        base_dict = super().to_log_dict()
+        base_dict.update(
+            {
+                "success": self.success,
+                "bounty_links": self.bounty_links,
+                "website": self.website
+            }
+        )
+        return base_dict

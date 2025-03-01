@@ -157,6 +157,14 @@ cython_debug/
 
 # log files
 logs
+error_logs
 
+# Frontend dependencies
 frontend/node_modules
 node_modules
+
+# Filesystem-specific metadata files
+.DS_Store
+
+# MKDocs
+documentation/site

@@ -1,11 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from '../config';
 
 export const useServerAvailability = (onAvailable) => {
-  const [isServerAvailable, setIsServerAvailable] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
+  const [serverStatus, setServerStatus] = useState({
+    isAvailable: false,
+    isChecking: true,
+    error: null
+  });
 
   // Store onAvailable callback in a ref so we can call it without triggering re-runs
   const onAvailableRef = useRef(onAvailable);
+  const attemptsRef = useRef(0);
+  const MAX_ATTEMPTS = 30; // Maximum number of attempts before showing error
+  const RETRY_INTERVAL = 1000; // Retry every 1 second
 
   // Update the ref if onAvailable changes
   useEffect(() => {
@@ -17,31 +24,40 @@ export const useServerAvailability = (onAvailable) => {
 
     const checkServer = async () => {
       try {
-        const response = await fetch('http://localhost:8000/workflow/list');
+        const response = await fetch(`${API_BASE_URL}/workflow/list`);
         if (response.ok) {
-          setIsServerAvailable(true);
-          setIsChecking(false);
-
-          // Call the latest onAvailable callback if defined
+          setServerStatus({
+            isAvailable: true,
+            isChecking: false,
+            error: null
+          });
           if (onAvailableRef.current) {
             onAvailableRef.current();
           }
           return true;
         }
       } catch (error) {
-        // If fetch fails or response not OK, we assume server is still not available
-        setIsServerAvailable(false);
+        console.error('Server check failed:', error);
       }
       return false;
     };
 
     const startPolling = async () => {
-      setIsChecking(true);
+      setServerStatus(prev => ({ ...prev, isChecking: true }));
       const available = await checkServer();
 
       // If not available, schedule the next check
       if (!available) {
-        timeoutId = setTimeout(startPolling, 100);
+        attemptsRef.current += 1;
+        if (attemptsRef.current >= MAX_ATTEMPTS) {
+          setServerStatus({
+            isAvailable: false,
+            isChecking: false,
+            error: "Server is not responding after multiple attempts. Please check if the backend server is running and try again."
+          });
+        } else {
+          timeoutId = setTimeout(startPolling, RETRY_INTERVAL);
+        }
       }
     };
 
@@ -54,5 +70,5 @@ export const useServerAvailability = (onAvailable) => {
     };
   }, []); // IMPORTANT: empty dependency array → runs only once
 
-  return { isServerAvailable, isChecking };
+  return serverStatus;
 };

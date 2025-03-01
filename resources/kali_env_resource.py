@@ -2,29 +2,40 @@ import atexit
 import os
 import sys
 import time
+
+from typing import Dict, Optional, Tuple, Any
+from resources.kali_env_resource_util import KaliEnvResourceUtil
+
 import select
-from typing import Dict, Optional, Tuple
+from pathlib import Path
+
 
 import docker
 from docker.models.containers import Container
 
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
-from resources.base_resource import BaseResource
+from resources.runnable_base_resource import RunnableBaseResource
 from resources.utils import get_stdout_text
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 from dataclasses import dataclass
-from typing import Dict, Optional
 import os
 from resources.base_resource import BaseResourceConfig
+import signal
+from contextlib import contextmanager
 
+# Constants with type annotations
+DOCKER_IMAGE: str = "cybench/bountyagent:latest"
+ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
+DOCKER_CLIENT_INIT_TIMEOUT: int = 300
+
+TIMEOUT_PER_COMMAND = 120
+MAX_RETRIES = 3
+RETRY_DELAY = 5
 
 # Configure logging
 logger = get_main_logger(__name__)
-
-import signal
-from contextlib import contextmanager
 
 @contextmanager
 def timeout_context(seconds):
@@ -36,27 +47,18 @@ def timeout_context(seconds):
         yield
     finally:
         signal.alarm(0)
-        
-# Constants with type annotations
-DOCKER_IMAGE: str = "cybench/bountyagent:latest"
-ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
-
-TIMEOUT_PER_COMMAND = 120
-MAX_RETRIES = 3
-RETRY_DELAY = 10
-
 
 @dataclass
 class KaliEnvResourceConfig(BaseResourceConfig):
     """Configuration for KaliEnvResource"""
-    task_dir: Optional[str] = None
+    task_dir: Optional[Path] = None
     bounty_number: Optional[str] = None
     volumes: Optional[Dict[str, Dict[str, str]]] = None
     target_host: Optional[str] = None
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
-        if self.task_dir and not os.path.exists(self.task_dir):
+        if self.task_dir and not self.task_dir.exists():
             raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if self.volumes:
             for host_path in self.volumes.keys():
@@ -65,213 +67,73 @@ class KaliEnvResourceConfig(BaseResourceConfig):
                     raise ValueError(f"Invalid volume host path parent directory: {parent_dir}")
 
                 
-class KaliEnvResource(BaseResource):
+class KaliEnvResource(RunnableBaseResource):
     """Kali Linux Environment Resource"""
 
     def __init__(self, resource_id: str, config: KaliEnvResourceConfig):
         super().__init__(resource_id, config)
-        
-        self.client = docker.from_env()
+        self.util = KaliEnvResourceUtil()
+        self.client = docker.from_env(timeout=DOCKER_CLIENT_INIT_TIMEOUT)
         self.container = self._start(self.resource_id, self._resource_config.volumes)
-
+        self.util.validate_container_status(self.container, logger)
         self.target_host = self._resource_config.target_host
         self.socket = None # Socket for writing to the pseudo-terminal
-        
-        # Initialize bounty directory if task_dir and bounty_number provided
-        if self._resource_config.task_dir and self._resource_config.bounty_number:
-            self.bounty_dir = os.path.join(
-                str(self._resource_config.task_dir),
-                "bounties",
-                f"bounty_{self._resource_config.bounty_number}"
-            )
+        self._initialize_bounty_directory()
         
         if self.target_host:
             self.connect_to_target_hosts_check(self.target_host)
 
         atexit.register(self.stop)
-    
+
     def _start(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]]) -> Container:
         """
         Start a Kali Linux container to be used throughout the lifecycle.
         """
         for attempt in range(MAX_RETRIES):
             try:
-                # Attempt to get existing container
-                try:
-                    container = self.client.containers.get(name)
-                    logger.info(f"Container '{name}' already exists.")
-                    if container.status != "running":
-                        logger.info(f"Container '{name}' is not running. Removing it.")
-                        container.remove(force=True)
-                    else:
-                        start_progress(f"Container '{name}' is running. Stopping and removing it.")
-                        try:
-                            container.stop()
-                            container.remove()
-                        finally:
-                            stop_progress()
-                except docker.errors.NotFound:
-                    logger.info(f"No existing container named '{name}'.")
+                # Check for existing container and force remove it
+                self._remove_existing_container(name)
+                container = self._create_and_start_container(name, volumes,attempt)
+                return container 
 
-                start_progress(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
-                try:
-                    container = self.client.containers.run(
-                        image=DOCKER_IMAGE,
-                        cgroupns="host",
-                        network="shared_net",
-                        volumes=volumes,
-                        entrypoint=ENTRYPOINT,
-                        detach=True,
-                        name=name,
-                    )
-                    logger.info("KaliEnvResource Docker container started successfully.")
-                finally:
-                    stop_progress()
-
-                container_info = self.client.api.inspect_container(container.id)
-                mounts = container_info['Mounts']
-                logger.debug(f"Container mounts: {mounts}")
-                return container
-            except docker.errors.APIError as e:
-                logger.error(f"Docker API error while starting container: {e}")
-                if attempt < MAX_RETRIES - 1:
-                    logger.info(f"Retrying in {RETRY_DELAY} seconds...")
-                    time.sleep(RETRY_DELAY)
-                else:
-                    logger.error("Failed to start Docker container after maximum retries.")
-                    sys.exit(1)
             except Exception as e:
-                logger.error(f"Unexpected error while starting container: {e}")
-                if attempt < MAX_RETRIES - 1:
-                    logger.info(f"Retrying in {RETRY_DELAY} seconds...")
-                    time.sleep(RETRY_DELAY)
-                else:
-                    logger.error("Failed to start Docker container after maximum retries.")
-                    sys.exit(1)
-
-    def cleanup_tmp(self):
-        cleanup_command = "rm -rf * .*"
-        return self.run_command(cleanup_command, workdir="/app")
+                self.util.handle_start_error(e, attempt,logger)
     
-    def stop(self) -> None:
-        """
-        Stop and remove the Docker container when the program exits.
-
-        This function is automatically registered to run when the program terminates.
-        """
-        if self.container:
-            try:
-                logger.info("Cleaning up: removing tmp files.")
-                self.cleanup_tmp()
+    def stop(self):
+        """Stop and remove the Docker container"""
+        try: 
+            if self.container:
+                if self.container.status == 'running':
+                    self.util.safe_execute(lambda:self.cleanup_tmp(), "tmp cleanup", logger)                   
                 logger.info("Cleaning up: stopping and removing Docker container.")
-                self.container.stop()
-                self.container.remove()
+    
+                self.util.safe_execute(lambda: self.container.stop(timeout=1), "stopping container",logger)
+                self.util.safe_execute(lambda: self.container.remove(force=True), "removing container",logger)
+    
                 self.container = None
                 logger.info("Docker container cleaned up successfully.")
-            except Exception as e:
-                logger.error(f"Error cleaning up Docker container: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error during Docker container cleanup: {e}")
 
     def run(self, command_message: CommandMessage) -> ActionMessage:
         command_str = command_message.command
         stdout, stderr = self.run_command(command_str, TIMEOUT_PER_COMMAND)
         observation_text = stdout.strip() + stderr.strip()
         return ActionMessage(resource_id=self.resource_id, message=observation_text, prev=command_message)
-
+    
     def run_command(self, command: str, timeout: int = 120, workdir: Optional[str] = None, tty: bool = False) -> Tuple[str, str]:
         command_str = command.lstrip().lstrip("*").lstrip()
         if len(command) > 33:
             command_str = command_str[:30] + "..."
         start_progress(f"Running command in Docker container (workdir: {workdir}): {command_str}")
+
         try:
-            if not tty:
-                with timeout_context(timeout):
-                    exec_id = self.client.api.exec_create(
-                        container=self.container.id,
-                        cmd=["/bin/bash", "-c", command],
-                        workdir=workdir,
-                        stdin=False,
-                        stdout=True,
-                        stderr=True,
-                    )["Id"]
+            with timeout_context(timeout):
+                if not tty:
+                    return self._run_non_tty_command(command, workdir)
+                else:
+                    return self._run_tty_command(command, workdir)
 
-                    output = self.client.api.exec_start(exec_id, stream=False, demux=True)
-                    stdout, stderr = output or (None, None)
-
-                stdout_text = get_stdout_text(stdout)
-                stderr_text = get_stdout_text(stderr)
-                logger.info(f"Command executed successfully in [line-mode].\nstdout: {stdout_text}\nstderr: {stderr_text}")
-                return stdout_text, stderr_text
-            else:
-                with timeout_context(timeout):
-                    if not self.socket:
-                        exec_id = self.client.api.exec_create(
-                                container=self.container.id,
-                                cmd=["/bin/bash"],
-                                workdir=workdir,
-                                stdin=True,
-                                stdout=True,
-                                stderr=True,
-                                tty=True,
-                            )["Id"]
-                        
-                        sock = self.client.api.exec_start(
-                            exec_id=exec_id,
-                            stream=True,
-                            demux=False,   
-                            socket=True,
-                            tty=True,
-                        )
-                        self.socket = sock
-                        self._send_to_bash('export PS1="$"\n')
-
-                    self._clear_bash_output_buffer()
-                    num_new_lines = self._count_trailing_new_lines(command)
-                    command = command.strip()
-
-                    if self._is_single_control_character(command):
-                        command = command.strip().encode('utf-8').decode('unicode_escape')
-                        self._send_to_bash(command)
-                    else:
-                        self._send_to_bash(command)
-                        self._clear_bash_output_buffer()
-
-                    for _ in range(num_new_lines):
-                        self._send_to_bash('\n')
-
-                    output = b''
-                    sock_timeout = 30
-                    end_time = time.time() + sock_timeout
-                    last_data_time = time.time()    
-                    max_inactivity = 3  # seconds
-                    execution_time = time.time()
-
-                    while execution_time < end_time:
-                        rlist, _, _ = select.select([self.socket.fileno()], [], [], 1)
-                        
-                        if self.socket.fileno() in rlist:
-                            chunk = self.socket._sock.recv(1024)
-                            if not chunk:
-                                break
-                            output += chunk
-                            last_data_time = time.time()
-                        else:
-                            break
-
-                        if output and time.time() - last_data_time > max_inactivity:
-                            # No data received for max_inactivity seconds
-                            break
-
-                        execution_time = time.time()
-                    
-                    if execution_time >= end_time and not output:
-                        stdout_text = f"No output received for {sock_timeout} seconds."
-                    else:
-                        stdout_text = get_stdout_text(output)
-                        stdout_text = self._clean_command_output(stdout_text, command)
-                    logger.info(f"Command executed successfully in [pty-mode].\nstdout: {stdout_text}\n")
-                    stderr_text = "" # Combined stdout and stderr in pty-mode
-                    return stdout_text, stderr_text
-                
         except TimeoutError:
             logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
             # We can't stop the execution, but we can log that it timed out
@@ -284,108 +146,113 @@ class KaliEnvResource(BaseResource):
         except Exception as e:
             logger.error(f"Unexpected error while executing command: {e}")
             return "", f"Unexpected error: {str(e)}"
-        
         finally:
             stop_progress()
-        
-    def _send_to_bash(self, input_str: str):
-        self.socket._sock.sendall(input_str.encode())  # why socket.write() does not work?
-    
-    def _count_trailing_new_lines(self, input_str: str) -> int:
-        input_str = input_str.rstrip(' ')
-        return len(input_str) - len(input_str.rstrip('\n'))
 
-    def _is_single_control_character(self, s):
-        s = s.strip()
-        s = s.encode('utf-8').decode('unicode_escape')
-        if len(s) != 1:
-            return False
-        return ord(s) < 32 or ord(s) == 127
+    def _initialize_bounty_directory(self):
+        # Initialize bounty directory if task_dir and bounty_number provided
+        if self._resource_config.task_dir and self._resource_config.bounty_number:
+            self.bounty_dir = (
+                self._resource_config.task_dir
+                / "bounties"
+                / f"bounty_{self._resource_config.bounty_number}"
+            )
     
-    def _control_char_to_text(self, char: str) -> str:
-        if ord(char) == 127:  # Special case for DEL
-            return '^?'
-        return f"^{chr(ord(char) + 64)}"
-    
-
-    def _clear_bash_output_buffer(self, timeout: float = 2.0):
-        """
-        Clears the bash output buffer by reading until no more data is available
-        or until the timeout is reached.
-
-        Copied from 
-        """
-        start_time = time.time()
+    def _remove_existing_container(self, name: str):
         try:
-            while time.time() - start_time < timeout:
-                rlist, _, _ = select.select([self.socket.fileno()], [], [], 0.1)
-                if self.socket.fileno() in rlist:
-                    try:
-                        chunk = self.socket._sock.recv(1024)
-                    except OSError as e:
-                        logger.error(f"Error while clearing bash buffer: {str(e)}")
-                        break
-                else:
-                    # No data ready; buffer is clear
-                    break
+            print("-"*90)
+            print(self.client.containers.get(name))
+            print("in remove")
+            print("-"*90)
+            container = self.client.containers.get(name)
+            logger.info(f"Container '{name}' already exists. Forcefully removing it.")
+            start_progress(f"Removing existing container '{name}'...")
+            self._force_remove_container(container, name)
+        except docker.errors.NotFound:
+            logger.info(f"No existing container named '{name}'.")
+        finally:
+            stop_progress()
+    
+
+    def _force_remove_container(self, container: Container, name: str):
+        try:
+            container.remove(force=True)
+            self.util.verify_container_removal(name,logger)
+        except docker.errors.APIError as e:
+            logger.error(f"Force removal failed: {e}")
+            raise
+    
+    def _create_and_start_container(self, name: str, volumes: Optional[Dict[str, Dict[str, str]]], attempt:int) -> Optional[Container]:
+        start_progress(f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})...")
+        try:
+            print(self.client.containers)
+            print("in start")
+            print("-"*90)
+            container = self.client.containers.run(
+                image=DOCKER_IMAGE,
+                cgroupns="host",
+                network="shared_net",
+                volumes=volumes,
+                entrypoint=ENTRYPOINT,
+                privileged=True,
+                detach=True,
+                name=name,
+                command=["tail", "-f", "/dev/null"]
+            )
+            self.util.safe_execute(lambda: self.util.print_docker_log(container), "printing docker log")
+            if not self.util.wait_for_container(container):
+                self.util.handle_container_start_failure(container,logger)
+            logger.info("Container started successfully.")
+            return container
+        finally:
+            stop_progress()
+
+    def cleanup_tmp(self):
+        """Clean up temporary files"""
+        try:
+            logger.info("Cleaning up: removing tmp files.")
+            cleanup_command = "rm -rf * .*"
+            return self.run_command(cleanup_command, workdir="/app")
         except Exception as e:
-            logger.error(f"Unexpected error while clearing bash buffer: {str(e)}")
-        
+            logger.error(f"Error cleaning up tmp files: {e}")
 
-    def _clean_command_output(self, raw_output: str, command_str: str) -> str:
-        """
-        Cleans the raw bash output to remove initialization strings and the echoed command.
-        Also removes echoed multiline outputs for commands like `cat << EOF`.
-        """
-        import re
+    def _run_non_tty_command(self, command: str, workdir: Optional[str]) -> Tuple[str, str]:
+        exec_id = self.create_exec(command, workdir, tty=False)
+        output = self.client.api.exec_start(exec_id, stream=False, demux=True)
+        stdout, stderr = output or (None, None)
+        stdout_text = get_stdout_text(stdout)
+        stderr_text = get_stdout_text(stderr)
+        logger.info(f"Command executed successfully in [line-mode].\nstdout: {stdout_text}\nstderr: {stderr_text}")
+        return stdout_text, stderr_text
 
-        # Use a regex to remove ANSI escape sequences
-        cleaned_output = re.sub(r'\x1b\[[0-9;?]*[a-zA-Z]', '', raw_output)
-        # Remove patterns like \r followed by digits, a comma, and more digits
-        cleaned_output = re.sub(r'\r\d+,\s*\d*', '', cleaned_output)
-        # Remove sequences like \r8, \r08, etc.
-        cleaned_output = re.sub(r'\r\d*', '', cleaned_output)
-        # Replace standalone carriage returns (\r) with nothing
-        cleaned_output = cleaned_output.replace('\r', '')
-        cleaned_output = cleaned_output.replace('\n\n$', '\n$')
+    def _run_tty_command(self, command: str, workdir: Optional[str]) -> Tuple[str, str]:
+        if not self.socket:
+            self._initialize_tty_socket(workdir)
 
-        if self._is_single_control_character(command_str):
-            command_str = self._control_char_to_text(command_str)
+        self.util.prepare_tty_command(self.socket, logger, command)
+        output = self.util.read_tty_output(self.socket)
+        stdout_text = self.util.process_tty_output(output, command)
+        logger.info(f"Command executed successfully in [pty-mode].\nstdout: {stdout_text}\n")
+        return stdout_text, ""
 
-        # Escape command_str for regex safety
-        command_pattern = re.escape(command_str.strip())
-
-        # Use regex to find the command and split the output after the match
-        match = re.search(f"^{command_pattern}.*$", cleaned_output, re.MULTILINE)
-        # print("CLEANED_OUTPUT:", cleaned_output)
-        # print("COMMAND PATTERN:", command_pattern)
-        if not match:
-            # print("No match found.")
-            return cleaned_output.strip()  # If no match, return the original stripped output
-
-        # Get everything after the command match
-        start_index = match.end()
-        cleaned_output = cleaned_output[start_index:].strip()
-
-        return cleaned_output
-
-    def parse_target_host(self, target_host: str) -> Tuple[str, int]:
-        """
-        Parse the target host string into hostname and port.
-
-        Args:
-            target_host (str): The target host in the format hostname:port.
-
-        Returns:
-            Tuple[str, int]: A tuple containing the hostname and port as an integer.
-        """
-        try:
-            hostname, port = target_host.split(":")
-            return hostname, int(port)
-        except ValueError:
-            logger.error(
-                f"Invalid target_host format: {target_host}. Expected format: hostname:port")
-            sys.exit(1)
+    def _initialize_tty_socket(self, workdir: Optional[str]):
+        exec_id = self.create_exec("", workdir, tty=True)
+        self.socket = self.client.api.exec_start(
+            exec_id=exec_id, stream=True, demux=False, socket=True, tty=True
+        )
+        self.util.send_to_bash(self.socket,logger, 'export PS1="$"\n')
+    
+    def create_exec(self, command: str, workdir: Optional[str], tty: bool) -> str:
+        exec_params = {
+            "container": self.container.id,
+            "cmd": ["/bin/bash", "-c", command] if not tty else ["/bin/bash"],
+            "workdir": workdir,
+            "stdin": tty,
+            "stdout": True,
+            "stderr": True,
+            "tty": tty,
+        }
+        return self.client.api.exec_create(**exec_params)["Id"]
 
     def connect_to_target_hosts_check(self, target_hosts: str) -> None:
         """
@@ -398,7 +265,7 @@ class KaliEnvResource(BaseResource):
         failed_hosts = []
 
         for target_host in hosts:
-            hostname, port = self.parse_target_host(target_host)
+            hostname, port = self.util.parse_target_host(target_host,logger)
 
             def nc_check():
                 """
@@ -460,8 +327,16 @@ class KaliEnvResource(BaseResource):
         """
         Creates a KaliEnvResource instance from a serialized dictionary.
         """
-        task_dir = os.path.dirname(os.path.dirname(data['bounty_dir']))
-        bounty_number = os.path.basename(data['bounty_dir']).replace('bounty_', '')
+        task_dir = (
+            Path(data["bounty_dir"]).parent.parent
+            if data["bounty_dir"]
+            else None
+        )
+        bounty_number = (
+            Path(data["bounty_dir"]).name.replace("bounty_", "")
+            if data["bounty_dir"]
+            else None
+        )
         
         return cls(
             name=data['resource_id'],

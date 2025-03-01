@@ -1,123 +1,143 @@
-from agents.base_agent import AgentConfig, BaseAgent
-from messages.phase_messages.phase_message import PhaseMessage
-from phases.base_phase import BasePhase
-from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
-from agents.executor_agent.executor_agent import ExecutorAgent
-
-from agents.executor_agent.executor_agent import ExecutorAgent
-from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
-from resources.base_resource import BaseResource
-from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
-from resources.utils import contains_setup
-from messages.action_messages.answer_message_interface import AnswerMessageInterface
-from messages.message import Message
-from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
-from resources.docker_resource import DockerResource, DockerResourceConfig
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
+
+from agents.base_agent import AgentConfig, BaseAgent
+from agents.executor_agent.executor_agent import ExecutorAgent
+from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
+from messages.message import Message
+from messages.phase_messages.phase_message import PhaseMessage
+from phases.bounty_phase import BountyPhase
+from resources.base_resource import BaseResource
+from resources.docker_resource import DockerResource, DockerResourceConfig
+from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
+from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
+from resources.memory_resource import MemoryResource, MemoryResourceConfig
+from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 from resources.setup_resource import SetupResource, SetupResourceConfig
-import os
-
-from workflows.base_workflow import BaseWorkflow
-
+from resources.utils import contains_setup
 from utils.logger import get_main_logger
+from workflows.base_workflow import BaseWorkflow
 
 logger = get_main_logger(__name__)
 
-class PatchPhase(BasePhase):
+
+class PatchPhase(BountyPhase):
     """Phase responsible for patching vulnerabilities."""
-    
-    AGENT_CLASSES = [PatchAgent, ExecutorAgent]
 
-    def __init__(self, workflow: 'BaseWorkflow', **kwargs):
-        self.model = kwargs.get('model')
-        self.helm = kwargs.get('helm')
-        self.bounty_number = kwargs.get('bounty_number')
-        self.use_agent_exploit = kwargs.get('use_agent_exploit')
-        self.use_verify_script = kwargs.get('use_verify_script')
-        self._initial_prompt = kwargs.get('initial_prompt')
-        self.bounty_dir = os.path.join("bounties", f"bounty_{self.bounty_number}")
+    AGENT_CLASSES: List[Type[BaseAgent]] = [PatchAgent, ExecutorAgent]
 
+    def __init__(self, workflow: "BaseWorkflow", **kwargs):
+        """
+        Initialize the PatchPhase.
 
+        Args:
+            workflow (BaseWorkflow): The parent workflow.
+            **kwargs: Additional keyword arguments.
+        """
+        self.use_agent_exploit: bool = kwargs.get("use_agent_exploit", False)
+        self.use_verify_script: bool = kwargs.get("use_verify_script", False)
 
         super().__init__(workflow, **kwargs)
-   
+
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
-        # assume we get model through some kwargs situation with the Message
+        """
+        Define the agents required for the PatchPhase.
+
+        Returns:
+            Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]: A dictionary mapping agent names to their types and configurations.
+        """
         executor_config = AgentConfig()
 
         patch_config = PatchAgentConfig(
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
-            use_verify_script=self.use_verify_script
+            use_verify_script=self.use_verify_script,
         )
 
-        return {"executor_agent": (ExecutorAgent, executor_config),
-                "patch_agent": (PatchAgent, patch_config)
+        return {
+            "executor_agent": (ExecutorAgent, executor_config),
+            "patch_agent": (PatchAgent, patch_config),
         }
-    
-    def define_resources(self) -> Dict[str, Tuple[Type['BaseResource'], Any]]:
+
+    def define_resources(self) -> Dict[str, Tuple[Type[BaseResource], Any]]:
         """
         Define resource classes and their configurations required by the PatchPhase.
 
         Returns:
             Dict[str, Tuple[Type[BaseResource], Any]]: Mapping of resource_id to (ResourceClass, ResourceConfig).
         """
-        logger.debug(f"Entering define_resources for PatchPhase")
+        logger.debug("Entering define_resources for PatchPhase")
 
-        if self.use_agent_exploit: 
-            exploit_files_dir_name = None
-        else: 
-            exploit_files_dir_name = "exploit_files"
+        exploit_files_dir_name = None if self.use_agent_exploit else "exploit_files"
 
-        files_dir_name = self.workflow.bounty_metadata.get('files_dir', 'codebase')
-        vulnerable_commit = self.workflow.bounty_metadata.get('vulnerable_commit', 'main')
-        tmp_dir_name = "tmp"
-        tmp_dir = os.path.join(self.workflow.task_dir, tmp_dir_name)
+        files_dir_name: str = self.workflow.bounty_metadata.get("files_dir", "codebase")
+        vulnerable_commit: str = self.workflow.bounty_metadata.get(
+            "vulnerable_commit", "main"
+        )
 
-        resource_configs = {
+        resource_configs: Dict[str, Tuple[Type[BaseResource], Any]] = {
             "model": (
                 ModelResource,
-                ModelResourceConfig.create(model=self.model)
+                ModelResourceConfig.create(
+                    model=self.model,
+                    use_mock_model=self.use_mock_model,
+                    max_input_tokens=self.params.get("max_input_tokens"),
+                    max_output_tokens=self.params.get("max_output_tokens"),
+                ),
             ),
             "init_files": (
                 InitFilesResource,
                 InitFilesResourceConfig(
                     task_dir=self.workflow.task_dir,
                     files_dir_name=files_dir_name,
-                    tmp_dir_name=tmp_dir_name,
+                    tmp_dir=self.tmp_dir,
                     bounty_number=self.bounty_number,
                     exploit_files_dir_name=exploit_files_dir_name,
-                    vulnerable_commit=vulnerable_commit
-                )
+                    vulnerable_commit=vulnerable_commit,
+                ),
             ),
-            "kali_env": (
+            f"kali_env_{self.workflow.workflow_message.workflow_id}": (
                 KaliEnvResource,
                 KaliEnvResourceConfig(
                     task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
                     volumes={
-                        os.path.abspath(tmp_dir): {"bind": "/app", "mode": "rw"},
-                    }, 
-                    target_host=self.workflow.repo_metadata["target_host"]
-                )
+                        str(self.tmp_dir.resolve()): {"bind": "/app", "mode": "rw"},
+                    },
+                    target_host=self.workflow.repo_metadata["target_host"],
+                ),
             ),
-            "docker": (
-                DockerResource,
-                DockerResourceConfig()
-            )
+            "docker": (DockerResource, DockerResourceConfig()),
+            "executor_agent_memory": (MemoryResource, MemoryResourceConfig()),
         }
 
-        setup_repo_env_script = os.path.join(str(self.workflow.task_dir), "setup_repo_env.sh")
+        self._add_setup_resources(resource_configs)
+
+        logger.debug("Exiting define_resources for PatchPhase")
+        return resource_configs
+
+    def _add_setup_resources(
+        self, resource_configs: Dict[str, Tuple[Type[BaseResource], Any]]
+    ) -> None:
+        """
+        Add setup resources to the resource configurations if setup scripts exist.
+
+        Args:
+            resource_configs (Dict[str, Tuple[Type[BaseResource], Any]]): The current resource configurations.
+        """
+        setup_repo_env_script = self.workflow.task_dir / "setup_repo_env.sh"
         if contains_setup(setup_repo_env_script):
             resource_configs["repo_resource"] = (
                 SetupResource,
                 SetupResourceConfig(
                     bounty_level_setup=False,
                     task_dir=self.workflow.task_dir,
-                )
+                ),
             )
 
-        setup_bounty_env_script = os.path.join(str(self.workflow.task_dir), self.bounty_dir, "setup_files", "setup_bounty_env.sh")
+        setup_bounty_env_script = (
+            self.bounty_dir / "setup_files" / "setup_bounty_env.sh"
+        )
         if contains_setup(setup_bounty_env_script):
             resource_configs["bounty_resource"] = (
                 SetupResource,
@@ -125,12 +145,8 @@ class PatchPhase(BasePhase):
                     bounty_level_setup=True,
                     task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
-                )
+                ),
             )
-            
-        logger.debug(f"Exiting define_resources for ExploitPhase")
-        return resource_configs
-
 
     async def run_one_iteration(
         self,
@@ -139,27 +155,33 @@ class PatchPhase(BasePhase):
         previous_output: Optional[Message],
     ) -> Message:
         """
-        1) Call the agent with previous_output as input.
-        2) If ExecutorAgent produces an AnswerMessageInterface -> hallucination -> finalize & done.
-        3) If PatchAgent produces an AnswerMessageInterface -> patch success -> finalize & done.
-        4) Otherwise continue.
+        Run a single iteration of the PatchPhase.
+
+        This method performs the following steps:
+        1. Call the agent with previous_output as input.
+        2. If ExecutorAgent produces an AnswerMessageInterface -> hallucination -> finalize & done.
+        3. If PatchAgent produces an AnswerMessageInterface -> patch success -> finalize & done.
+        4. Otherwise continue.
+
+        Args:
+            phase_message (PhaseMessage): The current phase message.
+            agent_instance (Any): The agent instance to run.
+            previous_output (Optional[Message]): The output from the previous iteration.
+
+        Returns:
+            Message: The resulting message from the agent.
         """
-        # Prepare input message list for agent
-        input_list = []
+        input_list: List[Message] = []
         if previous_output is not None:
             input_list.append(previous_output)
 
-        message = await agent_instance.run(input_list)
+        message: Message = await agent_instance.run(input_list)
 
-        # Determine which agent name was used in this iteration
-        _, agent_instance = self._get_current_agent()
-
-        # Check for exploit success (PatchAgent)
         if isinstance(agent_instance, PatchAgent):
-            if isinstance(message, AnswerMessageInterface):
+            if message.success:
                 logger.info("Patch Success!")
                 phase_message.set_summary("patch_success")
                 phase_message.set_complete()
                 phase_message.set_success()
-                return message
+
         return message

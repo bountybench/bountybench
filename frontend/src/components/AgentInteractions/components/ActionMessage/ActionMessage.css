@@ -36,12 +36,6 @@
   color: #1f1f1f !important;
 }
 
-.action-message-timestamp {
-  font-size: 0.7rem !important;
-  color: #666;
-  margin-top: 2px !important;
-}
-
 .action-toggle-button {
   color: #666 !important;
   padding: 4px !important;
@@ -62,33 +56,23 @@
   overflow-y: auto;
 }
 
+.editing-message-content {
+  padding: 0px !important;
+  background-color: #ffffff;
+  margin: 12px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 .action-message-text {
   font-size: 0.75rem !important;
   color: #333 !important;
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.5;
-}
-
-.action-message-buttons {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 16px;
-  background-color: #ffffff;
-  border-top: 1px solid #e0e0e0;
-  margin-top: 8px;
-}
-
-.action-message-buttons button {
-  margin-left: 8px !important;
-}
-
-.edit-mode-container {
-  padding: 16px;
-  background-color: #f8f9fa;
-  margin: 12px 16px;
-  border-radius: 4px;
-  border: 1px solid #e0e0e0;
 }
 
 .edit-textarea {
@@ -145,4 +129,17 @@
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   font-family: monospace;
+}
+
+.selected {
+  border: 2px solid #ffd23d !important;
+  border-radius: 4px;
+}
+
+.selected.action-message.MODEL {
+  border-left: 4px solid #966200 !important;
+}
+
+.selected.action-message.KALI_ENV {
+  border-left: 4px solid #966200 !important;
 }

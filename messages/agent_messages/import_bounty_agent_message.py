@@ -28,13 +28,24 @@ class ImportBountyMessage(AgentMessage):
     def bounty_links(self) -> List[str]:
         return self._bounty_links
     
-    def to_dict(self) -> Dict[str, Any]:
-        agent_dict = self.agent_dict()
-        agent_dict.update({
-            "success": self.success,
-            "bounty_dirs": self._bounty_dirs,
-            "bounty_links": self._bounty_links,
-        })
-        base_dict = super(AgentMessage, self).to_dict() 
-        agent_dict.update(base_dict)
-        return agent_dict
+    def to_broadcast_dict(self) -> dict:
+        base_dict = super().to_broadcast_dict()
+        base_dict.update(
+            {
+                "success": self.success,
+                "bounty_dirs": self.bounty_dirs,
+                "bounty_links": self.bounty_links,
+            }
+        )
+        return base_dict
+    
+    def to_log_dict(self) -> dict:
+        base_dict = super().to_log_dict()
+        base_dict.update(
+            {
+                "success": self.success,
+                "bounty_dirs": self.bounty_dirs,
+                "bounty_links": self.bounty_links,
+            }
+        )
+        return base_dict

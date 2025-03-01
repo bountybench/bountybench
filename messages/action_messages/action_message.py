@@ -1,11 +1,20 @@
+from typing import Any, Dict, Optional
+
 from messages.message import Message
-from typing import Dict, Any, Optional
+
 
 class ActionMessage(Message):
-    def __init__(self, resource_id: str, message: str, additional_metadata: Optional[Dict[str, Any]] = {}, prev: 'ActionMessage' = None) -> None:
+    def __init__(
+        self,
+        resource_id: str,
+        message: str,
+        additional_metadata: Optional[Dict[str, Any]] = {},
+        prev: "ActionMessage" = None,
+    ) -> None:
         self._resource_id = resource_id
         self._message = message
         self._additional_metadata = additional_metadata
+        self._memory = None
 
         super().__init__(prev)
 
@@ -14,9 +23,21 @@ class ActionMessage(Message):
         return self._resource_id
 
     @property
+    def workflow_id(self) -> str:
+        if self.parent:
+            return self.parent.workflow_id
+        return None
+
+    @property
     def message(self) -> str:
         return self._message
-    
+
+    def set_message(self, value: str):
+        """
+        Setter for message property.
+        """
+        self._message = value
+
     @property
     def message_type(self) -> str:
         """
@@ -24,10 +45,19 @@ class ActionMessage(Message):
         for ActionMessage and its subclasses.
         """
         return "ActionMessage"
-    
+
     @property
     def additional_metadata(self) -> str:
         return self._additional_metadata
+
+    @property
+    def memory(self):
+        return self._memory
+
+    @memory.setter
+    def memory(self, x: str):
+        """This should only be set by the MemoryResource."""
+        self._memory = x
 
     def action_dict(self) -> dict:
         action_dict = {
@@ -35,12 +65,17 @@ class ActionMessage(Message):
             "message": self.message,
         }
         if self.additional_metadata:
-            action_dict["additional_metadata"]=  self.additional_metadata
-
+            action_dict["additional_metadata"] = self.additional_metadata
         return action_dict
 
-    def to_dict(self) -> dict:
+    def to_broadcast_dict(self) -> dict:
+        base_dict = super().to_broadcast_dict()
         action_dict = self.action_dict()
-        base_dict = super().to_dict() 
+        action_dict.update(base_dict)
+        return action_dict
+
+    def to_log_dict(self) -> dict:
+        base_dict = super().to_log_dict()
+        action_dict = self.action_dict()
         action_dict.update(base_dict)
         return action_dict

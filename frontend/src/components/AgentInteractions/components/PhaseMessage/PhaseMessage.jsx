@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AgentMessage from '../AgentMessage/AgentMessage';
 import './PhaseMessage.css'
 
-const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
+const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
@@ -24,6 +24,7 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
               size="small" 
               onClick={handleToggleContent} 
               className="phase-toggle-button"
+              aria-label="toggle phase content"
             >
               {contentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </IconButton>
@@ -33,15 +34,20 @@ const PhaseMessage = ({ message, onUpdateActionInput, onRerunAction }) => {
               Summary: {message.phase_summary || '(no summary)'}
             </Typography>
             
-            {message.current_children && message.current_children.length > 0 && (
+            {message.current_children?.length > 0 && (
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
                 {message.current_children.map((agentMessage, index) => (
                   <AgentMessage 
-                    key={index} 
+                    key={agentMessage.current_id} 
                     message={agentMessage} 
-                    onUpdateActionInput={onUpdateActionInput}
-                    onRerunAction={onRerunAction}
+                    onUpdateMessageInput={onUpdateMessageInput}
+                    onRunMessage={onRunMessage}
+                    onEditingChange={onEditingChange}
+                    isEditing={isEditing}                      
+                    selectedCellId={selectedCellId}
+                    onCellSelect={onCellSelect}
+                    onToggleVersion={onToggleVersion}
                   />
                 ))}
               </Box>

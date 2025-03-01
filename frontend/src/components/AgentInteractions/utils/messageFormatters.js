@@ -1,18 +1,17 @@
 export const formatData = (data) => {
-  if (!data) return '';
-  if (typeof data === 'string') return data;
+  // If data is undefined or null, return an empty string
+  if (data == null) return '';
 
+  // If the data is already a string, just return it
+  if (typeof data === 'string') {
+    return data; 
+  }
+
+  // If data is an object with stdout or stderr properties, combine them into a single string
   if (data.stdout || data.stderr) {
     return `${data.stdout || ''}\n${data.stderr || ''}`.trim();
   }
-  
-  try {
-    if (typeof data === 'string') {
-      const parsed = JSON.parse(data);
-      return JSON.stringify(parsed, null, 2);
-    }
-    return JSON.stringify(data, null, 2);
-  } catch (e) {
-    return String(data);
-  }
+
+  // Convert other data types to string
+  return String(data);
 };

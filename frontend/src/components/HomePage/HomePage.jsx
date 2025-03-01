@@ -1,0 +1,137 @@
+// src/components/HomePage/HomePage.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import { Box, Button, Typography, CircularProgress } from '@mui/material';
+import './HomePage.css';
+
+import { API_BASE_URL } from '../../config';
+
+const HomePage = () => {
+  const navigate = useNavigate();
+  const [activeWorkflows, setActiveWorkflows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchActiveWorkflows();
+  }, []);
+
+  const fetchActiveWorkflows = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/active`);
+      const data = await response.json();
+      setActiveWorkflows(data.active_workflows);
+    } catch (error) {
+      console.error('Error fetching active workflows:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNewWorkflowClick = () => {
+    navigate('/create-workflow');
+  };
+
+  const handleWorkflowClick = async (workflowId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/restart/${workflowId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      console.log('Workflow restarted successfully');
+    } catch (error) {
+      console.error('Error restarting workflow:', error);
+    }
+    navigate(`/workflow/${workflowId}`);
+  };
+
+  const handleViewHistoryLogs = () => {
+    navigate('/history-logs');
+  };
+
+  // Helper function to render workflow buttons
+  const renderWorkflowButton = (workflow) => {
+    let buttonColor;
+
+    switch (workflow.status) {
+      case 'error':
+        buttonColor = 'error';
+        break;
+      case 'running':
+        buttonColor = 'success'; 
+        break;
+      default:
+        buttonColor = 'secondary'; // Default color
+    }
+
+    return (
+      <Button
+        key={workflow.id}
+        variant="outlined"
+        color={buttonColor} // Set the color dynamically based on the status
+        onClick={() => handleWorkflowClick(workflow.id)}
+        style={{ 
+          margin: '5px', 
+          width: '100%',   
+          display: 'block',
+          textAlign: 'left' // Align text to the left
+        }}
+      >
+        <Box>
+          <Typography variant="body1">
+            {workflow.task?.task_dir} {workflow.task?.bounty_number} ({workflow?.status})
+          </Typography>
+          <Typography variant="caption" color="textSecondary">
+            {workflow.timestamp ? `${workflow.timestamp} - ${workflow.name}` : workflow.name}
+          </Typography>
+        </Box>
+      </Button>
+    );
+  };
+
+  return (
+    <Box className="homepage-container">
+      <Typography variant="h4" gutterBottom>
+        Workflows
+      </Typography>
+      
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleNewWorkflowClick}
+        style={{ marginBottom: '20px', width: '180px'}}
+      >
+        New Workflow
+      </Button>
+      <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleViewHistoryLogs} 
+          style={{ marginBottom: '20px', width: '180px'}}
+        >
+          View History Logs
+        </Button>
+      {loading ? (
+        <CircularProgress />
+      ) : (
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+        >
+          <Typography variant="h5" gutterBottom>
+            Active Workflows
+          </Typography>
+          {activeWorkflows && activeWorkflows.length === 0 ? (
+            <Typography>No active workflows</Typography>
+          ) : (
+            activeWorkflows.map(renderWorkflowButton)
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+export default HomePage;
