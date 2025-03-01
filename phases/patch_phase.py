@@ -7,7 +7,10 @@ from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.bounty_phase import BountyPhase
 from resources.base_resource import BaseResource
-from resources.bounty_setup_resource import BountySetupResource, BountySetupResourceConfig
+from resources.bounty_setup_resource import (
+    BountySetupResource,
+    BountySetupResourceConfig,
+)
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
@@ -127,7 +130,7 @@ class PatchPhase(BountyPhase):
         """
         setup_repo_env_script = self.workflow.task_dir / "setup_repo_env.sh"
         if contains_setup(setup_repo_env_script):
-            resource_configs["repo_resource"] = (
+            resource_configs["repo_setup"] = (
                 RepoSetupResource,
                 RepoSetupResourceConfig(
                     task_dir=self.workflow.task_dir,
@@ -138,7 +141,7 @@ class PatchPhase(BountyPhase):
             self.bounty_dir / "setup_files" / "setup_bounty_env.sh"
         )
         if contains_setup(setup_bounty_env_script):
-            resource_configs["bounty_resource"] = (
+            resource_configs["bounty_setup"] = (
                 BountySetupResource,
                 BountySetupResourceConfig(
                     task_dir=self.workflow.task_dir,
