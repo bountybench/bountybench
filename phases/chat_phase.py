@@ -98,5 +98,6 @@ class ChatPhase(BasePhase):
                 logger.status("Chat agent produced an answer message!")
                 phase_message.set_summary("completed_with_answer")
                 phase_message.set_complete()
+                self._score = 1
 
         return message

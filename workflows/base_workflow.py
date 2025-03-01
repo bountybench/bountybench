@@ -41,6 +41,7 @@ class BaseWorkflow(ABC):
         self._root_phase = None
         self._current_phase = None
         self._score = 0
+        self._phase_score = {}
 
         self._initialize()
 
@@ -91,6 +92,14 @@ class BaseWorkflow(ABC):
     @property
     def current_phase(self):
         return self._current_phase
+    
+    @property
+    def score(self):
+        return self._score
+    
+    @property
+    def phase_score(self):
+        return self._phase_score
 
     @property
     def phase_graph(self):
@@ -181,6 +190,7 @@ class BaseWorkflow(ABC):
                 yield phase_message
 
                 prev_phase_message = phase_message
+                self._phase_score[prev_phase_message.phase_id] = 1 if phase_message.success else 0
                 if not phase_message.success or self._max_iterations_reached():
                     break
 
