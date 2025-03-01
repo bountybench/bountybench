@@ -56,7 +56,6 @@ class BasePhase(ABC):
         self._done: bool = False
         self.iteration_count: int = 0
         self._last_agent_message: Optional[Message] = None
-        self._score: int = 0
 
     @abstractmethod
     def define_resources(
@@ -346,16 +345,6 @@ class BasePhase(ABC):
             Message: The message from the agent.
         """
         pass
-
-    @property
-    def score(self) -> int:
-        """
-        Get the score of the phase.
-
-        Returns:
-            int: The score of the phase.
-        """
-        return self._score
 
     @property
     def name(self) -> str:

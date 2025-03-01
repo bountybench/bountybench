@@ -183,6 +183,5 @@ class PatchPhase(BountyPhase):
                 phase_message.set_summary("patch_success")
                 phase_message.set_complete()
                 phase_message.set_success()
-                self._score = 1
 
         return message
