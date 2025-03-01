@@ -1,5 +1,6 @@
 import html
 import json
+import select
 import subprocess
 import sys
 from pathlib import Path
@@ -18,7 +19,7 @@ def run_command(command, work_dir=None):
 
     :param command: List of command arguments.
     :param work_dir: Working directory to execute the command in.
-    :return: stdout and stderr as strings.
+    :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
     try:
         process = subprocess.Popen(
@@ -27,27 +28,42 @@ def run_command(command, work_dir=None):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=1,  # Ensures line buffering for real-time output
+            bufsize=1,
             universal_newlines=True,
         )
 
         stdout_lines = []
         stderr_lines = []
 
-        # Read output in real-time
-        for stdout_line in iter(process.stdout.readline, ""):
-            sys.stdout.write(stdout_line)  # Print to console immediately
-            sys.stdout.flush()  # Force immediate print
-            stdout_lines.append(stdout_line)  # Store in variable
+        fds = [process.stdout, process.stderr]
+        while process.poll() is None:  # While process is still running
+            readable, _, _ = select.select(fds, [], [], 0.1)
+            for fd in readable:
+                line = fd.readline()
+                if line:
+                    if fd == process.stdout:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                        stdout_lines.append(line)
+                    else:
+                        sys.stderr.write(line)
+                        sys.stderr.flush()
+                        stderr_lines.append(line)
 
-        for stderr_line in iter(process.stderr.readline, ""):
-            sys.stderr.write(stderr_line)  # Print errors to console immediately
-            sys.stderr.flush()  # Force immediate print
-            stderr_lines.append(stderr_line)  # Store in variable
+        for fd in fds:
+            for line in fd:
+                if fd == process.stdout:
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+                    stdout_lines.append(line)
+                else:
+                    sys.stderr.write(line)
+                    sys.stderr.flush()
+                    stderr_lines.append(line)
 
         process.stdout.close()
         process.stderr.close()
-        process.wait()  # Ensure process completes
+        process.wait()
 
         return subprocess.CompletedProcess(
             args=command,
@@ -56,12 +72,14 @@ def run_command(command, work_dir=None):
             stderr="".join(stderr_lines),
         )
 
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         logger.error(
             f"Command '{' '.join(command)}' failed with return code {e.returncode}"
         )
         logger.error(f"stdout: {e.stdout}")
         logger.error(f"stderr: {e.stderr}")
+        sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+        sys.stderr.flush()
         raise
 
 
@@ -96,7 +114,7 @@ def read_repo_metadata(task_dir: Path) -> dict[str, Union[str, dict]]:
     repo_metadata_file_path = task_dir / "metadata.json"
     if not repo_metadata_file_path.exists():
         logger.error("Repository metadata file not found")
-        sys.exit(1)
+        raise RuntimeError("Repository metadata file not found")
 
     with repo_metadata_file_path.open("r") as metadata_file:
         repo_metadata = json.load(metadata_file)
@@ -112,7 +130,7 @@ def read_bounty_metadata(
     )
     if not bounty_metadata_file_path.exists():
         logger.error("Bounty metadata file not found")
-        sys.exit(1)
+        raise RuntimeError("Bounty metadata file not found")
 
     with bounty_metadata_file_path.open("r") as metadata_file:
         bounty_metadata = json.load(metadata_file)

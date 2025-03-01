@@ -29,7 +29,7 @@ class InitFilesResourceConfig(BaseResourceConfig):
 
     task_dir: Path
     files_dir_name: str
-    tmp_dir_name: str
+    tmp_dir: Path
     bounty_number: str
     exploit_files_dir_name: Optional[str] = None
     vulnerable_commit: Optional[str] = None
@@ -40,8 +40,8 @@ class InitFilesResourceConfig(BaseResourceConfig):
             raise ValueError(f"Invalid task_dir: {self.task_dir}")
         if not self.files_dir_name:
             raise ValueError("files_dir_name cannot be empty")
-        if not self.tmp_dir_name:
-            raise ValueError("tmp_dir_name cannot be empty")
+        if not self.tmp_dir:
+            raise ValueError("tmp_dir cannot be empty")
 
 
 class InitFilesResource(BaseResource):
@@ -55,8 +55,7 @@ class InitFilesResource(BaseResource):
         self.files_dir_name = self._resource_config.files_dir_name
         self.files_dir = self.task_dir / self._resource_config.files_dir_name
 
-        self.tmp_dir_name = self._resource_config.tmp_dir_name
-        self.tmp_dir = self.task_dir / self.tmp_dir_name
+        self.tmp_dir = self._resource_config.tmp_dir
 
         if self.tmp_dir.exists():  # clean
             logger.info(f"Removing existing {self.tmp_dir}")
@@ -122,7 +121,7 @@ class InitFilesResource(BaseResource):
                     text=True,
                 )
 
-            git_checkout(self.files_dir, self.vulnerable_commit)
+            git_checkout(self.files_dir, self.vulnerable_commit, force=True)
 
             tmp_destination_path = self.tmp_dir / self.files_dir_name
             self.copy_files(self.files_dir, tmp_destination_path)
@@ -141,7 +140,7 @@ class InitFilesResource(BaseResource):
             # Log error details if the script execution fails
             logger.error(f"Init script stdout: {e.stdout}")
             logger.error(f"Init script stderr: {e.stderr}")
-            sys.exit(1)
+            raise RuntimeError(str(e))
         # Set up git repos
 
         git_setup_dev_branch(self.files_dir, self.vulnerable_commit)
@@ -164,7 +163,7 @@ class InitFilesResource(BaseResource):
             try:
                 if self.files_dir.exists():
                     # First try to check out main branch
-                    git_checkout_main(self.files_dir)
+                    git_checkout_main(self.files_dir, force=True)
                     git_delete_branch(self.files_dir, "dev")
 
             except Exception as e:

@@ -55,6 +55,9 @@ def test_start_workflow_success(client):
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200, "Expected status code 200"
@@ -78,6 +81,8 @@ def test_start_workflow_invalid_name(client):
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200, "Expected status code 200 even on error"
@@ -100,6 +105,9 @@ def started_chat_workflow(client):
         "iterations": 2,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -118,6 +126,9 @@ def started_patch_workflow(client):
         "iterations": 1,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -164,6 +175,9 @@ def started_detect_workflow(client):
         "iterations": 2,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -287,6 +301,8 @@ def test_workflow_restart_creates_new_workflow(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     new_payload = {
@@ -298,6 +314,8 @@ def test_workflow_restart_creates_new_workflow(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     # Step 1: Start the first workflow
@@ -389,6 +407,9 @@ def test_stopping_multiple_workflows(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     payload_2 = {
@@ -400,6 +421,9 @@ def test_stopping_multiple_workflows(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     # Start two workflows
@@ -450,6 +474,9 @@ def test_restarting_workflow_with_same_bounty_number(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     # Start the first workflow
@@ -484,6 +511,9 @@ def test_stopping_workflow_twice(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     # Start the workflow
@@ -529,6 +559,9 @@ async def test_websocket_connection_success(client):
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     start_response = client.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200
@@ -552,6 +585,9 @@ async def test_websocket_receive_status_update(client):
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     start_response = client.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200

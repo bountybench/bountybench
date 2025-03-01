@@ -54,7 +54,14 @@ class ChatPhase(BasePhase):
             Dict[str, Tuple[Type[BaseResource], Any]]: Mapping of resource_id to (ResourceClass, ResourceConfig).
         """
         resource_configs: Dict[str, Tuple[Type[BaseResource], Any]] = {
-            "model": (ModelResource, ModelResourceConfig.create(model=self.model)),
+            "model": (
+                ModelResource,
+                ModelResourceConfig.create(
+                    model=self.model,
+                    max_input_tokens=self.params.get("max_input_tokens"),
+                    max_output_tokens=self.params.get("max_output_tokens"),
+                ),
+            ),
         }
         return resource_configs
 

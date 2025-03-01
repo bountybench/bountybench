@@ -18,18 +18,6 @@ EXPLOIT_SCRIPT_NAME = "exploit.sh"
 VERIFY_SCRIPT_NAME = "verify.sh"
 
 
-def _subtract_paths(path1: Path, path2: Path):
-    # Convert both paths to absolute paths for reliable comparison
-    abs_path1 = path1.resolve()
-    abs_path2 = path2.resolve()
-
-    try:
-        remaining_path = abs_path1.relative_to(abs_path2)
-        return remaining_path
-    except ValueError:
-        raise ValueError(f"{path2} is not a subset of {path1}")
-
-
 @dataclass
 class EnvPath:
     """
@@ -66,9 +54,6 @@ class EnvPath:
     EXPLOIT_FILES_DIR: Path = Path()
     AGENT_PATCHES_DIR: Path = Path()
 
-    BOUNTY_DIR_FROM_TASK_DIR: Path = Path()
-
-    TMP_DIR_NAME: str = ""
     CODEBASE_FILES_DIR_NAME: str = ""
     EXPLOIT_FILES_DIR_NAME: str = ""
 
@@ -76,7 +61,7 @@ class EnvPath:
         self,
         repo_name: str,
         bounty_number: int,
-        tmp_dir_name: str = "tmp",
+        workflow_id: str = "1",
         codebase_files_dir_name: str = "codebase",
         exploit_files_dir_name: str = "exploit_files",
     ):
@@ -85,15 +70,13 @@ class EnvPath:
         """
         task_dir = Path("bountybench") / repo_name
         bounty_dir = task_dir / "bounties" / f"bounty_{bounty_number}"
-        tmp_dir = task_dir / tmp_dir_name
+        tmp_dir = task_dir / "bounties" / f"bounty_{bounty_number}" / f"tmp_{workflow_id}"
         codebase_files_dir = task_dir / codebase_files_dir_name
         tmp_codebase_files_dir = tmp_dir / codebase_files_dir_name
         verify_script_dir = bounty_dir / VERIFY_SCRIPT_NAME
         tmp_exploit_script_dir = tmp_dir / EXPLOIT_SCRIPT_NAME
         exploit_files_dir = bounty_dir / exploit_files_dir_name
         agent_patches_dir = bounty_dir / "agent-patches"
-
-        bounty_dir_from_task_dir = _subtract_paths(bounty_dir, task_dir)
 
         # Setting the actual value of each enum member
         self.TASK_DIR = task_dir.resolve()
@@ -106,9 +89,6 @@ class EnvPath:
         self.EXPLOIT_FILES_DIR = exploit_files_dir
         self.AGENT_PATCHES_DIR = agent_patches_dir
 
-        self.BOUNTY_DIR_FROM_TASK_DIR = bounty_dir_from_task_dir
-
-        self.TMP_DIR_NAME = tmp_dir_name
         self.CODEBASE_FILES_DIR_NAME = codebase_files_dir_name
         self.EXPLOIT_FILES_DIR_NAME = exploit_files_dir_name
 
@@ -143,7 +123,7 @@ def bounty_setup(
         init_config = InitFilesResourceConfig(
             task_dir=env_path.TASK_DIR,
             files_dir_name=env_path.CODEBASE_FILES_DIR_NAME,
-            tmp_dir_name=env_path.TMP_DIR_NAME,
+            tmp_dir=env_path.TMP_DIR,
             bounty_number=bounty_number,
             exploit_files_dir_name=env_path.EXPLOIT_FILES_DIR_NAME,
             vulnerable_commit=vulnerable_commit,

@@ -58,7 +58,8 @@ describe('WorkflowLauncher Component', () => {
       .mockResolvedValueOnce({ json: () => Promise.resolve({ workflows: [] }) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({ helmModels: [], nonHelmModels: [] }) })
-      .mockResolvedValueOnce({ json: () => Promise.resolve({}) });
+      .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ json: () => Promise.resolve({ max_input_tokens: 4096, max_output_tokens: 2048 }) });
 
     render(
       <Router>
@@ -100,7 +101,7 @@ describe('WorkflowLauncher Component', () => {
       expect(screen.getByText(/Start New Workflow/i)).toBeInTheDocument();
     });
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
   });
 
   test('fetches and displays workflows when the server is available', async () => {
@@ -117,7 +118,8 @@ describe('WorkflowLauncher Component', () => {
       .mockResolvedValueOnce({ json: () => Promise.resolve({ workflows }) })
       .mockResolvedValueOnce({ json: () => Promise.resolve(apiKeys) })
       .mockResolvedValueOnce({ json: () => Promise.resolve(models) })
-      .mockResolvedValueOnce({ json: () => Promise.resolve({}) });
+      .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ json: () => Promise.resolve({ max_input_tokens: 4096, max_output_tokens: 2048 }) });
 
     await act(async () => {
       render(
@@ -131,7 +133,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
 
     expect(screen.getByText(/Start New Workflow/i)).toBeInTheDocument();
 
@@ -163,6 +165,7 @@ describe('WorkflowLauncher Component', () => {
       .mockResolvedValueOnce({ json: () => Promise.resolve(apiKeys) })
       .mockResolvedValueOnce({ json: () => Promise.resolve(models) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ json: () => Promise.resolve({ max_input_tokens: 4096, max_output_tokens: 2048 }) })
       .mockResolvedValueOnce({ 
         ok: true, 
         json: () => Promise.resolve({ workflow_id: '123', model: "test_model" })
@@ -180,7 +183,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
   
     const workflowTypeSelect = screen.getByRole('combobox', { name: "Workflow Type" });
     fireEvent.mouseDown(workflowTypeSelect);
@@ -210,7 +213,7 @@ describe('WorkflowLauncher Component', () => {
       fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
     });
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(6));
     await waitFor(() => expect(onWorkflowStartMock).toHaveBeenCalledWith('123', "test_model", true));
   });
 
@@ -232,6 +235,7 @@ describe('WorkflowLauncher Component', () => {
       .mockResolvedValueOnce({ json: () => Promise.resolve(apiKeys) })
       .mockResolvedValueOnce({ json: () => Promise.resolve(models) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ json: () => Promise.resolve({ max_input_tokens: 4096, max_output_tokens: 2048 }) })
       .mockResolvedValueOnce({ 
         ok: false, 
         json: () => Promise.resolve({ error: 'Failed to start workflow' })
@@ -249,7 +253,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
   
     const workflowTypeSelect = screen.getByRole('combobox', { name: "Workflow Type" });
     fireEvent.mouseDown(workflowTypeSelect);
@@ -279,7 +283,7 @@ describe('WorkflowLauncher Component', () => {
       fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
     });
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(6));
     expect(screen.getByText('Failed to start workflow')).toBeInTheDocument();
   });
 });

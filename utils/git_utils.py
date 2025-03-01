@@ -76,17 +76,20 @@ def git_reset(directory_path: PathLike, branch_name: Optional[str] = None) -> No
         raise
 
 
-def git_checkout(directory_path: PathLike, commit: str) -> None:
+def git_checkout(directory_path: PathLike, commit: str, force=False) -> None:
     """Checkout a specific commit and clean repository."""
     directory = Path(directory_path)
-    _run_git_command(directory, ["clean", "-fdx"])
     logger.info(f"Checking out {commit}")
-    _run_git_command(directory, ["checkout", commit])
+    if force:
+        _run_git_command(directory, ["checkout", "--force", commit])
+    else:
+        _run_git_command(directory, ["clean", "-fdx"])
+        _run_git_command(directory, ["checkout", commit])
 
 
-def git_checkout_main(directory_path: PathLike) -> None:
+def git_checkout_main(directory_path: PathLike, force=False) -> None:
     """Checkout main branch."""
-    git_checkout(directory_path, "main")
+    git_checkout(directory_path, "main", force)
 
 
 def git_clean_untracked(directory_path: PathLike) -> None:
@@ -158,10 +161,23 @@ def git_submodule_update(directory_path: PathLike) -> None:
 
 
 def git_delete_branch(directory_path: PathLike, branch_name: str) -> None:
-    """Delete a git branch."""
+    """Delete a git branch if it exists."""
     directory = Path(directory_path)
-    _run_git_command(directory, ["branch", "-D", branch_name])
-    logger.info(f"Deleted branch {branch_name} in {directory}")
+
+    # Check if the branch exists
+    result = _run_git_command(
+        directory, ["branch", "--list", branch_name], capture_output=True
+    )
+    branches = result.stdout.strip() if result else ""
+    branch_exists = branch_name in branches
+
+    if branch_exists:
+        _run_git_command(directory, ["branch", "-D", branch_name])
+        logger.info(f"Deleted branch {branch_name} in {directory}")
+    else:
+        logger.info(
+            f"Branch {branch_name} does not exist in {directory}, skipping deletion."
+        )
 
 
 def git_diff(directory_path: PathLike) -> str:

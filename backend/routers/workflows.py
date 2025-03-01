@@ -1,11 +1,13 @@
+import os
 import traceback
 from pathlib import Path
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 
-from backend.schema import StartWorkflowInput
+from backend.schema import SaveConfigRequest, StartWorkflowInput
 from prompts.vulnerability_prompts import VulnerabilityType
 from resources.model_resource.model_mapping import NonHELMMapping, TokenizerMapping
+from resources.model_resource.model_resource import ModelResourceConfig
 
 workflows_router = APIRouter()
 
@@ -71,6 +73,9 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
             phase_iterations=workflow_data.iterations,
             model=workflow_data.model,
             use_helm=workflow_data.use_helm,
+            use_mock_model=workflow_data.use_mock_model,
+            max_input_tokens=workflow_data.max_input_tokens,
+            max_output_tokens=workflow_data.max_output_tokens,
         )
         workflow_id = workflow.workflow_message.workflow_id
         active_workflows[workflow_id] = {
@@ -123,3 +128,44 @@ async def list_vulnerability_types():
             {"name": vt.name, "value": vt.value} for vt in VulnerabilityType
         ]
     }
+
+
+@workflows_router.get("/workflow/config-defaults")
+async def get_config_defaults():
+    """Return default configuration values for the UI"""
+    # Get defaults from the class fields
+    max_input_tokens = next(
+        field.default
+        for field in ModelResourceConfig.__dataclass_fields__.values()
+        if field.name == "max_input_tokens"
+    )
+    max_output_tokens = next(
+        field.default
+        for field in ModelResourceConfig.__dataclass_fields__.values()
+        if field.name == "max_output_tokens"
+    )
+
+    return {
+        "max_input_tokens": max_input_tokens,
+        "max_output_tokens": max_output_tokens,
+    }
+
+
+@workflows_router.post("/workflow/save-config")
+async def save_config(request: SaveConfigRequest):
+    try:
+        # Get the parent directory of the current working directory
+        config_dir = Path(os.getcwd()) / "configs"
+
+        # Create the configs directory if it doesn't exist
+        config_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create the full file path
+        file_path = config_dir / request.fileName
+
+        # Write the configuration to the file
+        file_path.write_text(request.config)
+
+        return {"message": f"Configuration saved successfully to {file_path}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

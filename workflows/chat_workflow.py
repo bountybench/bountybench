@@ -18,6 +18,8 @@ class ChatWorkflow(BaseWorkflow):
             "model": self.params.get("model"),
             "initial_prompt": self.initial_prompt,
             "helm": self.params.get("helm"),
+            "max_input_tokens": self.params.get("max_input_tokens"),
+            "max_output_tokens": self.params.get("max_output_tokens"),
         }
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations
@@ -42,6 +44,12 @@ async def main() -> None:
     parser.add_argument("--model", type=str, help="The LM model to query")
     parser.add_argument("--helm", action="store_true", help="Use HelmModels")
     parser.add_argument(
+        "--max_input_tokens", type=int, help="Max input tokens to pass into model"
+    )
+    parser.add_argument(
+        "--max_output_tokens", type=int, help="Max output tokens to pass into model"
+    )
+    parser.add_argument(
         "--phase_iterations", type=int, help="max iteractions to run of ChatPhase"
     )
     args = parser.parse_args()
@@ -54,6 +62,8 @@ async def main() -> None:
     workflow = ChatWorkflow(
         interactive=args.interactive,
         model=args.model,
+        max_input_tokens=args.max_input_tokens,
+        max_output_tokens=args.max_output_tokens,
         phase_iterations=args.phase_iterations,
     )
     await workflow.run()

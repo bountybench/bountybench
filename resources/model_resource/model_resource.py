@@ -1,10 +1,9 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List
 
 import tiktoken
 
 from messages.action_messages.action_message import ActionMessage
-from resources.runnable_base_resource import RunnableBaseResource
 from messages.message import Message
 from prompts.prompts import STOP_TOKEN
 from resources.base_resource import BaseResourceConfig
@@ -13,6 +12,7 @@ from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_utils import truncate_input_to_max_tokens
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
+from resources.runnable_base_resource import RunnableBaseResource
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -37,6 +37,7 @@ class ModelResourceConfig(BaseResourceConfig):
     use_helm: bool = field(default=False)
     temperature: float = field(default=0.5)
     stop_sequences: List[str] = field(default_factory=lambda: [STOP_TOKEN])
+    use_mock_model: bool = field(default=False)
 
     @classmethod
     def create(cls, **kwargs):
@@ -55,7 +56,8 @@ class ModelResourceConfig(BaseResourceConfig):
             raise ValueError("max_input_tokens must be positive")
         if self.max_output_tokens <= 0:
             raise ValueError("max_output_tokens must be positive")
-        verify_and_auth_api_key(self.model, self.use_helm)
+        if not self.use_mock_model:
+            verify_and_auth_api_key(self.model, self.use_helm)
 
 
 class ModelResource(RunnableBaseResource):
@@ -73,6 +75,7 @@ class ModelResource(RunnableBaseResource):
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
         self.model_provider: ModelProvider = self.get_model_provider()
+        self.use_mock_model = self._resource_config.use_mock_model
 
     def get_model_provider(self) -> ModelProvider:
         """
@@ -139,6 +142,14 @@ class ModelResource(RunnableBaseResource):
             input_message.memory is not None
         ), "Message to model.run() should contain memory."
         model_input = input_message.memory
+        if self.use_mock_model:
+            return ActionMessage(
+                resource_id=self.resource_id,
+                message=input_message.message,
+                additional_metadata=None,
+                prev=prev_action_message,
+            )
+
         model_input = truncate_input_to_max_tokens(
             max_input_tokens=self.max_input_tokens,
             model_input=model_input,
@@ -162,6 +173,7 @@ class ModelResource(RunnableBaseResource):
                 "model": self.model,
                 "temperature": self.temperature,
                 "max_input_tokens": self.max_input_tokens,
+                "max_output_tokens": self.max_output_tokens,
                 "stop_sequences": self.stop_sequences,
                 "input_tokens": model_response.input_tokens,
                 "output_tokens": model_response.output_tokens,
@@ -190,9 +202,10 @@ class ModelResource(RunnableBaseResource):
         Serialize the ModelResource to a dictionary.
         Includes both instance state and configuration.
         """
-        return {
-            "resource_id": self.resource_id,
-            "config": {
+        base_dict = {"resource_id": self.resource_id}
+
+        if not self.use_mock_model:
+            base_dict["config"] = {
                 "model": self.model,
                 "max_output_tokens": self.max_output_tokens,
                 "max_input_tokens": self.max_input_tokens,
@@ -200,5 +213,9 @@ class ModelResource(RunnableBaseResource):
                 "helm": self.helm,
                 "temperature": self.temperature,
                 "stop_sequences": self.stop_sequences,
-            },
-        }
+                "use_mock_model": self.use_mock_model,
+            }
+        else:
+            base_dict["config"] = {"use_mock_model": self.use_mock_model}
+
+        return base_dict

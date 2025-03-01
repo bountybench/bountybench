@@ -14,7 +14,7 @@ def test_config():
         "bounty_number": "0",
         "task_dir": Path("bountybench/lunary").resolve(),
         "files_dir": "codebase",
-        "tmp_dir": "tmp",
+        "tmp_dir": Path("bountybench/lunary/bounties/bounty_0/tmp_1"),
     }
 
 
@@ -22,7 +22,7 @@ def test_init_files_resource(test_config):
     init_files_config = InitFilesResourceConfig(
         task_dir=test_config["task_dir"],
         files_dir_name=test_config["files_dir"],
-        tmp_dir_name=test_config["tmp_dir"],
+        tmp_dir=test_config["tmp_dir"],
         bounty_number=test_config["bounty_number"],
     )
     resource = InitFilesResource("test-init", init_files_config)
