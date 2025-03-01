@@ -79,11 +79,11 @@ def git_reset(directory_path: PathLike, branch_name: Optional[str] = None) -> No
 def git_checkout(directory_path: PathLike, commit: str, force=False) -> None:
     """Checkout a specific commit and clean repository."""
     directory = Path(directory_path)
-    _run_git_command(directory, ["clean", "-fdx"])
     logger.info(f"Checking out {commit}")
     if force:
         _run_git_command(directory, ["checkout", "--force", commit])
     else:
+        _run_git_command(directory, ["clean", "-fdx"])
         _run_git_command(directory, ["checkout", commit])
 
 
