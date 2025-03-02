@@ -386,7 +386,6 @@ async def test_no_agents_defined(mock_logger, mock_workflow):
     workflow_message = WorkflowMessage(workflow_name="test_workflow")
     prev_phase_message = None
     
-    # Based on the error log, we should expect ZeroDivisionError, not IndexError
     with pytest.raises(ZeroDivisionError):
         await phase.run(workflow_message, prev_phase_message)
 
