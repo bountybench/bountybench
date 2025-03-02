@@ -70,8 +70,11 @@ class AgentResourceManager:
     def bind_resource(self, resource: DefaultResource, workflow_id: str) -> bool:
         """ Binds resource for agent access. Returns False if resource does not exist and True otherwise. """
         resource = None
-        if resource_dict.contains(workflow_id, str(resource)):
-            resource = resource_dict.get(workflow_id, str(resource))
+        
+        # KaliEnv has a separate ID {kali_env_{workflow_id}}. We still want to access it via self.resources.kali_env.
+        resource_name = str(resource) if resource != DefaultResource.KALI_ENV else f"{str(resource)}_{workflow_id}"
+        if resource_dict.contains(workflow_id, resource_name):
+            resource = resource_dict.get(workflow_id, resource_name)
 
         if resource:
             if self.has_attr(resource):

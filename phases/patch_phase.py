@@ -62,7 +62,7 @@ class PatchPhase(BountyPhase):
 
     def define_resources(self) -> List[Tuple[DefaultResource, BaseResourceConfig]]:
         """
-        Define resource classes and their configurations required by the ChatPhase.
+        Define resource classes and their configurations required by the PatchPhase.
 
         Returns:
             List[Tuple[DefaultResource, ResourceConfig]].
@@ -93,6 +93,7 @@ class PatchPhase(BountyPhase):
                     files_dir_name=files_dir_name,
                     tmp_dir=self.tmp_dir,
                     bounty_number=self.bounty_number,
+                    exploit_files_dir_name=exploit_files_dir_name,
                     vulnerable_commit=vulnerable_commit,
                 ),
             ),
