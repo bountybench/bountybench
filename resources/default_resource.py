@@ -39,6 +39,13 @@ class DefaultResource(Enum):
     def get_class(self):
         return self.value.get_class()
     
+    def exists(self, workflow_id: str) -> bool:
+        return resource_dict.contains(
+            workflow_id=workflow_id,
+            resource_id=str(self),
+        )
+
+    
 class AgentResourceManager:
     """
     Class which agents rely on to bind their resources.

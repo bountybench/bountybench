@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.default_resource import DefaultResource
 from resources.resource_manager import resource_dict
 from utils.logger import get_main_logger
 
@@ -73,20 +74,14 @@ class AgentManager:
     def update_phase_agents_models(self, new_model: str):
         for agent_id in self._phase_agents:
             agent = self._phase_agents[agent_id]
-            if any(
-                isinstance(resource, tuple) and resource[0] == ModelResource
-                for resource in agent.ACCESSIBLE_RESOURCES
-            ) or any(
-                resource == ModelResource for resource in agent.ACCESSIBLE_RESOURCES
-            ):
-
-                if not hasattr(agent, "model"):
+            if str(DefaultResource.MODEL) in agent.get_accessible_resources():
+                if not agent.resources.has_bound(DefaultResource.MODEL):
                     raise AttributeError("Agent does not have a 'model' attribute")
-                logger.info(f"Updating agent: {agent}, {agent.model.to_dict()}")
+                logger.info(f"Updating agent: {agent}, {agent.resources.model.to_dict()}")
                 resource_config = ModelResourceConfig.create(model=new_model)
                 resource = ModelResource("model", resource_config)
-                setattr(agent, "model", resource)
-                logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
+                agent.resources.model = resource
+                logger.info(f"Updated agent: {agent}, {agent.resources.model.to_dict()}")
     
 
     def update_phase_agents_mock_model(self, use_mock_model: bool):
@@ -94,16 +89,11 @@ class AgentManager:
         Ensures all agents update their ModelResource with the new `use_mock_model` setting.
         """
         for agent_id, agent in self._phase_agents.items():
-            if any(
-                isinstance(resource, tuple) and resource[0] == ModelResource
-                for resource in agent.ACCESSIBLE_RESOURCES
-            ) or any(
-                resource == ModelResource for resource in agent.ACCESSIBLE_RESOURCES
-            ):
-                if not hasattr(agent, "model"):
+            if str(DefaultResource.MODEL) in agent.get_accessible_resources():
+                if not agent.resources.has_bound(DefaultResource.MODEL):
                     raise AttributeError("Agent does not have a 'model' attribute")
 
-                existing_model_name = agent.model.model
+                existing_model_name = agent.resources.model.model
                 logger.info(f"Updating agent {agent_id} to use_mock_model={use_mock_model}")
 
                 resource_config = ModelResourceConfig.create(
@@ -112,7 +102,7 @@ class AgentManager:
                 )
 
                 resource = ModelResource("model", resource_config)
-                setattr(agent, "model", resource)
+                agent.resources.model = resource
 
                 logger.info(f"Agent {agent_id} updated: {agent.model.to_dict()}")
 
@@ -124,51 +114,23 @@ class AgentManager:
         self.bind_resources_to_agent(agent)
         return agent
 
-    def bind_resources_to_agent(self, agent: BaseAgent):
-        """Bind required and optional resources to the agent."""
-
-        for resource_entry in agent.REQUIRED_RESOURCES + agent.OPTIONAL_RESOURCES:
-            resource_type, attr_name = self._parse_resource_entry(resource_entry)
-
-            resource = None
-            if attr_name:
-                if self.resource_dict.contains(self.workflow_id, attr_name):
-                    resource = self.resource_dict.get(self.workflow_id, attr_name)
-            else:
-                resources = self.resource_dict.resources_by_type(
-                    self.workflow_id, resource_type
-                )
-
-                attr_name = self._generate_attr_name(resource_type)
-                if resources:
-                    resource = resources[0]
-
-            if resource:
-                setattr(agent, attr_name, resource)
-            elif resource_entry in agent.REQUIRED_RESOURCES:
+    def validate_required_resources_exist(self, agent: BaseAgent):
+        """Checks to make sure that agent's required resources are initialized."""
+        for resource_entry in agent.REQUIRED_RESOURCES:
+            if not resource_entry.exists(self.workflow_id):
                 raise ValueError(
-                    f"Required resource {resource_type.__name__} not found for agent {agent.__class__.__name__}"
+                    f"Required resource {str(resource_entry)} for agent {agent.__class__.__name__} not set for workflow {self.workflow_id} for agent {agent.__class__.__name__}"
                 )
 
-    @staticmethod
-    def _parse_resource_entry(
-        entry: Union[Type[BaseAgent], Tuple[Type[BaseAgent], str]]
-    ) -> Tuple[Type[BaseAgent], str]:
-        if isinstance(entry, tuple):
-            return entry
-        return entry, None
+    def bind_resources_to_agent(self, agent: BaseAgent):
+        """Bind accessible resources to the agent."""
 
-    @staticmethod
-    def _generate_attr_name(resource_type) -> str:
-        """
-        Generates a snake_case attribute name for a resource type.
-        """
-        return "_".join(
-            word.lower()
-            for word in re.findall(
-                r"[A-Z][a-z]*|\d+", resource_type.__name__.split("Resource")[0]
-            )
-        )
+        for resource_entry in agent.ACCESSIBLE_RESOURCES:
+            bind_success = agent.resources.bind_resource(resource_entry, self.workflow_id)
+            if not bind_success and resource_entry in agent.REQUIRED_RESOURCES:
+                raise ValueError(
+                    f"Required resource {str(resource_entry)} not found for agent {agent.__class__.__name__}"
+                )
 
     def is_agent_equivalent(
         self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig
