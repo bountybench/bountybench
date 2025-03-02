@@ -9,7 +9,7 @@ from messages.message_utils import log_message
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResourceConfig
-from resources.default_resource import DefaultResource
+from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -58,7 +58,7 @@ class BasePhase(ABC):
     @abstractmethod
     def define_resources(
         self,
-    ) -> List[Tuple[DefaultResource, Optional[BaseResourceConfig]]]:
+    ) -> List[Tuple[ResourceType, Optional[BaseResourceConfig]]]:
         """
         Define the resources required for this phase.
 
@@ -138,7 +138,7 @@ class BasePhase(ABC):
         resource_configs = self.define_resources()
         for resource, resource_config in resource_configs:
             resource_id, resource_class = str(resource), resource.get_class()
-            if resource == DefaultResource.KALI_ENV:
+            if resource == ResourceType.KALI_ENV:
                 resource_id = f"{resource_id}_{self.workflow.workflow_message.workflow_id}"
             if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
                 self.resource_manager.register_resource(resource_id, resource_class, resource_config)

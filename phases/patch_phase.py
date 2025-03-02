@@ -8,13 +8,13 @@ from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.bounty_phase import BountyPhase
 from resources.base_resource import BaseResourceConfig
-from resources.default_resource import DefaultResource
 from resources.docker_resource import DockerResourceConfig
 from resources.init_files_resource import InitFilesResourceConfig
 from resources.kali_env_resource import KaliEnvResourceConfig
 from resources.memory_resource import MemoryResourceConfig
 from resources.model_resource.model_resource import ModelResourceConfig
 from resources.setup_resource import SetupResourceConfig
+from resources.resource_type import ResourceType
 from resources.utils import contains_setup
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
@@ -60,7 +60,7 @@ class PatchPhase(BountyPhase):
             "patch_agent": (PatchAgent, patch_config),
         }
 
-    def define_resources(self) -> List[Tuple[DefaultResource, BaseResourceConfig]]:
+    def define_resources(self) -> List[Tuple[ResourceType, BaseResourceConfig]]:
         """
         Define resource classes and their configurations required by the PatchPhase.
 
@@ -76,9 +76,9 @@ class PatchPhase(BountyPhase):
             "vulnerable_commit", "main"
         )
 
-        resource_configs: List[Tuple[DefaultResource, BaseResourceConfig]] = [
+        resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
             (
-                DefaultResource.MODEL,
+                ResourceType.MODEL,
                 ModelResourceConfig.create(
                     model=self.model,
                     use_mock_model=self.use_mock_model,
@@ -87,7 +87,7 @@ class PatchPhase(BountyPhase):
                 ),
             ),
             (
-                DefaultResource.INIT_FILES,
+                ResourceType.INIT_FILES,
                 InitFilesResourceConfig(
                     task_dir=self.workflow.task_dir,
                     files_dir_name=files_dir_name,
@@ -98,7 +98,7 @@ class PatchPhase(BountyPhase):
                 ),
             ),
             (
-                DefaultResource.KALI_ENV,
+                ResourceType.KALI_ENV,
                 KaliEnvResourceConfig(
                     task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
@@ -108,8 +108,8 @@ class PatchPhase(BountyPhase):
                     target_host=self.workflow.repo_metadata["target_host"],
                 ),
             ),
-            (DefaultResource.DOCKER, DockerResourceConfig()),
-            (DefaultResource.MEMORY, MemoryResourceConfig()),
+            (ResourceType.DOCKER, DockerResourceConfig()),
+            (ResourceType.MEMORY, MemoryResourceConfig()),
         ]
 
         self._add_setup_resources(resource_configs)
@@ -118,7 +118,7 @@ class PatchPhase(BountyPhase):
         return resource_configs
 
     def _add_setup_resources(
-        self, resource_configs: List[Tuple[DefaultResource, BaseResourceConfig]]
+        self, resource_configs: List[Tuple[ResourceType, BaseResourceConfig]]
     ) -> None:
         """
         Add setup resources to the resource configurations if setup scripts exist.
@@ -130,7 +130,7 @@ class PatchPhase(BountyPhase):
         if contains_setup(setup_repo_env_script):
             resource_configs.append(
                 (
-                    DefaultResource.REPO_RESOURCE,
+                    ResourceType.REPO_RESOURCE,
                     SetupResourceConfig(
                         bounty_level_setup=False,
                         task_dir=self.workflow.task_dir,
@@ -144,7 +144,7 @@ class PatchPhase(BountyPhase):
         if contains_setup(setup_bounty_env_script):
             resource_configs.append(
                 (
-                    DefaultResource.BOUNTY_RESOURCE,
+                    ResourceType.BOUNTY_RESOURCE,
                     SetupResourceConfig(
                         bounty_level_setup=True,
                         task_dir=self.workflow.task_dir,

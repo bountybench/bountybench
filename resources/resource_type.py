@@ -24,7 +24,7 @@ class _Resource:
     def get_class(self):
         return self.resource_class
 
-class DefaultResource(Enum):
+class ResourceType(Enum):
     DOCKER = _Resource("docker", DockerResource)
     INIT_FILES = _Resource("init_files", InitFilesResource)
     KALI_ENV = _Resource("kali_env", KaliEnvResource)
@@ -48,8 +48,8 @@ class DefaultResource(Enum):
     
 class AgentResourceManager:
     """
-    Class which agents rely on to bind their resources.
-    Attribute names match str(DefaultResource).
+    Class which agents rely on to access their resources.
+    Attribute names match str(ResourceType).
     
     """
     def __init__(self):
@@ -61,18 +61,18 @@ class AgentResourceManager:
         self.bounty_resource = None
         self.repo_resource=  None
 
-    def has_attr(self, resource:DefaultResource) -> bool:
+    def has_attr(self, resource:ResourceType) -> bool:
         return hasattr(self, str(resource))
 
-    def has_bound(self, resource: DefaultResource) -> bool:
+    def has_bound(self, resource: ResourceType) -> bool:
         return self.has_attr(resource) and getattr(self, str(resource)) is not None
 
-    def bind_resource(self, resource: DefaultResource, workflow_id: str) -> bool:
+    def bind_resource(self, resource: ResourceType, workflow_id: str) -> bool:
         """ Binds resource for agent access. Returns False if resource does not exist and True otherwise. """
         res = None
         
         # KaliEnv has a separate ID {kali_env_{workflow_id}}. We still want to access it via self.resources.kali_env.
-        resource_name = str(resource) if resource != DefaultResource.KALI_ENV else f"{str(resource)}_{workflow_id}"
+        resource_name = str(resource) if resource != ResourceType.KALI_ENV else f"{str(resource)}_{workflow_id}"
         if resource_dict.contains(workflow_id, resource_name):
             res = resource_dict.get(workflow_id, resource_name)
 

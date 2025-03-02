@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Set
 
 from messages.agent_messages.agent_message import AgentMessage
-from resources.default_resource import AgentResourceManager, DefaultResource
+from resources.resource_type import AgentResourceManager, ResourceType
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -32,9 +32,9 @@ class BaseAgent(ABC):
     Resource entries are lists of DefaultResource enums
     """
 
-    REQUIRED_RESOURCES: List[DefaultResource] = []
-    OPTIONAL_RESOURCES: List[DefaultResource] = []
-    ACCESSIBLE_RESOURCES: List[DefaultResource] = []
+    REQUIRED_RESOURCES: List[ResourceType] = []
+    OPTIONAL_RESOURCES: List[ResourceType] = []
+    ACCESSIBLE_RESOURCES: List[ResourceType] = []
 
     def __init__(self, agent_id: str, agent_config: AgentConfig):
         self._agent_id = agent_id

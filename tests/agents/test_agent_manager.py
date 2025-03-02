@@ -8,8 +8,8 @@ from agents.base_agent import AgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent
 from agents.exploit_agent.exploit_agent import ExploitAgent, ExploitAgentConfig
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
-from resources.default_resource import DefaultResource
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.resource_type import ResourceType
 from tests.test_utils.bounty_setup_test_utils import EnvPath, lunary_bounty_0_setup
 
 
@@ -153,7 +153,7 @@ def test_update_phase_agents_models_has_executor():
     # Assertions
     for agent in am._phase_agents.values():
         mock_model_resource.assert_called_with("model", mock_model_resource_config)
-        assert agent.resources.has_bound(DefaultResource.MODEL)
+        assert agent.resources.has_bound(ResourceType.MODEL)
         assert isinstance(agent.resources.model, ModelResource)
         ModelResourceConfig.create.assert_called_with(model=new_model)
 
@@ -188,10 +188,10 @@ def test_create_agent(agent_configs, initialized_agent_manager):
     agent = am.create_agent(".", PatchAgent, pConfig)
 
     assert isinstance(agent, PatchAgent)
-    assert agent.resources.has_bound(DefaultResource.INIT_FILES)
-    assert agent.resources.has_bound(DefaultResource.DOCKER)
-    assert agent.resources.has_bound(DefaultResource.REPO_RESOURCE)
-    assert not agent.resources.has_bound(DefaultResource.BOUNTY_RESOURCE)
+    assert agent.resources.has_bound(ResourceType.INIT_FILES)
+    assert agent.resources.has_bound(ResourceType.DOCKER)
+    assert agent.resources.has_bound(ResourceType.REPO_RESOURCE)
+    assert not agent.resources.has_bound(ResourceType.BOUNTY_RESOURCE)
 
 
 def test_validate_required_resources_exist(agent_configs, initialized_agent_manager):
@@ -200,7 +200,7 @@ def test_validate_required_resources_exist(agent_configs, initialized_agent_mana
     agent = am.create_agent(".", PatchAgent, pConfig)
 
     # Start by testing with a required resource not existing (e.g., DOCKER)
-    with patch.object(DefaultResource.DOCKER, 'exists', return_value=False):
+    with patch.object(ResourceType.DOCKER, 'exists', return_value=False):
         
         try:
             am.validate_required_resources_exist(agent)
@@ -218,10 +218,10 @@ def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
     agent = PatchAgent(".", pConfig)
     am.bind_resources_to_agent(agent)
 
-    assert agent.resources.has_bound(DefaultResource.INIT_FILES)
-    assert agent.resources.has_bound(DefaultResource.DOCKER)
-    assert agent.resources.has_bound(DefaultResource.REPO_RESOURCE)
-    assert not agent.resources.has_bound(DefaultResource.BOUNTY_RESOURCE)
+    assert agent.resources.has_bound(ResourceType.INIT_FILES)
+    assert agent.resources.has_bound(ResourceType.DOCKER)
+    assert agent.resources.has_bound(ResourceType.REPO_RESOURCE)
+    assert not agent.resources.has_bound(ResourceType.BOUNTY_RESOURCE)
 
 
 

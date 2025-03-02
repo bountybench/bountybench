@@ -9,7 +9,7 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.convert_message_utils import cast_action_to_command
 from messages.message import Message
-from resources.default_resource import DefaultResource
+from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -23,19 +23,19 @@ RETRY_DELAY = 30
 class ExecutorAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
-        DefaultResource.INIT_FILES,
-        DefaultResource.KALI_ENV,
-        DefaultResource.MODEL,
-        DefaultResource.MEMORY,
+        ResourceType.INIT_FILES,
+        ResourceType.KALI_ENV,
+        ResourceType.MODEL,
+        ResourceType.MEMORY,
     ]
     OPTIONAL_RESOURCES = [
-        DefaultResource.REPO_RESOURCE,
-        DefaultResource.BOUNTY_RESOURCE,
+        ResourceType.REPO_RESOURCE,
+        ResourceType.BOUNTY_RESOURCE,
     ]
     ACCESSIBLE_RESOURCES = [
-        DefaultResource.KALI_ENV,
-        DefaultResource.MODEL,
-        DefaultResource.MEMORY,
+        ResourceType.KALI_ENV,
+        ResourceType.MODEL,
+        ResourceType.MEMORY,
     ]
 
     async def run(self, messages: List[Message]) -> Message:

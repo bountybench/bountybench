@@ -2,8 +2,8 @@ from typing import Dict, List, Optional, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
-from resources.default_resource import DefaultResource
 from resources.resource_manager import resource_dict
+from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -73,8 +73,8 @@ class AgentManager:
     def update_phase_agents_models(self, new_model: str):
         for agent_id in self._phase_agents:
             agent = self._phase_agents[agent_id]
-            if str(DefaultResource.MODEL) in agent.get_accessible_resources():
-                if not agent.resources.has_bound(DefaultResource.MODEL):
+            if str(ResourceType.MODEL) in agent.get_accessible_resources():
+                if not agent.resources.has_bound(ResourceType.MODEL):
                     raise AttributeError("Agent does not have a 'model' attribute")
                 logger.info(f"Updating agent: {agent}, {agent.resources.model.to_dict()}")
                 resource_config = ModelResourceConfig.create(model=new_model)
@@ -88,8 +88,8 @@ class AgentManager:
         Ensures all agents update their ModelResource with the new `use_mock_model` setting.
         """
         for agent_id, agent in self._phase_agents.items():
-            if str(DefaultResource.MODEL) in agent.get_accessible_resources():
-                if not agent.resources.has_bound(DefaultResource.MODEL):
+            if str(ResourceType.MODEL) in agent.get_accessible_resources():
+                if not agent.resources.has_bound(ResourceType.MODEL):
                     raise AttributeError("Agent does not have a 'model' attribute")
 
                 existing_model_name = agent.resources.model.model

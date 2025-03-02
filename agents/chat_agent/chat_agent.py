@@ -6,7 +6,7 @@ from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
-from resources.default_resource import DefaultResource
+from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -18,9 +18,9 @@ RETRY_DELAY = 30
 
 class ChatAgent(BaseAgent):
 
-    REQUIRED_RESOURCES = [DefaultResource.MODEL]
+    REQUIRED_RESOURCES = [ResourceType.MODEL]
     OPTIONAL_RESOURCES = []
-    ACCESSIBLE_RESOURCES = [DefaultResource.MODEL]
+    ACCESSIBLE_RESOURCES = [ResourceType.MODEL]
 
     async def run(self, messages: List[Message]) -> Message:
         if len(messages) > 1:

@@ -5,7 +5,7 @@ import pytest
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.message import Message
 from resources.base_resource import BaseResource
-from resources.default_resource import DefaultResource
+from resources.resource_type import ResourceType
 
 
 class MockResource(BaseResource):
@@ -17,11 +17,11 @@ class MockResource(BaseResource):
 
 
 class MockAgent(BaseAgent):
-    REQUIRED_RESOURCES = [DefaultResource.INIT_FILES]
-    OPTIONAL_RESOURCES = [DefaultResource.DOCKER]
+    REQUIRED_RESOURCES = [ResourceType.INIT_FILES]
+    OPTIONAL_RESOURCES = [ResourceType.DOCKER]
     ACCESSIBLE_RESOURCES = [
-        DefaultResource.INIT_FILES,
-        DefaultResource.DOCKER,
+        ResourceType.INIT_FILES,
+        ResourceType.DOCKER,
     ]
 
     def run(self, messages: List[Message]) -> Message:

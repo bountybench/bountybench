@@ -13,7 +13,7 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
-from resources.default_resource import DefaultResource
+from resources.resource_type import ResourceType
 from utils.git_utils import git_apply_patch, git_checkout_main, git_commit, git_diff
 from utils.logger import get_main_logger
 
@@ -33,18 +33,18 @@ class PatchAgent(BaseAgent):
     """
 
     REQUIRED_RESOURCES = [
-        DefaultResource.INIT_FILES,
-        DefaultResource.DOCKER,
+        ResourceType.INIT_FILES,
+        ResourceType.DOCKER,
     ]
     OPTIONAL_RESOURCES = [
-        DefaultResource.BOUNTY_RESOURCE,
-        DefaultResource.REPO_RESOURCE,
+        ResourceType.BOUNTY_RESOURCE,
+        ResourceType.REPO_RESOURCE,
     ]
     ACCESSIBLE_RESOURCES = [
-        DefaultResource.BOUNTY_RESOURCE,
-        DefaultResource.REPO_RESOURCE,
-        DefaultResource.INIT_FILES,
-        DefaultResource.DOCKER,
+        ResourceType.BOUNTY_RESOURCE,
+        ResourceType.REPO_RESOURCE,
+        ResourceType.INIT_FILES,
+        ResourceType.DOCKER,
     ]
 
     def __init__(self, agent_id: str, agent_config: PatchAgentConfig):
@@ -130,7 +130,7 @@ class PatchAgent(BaseAgent):
             )
 
         # Restart resources if needed
-        if self.resources.has_bound(DefaultResource.BOUNTY_RESOURCE):
+        if self.resources.has_bound(ResourceType.BOUNTY_RESOURCE):
             if not self._restart_resource(self.resources.bounty_resource):
                 error_msg = "The bounty resource must restart successfully but did not."
                 logger.error(error_msg)
@@ -139,7 +139,7 @@ class PatchAgent(BaseAgent):
                 )
                 return
 
-        if self.resources.has_bound(DefaultResource.REPO_RESOURCE):
+        if self.resources.has_bound(ResourceType.REPO_RESOURCE):
             if not self._restart_resource(self.resources.repo_resource):
                 error_msg = "The repo resource must restart successfully but did not."
                 logger.error(error_msg)

@@ -7,8 +7,8 @@ from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
-from resources.default_resource import DefaultResource
-from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.model_resource.model_resource import ModelResourceConfig
+from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
 
@@ -47,7 +47,7 @@ class ChatPhase(BasePhase):
             "chat_agent": (ChatAgent, chat_config),
         }
 
-    def define_resources(self) -> List[Tuple[DefaultResource, BaseResourceConfig]]:
+    def define_resources(self) -> List[Tuple[ResourceType, BaseResourceConfig]]:
         """
         Define resource classes and their configurations required by the ChatPhase.
 
@@ -56,7 +56,7 @@ class ChatPhase(BasePhase):
         """
         resource_configs: List[Tuple[BaseResource, BaseResourceConfig]] = [
                 (
-                    DefaultResource.MODEL,
+                    ResourceType.MODEL,
                     ModelResourceConfig.create(
                         model=self.model,
                         max_input_tokens=self.params.get("max_input_tokens"),
