@@ -1,5 +1,3 @@
-import os
-import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
@@ -10,7 +8,7 @@ from messages.message import Message
 from messages.message_utils import log_message
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
-from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.base_resource import BaseResourceConfig
 from resources.default_resource import DefaultResource
 from utils.logger import get_main_logger
 

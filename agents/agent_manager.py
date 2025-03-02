@@ -1,5 +1,4 @@
-import re
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
