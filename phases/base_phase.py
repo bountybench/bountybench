@@ -10,8 +10,8 @@ from messages.message import Message
 from messages.message_utils import log_message
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
-from prompts.vulnerability_prompts import get_specialized_instructions
 from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.default_resource import DefaultResource
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -60,12 +60,12 @@ class BasePhase(ABC):
     @abstractmethod
     def define_resources(
         self,
-    ) -> Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
+    ) -> List[Tuple[DefaultResource, Optional[BaseResourceConfig]]]:
         """
         Define the resources required for this phase.
 
         Returns:
-            Dict[str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]]:
+            List[Tuple[Type[DefaultResource], Optional[BaseResourceConfig]]]:
             A dictionary mapping resource IDs to their class and config.
         """
         pass
@@ -138,7 +138,8 @@ class BasePhase(ABC):
 
         # 1. Define and register resources
         resource_configs = self.define_resources()
-        for resource_id, (resource_class, resource_config) in resource_configs.items():
+        for resource, resource_config in resource_configs:
+            resource_id, resource_class = str(resource), resource.get_class()
             if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
                 self.resource_manager.register_resource(resource_id, resource_class, resource_config)
         
