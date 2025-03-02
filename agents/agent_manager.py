@@ -103,7 +103,7 @@ class AgentManager:
                 resource = ModelResource("model", resource_config)
                 agent.resources.model = resource
 
-                logger.info(f"Agent {agent_id} updated: {agent.model.to_dict()}")
+                logger.info(f"Agent {agent_id} updated: {agent.resources.model.to_dict()}")
 
     def create_agent(
         self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig

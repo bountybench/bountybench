@@ -10,6 +10,7 @@ from agents.base_agent import AgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent
 from agents.exploit_agent.exploit_agent import ExploitAgent, ExploitAgentConfig
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
+from resources.default_resource import DefaultResource
 from resources.base_resource import BaseResource
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
@@ -150,7 +151,7 @@ def test_update_phase_agents_models_has_executor():
         "executor": ExecutorAgent("update_phase_agents_has_executor", AgentConfig)
     }
     for agent in am._phase_agents.values():
-        agent.model = Model()
+        agent.resources.model = Model()
 
     new_model = "new_model_value"
     am.update_phase_agents_models(new_model)
@@ -158,8 +159,8 @@ def test_update_phase_agents_models_has_executor():
     # Assertions
     for agent in am._phase_agents.values():
         mock_model_resource.assert_called_with("model", mock_model_resource_config)
-        assert hasattr(agent, "model")
-        assert isinstance(agent.model, ModelResource)
+        assert agent.resources.has_bound(DefaultResource.MODEL)
+        assert isinstance(agent.resources.model, ModelResource)
         ModelResourceConfig.create.assert_called_with(model=new_model)
 
 
@@ -193,10 +194,10 @@ def test_create_agent(agent_configs, initialized_agent_manager):
     agent = am.create_agent(".", PatchAgent, pConfig)
 
     assert isinstance(agent, PatchAgent)
-    assert hasattr(agent, "init_files")
-    assert hasattr(agent, "docker")
-    assert hasattr(agent, "repo_resource")
-    assert not hasattr(agent, "bounty_resource")
+    assert agent.resources.has_bound(DefaultResource.INIT_FILES)
+    assert agent.resources.has_bound(DefaultResource.DOCKER)
+    assert agent.resources.has_bound(DefaultResource.REPO_RESOURCE)
+    assert not agent.resources.has_bound(DefaultResource.BOUNTY_RESOURCE)
 
 
 def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
@@ -205,36 +206,11 @@ def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
     agent = PatchAgent(".", pConfig)
     am.bind_resources_to_agent(agent)
 
-    assert hasattr(agent, "init_files")
-    assert hasattr(agent, "docker")
-    assert hasattr(agent, "repo_resource")
-    assert not hasattr(agent, "bounty_resource")
+    assert agent.resources.has_bound(DefaultResource.INIT_FILES)
+    assert agent.resources.has_bound(DefaultResource.DOCKER)
+    assert agent.resources.has_bound(DefaultResource.REPO_RESOURCE)
+    assert not agent.resources.has_bound(DefaultResource.BOUNTY_RESOURCE)
 
-
-def test_parse_resource_entry():
-    am = AgentManager(workflow_id="1")
-
-    def generate_random_string(length=10):
-        letters_and_digits = string.ascii_letters + string.digits
-        random_string = "".join(
-            random.choice(letters_and_digits) for i in range(length)
-        )
-        return random_string
-
-    resources = {
-        BaseResource: "baseresource",
-        DockerResource: "dockerresource",
-        InitFilesResource: "initfilesresource",
-        KaliEnvResource: "kalienvresource",
-    }
-    for resource, name in resources.items():
-        result = am._parse_resource_entry(resource)
-        assert result[0] == resource and result[1] == None
-
-    for resource in resources.keys():
-        name = generate_random_string()
-        result = am._parse_resource_entry((resource, name))
-        assert result[0] == resource and result[1] == name
 
 
 def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
