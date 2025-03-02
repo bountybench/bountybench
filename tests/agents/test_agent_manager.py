@@ -1,5 +1,3 @@
-import random
-import string
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -11,12 +9,8 @@ from agents.executor_agent.executor_agent import ExecutorAgent
 from agents.exploit_agent.exploit_agent import ExploitAgent, ExploitAgentConfig
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from resources.default_resource import DefaultResource
-from resources.base_resource import BaseResource
-from resources.docker_resource import DockerResource
-from resources.init_files_resource import InitFilesResource
-from resources.kali_env_resource import KaliEnvResource
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
-from tests.agents.agent_test_utils import EnvPath, lunary_bounty_0_setup
+from tests.test_utils.bounty_setup_test_utils import EnvPath, lunary_bounty_0_setup
 
 
 @pytest.fixture(scope="module")
@@ -200,6 +194,24 @@ def test_create_agent(agent_configs, initialized_agent_manager):
     assert not agent.resources.has_bound(DefaultResource.BOUNTY_RESOURCE)
 
 
+def test_validate_required_resources_exist(agent_configs, initialized_agent_manager):
+    pConfig, _ = agent_configs
+    am = AgentManager(workflow_id="1")
+    agent = am.create_agent(".", PatchAgent, pConfig)
+
+    # Start by testing with a required resource not existing (e.g., DOCKER)
+    with patch.object(DefaultResource.DOCKER, 'exists', return_value=False):
+        
+        try:
+            am.validate_required_resources_exist(agent)
+        except ValueError as e:
+            assert "not set for workflow" in str(e)
+            assert "Required resource" in str(e)
+
+    # Now test with all resources existing, it should run with no issues
+    am.validate_required_resources_exist(agent)
+
+
 def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
     pConfig, _ = agent_configs
     am = AgentManager(workflow_id="1")
@@ -254,3 +266,7 @@ def test_deallocate_all_agents():
     assert len(am._agents) == 0
     assert len(am._phase_agents) == 0
     assert len(am._agent_configs) == 0
+
+# "uses" the import
+if None:
+    lunary_bounty_0_setup

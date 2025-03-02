@@ -92,6 +92,7 @@ class EnvPath:
         self.EXPLOIT_FILES_DIR_NAME = exploit_files_dir_name
 
 
+workflow_id = "1"
 
 # Setup bounties and initialize needed resources for all agent tests once
 def bounty_setup(
@@ -117,7 +118,7 @@ def bounty_setup(
     # Initialize resources
     resources = []
 
-    resource_manager = ResourceManager(workflow_id="1")
+    resource_manager = ResourceManager(workflow_id=workflow_id)
     if init_files:
         init_config = InitFilesResourceConfig(
             task_dir=env_path.TASK_DIR,
