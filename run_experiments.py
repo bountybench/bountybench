@@ -6,7 +6,9 @@ import platform
 import shlex
 import shutil
 import sys
+import time
 from collections import defaultdict
+from datetime import timedelta
 from typing import Dict, List, Optional, Tuple
 
 import yaml
@@ -31,6 +33,7 @@ class ExperimentRunner:
         }
         self.console = Console()
         self.task_status = {}
+        self.task_start_times = {}
 
     def _load_config(self, path: str) -> Dict:
         with open(path) as f:
@@ -96,11 +99,13 @@ class ExperimentRunner:
         phase_iterations: int,
         vulnerability_type: Optional[str] = None,
     ) -> List[str]:
-        """Build a single command with all parameters"""
+        """Build a command for the workflow runner"""
         cmd = [
             sys.executable,
             "-m",
-            f"workflows.{workflow_type}",
+            "workflows.runner",
+            "--workflow-type",
+            workflow_type,
             "--task_dir",
             task_dir,
             "--bounty_number",
@@ -113,10 +118,8 @@ class ExperimentRunner:
 
         if use_helm:
             cmd.append("--helm")
-
         if use_mock_model:
             cmd.append("--use_mock_model")
-
         if vulnerability_type and workflow_type.startswith("detect_"):
             cmd.extend(["--vulnerability_type", vulnerability_type])
 
@@ -127,20 +130,42 @@ class ExperimentRunner:
         # Get the current working directory
         current_dir = os.getcwd()
 
-        # Construct the command with cd first
-        cd_cmd = f"cd {shlex.quote(current_dir)} && "
+        # Method 1: Use a temporary file to track completion
+        import tempfile
+        
+        # Create a unique marker file
+        marker_file = tempfile.mktemp(suffix='.done')
+        
+        # Modify the command to touch the marker file when done
         cmd_str = " ".join(shlex.quote(arg) for arg in command)
-        full_cmd = cd_cmd + cmd_str
-
+        full_cmd = f"cd {shlex.quote(current_dir)} && {cmd_str}; RESULT=$?; touch {marker_file}; exit $RESULT"
+        
         mac_script = f"""
         tell application "Terminal"
             activate
             do script "{full_cmd}"
         end tell
         """
+        
+        # Launch the terminal
         proc = await asyncio.create_subprocess_exec(
             "osascript", "-e", mac_script.strip()
         )
+        
+        # Wait for the osascript to complete (launches Terminal)
+        await proc.wait()
+        
+        # Now wait for the marker file to appear
+        while not os.path.exists(marker_file):
+            await asyncio.sleep(1)
+        
+        # Clean up marker file
+        try:
+            os.remove(marker_file)
+        except:
+            pass
+        
+        # Return 0 to indicate success
         return proc
 
     async def _run_windows(self, command: List[str]):
@@ -230,6 +255,43 @@ class ExperimentRunner:
         except ValueError:
             return "unknown"
 
+    def _get_ports(self, task_dir):
+        from utils.get_task_ports import get_ports_for_directory
+
+        return get_ports_for_directory(task_dir)
+
+    def task_groups_port_constraints(self, task_groups):
+        """
+        Note that this grouping logic does a single pass grouping, does not handle
+        mixed conflict grouping (e.g. [8000], [9000], [8000, 9000] would result in
+        two groups assuming [8000, 9000] isn't evaluated first/second - since conflict
+        won't be known between [8000] and [9000]). However, this is still likely
+        sufficient for our purposes based on current bounties.
+        """
+
+        port_map = {}
+        new_task_groups = defaultdict(list)
+
+        for task_dir, cmds in task_groups.items():
+            ports = self._get_ports(task_dir)
+            conflicting_group = None
+            for port in ports:
+                if port in port_map:
+                    conflicting_group = port_map[port]
+                    break
+
+            group_key = conflicting_group
+            if conflicting_group:
+                new_task_groups[conflicting_group].extend(cmds)
+            else:
+                group_key = f"group_{len(new_task_groups)}"
+                new_task_groups[group_key].extend(cmds)
+
+            for port in ports:
+                port_map[port] = group_key
+
+        return dict(new_task_groups)
+
     async def run_all(self):
         commands = self.generate_commands()
         total_tasks = len(commands)
@@ -249,6 +311,8 @@ class ExperimentRunner:
             task_dir = self._get_task_dir_from_command(cmd)
             task_groups[task_dir].append((task_id, cmd))
 
+        task_groups = self.task_groups_port_constraints(task_groups)
+
         # Set up progress
         progress = Progress(
             SpinnerColumn(),
@@ -258,8 +322,8 @@ class ExperimentRunner:
         )
         overall_task = progress.add_task("[cyan]Overall Progress", total=total_tasks)
 
-        async def run_task_group(task_dir, cmds):
-            return await self.run_task_dir(task_dir, cmds, progress, overall_task)
+        async def run_task_group(cmds):
+            return await self.run_task_dir(cmds, progress, overall_task)
 
         display_group = Group(
             Panel(progress),
@@ -269,7 +333,7 @@ class ExperimentRunner:
         all_results = []
         with Live(display_group, refresh_per_second=4) as live:
             tasks = [
-                asyncio.create_task(run_task_group(task_dir, cmds))
+                asyncio.create_task(run_task_group(cmds))
                 for task_dir, cmds in task_groups.items()
             ]
 
@@ -294,7 +358,6 @@ class ExperimentRunner:
 
     async def run_task_dir(
         self,
-        task_dir: str,
         commands: List[Tuple[int, List[str]]],
         progress: Progress,
         overall_task,
@@ -303,20 +366,17 @@ class ExperimentRunner:
         results = []
         for task_id, cmd in commands:
             self.task_status[task_id]["status"] = "Running"
+            self.task_start_times[task_id] = time.time()
             result = await self.run_experiment(cmd)
+            end_time = time.time()
+            elapsed_time = end_time - self.task_start_times[task_id]
             self.task_status[task_id]["status"] = (
                 "Completed" if result == 0 else "Failed"
             )
+            self.task_status[task_id]["elapsed_time"] = elapsed_time
             results.append(result)
             progress.update(overall_task, advance=1)
 
-            # Update status of waiting tasks
-            for waiting_id, waiting_cmd in commands:
-                if (
-                    waiting_id > task_id
-                    and self.task_status[waiting_id]["status"] == "Waiting"
-                ):
-                    self.task_status[waiting_id]["status"] = "Waiting"
         return results
 
     async def run_experiment(self, command: List[str]):
@@ -340,6 +400,7 @@ class ExperimentRunner:
         table.add_column("Task Dir")
         table.add_column("Bounty")
         table.add_column("Status")
+        table.add_column("Time Elapsed")
         table.add_column("Command")
 
         status_styles = {
@@ -349,6 +410,13 @@ class ExperimentRunner:
             "Waiting": Style(color="yellow"),
             "Pending": Style(color="white"),  # Default color for any other status
         }
+
+        current_time = time.time()
+
+        def format_elapsed_time(seconds):
+            hours, remainder = divmod(seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            return f"{int(hours):02d}:{int(minutes):02d}:{seconds:05.2f}"
 
         for task_id, task_info in self.task_status.items():
             full_command = task_info["command"]
@@ -369,11 +437,24 @@ class ExperimentRunner:
             status = task_info["status"]
             row_style = status_styles.get(status, Style(color="white"))
 
+            # Calculate elapsed time
+            if status == "Running":
+                elapsed_time = current_time - self.task_start_times.get(
+                    task_id, current_time
+                )
+            elif status in ["Completed", "Failed"]:
+                elapsed_time = task_info.get("elapsed_time", 0)
+            else:
+                elapsed_time = 0
+
+            elapsed_str = format_elapsed_time(elapsed_time)
+
             table.add_row(
                 str(task_id),
                 task_info["task_dir"],
                 task_info["bounty"],
                 status,
+                elapsed_str,
                 simplified_command,
                 style=row_style,
             )
