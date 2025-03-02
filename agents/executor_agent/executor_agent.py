@@ -9,11 +9,7 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.convert_message_utils import cast_action_to_command
 from messages.message import Message
-from resources.init_files_resource import InitFilesResource
-from resources.kali_env_resource import KaliEnvResource
-from resources.memory_resource import MemoryResource
-from resources.model_resource.model_resource import ModelResource
-from resources.setup_resource import SetupResource
+from resources.default_resource import DefaultResource
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -23,25 +19,23 @@ MAX_RETRIES = 3
 RETRY_DELAY = 30
 
 
+# TODO (Denis): make sure kali env is bound correctly
 class ExecutorAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
-        (InitFilesResource, "init_files"),
-        KaliEnvResource,
-        (ModelResource, "model"),
-        (MemoryResource, "executor_agent_memory"),
+        DefaultResource.INIT_FILES,
+        DefaultResource.KALI_ENV,
+        DefaultResource.MODEL,
+        DefaultResource.MEMORY,
     ]
     OPTIONAL_RESOURCES = [
-        (SetupResource, "repo_resource"),
-        (SetupResource, "bounty_resource"),
+        DefaultResource.REPO_RESOURCE,
+        DefaultResource.BOUNTY_RESOURCE,
     ]
     ACCESSIBLE_RESOURCES = [
-        KaliEnvResource,
-        (InitFilesResource, "init_files"),
-        (SetupResource, "repo_resource"),
-        (SetupResource, "bounty_resource"),
-        (ModelResource, "model"),
-        (MemoryResource, "executor_agent_memory"),
+        DefaultResource.KALI_ENV,
+        DefaultResource.MODEL,
+        DefaultResource.MEMORY,
     ]
 
     async def run(self, messages: List[Message]) -> Message:
@@ -98,11 +92,11 @@ class ExecutorAgent(BaseAgent):
             iterations = 0
             while iterations < MAX_RETRIES:
                 try:
-                    lm_input_message = self.executor_agent_memory.get_memory(
+                    lm_input_message = self.resources.executor_agent_memory.get_memory(
                         lm_input_message
                     )
                     model_output: ActionMessage = await asyncio.to_thread(
-                        self.model.run, input_message=lm_input_message
+                        self.resources.model.run, input_message=lm_input_message
                     )
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
@@ -143,11 +137,11 @@ class ExecutorAgent(BaseAgent):
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
         """
-        Executes the command in the environment using self.kali_env,
+        Executes the command in the environment using self.resources.kali_env,
         captures the output, and returns an ActionMessage.
         """
         try:
-            kali_message = self.kali_env.run(executor_message)
+            kali_message = self.resources.kali_env.run(executor_message)
 
             return kali_message
 
@@ -156,7 +150,7 @@ class ExecutorAgent(BaseAgent):
                 f"Failed to execute command: {executor_message.command}.\nException: {str(e)}"
             )
             return ActionMessage(
-                resource_id=self.kali_env.resource_id,
+                resource_id=self.resources.kali_env.resource_id,
                 message=str(e),
                 prev=executor_message,
             )

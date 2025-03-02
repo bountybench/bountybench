@@ -6,7 +6,7 @@ from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
-from resources.model_resource.model_resource import ModelResource
+from resources.default_resource import DefaultResource
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -18,9 +18,9 @@ RETRY_DELAY = 30
 
 class ChatAgent(BaseAgent):
 
-    REQUIRED_RESOURCES = [(ModelResource, "model")]
+    REQUIRED_RESOURCES = [DefaultResource.MODEL]
     OPTIONAL_RESOURCES = []
-    ACCESSIBLE_RESOURCES = [(ModelResource, "model")]
+    ACCESSIBLE_RESOURCES = [DefaultResource.MODEL]
 
     async def run(self, messages: List[Message]) -> Message:
         if len(messages) > 1:
@@ -64,7 +64,7 @@ class ChatAgent(BaseAgent):
             iterations = 0
             while iterations < MAX_RETRIES:
                 try:
-                    model_response = self.model.run(lm_input_message)
+                    model_response = self.resources.model.run(lm_input_message)
                     return model_response
                 except Exception as e:
                     logger.warning(
