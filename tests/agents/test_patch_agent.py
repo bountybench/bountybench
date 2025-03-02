@@ -365,7 +365,6 @@ def test_verify_patch_invariants_success(bounty_setup, patch_agent):
     repo_invariant_scores.write_text(json.dumps(MOCK_REPO_SCORES))
     bounty_invariant_scores.write_text(json.dumps(MOCK_BOUNTY_SCORES))
 
-    # Mock subprocess.run for Python commands
     original_run = subprocess.run
 
     def mock_subprocess_run(args, **kwargs):
@@ -376,13 +375,11 @@ def test_verify_patch_invariants_success(bounty_setup, patch_agent):
             return mock_process
         return original_run(args, **kwargs)
 
-    # Run with subprocess mock
     with patch("subprocess.run", side_effect=mock_subprocess_run):
         result = agent.verify_patch_invariants()
 
     assert result is True
 
-    # Clean up
     for script in [repo_invariants_script, bounty_invariants_script]:
         if script.exists():
             script.unlink()
@@ -418,13 +415,11 @@ def test_verify_patch_invariants_check_fails(bounty_setup, patch_agent):
             return mock_process
         return original_run(args, **kwargs)
 
-    # Run with subprocess mock
     with patch("subprocess.run", side_effect=mock_subprocess_run):
         result = agent.verify_patch_invariants()
 
     assert result is False
 
-    # Clean up
     for script in [repo_invariants_script, bounty_invariants_script]:
         if script.exists():
             script.unlink()

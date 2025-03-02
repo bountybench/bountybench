@@ -33,7 +33,7 @@ class PatchAgentConfig(AgentConfig):
 
 class PatchAgent(BaseAgent):
     """
-    PatchAgent is responsible for applying patches to the codebase.
+    PatchAgent is responsible for applying and validating patches to the codebase.
     """
 
     REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
