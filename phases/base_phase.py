@@ -45,6 +45,7 @@ class BasePhase(ABC):
 
     def __init__(self, workflow: "BaseWorkflow", **kwargs):
         self.workflow: "BaseWorkflow" = workflow
+        self.workflow_id = workflow.workflow_message.workflow_id
         self.phase_config: PhaseConfig = PhaseConfig.from_phase(self, **kwargs)
 
         self.agent_manager: Any = self.workflow.agent_manager
@@ -136,13 +137,14 @@ class BasePhase(ABC):
 
         # 1. Define and register resources
         resource_configs = self.define_resources()
+        resource_configs_keys = {resource.key(self.workflow_id) for resource, _ in resource_configs}
         for resource, resource_config in resource_configs:
-            resource_id, resource_class = resource.key(self.workflow.workflow_message.workflow_id), resource.get_class()
+            resource_id, resource_class = resource.key(self.workflow_id), resource.get_class()
             if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
                 self.resource_manager.register_resource(resource_id, resource_class, resource_config)
         
         # 2. Initialize phase resources
-        self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
+        self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs_keys)
         logger.info(f"Resources for phase {self.name} initialized")
         # 3. Define and register agents
         agent_configs = self.define_agents()
@@ -150,10 +152,8 @@ class BasePhase(ABC):
         try:
             # 1. Define and register resources
             resource_configs = self.define_resources()
-            for resource_id, (
-                resource_class,
-                resource_config,
-            ) in resource_configs.items():
+            for resource, resource_config in resource_configs.items():
+                resource_id, resource_class = resource.key(self.workflow_id), resource.get_class()
                 if not self.resource_manager.is_resource_equivalent(
                     resource_id, resource_class, resource_config
                 ):
