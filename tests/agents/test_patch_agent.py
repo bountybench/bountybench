@@ -7,9 +7,9 @@ import pytest
 from agents.agent_manager import AgentManager
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
-from tests.test_utils.bounty_setup_test_utils import EnvPath
-from tests.test_utils.bounty_setup_test_utils import lunary_bounty_0_setup as bounty_setup
-from tests.test_utils.bounty_setup_test_utils import write_to_file_and_make_executable
+from tests.agents.agent_test_utils import EnvPath
+from tests.agents.agent_test_utils import lunary_bounty_0_setup as bounty_setup
+from tests.agents.agent_test_utils import write_to_file_and_make_executable
 from utils.git_utils import git_diff
 
 TEST_FILE_NAME = "test_file.txt"

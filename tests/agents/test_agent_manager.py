@@ -9,8 +9,9 @@ from agents.executor_agent.executor_agent import ExecutorAgent
 from agents.exploit_agent.exploit_agent import ExploitAgent, ExploitAgentConfig
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.resource_manager import resource_dict
 from resources.resource_type import ResourceType
-from tests.test_utils.bounty_setup_test_utils import EnvPath, lunary_bounty_0_setup
+from tests.agents.agent_test_utils import EnvPath, lunary_bounty_0_setup
 
 
 @pytest.fixture(scope="module")
@@ -212,7 +213,7 @@ def test_validate_required_resources_exist(agent_configs, initialized_agent_mana
     am.validate_required_resources_exist(agent)
 
 
-def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
+def test_bind_resources_to_agent_success(agent_configs, initialized_agent_manager):
     pConfig, _ = agent_configs
     am = AgentManager(workflow_id="1")
     agent = PatchAgent(".", pConfig)
@@ -223,7 +224,44 @@ def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
     assert agent.resources.has_bound(ResourceType.REPO_RESOURCE)
     assert not agent.resources.has_bound(ResourceType.BOUNTY_RESOURCE)
 
+def test_bind_resources_to_agent_with_kali_env(agent_configs, initialized_agent_manager):
+    pConfig, _ = agent_configs
+    workflow_id = "1"
+    kali_env_id = f"{str(ResourceType.KALI_ENV)}_{workflow_id}"
+    am = AgentManager(workflow_id=workflow_id)
+    agent = PatchAgent(".", pConfig)
+    
+    resource_dict.set(workflow_id, kali_env_id, 5)
+    agent.ACCESSIBLE_RESOURCES.append(ResourceType.KALI_ENV)
+    am.bind_resources_to_agent(agent)
 
+    assert agent.resources.has_bound(ResourceType.INIT_FILES)
+    assert agent.resources.has_bound(ResourceType.DOCKER)
+    assert agent.resources.has_bound(ResourceType.REPO_RESOURCE)
+    assert agent.resources.has_bound(ResourceType.KALI_ENV)
+    assert not agent.resources.has_bound(ResourceType.BOUNTY_RESOURCE)
+
+    resource_dict.delete_items(workflow_id, kali_env_id)
+
+def test_bind_resources__to_agent_bad_resource(agent_configs, initialized_agent_manager):
+    pConfig, _ = agent_configs
+    am = AgentManager(workflow_id="1")
+    agent = PatchAgent(".", pConfig)
+    del agent.resources.docker
+
+    # Attempt to bind a resource with an invalid type, which should raise a ValueError
+    with pytest.raises(ValueError, match="Required resource"):
+        am.bind_resources_to_agent(agent)
+
+def test_bind_resources_to_agent_missing_required(agent_configs, initialized_agent_manager):
+    pConfig, _ = agent_configs
+    am = AgentManager(workflow_id="1")
+    agent = PatchAgent(".", pConfig)
+    agent.ACCESSIBLE_RESOURCES.append(ResourceType.KALI_ENV)
+    agent.REQUIRED_RESOURCES.append(ResourceType.KALI_ENV)
+
+    with pytest.raises(ValueError, match="missing for agent"):
+        am.bind_resources_to_agent(agent)
 
 def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
     pConfig, eConfig = agent_configs

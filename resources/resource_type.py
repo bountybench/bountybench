@@ -46,7 +46,7 @@ class ResourceType(Enum):
         )
 
     
-class AgentResourceManager:
+class AgentResources:
     """
     Class which agents rely on to access their resources.
     Attribute names match str(ResourceType).
@@ -66,20 +66,3 @@ class AgentResourceManager:
 
     def has_bound(self, resource: ResourceType) -> bool:
         return self.has_attr(resource) and getattr(self, str(resource)) is not None
-
-    def bind_resource(self, resource: ResourceType, workflow_id: str) -> bool:
-        """ Binds resource for agent access. Returns False if resource does not exist and True otherwise. """
-        res = None
-        
-        # KaliEnv has a separate ID {kali_env_{workflow_id}}. We still want to access it via self.resources.kali_env.
-        resource_name = str(resource) if resource != ResourceType.KALI_ENV else f"{str(resource)}_{workflow_id}"
-        if resource_dict.contains(workflow_id, resource_name):
-            res = resource_dict.get(workflow_id, resource_name)
-
-        if res:
-            if self.has_attr(resource):
-                setattr(self, str(resource), res)
-                return True
-            else:
-                raise ValueError(f"Unexpected resource type: {resource}")
-        return False

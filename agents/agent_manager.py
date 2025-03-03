@@ -125,11 +125,23 @@ class AgentManager:
         """Bind accessible resources to the agent."""
 
         for resource_entry in agent.ACCESSIBLE_RESOURCES:
-            bind_success = agent.resources.bind_resource(resource_entry, self.workflow_id)
-            if not bind_success and resource_entry in agent.REQUIRED_RESOURCES:
-                raise ValueError(
-                    f"Required resource {str(resource_entry)} not found for agent {agent.__class__.__name__}"
-                )
+            resource = None
+            
+            # KaliEnv has a separate ID {kali_env_{workflow_id}}. We still want to access it via self.resources.kali_env.
+            resource_name = str(resource_entry) if resource_entry != ResourceType.KALI_ENV else f"{str(resource_entry)}_{self.workflow_id}"
+            if self.resource_dict.contains(self.workflow_id, resource_name):
+                resource = self.resource_dict.get(self.workflow_id, resource_name)
+
+            if resource:
+                if agent.resources.has_attr(resource_entry):
+                    setattr(agent.resources, str(resource_entry), resource)
+                else:
+                    raise ValueError(f"Required resource {str(resource_entry)} not found for agent {agent.__class__.__name__}")
+            else:
+                if resource_entry in agent.REQUIRED_RESOURCES:
+                    raise ValueError(
+                        f"Accessible, required resource {str(resource_entry)} missing for agent {agent.__class__.__name__}"
+                    )
 
     def is_agent_equivalent(
         self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig

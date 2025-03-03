@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Set
 
 from messages.agent_messages.agent_message import AgentMessage
-from resources.resource_type import AgentResourceManager, ResourceType
+from resources.resource_type import AgentResources, ResourceType
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -39,7 +39,7 @@ class BaseAgent(ABC):
     def __init__(self, agent_id: str, agent_config: AgentConfig):
         self._agent_id = agent_id
         self.agent_config = agent_config
-        self.resources = AgentResourceManager()
+        self.resources = AgentResources()
         self.target_host_address = getattr(agent_config, "target_host", "")
 
         logger.info(f"Initialized agent {self.agent_id}")
