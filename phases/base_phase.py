@@ -137,14 +137,25 @@ class BasePhase(ABC):
 
         # 1. Define and register resources
         resource_configs = self.define_resources()
-        resource_configs_keys = {resource.key(self.workflow_id) for resource, _ in resource_configs}
+        resource_configs_keys = {
+            resource.key(self.workflow_id) for resource, _ in resource_configs
+        }
         for resource, resource_config in resource_configs:
-            resource_id, resource_class = resource.key(self.workflow_id), resource.get_class()
-            if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
-                self.resource_manager.register_resource(resource_id, resource_class, resource_config)
-        
+            resource_id, resource_class = (
+                resource.key(self.workflow_id),
+                resource.get_class(),
+            )
+            if not self.resource_manager.is_resource_equivalent(
+                resource_id, resource_class, resource_config
+            ):
+                self.resource_manager.register_resource(
+                    resource_id, resource_class, resource_config
+                )
+
         # 2. Initialize phase resources
-        self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs_keys)
+        self.resource_manager.initialize_phase_resources(
+            self.phase_config.phase_idx, resource_configs_keys
+        )
         logger.info(f"Resources for phase {self.name} initialized")
         # 3. Define and register agents
         agent_configs = self.define_agents()
@@ -152,8 +163,11 @@ class BasePhase(ABC):
         try:
             # 1. Define and register resources
             resource_configs = self.define_resources()
-            for resource, resource_config in resource_configs.items():
-                resource_id, resource_class = resource.key(self.workflow_id), resource.get_class()
+            for resource, resource_config in resource_configs:
+                resource_id, resource_class = (
+                    resource.key(self.workflow_id),
+                    resource.get_class(),
+                )
                 if not self.resource_manager.is_resource_equivalent(
                     resource_id, resource_class, resource_config
                 ):
@@ -205,10 +219,16 @@ class BasePhase(ABC):
             PhaseMessage: The message of the current phase.
         """
 
-        logger.info(f"running Phase {self.name} starting at iteration {self.iteration_count}")
+        logger.info(
+            f"running Phase {self.name} starting at iteration {self.iteration_count}"
+        )
 
-        if self.iteration_count == 0 and (not hasattr(self, '_phase_message') or not self._phase_message):
-            self._phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
+        if self.iteration_count == 0 and (
+            not hasattr(self, "_phase_message") or not self._phase_message
+        ):
+            self._phase_message = PhaseMessage(
+                phase_id=self.name, prev=prev_phase_message
+            )
             workflow_message.add_child_message(self._phase_message)
 
             self._initialize_last_agent_message(prev_phase_message)
