@@ -6,8 +6,8 @@ import PhaseMessage from './components/PhaseMessage/PhaseMessage';
 import './AgentInteractions.css';
 import RestoreIcon from '@mui/icons-material/Restore';
 
-const AgentInteractions = ({ 
-  interactiveMode, 
+const AgentInteractions = ({
+  interactiveMode,
   workflowStatus, // Pass workflowStatus from parent
   isNextDisabled,
   phaseMessages = [],
@@ -23,6 +23,10 @@ const AgentInteractions = ({
   const [stopped, setStopped] = useState(false);
   const messagesEndRef = useRef(null);
   const [selectedCellId, setSelectedCellId] = useState(null);
+  const prevMessagesLengthRef = useRef(0);
+
+  // Store message structure for comparison
+  const prevMessageStructureRef = useRef("");
 
   const handleKeyDown = useCallback((event) => {
     if (event.key === 'Enter' && event.altKey) {
@@ -38,10 +42,41 @@ const AgentInteractions = ({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isEditing, handleKeyDown, onTriggerNextIteration]);
-  
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [phaseMessages]);
+    if (phaseMessages.length === 0) return;
+
+    // Create a simplified representation of the message structure 
+    // that ignores content changes but captures structural changes
+    const getMessageStructure = (messages) => {
+      return messages.map(msg => ({
+        id: msg.current_id,
+        children: msg.current_children ? getMessageStructure(msg.current_children) : []
+      }));
+    };
+
+    const currentStructure = JSON.stringify(getMessageStructure(phaseMessages));
+    const prevStructure = prevMessageStructureRef.current;
+
+    // Detect if new messages were added or if this is just a content update
+    const isNewMessage = phaseMessages.length > prevMessagesLengthRef.current;
+    const isStructuralChange = currentStructure !== prevStructure && prevStructure !== "";
+
+    // Only scroll if new messages were added (ignoring content updates)
+    if (isNewMessage || (isStructuralChange && !selectedCellId)) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    // Update refs for next comparison
+    prevMessagesLengthRef.current = phaseMessages.length;
+    prevMessageStructureRef.current = currentStructure;
+  }, [phaseMessages, selectedCellId]);
+
+  // Custom handler for toggling versions
+  const handleToggleVersion = useCallback((messageId, direction) => {
+    // Just call the original without any auto-scrolling
+    onToggleVersion(messageId, direction);
+  }, [onToggleVersion]);
 
   useEffect(() => {
     console.log('Phase Messages updated:', phaseMessages);
@@ -57,20 +92,18 @@ const AgentInteractions = ({
     await onRestart();
   };
 
-    // Ensure buttons remain hidden when workflow status updates from parent
-    useEffect(() => {
-      if (workflowStatus === "stopped") {
-        setIsStopping(true);
-        setStopped(true);
-      }
-      else {
-        setIsStopping(false);
-        setStopped(false);
-      }
-    }, [workflowStatus]);
-  
+  useEffect(() => {
+    if (workflowStatus === "stopped") {
+      setIsStopping(true);
+      setStopped(true);
+    }
+    else {
+      setIsStopping(false);
+      setStopped(false);
+    }
+  }, [workflowStatus]);
 
-    if (phaseMessages.length === 0) {
+  if (phaseMessages.length === 0) {
     return (
       <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
         <CircularProgress />
@@ -87,55 +120,55 @@ const AgentInteractions = ({
             message={phaseMessage}
             onUpdateMessageInput={onUpdateMessageInput}
             onRunMessage={onRunMessage}
-            onEditingChange={setIsEditing}            
-            isEditing={isEditing}            
+            onEditingChange={setIsEditing}
+            isEditing={isEditing}
             selectedCellId={selectedCellId}
             onCellSelect={setSelectedCellId}
-            onToggleVersion={onToggleVersion}
+            onToggleVersion={handleToggleVersion}
           />
         ))}
         <div ref={messagesEndRef} />
       </Box>
 
       <Box className="input-and-buttons-container" display="flex" justifyContent="center" gap={1}>
-      {interactiveMode && (
-        <>
-        {!isStopping && !stopped ? (
+        {interactiveMode && (
           <>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={onTriggerNextIteration}
-              startIcon={<KeyboardDoubleArrowRightIcon />}
-              disabled={isNextDisabled}
-              size="small"
-            >
-              Continue
-            </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={handleStopClick}
-              startIcon={<StopIcon />}
-              size="small"
-            >
-              Stop
-            </Button>
+            {!isStopping && !stopped ? (
+              <>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={onTriggerNextIteration}
+                  startIcon={<KeyboardDoubleArrowRightIcon />}
+                  disabled={isNextDisabled}
+                  size="small"
+                >
+                  Continue
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={handleStopClick}
+                  startIcon={<StopIcon />}
+                  size="small"
+                >
+                  Stop
+                </Button>
+              </>
+            ) : null}
+            {isStopping && stopped && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleRestart}
+                startIcon={<RestoreIcon />}
+                size="small"
+              >
+                Resume
+              </Button>
+            )}
           </>
-        ) : null}
-        {isStopping && stopped && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleRestart}
-            startIcon={<RestoreIcon />}
-            size="small"
-          >
-            Resume
-          </Button>
-          )}
-        </>
-      )}
+        )}
       </Box>
     </Box>
   );
