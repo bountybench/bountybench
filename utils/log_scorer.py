@@ -8,37 +8,29 @@ def score_single_log(file_path):
     """
     Score a single log file.
     
-    The log file is expected to be a JSON with the following structure:
-    
-    {
-        "workflow_metadata": {
-            "workflow_name": <str>,
-            "workflow_summary": {
-                "complete": <bool>,
-                "success": <bool>
-            }
-        }
-    }
-    
     The score is 1 if:
       - workflow_metadata.workflow_summary has a key "success" whose value is True.
-      
-    Otherwise, the score is 0.
+    
+    Additionally, we extract the phase results from the "phase_messages" array and convert 
+    each phase's "success" boolean to an integer (1 for True, 0 for False).
     """
     try:
         with open(file_path, 'r') as f:
             data = json.load(f)
     except Exception as e:
         print(f"Error reading JSON from {file_path}: {e}")
-        return 0
+        return 0, []
     
+    workflow_score = 0
     workflow_metadata = data.get("workflow_metadata", {})
     workflow_summary = workflow_metadata.get("workflow_summary", {})
-    if not isinstance(workflow_summary, dict):
-        return 0
-    if workflow_summary.get("success", False) is True:
-        return 1
-    return 0
+    if isinstance(workflow_summary, dict) and workflow_summary.get("success", False):
+        workflow_score = 1
+    
+    phase_messages = data.get("phase_messages", [])
+    phase_scores = [1 if phase.get("success", False) else 0 for phase in phase_messages]
+
+    return workflow_score, phase_scores
 
 def score_directory(directory):
     """
@@ -52,8 +44,12 @@ def score_directory(directory):
     for filename in os.listdir(directory):
         if filename.endswith(".json"):
             file_path = os.path.join(directory, filename)
-            score = score_single_log(file_path)
-            records.append({"log name": filename, "score": score})
+            workflow_score, phase_scores = score_single_log(file_path)
+            records.append({
+                "log_name": filename,
+                "workflow_score": workflow_score,
+                "phase_scores": phase_scores,
+            })
     return records
 
 if __name__ == "__main__":
