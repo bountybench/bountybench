@@ -90,6 +90,7 @@ class ExecutorAgent(BaseAgent):
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
+        Immediately fails on non-retryable errors like quota limits.
         """
         iterations = 0
 
@@ -107,6 +108,12 @@ class ExecutorAgent(BaseAgent):
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
                 except Exception as e:
+                    error_msg = str(e)
+                    if "No quota" in error_msg or "InsufficientQuotaError" in error_msg:
+                        raise Exception(
+                            f"API quota exceeded. Please check your model quota/limits"
+                        )
+
                     logger.warning(
                         f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}"
                     )
