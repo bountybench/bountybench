@@ -110,14 +110,8 @@ class ExecutorAgent(BaseAgent):
                 except Exception as e:
                     error_msg = str(e)
                     if "No quota" in error_msg or "InsufficientQuotaError" in error_msg:
-                        # Truncate long error messages to first 200 characters
-                        short_msg = (
-                            error_msg[:200] + "..."
-                            if len(error_msg) > 200
-                            else error_msg
-                        )
                         raise Exception(
-                            f"API quota exceeded. Please check your model quota/limits: {short_msg}"
+                            f"API quota exceeded. Please check your model quota/limits"
                         )
 
                     logger.warning(
