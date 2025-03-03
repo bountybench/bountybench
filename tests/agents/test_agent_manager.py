@@ -39,9 +39,7 @@ def alternative_agent_configs():
         bounty_dir=bounty_dir, task_dir=task_dir, use_verify_script=False
     )
     eConfig = ExploitAgentConfig(
-        bounty_dir=bounty_dir,
-        task_dir=task_dir,
-        tmp_dir=tmp_dir
+        bounty_dir=bounty_dir, task_dir=task_dir, tmp_dir=tmp_dir
     )
     return pConfig, eConfig
 
@@ -201,8 +199,8 @@ def test_validate_required_resources_exist(agent_configs, initialized_agent_mana
     agent = am.create_agent(".", PatchAgent, pConfig)
 
     # Start by testing with a required resource not existing (e.g., DOCKER)
-    with patch.object(ResourceType.DOCKER, 'exists', return_value=False):
-        
+    with patch.object(ResourceType.DOCKER, "exists", return_value=False):
+
         try:
             am.validate_required_resources_exist(agent)
         except ValueError as e:
@@ -224,13 +222,16 @@ def test_bind_resources_to_agent_success(agent_configs, initialized_agent_manage
     assert agent.resources.has_bound(ResourceType.REPO_RESOURCE)
     assert not agent.resources.has_bound(ResourceType.BOUNTY_RESOURCE)
 
-def test_bind_resources_to_agent_with_kali_env(agent_configs, initialized_agent_manager):
+
+def test_bind_resources_to_agent_with_kali_env(
+    agent_configs, initialized_agent_manager
+):
     pConfig, _ = agent_configs
     workflow_id = "1"
     kali_env_id = ResourceType.KALI_ENV.key(workflow_id)
     am = AgentManager(workflow_id=workflow_id)
     agent = PatchAgent(".", pConfig)
-    
+
     resource_dict.set(workflow_id, kali_env_id, 5)
     agent.ACCESSIBLE_RESOURCES.append(ResourceType.KALI_ENV)
     am.bind_resources_to_agent(agent)
@@ -241,9 +242,13 @@ def test_bind_resources_to_agent_with_kali_env(agent_configs, initialized_agent_
     assert agent.resources.has_bound(ResourceType.KALI_ENV)
     assert not agent.resources.has_bound(ResourceType.BOUNTY_RESOURCE)
 
+    agent.ACCESSIBLE_RESOURCES.pop(-1)
     resource_dict.delete_items(workflow_id, kali_env_id)
 
-def test_bind_resources__to_agent_bad_resource(agent_configs, initialized_agent_manager):
+
+def test_bind_resources__to_agent_bad_resource(
+    agent_configs, initialized_agent_manager
+):
     pConfig, _ = agent_configs
     am = AgentManager(workflow_id="1")
     agent = PatchAgent(".", pConfig)
@@ -253,7 +258,10 @@ def test_bind_resources__to_agent_bad_resource(agent_configs, initialized_agent_
     with pytest.raises(ValueError, match="Required resource"):
         am.bind_resources_to_agent(agent)
 
-def test_bind_resources_to_agent_missing_required(agent_configs, initialized_agent_manager):
+
+def test_bind_resources_to_agent_missing_required(
+    agent_configs, initialized_agent_manager
+):
     pConfig, _ = agent_configs
     am = AgentManager(workflow_id="1")
     agent = PatchAgent(".", pConfig)
@@ -262,6 +270,9 @@ def test_bind_resources_to_agent_missing_required(agent_configs, initialized_age
 
     with pytest.raises(ValueError, match="missing for agent"):
         am.bind_resources_to_agent(agent)
+    agent.ACCESSIBLE_RESOURCES.pop(-1)
+    agent.REQUIRED_RESOURCES.pop(-1)
+
 
 def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
     pConfig, eConfig = agent_configs
@@ -272,7 +283,9 @@ def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
     assert not am.is_agent_equivalent(
         "exploit_agent",
         ExploitAgent,
-        ExploitAgentConfig(Path("bountyagent"), Path("bountyagent"), Path("bountyagent")),
+        ExploitAgentConfig(
+            Path("bountyagent"), Path("bountyagent"), Path("bountyagent")
+        ),
     )
     assert not am.is_agent_equivalent(
         "patch_agent",
@@ -304,6 +317,7 @@ def test_deallocate_all_agents():
     assert len(am._agents) == 0
     assert len(am._phase_agents) == 0
     assert len(am._agent_configs) == 0
+
 
 # "uses" the import
 if None:

@@ -15,6 +15,7 @@ RESOURCE3 = ResourceType.BOUNTY_RESOURCE
 RESOURCE4 = ResourceType.REPO_RESOURCE
 RESOURCES = [RESOURCE1, RESOURCE2, RESOURCE3, RESOURCE4]
 
+
 class MockResourceConfig(BaseResourceConfig):
     def __init__(self, config: Dict[str, Any] = None):
         self.config = config or {}
@@ -96,19 +97,30 @@ def mock_workflow():
     workflow.agent_manager = MagicMock()
     return workflow
 
+
 @pytest.fixture
 def mock_resource_constructors():
     def mock_init(self, resource_id=None, config=None):
         return None
-    mocks = [patch.object(resource.get_class(), "__init__", mock_init) for resource in RESOURCES]
-    mocks.extend([patch.object(resource.get_class(), "stop", mock_init) for resource in RESOURCES])
+
+    mocks = [
+        patch.object(resource.get_class(), "__init__", mock_init)
+        for resource in RESOURCES
+    ]
+    mocks.extend(
+        [
+            patch.object(resource.get_class(), "stop", mock_init)
+            for resource in RESOURCES
+        ]
+    )
     [mock.start() for mock in mocks]
     yield
-    [mock.stop() for mock in mocks]
+    patch.stopall()
 
 
-
-def test_resource_lifecycle(resource_manager, mock_workflow, mock_resource_constructors):
+def test_resource_lifecycle(
+    resource_manager, mock_workflow, mock_resource_constructors
+):
     # Register resources
     for resource in RESOURCES:
         resource_manager.register_resource(
@@ -127,21 +139,35 @@ def test_resource_lifecycle(resource_manager, mock_workflow, mock_resource_const
 
     # Initialize resources for Phase1
     resource_manager.initialize_phase_resources(0, MockPhase1.get_required_resources())
-    assert resource_manager._resources.contains(workflow_id=1, resource_id=str(RESOURCE1))
-    assert resource_manager._resources.contains(workflow_id=1, resource_id=str(RESOURCE2))
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE1)
+    )
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE2)
+    )
     assert not resource_manager._resources.contains(
         workflow_id=1, resource_id=str(RESOURCE3)
     )
 
     # Deallocate resources after Phase1
     resource_manager.deallocate_phase_resources(0)
-    assert resource_manager._resources.contains(workflow_id=1, resource_id=str(RESOURCE1))
-    assert resource_manager._resources.contains(workflow_id=1, resource_id=str(RESOURCE2))
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE1)
+    )
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE2)
+    )
     # Initialize resources for Phase2
     resource_manager.initialize_phase_resources(1, MockPhase2.get_required_resources())
-    assert resource_manager._resources.contains(workflow_id=1, resource_id=str(RESOURCE1))
-    assert resource_manager._resources.contains(workflow_id=1, resource_id=str(RESOURCE2))
-    assert resource_manager._resources.contains(workflow_id=1, resource_id=str(RESOURCE3))
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE1)
+    )
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE2)
+    )
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE3)
+    )
 
     # Deallocate resources after Phase2
     resource_manager.deallocate_phase_resources(1)
@@ -157,8 +183,12 @@ def test_resource_lifecycle(resource_manager, mock_workflow, mock_resource_const
 
 
 def test_get_resource(resource_manager, mock_workflow, mock_resource_constructors):
-    resource_manager.register_resource(str(RESOURCE1), MockResource, MockResourceConfig())
-    resource_manager.register_resource(str(RESOURCE2), MockResource, MockResourceConfig())
+    resource_manager.register_resource(
+        str(RESOURCE1), MockResource, MockResourceConfig()
+    )
+    resource_manager.register_resource(
+        str(RESOURCE2), MockResource, MockResourceConfig()
+    )
     resource_manager.compute_schedule([MockPhase1(mock_workflow)])
     resource_manager.initialize_phase_resources(0, MockPhase1.get_required_resources())
 
