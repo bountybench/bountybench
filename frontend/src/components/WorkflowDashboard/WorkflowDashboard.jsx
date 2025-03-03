@@ -17,7 +17,8 @@ const WorkflowState = {
   RUNNING: 'RUNNING',
   COMPLETED: 'COMPLETED',
   ERROR: 'ERROR',
-  STOPPED: 'STOPPED'
+  STOPPED: 'STOPPED',
+  RESTARTING: 'RESTARTING'
 };
 
 export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast,   useMockModel,
@@ -29,6 +30,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   
   const [resources, setResources] = useState([]);
   const [isResourcePanelOpen, setIsResourcePanelOpen] = useState(false);
+  const [restart, setRestart] = useState(0);
 
   const [workflowState, setWorkflowState] = useState({
     status: WorkflowState.LOADING,
@@ -62,7 +64,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     currentPhase,
     phaseMessages,
     error,
-  } = useWorkflowWebSocket(workflowId);
+  } = useWorkflowWebSocket(workflowId, restart);
   
   console.log('WebSocket state:', { 
     isConnected, 
@@ -99,6 +101,12 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         message: "Starting workflow, setting up first phase...",
         error: null
       });
+    } else if (workflowStatus === 'restarting') {
+      setWorkflowState({
+        status: WorkflowState.RESTARTING,
+        message: "Workflow restarting",
+        error: null
+      });
     } else if (workflowStatus === 'completed') {
       setWorkflowState({
         status: WorkflowState.COMPLETED,
@@ -124,6 +132,22 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     onWorkflowStateUpdate(workflowStatus, currentPhase);
   }, [isConnected, workflowStatus, currentPhase, phaseMessages, error, onWorkflowStateUpdate]);
 
+  const handleRestart = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/restart/${workflowId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      console.log('Workflow restarted successfully');
+    } catch (error) {
+      console.error('Error restarting workflow:', error);
+    } finally {
+      setRestart((prev) => prev + 1);
+    }
+  };
+
   const fetchResources = useCallback(async () => {
     if (!workflowId) {
       console.log('Skipping resource fetch - no workflow ID available');
@@ -137,6 +161,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        console.log("resources: ", data)
         setResources(data.resources);
       } catch (error) {
         console.error('Error fetching resources:', error);
@@ -295,7 +320,8 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   if (workflowState.status === WorkflowState.LOADING || 
       workflowState.status === WorkflowState.CONNECTING ||
-      workflowState.status === WorkflowState.STARTING) {
+      workflowState.status === WorkflowState.STARTING ||
+      workflowState.status === WorkflowState.RESTARTING) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
         <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
@@ -321,6 +347,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
           onRunMessage={handleRunMessage}
           onTriggerNextIteration={triggerNextIteration}
           onStopWorkflow={handleStopWorkflow}
+          onRestart={handleRestart}
           onToggleVersion={handleToggleVersion}
         />
       </Box>

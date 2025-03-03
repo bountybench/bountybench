@@ -116,6 +116,19 @@ class WorkflowMessage(Message):
         with open(self.log_file, "w") as f:
             json.dump(logs, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
+    
+    def new_log(self):
+        components = [self.workflow_name]
+        if self.task:
+            for _, value in self.task.items():
+                if value:
+                    components.append(str(value.name if isinstance(value, Path) else value))
+        self.log_file = (
+            self.logs_dir
+            / f"{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        )
+        logger.status(f"Creating new log file at: {self.log_file}")
+        self.save()
 
     def _json_serializable(self, obj: Any) -> Any:
         if isinstance(obj, Path):

@@ -58,6 +58,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const [workflows, setWorkflows] = useState([]);
   const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
+  const [configDefaults, setConfigDefaults] = useState({
+    max_input_tokens: "",
+    max_output_tokens: ""
+  });
   
   const [openSaveDialog, setOpenSaveDialog] = useState(false);
   const [fileName, setFileName] = useState('workflow_config.yaml'); 
@@ -73,6 +77,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     api_key_value: '',
     model: '',
     use_helm: false,
+    max_input_tokens: '',
+    max_output_tokens: '',
   });
 
   const shouldShowVulnerabilityType = (workflowName) => {
@@ -164,6 +170,16 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       });
     }
   }, [topLevelSelection]);  
+
+  const fetchConfigDefaults = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/config-defaults`);
+      const data = await response.json();
+      setConfigDefaults(data);
+    } catch (err) {
+      console.error('Failed to fetch config defaults:', err);
+    }
+  }, []);
   
   const fetchApiKeys = useCallback(async () => { 
     try {
@@ -459,6 +475,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             fetchApiKeys(),
             fetchModels(),
             fetchVulnerabilityTypes(),
+            fetchConfigDefaults()
           ]);
           setLauncherState({
             status: LauncherState.READY,
@@ -476,7 +493,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
       loadData();
     }
-  }, [isChecking, isAvailable, serverError, launcherState.status, fetchApiKeys, fetchWorkflows, fetchModels]);
+  }, [isChecking, isAvailable, serverError, launcherState.status, fetchApiKeys, fetchWorkflows, fetchModels, fetchConfigDefaults]);
   
   if (launcherState.status === LauncherState.CHECKING_SERVER || launcherState.status === LauncherState.LOADING_DATA) {
     return (
@@ -592,6 +609,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             handleRevealToggle={handleRevealToggle}
             handleApiKeyChange={handleApiKeyChange}
             apiStatus={apiStatus}
+            configDefaults={configDefaults}
+            setFormData={setFormData} 
           />
         )}
 
