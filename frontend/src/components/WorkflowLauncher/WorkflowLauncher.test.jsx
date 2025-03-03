@@ -101,6 +101,7 @@ describe('WorkflowLauncher Component', () => {
       expect(screen.getByText(/Start New Workflow/i)).toBeInTheDocument();
     });
 
+
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
   });
 
@@ -283,7 +284,8 @@ describe('WorkflowLauncher Component', () => {
       fireEvent.click(screen.getByText('Run Workflow(s)'));
     });
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(6));
+    
     expect(screen.getByText('Failed to start parallel workflows')).toBeInTheDocument();
   });
 });
