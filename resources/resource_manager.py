@@ -80,11 +80,13 @@ class ResourceManager:
 
         for i, phase in enumerate(phases):
             phase_resources = phase.define_resources()
-            self._phase_resources[i] = set(phase_resources.keys())
-            for resource_id, (
-                resource_class,
-                resource_config,
-            ) in phase_resources.items():
+            self._phase_resources[i] = set(
+                [resource.key(self.workflow_id) for (resource, _) in phase_resources]
+            )
+            for resource, resource_config in phase_resources:
+                resource_id = resource.key(self.workflow_id)
+                resource_class = resource.get_class()
+
                 if not self.is_resource_equivalent(
                     resource_id, resource_class, resource_config
                 ):

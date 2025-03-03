@@ -35,6 +35,10 @@ class ResourceType(Enum):
 
     def __str__(self):
         return str(self.value)
+    
+    def key(self, workflow_id: str):
+        """Gets resource ID. Same as str(self) except for KALI_ENV."""
+        return str(self) if self != ResourceType.KALI_ENV else f"{str(self)}_{workflow_id}"
 
     def get_class(self):
         return self.value.get_class()

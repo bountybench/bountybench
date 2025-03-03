@@ -11,7 +11,7 @@ from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 from resources.resource_manager import resource_dict
 from resources.resource_type import ResourceType
-from tests.agents.agent_test_utils import EnvPath, lunary_bounty_0_setup
+from tests.test_utils.bounty_setup_test_util import EnvPath, lunary_bounty_0_setup
 
 
 @pytest.fixture(scope="module")
@@ -227,7 +227,7 @@ def test_bind_resources_to_agent_success(agent_configs, initialized_agent_manage
 def test_bind_resources_to_agent_with_kali_env(agent_configs, initialized_agent_manager):
     pConfig, _ = agent_configs
     workflow_id = "1"
-    kali_env_id = f"{str(ResourceType.KALI_ENV)}_{workflow_id}"
+    kali_env_id = ResourceType.KALI_ENV.key(workflow_id)
     am = AgentManager(workflow_id=workflow_id)
     agent = PatchAgent(".", pConfig)
     

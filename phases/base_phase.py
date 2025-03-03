@@ -137,9 +137,7 @@ class BasePhase(ABC):
         # 1. Define and register resources
         resource_configs = self.define_resources()
         for resource, resource_config in resource_configs:
-            resource_id, resource_class = str(resource), resource.get_class()
-            if resource == ResourceType.KALI_ENV:
-                resource_id = f"{resource_id}_{self.workflow.workflow_message.workflow_id}"
+            resource_id, resource_class = resource.key(self.workflow.workflow_message.workflow_id), resource.get_class()
             if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
                 self.resource_manager.register_resource(resource_id, resource_class, resource_config)
         

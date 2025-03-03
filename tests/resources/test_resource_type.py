@@ -5,7 +5,7 @@ from resources.kali_env_resource import KaliEnvResource
 from resources.memory_resource import MemoryResource
 from resources.model_resource.model_resource import ModelResource
 from resources.setup_resource import SetupResource
-from tests.agents.agent_test_utils import workflow_id
+from tests.test_utils.bounty_setup_test_util import workflow_id, lunary_bounty_0_setup as bounty_setup
 
 
 # Note: most of these tests assume that DOCKER exists in bounty_setup and MEMORY does not.
@@ -31,7 +31,7 @@ def test_exists_found(bounty_setup):
 def test_exists_not_found(bounty_setup):
     assert not ResourceType.MEMORY.exists(workflow_id)
 
-def test_default_resource_str():
+def test_resource_type_str():
     assert str(ResourceType.DOCKER) == "docker"
     assert str(ResourceType.INIT_FILES) == "init_files"
     assert str(ResourceType.KALI_ENV) == "kali_env"
@@ -40,7 +40,16 @@ def test_default_resource_str():
     assert str(ResourceType.BOUNTY_RESOURCE) == "bounty_resource"
     assert str(ResourceType.REPO_RESOURCE) == "repo_resource"
 
-def test_default_resource_get_class():
+def test_resource_type_key():
+    assert ResourceType.DOCKER.key(workflow_id) == "docker"
+    assert ResourceType.INIT_FILES.key(workflow_id) == "init_files"
+    assert ResourceType.KALI_ENV.key(workflow_id) == f"kali_env_{workflow_id}"
+    assert ResourceType.MEMORY.key(workflow_id) == "executor_agent_memory"
+    assert ResourceType.MODEL.key(workflow_id) == "model"
+    assert ResourceType.BOUNTY_RESOURCE.key(workflow_id) == "bounty_resource"
+    assert ResourceType.REPO_RESOURCE.key(workflow_id) == "repo_resource"
+
+def test_resource_type_get_class():
     assert ResourceType.DOCKER.get_class() == DockerResource
     assert ResourceType.INIT_FILES.get_class() == InitFilesResource
     assert ResourceType.KALI_ENV.get_class() == KaliEnvResource
@@ -48,3 +57,7 @@ def test_default_resource_get_class():
     assert ResourceType.MODEL.get_class() == ModelResource
     assert ResourceType.BOUNTY_RESOURCE.get_class() == SetupResource
     assert ResourceType.REPO_RESOURCE.get_class() == SetupResource
+
+# "uses" bounty_setup for import clarity
+if None:
+    bounty_setup

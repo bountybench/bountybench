@@ -128,7 +128,7 @@ class AgentManager:
             resource = None
             
             # KaliEnv has a separate ID {kali_env_{workflow_id}}. We still want to access it via self.resources.kali_env.
-            resource_name = str(resource_entry) if resource_entry != ResourceType.KALI_ENV else f"{str(resource_entry)}_{self.workflow_id}"
+            resource_name = resource_entry.key(self.workflow_id)
             if self.resource_dict.contains(self.workflow_id, resource_name):
                 resource = self.resource_dict.get(self.workflow_id, resource_name)
 
