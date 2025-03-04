@@ -36,9 +36,11 @@ spec:
             name: app-secrets
       volumes:
       - name: dind-storage
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: dind-data
       - name: logs
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: logs-data
 ---
 apiVersion: v1
 kind: Service
@@ -50,27 +52,3 @@ spec:
   ports:
   - port: 7999
     targetPort: 7999
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: dind-data
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: arm64-compatible
-  resources:
-    requests:
-      storage: 20Gi  # Adjust size as needed
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: logs-data
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: arm64-compatible
-  resources:
-    requests:
-      storage: 5Gi  # Adjust size as needed

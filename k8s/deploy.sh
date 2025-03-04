@@ -5,6 +5,8 @@ set -e
 
 # Apply Kubernetes manifests
 kubectl apply -f configmap.yaml
+kubectl apply -f dind-pvc.yaml
+kubectl apply -f logs-pvc.yaml
 kubectl apply -f backend.yaml
 kubectl apply -f frontend.yaml
 kubectl apply -f nginx.yaml
