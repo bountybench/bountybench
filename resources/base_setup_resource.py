@@ -278,19 +278,21 @@ class BaseSetupResource(BaseResource, ABC):
         data = json.loads(filepath.read_text())
         return cls.from_dict(data, **kwargs)
 
-    @abstractmethod
     def to_dict(self) -> dict:
         """
-        Serializes the resource state to a dictionary.
-        To be implemented by subclasses.
+        Serializes the BaseSetupResource state to a dictionary.
+        Basic implementation that can be extended by subclasses.
         """
-        pass
+        return {
+            "resource_id": self.resource_id,
+            "task_dir": str(self.task_dir),
+            "work_dir": str(self.work_dir),
+            "container_names": self.container_names,
+        }
 
     @classmethod
-    @abstractmethod
     def from_dict(cls, data: dict, **kwargs):
-        """
-        Creates a resource instance from a serialized dictionary.
-        To be implemented by subclasses.
-        """
-        pass
+        return {
+            "resource_id": data["resource_id"],
+            "container_names": data.get("container_names", []),
+        }

@@ -42,25 +42,20 @@ class RepoSetupResource(BaseSetupResource):
         # Run the setup process
         self.setup()
 
-    def to_dict(self) -> dict:
-        """
-        Serializes the RepoSetupResource state to a dictionary.
-        """
-        return {
-            "task_dir": str(self.task_dir),
-            "resource_id": self.resource_id,
-            "container_names": self.container_names,
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        }
 
     @classmethod
     def from_dict(cls, data: dict, **kwargs) -> "RepoSetupResource":
         """
         Creates a RepoSetupResource instance from a serialized dictionary.
         """
+        common_attrs = super().from_dict(data, **kwargs)
+        
         config = RepoSetupResourceConfig(
             task_dir=Path(data["task_dir"]),
         )
-        instance = cls(data["resource_id"], config)
-        instance.container_names = data["container_names"]
+        
+        instance = cls(common_attrs["resource_id"], config)
+        
+        instance.container_names = common_attrs["container_names"]
+        
         return instance

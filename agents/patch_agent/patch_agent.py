@@ -129,28 +129,8 @@ class PatchAgent(BaseAgent):
                 "No changes detected in tmp directory. Skipping patch creation and application."
             )
 
-        # Restart resources if needed
-        bounty_setup_restarted = hasattr(
-            self, "bounty_setup"
-        ) and self._restart_resource(self.bounty_setup)
-        repo_setup_restarted = hasattr(
-            self, "repo_setup"
-        ) and self._restart_resource(self.repo_setup)
-
-        if hasattr(self, "bounty_setup") and not bounty_setup_restarted:
-            error_msg = "The bounty resource must restart successfully but did not."
-            logger.error(error_msg)
-            patch_agent_message.set_message(
-                "The bounty resource cannot restart after the changes."
-            )
-            return
-
-        if hasattr(self, "repo_setup") and not repo_setup_restarted:
-            error_msg = "The repo resource must restart successfully but did not."
-            logger.error(error_msg)
-            patch_agent_message.set_message(
-                "The repo resource cannot restart after the changes."
-            )
+        if not self.restart_resources():
+            patch_agent_message.set_message("One or more resources failed to restart.")
             return
 
         # Run exploit
@@ -191,7 +171,7 @@ class PatchAgent(BaseAgent):
 
         self.log_history.clear()
 
-    def _restart_resource(self, resource):
+    def _restart_resource(self, resource) -> bool:
         """Restart a specific resource."""
         try:
             resource.restart()
@@ -199,7 +179,22 @@ class PatchAgent(BaseAgent):
             return True
         except Exception as e:
             logger.error(f"Failed to restart {resource.resource_id} resource: {e}")
-        return False
+            return False
+    
+    def restart_resources(self) -> bool:
+        """Restart necessary resources and check success."""
+        success = True
+
+        if hasattr(self, "bounty_setup"):
+            success &= self._restart_resource(self.bounty_setup)
+
+        if hasattr(self, "repo_setup"):
+            success &= self._restart_resource(self.repo_setup)
+
+        if not success:
+            logger.error("One or more resources failed to restart.")
+        
+        return success
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_exploit(self) -> ActionMessage:

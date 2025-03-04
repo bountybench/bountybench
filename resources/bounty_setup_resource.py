@@ -63,16 +63,37 @@ class BountySetupResource(BaseSetupResource):
             "container_names": self.container_names,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         }
+    
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the BountySetupResource state to a dictionary.
+        """
+        # Get the base dictionary from parent class
+        base_dict = super().to_dict()
+        
+        # Add bounty-specific properties
+        base_dict.update({
+            "bounty_dir": str(self.bounty_dir),
+            "bounty_number": self.bounty_number,
+        })
+        
+        return base_dict
 
     @classmethod
     def from_dict(cls, data: dict, **kwargs) -> "BountySetupResource":
         """
         Creates a BountySetupResource instance from a serialized dictionary.
         """
+        common_attrs = super().from_dict(data, **kwargs)
+        
         config = BountySetupResourceConfig(
             task_dir=Path(data["task_dir"]),
             bounty_number=data["bounty_number"],
         )
-        instance = cls(data["resource_id"], config)
-        instance.container_names = data["container_names"]
+        
+        instance = cls(common_attrs["resource_id"], config)
+        
+        instance.container_names = common_attrs["container_names"]
+        
         return instance
