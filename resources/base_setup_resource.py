@@ -120,9 +120,6 @@ class BaseSetupResource(BaseResource, ABC):
             if (
                 result and result.stdout
             ):  # Only process output if result exists and has stdout
-                logger.info(
-                    f"{self.name} environment setup complete for {self.resource_id}"
-                )
                 self.container_names = self.extract_container_names(
                     result.stdout, result.stderr
                 )
@@ -138,9 +135,8 @@ class BaseSetupResource(BaseResource, ABC):
                         raise RuntimeError(
                             f"Failed to wait until all containers healthy: {e}"
                         )
-            else:
-                raise RuntimeError(
-                    f"No output from {self.name} setup script {self.setup_script_name}"
+            logger.info(
+                    f"{self.name} environment setup complete for {self.resource_id}"
                 )
 
         except FileNotFoundError as e:
