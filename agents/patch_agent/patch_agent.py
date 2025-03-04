@@ -13,9 +13,10 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
+from resources.bounty_setup_resource import BountySetupResource
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
-from resources.setup_resource import SetupResource
+from resources.repo_setup_resource import RepoSetupResource
 from utils.git_utils import git_apply_patch, git_checkout_main, git_commit, git_diff
 from utils.logger import get_main_logger
 
@@ -36,12 +37,12 @@ class PatchAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
     OPTIONAL_RESOURCES = [
-        (SetupResource, "bounty_resource"),
-        (SetupResource, "repo_resource"),
+        (RepoSetupResource, "repo_setup"),
+        (BountySetupResource, "bounty_setup"),
     ]
     ACCESSIBLE_RESOURCES = [
-        (SetupResource, "bounty_resource"),
-        (SetupResource, "repo_resource"),
+        (RepoSetupResource, "repo_setup"),
+        (BountySetupResource, "bounty_setup"),
         (InitFilesResource, "init_files"),
         (DockerResource, "docker"),
     ]
@@ -128,28 +129,8 @@ class PatchAgent(BaseAgent):
                 "No changes detected in tmp directory. Skipping patch creation and application."
             )
 
-        # Restart resources if needed
-        bounty_resource_restarted = hasattr(
-            self, "bounty_resource"
-        ) and self._restart_resource(self.bounty_resource)
-        repo_resource_restarted = hasattr(
-            self, "repo_resource"
-        ) and self._restart_resource(self.repo_resource)
-
-        if hasattr(self, "bounty_resource") and not bounty_resource_restarted:
-            error_msg = "The bounty resource must restart successfully but did not."
-            logger.error(error_msg)
-            patch_agent_message.set_message(
-                "The bounty resource cannot restart after the changes."
-            )
-            return
-
-        if hasattr(self, "repo_resource") and not repo_resource_restarted:
-            error_msg = "The repo resource must restart successfully but did not."
-            logger.error(error_msg)
-            patch_agent_message.set_message(
-                "The repo resource cannot restart after the changes."
-            )
+        if not self.restart_resources():
+            patch_agent_message.set_message("One or more resources failed to restart.")
             return
 
         # Run exploit
@@ -190,7 +171,7 @@ class PatchAgent(BaseAgent):
 
         self.log_history.clear()
 
-    def _restart_resource(self, resource):
+    def _restart_resource(self, resource) -> bool:
         """Restart a specific resource."""
         try:
             resource.restart()
@@ -198,7 +179,22 @@ class PatchAgent(BaseAgent):
             return True
         except Exception as e:
             logger.error(f"Failed to restart {resource.resource_id} resource: {e}")
-        return False
+            return False
+    
+    def restart_resources(self) -> bool:
+        """Restart necessary resources and check success."""
+        success = True
+
+        if hasattr(self, "bounty_setup"):
+            success &= self._restart_resource(self.bounty_setup)
+
+        if hasattr(self, "repo_setup"):
+            success &= self._restart_resource(self.repo_setup)
+
+        if not success:
+            logger.error("One or more resources failed to restart.")
+        
+        return success
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_exploit(self) -> ActionMessage:
