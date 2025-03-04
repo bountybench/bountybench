@@ -15,7 +15,10 @@ const mockLogFiles = [
 const mockLogContent = {
     "workflow_metadata": {
         "workflow_name": "ExploitAndPatchWorkflow",
-        "workflow_summary": "completed_failure",
+        "workflow_summary": {
+            "complete": true,
+            "success": false
+        },
         "task": {
             "task_dir": "bountybench/astropy",
             "bounty_number": "0"
