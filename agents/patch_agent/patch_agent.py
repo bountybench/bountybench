@@ -253,6 +253,89 @@ class PatchAgent(BaseAgent):
             )
             return False
 
+    def check_invariant_scores_against_thresholds(
+        self,
+        repo_metadata_file: str,
+        bounty_metadata_file: str,
+        repo_invariant_scores: str,
+        bounty_invariant_scores: str,
+    ) -> bool:
+        """
+        Check invariant scores against thresholds defined in metadata files.
+
+        Args:
+            repo_metadata_file: Repo metadata file
+            bounty_metadata_file: Bounty metadata file - potentially has empty scores
+            bounty_metadata_file: Repo scores file
+            bounty_invariant_scores: Bounty scores file - thius file may not exist
+
+        """
+        try:
+            # Load scores and metadata JSON files
+            repo_scores = {}
+            bounty_scores = {}
+            repo_metadata = {}
+            bounty_metadata = {}
+
+            if repo_invariant_scores.exists():
+                repo_scores = json.loads(repo_invariant_scores.read_text())
+                logger.info(f"Repo invariant scores: {repo_scores}")
+
+            if bounty_invariant_scores.exists():
+                bounty_scores = json.loads(bounty_invariant_scores.read_text())
+                logger.info(f"Bounty invariant scores: {bounty_scores}")
+
+            if repo_metadata_file.exists():
+                repo_metadata = json.loads(repo_metadata_file.read_text())
+
+            if bounty_metadata_file.exists():
+                bounty_metadata = json.loads(bounty_metadata_file.read_text())
+
+            # merge thresholds - bounty overrides repo
+            if "invariant_thresholds" not in repo_metadata:
+                logger.error("Missing invariant thresholds - failing invariant check")
+                return False
+
+            bounty_thresholds = {}
+            if bounty_metadata and "invariant_thresholds" in bounty_metadata:
+                bounty_thresholds = bounty_metadata["invariant_thresholds"]
+
+            thresholds = repo_metadata.get("invariant_thresholds", {}).copy()
+            thresholds.update(bounty_thresholds)
+
+            # merge scores - bounty overrides repo
+            if "invariant_scores" not in repo_scores:
+                logger.error("Missing repo invariant scores - failing invariant check")
+                return False
+
+            scores = repo_scores.get("invariant_scores", {}).copy()
+            if bounty_scores and "invariant_scores" in bounty_scores:
+                scores.update(bounty_scores.get("invariant_scores", {}))
+
+            errors = []
+            for invariant_name, threshold in thresholds.items():
+                if invariant_name not in scores:
+                    errors.append(f"Missing score for {invariant_name}")
+                    continue
+
+                score = scores.get(invariant_name)
+                if not isinstance(score, (int, float)):
+                    errors.append(f"Score for {invariant_name} is not a number")
+                    continue
+
+                if score < threshold:
+                    errors.append(
+                        f"{invariant_name} score ({score}) is below threshold ({threshold})"
+                    )
+
+            logger.info(f"found {len(errors)} while checking invariants: {errors}")
+            return len(errors) == 0
+
+        except Exception as e:
+            error_msg = f"Error checking invariants: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
+
     def verify_patch_invariants(self) -> bool:
         """
         Run invariant checks on the patched codebase and return whether invariants were satisfied.
@@ -263,13 +346,9 @@ class PatchAgent(BaseAgent):
         try:
             logger.info(f"Running patch invariants for {self.task_dir.name}")
 
-            check_invariants_script = (
-                Path(self.task_dir).parent / "tests" / "check_invariants.py"
-            )
             repo_invariant_scores = self.task_dir / "invariant_scores.json"
             bounty_invariant_scores = self.bounty_dir / "invariant_scores.json"
             repo_metadata_file = self.task_dir / "metadata.json"
-            # this file may not exist
             bounty_metadata_file = self.bounty_dir / "bounty_metadata.json"
 
             logger.info("Running repo invariants script")
@@ -290,31 +369,15 @@ class PatchAgent(BaseAgent):
             )
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
 
-            if repo_invariant_scores.exists():
-                repo_scores_content = json.loads(repo_invariant_scores.read_text())
-                logger.info(f"Repo invariant scores: {repo_scores_content}")
-
-            if bounty_invariant_scores.exists():
-                bounty_scores_content = json.loads(bounty_invariant_scores.read_text())
-                logger.info(f"Bounty invariant scores: {bounty_scores_content}")
-
-            logger.info(f"Validating invariant scores using {check_invariants_script}")
-            check_result = subprocess.run(
-                [
-                    "python",
-                    str(check_invariants_script),
-                    str(repo_metadata_file),
-                    str(repo_invariant_scores),
-                    str(bounty_metadata_file),
-                    str(bounty_invariant_scores),
-                ],
-                capture_output=True,
-                text=True,
+            passed = self.check_invariant_scores_against_thresholds(
+                repo_metadata_file,
+                bounty_metadata_file,
+                repo_invariant_scores,
+                bounty_invariant_scores,
             )
-            logger.info(f"Invariant validation output:\n{check_result.stdout}")
-            invariant_validation_passed = check_result.returncode == 0
+
             logger.info(
-                f"Invariant validation result: {'PASSED' if invariant_validation_passed else 'FAILED'}"
+                f"Invariant validation result: {'PASSED' if passed else 'FAILED'}"
             )
 
             # Clean up invariant scores files
@@ -323,7 +386,7 @@ class PatchAgent(BaseAgent):
                     score_file.unlink()
                     logger.info(f"Removed {score_file.name}")
 
-            return invariant_validation_passed
+            return passed
 
         except Exception as e:
             logger.error(f"Error running patch invariants: {e}")

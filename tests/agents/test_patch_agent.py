@@ -19,6 +19,10 @@ MOCK_REPO_SCORES = {"invariant_scores": {"healthcheck": 1, "test_server": 76}}
 
 MOCK_BOUNTY_SCORES = {"invariant_scores": {"healthcheck": 1, "test_db": 80}}
 
+MOCK_REPO_METADATA = {"invariant_thresholds": {"healthcheck": 1, "test_server": 76}}
+
+MOCK_BOUNTY_METADATA = {"invariant_thresholds": {"test_db": 80}}
+
 
 def mock_patch_agent_message():
     def mock_init(self, agent_id, message, prev, success=None, patch_files_dir=None):
@@ -350,72 +354,46 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
 
 
 def test_verify_patch_invariants_success(bounty_setup, patch_agent):
-    """Test that verify_patch_invariants returns True when check_invariants succeeds."""
+    """Test that verify_patch_invariants returns True when invariant checks succeed."""
     agent = patch_agent
     env_path = bounty_setup
 
     repo_invariants_script = env_path.TASK_DIR / "run_repo_invariants.sh"
     bounty_invariants_script = env_path.BOUNTY_DIR / "run_bounty_invariants.sh"
-    repo_invariant_scores = env_path.TASK_DIR / "invariant_scores.json"
-    bounty_invariant_scores = env_path.BOUNTY_DIR / "invariant_scores.json"
 
+    # Create scripts
     write_to_file_and_make_executable(repo_invariants_script, exit_code=0)
     write_to_file_and_make_executable(bounty_invariants_script, exit_code=0)
 
-    repo_invariant_scores.write_text(json.dumps(MOCK_REPO_SCORES))
-    bounty_invariant_scores.write_text(json.dumps(MOCK_BOUNTY_SCORES))
-
-    original_run = subprocess.run
-
-    def mock_subprocess_run(args, **kwargs):
-        if args and isinstance(args[0], str) and args[0] == "python":
-            mock_process = MagicMock()
-            mock_process.returncode = 0
-            mock_process.stdout = "Success"
-            return mock_process
-        return original_run(args, **kwargs)
-
-    with patch("subprocess.run", side_effect=mock_subprocess_run):
+    # Mock check_invariant_scores_against_thresholds to return True
+    with patch.object(
+        PatchAgent, "check_invariant_scores_against_thresholds", return_value=True
+    ):
         result = agent.verify_patch_invariants()
 
     assert result is True
 
+    # Clean up
     for script in [repo_invariants_script, bounty_invariants_script]:
         if script.exists():
             script.unlink()
-    for file in [repo_invariant_scores, bounty_invariant_scores]:
-        if file.exists():
-            file.unlink()
 
 
 def test_verify_patch_invariants_check_fails(bounty_setup, patch_agent):
-    """Test that verify_patch_invariants returns False when check_invariants.py returns non-zero."""
+    """Test that verify_patch_invariants returns False when check_invariant_scores_against_thresholds fails."""
     agent = patch_agent
     env_path = bounty_setup
 
     repo_invariants_script = env_path.TASK_DIR / "run_repo_invariants.sh"
     bounty_invariants_script = env_path.BOUNTY_DIR / "run_bounty_invariants.sh"
-    repo_invariant_scores = env_path.TASK_DIR / "invariant_scores.json"
-    bounty_invariant_scores = env_path.BOUNTY_DIR / "invariant_scores.json"
 
     write_to_file_and_make_executable(repo_invariants_script, exit_code=0)
     write_to_file_and_make_executable(bounty_invariants_script, exit_code=0)
 
-    repo_invariant_scores.write_text(json.dumps(MOCK_REPO_SCORES))
-    bounty_invariant_scores.write_text(json.dumps(MOCK_REPO_SCORES))
-
-    # Mock subprocess.run for Python commands to return failure
-    original_run = subprocess.run
-
-    def mock_subprocess_run(args, **kwargs):
-        if args and isinstance(args[0], str) and args[0] == "python":
-            mock_process = MagicMock()
-            mock_process.returncode = 1
-            mock_process.stdout = "Failure"
-            return mock_process
-        return original_run(args, **kwargs)
-
-    with patch("subprocess.run", side_effect=mock_subprocess_run):
+    # Mock check_invariant_scores_against_thresholds to return False
+    with patch.object(
+        PatchAgent, "check_invariant_scores_against_thresholds", return_value=False
+    ):
         result = agent.verify_patch_invariants()
 
     assert result is False
@@ -423,9 +401,6 @@ def test_verify_patch_invariants_check_fails(bounty_setup, patch_agent):
     for script in [repo_invariants_script, bounty_invariants_script]:
         if script.exists():
             script.unlink()
-    for file in [repo_invariant_scores, bounty_invariant_scores]:
-        if file.exists():
-            file.unlink()
 
 
 @pytest.mark.asyncio
@@ -451,6 +426,88 @@ async def test_patch_success_requires_invariants(patch_agent):
                     await agent.execute(patch_agent_message)
                     assert "failed" in patch_agent_message.message.lower()
                     assert not patch_agent_message.success
+
+
+def test_check_invariant_scores_against_thresholds_success(patch_agent):
+    """Test that check_invariant_scores_against_thresholds returns True when scores meet thresholds."""
+    agent = patch_agent
+
+    # Create temporary files
+    repo_metadata_file = Path("repo_metadata.json")
+    bounty_metadata_file = Path("bounty_metadata.json")
+    repo_invariant_scores = Path("repo_scores.json")
+    bounty_invariant_scores = Path("bounty_scores.json")
+
+    # Write test data to files
+    repo_metadata_file.write_text(json.dumps(MOCK_REPO_METADATA))
+    bounty_metadata_file.write_text(json.dumps(MOCK_BOUNTY_METADATA))
+    repo_invariant_scores.write_text(json.dumps(MOCK_REPO_SCORES))
+    bounty_invariant_scores.write_text(json.dumps(MOCK_BOUNTY_SCORES))
+
+    try:
+        # Test with all scores meeting thresholds
+        result = agent.check_invariant_scores_against_thresholds(
+            repo_metadata_file,
+            bounty_metadata_file,
+            repo_invariant_scores,
+            bounty_invariant_scores,
+        )
+        assert result is True
+    finally:
+        # Clean up
+        for file in [
+            repo_metadata_file,
+            bounty_metadata_file,
+            repo_invariant_scores,
+            bounty_invariant_scores,
+        ]:
+            if file.exists():
+                file.unlink()
+
+
+def test_check_invariant_scores_edge_cases(patch_agent):
+    """Test edge cases for check_invariant_scores_against_thresholds method."""
+    agent = patch_agent
+
+    # Temporary test files
+    files = {
+        "repo_meta": Path("repo_metadata.json"),
+        "bounty_meta": Path("bounty_metadata.json"),
+        "repo_scores": Path("repo_scores.json"),
+        "bounty_scores": Path("bounty_scores.json"),
+    }
+
+    try:
+        # Case 1: Scores below thresholds
+        files["repo_meta"].write_text(
+            json.dumps({"invariant_thresholds": {"healthcheck": 2, "test_server": 80}})
+        )
+        files["bounty_meta"].write_text(
+            json.dumps({"invariant_thresholds": {"test_db": 85}})
+        )
+        files["repo_scores"].write_text(json.dumps(MOCK_REPO_SCORES))
+        files["bounty_scores"].write_text(json.dumps(MOCK_BOUNTY_SCORES))
+
+        result = agent.check_invariant_scores_against_thresholds(*files.values())
+        assert result is False
+
+        # Case 2: Missing scores for a threshold
+        files["repo_meta"].write_text(
+            json.dumps({"invariant_thresholds": {"missing_score": 50}})
+        )
+        result = agent.check_invariant_scores_against_thresholds(*files.values())
+        assert result is False
+
+        # Case 3: Missing invariant_scores key in scores file
+        files["repo_meta"].write_text(json.dumps(MOCK_REPO_METADATA))
+        files["repo_scores"].write_text(json.dumps({"other_key": "value"}))
+        result = agent.check_invariant_scores_against_thresholds(*files.values())
+        assert result is False
+    finally:
+        # Clean up
+        for file in files.values():
+            if file.exists():
+                file.unlink()
 
 
 @pytest.mark.asyncio
