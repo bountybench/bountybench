@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import json
 
-from agents.import_bounty_agent.import_bounty import ImportBountyAgent, ImportBountyAgentConfig
+from agents.import_bounty_agent.import_bounty_agent import ImportBountyAgent, ImportBountyAgentConfig
 from messages.agent_messages.webscraper_agent_message import WebscraperMessage
 from messages.agent_messages.import_bounty_agent_message import ImportBountyMessage
 
@@ -26,7 +26,7 @@ class TestImportBountyAgent(unittest.TestCase):
             shutil.rmtree(self.test_bounty_dir)
 
     @patch("selenium.webdriver.Chrome")
-    @patch("agents.import_bounty_agent.import_bounty.get_handler")
+    @patch("agents.import_bounty_agent.import_bounty_agent.get_handler")
     def test_download_webpage(self, mock_get_handler, mock_chrome):
         """Test downloading webpage content."""
         # Mock Chrome driver
@@ -74,7 +74,7 @@ class TestImportBountyAgent(unittest.TestCase):
             saved_metadata = json.load(f)
             self.assertEqual(saved_metadata, test_metadata)
 
-    @patch("agents.import_bounty_agent.import_bounty.get_handler")
+    @patch("agents.import_bounty_agent.import_bounty_agent.get_handler")
     def test_extract_metadata(self, mock_get_handler):
         """Test metadata extraction."""
         mock_handler = MagicMock()
@@ -110,9 +110,9 @@ class TestImportBountyAgent(unittest.TestCase):
         self.assertEqual(message.bounty_links, bounty_links)
         self.assertTrue(message.success)
 
-    @patch("agents.import_bounty_agent.import_bounty.ImportBountyAgent._download_webpage")
-    @patch("agents.import_bounty_agent.import_bounty.ImportBountyAgent._extract_metadata")
-    @patch("agents.import_bounty_agent.import_bounty.ImportBountyAgent._read_writeup")
+    @patch("agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._download_webpage")
+    @patch("agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._extract_metadata")
+    @patch("agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._read_writeup")
     @patch("messages.message_utils.log_message")
     def test_run(self, mock_log, mock_read_writeup, mock_extract_metadata, mock_download):
         """Test full agent run."""
@@ -186,14 +186,14 @@ class TestImportBountyAgent(unittest.TestCase):
         
         # Test config serialization
         config_dict = config.to_dict()
-        self.assertEqual(config_dict["bounties_dir"], "valid/path")
+        self.assertEqual(config_dict["bounty_dir"], "valid/path")
         
         # Test config deserialization
         new_config = ImportBountyAgentConfig.from_dict({"bounty_dir": "new/path"})
         self.assertEqual(new_config.bounty_dir, "new/path")
 
     @patch("selenium.webdriver.Chrome")
-    @patch("agents.import_bounty_agent.import_bounty.get_handler")
+    @patch("agents.import_bounty_agent.import_bounty_agent.get_handler")
     def test_download_webpage_error_handling(self, mock_get_handler, mock_chrome):
         """Test error handling during webpage download."""
         # Mock Chrome driver to raise exception
@@ -234,7 +234,7 @@ class TestImportBountyAgent(unittest.TestCase):
             saved_metadata = json.load(f)
             self.assertEqual(saved_metadata, api_metadata)
 
-    @patch("agents.import_bounty_agent.import_bounty.get_handler")
+    @patch("agents.import_bounty_agent.import_bounty_agent.get_handler")
     def test_extract_metadata_no_handler(self, mock_get_handler):
         """Test metadata extraction with no handler available."""
         mock_get_handler.return_value = None
@@ -248,9 +248,9 @@ class TestImportBountyAgent(unittest.TestCase):
         
         self.assertIn("No handler available", str(cm.exception))
 
-    @patch("agents.import_bounty_agent.import_bounty.ImportBountyAgent._download_webpage")
-    @patch("agents.import_bounty_agent.import_bounty.ImportBountyAgent._extract_metadata")
-    @patch("agents.import_bounty_agent.import_bounty.ImportBountyAgent._read_writeup")
+    @patch("agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._download_webpage")
+    @patch("agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._extract_metadata")
+    @patch("agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._read_writeup")
     @patch("messages.message_utils.log_message")
     def test_run_with_multiple_bounties(self, mock_log, mock_read_writeup, mock_extract_metadata, mock_download):
         """Test processing multiple bounty links."""
@@ -307,7 +307,7 @@ class TestImportBountyAgent(unittest.TestCase):
         mock_open.assert_called_once()
 
     @patch("selenium.webdriver.Chrome")
-    @patch("agents.import_bounty_agent.import_bounty.get_handler")
+    @patch("agents.import_bounty_agent.import_bounty_agent.get_handler")
     def test_download_webpage_with_handler_error(self, mock_get_handler, mock_chrome):
         """Test handling of handler errors during download."""
         # Mock Chrome driver

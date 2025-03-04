@@ -26,7 +26,7 @@ class ImportBountyAgentConfig(AgentConfig):
     def to_dict(self):
         """Convert config to dictionary format"""
         return {
-            "bounties_dir": self.bounty_dir,
+            "bounty_dir": self.bounty_dir,
         }
 
     @classmethod
@@ -153,10 +153,6 @@ class ImportBountyAgent(BaseAgent):
             driver.quit()
             
         return report_dir
-    
-    def _setup_bounty_folder(self, output_dir: str) -> str:
-        """TODO: Run create_bounty.sh script to create folder. Task dir name?"""
-        return NotImplemented
     
     def _read_writeup(self, report_dir: str) -> str:
         """
