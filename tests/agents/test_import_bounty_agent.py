@@ -24,6 +24,12 @@ class TestImportBountyAgent(unittest.TestCase):
         if os.path.exists(self.test_bounty_dir):
             import shutil
             shutil.rmtree(self.test_bounty_dir)
+            
+        # Clean up failed links file
+        failed_links_file = os.path.join("reports", "hackerone_reports", "failed_links.txt")
+        if os.path.exists(failed_links_file):
+            with open(failed_links_file, 'w') as f:
+                f.write("")
 
     @patch("selenium.webdriver.Chrome")
     @patch("agents.import_bounty_agent.import_bounty_agent.get_handler")
@@ -103,7 +109,7 @@ class TestImportBountyAgent(unittest.TestCase):
         bounty_dirs = ["dir1", "dir2"]
         bounty_links = ["link1", "link2"]
         
-        message = self.agent._write_import_bounty_message(bounty_dirs, bounty_links)
+        message = self.agent._write_import_bounty_message(bounty_dirs, bounty_links, True)
         
         self.assertIsInstance(message, ImportBountyMessage)
         self.assertEqual(message.bounty_dirs, bounty_dirs)
@@ -128,8 +134,7 @@ class TestImportBountyAgent(unittest.TestCase):
             agent_id="test",
             message="test",
             website="https://hackerone.com/reports/",
-            bounty_links=["https://hackerone.com/reports/123456"],
-            success=True
+            bounty_links=["https://hackerone.com/reports/123456"]
         )
         
         result = self.agent.run([prev_message])
@@ -273,8 +278,7 @@ class TestImportBountyAgent(unittest.TestCase):
             bounty_links=[
                 "https://hackerone.com/reports/123",
                 "https://hackerone.com/reports/456"
-            ],
-            success=True
+            ]
         )
         
         result = self.agent.run([prev_message])

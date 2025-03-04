@@ -56,7 +56,6 @@ class TestWebscraperAgent(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(result, WebscraperMessage)
         self.assertEqual(len(result.bounty_links), 2)
         self.assertEqual(result.website, "https://huntr.com/bounties")
-        self.assertTrue(result.success)
 
     @patch("messages.message_utils.log_message")
     async def test_hackerone_agent_with_previous_links(self, mock_log):
@@ -112,7 +111,6 @@ class TestWebscraperAgent(unittest.IsolatedAsyncioTestCase):
                 )
             ])
         
-        self.assertTrue(result.success)
         self.assertEqual(len(result.bounty_links), 1)
 
     @patch("messages.message_utils.log_message")
@@ -125,7 +123,6 @@ class TestWebscraperAgent(unittest.IsolatedAsyncioTestCase):
             message="Test message",
             website="https://huntr.com/bounties",
             bounty_links=["https://huntr.com/bounties/test-1"],
-            success=True
         )
         
         message_dict = message.to_log_dict()
@@ -134,7 +131,6 @@ class TestWebscraperAgent(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(message_dict["message"], "Test message")
         self.assertEqual(message_dict["website"], "https://huntr.com/bounties")
         self.assertEqual(message_dict["bounty_links"], ["https://huntr.com/bounties/test-1"])
-        self.assertTrue(message_dict["success"])
 
     @patch("messages.message_utils.log_message")
     async def test_no_new_urls_found(self, mock_log):
@@ -199,7 +195,6 @@ class TestWebscraperAgent(unittest.IsolatedAsyncioTestCase):
                 )
             ])
         
-        self.assertTrue(result.success)
         self.assertEqual(len(result.bounty_links), 1)
         self.assertEqual(result.bounty_links[0], "https://huntr.com/bounties/success")
         
@@ -260,7 +255,6 @@ class TestWebscraperAgent(unittest.IsolatedAsyncioTestCase):
                     message="Test message",
                     website="https://huntr.com/bounties",
                     bounty_links=invalid_input,
-                    success=True
                 )
             self.assertEqual(str(cm.exception), expected_error)
 
@@ -275,16 +269,11 @@ class TestWebscraperAgent(unittest.IsolatedAsyncioTestCase):
         
         # Test invalid configs - combine into one block to avoid unreachable code
         invalid_configs = [
-            "",  # Empty website
             "https://invalid.com",  # Unsupported website
         ]
         for invalid_config in invalid_configs:
             with self.assertRaises(ValueError):
                 WebscraperAgentConfig(website=invalid_config)
         
-        # Test invalid dict
-        with self.assertRaises(ValueError):
-            WebscraperAgentConfig.from_dict({})  # Missing website key
-
 if __name__ == '__main__':
     unittest.main()

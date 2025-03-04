@@ -11,12 +11,10 @@ logger = get_main_logger(__name__)
 
 @dataclass
 class WebscraperAgentConfig(AgentConfig):
-    website: str
+    website: str = "https://huntr.com/bounties"
 
     def __post_init__(self):
         """Validate config after initialization"""
-        if not self.website:
-            raise ValueError("Website URL cannot be empty")
         if not self.website.startswith(("https://huntr.com/bounties", "https://hackerone.com/reports/")):
             raise ValueError("Unsupported website. Must be either Huntr or HackerOne URL.")
 
@@ -25,9 +23,8 @@ class WebscraperAgentConfig(AgentConfig):
 
     @classmethod
     def from_dict(cls, data: dict):
-        if "website" not in data:
-            raise ValueError("Website URL is required")
-        return cls(website=data["website"])
+        website = data.get("website", "https://huntr.com/bounties")
+        return cls(website=website)
 
 class WebscraperAgent(BaseAgent):
     def __init__(self, agent_id: str, agent_config: WebscraperAgentConfig) -> None:
@@ -112,7 +109,6 @@ class WebscraperAgent(BaseAgent):
             agent_id=self.agent_id,
             message="New URLs added to the queue",
             bounty_links=bounty_links,
-            success=True,
             website=self.website,
             prev=prev_agent_message
         )

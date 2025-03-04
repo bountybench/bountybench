@@ -21,7 +21,7 @@ logger = get_main_logger(__name__)
 @dataclass
 class ImportBountyAgentConfig(AgentConfig):
     """Configuration for the ImportBountyAgent"""
-    bounty_dir: str
+    bounty_dir: str = "agents/import_bounty_agent/bounties"
 
     def to_dict(self):
         """Convert config to dictionary format"""
@@ -32,9 +32,8 @@ class ImportBountyAgentConfig(AgentConfig):
     @classmethod
     def from_dict(cls, data: dict):
         """Create config from dictionary"""
-        return cls(
-            bounty_dir=data["bounty_dir"],
-        )
+        bounty_dir = data.get("bounty_dir", "agents/import_bounty_agent/bounties")
+        return cls(bounty_dir=bounty_dir)
 
 class ImportBountyAgent(BaseAgent):
     """
@@ -71,6 +70,7 @@ class ImportBountyAgent(BaseAgent):
         bounty_links = prev_message.bounty_links
         website = prev_message.website
         report_dirs = []
+        success = True
 
         for bounty_link in bounty_links:
             try:
@@ -87,9 +87,10 @@ class ImportBountyAgent(BaseAgent):
 
             except Exception as e:
                 logger.error(f"Exception during bounty report handling of bounty link {bounty_link}: {e}")
+                success = False
                 raise
         
-        return self._write_import_bounty_message(report_dirs, bounty_links)
+        return self._write_import_bounty_message(report_dirs, bounty_links, success)
 
     def _download_webpage(self, bounty_link: str, website: str) -> str:
         """
@@ -231,7 +232,7 @@ class ImportBountyAgent(BaseAgent):
         metadata['bounty_link'] = bounty_link  # Ensure we use the original link
         return metadata, api_metadata
 
-    def _write_import_bounty_message(self, bounty_dirs: List[str], bounty_links: List[str]) -> ImportBountyMessage:
+    def _write_import_bounty_message(self, bounty_dirs: List[str], bounty_links: List[str], success: bool = False) -> ImportBountyMessage:
         """
         Write toImportBountyMessage.
 
@@ -246,7 +247,7 @@ class ImportBountyAgent(BaseAgent):
         return ImportBountyMessage(
             agent_id=self.agent_id,
             message="Bounty metadata imported",
-            success=True,
+            success=success,
             bounty_dirs=bounty_dirs,
             bounty_links=bounty_links
         )
