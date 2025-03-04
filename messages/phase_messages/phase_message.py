@@ -12,6 +12,7 @@ class PhaseMessage(Message):
         self._summary = "incomplete"
         self._agent_messages = []
         self._phase_summary = None
+        self.usage = {"input_token": 0, "output_token": 0}
         super().__init__(prev)
 
     @property
@@ -43,6 +44,10 @@ class PhaseMessage(Message):
     @property
     def phase_summary(self) -> str:
         return self.summary
+    
+    @property
+    def phase_usage(self) -> str: 
+        return self.usage
 
     @property
     def current_children(self) -> List[AgentMessage]:
@@ -71,6 +76,14 @@ class PhaseMessage(Message):
 
     def set_summary(self, summary: str):
         self._summary = summary
+    
+    def set_token_usage(self,inputToken:str, outputToken:str):
+        self.usage["input_token"] = inputToken
+        self.usage["output_token"] = outputToken
+
+    def increment_token_usage(self, incrementInput: int, incrementOutput: int):
+        self.usage["input_token"] += incrementInput
+        self.usage["output_token"] += incrementOutput
 
     def add_child_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
@@ -99,6 +112,7 @@ class PhaseMessage(Message):
         log_dict = {
             "phase_id": self.phase_id,
             "phase_summary": self.summary,
+            "phase_usage": self.usage, 
             "agent_messages": (
                 [agent_message.to_log_dict() for agent_message in self.agent_messages]
                 if self.agent_messages

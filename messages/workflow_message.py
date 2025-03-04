@@ -24,6 +24,7 @@ class WorkflowMessage(Message):
         self._phase_messages = []
         self.agents_used = {}
         self.resources_used = {}
+        self.usage = {"inputToken": 0, "outputToken": 0}
 
         # Logging
         self.logs_dir = Path(logs_dir)
@@ -71,6 +72,16 @@ class WorkflowMessage(Message):
     def set_summary(self, summary: str):
         self._summary = summary
 
+    def get_total_tokens(self) -> Dict[str, int]:
+        total_input_tokens = sum(phase_message.usage["input_token"] for phase_message in self._phase_messages)
+        total_output_tokens = sum(phase_message.usage["output_token"] for phase_message in self._phase_messages)
+        usage_dict = {
+            "total_input_tokens": total_input_tokens,
+            "total_output_tokens": total_output_tokens,
+        }
+        self.usage = usage_dict
+        return usage_dict
+
     def add_child_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
         phase_message.set_parent(self)
@@ -105,6 +116,7 @@ class WorkflowMessage(Message):
             "end_time": self._end_time,
             "workflow_id": self.workflow_id,
             "additional_metadata": self.additional_metadata,
+            "workflow_usage": self.get_total_tokens()
         }
 
     def save(self):

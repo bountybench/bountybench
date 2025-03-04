@@ -13,6 +13,7 @@ from messages.workflow_message import WorkflowMessage
 from prompts.vulnerability_prompts import get_specialized_instructions
 from resources.base_resource import BaseResource, BaseResourceConfig
 from utils.logger import get_main_logger
+from resources.model_resource.model_resource import ModelResource
 
 logger = get_main_logger(__name__)
 
@@ -219,9 +220,17 @@ class BasePhase(ABC):
             )
 
             message = await self._run_iteration(agent_instance)
+            
+            #Update total token usage
+            workflow_id = self.workflow.workflow_message.workflow_id
+            model_resources = self.resource_manager._resources.resources_by_type(workflow_id, ModelResource)
+            total_input_tokens = sum(resource.total_input_tokens for resource in model_resources)
+            total_output_tokens = sum(resource.total_output_tokens for resource in model_resources)
+
             message.set_iteration(iteration)
             await self.set_last_agent_message(message)
             self._phase_message.add_child_message(message)
+            self._phase_message.set_token_usage(total_input_tokens, total_output_tokens)
 
             logger.info(
                 f"Finished iteration {iteration_num} of {self.name} with {agent_id}"

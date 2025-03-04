@@ -76,6 +76,8 @@ class ModelResource(RunnableBaseResource):
         self.stop_sequences = self._resource_config.stop_sequences
         self.model_provider: ModelProvider = self.get_model_provider()
         self.use_mock_model = self._resource_config.use_mock_model
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
 
     def get_model_provider(self) -> ModelProvider:
         """
@@ -179,6 +181,8 @@ class ModelResource(RunnableBaseResource):
                 "time_taken_in_ms": model_response.time_taken_in_ms,
             },
         )
+        self.total_input_tokens += model_response.input_tokens
+        self.total_output_tokens += model_response.output_tokens
 
         return ActionMessage(
             resource_id=self.resource_id,
