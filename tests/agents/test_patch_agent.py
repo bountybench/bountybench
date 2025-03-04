@@ -135,7 +135,7 @@ async def test_restart_resource_check(patch_agent):
 
     with patch.object(PatchAgent, "_restart_resource", return_value=False):
         await agent.execute(patch_agent_message)
-        assert "cannot restart" in patch_agent_message.message.lower()
+        assert "one or more resources failed to restart." in patch_agent_message.message.lower()
 
 
 @pytest.mark.asyncio
