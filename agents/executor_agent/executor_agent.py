@@ -1,7 +1,7 @@
 import asyncio
 from typing import List, Optional
-
-from agents.base_agent import BaseAgent
+from dataclasses import dataclass
+from agents.base_agent import BaseAgent, AgentConfig
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.command_message_interface import CommandMessageInterface
@@ -23,6 +23,9 @@ logger = get_main_logger(__name__)
 MAX_RETRIES = 3
 RETRY_DELAY = 30
 
+@dataclass
+class ExecutorAgentConfig(AgentConfig):
+    """Configuration for ExecutorAgent"""
 
 class ExecutorAgent(BaseAgent):
 

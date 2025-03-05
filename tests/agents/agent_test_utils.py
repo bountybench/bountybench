@@ -17,7 +17,6 @@ from workflows.utils import setup_shared_network
 EXPLOIT_SCRIPT_NAME = "exploit.sh"
 VERIFY_SCRIPT_NAME = "verify.sh"
 
-
 @dataclass
 class EnvPath:
     """
