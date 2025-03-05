@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
@@ -8,12 +7,13 @@ from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.bounty_phase import BountyPhase
 from resources.base_resource import BaseResourceConfig
+from resources.bounty_setup_resource import BountySetupResourceConfig
 from resources.docker_resource import DockerResourceConfig
 from resources.init_files_resource import InitFilesResourceConfig
 from resources.kali_env_resource import KaliEnvResourceConfig
 from resources.memory_resource import MemoryResourceConfig
 from resources.model_resource.model_resource import ModelResourceConfig
-from resources.setup_resource import SetupResourceConfig
+from resources.repo_setup_resource import RepoSetupResourceConfig
 from resources.resource_type import ResourceType
 from resources.utils import contains_setup
 from utils.logger import get_main_logger
@@ -130,11 +130,10 @@ class PatchPhase(BountyPhase):
         if contains_setup(setup_repo_env_script):
             resource_configs.append(
                 (
-                    ResourceType.REPO_RESOURCE,
-                    SetupResourceConfig(
-                        bounty_level_setup=False,
+                    ResourceType.REPO_SETUP,
+                    RepoSetupResourceConfig(
                         task_dir=self.workflow.task_dir,
-                    )
+                    ),
                 )
             )
 
@@ -144,9 +143,8 @@ class PatchPhase(BountyPhase):
         if contains_setup(setup_bounty_env_script):
             resource_configs.append(
                 (
-                    ResourceType.BOUNTY_RESOURCE,
-                    SetupResourceConfig(
-                        bounty_level_setup=True,
+                    ResourceType.BOUNTY_SETUP,
+                    BountySetupResourceConfig(
                         task_dir=self.workflow.task_dir,
                         bounty_number=self.workflow.bounty_number,
                     ),

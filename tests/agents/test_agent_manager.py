@@ -189,8 +189,8 @@ def test_create_agent(agent_configs, initialized_agent_manager):
     assert isinstance(agent, PatchAgent)
     assert agent.resources.has_bound(ResourceType.INIT_FILES)
     assert agent.resources.has_bound(ResourceType.DOCKER)
-    assert agent.resources.has_bound(ResourceType.REPO_RESOURCE)
-    assert not agent.resources.has_bound(ResourceType.BOUNTY_RESOURCE)
+    assert agent.resources.has_bound(ResourceType.REPO_SETUP)
+    assert not agent.resources.has_bound(ResourceType.BOUNTY_SETUP)
 
 
 def test_validate_required_resources_exist(agent_configs, initialized_agent_manager):
@@ -219,8 +219,8 @@ def test_bind_resources_to_agent_success(agent_configs, initialized_agent_manage
 
     assert agent.resources.has_bound(ResourceType.INIT_FILES)
     assert agent.resources.has_bound(ResourceType.DOCKER)
-    assert agent.resources.has_bound(ResourceType.REPO_RESOURCE)
-    assert not agent.resources.has_bound(ResourceType.BOUNTY_RESOURCE)
+    assert agent.resources.has_bound(ResourceType.REPO_SETUP)
+    assert not agent.resources.has_bound(ResourceType.BOUNTY_SETUP)
 
 
 def test_bind_resources_to_agent_with_kali_env(
@@ -238,9 +238,9 @@ def test_bind_resources_to_agent_with_kali_env(
 
     assert agent.resources.has_bound(ResourceType.INIT_FILES)
     assert agent.resources.has_bound(ResourceType.DOCKER)
-    assert agent.resources.has_bound(ResourceType.REPO_RESOURCE)
+    assert agent.resources.has_bound(ResourceType.REPO_SETUP)
     assert agent.resources.has_bound(ResourceType.KALI_ENV)
-    assert not agent.resources.has_bound(ResourceType.BOUNTY_RESOURCE)
+    assert not agent.resources.has_bound(ResourceType.BOUNTY_SETUP)
 
     agent.ACCESSIBLE_RESOURCES.pop(-1)
     resource_dict.delete_items(workflow_id, kali_env_id)

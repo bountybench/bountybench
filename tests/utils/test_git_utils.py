@@ -8,6 +8,7 @@ import pytest
 from utils.git_utils import (
     git_apply_patch,
     git_checkout,
+    git_checkout_main,
     git_clean_untracked,
     git_commit,
     git_delete_branch,
@@ -102,7 +103,7 @@ def test_git_setup_dev_branch(tmp_git_repo):
     (tmp_git_repo / "file.txt").write_text("File for dev branch.")
     git_commit(tmp_git_repo, "Initial commit")
 
-    git_setup_dev_branch(tmp_git_repo, "master")  # Change to 'master' here
+    git_setup_dev_branch(tmp_git_repo)
     branches = subprocess.run(
         ["git", "branch"], cwd=tmp_git_repo, capture_output=True, text=True
     ).stdout
@@ -138,9 +139,8 @@ def test_git_delete_branch(tmp_git_repo):
     git_commit(tmp_git_repo, "Initial commit")
 
     subprocess.run(["git", "checkout", "-b", "test_branch"], cwd=tmp_git_repo)
-    subprocess.run(
-        ["git", "checkout", "master"], cwd=tmp_git_repo
-    )  # Switch to master before deletion
+    git_checkout_main(tmp_git_repo)  # Switch to main before deletion
+
     git_delete_branch(tmp_git_repo, "test_branch")
 
     result = subprocess.run(

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.init_files_resource import InitFilesResource
@@ -53,15 +53,15 @@ class ResourceManager:
             resource = resource_class("model", resource_config)
             self._resources.set(self.workflow_id, "model", resource)
             logger.info(f"New model specifics: {resource}")
-    
+
     def update_mock_model(self, use_mock_model: bool):
         """
         Updates the `use_mock_model` setting for the ModelResource.
         """
         if "model" in self._resource_registration:
             resource_class, resource_config = ModelResource, ModelResourceConfig.create(
-                model=self._resource_registration["model"][1].model, 
-                use_mock_model=use_mock_model 
+                model=self._resource_registration["model"][1].model,
+                use_mock_model=use_mock_model,
             )
             self._resource_registration["model"] = (resource_class, resource_config)
 
@@ -157,19 +157,41 @@ class ResourceManager:
 
         # other_resource_ids = resource_id_set - {init_files_resource_id} if init_files_resource_id else resource_id_set
 
+        # Find repo_setup and bounty_setup resources
+        repo_setup_id = next(
+            (rid for rid in resource_id_set if rid == "repo_setup"),
+            None,
+        )
+
+        bounty_setup_id = next(
+            (rid for rid in resource_id_set if rid == "bounty_setup"),
+            None,
+        )
+
         other_resource_ids = resource_id_set - {
             init_files_resource_id,
             kali_resource_id,
+            repo_setup_id,
+            bounty_setup_id,
         }
 
-        # Initialize InitFilesResource first if it exists
+        # 1. Init files first
         if init_files_resource_id:
             self._initialize_single_resource(init_files_resource_id, phase_index)
 
-        # Initialize other resources
+        # 2. Repo setup second
+        if repo_setup_id:
+            self._initialize_single_resource(repo_setup_id, phase_index)
+
+        # 3. Bounty setup third
+        if bounty_setup_id:
+            self._initialize_single_resource(bounty_setup_id, phase_index)
+
+        # 4. Initialize other resources
         for resource_id in other_resource_ids:
             self._initialize_single_resource(resource_id, phase_index)
 
+        # 5. Kali env last
         if kali_resource_id:
             self._initialize_single_resource(kali_resource_id, phase_index)
 

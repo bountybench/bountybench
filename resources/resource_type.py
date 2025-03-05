@@ -1,17 +1,18 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Type
 
-from resources.resource_manager import resource_dict
-
+from resources.bounty_setup_resource import BountySetupResource
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.memory_resource import MemoryResource
 from resources.model_resource.model_resource import ModelResource
-from resources.setup_resource import SetupResource
+from resources.repo_setup_resource import RepoSetupResource
+from resources.resource_manager import resource_dict
 
 if TYPE_CHECKING:
     from resources.base_resource import BaseResource
+
 
 class _Resource:
     def __init__(self, resource_id: str, resource_class: Type["BaseResource"]):
@@ -24,48 +25,52 @@ class _Resource:
     def get_class(self):
         return self.resource_class
 
+
 class ResourceType(Enum):
     DOCKER = _Resource("docker", DockerResource)
     INIT_FILES = _Resource("init_files", InitFilesResource)
     KALI_ENV = _Resource("kali_env", KaliEnvResource)
     MEMORY = _Resource("executor_agent_memory", MemoryResource)
     MODEL = _Resource("model", ModelResource)
-    BOUNTY_RESOURCE = _Resource("bounty_resource", SetupResource)
-    REPO_RESOURCE = _Resource("repo_resource", SetupResource)
+    BOUNTY_SETUP = _Resource("bounty_setup", BountySetupResource)
+    REPO_SETUP = _Resource("repo_setup", RepoSetupResource)
 
     def __str__(self):
         return str(self.value)
-    
+
     def key(self, workflow_id: str):
         """Gets resource ID. Same as str(self) except for KALI_ENV."""
-        return str(self) if self != ResourceType.KALI_ENV else f"{str(self)}_{workflow_id}"
+        return (
+            str(self) if self != ResourceType.KALI_ENV else f"{str(self)}_{workflow_id}"
+        )
 
     def get_class(self):
         return self.value.get_class()
-    
+
     def exists(self, workflow_id: str) -> bool:
         return resource_dict.contains(
             workflow_id=workflow_id,
             resource_id=str(self),
         )
 
-    
+
 class AgentResources:
     """
     Class which agents rely on to access their resources.
     Attribute names match str(ResourceType).
-    
+
     """
+
     def __init__(self):
         self.docker = None
         self.init_files = None
         self.kali_env = None
         self.executor_agent_memory = None
         self.model = None
-        self.bounty_resource = None
-        self.repo_resource=  None
+        self.bounty_setup = None
+        self.repo_setup = None
 
-    def has_attr(self, resource:ResourceType) -> bool:
+    def has_attr(self, resource: ResourceType) -> bool:
         return hasattr(self, str(resource))
 
     def has_bound(self, resource: ResourceType) -> bool:

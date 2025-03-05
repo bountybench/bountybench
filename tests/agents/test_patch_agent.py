@@ -1,6 +1,6 @@
 import subprocess
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -8,7 +8,9 @@ from agents.agent_manager import AgentManager
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from tests.test_utils.bounty_setup_test_util import EnvPath
-from tests.test_utils.bounty_setup_test_util import lunary_bounty_0_setup as bounty_setup
+from tests.test_utils.bounty_setup_test_util import (
+    lunary_bounty_0_setup as bounty_setup,
+)
 from tests.test_utils.bounty_setup_test_util import write_to_file_and_make_executable
 from utils.git_utils import git_diff
 
@@ -93,8 +95,8 @@ def git_fixture(bounty_setup):
 # probably a temporary test but currently failing due to issues with initializing resources
 def test_check_repo_and_bounty_are_different(patch_agent):
     agent = patch_agent
-    if hasattr(patch_agent, "bounty_resource") and hasattr(agent, "repo_resource"):
-        assert agent.bounty_resource is not agent.repo_resource
+    if hasattr(patch_agent, "bounty_setup") and hasattr(agent, "repo_setup"):
+        assert agent.bounty_setup is not agent.repo_setup
 
 
 @pytest.mark.asyncio
@@ -135,7 +137,46 @@ async def test_restart_resource_check(patch_agent):
 
     with patch.object(PatchAgent, "_restart_resource", return_value=False):
         await agent.execute(patch_agent_message)
-        assert "cannot restart" in patch_agent_message.message.lower()
+        assert (
+            "one or more resources failed to restart."
+            in patch_agent_message.message.lower()
+        )
+
+
+def test_restart_resources_order(bounty_setup):
+    """Test that resources are restarted in the correct order: repo_setup first, then bounty_setup."""
+    env_path: EnvPath = bounty_setup
+
+    # Create a custom agent with mocked resources and a mocked _restart_resource to track call order
+    agent = PatchAgent(
+        agent_id="test_patch_agent",
+        agent_config=PatchAgentConfig(
+            bounty_dir=env_path.BOUNTY_DIR,
+            task_dir=env_path.TASK_DIR,
+            use_verify_script=True,
+        ),
+    )
+
+    # Create mock attributes to simulate resource existence
+    restart_order = []
+
+    def mock_restart(resource):
+        restart_order.append(resource.resource_id)
+        return True
+
+    # Add mock resources to the agent
+    agent.repo_setup = MagicMock()
+    agent.repo_setup.resource_id = "repo_setup"
+    agent.bounty_setup = MagicMock()
+    agent.bounty_setup.resource_id = "bounty_setup"
+
+    # Override the _restart_resource method to track call order
+    with patch.object(PatchAgent, "_restart_resource", side_effect=mock_restart):
+        # Call restart_resources
+        agent.restart_resources()
+
+    # Verify repo_setup was restarted before bounty_setup
+    assert restart_order == ["repo_setup", "bounty_setup"]
 
 
 @pytest.mark.asyncio
@@ -300,6 +341,7 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
 
     patch_file_path = agent.patch_dir / "patch_1.patch"
     assert patch_file_path.exists()
+
 
 # "uses" the import
 if None:

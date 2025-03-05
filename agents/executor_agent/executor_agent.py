@@ -1,7 +1,8 @@
 import asyncio
+from dataclasses import dataclass
 from typing import List, Optional
 
-from agents.base_agent import BaseAgent
+from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.command_message_interface import CommandMessageInterface
@@ -19,6 +20,11 @@ MAX_RETRIES = 3
 RETRY_DELAY = 30
 
 
+@dataclass
+class ExecutorAgentConfig(AgentConfig):
+    """Configuration for ExecutorAgent"""
+
+
 # TODO (Denis): make sure kali env is bound correctly
 class ExecutorAgent(BaseAgent):
 
@@ -29,8 +35,8 @@ class ExecutorAgent(BaseAgent):
         ResourceType.MEMORY,
     ]
     OPTIONAL_RESOURCES = [
-        ResourceType.REPO_RESOURCE,
-        ResourceType.BOUNTY_RESOURCE,
+        ResourceType.REPO_SETUP,
+        ResourceType.BOUNTY_SETUP,
     ]
     ACCESSIBLE_RESOURCES = [
         ResourceType.KALI_ENV,
@@ -84,6 +90,7 @@ class ExecutorAgent(BaseAgent):
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
+        Immediately fails on non-retryable errors like quota limits.
         """
         iterations = 0
 
@@ -101,6 +108,12 @@ class ExecutorAgent(BaseAgent):
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
                 except Exception as e:
+                    error_msg = str(e)
+                    if "No quota" in error_msg or "InsufficientQuotaError" in error_msg:
+                        raise Exception(
+                            f"API quota exceeded. Please check your model quota/limits"
+                        )
+
                     logger.warning(
                         f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}"
                     )
