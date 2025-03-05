@@ -73,37 +73,43 @@ class AgentManager:
     def update_phase_agents_models(self, new_model: str):
         for agent_id in self._phase_agents:
             agent = self._phase_agents[agent_id]
-            if str(ResourceType.MODEL) in agent.get_accessible_resources():
+            if ResourceType.MODEL in agent.ACCESSIBLE_RESOURCES:
                 if not agent.resources.has_bound(ResourceType.MODEL):
                     raise AttributeError("Agent does not have a 'model' attribute")
-                logger.info(f"Updating agent: {agent}, {agent.resources.model.to_dict()}")
+                logger.info(
+                    f"Updating agent: {agent}, {agent.resources.model.to_dict()}"
+                )
                 resource_config = ModelResourceConfig.create(model=new_model)
                 resource = ModelResource("model", resource_config)
                 agent.resources.model = resource
-                logger.info(f"Updated agent: {agent}, {agent.resources.model.to_dict()}")
-    
+                logger.info(
+                    f"Updated agent: {agent}, {agent.resources.model.to_dict()}"
+                )
 
     def update_phase_agents_mock_model(self, use_mock_model: bool):
         """
         Ensures all agents update their ModelResource with the new `use_mock_model` setting.
         """
         for agent_id, agent in self._phase_agents.items():
-            if str(ResourceType.MODEL) in agent.get_accessible_resources():
+            if ResourceType.MODEL in agent.ACCESSIBLE_RESOURCES:
                 if not agent.resources.has_bound(ResourceType.MODEL):
                     raise AttributeError("Agent does not have a 'model' attribute")
 
                 existing_model_name = agent.resources.model.model
-                logger.info(f"Updating agent {agent_id} to use_mock_model={use_mock_model}")
+                logger.info(
+                    f"Updating agent {agent_id} to use_mock_model={use_mock_model}"
+                )
 
                 resource_config = ModelResourceConfig.create(
-                    model=existing_model_name,  
-                    use_mock_model=use_mock_model  
+                    model=existing_model_name, use_mock_model=use_mock_model
                 )
 
                 resource = ModelResource("model", resource_config)
                 agent.resources.model = resource
 
-                logger.info(f"Agent {agent_id} updated: {agent.resources.model.to_dict()}")
+                logger.info(
+                    f"Agent {agent_id} updated: {agent.resources.model.to_dict()}"
+                )
 
     def create_agent(
         self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig
@@ -126,7 +132,7 @@ class AgentManager:
 
         for resource_entry in agent.ACCESSIBLE_RESOURCES:
             resource = None
-            
+
             # KaliEnv has a separate ID {kali_env_{workflow_id}}. We still want to access it via self.resources.kali_env.
             resource_name = resource_entry.key(self.workflow_id)
             if self.resource_dict.contains(self.workflow_id, resource_name):
@@ -136,7 +142,9 @@ class AgentManager:
                 if agent.resources.has_attr(resource_entry):
                     setattr(agent.resources, str(resource_entry), resource)
                 else:
-                    raise ValueError(f"Required resource {str(resource_entry)} not found for agent {agent.__class__.__name__}")
+                    raise ValueError(
+                        f"Required resource {str(resource_entry)} not found for agent {agent.__class__.__name__}"
+                    )
             else:
                 if resource_entry in agent.REQUIRED_RESOURCES:
                     raise ValueError(
