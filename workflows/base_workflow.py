@@ -296,3 +296,31 @@ class BaseWorkflow(ABC):
     @property
     def name(self):
         return self.__class__.__name__
+
+    async def set_max_iterations(self, max_iterations: int):
+        """Set the maximum number of iterations for the workflow and current phase."""
+        if max_iterations < 1:
+            raise ValueError("max_iterations must be greater than 0")
+        
+        # Set workflow-level max iterations
+        self.max_iterations = max_iterations
+        logger.info(f"Workflow max iterations set to {max_iterations}")
+        
+        # Ensure phase_iterations never exceeds max_iterations
+        self.phase_iterations = min(self.phase_iterations, max_iterations)
+        
+        # Update the max iterations for the current phase
+        if self._current_phase:
+            self._current_phase.phase_config.max_iterations = min(
+                self._current_phase.phase_config.max_iterations,
+                max_iterations
+            )
+            logger.info(f"Current phase {self._current_phase.name} max iterations set to {self._current_phase.phase_config.max_iterations}")
+        
+        # Update the max iterations for all remaining phases
+        for phase in self._phase_graph:
+            if phase != self._current_phase:
+                phase.phase_config.max_iterations = min(
+                    phase.phase_config.max_iterations,
+                    max_iterations
+                )

@@ -114,6 +114,36 @@ function App() {
     setCurrentPhase(phase);
   };
 
+  const handleMaxIterationsChange = async (value) => {
+    if (!selectedWorkflow) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/${selectedWorkflow.id}/max-iterations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ max_iterations: value }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to update max iterations: ${errorText}`);
+      }
+      
+      console.log('Backend updated with new max iterations:', value);
+    } catch (error) {
+      console.error('Error updating max iterations:', error);
+      toast.error('Failed to update max iterations - endpoint not found', {
+        position: "top-center",
+        autoClose: 3000,
+        transition: Slide,
+      });
+    }
+  };
+
   useEffect(() => {
     const originalConsoleError = console.error;
 
@@ -161,9 +191,9 @@ function App() {
           workflowStatus={workflowStatus}
           currentPhase={currentPhase}
           onModelChange={handleModelChange}
-          onMockModelToggle={handleMockModelToggle} // Pass function
-          useMockModel={useMockModel} // Pass state
-
+          onMockModelToggle={handleMockModelToggle}
+          useMockModel={useMockModel}
+          onMaxIterationsChange={handleMaxIterationsChange}
         />
         <Box flexGrow={1} overflow='auto'>
           <Routes>
@@ -176,8 +206,8 @@ function App() {
                   interactiveMode={interactiveMode} 
                   onWorkflowStateUpdate={handleWorkflowStateUpdate} 
                   showInvalidWorkflowToast={showInvalidWorkflowToast}
-                  useMockModel={useMockModel} // Pass state
-                  setUseMockModel={setUseMockModel} // Pass setter function
+                  useMockModel={useMockModel}
+                  setUseMockModel={setUseMockModel}
                 />} 
             />
             <Route path="/history-logs" element={<LogViewer />} />

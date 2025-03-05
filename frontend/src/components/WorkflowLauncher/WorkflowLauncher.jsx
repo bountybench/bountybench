@@ -34,6 +34,17 @@ const LauncherState = {
 const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-14';
 const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
 
+const STORAGE_KEY = 'workflowLauncherSettings';
+const DEFAULT_SETTINGS = {
+  topLevelSelection: "Non-HELM",
+  task_dir: '',
+  bounty_number: '0',
+  iterations: 10,
+  model: '',
+  workflow_name: '',
+  interactive: true
+};
+
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode, useMockModel, setUseMockModel}) => {
   const navigate = useNavigate();
   
@@ -66,18 +77,25 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [fileName, setFileName] = useState('workflow_config.yaml'); 
   const [saveStatus, setSaveStatus] = useState(null);
 
-  const [formData, setFormData] = useState({
-    workflow_name: '',
-    tasks: [{ task_dir: 'lunary', bounty_number: '0' }],
-    vulnerability_type: '',
-    interactive: true,
-    iterations: 30,
-    api_key_name: '',
-    api_key_value: '',
-    model: '',
-    use_helm: false,
-    max_input_tokens: '',
-    max_output_tokens: '',
+  // Load all saved settings at once
+  const loadSavedSettings = useCallback(() => {
+    const savedSettings = localStorage.getItem(STORAGE_KEY);
+    return savedSettings ? JSON.parse(savedSettings) : DEFAULT_SETTINGS;
+  }, []);
+  
+  const [formData, setFormData] = useState(() => {
+    const saved = loadSavedSettings();
+    return {
+      workflow_name: saved.workflow_name || '',
+      task_dir: saved.task_dir || '',
+      bounty_number: saved.bounty_number || '0',
+      interactive: saved.interactive ?? true,
+      iterations: saved.iterations || 10,
+      api_key_name: '',
+      api_key_value: '',
+      model: saved.model || '',
+      use_helm: saved.topLevelSelection === "HELM"
+    };
   });
 
   const shouldShowVulnerabilityType = (workflowName) => {
@@ -91,7 +109,11 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const [allModels, setAllModels] = useState({});
   const [selectedModels, setSelectedModels] = useState([]);
-  const [topLevelSelection, setTopLevelSelection] = useState("Non-HELM");
+  
+  const [topLevelSelection, setTopLevelSelection] = useState(() => {
+    const saved = loadSavedSettings();
+    return saved.topLevelSelection || DEFAULT_SETTINGS.topLevelSelection;
+  });
 
   const setDefaultModel = (modelList, defaultModelName) => {
     return modelList.find(m => m.name === defaultModelName) || modelList[0];
@@ -153,7 +175,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       const modelList = isHelmModel ? models.helmModels : models.nonHelmModels;
       const defaultModelName = isHelmModel ? DEFAULT_HELM_MODEL : DEFAULT_NON_HELM_MODEL;
       
-      const defaultModel = setDefaultModel(modelList, defaultModelName);
+      // Try to use saved model first, fall back to defaults
+      const savedSettings = loadSavedSettings();
+      const savedModel = modelList.find(m => m.name === savedSettings.model);
+      const defaultModel = savedModel || setDefaultModel(modelList, defaultModelName);
       
       setSelectedModels(modelList);
       setFormData(prev => ({
@@ -168,7 +193,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         error: err.message
       });
     }
-  }, [topLevelSelection]);  
+  }, [topLevelSelection, loadSavedSettings]);  
 
   const fetchConfigDefaults = useCallback(async () => {
     try {
@@ -218,14 +243,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     });
   
     try {
-      const firstTask = formData.tasks[0]; // Get the first task
       const response = await fetch(`${API_BASE_URL}/workflow/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflow_name: formData.workflow_name,
-          task_dir: `bountybench/${firstTask.task_dir.replace(/^bountybench\//, '')}`,
-          bounty_number: firstTask.bounty_number,
+          task_dir: `bountybench/${formData.task_dir.replace(/^bountybench\//, '')}`,
+          bounty_number: formData.bounty_number,
           vulnerability_type: formData.vulnerability_type,
           interactive: interactiveMode,
           iterations: formData.iterations,
@@ -261,21 +285,11 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
-    if (name.startsWith('tasks[')) {
-      const [, index, field] = name.match(/tasks\[(\d+)\]\.(.+)/);
-      setFormData((prev) => ({
-        ...prev,
-        tasks: prev.tasks.map((task, i) => 
-          i === parseInt(index) ? { ...task, [field]: value } : task
-        ),
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: name === 'interactive' ? checked : value,
-        ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
-      }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === 'interactive' ? checked : value,
+      ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
+    }));
   };
 
   const handleRevealToggle = () => {
@@ -333,20 +347,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleFileNameChange = (event) => {
     setFileName(event.target.value);
-  };
-
-  const addTask = () => {
-    setFormData((prev) => ({
-      ...prev,
-      tasks: [...prev.tasks, { task_dir: '', bounty_number: '' }],
-    }));
-  };
-
-  const removeTask = (index) => {
-    setFormData((prev) => ({
-      ...prev,
-      tasks: prev.tasks.filter((_, i) => i !== index),
-    }));
   };
 
   const handleSaveConfirm = async () => {
@@ -416,7 +416,30 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
       loadData();
     }
-  }, [isChecking, isAvailable, serverError, launcherState.status, fetchApiKeys, fetchWorkflows, fetchModels, fetchConfigDefaults]);
+  }, [isChecking, isAvailable, serverError, launcherState.status, fetchApiKeys, fetchWorkflows, fetchModels, fetchConfigDefaults, topLevelSelection, loadSavedSettings]);
+  
+  // Save all settings in one effect
+  useEffect(() => {
+    const settingsToSave = {
+      topLevelSelection,
+      task_dir: formData.task_dir,
+      bounty_number: formData.bounty_number,
+      iterations: formData.iterations,
+      model: formData.model,
+      workflow_name: formData.workflow_name,
+      interactive: interactiveMode
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settingsToSave));
+  }, [
+    topLevelSelection,
+    formData.task_dir,
+    formData.bounty_number,
+    formData.iterations,
+    formData.model,
+    formData.workflow_name,
+    interactiveMode,
+    loadSavedSettings
+  ]);
   
   if (launcherState.status === LauncherState.CHECKING_SERVER || launcherState.status === LauncherState.LOADING_DATA) {
     return (
@@ -491,8 +514,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           shouldShowBounty={shouldShowBounty}
           shouldShowVulnerabilityType={shouldShowVulnerabilityType}
           vulnerabilityTypes={vulnerabilityTypes}
-          addTask={addTask}
-          removeTask={removeTask}
         />
 
         <TextField

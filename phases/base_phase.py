@@ -241,6 +241,19 @@ class BasePhase(ABC):
 
             self.iteration_count += 1
 
+            # Check if we've hit the iteration limit
+            if self.iteration_count >= self.phase_config.max_iterations:
+                # Log as error to make it highly visible and add to phase message
+                # This ensures the max iterations limit is clearly communicated
+                error_msg = f"Maximum iterations ({self.phase_config.max_iterations}) reached for {self.name}"
+                logger.error(error_msg)
+                self._phase_message.set_summary("max_iterations_reached")
+                self._phase_message.add_error_message(error_msg)
+                break
+            
+            if self._phase_message.summary == "incomplete":
+                self._phase_message.set_summary("completed_failure")
+
         self._finalize_phase()
 
         log_message(self._phase_message)
@@ -335,6 +348,15 @@ class BasePhase(ABC):
         """
         self.phase_config.interactive = interactive
         logger.info(f"Interactive mode for phase {self.name} set to {interactive}")
+
+    async def set_max_iterations(self, max_iterations: int):
+        """Set the maximum number of iterations for this phase.
+        
+        Args:
+            max_iterations (int): The new maximum number of iterations
+        """
+        self.phase_config.max_iterations = max_iterations
+        print(f"Max iterations for phase {self.name} set to {max_iterations}")
 
     @abstractmethod
     async def run_one_iteration(

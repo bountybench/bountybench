@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Switch, FormControl, Select, MenuItem } from '@mui/material';
+import { Box, Typography, Switch, FormControl, Select, MenuItem, TextField, InputAdornment } from '@mui/material';
 import { useNavigate } from 'react-router';
 
 import { API_BASE_URL } from '../../config';
@@ -11,9 +11,9 @@ export const AppHeader = ({
   workflowStatus,
   currentPhase,
   onModelChange,
-  onMockModelToggle, // New handler
-  useMockModel, // New state
-
+  onMockModelToggle,
+  useMockModel,
+  onMaxIterationsChange,
 }) => {
   // Example options
   const [modelMapping, setModelMapping] = useState([]);
@@ -21,6 +21,8 @@ export const AppHeader = ({
   // State for currently selected values
   const [selectedModelType, setSelectedModelType] = useState('');
   const [selectedModelName, setSelectedModelName] = useState('');
+  const [maxIterations, setMaxIterations] = useState('');
+  const [maxIterationsInput, setMaxIterationsInput] = useState('');
   
 
   // Initialize navigate
@@ -41,6 +43,25 @@ export const AppHeader = ({
     };
     fetchModels();
   }, []);
+  
+  // Fetch max iterations when a workflow is selected
+  useEffect(() => {
+    if (selectedWorkflow) {
+      const fetchMaxIterations = async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/workflow/${selectedWorkflow.id}/max-iterations`);
+          if (response.ok) {
+            const data = await response.json();
+            setMaxIterations(data.max_iterations);
+            setMaxIterationsInput(data.max_iterations.toString());
+          }
+        } catch (err) {
+          console.log('Failed to fetch max iterations:', err);
+        }
+      };
+      fetchMaxIterations();
+    }
+  }, [selectedWorkflow]);
     
   // Extracting modelTypes (prefixes) whenever modelMapping changes
   const allModelTypes = [...new Set(modelMapping.map(model => model.name.split('/')[0]))];
@@ -69,12 +90,47 @@ export const AppHeader = ({
     } catch (error) {
       console.log('Error updating action message:', error);
     }
-
   };
   
   // Navigate to home when Workflow Agent is clicked
   const handleHeaderClick = () => {
     navigate('/'); // Navigate to the homepage
+  };
+  
+  // Handle max iterations input changes
+  const handleMaxIterationsInputChange = (e) => {
+    const value = e.target.value;
+    setMaxIterationsInput(value);
+  };
+  
+  // Handle max iterations confirmation (when Enter key is pressed)
+  const handleMaxIterationsKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      // Convert to number and validate
+      const numValue = parseInt(maxIterationsInput, 10);
+      
+      // Only update if it's a valid number and greater than 0
+      if (!isNaN(numValue) && numValue > 0) {
+        setMaxIterations(numValue);
+        onMaxIterationsChange(numValue);
+      } else {
+        // Reset to previous valid value
+        setMaxIterationsInput(maxIterations.toString());
+      }
+    }
+  };
+  
+  // Handle max iterations blur event (when focus leaves the field)
+  const handleMaxIterationsBlur = () => {
+    const numValue = parseInt(maxIterationsInput, 10);
+    
+    // Automatically correct invalid values
+    if (isNaN(numValue) || numValue <= 0) {
+      setMaxIterationsInput(maxIterations.toString());
+    } else {
+      setMaxIterations(numValue);
+      onMaxIterationsChange(numValue);
+    }
   };
   
   return (
@@ -128,6 +184,27 @@ export const AppHeader = ({
                 </FormControl>
               </>
             )}
+            
+            {/* Max Iterations input */}
+            <Box display="flex" alignItems="center" mr={2}>
+              <TextField
+                label="Max Iterations"
+                variant="outlined"
+                size="small"
+                value={maxIterationsInput}
+                onChange={handleMaxIterationsInputChange}
+                onKeyDown={handleMaxIterationsKeyDown}
+                onBlur={handleMaxIterationsBlur}
+                sx={{ width: '120px' }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Typography variant="caption">Max:</Typography>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
   
             <Typography variant="body2" sx={{ mr: 2 }}>
               Status: <span style={{ fontWeight: 'bold' }}>{workflowStatus || 'Unknown'}</span>

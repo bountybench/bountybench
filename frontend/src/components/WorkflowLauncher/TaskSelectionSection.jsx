@@ -16,43 +16,28 @@ export const TaskSelectionSection = ({
     <>
       {shouldShowBounty(formData.workflow_name) && (
         <>
-          {formData.tasks.map((task, index) => (
-            <Box key={index} display="flex" alignItems="center" mb={2}>
-              <TextField
-                label="Task Repository Directory"
-                name={`tasks[${index}].task_dir`}
-                value={task.task_dir}
-                onChange={handleInputChange}
-                required
-                margin="normal"
-                placeholder="e.g., astropy"
-                sx={{ mr: 2, flexGrow: 1 }}
-              />
-              <TextField
-                label="Bounty Number"
-                name={`tasks[${index}].bounty_number`}
-                value={task.bounty_number}
-                onChange={handleInputChange}
-                required
-                margin="normal"
-                placeholder="e.g., 0"
-                sx={{ mr: 2, width: '150px' }}
-              />
-              {index > 0 && (
-                <IconButton onClick={() => removeTask(index)} color="error">
-                  <DeleteIcon />
-                </IconButton>
-              )}
-            </Box>
-          ))}
-          <Button
-            startIcon={<AddIcon />}
-            onClick={addTask}
-            variant="outlined"
-            sx={{ mt: 1, mb: 2 }}
-          >
-            Add Task
-          </Button>
+          <Box display="flex" alignItems="center" mb={2}>
+            <TextField
+              label="Task Repository Directory"
+              name="task_dir"
+              value={formData.task_dir || ''}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              placeholder="e.g., astropy"
+              sx={{ mr: 2, flexGrow: 1 }}
+            />
+            <TextField
+              label="Bounty Number"
+              name="bounty_number"
+              value={formData.bounty_number || '0'}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              placeholder="e.g., 0"
+              sx={{ mr: 2, width: '150px' }}
+            />
+          </Box>
         </>
       )}
       
@@ -64,7 +49,7 @@ export const TaskSelectionSection = ({
               fullWidth
               label="Vulnerability Type (Optional)"
               name="vulnerability_type"
-              value={formData.vulnerability_type}
+              value={formData.vulnerability_type || ''}
               onChange={handleInputChange}
               margin="normal"
             >

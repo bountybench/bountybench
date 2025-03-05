@@ -3,10 +3,16 @@ import traceback
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from typing import Dict
 
 from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeInput
+from pydantic import BaseModel
 
 workflow_service_router = APIRouter()
+
+# Move the model class up with other models
+class MaxIterationsInput(BaseModel):
+    max_iterations: int
 
 
 @workflow_service_router.post("/workflow/{workflow_id}/stop")
@@ -505,3 +511,31 @@ async def update_mock_model_mode(workflow_id: str, request: Request):
         error_traceback = traceback.format_exc()
         print(f"Error updating mock model for workflow {workflow_id}: {str(e)}\n{error_traceback}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@workflow_service_router.get("/workflow/{workflow_id}/max-iterations")
+async def get_max_iterations(workflow_id: str, request: Request):
+    """Get the current max iterations for a workflow."""
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    workflow = active_workflows[workflow_id]["instance"]
+    return {"max_iterations": workflow.max_iterations}
+
+@workflow_service_router.post("/workflow/{workflow_id}/max-iterations")
+async def update_max_iterations(workflow_id: str, data: MaxIterationsInput, request: Request):
+    """Update the max iterations for a workflow."""
+    active_workflows = request.app.state.active_workflows
+    if workflow_id not in active_workflows:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    # Ensure max_iterations is positive
+    if data.max_iterations < 1:
+        raise HTTPException(status_code=400, detail="max_iterations must be greater than 0")
+    
+    # Update workflow and all its phases to respect new max_iterations
+    workflow = active_workflows[workflow_id]["instance"]
+    await workflow.set_max_iterations(data.max_iterations)
+    
+    return {"status": "success", "max_iterations": data.max_iterations}

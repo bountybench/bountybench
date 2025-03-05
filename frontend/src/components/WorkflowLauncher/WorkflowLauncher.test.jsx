@@ -26,6 +26,14 @@ describe('WorkflowLauncher Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = jest.fn();
+
+    // Mock localStorage
+    const localStorageMock = {
+      getItem: jest.fn().mockReturnValue(null),
+      setItem: jest.fn(),
+      clear: jest.fn()
+    };
+    Object.defineProperty(window, 'localStorage', { value: localStorageMock });
   });
 
   test('renders checking server state while server availability is being checked', () => {
@@ -147,9 +155,9 @@ describe('WorkflowLauncher Component', () => {
     });
   });
 
-  test('handles form input correctly, submits the form successfully, and navigates to new page', async () => {
+  test('successfully launches a workflow and navigates to the workflow page', async () => {
     useServerAvailability.mockReturnValue({ isAvailable: true, isChecking: false, error: null });
-  
+    
     const workflows = [
       { name: 'Workflow 1', description: 'Description 1' },
       { name: 'Detect Workflow 2', description: 'Description 2' }
@@ -158,6 +166,11 @@ describe('WorkflowLauncher Component', () => {
     const models = { 
       helmModels: [{ name: 'model1', description: 'Description 1' }, { name: 'model3', description: 'Description 3' }],
       nonHelmModels: [{ name: 'model2', description: 'Description 2' }]
+    };
+    const mockResponse = { 
+      workflow_id: '123', 
+      model: 'test_model', 
+      interactive: true 
     };
     
     global.fetch = jest.fn()
@@ -168,7 +181,7 @@ describe('WorkflowLauncher Component', () => {
       .mockResolvedValueOnce({ json: () => Promise.resolve({ max_input_tokens: 4096, max_output_tokens: 2048 }) })
       .mockResolvedValueOnce({ 
         ok: true, 
-        json: () => Promise.resolve({ workflow_id: '123', model: "test_model" })
+        json: () => Promise.resolve(mockResponse)
       });
   
     await act(async () => {
@@ -214,7 +227,7 @@ describe('WorkflowLauncher Component', () => {
     });
   
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(6));
-    await waitFor(() => expect(onWorkflowStartMock).toHaveBeenCalledWith('123', "test_model", true));
+    await waitFor(() => expect(onWorkflowStartMock).toHaveBeenCalledWith('123', 'test_model', true));
   });
 
   test('displays an error message if the form submission fails', async () => {
