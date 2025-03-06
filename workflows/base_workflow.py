@@ -16,16 +16,7 @@ from workflows.interactive_controller import InteractiveController
 logger = get_main_logger(__name__)
 
 
-class WorkflowStatus(Enum):
-    """Status of workflow execution"""
-
-    INCOMPLETE = "incomplete"
-    COMPLETED_SUCCESS = "completed_success"
-    COMPLETED_FAILURE = "completed_failure"
-
-
 class BaseWorkflow(ABC):
-    status = WorkflowStatus.INCOMPLETE
 
     def __init__(self, **kwargs):
         logger.info(f"Initializing workflow {self.name}")
@@ -90,7 +81,7 @@ class BaseWorkflow(ABC):
     @property
     def current_phase(self):
         return self._current_phase
-
+    
     @property
     def phase_graph(self):
         return self._phase_graph
@@ -187,13 +178,9 @@ class BaseWorkflow(ABC):
                 self._current_phase = next_phases[0] if next_phases else None
 
             if prev_phase_message.success:
-                self.workflow_message.set_summary(
-                    WorkflowStatus.COMPLETED_SUCCESS.value
-                )
-            else:
-                self.workflow_message.set_summary(
-                    WorkflowStatus.COMPLETED_FAILURE.value
-                )
+                self.workflow_message.set_success()
+
+            self.workflow_message.set_complete()
             self.workflow_message.save()
 
         except Exception as e:
