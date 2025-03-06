@@ -40,7 +40,7 @@ async def test_call_lm_success(executor_agent):
     expected_response = CommandMessage("test_id", "command: pwd")
 
     executor_agent.resources.model.run = Mock(return_value=action_msg)
-    executor_agent.executor_agent_memory.get_memory = Mock(return_value=None)
+    executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
     executor_agent.parse_response = Mock(return_value=expected_response)
 
     result = await executor_agent.call_lm()
@@ -54,7 +54,7 @@ async def test_call_lm_success(executor_agent):
 async def test_call_lm_failure(executor_agent):
     """Test failure of LM call after max retries"""
     executor_agent.resources.model.run = Mock(side_effect=Exception("Parse error"))
-    executor_agent.executor_agent_memory.get_memory = Mock(return_value=None)
+    executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
     executor_agent.parse_response = Mock(return_value=None)
 
     with pytest.raises(Exception) as exc_info:
