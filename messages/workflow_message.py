@@ -20,7 +20,8 @@ class WorkflowMessage(Message):
         logs_dir: str = "logs",
     ) -> None:
         # Core
-        self._summary = "incomplete"
+        self._success = False
+        self._complete = False
         self._phase_messages = []
         self.agents_used = {}
         self.resources_used = {}
@@ -57,8 +58,12 @@ class WorkflowMessage(Message):
         super().__init__()
 
     @property
-    def summary(self) -> str:
-        return self._summary
+    def success(self) -> bool:
+        return self._success
+
+    @property
+    def complete(self) -> bool:
+        return self._complete
 
     @property
     def workflow_id(self) -> str:
@@ -68,8 +73,11 @@ class WorkflowMessage(Message):
     def phase_messages(self) -> List[PhaseMessage]:
         return self._phase_messages
 
-    def set_summary(self, summary: str):
-        self._summary = summary
+    def set_success(self):
+        self._success = True
+
+    def set_complete(self):
+        self._complete = True
 
     def add_child_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
@@ -89,7 +97,10 @@ class WorkflowMessage(Message):
     def metadata_dict(self) -> dict:
         return {
             "workflow_name": self.workflow_name,
-            "workflow_summary": self.summary,
+            "workflow_summary": {
+                "complete": self.complete,
+                "success": self.success,
+            },
             "task": self.task,
         }
 
@@ -116,6 +127,19 @@ class WorkflowMessage(Message):
         with open(self.log_file, "w") as f:
             json.dump(logs, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
+    
+    def new_log(self):
+        components = [self.workflow_name]
+        if self.task:
+            for _, value in self.task.items():
+                if value:
+                    components.append(str(value.name if isinstance(value, Path) else value))
+        self.log_file = (
+            self.logs_dir
+            / f"{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        )
+        logger.status(f"Creating new log file at: {self.log_file}")
+        self.save()
 
     def _json_serializable(self, obj: Any) -> Any:
         if isinstance(obj, Path):

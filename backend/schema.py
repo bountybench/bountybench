@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +18,12 @@ class StartWorkflowInput(BaseModel):
     model: str = Field(..., description="Name of the model")
     use_mock_model: bool = Field(default=False, description="Mock Model")
     use_helm: bool = Field(..., description="Using HELM vs. Non-Helm")
+    max_input_tokens: Optional[int] = Field(
+        None, ge=1, description="Maximum input tokens for the model"
+    )
+    max_output_tokens: Optional[int] = Field(
+        None, ge=1, description="Maximum output tokens for the model"
+    )
 
 
 class MessageInputData(BaseModel):

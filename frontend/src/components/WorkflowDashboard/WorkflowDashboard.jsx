@@ -8,7 +8,7 @@ import ResourceDict from '../ResourceDict/ResourceDict';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
-const BASE_URL=`http://localhost:7999`
+import { API_BASE_URL } from '../../config';
 
 const WorkflowState = {
   LOADING: 'LOADING',
@@ -17,7 +17,8 @@ const WorkflowState = {
   RUNNING: 'RUNNING',
   COMPLETED: 'COMPLETED',
   ERROR: 'ERROR',
-  STOPPED: 'STOPPED'
+  STOPPED: 'STOPPED',
+  RESTARTING: 'RESTARTING'
 };
 
 export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast,   useMockModel,
@@ -29,6 +30,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   
   const [resources, setResources] = useState([]);
   const [isResourcePanelOpen, setIsResourcePanelOpen] = useState(false);
+  const [restart, setRestart] = useState(0);
 
   const [workflowState, setWorkflowState] = useState({
     status: WorkflowState.LOADING,
@@ -41,7 +43,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
     const checkIfWorkflowExists = async () => {
-      const response = await fetch(`${BASE_URL}/workflow/active`);
+      const response = await fetch(`${API_BASE_URL}/workflow/active`);
       const data = await response.json();
 
       if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
@@ -62,7 +64,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     currentPhase,
     phaseMessages,
     error,
-  } = useWorkflowWebSocket(workflowId);
+  } = useWorkflowWebSocket(workflowId, restart);
   
   console.log('WebSocket state:', { 
     isConnected, 
@@ -99,6 +101,12 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         message: "Starting workflow, setting up first phase...",
         error: null
       });
+    } else if (workflowStatus === 'restarting') {
+      setWorkflowState({
+        status: WorkflowState.RESTARTING,
+        message: "Workflow restarting",
+        error: null
+      });
     } else if (workflowStatus === 'completed') {
       setWorkflowState({
         status: WorkflowState.COMPLETED,
@@ -124,14 +132,36 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     onWorkflowStateUpdate(workflowStatus, currentPhase);
   }, [isConnected, workflowStatus, currentPhase, phaseMessages, error, onWorkflowStateUpdate]);
 
+  const handleRestart = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/restart/${workflowId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      console.log('Workflow restarted successfully');
+    } catch (error) {
+      console.error('Error restarting workflow:', error);
+    } finally {
+      setRestart((prev) => prev + 1);
+    }
+  };
+
   const fetchResources = useCallback(async () => {
+    if (!workflowId) {
+      console.log('Skipping resource fetch - no workflow ID available');
+      return;
+    }
+
     if (workflowId) {
       try {
-        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/resources`);
+        const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/resources`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        console.log("resources: ", data)
         setResources(data.resources);
       } catch (error) {
         console.error('Error fetching resources:', error);
@@ -158,7 +188,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       try {
         const currentMessageId = await getTailMessageId();
         console.log(`Tail message id is ${currentMessageId}`)
-        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/run-message`, {
+        const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/run-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -181,7 +211,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   };
 
   const handleUpdateMessageInput = async (messageId, newInputData) => {
-    const url = `${BASE_URL}/workflow/${workflowId}/edit-message`;
+    const url = `${API_BASE_URL}/workflow/${workflowId}/edit-message`;
     const requestBody = { message_id: messageId, new_input_data: newInputData };
     
     console.log('Sending request to:', url);
@@ -216,7 +246,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     if (workflowId) {
       setIsNextDisabled(true);
       try {
-        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/run-message`, {
+        const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/run-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -243,7 +273,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const handleStopWorkflow = async () => {
     if (workflowId) {
       try {
-        const response = await fetch(`${BASE_URL}/workflow/${workflowId}/stop`, {
+        const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/stop`, {
           method: 'POST',
         });
         if (!response.ok) {
@@ -260,7 +290,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   const handleToggleVersion = useCallback(async (messageId, direction) => {
     try {
-      const response = await fetch(`${BASE_URL}/workflow/${workflowId}/toggle-version`, {
+      const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/toggle-version`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -290,7 +320,8 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   if (workflowState.status === WorkflowState.LOADING || 
       workflowState.status === WorkflowState.CONNECTING ||
-      workflowState.status === WorkflowState.STARTING) {
+      workflowState.status === WorkflowState.STARTING ||
+      workflowState.status === WorkflowState.RESTARTING) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
         <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
@@ -316,6 +347,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
           onRunMessage={handleRunMessage}
           onTriggerNextIteration={triggerNextIteration}
           onStopWorkflow={handleStopWorkflow}
+          onRestart={handleRestart}
           onToggleVersion={handleToggleVersion}
         />
       </Box>

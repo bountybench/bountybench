@@ -52,6 +52,12 @@ async def main() -> None:
     parser.add_argument("--model", type=str, help="The LM model to query")
     parser.add_argument("--helm", action="store_true", help="Use HelmModels")
     parser.add_argument(
+        "--max_input_tokens", type=int, help="Max input tokens to pass into model"
+    )
+    parser.add_argument(
+        "--max_output_tokens", type=int, help="Max output tokens to pass into model"
+    )
+    parser.add_argument(
         "--phase_iterations",
         type=int,
         help="max iteractions to run of ExploitPhase and PatchPhase each",
@@ -74,6 +80,8 @@ async def main() -> None:
         interactive=args.interactive,
         use_mock_model=args.use_mock_model,
         model=args.model,
+        max_input_tokens=args.max_input_tokens,
+        max_output_tokens=args.max_output_tokens,
         phase_iterations=args.phase_iterations,
     )
     await workflow.run()

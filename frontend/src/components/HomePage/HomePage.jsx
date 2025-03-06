@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 import { Box, Button, Typography, CircularProgress } from '@mui/material';
 import './HomePage.css';
 
-const BASE_URL=`http://localhost:7999`
+import { API_BASE_URL } from '../../config';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ const HomePage = () => {
 
   const fetchActiveWorkflows = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/workflow/active`);
+      const response = await fetch(`${API_BASE_URL}/workflow/active`);
       const data = await response.json();
       setActiveWorkflows(data.active_workflows);
     } catch (error) {
@@ -31,8 +31,23 @@ const HomePage = () => {
     navigate('/create-workflow');
   };
 
-  const handleWorkflowClick = (workflowId) => {
+  const handleWorkflowClick = async (workflowId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/restart/${workflowId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      console.log('Workflow restarted successfully');
+    } catch (error) {
+      console.error('Error restarting workflow:', error);
+    }
     navigate(`/workflow/${workflowId}`);
+  };
+
+  const handleViewHistoryLogs = () => {
+    navigate('/history-logs');
   };
 
   // Helper function to render workflow buttons
@@ -85,11 +100,18 @@ const HomePage = () => {
         variant="contained"
         color="primary"
         onClick={handleNewWorkflowClick}
-        style={{ marginBottom: '20px' }}
+        style={{ marginBottom: '20px', width: '180px'}}
       >
         New Workflow
       </Button>
-
+      <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleViewHistoryLogs} 
+          style={{ marginBottom: '20px', width: '180px'}}
+        >
+          View History Logs
+        </Button>
       {loading ? (
         <CircularProgress />
       ) : (
