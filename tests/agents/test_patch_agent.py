@@ -96,7 +96,7 @@ def git_fixture(bounty_setup):
 def test_check_repo_and_bounty_are_different(patch_agent):
     agent = patch_agent
     if hasattr(patch_agent, "bounty_setup") and hasattr(agent, "repo_setup"):
-        assert agent.bounty_setup is not agent.repo_setup
+        assert agent.resources.bounty_setup is not agent.resources.repo_setup
 
 
 @pytest.mark.asyncio
@@ -165,10 +165,10 @@ def test_restart_resources_order(bounty_setup):
         return True
 
     # Add mock resources to the agent
-    agent.repo_setup = MagicMock()
-    agent.repo_setup.resource_id = "repo_setup"
-    agent.bounty_setup = MagicMock()
-    agent.bounty_setup.resource_id = "bounty_setup"
+    agent.resources.repo_setup = MagicMock()
+    agent.resources.repo_setup.resource_id = "repo_setup"
+    agent.resources.bounty_setup = MagicMock()
+    agent.resources.bounty_setup.resource_id = "bounty_setup"
 
     # Override the _restart_resource method to track call order
     with patch.object(PatchAgent, "_restart_resource", side_effect=mock_restart):

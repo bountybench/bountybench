@@ -189,7 +189,7 @@ class PatchAgent(BaseAgent):
 
         # Must restart repo_setup first, then bounty_setup (same order as initialization)
         if self.resources.has_bound(ResourceType.REPO_SETUP):
-            sucess &= self._restart_resource(self.resources.repo_setup)
+            success &= self._restart_resource(self.resources.repo_setup)
 
         if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
             success &= self._restart_resource(self.resources.bounty_setup)
