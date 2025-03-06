@@ -5,21 +5,3 @@ metadata:
 data:
   CHOKIDAR_USEPOLLING: "true"
   REACT_APP_USE_NGINX_PROXY: "true"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: app-secrets
-type: Opaque
-# Note: In a real environment, you should use Kubernetes secrets properly
-# with base64 encoded values or better yet, use a secret management solution
-# like Google Secret Manager
-data:
-  # These are placeholders - you'll need to replace with your actual base64 encoded values
-  HELM_API_KEY: ""
-  OPENAI_API_KEY: ""
-  AZURE_OPENAI_API_KEY: ""
-  AZURE_OPENAI_ENDPOINT: ""
-  ANTHROPIC_API_KEY: ""
-  GOOGLE_API_KEY: ""
-  TOGETHER_API_KEY: ""
