@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
+import { Box, Typography, Card, CardContent, IconButton, TextField, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import EditIcon from '@mui/icons-material/Edit';
-import CloseIcon from '@mui/icons-material/Close';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ActionMessage from '../ActionMessage/ActionMessage';
 import { formatData } from '../../utils/messageFormatters';
 import './AgentMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { SaveButtonBoxComponent } from '../buttons/ButtonBoxComponent';
 import { CopyButton } from '../buttons/CopyButton';
+import { EditButton } from '../buttons/EditButton';
+import { KeyboardArrowRightButton } from '../buttons/KeyboardArrowRightButton';
 
 const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
@@ -159,30 +159,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     value={editedMessage}
                     onChange={(e) => setEditedMessage(e.target.value)}
                   />
-                  <Box className="message-buttons">
-                      <CopyButton onClick={handleCopyClick} />
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      onClick={handleCancelEdit}
-                      size="small"
-                      aria-label="cancel"
-                      className="cancel-button"
-                    >
-                      <CloseIcon/>
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      onClick={handleSaveClick}
-                      size="small"
-                      aria-label="save"
-                      className="save-button"
-                      sx={{ mr: 1 }}
-                    >
-                      <KeyboardArrowRightIcon/>
-                    </Button>     
-                  </Box>
+                  <SaveButtonBoxComponent handleCopyClick={handleCopyClick} handleCancelEdit={handleCancelEdit} handleSaveClick={handleSaveClick}/>
                 </Box>
               ) : (
                 <Box className="display-mode-container">
@@ -196,26 +173,8 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                   </Card>
                   <Box className="message-buttons">
                       <CopyButton onClick={handleCopyClick} />
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      onClick={handleEditClick}
-                      size="small"
-                      aria-label="edit"
-                      className="edit-button"
-                    >
-                      <EditIcon />
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      onClick={handleRunClick}
-                      size="small"
-                      aria-label="run"
-                      className="run-button"
-                    >
-                      <KeyboardArrowRightIcon />
-                    </Button>
+                      <EditButton onClick={handleEditClick} />
+                      <KeyboardArrowRightButton onClick={handleRunClick} color="secondary" ariaLabel="run" className="run-button" />
 
                       <>
                         <Typography variant="caption" sx={{ mx: 1 }}>

@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, Typography, Card, CardContent, IconButton, TextField, Button, Collapse } from '@mui/material';
+import { Box, Typography, Card, CardContent, IconButton, TextField, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import EditIcon from '@mui/icons-material/Edit';
-import CloseIcon from '@mui/icons-material/Close';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { formatData } from '../../utils/messageFormatters';
-import { CopyButton } from '../buttons/CopyButton';
+import { RunButtonBoxComponent, SaveButtonBoxComponent } from '../buttons/ButtonBoxComponent';
 import './ActionMessage.css';
 
 const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
@@ -167,30 +164,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
                   fullWidth
                 />
               </Box>
-              <Box className="message-buttons" sx={{ display: 'flex' }}>
-            <CopyButton onClick={handleCopyClick} />
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={handleCancelEdit}
-                  size="small"
-                  aria-label="cancel"
-                  className="cancel-button"
-                >
-                  <CloseIcon/>
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  onClick={handleSaveClick}
-                  size="small"
-                  aria-label="save"
-                  className="save-button"
-                  sx={{ mr: 1 }}
-                >
-                  <KeyboardArrowRightIcon/>
-                </Button>           
-              </Box>
+	      <SaveButtonBoxComponent handleCopyClick={handleCopyClick} handleCancelEdit={handleCancelEdit} handleSaveClick={handleSaveClick}/>
             </>
           ) : (
             <>
@@ -199,29 +173,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
                   {originalMessageContent}
                 </Typography>
               </Box>
-              <Box className="message-buttons" sx={{ display: 'flex' }}>
-            <CopyButton onClick={handleCopyClick} />
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  onClick={handleEditClick}
-                  size="small"
-                  aria-label="edit"
-                  className="edit-button"
-                >
-                  <EditIcon />
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={handleRunClick}
-                  size="small"
-                  aria-label="run"
-                  className="run-button"
-                >
-                  <KeyboardArrowRightIcon />
-                </Button>
-              </Box>
+	      <RunButtonBoxComponent handleCopyClick={handleCopyClick} handleEditClick={handleEditClick} handleRunClick={handleRunClick}/>
             </>
           )}
 
