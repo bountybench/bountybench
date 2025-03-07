@@ -2,10 +2,6 @@
 .env
 .env.*
 
-# Git files
-.git
-.gitignore
-
 # Python cache files
 __pycache__/
 *.py[cod]
