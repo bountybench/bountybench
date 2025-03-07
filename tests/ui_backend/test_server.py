@@ -45,7 +45,7 @@ def test_list_workflows(client):
 
 
 def test_start_workflow_success(client):
-    """Test starting a workflow with valid data using start-workflow endpoint."""
+    """Test starting a workflow with valid data using start endpoint."""
     payload = {
         "workflow_name": "Detect Workflow",
         "tasks": [{"task_dir": "/path/to/tasks", "bounty_number": "123"}],
@@ -56,7 +56,7 @@ def test_start_workflow_success(client):
         "use_mock_model": True,
         "trials_per_config": 1,
     }
-    response = client.post("/workflow/start-workflow", json=payload)
+    response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200, "Expected status code 200"
     data = response.json()
 
@@ -80,7 +80,7 @@ def test_start_workflow_success(client):
 
 
 def test_start_workflow_invalid_name(client):
-    """Test starting a workflow with an invalid workflow name using start-workflow endpoint."""
+    """Test starting a workflow with an invalid workflow name using start endpoint."""
     payload = {
         "workflow_name": "Unknown Workflow",
         "tasks": [{"task_dir": "/path/to/tasks", "bounty_number": "123"}],
@@ -91,7 +91,7 @@ def test_start_workflow_invalid_name(client):
         "use_mock_model": True,
         "trials_per_config": 1,
     }
-    response = client.post("/workflow/start-workflow", json=payload)
+    response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200, "Expected status code 200 even on error"
     data = response.json()
     assert "error" in data, "Response should contain 'error' key"
@@ -113,7 +113,7 @@ def started_chat_workflow(client):
         "use_mock_model": True,
         "trials_per_config": 1,
     }
-    response = client.post("/workflow/start-workflow", json=payload)
+    response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
     data = response.json()
     if "workflow_id" in data:
@@ -135,7 +135,7 @@ def started_patch_workflow(client):
         "use_mock_model": True,
         "trials_per_config": 1,
     }
-    response = client.post("/workflow/start-workflow", json=payload)
+    response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
     data = response.json()
     if "workflow_id" in data:
@@ -185,7 +185,7 @@ def started_detect_workflow(client):
         "use_mock_model": True,
         "trials_per_config": 1,
     }
-    response = client.post("/workflow/start-workflow", json=payload)
+    response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
     data = response.json()
     if "workflow_id" in data:
@@ -211,7 +211,7 @@ def test_update_interactive_mode_success(client, started_detect_workflow):
 
 
 def test_start_workflow_missing_fields(client):
-    """Test starting a workflow with missing required fields using start-workflow endpoint."""
+    """Test starting a workflow with missing required fields using start endpoint."""
     payload = {
         "workflow_name": "Detect Workflow",
         # "tasks" is missing
@@ -222,7 +222,7 @@ def test_start_workflow_missing_fields(client):
         "use_mock_model": True,
         "trials_per_config": 1,
     }
-    response = client.post("/workflow/start-workflow", json=payload)
+    response = client.post("/workflow/start", json=payload)
     assert response.status_code == 422, "Expected status code 422 for validation error"
     data = response.json()
     assert "detail" in data, "Response should contain 'detail' key"
@@ -256,7 +256,7 @@ def test_workflow_restart_creates_new_workflow(client):
     }
 
     # Step 1: Start the first workflow
-    start_response_1 = client.post("/workflow/start-workflow", json=start_payload)
+    start_response_1 = client.post("/workflow/start", json=start_payload)
     assert (
         start_response_1.status_code == 200
     ), "Expected status code 200 for first workflow start"
@@ -295,7 +295,7 @@ def test_workflow_restart_creates_new_workflow(client):
     ), "Stopped workflow should have status 'stopped'"
 
     # Step 4: Start a new workflow
-    start_response_2 = client.post("/workflow/start-workflow", json=new_payload)
+    start_response_2 = client.post("/workflow/start", json=new_payload)
     assert (
         start_response_2.status_code == 200
     ), "Expected status code 200 for second workflow start"
@@ -368,7 +368,7 @@ def test_stopping_multiple_workflows(client):
     }
 
     # Start two workflows
-    start_response_1 = client.post("/workflow/start-workflow", json=payload_1)
+    start_response_1 = client.post("/workflow/start", json=payload_1)
     data_1 = start_response_1.json()
     workflow_id_1 = (
         data_1["workflow_id"]
@@ -376,7 +376,7 @@ def test_stopping_multiple_workflows(client):
         else data_1["workflows"][0]["workflow_id"]
     )
 
-    start_response_2 = client.post("/workflow/start-workflow", json=payload_2)
+    start_response_2 = client.post("/workflow/start", json=payload_2)
     data_2 = start_response_2.json()
     workflow_id_2 = (
         data_2["workflow_id"]
@@ -428,7 +428,7 @@ def test_restarting_workflow_with_same_bounty_number(client):
     }
 
     # Start the first workflow
-    start_response_1 = client.post("/workflow/start-workflow", json=payload)
+    start_response_1 = client.post("/workflow/start", json=payload)
     data_1 = start_response_1.json()
     workflow_id_1 = (
         data_1["workflow_id"]
@@ -443,7 +443,7 @@ def test_restarting_workflow_with_same_bounty_number(client):
     ), "Expected status code 200 for stopping workflow"
 
     # Restart with the same bounty number
-    start_response_2 = client.post("/workflow/start-workflow", json=payload)
+    start_response_2 = client.post("/workflow/start", json=payload)
     data_2 = start_response_2.json()
     workflow_id_2 = (
         data_2["workflow_id"]
@@ -472,7 +472,7 @@ def test_stopping_workflow_twice(client):
     }
 
     # Start the workflow
-    start_response = client.post("/workflow/start-workflow", json=payload)
+    start_response = client.post("/workflow/start", json=payload)
     data = start_response.json()
     workflow_id = (
         data["workflow_id"]
@@ -520,7 +520,7 @@ async def test_websocket_connection_success(client):
         "use_mock_model": True,
         "trials_per_config": 1,
     }
-    start_response = client.post("/workflow/start-workflow", json=start_payload)
+    start_response = client.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200
     data = start_response.json()
     workflow_id = (
@@ -548,7 +548,7 @@ async def test_websocket_receive_status_update(client):
         "use_mock_model": True,
         "trials_per_config": 1,
     }
-    start_response = client.post("/workflow/start-workflow", json=start_payload)
+    start_response = client.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200
     data = start_response.json()
     workflow_id = (

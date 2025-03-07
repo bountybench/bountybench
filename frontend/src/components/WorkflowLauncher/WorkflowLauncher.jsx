@@ -364,7 +364,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       console.log(payload)
   
       // Send the request
-      const response = await fetch(`${API_BASE_URL}/workflow/start-workflow`, {
+      const response = await fetch(`${API_BASE_URL}/workflow/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -627,27 +627,27 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           />
 
 
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={handleSaveConfiguration}
-            startIcon={<SaveIcon />}
-          >
-            Save Configuration
-          </Button>
+      <Box display="flex" flexDirection="column" gap={2} mt={2}> 
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          startIcon={<PlayArrowIcon />}
+        >
+          Run Workflow(s)
+        </Button>
 
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={handleSaveConfiguration}
+          startIcon={<SaveIcon />}
+        >
+          Save Configuration
+        </Button>
+      </Box>
+      </form>
 
-          <Box display="flex" flexDirection="column" gap={2} mt={2}> 
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              startIcon={<PlayArrowIcon />}
-            >
-             Run Workflow(s)
-            </Button>
-          </Box>
-          </form>
 
 
       <SaveConfigDialog

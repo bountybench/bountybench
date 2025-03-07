@@ -60,8 +60,8 @@ async def list_active_workflows(request: Request):
     return {"active_workflows": active_workflows_list}
 
 
-@workflows_router.post("/workflow/start-workflow")
-async def start_workflow(workflow_data: ExperimentConfig, request: Request):
+@workflows_router.post("/workflow/start")
+async def start(workflow_data: ExperimentConfig, request: Request):
     """Unified endpoint for starting one or more workflows."""
     try:
         workflow_factory = request.app.state.workflow_factory
@@ -152,7 +152,7 @@ async def start_workflow(workflow_data: ExperimentConfig, request: Request):
 
     except Exception as e:
         error_traceback = traceback.format_exc()
-        print(f"Error in parallel run: {str(e)}\n{error_traceback}")
+        print(f"Error in start: {str(e)}\n{error_traceback}")
         return {"error": str(e)}
 
 
