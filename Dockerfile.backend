@@ -56,6 +56,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy the entire project into the container
 COPY . .
 
+RUN touch .env
+
 # Copy the shell script for DinD docker daemon
 COPY tools/dockerd-entrypoint.sh /usr/local/bin/dockerd-entrypoint.sh
 RUN chmod +x /usr/local/bin/dockerd-entrypoint.sh
