@@ -38,13 +38,3 @@ def agent():
 def test_initialization(agent):
     with pytest.raises(AttributeError):
         _ = agent.mock_resource
-
-
-def test_get_resources(agent):
-    optional = agent.get_optional_resources()
-    required = agent.get_required_resources()
-    accessible = agent.get_accessible_resources()
-
-    assert optional == {"docker"}
-    assert required == {"init_files"}
-    assert accessible == {"init_files", "docker"}

@@ -61,7 +61,7 @@ class MockPhase1(BasePhase):
 
     @classmethod
     def get_required_resources(cls):
-        return {str(RESOURCE1), str(RESOURCE2)}
+        return {RESOURCE1, RESOURCE2}
 
 
 class MockPhase2(BasePhase):
@@ -82,7 +82,7 @@ class MockPhase2(BasePhase):
 
     @classmethod
     def get_required_resources(cls):
-        return {str(RESOURCE1), str(RESOURCE2), str(RESOURCE3)}
+        return {RESOURCE1, RESOURCE2, RESOURCE3}
 
 
 @pytest.fixture
@@ -118,6 +118,10 @@ def mock_resource_constructors():
     patch.stopall()
 
 
+def get_resource_keys(cls, workflow_id):
+    return {resource.key(workflow_id) for resource in cls.get_required_resources()}
+
+
 def test_resource_lifecycle(
     resource_manager, mock_workflow, mock_resource_constructors
 ):
@@ -138,7 +142,7 @@ def test_resource_lifecycle(
     assert resource_manager._resource_lifecycle[str(RESOURCE3)] == (1, 1)
 
     # Initialize resources for Phase1
-    resource_manager.initialize_phase_resources(0, MockPhase1.get_required_resources())
+    resource_manager.initialize_phase_resources(0, get_resource_keys(MockPhase1, "1"))
     assert resource_manager._resources.contains(
         workflow_id=1, resource_id=str(RESOURCE1)
     )
@@ -158,7 +162,7 @@ def test_resource_lifecycle(
         workflow_id=1, resource_id=str(RESOURCE2)
     )
     # Initialize resources for Phase2
-    resource_manager.initialize_phase_resources(1, MockPhase2.get_required_resources())
+    resource_manager.initialize_phase_resources(1, get_resource_keys(MockPhase2, "1"))
     assert resource_manager._resources.contains(
         workflow_id=1, resource_id=str(RESOURCE1)
     )
@@ -190,7 +194,7 @@ def test_get_resource(resource_manager, mock_workflow, mock_resource_constructor
         str(RESOURCE2), MockResource, MockResourceConfig()
     )
     resource_manager.compute_schedule([MockPhase1(mock_workflow)])
-    resource_manager.initialize_phase_resources(0, MockPhase1.get_required_resources())
+    resource_manager.initialize_phase_resources(0, get_resource_keys(MockPhase1, "1"))
 
     resource = resource_manager.get_resource(str(RESOURCE1))
     assert isinstance(resource, RESOURCE1.get_class())

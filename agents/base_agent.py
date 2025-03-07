@@ -44,21 +44,6 @@ class BaseAgent(ABC):
 
         logger.info(f"Initialized agent {self.agent_id}")
 
-    @classmethod
-    def get_required_resources(cls) -> Set[str]:
-        """Get the set of required resource attribute names."""
-        return set(str(resource) for resource in cls.REQUIRED_RESOURCES)
-
-    @classmethod
-    def get_optional_resources(cls) -> Set[str]:
-        """Get the set of optional resource attribute names."""
-        return set(str(resource) for resource in cls.OPTIONAL_RESOURCES)
-    
-    @classmethod
-    def get_accessible_resources(cls) -> Set[str]:
-        """Get the set of optional resource attribute names."""
-        return set(str(resource) for resource in cls.ACCESSIBLE_RESOURCES)
-
     @abstractmethod
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """

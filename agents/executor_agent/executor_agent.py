@@ -25,7 +25,6 @@ class ExecutorAgentConfig(AgentConfig):
     """Configuration for ExecutorAgent"""
 
 
-# TODO (Denis): make sure kali env is bound correctly
 class ExecutorAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [

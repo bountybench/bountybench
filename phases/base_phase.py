@@ -117,7 +117,7 @@ class BasePhase(ABC):
         return other
 
     @classmethod
-    def get_required_resources(cls) -> Set[str]:
+    def get_required_resources(cls) -> Set[ResourceType]:
         """
         Get the set of required resources for all agents in this phase.
 
@@ -126,7 +126,7 @@ class BasePhase(ABC):
         """
         resources = set()
         for agent_cls in cls.AGENT_CLASSES:
-            resources.update(agent_cls.get_required_resources())
+            resources.update(agent_cls.REQUIRED_RESOURCES)
         return resources
 
     def setup(self) -> None:
