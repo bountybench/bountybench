@@ -1,34 +1,22 @@
 import asyncio
 import atexit
+import subprocess
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, Type
 
 from agents.agent_manager import AgentManager
-from messages.action_messages.action_message import ActionMessage
-from messages.agent_messages.agent_message import AgentMessage
-from messages.message import Message
-from messages.message_handler import MessageHandler
-from messages.message_utils import message_dict
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from utils.logger import get_main_logger
+from workflows.interactive_controller import InteractiveController
 
 logger = get_main_logger(__name__)
 
 
-class WorkflowStatus(Enum):
-    """Status of workflow execution"""
-
-    INCOMPLETE = "incomplete"
-    COMPLETED_SUCCESS = "completed_success"
-    COMPLETED_FAILURE = "completed_failure"
-
-
 class BaseWorkflow(ABC):
-    status = WorkflowStatus.INCOMPLETE
 
     def __init__(self, **kwargs):
         logger.info(f"Initializing workflow {self.name}")
@@ -54,9 +42,10 @@ class BaseWorkflow(ABC):
             additional_metadata=self._get_metadata(),
         )
 
+        self._check_docker_desktop_availability()
         self._setup_resource_manager()
         self._setup_agent_manager()
-        self._setup_message_handler()
+        self._setup_interactive_controller()
         self._create_phases()
         self._compute_resource_schedule()
         logger.info(f"Finished initializing workflow {self.name}")
@@ -89,6 +78,14 @@ class BaseWorkflow(ABC):
     def task(self):
         return self._get_task()
 
+    @property
+    def current_phase(self):
+        return self._current_phase
+    
+    @property
+    def phase_graph(self):
+        return self._phase_graph
+
     def _create_phase(self, phase_class: Type[BasePhase], **kwargs: Any) -> None:
         """
         Create a phase instance and register it with the workflow.
@@ -119,22 +116,38 @@ class BaseWorkflow(ABC):
         pass
 
     def _setup_agent_manager(self):
-        self.agent_manager = AgentManager()
+        self.agent_manager = AgentManager(workflow_id=self.workflow_message.workflow_id)
         logger.info("Setup agent manager")
 
     def _setup_resource_manager(self):
-        self.resource_manager = ResourceManager()
+        self.resource_manager = ResourceManager(
+            workflow_id=self.workflow_message.workflow_id
+        )
         logger.info("Setup resource manager")
 
-    def _setup_message_handler(self):
-        self.message_handler = MessageHandler(self.agent_manager, self.resource_manager)
-        logger.info("Setup message handler")
+    def _setup_interactive_controller(self):
+        self.interactive_controller = InteractiveController(self)
+        logger.info("Setup interactive controller")
 
     def _get_task(self) -> Dict[str, Any]:
         return {}
 
     def _get_metadata(self) -> Dict[str, Any]:
         return {}
+
+    def _check_docker_desktop_availability(self):
+        # Check Docker Desktop availability
+        try:
+            subprocess.run(
+                ["docker", "info"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+        except subprocess.CalledProcessError:
+            raise RuntimeError(
+                "Docker Desktop is not running. Please start Docker Desktop before starting the workflow"
+            )
 
     async def run(self) -> None:
         """Execute the entire workflow by running all phases in sequence."""
@@ -165,13 +178,10 @@ class BaseWorkflow(ABC):
                 self._current_phase = next_phases[0] if next_phases else None
 
             if prev_phase_message.success:
-                self.workflow_message.set_summary(
-                    WorkflowStatus.COMPLETED_SUCCESS.value
-                )
-            else:
-                self.workflow_message.set_summary(
-                    WorkflowStatus.COMPLETED_FAILURE.value
-                )
+                self.workflow_message.set_success()
+
+            self.workflow_message.set_complete()
+            self.workflow_message.save()
 
         except Exception as e:
             self._handle_workflow_exception(e)
@@ -186,7 +196,9 @@ class BaseWorkflow(ABC):
         for (
             resource_id,
             resource,
-        ) in phase_instance.resource_manager._resources.id_to_resource.items():
+        ) in phase_instance.resource_manager._resources.id_to_resource.get(
+            self.workflow_message.workflow_id, {}
+        ).items():
             self.workflow_message.add_resource(resource_id, resource)
 
         phase_message = await phase_instance.run(
@@ -201,18 +213,6 @@ class BaseWorkflow(ABC):
         self._workflow_iteration_count += 1
 
         return phase_message
-
-    async def add_user_message(self, user_input: str) -> str:
-        result = await self._current_phase.add_user_message(user_input)
-
-        # Trigger the next iteration
-        self.next_iteration_event.set()
-
-        return result
-
-    async def get_last_message(self) -> str:
-        result = self._current_phase.last_agent_message
-        return result.message if result else ""
 
     def _max_iterations_reached(self) -> bool:
         return self._workflow_iteration_count >= self.max_iterations
@@ -246,84 +246,7 @@ class BaseWorkflow(ABC):
             )
             logger.info(f"{phase.phase_config.phase_name} registered")
 
-    async def get_last_message(self) -> str:
-        result = self._current_phase.last_agent_message
-        return result.message if result else ""
-
-    async def set_last_message(self, message_id: str):
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
-        message = workflow_messages.get(message_id)
-        if isinstance(message, ActionMessage):
-            message = message.parent
-        if message and isinstance(message, AgentMessage):
-            await self._current_phase.set_last_agent_message(message)
-
-    async def run_message(self, message_id: str):
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
-        message = workflow_messages.get(message_id)
-        if message.next:
-            message = await self.message_handler.run_message(message)
-            return message
-        return None
-
-    async def run_next_message(self):
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
-        if len(workflow_messages) > 0:
-            _, last_message = list(workflow_messages.items())[-1]
-            if last_message.next:
-                last_message = await self.message_handler.run_message(last_message)
-                return last_message
-            if last_message.parent and last_message.parent.next:
-                last_message = await self.message_handler.run_message(
-                    last_message.parent
-                )
-                return last_message
-        return None
-
-    async def edit_message(self, message_id: str, new_message_data: str) -> Message:
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
-        message = workflow_messages.get(message_id)
-        message = await self.message_handler.edit_message(message, new_message_data)
-        return message
-
-    async def edit_and_run_message(
-        self, message_id: str, new_message_data: str
-    ) -> Message:
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
-        message = workflow_messages.get(message_id)
-        message = await self.message_handler.edit_message(message, new_message_data)
-        if message.next:
-            message = await self.message_handler.run_message(message)
-            return message
-        return None
-
-    async def change_current_model(self, new_model_name: str):
-        self.params["model"] = new_model_name
-        self.resource_manager.update_model(new_model_name)
-        self.agent_manager.update_phase_agents_models(new_model_name)
-
-    async def set_interactive_mode(self, interactive: bool):
-        if self.interactive != interactive:
-            self.interactive = interactive
-            logger.info(f"Workflow interactive mode set to {interactive}")
-
-            # Update the interactive mode for the current phase
-            if self._current_phase:
-                await self._current_phase.set_interactive_mode(interactive)
-
-            # Update the interactive mode for all remaining phases
-            for phase in self._phase_graph:
-                if phase != self._current_phase:
-                    phase.phase_config.interactive = interactive
-
-            if not interactive:
-                # If switching to non-interactive, trigger next iteration
-                self.next_iteration_event.set()
-
     async def stop(self):
-        # Set the status to stopped
-        self.status = WorkflowStatus.INCOMPLETE
-
         # Deallocate agents and resources
         self.agent_manager.deallocate_all_agents()
         self.resource_manager.deallocate_all_resources()
@@ -333,25 +256,42 @@ class BaseWorkflow(ABC):
 
         self._finalize_workflow()
 
-    async def toggle_version(self, message_id: str, direction: str):
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
-        message = workflow_messages.get(message_id)
+    async def restart(self): 
+        self.status = WorkflowStatus.INCOMPLETE
+        self._initialize()
 
-        if not message:
-            raise ValueError(f"Message with id {message_id} not found")
+        self._setup_resource_manager()
+        self._setup_agent_manager()
+        self._setup_interactive_controller()
+        self._compute_resource_schedule()
 
-        if direction == "prev":
-            target_message = message.version_prev
-        elif direction == "next":
-            target_message = message.version_next
-        else:
-            raise ValueError("Invalid direction. Must be 'prev' or 'next'")
+        self.next_iteration_event = asyncio.Event()
+        self.workflow_message.new_log()
+        logger.info(f"Restarted workflow {self.name}")
+        
+    async def run_restart(self): 
+        logger.info(f"Running restarted workflow {self.name}")
+        # pick up running from current phase
+        self._current_phase.setup()
+        agent_configs =  self._current_phase.define_agents()
+        self.agent_manager.initialize_phase_agents(agent_configs)
+        
+        phase_message = await self._current_phase.run(self.workflow_message, None)
 
-        from messages.message_utils import generate_subtree
+        logger.status(f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
 
-        subtree = generate_subtree(target_message)
-
-        return subtree
+        self._workflow_iteration_count += 1
+        next_phases = self._phase_graph.get(self._current_phase, [])
+        self._current_phase = next_phases[0] if next_phases else None
+        
+        # Continue running the remaining phases (if any)
+        if self._current_phase:
+            try:
+                async for _ in self._run_phases():
+                    continue
+            except asyncio.CancelledError:
+                logger.info("workflow phases run was cancelled")
+                raise
 
     @property
     def name(self):

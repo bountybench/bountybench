@@ -10,7 +10,7 @@ import { formatData } from '../../utils/messageFormatters';
 import './AgentMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import AddIcon from '@mui/icons-material/Add';
+import { CopyButton } from '../buttons/CopyButton';
 
 const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
@@ -33,6 +33,15 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
       setEditedMessage(originalMessageContent);
     }
   }, [originalMessageContent, onEditingChange, message]);
+
+  const handleCopyClick = () => {
+    const formattedMessage = formatData(editedMessage);
+    if (formattedMessage === "") {
+      return
+    }
+
+    navigator.clipboard.writeText(formattedMessage);
+  }
 
   const handleSaveClick = useCallback(async () => {
     if (!message.current_id) {
@@ -151,6 +160,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     onChange={(e) => setEditedMessage(e.target.value)}
                   />
                   <Box className="message-buttons">
+                      <CopyButton onClick={handleCopyClick} />
                     <Button
                       variant="outlined"
                       color="secondary"
@@ -185,6 +195,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     </Typography>
                   </Card>
                   <Box className="message-buttons">
+                      <CopyButton onClick={handleCopyClick} />
                     <Button
                       variant="outlined"
                       color="primary"
@@ -260,7 +271,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     onCellSelect={onCellSelect}
                   />
                 ))}
-                <Box className="add-action-button-container">
+                {/* <Box className="add-action-button-container">
                   <Button
                     variant="outlined"
                     aria-label="action add"
@@ -269,7 +280,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                   >
                     <AddIcon />
                   </Button>
-                </Box>
+                </Box> */}
               </Box>
               
               <>

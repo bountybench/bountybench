@@ -52,10 +52,12 @@ const ResourceItem = ({ resourceId, resource }) => {
       </Typography>
       
       {resource.config && (
-        <Collapse in={expanded}>
-          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-            Resource Config:
-          </Typography>
+        <Collapse in={expanded}>  
+          <Divider sx={{ 
+            my: 2,
+            backgroundColor: 'white',
+            }} 
+          /> {/* Small horizontal line */}
           <List dense>
             {Object.entries(resource.config).map(([key, value]) => (
               <React.Fragment key={key}>
@@ -73,7 +75,6 @@ const ResourceItem = ({ resourceId, resource }) => {
 const ResourceDict = ({ resources }) => {
   return (
     <Box className="workflow-resources" sx={{ 
-      height: 'calc(100vh - 100px)', // Adjust this value based on your layout
       overflowY: 'auto',
       pr: 2, // Add some padding to the right for the scrollbar
     }}>

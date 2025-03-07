@@ -59,7 +59,7 @@ def mock_workflow(message_handler):
 
 @pytest.fixture
 def mock_agent_manager():
-    agent_manager = AgentManager()
+    agent_manager = AgentManager(workflow_id=1)
     agent = AsyncMock()
     agent.run = AsyncMock(return_value=AgentMessage("test_agent", "new agent message"))
     agent_manager.get_agent = Mock(return_value=agent)
@@ -76,7 +76,7 @@ def test_dir(tmp_path):
 def kali_env(test_dir):
     """Setup real KaliEnv resource"""
     config = KaliEnvResourceConfig(
-        task_dir=str(test_dir),
+        task_dir=test_dir,
         bounty_number="0",
         volumes={
             str(test_dir): {"bind": "/app", "mode": "rw"},
@@ -88,7 +88,7 @@ def kali_env(test_dir):
 @pytest.fixture
 def resource_manager(kali_env):
     """Setup resource manager with mixed mock and real resources"""
-    manager = ResourceManager()
+    manager = ResourceManager(workflow_id=1)
     # Add the kali_env resource
     manager._resources.id_to_resource["kali_env"] = kali_env
     # Setup mock for other resources

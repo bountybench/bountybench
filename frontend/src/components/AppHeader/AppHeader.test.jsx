@@ -20,13 +20,14 @@ describe('AppHeader Component', () => {
   });
 
   test('displays workflow status, phase, and model name', async () => {
-    const allModels = [{ 'name': "model1/name", 'description': "model1/model_name" }];
+    const allModels = [{ name: "model1/name", description: "model1/model_name" }];
+    
     global.fetch = jest.fn(() =>
       Promise.resolve({
         json: () => Promise.resolve({ allModels }),
       })
     );
-
+  
     await act(async () => {
       render(
         <MemoryRouter>
@@ -38,9 +39,9 @@ describe('AppHeader Component', () => {
         </MemoryRouter>
       );
     });
-
+  
     expect(global.fetch).toHaveBeenCalledTimes(1);
-
+  
     await waitFor(() => {
       expect(screen.getByText(/Status:/i)).toBeInTheDocument();
       expect(screen.getByText(/Running/i)).toBeInTheDocument();
@@ -51,14 +52,9 @@ describe('AppHeader Component', () => {
     });
   });
 
-  test('interactive mode toggle works', () => {
-    const allModels = [{ 'name': "model1/name", 'description': "model1/model_name" }];
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        json: () => Promise.resolve({ allModels }),
-      })
-    );
+  test('interactive mode toggle works', async () => {
     const toggleMock = jest.fn();
+  
     render(
       <MemoryRouter>
         <AppHeader
@@ -68,23 +64,28 @@ describe('AppHeader Component', () => {
         />
       </MemoryRouter>
     );
-    const switchElement = screen.getByRole('checkbox');
-    fireEvent.click(switchElement);
+  
+    // Wait for the checkboxes to be available
+    const checkboxes = await screen.findAllByRole('checkbox');
+  
+    const interactiveSwitch = checkboxes[0];
+  
+    fireEvent.click(interactiveSwitch);
     expect(toggleMock).toHaveBeenCalled();
   });
 
   test('model change', async () => {
     const allModels = [
-      { 'name': "model1/name", 'description': "model1/name" },
-      { 'name': "model1/name2", 'description': "model1/name2" },
-      { 'name': "model2/name1", 'description': "model2/name1" },
+      { name: "model1/name", description: "model1/name" },
+      { name: "model1/name2", description: "model1/name2" },
+      { name: "model2/name1", description: "model2/name1" },
     ];
     global.fetch = jest.fn(() =>
       Promise.resolve({
         json: () => Promise.resolve({ allModels }),
       })
     );
-
+  
     await act(async () => {
       render(
         <MemoryRouter>
@@ -96,15 +97,18 @@ describe('AppHeader Component', () => {
         </MemoryRouter>
       );
     });
-
+  
     expect(global.fetch).toHaveBeenCalledTimes(1);
-
+  
+    // Wait for model name dropdown to be available before interacting
+    await waitFor(() => expect(screen.getByText('name')).toBeInTheDocument());
+  
     // Change model name
     fireEvent.mouseDown(screen.getByText('name'));
-    fireEvent.click(screen.getByText('name2'));
-
+    await waitFor(() => fireEvent.click(screen.getByText('name2')));
+  
     // Change model type
     fireEvent.mouseDown(screen.getByText('model1'));
-    fireEvent.click(screen.getByText('model2'));
+    await waitFor(() => fireEvent.click(screen.getByText('model2')));
   });
 });

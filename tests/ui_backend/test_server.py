@@ -50,10 +50,14 @@ def test_start_workflow_success(client):
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200, "Expected status code 200"
@@ -72,10 +76,13 @@ def test_start_workflow_invalid_name(client):
         "workflow_name": "Unknown Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200, "Expected status code 200 even on error"
@@ -93,10 +100,14 @@ def started_chat_workflow(client):
         "workflow_name": "Chat Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "456",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 2,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -110,10 +121,14 @@ def started_patch_workflow(client):
         "workflow_name": "Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "789",
+        "vulnerability_type": "",
         "interactive": False,
         "iterations": 1,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -155,10 +170,14 @@ def started_detect_workflow(client):
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "654",
+        "vulnerability_type": "",
         "interactive": False,
         "iterations": 2,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     response = client.post("/workflow/start", json=payload)
     assert response.status_code == 200
@@ -233,6 +252,7 @@ def test_start_workflow_missing_fields(client):
         "workflow_name": "Detect Workflow",
         # "task_dir" is missing
         "bounty_number": "123",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 5,
         "model": "test/model",
@@ -276,20 +296,26 @@ def test_workflow_restart_creates_new_workflow(client):
         "workflow_name": "Exploit and Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "999",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     new_payload = {
         "workflow_name": "Exploit and Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "100",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     # Step 1: Start the first workflow
@@ -376,20 +402,28 @@ def test_stopping_multiple_workflows(client):
         "workflow_name": "Exploit and Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "101",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     payload_2 = {
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "102",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     # Start two workflows
@@ -435,10 +469,14 @@ def test_restarting_workflow_with_same_bounty_number(client):
         "workflow_name": "Exploit and Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "999",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     # Start the first workflow
@@ -468,10 +506,14 @@ def test_stopping_workflow_twice(client):
         "workflow_name": "Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "777",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
 
     # Start the workflow
@@ -512,10 +554,14 @@ async def test_websocket_connection_success(client):
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     start_response = client.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200
@@ -534,10 +580,14 @@ async def test_websocket_receive_status_update(client):
         "workflow_name": "Detect Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
+        "vulnerability_type": "",
         "interactive": True,
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "use_mock_model": True,
+        "max_input_tokens": 4096,
+        "max_output_tokens": 2048,
     }
     start_response = client.post("/workflow/start", json=start_payload)
     assert start_response.status_code == 200

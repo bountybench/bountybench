@@ -1,0 +1,19 @@
+# Use a Node.js image
+FROM node:14
+
+# Set the working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json, install dependencies
+COPY package*.json ./
+
+RUN npm install
+
+# Copy the rest of the frontend code
+COPY . .
+
+# Expose the frontend port (assuming it runs on port 3000)
+EXPOSE 3000
+
+# Define the command to run your frontend
+CMD ["npm", "start"]

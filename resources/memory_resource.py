@@ -30,8 +30,10 @@ class MemoryPrompts:
     """Collection of format strings to convert memory to prompt."""
 
     _DEFAULT_SEGUE = (
-        "In addition to the above task, you are also provided the transaction history of the system.\n"
-        "You should account for previous messages (if present) that have occurred when formulating your response:"
+        "In addition to the above task, "
+        "you are also provided the transaction history of the system.\n"
+        "You should account for previous messages (if present) "
+        "that have occurred when formulating your response:"
     )
 
     _DEFAULT_SEGMENTS = (
@@ -79,15 +81,15 @@ class MemoryCollationFunctions:
     """
 
     @staticmethod
-    def collate_ordered(segment):
+    def collate_ordered(segment, start=1):
         """Join each message and prepend enumeration."""
-        return "\n".join(f"{i+1}) {message}" for i, message in enumerate(segment))
+        return "\n".join(f"{i+start}) {message}" for i, message in enumerate(segment))
 
     @staticmethod
     def validate_collation_fn(fn):
         assert (
             type(fn(["msg1", "msg2"])) == str
-        ), f"Memory collation_fn should take list of messages and output str."
+        ), "Memory collation_fn should take list of messages and output str."
 
 
 class MemoryTruncationFunctions:
@@ -95,8 +97,10 @@ class MemoryTruncationFunctions:
     Collection of memory truncation functions.
 
     There are two types of truncation functions.
-     - segment_fn*: Takes a list of messages in a single segment, and returns a truncated segment.
-     - memory_fn*: Takes a list of segments (ie list of lists), amd returns a globally truncated memory.
+     - segment_fn*: Takes a list of messages in a single segment,
+        and returns a truncated segment.
+     - memory_fn*: Takes a list of segments (ie list of lists),
+        and returns a globally truncated memory.
     """
 
     @staticmethod
@@ -173,9 +177,10 @@ class MemoryTruncationFunctions:
 
     @staticmethod
     def validate_segment_trunc_fn(fn):
-        assert (
-            type(fn(["msg1", "msg2"])) == list
-        ), f"Segment truncation_fn should take list of messages and output truncated list."
+        assert type(fn(["msg1", "msg2"])) == list, (
+            "Segment truncation_fn should take list of messages and "
+            "output truncated list."
+        )
         assert "msg1" in fn(
             ["msg1", "msg2"], pinned_messages={"msg1"}
         ), "Segment truncation_fn should respect pin."
@@ -184,13 +189,13 @@ class MemoryTruncationFunctions:
     def validate_memory_trunc_fn(fn):
         res = fn([["msg1", "msg2"], ["msga", "msgb"]])
         assert (
-            type(res) == list and type(res[0]) == list
-        ), f"Memory truncation_fn should take list of segments and output truncated list."
+            type(res) is list and type(res[0]) is list
+        ), "Memory truncation_fn should take list of segments and output truncated list"
 
         res = fn([["msg1", "msg2"], ["msga", "msgb"]], pinned_messages={"msg1"})
         assert "msg1" in [
             y for x in res for y in x
-        ], f"Memory truncation_fn should respect pin"
+        ], "Memory truncation_fn should respect pin"
 
 
 @dataclass
@@ -203,7 +208,7 @@ class MemoryResourceConfig(BaseResourceConfig):
         default=MemoryCollationFunctions.collate_ordered
     )
     segment_trunc_fn: Callable[[List], List] = field(
-        default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=3)
+        default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=6)
     )
     memory_trunc_fn: Callable[[List], List] = field(
         default=MemoryTruncationFunctions.memory_fn_by_token
@@ -288,14 +293,14 @@ class MemoryResource(BaseResource):
                 return msg_node.agent_id
 
             assert isinstance(msg_node, ActionMessage)
-            return msg_node.parent.agent_id
+            return msg_node.parent.agent_id + "/" + msg_node.resource_id
 
         def add_to_segment(msg_node, segment):
             id_ = extract_id(msg_node)
             if not msg_node._message.strip():
                 return
 
-            segment.append(f"[{id_}]{msg_node._message.strip()}")
+            segment.append(f"[{id_}] {msg_node._message.strip()}")
 
         def go_up(msg_node, dst_cls):
             down_stop = None
@@ -303,11 +308,6 @@ class MemoryResource(BaseResource):
                 down_stop = msg_node
                 msg_node = msg_node.parent
             return msg_node, down_stop
-            #     stops.append(msg_node)
-            #     while msg_node.prev:
-            #         msg_node = msg_node.prev
-            #     msg_node = msg_node.parent
-            # return msg_node, stops
 
         def go_down(msg_node, sys_messages, stop_instance):
             if is_initial_prompt(msg_node):
@@ -362,7 +362,13 @@ class MemoryResource(BaseResource):
         ]
         # truncate all memory
         trunc_segments = self.memory_trunc_fn(trunc_segments, self.pinned_messages)
-        trunc_segments = [self.collate_fn(x) for x in trunc_segments]
+        start = 1
+        collated_segments = []
+        for segment in trunc_segments:
+            collated_segment = self.collate_fn(segment, start=start)
+            collated_segments.append(collated_segment)
+            start += len(segment)
+        trunc_segments = collated_segments
 
         return trunc_segments, system_messages
 
@@ -388,14 +394,21 @@ class MemoryResource(BaseResource):
         while len(messages) < len(kwargs):
             messages.append("")
 
-        messages = [x if x else "N/A" for x in messages]
-        kwargs = {k: m for k, m in zip(kwargs, messages)}
+        # Only include sections that have content
+        non_empty_sections = [(k, m) for k, m in zip(kwargs, messages) if m]
 
-        memory_str = self.fmt.format(**kwargs)
+        if not non_empty_sections:
+            # If no messages present, only include system message
+            message.memory = system_message
+            return message
 
-        memory_str = f"{system_message}\n\n" + memory_str
+        # Format memory string with only non-empty sections
+        memory_sections = [f"{m}" for _, m in non_empty_sections]
+        memory_str = (
+            f"{MemoryPrompts._DEFAULT_SEGUE}\n" f"{chr(10).join(memory_sections)}"
+        )
 
-        message.memory = memory_str
+        message.memory = f"{system_message}\n\n{memory_str}"
         return message
 
     def pin(self, message_str: str):

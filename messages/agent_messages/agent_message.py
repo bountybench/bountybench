@@ -18,8 +18,9 @@ class AgentMessage(Message):
         self._agent_id = agent_id
         self._action_messages = []
         self._memory = None
+        super().__init__(prev=prev)
 
-        super().__init__(prev)
+
 
     @property
     def message(self) -> str:
@@ -102,9 +103,10 @@ class AgentMessage(Message):
             "agent_id": self.agent_id,
             "message": self.message,
             "current_children": [
-                action_message.to_broadcast_dict() for action_message in self.current_children
+                action_message.to_broadcast_dict()
+                for action_message in self.current_children
             ],
-            "iteration": self.iteration
+            "iteration": self.iteration,
         }
         broadcast_dict.update(base_dict)
         return broadcast_dict
@@ -114,9 +116,14 @@ class AgentMessage(Message):
         log_dict = {
             "agent_id": self.agent_id,
             "message": self.message,
-            "action_messages": [
-                action_message.to_log_dict() for action_message in self.action_messages
-            ] if self.action_messages else None,
+            "action_messages": (
+                [
+                    action_message.to_log_dict()
+                    for action_message in self.action_messages
+                ]
+                if self.action_messages
+                else None
+            ),
         }
         log_dict.update(base_dict)
         return log_dict

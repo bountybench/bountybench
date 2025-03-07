@@ -135,6 +135,18 @@ class BasePhase(ABC):
         """
         logger.debug(f"Entering setup for {self.name}")
 
+        # 1. Define and register resources
+        resource_configs = self.define_resources()
+        for resource_id, (resource_class, resource_config) in resource_configs.items():
+            if not self.resource_manager.is_resource_equivalent(resource_id, resource_class, resource_config):
+                self.resource_manager.register_resource(resource_id, resource_class, resource_config)
+        
+        # 2. Initialize phase resources
+        self.resource_manager.initialize_phase_resources(self.phase_config.phase_idx, resource_configs.keys())
+        logger.info(f"Resources for phase {self.name} initialized")
+        # 3. Define and register agents
+        agent_configs = self.define_agents()
+
         try:
             # 1. Define and register resources
             resource_configs = self.define_resources()
@@ -149,11 +161,7 @@ class BasePhase(ABC):
                         resource_id, resource_class, resource_config
                     )
 
-            # 2. Initialize phase resources
-            self.resource_manager.initialize_phase_resources(
-                self.phase_config.phase_idx, resource_configs.keys()
-            )
-            logger.info(f"Resources for phase {self.name} initialized")
+            logger.info(f"Completed setup for {self.name}")
 
             # 3. Define and register agents
             agent_configs = self.define_agents()
@@ -196,16 +204,19 @@ class BasePhase(ABC):
         Returns:
             PhaseMessage: The message of the current phase.
         """
-        logger.debug(
-            f"Entering run for phase {self.phase_config.phase_idx} ({self.phase_config.phase_name})"
-        )
 
-        self._phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
-        workflow_message.add_child_message(self._phase_message)
+        logger.info(f"running Phase {self.name} starting at iteration {self.iteration_count}")
 
-        self._initialize_last_agent_message(prev_phase_message)
+        if self.iteration_count == 0 and (not hasattr(self, '_phase_message') or not self._phase_message):
+            self._phase_message = PhaseMessage(phase_id=self.name, prev=prev_phase_message)
+            workflow_message.add_child_message(self._phase_message)
 
-        for iteration_num in range(0, self.phase_config.max_iterations):
+            self._initialize_last_agent_message(prev_phase_message)
+
+        start_count = self.iteration_count
+        # Start the iteration at the current count
+        for iteration_num in range(start_count, self.phase_config.max_iterations + 1):
+
             if self._phase_message.complete:
                 break
 
@@ -245,14 +256,6 @@ class BasePhase(ABC):
 
     def _create_initial_agent_message(self) -> None:
         """Create the initial agent message for the phase."""
-        if self.params.get("task_dir"):
-            codebase_structure = subprocess.run(
-                ["tree", "-L", "4"],
-                cwd=os.path.join(self.params.get("task_dir"), "tmp"),
-                capture_output=True,
-                text=True,
-            ).stdout
-            self.params["codebase"] = "$ tree -L 4\n" + codebase_structure
         self._last_agent_message = AgentMessage(
             agent_id="system",
             message=self.params.get("initial_prompt").format(**self.params),

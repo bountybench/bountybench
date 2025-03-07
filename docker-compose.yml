@@ -1,0 +1,52 @@
+services:
+  nginx:
+      build:
+        context: .
+        dockerfile: Dockerfile.nginx
+      container_name: nginx-proxy
+      ports:
+        - "3000:80"  # Host port 3000 to Container port 80
+      depends_on:
+        - frontend
+        - backend
+      networks:
+        - app-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: backend-service
+    privileged: true
+    volumes:
+      - dind-data:/var/lib/docker
+      - ./logs:/app/logs
+    networks:
+      - app-network
+    environment:
+      - HELM_API_KEY=${HELM_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: frontend-service
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - REACT_APP_USE_NGINX_PROXY=true # The REACT_APP_ prefix exposes the variable to the frontend JS code
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  dind-data:
+    external: true

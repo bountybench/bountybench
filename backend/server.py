@@ -1,4 +1,5 @@
 import asyncio
+
 from starlette.middleware.cors import CORSMiddleware
 
 
@@ -21,7 +22,6 @@ class Server:
 
         self.app.add_event_handler("shutdown", self.shutdown)
 
-
     def setup_middleware(self):
         self.app.add_middleware(
             CORSMiddleware,
@@ -35,10 +35,12 @@ class Server:
         from backend.routers.api_service import api_service_router
         from backend.routers.workflow_service import workflow_service_router
         from backend.routers.workflows import workflows_router
+        from backend.routers.logs import logs_router
 
         self.app.include_router(api_service_router)
         self.app.include_router(workflows_router)
         self.app.include_router(workflow_service_router)
+        self.app.include_router(logs_router)
 
     async def shutdown(self):
         """Gracefully shutdown the server with proper cleanup"""
@@ -58,6 +60,6 @@ class Server:
             try:
                 await task
             except asyncio.CancelledError:
-                pass #intentionally passing when shutting down, you intentionally cancel tasks (task.cancel()). This means asyncio.CancelledError is a natural consequence, not an error that needs escalation.
+                pass  # intentionally passing when shutting down, you intentionally cancel tasks (task.cancel()). This means asyncio.CancelledError is a natural consequence, not an error that needs escalation.
             except Exception as e:
                 raise e
