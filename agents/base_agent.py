@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-from functools import wraps
-from typing import List, Set, Tuple, Type, Union
+from typing import List, Set
 
 from messages.agent_messages.agent_message import AgentMessage
-from messages.message import Message
-from resources.base_resource import BaseResource
+from resources.resource_type import AgentResources, ResourceType
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -31,45 +29,20 @@ class BaseAgent(ABC):
     - OPTIONAL_RESOURCES: Used if available, no exception if missing
     - ACCESSIBLE_RESOURCES: Subset of required and optional that will be bound as attributes
 
-    Resource entries can be:
-    - A resource class (e.g., DockerResource)
-    - A tuple (ResourceClass, "custom_attr_name")
+    Resource entries are lists of DefaultResource enums
     """
 
-    REQUIRED_RESOURCES: List[Union[type, Tuple[type, str]]] = []
-    OPTIONAL_RESOURCES: List[Union[type, Tuple[type, str]]] = []
-    ACCESSIBLE_RESOURCES: List[Union[type, Tuple[type, str]]] = []
+    REQUIRED_RESOURCES: List[ResourceType] = []
+    OPTIONAL_RESOURCES: List[ResourceType] = []
+    ACCESSIBLE_RESOURCES: List[ResourceType] = []
 
     def __init__(self, agent_id: str, agent_config: AgentConfig):
         self._agent_id = agent_id
         self.agent_config = agent_config
+        self.resources = AgentResources()
         self.target_host_address = getattr(agent_config, "target_host", "")
 
         logger.info(f"Initialized agent {self.agent_id}")
-
-    @staticmethod
-    def _parse_resource_entry(
-        entry: Union[Type[BaseResource], Tuple[Type[BaseResource], str]]
-    ) -> Tuple[Type[BaseResource], str]:
-        if isinstance(entry, tuple):
-            return entry
-        return entry, entry.__name__.lower()
-
-    @classmethod
-    def get_required_resources(cls) -> Set[str]:
-        """Get the set of required resource attribute names."""
-        return set(
-            cls._parse_resource_entry(resource)[1]
-            for resource in cls.REQUIRED_RESOURCES
-        )
-
-    @classmethod
-    def get_optional_resources(cls) -> Set[str]:
-        """Get the set of optional resource attribute names."""
-        return set(
-            cls._parse_resource_entry(resource)[1]
-            for resource in cls.OPTIONAL_RESOURCES
-        )
 
     @abstractmethod
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:

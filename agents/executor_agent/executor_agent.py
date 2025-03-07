@@ -1,7 +1,8 @@
 import asyncio
-from typing import List, Optional
 from dataclasses import dataclass
-from agents.base_agent import BaseAgent, AgentConfig
+from typing import List, Optional
+
+from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.command_message_interface import CommandMessageInterface
@@ -9,12 +10,7 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.convert_message_utils import cast_action_to_command
 from messages.message import Message
-from resources.bounty_setup_resource import BountySetupResource
-from resources.init_files_resource import InitFilesResource
-from resources.kali_env_resource import KaliEnvResource
-from resources.memory_resource import MemoryResource
-from resources.model_resource.model_resource import ModelResource
-from resources.repo_setup_resource import RepoSetupResource
+from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -23,29 +19,28 @@ logger = get_main_logger(__name__)
 MAX_RETRIES = 3
 RETRY_DELAY = 30
 
+
 @dataclass
 class ExecutorAgentConfig(AgentConfig):
     """Configuration for ExecutorAgent"""
 
+
 class ExecutorAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
-        (InitFilesResource, "init_files"),
-        KaliEnvResource,
-        (ModelResource, "model"),
-        (MemoryResource, "executor_agent_memory"),
+        ResourceType.INIT_FILES,
+        ResourceType.KALI_ENV,
+        ResourceType.MODEL,
+        ResourceType.MEMORY,
     ]
     OPTIONAL_RESOURCES = [
-        (RepoSetupResource, "repo_setup"),
-        (BountySetupResource, "bounty_setup"),
+        ResourceType.REPO_SETUP,
+        ResourceType.BOUNTY_SETUP,
     ]
     ACCESSIBLE_RESOURCES = [
-        KaliEnvResource,
-        (InitFilesResource, "init_files"),
-        (RepoSetupResource, "repo_setup"),
-        (BountySetupResource, "bounty_setup"),
-        (ModelResource, "model"),
-        (MemoryResource, "executor_agent_memory"),
+        ResourceType.KALI_ENV,
+        ResourceType.MODEL,
+        ResourceType.MEMORY,
     ]
 
     async def run(self, messages: List[Message]) -> Message:
@@ -103,11 +98,11 @@ class ExecutorAgent(BaseAgent):
             iterations = 0
             while iterations < MAX_RETRIES:
                 try:
-                    lm_input_message = self.executor_agent_memory.get_memory(
+                    lm_input_message = self.resources.executor_agent_memory.get_memory(
                         lm_input_message
                     )
                     model_output: ActionMessage = await asyncio.to_thread(
-                        self.model.run, input_message=lm_input_message
+                        self.resources.model.run, input_message=lm_input_message
                     )
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
@@ -154,11 +149,11 @@ class ExecutorAgent(BaseAgent):
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
         """
-        Executes the command in the environment using self.kali_env,
+        Executes the command in the environment using self.resources.kali_env,
         captures the output, and returns an ActionMessage.
         """
         try:
-            kali_message = self.kali_env.run(executor_message)
+            kali_message = self.resources.kali_env.run(executor_message)
 
             return kali_message
 
@@ -167,7 +162,7 @@ class ExecutorAgent(BaseAgent):
                 f"Failed to execute command: {executor_message.command}.\nException: {str(e)}"
             )
             return ActionMessage(
-                resource_id=self.kali_env.resource_id,
+                resource_id=self.resources.kali_env.resource_id,
                 message=str(e),
                 prev=executor_message,
             )
