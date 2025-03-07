@@ -56,6 +56,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   }, [isAvailable, isChecking]);
 
   const [workflows, setWorkflows] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
   const [configDefaults, setConfigDefaults] = useState({
     max_input_tokens: "",
@@ -141,7 +142,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       });
     } 
   }, []);
-  
+
   const fetchModels = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/workflow/models`);
@@ -206,6 +207,16 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setVulnerabilityTypes(data.vulnerability_types);
     } catch (error) {
       console.error('Failed to fetch vulnerability types:', error);
+    }
+  };
+
+  const fetchTasks = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/tasks`);
+      const data = await response.json();
+      setTasks(data.tasks);
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
     }
   };
 
@@ -396,6 +407,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           await Promise.all([
             fetchWorkflows(),
             fetchApiKeys(),
+            fetchTasks(),
             fetchModels(),
             fetchVulnerabilityTypes(),
             fetchConfigDefaults()
@@ -491,6 +503,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           shouldShowBounty={shouldShowBounty}
           shouldShowVulnerabilityType={shouldShowVulnerabilityType}
           vulnerabilityTypes={vulnerabilityTypes}
+          tasks={tasks}
           addTask={addTask}
           removeTask={removeTask}
         />
