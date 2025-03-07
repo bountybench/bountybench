@@ -51,11 +51,17 @@ export const TaskSelectionSection = ({
                 margin="normal"
                 sx={{ mr: 2, flexGrow: 1 }}
               >
-                {tasks.map(t => (
-                  <MenuItem key={t.task_dir} value={t.task_dir}>
-                    {t.task_dir}
-                  </MenuItem>
-                ))}
+                {tasks.length > 0 ? (
+                    tasks.map(t => (
+                      <MenuItem key={t.task_dir} value={t.task_dir}>
+                        {t.task_dir}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem value="" disabled>
+                      <em>No task directories available</em>
+                    </MenuItem>
+                  )}
               </TextField>
               
               <TextField
