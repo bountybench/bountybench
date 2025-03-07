@@ -109,6 +109,7 @@ function App() {
   };
 
 
+
   const handleWorkflowStateUpdate = (status, phase) => {
     setWorkflowStatus(status);
     setCurrentPhase(phase);

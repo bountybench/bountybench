@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 
 from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeInput
+from resources.model_resource.services.api_key_service import check_api_key_validity
 
 workflow_service_router = APIRouter()
 
@@ -80,31 +81,32 @@ async def restart_workflow(workflow_id: str, request: Request):
         print(f"Workflow {workflow_id} not found in active workflows")
         return {"error": f"Workflow {workflow_id} not found"}
 
-    print(f"BEFORE RESTART - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}")
-    
+    print(
+        f"BEFORE RESTART - Workflow {workflow_id} status: {active_workflows[workflow_id]['status']}"
+    )
+
     workflow = active_workflows[workflow_id]["instance"]
 
     try:
         print(f"Restarting workflow {workflow_id}")
-        await workflow.restart()   
+        await workflow.restart()
         active_workflows[workflow_id]["status"] = "restarting"
 
         # Notify WebSocket clients about the stop
         websocket_manager = request.app.state.websocket_manager
         await websocket_manager.broadcast(
-            workflow_id,
-            {"message_type": "workflow_status", "status": "restarting"}
+            workflow_id, {"message_type": "workflow_status", "status": "restarting"}
         )
         print(f"Broadcasted running status for {workflow_id}")
         return {"status": "restarting", "workflow_id": workflow_id}
-        
+
     except Exception as e:
         # Handle errors
         error_traceback = traceback.format_exc()
         print(f"Error stopping workflow {workflow_id}: {str(e)}\n{error_traceback}")
         return {"error": str(e), "traceback": error_traceback}
 
-    
+
 @workflow_service_router.post("/workflow/{workflow_id}/run-message")
 async def run_message(workflow_id: str, data: MessageData, request: Request):
     active_workflows = request.app.state.active_workflows
@@ -229,13 +231,23 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
                 if current_status == "restarting":
                     print(f"Re-starting workflow {workflow_id}")
                     task = asyncio.create_task(
-                        rerun_workflow(workflow_id, active_workflows, websocket_manager, should_exit)
+                        rerun_workflow(
+                            workflow_id,
+                            active_workflows,
+                            websocket_manager,
+                            should_exit,
+                        )
                     )
                     active_workflows[workflow_id]["task"] = task
                 else:
                     print(f"Auto-starting workflow {workflow_id}")
                     task = asyncio.create_task(
-                        run_workflow(workflow_id, active_workflows, websocket_manager, should_exit)
+                        run_workflow(
+                            workflow_id,
+                            active_workflows,
+                            websocket_manager,
+                            should_exit,
+                        )
                     )
                     active_workflows[workflow_id]["task"] = task
                     await websocket.send_json(
@@ -258,8 +270,10 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
             # If workflow doesn't exist yet, start it
             print(f"Auto-starting new workflow {workflow_id}")
             task = asyncio.create_task(
-                        run_workflow(workflow_id, active_workflows, websocket_manager, should_exit)
-                    )
+                run_workflow(
+                    workflow_id, active_workflows, websocket_manager, should_exit
+                )
+            )
             active_workflows[workflow_id]["task"] = task
             await websocket.send_json(
                 {
@@ -414,10 +428,10 @@ async def change_model(workflow_id: str, data: dict, request: Request):
     print(f"Changing Model for Workflow: {workflow_id}, New Name: {data}")
     workflow = active_workflows[workflow_id]["instance"]
     try:
-        result = await workflow.interactive_controller.change_current_model(
+        await workflow.interactive_controller.change_current_model(
             data["new_model_name"]
         )
-        return {"status": "updated", "result": result.id}
+        return {"status": "updated"}
     except Exception as e:
         error_traceback = traceback.format_exc()
         print(f"Error stopping workflow {workflow_id}: {str(e)}\n{error_traceback}")
@@ -477,11 +491,10 @@ async def get_workflow_resources(workflow_id: str, request: Request):
     return {"resources": resource_list}
 
 
-
 @workflow_service_router.post("/workflow/{workflow_id}/mock-model")
 async def update_mock_model_mode(workflow_id: str, request: Request):
     """
-    Toggles the `use_mock_model` setting using InteractiveController.
+    Toggles the use_mock_model setting using InteractiveController.
     """
     active_workflows = request.app.state.active_workflows
     if workflow_id not in active_workflows:
@@ -492,10 +505,22 @@ async def update_mock_model_mode(workflow_id: str, request: Request):
         new_mock_model_state = data.get("use_mock_model", None)
 
         if new_mock_model_state is None:
-            raise HTTPException(status_code=400, detail="use_mock_model value is required")
+            raise HTTPException(
+                status_code=400, detail="use_mock_model value is required"
+            )
 
         workflow = active_workflows[workflow_id]["instance"]
-        
+
+        # Prevent switching back if API key is missing or invalid
+        if not new_mock_model_state:  # User is trying to disable mock mode
+            model_name = workflow.params.get("model")
+            use_helm = workflow.params.get("use_helm")
+            if not check_api_key_validity(model_name, use_helm):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cannot disable mock mode: API key is missing or invalid.",
+                )
+
         # Use InteractiveController to update mock model state
         await workflow.interactive_controller.set_mock_model(new_mock_model_state)
 
@@ -503,5 +528,7 @@ async def update_mock_model_mode(workflow_id: str, request: Request):
 
     except Exception as e:
         error_traceback = traceback.format_exc()
-        print(f"Error updating mock model for workflow {workflow_id}: {str(e)}\n{error_traceback}")
+        print(
+            f"Error updating mock model for workflow {workflow_id}: {str(e)}\n{error_traceback}"
+        )
         raise HTTPException(status_code=500, detail=str(e))
