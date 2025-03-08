@@ -64,3 +64,21 @@
   margin-bottom: auto;
   margin-top: auto;
 }
+
+.input-and-buttons-container .MuiOutlinedInput-root {
+  border-radius: 4px;
+  height: 32px;
+  width: 128px;
+}
+
+.input-and-buttons-container .MuiOutlinedInput-input {
+  color: #000; /* Black text */
+}
+
+.input-and-buttons-container .MuiOutlinedInput-notchedOutline {
+  border-color: #ccc !important; /* Override the border color to be visible */
+}
+
+.input-and-buttons-container .MuiInputLabel-outlined {
+  color:#ccc !important; /* Override the border color to be visible */
+}

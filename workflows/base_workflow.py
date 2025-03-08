@@ -256,8 +256,7 @@ class BaseWorkflow(ABC):
 
         self._finalize_workflow()
 
-    async def restart(self): 
-        self.status = WorkflowStatus.INCOMPLETE
+    async def restart(self):
         self._initialize()
 
         self._setup_resource_manager()

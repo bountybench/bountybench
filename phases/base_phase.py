@@ -55,6 +55,7 @@ class BasePhase(ABC):
         self._done: bool = False
         self.iteration_count: int = 0
         self._last_agent_message: Optional[Message] = None
+        self._num_pending_iter = 0
 
     @abstractmethod
     def define_resources(
@@ -222,24 +223,26 @@ class BasePhase(ABC):
 
             await self._handle_interactive_mode()
 
-            iteration = self._get_current_iteration()
-            agent_id, agent_instance = self._get_current_agent()
-            logger.info(
-                f"Running iteration {iteration_num} ({iteration}) of {self.name} with {agent_id}"
-            )
+            while self._num_pending_iter > 0:
+                iteration = self._get_current_iteration()
+                agent_id, agent_instance = self._get_current_agent()
+                logger.info(
+                    f"Running iteration {iteration_num} ({iteration}) of {self.name} with {agent_id}"
+                )
 
-            message = await self._run_iteration(agent_instance)
-            message.set_iteration(iteration)
-            await self.set_last_agent_message(message)
-            self._phase_message.add_child_message(message)
+                message = await self._run_iteration(agent_instance)
+                message.set_iteration(iteration)
+                await self.set_last_agent_message(message)
+                self._phase_message.add_child_message(message)
 
-            logger.info(
-                f"Finished iteration {iteration_num} of {self.name} with {agent_id}"
-            )
-            if self._phase_message.complete:
-                break
+                logger.info(
+                    f"Finished iteration {iteration_num} of {self.name} with {agent_id}"
+                )
+                if self._phase_message.complete:
+                    break
 
-            self.iteration_count += 1
+                self.iteration_count += 1
+                self._num_pending_iter -= 1
 
         self._finalize_phase()
 
@@ -273,6 +276,8 @@ class BasePhase(ABC):
                 logger.warning(
                     "Interactive mode is set, but workflow doesn't have next_iteration_event"
                 )
+        else:
+            self.set_num_pending_iter(1)
 
     async def _run_iteration(self, agent_instance: BaseAgent) -> Message:
         """Run a single iteration with the given agent."""
@@ -381,3 +386,16 @@ class BasePhase(ABC):
         Set the last agent message to run from for phase.
         """
         self._last_agent_message = message
+
+    @property
+    def num_pending_iter(self) -> int:
+        """
+        Get the number of pending iterations to be ran.
+
+        Returns:
+            int: The number of pending iterations.
+        """
+        return self._num_pending_iter
+    
+    def set_num_pending_iter(self, n: int):
+        self._num_pending_iter = min(n, self.phase_config.max_iterations - self.iteration_count)

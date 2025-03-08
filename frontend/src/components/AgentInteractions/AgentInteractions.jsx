@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, CircularProgress, Button } from '@mui/material';
+import { Box, CircularProgress, Button, TextField } from '@mui/material';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import StopIcon from '@mui/icons-material/Stop';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
@@ -23,13 +23,19 @@ const AgentInteractions = ({
   const [stopped, setStopped] = useState(false);
   const messagesEndRef = useRef(null);
   const [selectedCellId, setSelectedCellId] = useState(null);
+  const [numIter, setNumIter] = useState(1);
+
+  const handleInputChange = (event) => {
+    const value = parseInt(event.target.value, 10);
+    setNumIter(isNaN(value) ? 0 : value);
+  };
 
   const handleKeyDown = useCallback((event) => {
     if (event.key === 'Enter' && event.altKey) {
       event.preventDefault(); // Prevent the default action
-      onTriggerNextIteration();
+      onTriggerNextIteration(numIter);
     }
-  }, [onTriggerNextIteration]);
+  }, [numIter, onTriggerNextIteration]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -102,10 +108,17 @@ const AgentInteractions = ({
         <>
         {!isStopping && !stopped ? (
           <>
+            <TextField
+              type="number"
+              label="Run X Iter"
+              value={numIter}
+              onChange={handleInputChange}
+              size="small"
+            />
             <Button
               variant="contained"
               color="primary"
-              onClick={onTriggerNextIteration}
+              onClick={() => onTriggerNextIteration(numIter)}
               startIcon={<KeyboardDoubleArrowRightIcon />}
               disabled={isNextDisabled}
               size="small"

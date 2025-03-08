@@ -118,7 +118,7 @@ async def run_message(workflow_id: str, data: MessageData, request: Request):
         result = await workflow.interactive_controller.run_message(data.message_id)
         if not result:
             await workflow.interactive_controller.set_last_message(data.message_id)
-            result = await next_iteration(workflow_id, active_workflows)
+            result = await next_iteration(workflow_id, active_workflows, data.num_iter)
             return result
         return {"status": "updated", "result": result.id}
     except Exception as e:
@@ -392,7 +392,7 @@ async def rerun_workflow(
             print(f"Broadcasted error status for {workflow_id}")
 
 
-async def next_iteration(workflow_id: str, active_workflows):
+async def next_iteration(workflow_id: str, active_workflows, num_iter: int=1):
     print("running next_iteration")
     if workflow_id not in active_workflows:
         return {"error": "Workflow not found"}
@@ -400,6 +400,8 @@ async def next_iteration(workflow_id: str, active_workflows):
     workflow = active_workflows[workflow_id]["instance"]
     if hasattr(workflow, "next_iteration_event"):
         print("next_iter triggered")
+        print(f"run_{num_iter}_iteration")
+        workflow.current_phase.set_num_pending_iter(num_iter)
         workflow.next_iteration_event.set()
         return {"status": "next iteration triggered"}
     else:
