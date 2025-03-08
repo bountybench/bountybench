@@ -118,23 +118,7 @@ class BasePhase(ABC):
         Args:
             other (BasePhase): The next phase in the workflow.
 
-        Returns:  # 1. Define and register resources
-        resource_configs = self.define_resources()
-        resource_configs_keys = {
-            resource.key(self.workflow_id) for resource, _ in resource_configs
-        }
-        for resource, resource_config in resource_configs:
-            resource_id, resource_class = (
-                resource.key(self.workflow_id),
-                resource.get_class(),
-            )
-            if not self.resource_manager.is_resource_equivalent(
-                resource_id, resource_class, resource_config
-            ):
-                self.resource_manager.register_resource(
-                    resource_id, resource_class, resource_config
-                )
-            BasePhase: The 'other' phase, allowing for method chaining.
+        Returns: BasePhase: The 'other' phase, allowing for method chaining.
         """
         if isinstance(other, BasePhase):
             if self not in self.workflow._phase_graph:
