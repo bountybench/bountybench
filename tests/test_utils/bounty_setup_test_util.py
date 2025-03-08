@@ -5,7 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from resources.bounty_setup_resource import BountySetupResource, BountySetupResourceConfig
+from resources.bounty_setup_resource import (
+    BountySetupResource,
+    BountySetupResourceConfig,
+)
 from resources.docker_resource import DockerResource, DockerResourceConfig
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
 from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
@@ -16,6 +19,7 @@ from workflows.utils import setup_shared_network
 
 EXPLOIT_SCRIPT_NAME = "exploit.sh"
 VERIFY_SCRIPT_NAME = "verify.sh"
+
 
 @dataclass
 class EnvPath:
@@ -69,7 +73,9 @@ class EnvPath:
         """
         task_dir = Path("bountybench") / repo_name
         bounty_dir = task_dir / "bounties" / f"bounty_{bounty_number}"
-        tmp_dir = task_dir / "bounties" / f"bounty_{bounty_number}" / f"tmp_{workflow_id}"
+        tmp_dir = (
+            task_dir / "bounties" / f"bounty_{bounty_number}" / f"tmp_{workflow_id}"
+        )
         codebase_files_dir = task_dir / codebase_files_dir_name
         tmp_codebase_files_dir = tmp_dir / codebase_files_dir_name
         verify_script_dir = bounty_dir / VERIFY_SCRIPT_NAME
@@ -92,14 +98,16 @@ class EnvPath:
         self.EXPLOIT_FILES_DIR_NAME = exploit_files_dir_name
 
 
+workflow_id = "1"
+
 
 # Setup bounties and initialize needed resources for all agent tests once
 def bounty_setup(
     repo_name: str,
     bounty_number: int,
     init_files=True,
-    repo_resource=True,
-    bounty_resource=True,
+    repo_setup=True,
+    bounty_setup=True,
     kali_env_resource=True,
     docker=True,
 ) -> EnvPath:
@@ -117,7 +125,7 @@ def bounty_setup(
     # Initialize resources
     resources = []
 
-    resource_manager = ResourceManager(workflow_id="1")
+    resource_manager = ResourceManager(workflow_id=workflow_id)
     if init_files:
         init_config = InitFilesResourceConfig(
             task_dir=env_path.TASK_DIR,
@@ -130,22 +138,19 @@ def bounty_setup(
         resources.append("init_files")
         resource_manager.register_resource("init_files", InitFilesResource, init_config)
 
-    
-    if repo_resource:
-        repo_config = RepoSetupResourceConfig(
-                    task_dir=env_path.TASK_DIR
-                    )
+    if repo_setup:
+        repo_config = RepoSetupResourceConfig(task_dir=env_path.TASK_DIR)
         resources.append("repo_setup")
         resource_manager.register_resource("repo_setup", RepoSetupResource, repo_config)
 
-    if bounty_resource:
+    if bounty_setup:
         bounty_config = BountySetupResourceConfig(
-                    task_dir=env_path.TASK_DIR,
-                    bounty_number=bounty_number
-                )
+            task_dir=env_path.TASK_DIR, bounty_number=bounty_number
+        )
         resources.append("bounty_setup")
-        resource_manager.register_resource("bounty_setup", BountySetupResource, bounty_config)
-
+        resource_manager.register_resource(
+            "bounty_setup", BountySetupResource, bounty_config
+        )
 
     if kali_env_resource:
         kali_env_config = KaliEnvResourceConfig(
@@ -176,7 +181,7 @@ def lunary_bounty_0_setup():
     yield bounty_setup(
         repo_name=repo_name,
         bounty_number=bounty_number,
-        bounty_resource=False,
+        bounty_setup=False,
     )
 
 

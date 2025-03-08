@@ -1,3 +1,4 @@
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -7,12 +8,22 @@ import pytest
 from agents.agent_manager import AgentManager
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
-from tests.agents.agent_test_utils import EnvPath
-from tests.agents.agent_test_utils import lunary_bounty_0_setup as bounty_setup
-from tests.agents.agent_test_utils import write_to_file_and_make_executable
+from tests.test_utils.bounty_setup_test_util import EnvPath
+from tests.test_utils.bounty_setup_test_util import (
+    lunary_bounty_0_setup as bounty_setup,
+)
+from tests.test_utils.bounty_setup_test_util import write_to_file_and_make_executable
 from utils.git_utils import git_diff
 
 TEST_FILE_NAME = "test_file.txt"
+
+MOCK_REPO_SCORES = {"invariant_scores": {"healthcheck": 1, "test_server": 76}}
+
+MOCK_BOUNTY_SCORES = {"invariant_scores": {"healthcheck": 1, "test_db": 80}}
+
+MOCK_REPO_METADATA = {"invariant_thresholds": {"healthcheck": 1, "test_server": 76}}
+
+MOCK_BOUNTY_METADATA = {"invariant_thresholds": {"test_db": 80}}
 
 
 def mock_patch_agent_message():
@@ -94,7 +105,7 @@ def git_fixture(bounty_setup):
 def test_check_repo_and_bounty_are_different(patch_agent):
     agent = patch_agent
     if hasattr(patch_agent, "bounty_setup") and hasattr(agent, "repo_setup"):
-        assert agent.bounty_setup is not agent.repo_setup
+        assert agent.resources.bounty_setup is not agent.resources.repo_setup
 
 
 @pytest.mark.asyncio
@@ -163,10 +174,10 @@ def test_restart_resources_order(bounty_setup):
         return True
 
     # Add mock resources to the agent
-    agent.repo_setup = MagicMock()
-    agent.repo_setup.resource_id = "repo_setup"
-    agent.bounty_setup = MagicMock()
-    agent.bounty_setup.resource_id = "bounty_setup"
+    agent.resources.repo_setup = MagicMock()
+    agent.resources.repo_setup.resource_id = "repo_setup"
+    agent.resources.bounty_setup = MagicMock()
+    agent.resources.bounty_setup.resource_id = "bounty_setup"
 
     # Override the _restart_resource method to track call order
     with patch.object(PatchAgent, "_restart_resource", side_effect=mock_restart):
@@ -260,9 +271,12 @@ async def test_with_verify_sh_success(bounty_setup, patch_agent, execute_fixture
         exit_code=1,
     )
     agent.use_verify_script = True
-    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
-    await agent.execute(patch_agent_message)
-    assert "patch succeeded" in patch_agent_message.message.lower()
+
+    # Make sure invariant checks pass
+    with patch.object(PatchAgent, "verify_patch_invariants", return_value=True):
+        patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+        await agent.execute(patch_agent_message)
+        assert "patch succeeded" in patch_agent_message.message.lower()
 
 
 @pytest.mark.asyncio
@@ -339,3 +353,190 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
 
     patch_file_path = agent.patch_dir / "patch_1.patch"
     assert patch_file_path.exists()
+
+
+def test_verify_patch_invariants_success(bounty_setup, patch_agent):
+    """Test that verify_patch_invariants returns True when invariant checks succeed."""
+    agent = patch_agent
+    env_path = bounty_setup
+
+    repo_invariants_script = env_path.TASK_DIR / "run_repo_invariants.sh"
+    bounty_invariants_script = env_path.BOUNTY_DIR / "run_bounty_invariants.sh"
+
+    # Create scripts
+    write_to_file_and_make_executable(repo_invariants_script, exit_code=0)
+    write_to_file_and_make_executable(bounty_invariants_script, exit_code=0)
+
+    # Mock check_invariant_scores_against_thresholds to return True
+    with patch.object(
+        PatchAgent, "check_invariant_scores_against_thresholds", return_value=True
+    ):
+        result = agent.verify_patch_invariants()
+
+    assert result is True
+
+    # Clean up
+    for script in [repo_invariants_script, bounty_invariants_script]:
+        if script.exists():
+            script.unlink()
+
+
+def test_verify_patch_invariants_check_fails(bounty_setup, patch_agent):
+    """Test that verify_patch_invariants returns False when check_invariant_scores_against_thresholds fails."""
+    agent = patch_agent
+    env_path = bounty_setup
+
+    repo_invariants_script = env_path.TASK_DIR / "run_repo_invariants.sh"
+    bounty_invariants_script = env_path.BOUNTY_DIR / "run_bounty_invariants.sh"
+
+    write_to_file_and_make_executable(repo_invariants_script, exit_code=0)
+    write_to_file_and_make_executable(bounty_invariants_script, exit_code=0)
+
+    # Mock check_invariant_scores_against_thresholds to return False
+    with patch.object(
+        PatchAgent, "check_invariant_scores_against_thresholds", return_value=False
+    ):
+        result = agent.verify_patch_invariants()
+
+    assert result is False
+
+    for script in [repo_invariants_script, bounty_invariants_script]:
+        if script.exists():
+            script.unlink()
+
+
+@pytest.mark.asyncio
+async def test_patch_success_requires_invariants(patch_agent):
+    """Test that patch success requires both exploit check and invariant check to pass."""
+    agent = patch_agent
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+
+    # Mock the verify_patch_invariants method
+    with patch.object(PatchAgent, "verify_patch_invariants", return_value=False):
+        # Mock exploit success but invariant failure
+        with patch.object(PatchAgent, "verify_patch_works", return_value=True):
+            # Mock resource restart
+            with patch.object(PatchAgent, "_restart_resource", return_value=True):
+                # Mock run_exploit to return success
+                with patch.object(PatchAgent, "run_exploit") as mock_run_exploit:
+                    # Create a mock response
+                    mock_response = MagicMock()
+                    mock_response.additional_metadata = {"exit_code": 1}
+                    mock_response.message = "Success"
+                    mock_run_exploit.return_value = mock_response
+
+                    await agent.execute(patch_agent_message)
+                    assert "failed" in patch_agent_message.message.lower()
+                    assert not patch_agent_message.success
+
+
+def test_check_invariant_scores_against_thresholds_success(patch_agent):
+    """Test that check_invariant_scores_against_thresholds returns True when scores meet thresholds."""
+    agent = patch_agent
+
+    # Create temporary files
+    repo_metadata_file = Path("repo_metadata.json")
+    bounty_metadata_file = Path("bounty_metadata.json")
+    repo_invariant_scores = Path("repo_scores.json")
+    bounty_invariant_scores = Path("bounty_scores.json")
+
+    # Write test data to files
+    repo_metadata_file.write_text(json.dumps(MOCK_REPO_METADATA))
+    bounty_metadata_file.write_text(json.dumps(MOCK_BOUNTY_METADATA))
+    repo_invariant_scores.write_text(json.dumps(MOCK_REPO_SCORES))
+    bounty_invariant_scores.write_text(json.dumps(MOCK_BOUNTY_SCORES))
+
+    try:
+        # Test with all scores meeting thresholds
+        result = agent.check_invariant_scores_against_thresholds(
+            repo_metadata_file,
+            bounty_metadata_file,
+            repo_invariant_scores,
+            bounty_invariant_scores,
+        )
+        assert result is True
+    finally:
+        # Clean up
+        for file in [
+            repo_metadata_file,
+            bounty_metadata_file,
+            repo_invariant_scores,
+            bounty_invariant_scores,
+        ]:
+            if file.exists():
+                file.unlink()
+
+
+def test_check_invariant_scores_edge_cases(patch_agent):
+    """Test edge cases for check_invariant_scores_against_thresholds method."""
+    agent = patch_agent
+
+    # Temporary test files
+    files = {
+        "repo_meta": Path("repo_metadata.json"),
+        "bounty_meta": Path("bounty_metadata.json"),
+        "repo_scores": Path("repo_scores.json"),
+        "bounty_scores": Path("bounty_scores.json"),
+    }
+
+    try:
+        # Case 1: Scores below thresholds
+        files["repo_meta"].write_text(
+            json.dumps({"invariant_thresholds": {"healthcheck": 2, "test_server": 80}})
+        )
+        files["bounty_meta"].write_text(
+            json.dumps({"invariant_thresholds": {"test_db": 85}})
+        )
+        files["repo_scores"].write_text(json.dumps(MOCK_REPO_SCORES))
+        files["bounty_scores"].write_text(json.dumps(MOCK_BOUNTY_SCORES))
+
+        result = agent.check_invariant_scores_against_thresholds(*files.values())
+        assert result is False
+
+        # Case 2: Missing scores for a threshold
+        files["repo_meta"].write_text(
+            json.dumps({"invariant_thresholds": {"missing_score": 50}})
+        )
+        result = agent.check_invariant_scores_against_thresholds(*files.values())
+        assert result is False
+
+        # Case 3: Missing invariant_scores key in scores file
+        files["repo_meta"].write_text(json.dumps(MOCK_REPO_METADATA))
+        files["repo_scores"].write_text(json.dumps({"other_key": "value"}))
+        result = agent.check_invariant_scores_against_thresholds(*files.values())
+        assert result is False
+    finally:
+        # Clean up
+        for file in files.values():
+            if file.exists():
+                file.unlink()
+
+
+@pytest.mark.asyncio
+async def test_patch_success_with_invariants(patch_agent):
+    """Test that patch succeeds when both exploit check and invariant check pass."""
+    agent = patch_agent
+    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+
+    # Mock the verify_patch_invariants method
+    with patch.object(PatchAgent, "verify_patch_invariants", return_value=True):
+        # Mock exploit success
+        with patch.object(PatchAgent, "verify_patch_works", return_value=True):
+            # Mock resource restart
+            with patch.object(PatchAgent, "_restart_resource", return_value=True):
+                # Mock run_exploit to return success
+                with patch.object(PatchAgent, "run_exploit") as mock_run_exploit:
+                    # Create a mock response
+                    mock_response = MagicMock()
+                    mock_response.additional_metadata = {"exit_code": 1}
+                    mock_response.message = "Success"
+                    mock_run_exploit.return_value = mock_response
+
+                    await agent.execute(patch_agent_message)
+                    assert "succeeded" in patch_agent_message.message.lower()
+                    assert patch_agent_message.success
+
+
+# "uses" the import
+if None:
+    bounty_setup

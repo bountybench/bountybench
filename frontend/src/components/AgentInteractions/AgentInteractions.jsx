@@ -144,7 +144,7 @@ const AgentInteractions = ({
             startIcon={<RestoreIcon />}
             size="small"
           >
-            Resume
+            Restart Resources
           </Button>
           )}
         </>

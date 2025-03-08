@@ -1,20 +1,17 @@
-import random
-import string
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agents.agent_manager import AgentConfig, AgentManager
+from agents.agent_manager import AgentManager
+from agents.base_agent import AgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent
 from agents.exploit_agent.exploit_agent import ExploitAgent, ExploitAgentConfig
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
-from resources.base_resource import BaseResource
-from resources.docker_resource import DockerResource
-from resources.init_files_resource import InitFilesResource
-from resources.kali_env_resource import KaliEnvResource
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
-from tests.agents.agent_test_utils import EnvPath, lunary_bounty_0_setup
+from resources.resource_manager import resource_dict
+from resources.resource_type import ResourceType
+from tests.test_utils.bounty_setup_test_util import EnvPath, lunary_bounty_0_setup
 
 
 @pytest.fixture(scope="module")
@@ -42,9 +39,7 @@ def alternative_agent_configs():
         bounty_dir=bounty_dir, task_dir=task_dir, use_verify_script=False
     )
     eConfig = ExploitAgentConfig(
-        bounty_dir=bounty_dir,
-        task_dir=task_dir,
-        tmp_dir=tmp_dir
+        bounty_dir=bounty_dir, task_dir=task_dir, tmp_dir=tmp_dir
     )
     return pConfig, eConfig
 
@@ -149,7 +144,7 @@ def test_update_phase_agents_models_has_executor():
         "executor": ExecutorAgent("update_phase_agents_has_executor", AgentConfig)
     }
     for agent in am._phase_agents.values():
-        agent.model = Model()
+        agent.resources.model = Model()
 
     new_model = "new_model_value"
     am.update_phase_agents_models(new_model)
@@ -157,8 +152,8 @@ def test_update_phase_agents_models_has_executor():
     # Assertions
     for agent in am._phase_agents.values():
         mock_model_resource.assert_called_with("model", mock_model_resource_config)
-        assert hasattr(agent, "model")
-        assert isinstance(agent.model, ModelResource)
+        assert agent.resources.has_bound(ResourceType.MODEL)
+        assert isinstance(agent.resources.model, ModelResource)
         ModelResourceConfig.create.assert_called_with(model=new_model)
 
 
@@ -192,48 +187,91 @@ def test_create_agent(agent_configs, initialized_agent_manager):
     agent = am.create_agent(".", PatchAgent, pConfig)
 
     assert isinstance(agent, PatchAgent)
-    assert hasattr(agent, "init_files")
-    assert hasattr(agent, "docker")
-    assert hasattr(agent, "repo_setup")
-    assert not hasattr(agent, "bounty_setup")
+    assert agent.resources.has_bound(ResourceType.INIT_FILES)
+    assert agent.resources.has_bound(ResourceType.DOCKER)
+    assert agent.resources.has_bound(ResourceType.REPO_SETUP)
+    assert not agent.resources.has_bound(ResourceType.BOUNTY_SETUP)
 
 
-def test_bind_resources_to_agent(agent_configs, initialized_agent_manager):
+def test_validate_required_resources_exist(agent_configs, initialized_agent_manager):
+    pConfig, _ = agent_configs
+    am = AgentManager(workflow_id="1")
+    agent = am.create_agent(".", PatchAgent, pConfig)
+
+    # Start by testing with a required resource not existing (e.g., DOCKER)
+    with patch.object(ResourceType.DOCKER, "exists", return_value=False):
+
+        try:
+            am.validate_required_resources_exist(agent)
+        except ValueError as e:
+            assert "not set for workflow" in str(e)
+            assert "Required resource" in str(e)
+
+    # Now test with all resources existing, it should run with no issues
+    am.validate_required_resources_exist(agent)
+
+
+def test_bind_resources_to_agent_success(agent_configs, initialized_agent_manager):
     pConfig, _ = agent_configs
     am = AgentManager(workflow_id="1")
     agent = PatchAgent(".", pConfig)
     am.bind_resources_to_agent(agent)
 
-    assert hasattr(agent, "init_files")
-    assert hasattr(agent, "docker")
-    assert hasattr(agent, "repo_setup")
-    assert not hasattr(agent, "bounty_setup")
+    assert agent.resources.has_bound(ResourceType.INIT_FILES)
+    assert agent.resources.has_bound(ResourceType.DOCKER)
+    assert agent.resources.has_bound(ResourceType.REPO_SETUP)
+    assert not agent.resources.has_bound(ResourceType.BOUNTY_SETUP)
 
 
-def test_parse_resource_entry():
+def test_bind_resources_to_agent_with_kali_env(
+    agent_configs, initialized_agent_manager
+):
+    pConfig, _ = agent_configs
+    workflow_id = "1"
+    kali_env_id = ResourceType.KALI_ENV.key(workflow_id)
+    am = AgentManager(workflow_id=workflow_id)
+    agent = PatchAgent(".", pConfig)
+
+    resource_dict.set(workflow_id, kali_env_id, 5)
+    agent.ACCESSIBLE_RESOURCES.append(ResourceType.KALI_ENV)
+    am.bind_resources_to_agent(agent)
+
+    assert agent.resources.has_bound(ResourceType.INIT_FILES)
+    assert agent.resources.has_bound(ResourceType.DOCKER)
+    assert agent.resources.has_bound(ResourceType.REPO_SETUP)
+    assert agent.resources.has_bound(ResourceType.KALI_ENV)
+    assert not agent.resources.has_bound(ResourceType.BOUNTY_SETUP)
+
+    agent.ACCESSIBLE_RESOURCES.pop(-1)
+    resource_dict.delete_items(workflow_id, kali_env_id)
+
+
+def test_bind_resources__to_agent_bad_resource(
+    agent_configs, initialized_agent_manager
+):
+    pConfig, _ = agent_configs
     am = AgentManager(workflow_id="1")
+    agent = PatchAgent(".", pConfig)
+    del agent.resources.docker
 
-    def generate_random_string(length=10):
-        letters_and_digits = string.ascii_letters + string.digits
-        random_string = "".join(
-            random.choice(letters_and_digits) for i in range(length)
-        )
-        return random_string
+    # Attempt to bind a resource with an invalid type, which should raise a ValueError
+    with pytest.raises(ValueError, match="Required resource"):
+        am.bind_resources_to_agent(agent)
 
-    resources = {
-        BaseResource: "baseresource",
-        DockerResource: "dockerresource",
-        InitFilesResource: "initfilesresource",
-        KaliEnvResource: "kalienvresource",
-    }
-    for resource, name in resources.items():
-        result = am._parse_resource_entry(resource)
-        assert result[0] == resource and result[1] == None
 
-    for resource in resources.keys():
-        name = generate_random_string()
-        result = am._parse_resource_entry((resource, name))
-        assert result[0] == resource and result[1] == name
+def test_bind_resources_to_agent_missing_required(
+    agent_configs, initialized_agent_manager
+):
+    pConfig, _ = agent_configs
+    am = AgentManager(workflow_id="1")
+    agent = PatchAgent(".", pConfig)
+    agent.ACCESSIBLE_RESOURCES.append(ResourceType.KALI_ENV)
+    agent.REQUIRED_RESOURCES.append(ResourceType.KALI_ENV)
+
+    with pytest.raises(ValueError, match="missing for agent"):
+        am.bind_resources_to_agent(agent)
+    agent.ACCESSIBLE_RESOURCES.pop(-1)
+    agent.REQUIRED_RESOURCES.pop(-1)
 
 
 def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
@@ -245,7 +283,9 @@ def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
     assert not am.is_agent_equivalent(
         "exploit_agent",
         ExploitAgent,
-        ExploitAgentConfig(Path("bountyagent"), Path("bountyagent"), Path("bountyagent")),
+        ExploitAgentConfig(
+            Path("bountyagent"), Path("bountyagent"), Path("bountyagent")
+        ),
     )
     assert not am.is_agent_equivalent(
         "patch_agent",
@@ -277,3 +317,8 @@ def test_deallocate_all_agents():
     assert len(am._agents) == 0
     assert len(am._phase_agents) == 0
     assert len(am._agent_configs) == 0
+
+
+# "uses" the import
+if None:
+    lunary_bounty_0_setup
