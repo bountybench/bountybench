@@ -104,7 +104,7 @@ class LocalExecutionBackend(ExecutionBackend):
                 workflow_id, {"message_type": "workflow_status", "status": "stopped"}
             )
 
-            return {"status": "stopped", "workflow_id": workflow_id}
+            return {"workflow_id": workflow_id, "status": "stopped"}
 
         except Exception as e:
             error_traceback = traceback.format_exc()
@@ -138,7 +138,7 @@ class LocalExecutionBackend(ExecutionBackend):
                 workflow_id, {"message_type": "workflow_status", "status": "restarting"}
             )
             print(f"Broadcasted running status for {workflow_id}")
-            return {"status": "restarting", "workflow_id": workflow_id}
+            return {"workflow_id": workflow_id, "status": "restarting"}
 
         except Exception as e:
             # Handle errors
@@ -154,7 +154,7 @@ class LocalExecutionBackend(ExecutionBackend):
             return {"error": f"Workflow {workflow_id} not found"}
 
         status = self.active_workflows[workflow_id]["status"]
-        return {"status": status, "workflow_id": workflow_id}
+        return {"workflow_id": workflow_id, "status": status}
 
     async def list_active_workflows(self) -> List[Dict[str, Any]]:
         """
@@ -242,7 +242,7 @@ class LocalExecutionBackend(ExecutionBackend):
                 return {"error": f"Workflow {workflow_id} not found"}
 
             workflow = self.active_workflows[workflow_id]["instance"]
-            new_interactive_mode = data.interactive
+            new_interactive_mode: bool = data.interactive
 
             if new_interactive_mode is None:
                 return {"error": "Interactive mode not specified"}
@@ -353,11 +353,15 @@ class LocalExecutionBackend(ExecutionBackend):
             # Handle incoming messages
             while not should_exit:
                 # Check if workflow is still active and not stopped
-                if (workflow_id not in self.active_workflows or 
-                    self.active_workflows[workflow_id].get("status") == "stopped"):
-                    print(f"Breaking WebSocket loop - workflow {workflow_id} is stopped or removed")
+                if (
+                    workflow_id not in self.active_workflows
+                    or self.active_workflows[workflow_id].get("status") == "stopped"
+                ):
+                    print(
+                        f"Breaking WebSocket loop - workflow {workflow_id} is stopped or removed"
+                    )
                     break
-                    
+
                 try:
                     data = await websocket.receive_json()
                     if should_exit:
@@ -477,6 +481,25 @@ class LocalExecutionBackend(ExecutionBackend):
             )
             return {"error": str(e), "traceback": error_traceback}
 
+    async def save_config(self, filename: str, config_content: str) -> Dict[str, Any]:
+        """Save configuration to the local filesystem."""
+        try:
+            # Get the parent directory of the current working directory
+            config_dir = Path(os.getcwd()) / "configs"
+
+            # Create the configs directory if it doesn't exist
+            config_dir.mkdir(parents=True, exist_ok=True)
+
+            # Create the full file path
+            file_path = config_dir / filename
+
+            # Write the configuration to the file
+            file_path.write_text(config_content)
+
+            return {"message": f"Configuration saved successfully to {file_path}"}
+        except Exception as e:
+            return {"error": str(e)}
+
     async def _run_workflow(self, workflow_id: str, websocket_manager, should_exit):
         """
         Internal method to run a workflow.
@@ -592,22 +615,3 @@ class LocalExecutionBackend(ExecutionBackend):
             return {"status": "next iteration triggered"}
         else:
             return {"error": "Workflow is not in interactive mode"}
-
-    async def save_config(self, filename: str, config_content: str) -> Dict[str, Any]:
-        """Save configuration to the local filesystem."""
-        try:
-            # Get the parent directory of the current working directory
-            config_dir = Path(os.getcwd()) / "configs"
-
-            # Create the configs directory if it doesn't exist
-            config_dir.mkdir(parents=True, exist_ok=True)
-
-            # Create the full file path
-            file_path = config_dir / filename
-
-            # Write the configuration to the file
-            file_path.write_text(config_content)
-
-            return {"message": f"Configuration saved successfully to {file_path}"}
-        except Exception as e:
-            return {"error": str(e)}

@@ -10,7 +10,7 @@ from backend.schema import (
 
 
 class KubernetesExecutionBackend(ExecutionBackend):
-    """Abstract interface for workflow execution backends."""
+    """Kubernetes backend for workflow execution."""
 
     def __init__(self, workflow_factory: Dict[str, Callable]):
         self.workflow_factory = workflow_factory
