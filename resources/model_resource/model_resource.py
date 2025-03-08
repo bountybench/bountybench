@@ -44,8 +44,6 @@ class ModelResourceConfig(BaseResourceConfig):
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
 
     def __post_init__(self):
-        if "openai/o3" not in self.model.lower():
-            self.use_helm = True
         self.validate()
 
     def validate(self) -> None:
@@ -83,11 +81,37 @@ class ModelResource(RunnableBaseResource):
         Returns:
             ModelProvider: An instance of the appropriate model provider class.
         """
-        # TODO: Support Different Model Providers (Also handle Azure case)
         if self.helm:
             model_provider = HelmModels()
         else:
-            model_provider = OpenAIModels()
+            # Select provider based on model name prefix
+            model_prefix = self.model.split("/")[0].lower() if "/" in self.model else ""
+
+            if model_prefix == "anthropic":
+                from resources.model_resource.anthropic_models.anthropic_models import (
+                    AnthropicModels,
+                )
+
+                model_provider = AnthropicModels()
+            elif model_prefix == "google":
+                from resources.model_resource.google_models.google_models import (
+                    GoogleModels,
+                )
+
+                model_provider = GoogleModels()
+            elif (
+                model_prefix == "meta"
+                or model_prefix == "mistralai"
+                or model_prefix == "together"
+            ):
+                from resources.model_resource.together_models.together_models import (
+                    TogetherModels,
+                )
+
+                model_provider = TogetherModels()
+            else:
+                # Default to OpenAI for any other provider or if no prefix is specified
+                model_provider = OpenAIModels()
         return model_provider
 
     def remove_hallucinations(self, response: str):

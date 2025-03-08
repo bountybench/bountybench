@@ -14,9 +14,23 @@ def _model_provider_lookup(model_name: str, helm: bool) -> str:
     if helm:
         return "HELM_API_KEY"
     else:
-        provider = model_name.split("/")[0]
-        assert provider in ["openai", "anthropic"]
-        return f"{provider.upper()}_API_KEY"
+        if "/" in model_name:
+            provider = model_name.split("/")[0].lower()
+            # Map provider prefixes to environment variable names
+            if provider == "openai":
+                return "OPENAI_API_KEY"
+            elif provider == "anthropic":
+                return "ANTHROPIC_API_KEY"
+            elif provider == "google":
+                return "GOOGLE_API_KEY"
+            elif provider in ["meta", "mistralai"]:
+                return "TOGETHER_API_KEY"
+            else:
+                # Default to OpenAI for unknown providers
+                return "OPENAI_API_KEY"
+        else:
+            # No provider prefix, default to OpenAI
+            return "OPENAI_API_KEY"
 
 
 # Authentication helpers
