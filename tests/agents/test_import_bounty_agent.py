@@ -28,8 +28,7 @@ class TestImportBountyAgent(unittest.TestCase):
         # Clean up failed links file
         failed_links_file = os.path.join("reports", "hackerone_reports", "failed_links.txt")
         if os.path.exists(failed_links_file):
-            with open(failed_links_file, 'w') as f:
-                f.write("")
+            os.remove(failed_links_file)
 
     @patch("selenium.webdriver.Chrome")
     @patch("agents.import_bounty_agent.import_bounty_agent.get_handler")
