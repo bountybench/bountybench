@@ -4,6 +4,7 @@
 set -e
 
 # Apply Kubernetes manifests
+kubectl create secret generic app-secrets --from-env-file=.env
 kubectl apply -f configmap.yaml
 kubectl apply -f dind-pvc.yaml
 kubectl apply -f logs-pvc.yaml
