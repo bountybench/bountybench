@@ -78,6 +78,7 @@ class ModelResource(RunnableBaseResource):
         self.use_mock_model = self._resource_config.use_mock_model
         self.total_input_tokens = 0
         self.total_output_tokens = 0
+        self.total_time_in_ms = 0
 
     def get_model_provider(self) -> ModelProvider:
         """
@@ -183,6 +184,7 @@ class ModelResource(RunnableBaseResource):
         )
         self.total_input_tokens += model_response.input_tokens
         self.total_output_tokens += model_response.output_tokens
+        self.total_time_in_ms += model_response.time_taken_in_ms
 
         return ActionMessage(
             resource_id=self.resource_id,

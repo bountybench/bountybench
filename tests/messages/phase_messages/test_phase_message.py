@@ -177,6 +177,8 @@ def test_to_log_dict(mocker):
     phase_message = PhaseMessage("phase_1")
     phase_message.set_summary("summary_1")
     phase_message.add_child_message(agent_msg_mock)
+    phase_message.set_token_usage(5, 10)
+    phase_message.set_time_usage(20)
 
     result_dict = phase_message.to_log_dict()
 
@@ -186,3 +188,4 @@ def test_to_log_dict(mocker):
     assert len(result_dict["agent_messages"]) == 1
     assert result_dict["agent_messages"][0] == {"agent_key": "agent_value"}
     assert result_dict["super_key"] == "super_value"
+    assert result_dict["phase_usage"]=={"input_token":5, "output_token":10, "time_taken_in_ms":20}

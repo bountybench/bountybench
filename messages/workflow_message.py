@@ -7,6 +7,11 @@ from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from utils.logger import get_main_logger
 
+#Constants 
+TIME_TAKEN_IN_MS = "time_taken_in_ms"
+INPUT_TOKEN = "input_token"
+OUTPUT_TOKEN = "output_token"
+
 logger = get_main_logger(__name__)
 
 
@@ -24,7 +29,7 @@ class WorkflowMessage(Message):
         self._phase_messages = []
         self.agents_used = {}
         self.resources_used = {}
-        self.usage = {"inputToken": 0, "outputToken": 0}
+        self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, TIME_TAKEN_IN_MS: 0}
 
         # Logging
         self.logs_dir = Path(logs_dir)
@@ -72,12 +77,14 @@ class WorkflowMessage(Message):
     def set_summary(self, summary: str):
         self._summary = summary
 
-    def get_total_tokens(self) -> Dict[str, int]:
-        total_input_tokens = sum(phase_message.usage["input_token"] for phase_message in self._phase_messages)
-        total_output_tokens = sum(phase_message.usage["output_token"] for phase_message in self._phase_messages)
+    def get_total_usage(self) -> Dict[str, int]:
+        total_input_tokens = sum(phase_message.usage[INPUT_TOKEN] for phase_message in self._phase_messages)
+        total_output_tokens = sum(phase_message.usage[OUTPUT_TOKEN] for phase_message in self._phase_messages)
+        total_time = sum(phase_message.usage[TIME_TAKEN_IN_MS] for phase_message in self._phase_messages)
         usage_dict = {
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
+            "total_time_taken_in_ms": total_time
         }
         self.usage = usage_dict
         return usage_dict
@@ -107,6 +114,7 @@ class WorkflowMessage(Message):
     def to_log_dict(self) -> dict:
         return {
             "workflow_metadata": self.metadata_dict(),
+            "workflow_usage": self.get_total_usage(),
             "phase_messages": [
                 phase_message.to_log_dict() for phase_message in self.phase_messages
             ],
@@ -116,7 +124,6 @@ class WorkflowMessage(Message):
             "end_time": self._end_time,
             "workflow_id": self.workflow_id,
             "additional_metadata": self.additional_metadata,
-            "workflow_usage": self.get_total_tokens()
         }
 
     def save(self):

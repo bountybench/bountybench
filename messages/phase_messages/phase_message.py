@@ -3,6 +3,9 @@ from typing import List, Optional
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
+TIME_TAKEN_IN_MS = "time_taken_in_ms"
+INPUT_TOKEN = "input_token"
+OUTPUT_TOKEN = "output_token"
 
 class PhaseMessage(Message):
     def __init__(self, phase_id: str, prev: "PhaseMessage" = None) -> None:
@@ -12,7 +15,7 @@ class PhaseMessage(Message):
         self._summary = "incomplete"
         self._agent_messages = []
         self._phase_summary = None
-        self.usage = {"input_token": 0, "output_token": 0}
+        self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, TIME_TAKEN_IN_MS: 0}
         super().__init__(prev)
 
     @property
@@ -77,13 +80,19 @@ class PhaseMessage(Message):
     def set_summary(self, summary: str):
         self._summary = summary
     
-    def set_token_usage(self,inputToken:str, outputToken:str):
-        self.usage["input_token"] = inputToken
-        self.usage["output_token"] = outputToken
+    def set_token_usage(self,input_token:int, output_token:int):
+        self.usage[INPUT_TOKEN] = input_token
+        self.usage[OUTPUT_TOKEN] = output_token
 
-    def increment_token_usage(self, incrementInput: int, incrementOutput: int):
-        self.usage["input_token"] += incrementInput
-        self.usage["output_token"] += incrementOutput
+    def increment_token_usage(self, increment_input: int, increment_output: int):
+        self.usage[INPUT_TOKEN] += increment_input
+        self.usage[OUTPUT_TOKEN] += increment_output
+    
+    def set_time_usage(self,time:float):
+        self.usage[TIME_TAKEN_IN_MS] = time
+
+    def increment_time_usage(self, incrementTime: float):
+        self.usage[TIME_TAKEN_IN_MS] += incrementTime
 
     def add_child_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)
