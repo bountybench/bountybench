@@ -183,6 +183,12 @@ class WebSocketManager:
         # Cancel all heartbeat tasks
         for task in self.heartbeat_tasks:
             task.cancel()
+            try:
+                await task  # Await cancellation to ensure it properly exits
+            except asyncio.CancelledError:
+                pass  # Silently ignore CancelledError since it's expected
+            except Exception as e:
+                logger.error(f"Unhandled exception in heartbeat task: {e}")
 
         # Wait for all tasks to complete
         if self.heartbeat_tasks:

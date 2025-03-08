@@ -21,6 +21,8 @@ import { SaveConfigDialog } from './SaveConfigDialog';
 import { TaskSelectionSection } from './TaskSelectionSection';
 import { ModelSelectionSection } from './ModelSelectionSection';
 
+import { API_BASE_URL } from '../../config';
+
 const LauncherState = {
   CHECKING_SERVER: 'CHECKING_SERVER',
   SERVER_ERROR: 'SERVER_ERROR',
@@ -55,6 +57,10 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const [workflows, setWorkflows] = useState([]);
   const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
+  const [configDefaults, setConfigDefaults] = useState({
+    max_input_tokens: "",
+    max_output_tokens: ""
+  });
   
   const [openSaveDialog, setOpenSaveDialog] = useState(false);
   const [fileName, setFileName] = useState('workflow_config.yaml'); 
@@ -70,6 +76,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     api_key_value: '',
     model: '',
     use_helm: false,
+    max_input_tokens: '',
+    max_output_tokens: '',
   });
 
   const shouldShowVulnerabilityType = (workflowName) => {
@@ -115,7 +123,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const fetchWorkflows = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/workflow/list');
+      const response = await fetch(`${API_BASE_URL}/workflow/list`);
       const data = await response.json();
       setWorkflows(data.workflows);
       
@@ -136,7 +144,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const fetchModels = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/workflow/models');
+      const response = await fetch(`${API_BASE_URL}/workflow/models`);
       const models = await response.json();
       setAllModels(models);
       
@@ -161,10 +169,20 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       });
     }
   }, [topLevelSelection]);  
+
+  const fetchConfigDefaults = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/config-defaults`);
+      const data = await response.json();
+      setConfigDefaults(data);
+    } catch (err) {
+      console.error('Failed to fetch config defaults:', err);
+    }
+  }, []);
   
   const fetchApiKeys = useCallback(async () => { 
     try {
-      const response = await fetch('http://localhost:8000/service/api-service/get');
+      const response = await fetch(`${API_BASE_URL}/service/api-service/get`);
       const data = await response.json();
       setApiKeys(data);
       
@@ -183,7 +201,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const fetchVulnerabilityTypes = async () => {
     try {
-      const response = await fetch('http://localhost:8000/workflow/vulnerability-types');
+      const response = await fetch(`${API_BASE_URL}/workflow/vulnerability-types`);
       const data = await response.json();
       setVulnerabilityTypes(data.vulnerability_types);
     } catch (error) {
@@ -201,7 +219,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
     try {
       const firstTask = formData.tasks[0]; // Get the first task
-      const response = await fetch('http://localhost:8000/workflow/start', {
+      const response = await fetch(`${API_BASE_URL}/workflow/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -213,8 +231,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           iterations: formData.iterations,
           model: formData.model,
           use_helm: formData.use_helm,
-          use_mock_model: useMockModel
-
+          use_mock_model: useMockModel,
+          max_input_tokens: formData.max_input_tokens ? parseInt(formData.max_input_tokens) : undefined,
+          max_output_tokens: formData.max_output_tokens ? parseInt(formData.max_output_tokens) : undefined
         }),
       });
       
@@ -265,7 +284,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const handleApiKeyChange = async () => {
     try {
-      const response = await fetch('http://localhost:8000/service/api-service/update', {
+      const response = await fetch(`${API_BASE_URL}/service/api-service/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -335,7 +354,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     const saveFileName = fileName.endsWith('.yaml') ? fileName : `${fileName}.yaml`;
 
     try {
-      const response = await fetch('http://localhost:8000/workflow/save-config', {
+      const response = await fetch(`${API_BASE_URL}/workflow/save-config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -379,6 +398,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             fetchApiKeys(),
             fetchModels(),
             fetchVulnerabilityTypes(),
+            fetchConfigDefaults()
           ]);
           setLauncherState({
             status: LauncherState.READY,
@@ -396,7 +416,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
       loadData();
     }
-  }, [isChecking, isAvailable, serverError, launcherState.status, fetchApiKeys, fetchWorkflows, fetchModels]);
+  }, [isChecking, isAvailable, serverError, launcherState.status, fetchApiKeys, fetchWorkflows, fetchModels, fetchConfigDefaults]);
   
   if (launcherState.status === LauncherState.CHECKING_SERVER || launcherState.status === LauncherState.LOADING_DATA) {
     return (
@@ -427,6 +447,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       </Box>
     );
   }
+
 
   // All good: show the form
   return (
@@ -511,6 +532,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             handleRevealToggle={handleRevealToggle}
             handleApiKeyChange={handleApiKeyChange}
             apiStatus={apiStatus}
+            configDefaults={configDefaults}
+            setFormData={setFormData} 
           />
         )}
 

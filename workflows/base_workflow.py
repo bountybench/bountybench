@@ -16,16 +16,7 @@ from workflows.interactive_controller import InteractiveController
 logger = get_main_logger(__name__)
 
 
-class WorkflowStatus(Enum):
-    """Status of workflow execution"""
-
-    INCOMPLETE = "incomplete"
-    COMPLETED_SUCCESS = "completed_success"
-    COMPLETED_FAILURE = "completed_failure"
-
-
 class BaseWorkflow(ABC):
-    status = WorkflowStatus.INCOMPLETE
 
     def __init__(self, **kwargs):
         logger.info(f"Initializing workflow {self.name}")
@@ -90,7 +81,7 @@ class BaseWorkflow(ABC):
     @property
     def current_phase(self):
         return self._current_phase
-
+    
     @property
     def phase_graph(self):
         return self._phase_graph
@@ -187,13 +178,10 @@ class BaseWorkflow(ABC):
                 self._current_phase = next_phases[0] if next_phases else None
 
             if prev_phase_message.success:
-                self.workflow_message.set_summary(
-                    WorkflowStatus.COMPLETED_SUCCESS.value
-                )
-            else:
-                self.workflow_message.set_summary(
-                    WorkflowStatus.COMPLETED_FAILURE.value
-                )
+                self.workflow_message.set_success()
+
+            self.workflow_message.set_complete()
+            self.workflow_message.save()
 
         except Exception as e:
             self._handle_workflow_exception(e)
@@ -259,9 +247,6 @@ class BaseWorkflow(ABC):
             logger.info(f"{phase.phase_config.phase_name} registered")
 
     async def stop(self):
-        # Set the status to stopped
-        self.status = WorkflowStatus.INCOMPLETE
-
         # Deallocate agents and resources
         self.agent_manager.deallocate_all_agents()
         self.resource_manager.deallocate_all_resources()
@@ -270,6 +255,42 @@ class BaseWorkflow(ABC):
             self.next_iteration_event.clear()
 
         self._finalize_workflow()
+
+    async def restart(self): 
+        self._initialize()
+
+        self._setup_resource_manager()
+        self._setup_agent_manager()
+        self._setup_interactive_controller()
+        self._compute_resource_schedule()
+
+        self.next_iteration_event = asyncio.Event()
+        self.workflow_message.new_log()
+        logger.info(f"Restarted workflow {self.name}")
+        
+    async def run_restart(self): 
+        logger.info(f"Running restarted workflow {self.name}")
+        # pick up running from current phase
+        self._current_phase.setup()
+        agent_configs =  self._current_phase.define_agents()
+        self.agent_manager.initialize_phase_agents(agent_configs)
+        
+        phase_message = await self._current_phase.run(self.workflow_message, None)
+
+        logger.status(f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
+
+        self._workflow_iteration_count += 1
+        next_phases = self._phase_graph.get(self._current_phase, [])
+        self._current_phase = next_phases[0] if next_phases else None
+        
+        # Continue running the remaining phases (if any)
+        if self._current_phase:
+            try:
+                async for _ in self._run_phases():
+                    continue
+            except asyncio.CancelledError:
+                logger.info("workflow phases run was cancelled")
+                raise
 
     @property
     def name(self):

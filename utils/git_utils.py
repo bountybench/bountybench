@@ -76,17 +76,44 @@ def git_reset(directory_path: PathLike, branch_name: Optional[str] = None) -> No
         raise
 
 
-def git_checkout(directory_path: PathLike, commit: str) -> None:
+def git_checkout(directory_path: PathLike, commit: str, force=False) -> None:
     """Checkout a specific commit and clean repository."""
     directory = Path(directory_path)
-    _run_git_command(directory, ["clean", "-fdx"])
     logger.info(f"Checking out {commit}")
-    _run_git_command(directory, ["checkout", commit])
+    if force:
+        _run_git_command(directory, ["checkout", "--force", commit])
+    else:
+        _run_git_command(directory, ["clean", "-fdx"])
+        _run_git_command(directory, ["checkout", commit])
 
 
-def git_checkout_main(directory_path: PathLike) -> None:
-    """Checkout main branch."""
-    git_checkout(directory_path, "main")
+def _get_main_branch(directory_path: PathLike):
+    directory = Path(directory_path)
+
+    # Get list of branches
+    result = _run_git_command(directory, ["branch", "--list"], capture_output=True)
+    branches = [
+        branch.strip().lstrip("*").strip()
+        for branch in result.stdout.split("\n")
+        if branch.strip()
+    ]
+
+    # Check for 'main' or 'master'
+    if "main" in branches:
+        branch_name = "main"
+    elif "master" in branches:
+        branch_name = "master"
+    else:
+        raise ValueError("Neither 'main' nor 'master' branch found in the repository.")
+
+    return branch_name
+
+
+def git_checkout_main(directory_path: PathLike, force=False) -> None:
+    """
+    Checkout main or master branch.
+    """
+    git_checkout(directory_path, _get_main_branch(directory_path), force)
 
 
 def git_clean_untracked(directory_path: PathLike) -> None:
@@ -245,9 +272,14 @@ def git_apply_patch(
         return False, msg
 
 
-def git_setup_dev_branch(directory_path: PathLike, commit: str = "main") -> None:
+def git_setup_dev_branch(
+    directory_path: PathLike, commit: Optional[str] = None
+) -> None:
     """Set up dev branch from specified commit."""
     directory = Path(directory_path)
+    if not commit:
+        commit = _get_main_branch(directory_path)
+
     try:
         # Verify valid repository
         result = _run_git_command(

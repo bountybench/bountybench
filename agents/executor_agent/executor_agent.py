@@ -1,7 +1,8 @@
 import asyncio
+from dataclasses import dataclass
 from typing import List, Optional
 
-from agents.base_agent import BaseAgent
+from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.command_message_interface import CommandMessageInterface
@@ -9,11 +10,7 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.convert_message_utils import cast_action_to_command
 from messages.message import Message
-from resources.init_files_resource import InitFilesResource
-from resources.kali_env_resource import KaliEnvResource
-from resources.memory_resource import MemoryResource
-from resources.model_resource.model_resource import ModelResource
-from resources.setup_resource import SetupResource
+from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -23,25 +20,27 @@ MAX_RETRIES = 3
 RETRY_DELAY = 30
 
 
+@dataclass
+class ExecutorAgentConfig(AgentConfig):
+    """Configuration for ExecutorAgent"""
+
+
 class ExecutorAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
-        (InitFilesResource, "init_files"),
-        KaliEnvResource,
-        (ModelResource, "model"),
-        (MemoryResource, "executor_agent_memory"),
+        ResourceType.INIT_FILES,
+        ResourceType.KALI_ENV,
+        ResourceType.MODEL,
+        ResourceType.MEMORY,
     ]
     OPTIONAL_RESOURCES = [
-        (SetupResource, "repo_resource"),
-        (SetupResource, "bounty_resource"),
+        ResourceType.REPO_SETUP,
+        ResourceType.BOUNTY_SETUP,
     ]
     ACCESSIBLE_RESOURCES = [
-        KaliEnvResource,
-        (InitFilesResource, "init_files"),
-        (SetupResource, "repo_resource"),
-        (SetupResource, "bounty_resource"),
-        (ModelResource, "model"),
-        (MemoryResource, "executor_agent_memory"),
+        ResourceType.KALI_ENV,
+        ResourceType.MODEL,
+        ResourceType.MEMORY,
     ]
 
     async def run(self, messages: List[Message]) -> Message:
@@ -90,6 +89,7 @@ class ExecutorAgent(BaseAgent):
         """
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
+        Immediately fails on non-retryable errors like quota limits.
         """
         iterations = 0
 
@@ -98,15 +98,21 @@ class ExecutorAgent(BaseAgent):
             iterations = 0
             while iterations < MAX_RETRIES:
                 try:
-                    lm_input_message = self.executor_agent_memory.get_memory(
+                    lm_input_message = self.resources.executor_agent_memory.get_memory(
                         lm_input_message
                     )
                     model_output: ActionMessage = await asyncio.to_thread(
-                        self.model.run, input_message=lm_input_message
+                        self.resources.model.run, input_message=lm_input_message
                     )
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
                 except Exception as e:
+                    error_msg = str(e)
+                    if "No quota" in error_msg or "InsufficientQuotaError" in error_msg:
+                        raise Exception(
+                            f"API quota exceeded. Please check your model quota/limits"
+                        )
+
                     logger.warning(
                         f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}"
                     )
@@ -143,11 +149,11 @@ class ExecutorAgent(BaseAgent):
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
         """
-        Executes the command in the environment using self.kali_env,
+        Executes the command in the environment using self.resources.kali_env,
         captures the output, and returns an ActionMessage.
         """
         try:
-            kali_message = self.kali_env.run(executor_message)
+            kali_message = self.resources.kali_env.run(executor_message)
 
             return kali_message
 
@@ -156,7 +162,7 @@ class ExecutorAgent(BaseAgent):
                 f"Failed to execute command: {executor_message.command}.\nException: {str(e)}"
             )
             return ActionMessage(
-                resource_id=self.kali_env.resource_id,
+                resource_id=self.resources.kali_env.resource_id,
                 message=str(e),
                 prev=executor_message,
             )

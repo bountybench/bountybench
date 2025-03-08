@@ -6,8 +6,9 @@ from messages.action_messages.answer_message_interface import AnswerMessageInter
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
-from resources.base_resource import BaseResource
-from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
+from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.model_resource.model_resource import ModelResourceConfig
+from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
 
@@ -46,16 +47,23 @@ class ChatPhase(BasePhase):
             "chat_agent": (ChatAgent, chat_config),
         }
 
-    def define_resources(self) -> Dict[str, Tuple[Type[BaseResource], Any]]:
+    def define_resources(self) -> List[Tuple[ResourceType, BaseResourceConfig]]:
         """
         Define resource classes and their configurations required by the ChatPhase.
 
         Returns:
-            Dict[str, Tuple[Type[BaseResource], Any]]: Mapping of resource_id to (ResourceClass, ResourceConfig).
+            List[Tuple[DefaultResource, ResourceConfig]].
         """
-        resource_configs: Dict[str, Tuple[Type[BaseResource], Any]] = {
-            "model": (ModelResource, ModelResourceConfig.create(model=self.model)),
-        }
+        resource_configs: List[Tuple[BaseResource, BaseResourceConfig]] = [
+                (
+                    ResourceType.MODEL,
+                    ModelResourceConfig.create(
+                        model=self.model,
+                        max_input_tokens=self.params.get("max_input_tokens"),
+                        max_output_tokens=self.params.get("max_output_tokens"),
+                    )
+                ),
+        ]
         return resource_configs
 
     async def run_one_iteration(

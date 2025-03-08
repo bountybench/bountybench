@@ -56,12 +56,14 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy the entire project into the container
 COPY . .
 
+RUN touch .env
+
 # Copy the shell script for DinD docker daemon
 COPY tools/dockerd-entrypoint.sh /usr/local/bin/dockerd-entrypoint.sh
 RUN chmod +x /usr/local/bin/dockerd-entrypoint.sh
 
-# Expose the backend port (assuming the server runs on port 8000)
-EXPOSE 8000
+# Expose the backend port (assuming the server runs on port 7999)
+EXPOSE 7999
 
 # Run the docker daemon in the background
 ENTRYPOINT ["dockerd-entrypoint.sh"]

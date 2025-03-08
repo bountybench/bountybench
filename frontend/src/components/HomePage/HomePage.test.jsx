@@ -5,6 +5,8 @@ import { MemoryRouter, Routes, Route } from 'react-router';
 import HomePage from './HomePage'; // Adjust the import path as needed
 import '@testing-library/jest-dom/extend-expect'; // Import for custom matchers
 
+const BASE_URL=`http://localhost:7999`
+
 global.fetch = jest.fn();
 
 describe('HomePage Component', () => {
@@ -47,7 +49,7 @@ describe('HomePage Component', () => {
     renderWithRouter();
 
     // Wait for the loading to finish and the workflows to load
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflow/active'));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(`${BASE_URL}/workflow/active`));
     expect(await screen.findByText(/Workflow 1/)).toBeInTheDocument();
     expect(await screen.findByText(/Workflow 2/)).toBeInTheDocument();  
   });
@@ -61,7 +63,7 @@ describe('HomePage Component', () => {
     renderWithRouter();
 
     // Wait for the loading to finish
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflow/active'));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(`${BASE_URL}/workflow/active`));
     
     // Assert
     expect(await screen.findByText(/No active workflows/i)).toBeInTheDocument();
@@ -76,7 +78,7 @@ describe('HomePage Component', () => {
     renderWithRouter();
 
     // Wait for the loading to finish
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflow/active'));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(`${BASE_URL}/workflow/active`));
 
     // Act
     const newWorkflowButton = screen.getByRole('button', { name: /New Workflow/i });
@@ -98,7 +100,7 @@ describe('HomePage Component', () => {
     renderWithRouter();
 
     // Wait for the loading to finish and the workflows to load
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith('http://localhost:8000/workflow/active'));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(`${BASE_URL}/workflow/active`));
 
     // Act
     const workflowButton = await screen.findByRole('button', { name: /Workflow 1/i });
@@ -106,6 +108,6 @@ describe('HomePage Component', () => {
     fireEvent.click(workflowButton);
     
     // Assert
-    expect(screen.getByText(/Workflow/i)).toBeInTheDocument(); // Check for workflow navigation
+    expect(screen.getAllByText(/Workflow/i).length).toBeGreaterThan(0); // Check for workflow navigation
   });
 });

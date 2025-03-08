@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   TextField,
   MenuItem,
@@ -27,8 +27,19 @@ export const ModelSelectionSection = ({
   showApiKey,
   handleRevealToggle,
   handleApiKeyChange,
-  apiStatus
+  apiStatus,
+  configDefaults,
+  setFormData
 }) => {
+  useEffect(() => {
+    if (configDefaults && configDefaults.max_input_tokens && configDefaults.max_output_tokens) {
+      setFormData(prev => ({
+        ...prev,
+        max_input_tokens: prev.max_input_tokens === '' ? configDefaults.max_input_tokens : prev.max_input_tokens,
+        max_output_tokens: prev.max_output_tokens === '' ? configDefaults.max_output_tokens : prev.max_output_tokens
+      }));
+    }
+  }, [configDefaults, setFormData]);
   return (
     <>
       <TextField
@@ -63,6 +74,37 @@ export const ModelSelectionSection = ({
           ))}
         </TextField>
       )}
+
+<Grid container spacing={2}>
+        <Grid item xs={6}>
+          <TextField
+            fullWidth
+            type="number"
+            label="Max Input Tokens"
+            name="max_input_tokens"
+            value={formData.max_input_tokens}
+            onChange={handleInputChange}
+            margin="normal"
+            InputProps={{
+              inputProps: { min: 1 }
+            }}
+          />
+        </Grid>
+        <Grid item xs={6}>
+          <TextField
+            fullWidth
+            type="number"
+            label="Max Output Tokens" 
+            name="max_output_tokens"
+            value={formData.max_output_tokens}
+            onChange={handleInputChange}
+            margin="normal"
+            InputProps={{
+              inputProps: { min: 1 }
+            }}
+          />
+        </Grid>
+      </Grid>
 
       <Grid container spacing={2} alignItems="center">
         <Grid item xs={5}>

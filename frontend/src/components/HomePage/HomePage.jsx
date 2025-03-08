@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router';
 import { Box, Button, Typography, CircularProgress } from '@mui/material';
 import './HomePage.css';
 
+import { API_BASE_URL } from '../../config';
+
 const HomePage = () => {
   const navigate = useNavigate();
   const [activeWorkflows, setActiveWorkflows] = useState([]);
@@ -15,7 +17,7 @@ const HomePage = () => {
 
   const fetchActiveWorkflows = async () => {
     try {
-      const response = await fetch('http://localhost:8000/workflow/active');
+      const response = await fetch(`${API_BASE_URL}/workflow/active`);
       const data = await response.json();
       setActiveWorkflows(data.active_workflows);
     } catch (error) {
@@ -31,6 +33,10 @@ const HomePage = () => {
 
   const handleWorkflowClick = (workflowId) => {
     navigate(`/workflow/${workflowId}`);
+  };
+
+  const handleViewHistoryLogs = () => {
+    navigate('/history-logs');
   };
 
   // Helper function to render workflow buttons
@@ -83,11 +89,18 @@ const HomePage = () => {
         variant="contained"
         color="primary"
         onClick={handleNewWorkflowClick}
-        style={{ marginBottom: '20px' }}
+        style={{ marginBottom: '20px', width: '180px'}}
       >
         New Workflow
       </Button>
-
+      <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleViewHistoryLogs} 
+          style={{ marginBottom: '20px', width: '180px'}}
+        >
+          View History Logs
+        </Button>
       {loading ? (
         <CircularProgress />
       ) : (

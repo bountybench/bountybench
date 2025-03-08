@@ -121,7 +121,7 @@ class InitFilesResource(BaseResource):
                     text=True,
                 )
 
-            git_checkout(self.files_dir, self.vulnerable_commit)
+            git_checkout(self.files_dir, self.vulnerable_commit, force=True)
 
             tmp_destination_path = self.tmp_dir / self.files_dir_name
             self.copy_files(self.files_dir, tmp_destination_path)
@@ -140,7 +140,7 @@ class InitFilesResource(BaseResource):
             # Log error details if the script execution fails
             logger.error(f"Init script stdout: {e.stdout}")
             logger.error(f"Init script stderr: {e.stderr}")
-            sys.exit(1)
+            raise RuntimeError(str(e))
         # Set up git repos
 
         git_setup_dev_branch(self.files_dir, self.vulnerable_commit)
@@ -163,7 +163,7 @@ class InitFilesResource(BaseResource):
             try:
                 if self.files_dir.exists():
                     # First try to check out main branch
-                    git_checkout_main(self.files_dir)
+                    git_checkout_main(self.files_dir, force=True)
                     git_delete_branch(self.files_dir, "dev")
 
             except Exception as e:

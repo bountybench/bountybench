@@ -1,14 +1,26 @@
 services:
+  nginx:
+      build:
+        context: .
+        dockerfile: Dockerfile.nginx
+      container_name: nginx-proxy
+      ports:
+        - "3000:80"  # Host port 3000 to Container port 80
+      depends_on:
+        - frontend
+        - backend
+      networks:
+        - app-network
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     container_name: backend-service
     privileged: true
-    ports:
-      - "8000:8000"
     volumes:
       - dind-data:/var/lib/docker
+      - ./logs:/app/logs
     networks:
       - app-network
     environment:
@@ -22,15 +34,12 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile.frontend
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
     container_name: frontend-service
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
     environment:
       - CHOKIDAR_USEPOLLING=true
+      - REACT_APP_USE_NGINX_PROXY=true # The REACT_APP_ prefix exposes the variable to the frontend JS code
     networks:
       - app-network
 

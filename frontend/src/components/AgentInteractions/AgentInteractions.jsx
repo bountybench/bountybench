@@ -4,6 +4,7 @@ import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArro
 import StopIcon from '@mui/icons-material/Stop';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
 import './AgentInteractions.css';
+import RestoreIcon from '@mui/icons-material/Restore';
 
 const AgentInteractions = ({ 
   interactiveMode, 
@@ -14,10 +15,12 @@ const AgentInteractions = ({
   onRunMessage,
   onTriggerNextIteration,
   onStopWorkflow,
-  onToggleVersion
+  onToggleVersion,
+  onRestart
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [isStopped, setIsStopped] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
+  const [stopped, setStopped] = useState(false);
   const messagesEndRef = useRef(null);
   const [selectedCellId, setSelectedCellId] = useState(null);
 
@@ -45,18 +48,29 @@ const AgentInteractions = ({
   }, [phaseMessages]);
 
   const handleStopClick = async () => {
-    setIsStopped(true); // Hide buttons immediately
+    setIsStopping(true); // Hide buttons immediately
     await onStopWorkflow();
+    setStopped(true);
   };
 
-    // Ensure buttons remain hidden when workflow status updates from parent  
-  useEffect(() => {
-    if (workflowStatus === "stopped") {
-      setIsStopped(true);
-    }
-  }, [workflowStatus]);
+  const handleRestart = async () => {
+    await onRestart();
+  };
 
-  if (phaseMessages.length === 0) {
+    // Ensure buttons remain hidden when workflow status updates from parent
+    useEffect(() => {
+      if (workflowStatus === "stopped") {
+        setIsStopping(true);
+        setStopped(true);
+      }
+      else {
+        setIsStopping(false);
+        setStopped(false);
+      }
+    }, [workflowStatus]);
+  
+
+    if (phaseMessages.length === 0) {
     return (
       <Box className="interactions-container" display="flex" justifyContent="center" alignItems="center">
         <CircularProgress />
@@ -84,7 +98,9 @@ const AgentInteractions = ({
       </Box>
 
       <Box className="input-and-buttons-container" display="flex" justifyContent="center" gap={1}>
-        {interactiveMode && !isStopped && (
+      {interactiveMode && (
+        <>
+        {!isStopping && !stopped ? (
           <>
             <Button
               variant="contained"
@@ -106,7 +122,20 @@ const AgentInteractions = ({
               Stop
             </Button>
           </>
-        )}
+        ) : null}
+        {isStopping && stopped && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleRestart}
+            startIcon={<RestoreIcon />}
+            size="small"
+          >
+            Restart Resources
+          </Button>
+          )}
+        </>
+      )}
       </Box>
     </Box>
   );
