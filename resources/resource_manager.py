@@ -1,13 +1,15 @@
 from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Type
 
-from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
 from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
 from resources.resource_dict import resource_dict
 from utils.logger import get_main_logger
+
+if TYPE_CHECKING:
+    from phases.base_phase import BasePhase
 
 logger = get_main_logger(__name__)
 
@@ -78,11 +80,13 @@ class ResourceManager:
 
         for i, phase in enumerate(phases):
             phase_resources = phase.define_resources()
-            self._phase_resources[i] = set(phase_resources.keys())
-            for resource_id, (
-                resource_class,
-                resource_config,
-            ) in phase_resources.items():
+            self._phase_resources[i] = set(
+                [resource.key(self.workflow_id) for (resource, _) in phase_resources]
+            )
+            for resource, resource_config in phase_resources:
+                resource_id = resource.key(self.workflow_id)
+                resource_class = resource.get_class()
+
                 if not self.is_resource_equivalent(
                     resource_id, resource_class, resource_config
                 ):

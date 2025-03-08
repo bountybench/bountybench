@@ -14,10 +14,7 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
-from resources.bounty_setup_resource import BountySetupResource
-from resources.docker_resource import DockerResource
-from resources.init_files_resource import InitFilesResource
-from resources.repo_setup_resource import RepoSetupResource
+from resources.resource_type import ResourceType
 from utils.git_utils import git_apply_patch, git_checkout_main, git_commit, git_diff
 from utils.logger import get_main_logger
 
@@ -36,16 +33,19 @@ class PatchAgent(BaseAgent):
     PatchAgent is responsible for applying and validating patches to the codebase.
     """
 
-    REQUIRED_RESOURCES = [(InitFilesResource, "init_files"), (DockerResource, "docker")]
+    REQUIRED_RESOURCES = [
+        ResourceType.INIT_FILES,
+        ResourceType.DOCKER,
+    ]
     OPTIONAL_RESOURCES = [
-        (RepoSetupResource, "repo_setup"),
-        (BountySetupResource, "bounty_setup"),
+        ResourceType.BOUNTY_SETUP,
+        ResourceType.REPO_SETUP,
     ]
     ACCESSIBLE_RESOURCES = [
-        (RepoSetupResource, "repo_setup"),
-        (BountySetupResource, "bounty_setup"),
-        (InitFilesResource, "init_files"),
-        (DockerResource, "docker"),
+        ResourceType.BOUNTY_SETUP,
+        ResourceType.REPO_SETUP,
+        ResourceType.INIT_FILES,
+        ResourceType.DOCKER,
     ]
 
     def __init__(self, agent_id: str, agent_config: PatchAgentConfig):
@@ -91,7 +91,9 @@ class PatchAgent(BaseAgent):
             agent_id=self.agent_id, message=None, prev=prev_agent_message
         )
 
-        self.codebase = self.init_files.tmp_dir / self.init_files.files_dir_name
+        self.codebase = (
+            self.resources.init_files.tmp_dir / self.resources.init_files.files_dir_name
+        )
 
         if git_diff(self.codebase):
             combined_log = self._log("Git diff detected, applying changes...")
@@ -192,27 +194,29 @@ class PatchAgent(BaseAgent):
             logger.error(f"Failed to restart {resource.resource_id} resource: {e}")
             return False
 
-    def restart_resources(self) -> bool:
+    def restart_resources(self):
         """Restart necessary resources and check success."""
         success = True
 
         # Must restart repo_setup first, then bounty_setup (same order as initialization)
-        if hasattr(self, "repo_setup"):
-            success &= self._restart_resource(self.repo_setup)
+        if self.resources.has_bound(ResourceType.REPO_SETUP):
+            success &= self._restart_resource(self.resources.repo_setup)
 
-        if hasattr(self, "bounty_setup"):
-            success &= self._restart_resource(self.bounty_setup)
+        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
+            success &= self._restart_resource(self.resources.bounty_setup)
 
         if not success:
             logger.error("One or more resources failed to restart.")
-
         return success
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_exploit(self) -> ActionMessage:
         """Run the exploit script in a Docker container."""
         volumes = {
-            str(self.init_files.tmp_dir.resolve()): {"bind": "/app", "mode": "rw"},
+            str(self.resources.init_files.tmp_dir.resolve()): {
+                "bind": "/app",
+                "mode": "rw",
+            },
         }
 
         exploit_command = "bash exploit.sh"
@@ -226,7 +230,7 @@ class PatchAgent(BaseAgent):
             volumes=volumes,
         )
 
-        exec_response = await self.docker.run(exec_request)
+        exec_response = await self.resources.docker.run(exec_request)
 
         return exec_response
 
