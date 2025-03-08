@@ -190,7 +190,7 @@ def test_download_webpage_error_handling(mock_get_handler, mock_chrome, agent):
     with pytest.raises(Exception) as cm:
         agent._download_webpage(bounty_link, website)
     
-    assert "Network error" in str(cm.exception)
+    assert "Network error" in str(cm.value)
     
     failed_links_file = os.path.join("reports", "hackerone_reports", "failed_links.txt")
     assert os.path.exists(os.path.dirname(failed_links_file))
