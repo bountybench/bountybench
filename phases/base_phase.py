@@ -69,6 +69,19 @@ class BasePhase(ABC):
         """
         pass
 
+    def define_resource_init_order(
+        self,
+    ) -> Dict[ResourceType, int]:
+        """ "
+        Define the order resources should be initialized (and deallocated).
+        Deallocation occurs in the reverse order of initialization. By default,
+        resource order is defined by ResourceType.get_priority().
+        """
+        return {
+            resource: resource.get_priority()
+            for (resource, _) in self.define_resources()
+        }
+
     @abstractmethod
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         """
@@ -105,7 +118,22 @@ class BasePhase(ABC):
         Args:
             other (BasePhase): The next phase in the workflow.
 
-        Returns:
+        Returns:  # 1. Define and register resources
+        resource_configs = self.define_resources()
+        resource_configs_keys = {
+            resource.key(self.workflow_id) for resource, _ in resource_configs
+        }
+        for resource, resource_config in resource_configs:
+            resource_id, resource_class = (
+                resource.key(self.workflow_id),
+                resource.get_class(),
+            )
+            if not self.resource_manager.is_resource_equivalent(
+                resource_id, resource_class, resource_config
+            ):
+                self.resource_manager.register_resource(
+                    resource_id, resource_class, resource_config
+                )
             BasePhase: The 'other' phase, allowing for method chaining.
         """
         if isinstance(other, BasePhase):
@@ -134,35 +162,19 @@ class BasePhase(ABC):
         Initialize and register resources and agents for the phase.
         """
         logger.debug(f"Entering setup for {self.name}")
-
-        # 1. Define and register resources
-        resource_configs = self.define_resources()
-        resource_configs_keys = {
-            resource.key(self.workflow_id) for resource, _ in resource_configs
-        }
-        for resource, resource_config in resource_configs:
-            resource_id, resource_class = (
-                resource.key(self.workflow_id),
-                resource.get_class(),
-            )
-            if not self.resource_manager.is_resource_equivalent(
-                resource_id, resource_class, resource_config
-            ):
-                self.resource_manager.register_resource(
-                    resource_id, resource_class, resource_config
-                )
-
-        # 2. Initialize phase resources
-        self.resource_manager.initialize_phase_resources(
-            self.phase_config.phase_idx, resource_configs_keys
-        )
-        logger.info(f"Resources for phase {self.name} initialized")
-        # 3. Define and register agents
-        agent_configs = self.define_agents()
-
         try:
             # 1. Define and register resources
-            resource_configs = self.define_resources()
+            init_order = self.define_resource_init_order()
+            resource_configs = sorted(
+                self.define_resources(),
+                key=lambda resource_tuple: init_order.get(
+                    resource_tuple[0], float("inf")
+                ),
+            )
+            resource_configs_keys = [
+                resource.key(self.workflow_id) for resource, _ in resource_configs
+            ]
+
             for resource, resource_config in resource_configs:
                 resource_id, resource_class = (
                     resource.key(self.workflow_id),
@@ -175,7 +187,11 @@ class BasePhase(ABC):
                         resource_id, resource_class, resource_config
                     )
 
-            logger.info(f"Completed setup for {self.name}")
+            # 2. Initialize phase resources
+            self.resource_manager.initialize_phase_resources(
+                self.phase_config.phase_idx, resource_configs_keys
+            )
+            logger.info(f"Resources for phase {self.name} initialized")
 
             # 3. Define and register agents
             agent_configs = self.define_agents()

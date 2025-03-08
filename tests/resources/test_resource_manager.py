@@ -119,7 +119,7 @@ def mock_resource_constructors():
 
 
 def get_resource_keys(cls, workflow_id):
-    return {resource.key(workflow_id) for resource in cls.get_required_resources()}
+    return [resource.key(workflow_id) for resource in cls.get_required_resources()]
 
 
 def test_resource_lifecycle(

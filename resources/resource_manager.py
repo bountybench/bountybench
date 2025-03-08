@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Type
 
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.init_files_resource import InitFilesResource
@@ -26,7 +26,7 @@ class ResourceManager:
         self._resource_registration: Dict[
             str, Tuple[Type[BaseResource], Optional[BaseResourceConfig]]
         ] = {}
-        self._phase_resources: Dict[int, Set[str]] = {}
+        self._phase_resources: Dict[int, List[str]] = {}
         self._resource_lifecycle: Dict[str, Tuple[int, int]] = {}
 
     @property
@@ -116,15 +116,17 @@ class ResourceManager:
             or (registered_config is None and resource_config is None)
         )
 
-    def initialize_phase_resources(self, phase_index: int, resource_ids: Iterable[str]):
-        """Initialize resources for a phase and update lifecycle information."""
+    def initialize_phase_resources(self, phase_index: int, resource_ids: List[str]):
+        """
+        Initialize resources for a phase and update lifecycle information.
+        Note: `resource_ids` passed in are sorted in BasePhase.
+        """
         logger.debug(f"Entering initialize_phase_resources for phase {phase_index}")
 
-        resource_id_set = set(resource_ids)
-        self._phase_resources[phase_index] = resource_id_set
+        self._phase_resources[phase_index] = resource_ids
 
         # Update lifecycle information
-        for resource_id in resource_id_set:
+        for resource_id in resource_ids:
             if resource_id not in self._resource_lifecycle:
                 self._resource_lifecycle[resource_id] = (phase_index, phase_index)
             else:
@@ -133,67 +135,7 @@ class ResourceManager:
                     init_phase,
                     max(phase_index, term_phase),
                 )
-
-        # Separate InitFilesResource from other resources
-        init_files_resource_id = next(
-            (
-                rid
-                for rid in resource_id_set
-                if self._resource_registration.get(rid)
-                and issubclass(self._resource_registration[rid][0], InitFilesResource)
-            ),
-            None,
-        )
-
-        kali_resource_id = next(
-            (
-                rid
-                for rid in resource_id_set
-                if self._resource_registration.get(rid)
-                and issubclass(self._resource_registration[rid][0], KaliEnvResource)
-            ),
-            None,
-        )
-
-        # other_resource_ids = resource_id_set - {init_files_resource_id} if init_files_resource_id else resource_id_set
-
-        # Find repo_setup and bounty_setup resources
-        repo_setup_id = next(
-            (rid for rid in resource_id_set if rid == "repo_setup"),
-            None,
-        )
-
-        bounty_setup_id = next(
-            (rid for rid in resource_id_set if rid == "bounty_setup"),
-            None,
-        )
-
-        other_resource_ids = resource_id_set - {
-            init_files_resource_id,
-            kali_resource_id,
-            repo_setup_id,
-            bounty_setup_id,
-        }
-
-        # 1. Init files first
-        if init_files_resource_id:
-            self._initialize_single_resource(init_files_resource_id, phase_index)
-
-        # 2. Repo setup second
-        if repo_setup_id:
-            self._initialize_single_resource(repo_setup_id, phase_index)
-
-        # 3. Bounty setup third
-        if bounty_setup_id:
-            self._initialize_single_resource(bounty_setup_id, phase_index)
-
-        # 4. Initialize other resources
-        for resource_id in other_resource_ids:
             self._initialize_single_resource(resource_id, phase_index)
-
-        # 5. Kali env last
-        if kali_resource_id:
-            self._initialize_single_resource(kali_resource_id, phase_index)
 
         logger.debug(f"Resource lifecycle state: {self._resource_lifecycle}")
         logger.debug(f"Exiting initialize_phase_resources for phase {phase_index}")
@@ -234,9 +176,9 @@ class ResourceManager:
             return
 
         resources_to_deallocate = []
-        init_files_resource = None
 
-        for resource_id in self._phase_resources[phase_index]:
+        # Collect resources to deallocate in reverse order of their initialization
+        for resource_id in reversed(self._phase_resources[phase_index]):
             if resource_id not in self._resource_lifecycle:
                 logger.warning(f"No lifecycle information for resource '{resource_id}'")
                 continue
@@ -248,12 +190,9 @@ class ResourceManager:
                 in self._resources.id_to_resource.get(self.workflow_id, {})
             ):
                 resource = self._resources.get(self.workflow_id, resource_id)
-                if isinstance(resource, InitFilesResource):
-                    init_files_resource = (resource_id, resource)
-                else:
-                    resources_to_deallocate.append((resource_id, resource))
+                resources_to_deallocate.append((resource_id, resource))
 
-        # Deallocate non-InitFilesResource resources
+        # Deallocate resources
         for resource_id, resource in resources_to_deallocate:
             try:
                 logger.debug(f"Stopping resource '{resource_id}'")
@@ -262,20 +201,6 @@ class ResourceManager:
                 logger.info(f"Deallocated resource '{resource_id}'")
             except Exception as e:
                 logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
-                raise
-
-        # Deallocate InitFilesResource last, if it exists
-        if init_files_resource:
-            resource_id, resource = init_files_resource
-            try:
-                logger.debug(f"Stopping InitFilesResource '{resource_id}'")
-                resource.stop()
-                self._resources.delete_items(self.workflow_id, resource_id)
-                logger.info(f"Deallocated InitFilesResource '{resource_id}'")
-            except Exception as e:
-                logger.error(
-                    f"Failed to deallocate InitFilesResource '{resource_id}': {str(e)}"
-                )
                 raise
 
         logger.info(f"Completed resource deallocation for phase {phase_index}")

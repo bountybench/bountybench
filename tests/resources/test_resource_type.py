@@ -66,6 +66,36 @@ def test_resource_type_get_class():
     assert ResourceType.REPO_SETUP.get_class() == RepoSetupResource
 
 
+def test_resource_type_get_priority():
+    priorities = {
+        resource: resource.get_priority()
+        for resource in [
+            ResourceType.INIT_FILES,
+            ResourceType.REPO_SETUP,
+            ResourceType.BOUNTY_SETUP,
+            ResourceType.DOCKER,
+            ResourceType.MEMORY,
+            ResourceType.MODEL,
+            ResourceType.KALI_ENV,
+        ]
+    }
+    assert priorities[ResourceType.BOUNTY_SETUP] > priorities[ResourceType.REPO_SETUP]
+    assert priorities[ResourceType.INIT_FILES] < min(
+        [
+            priority
+            for resource, priority in priorities.items()
+            if resource != ResourceType.INIT_FILES
+        ]
+    )
+    assert priorities[ResourceType.KALI_ENV] > max(
+        [
+            priority
+            for resource, priority in priorities.items()
+            if resource != ResourceType.KALI_ENV
+        ]
+    )
+
+
 # "uses" bounty_setup for import clarity
 if None:
     bounty_setup

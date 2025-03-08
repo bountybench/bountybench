@@ -15,9 +15,12 @@ if TYPE_CHECKING:
 
 
 class _Resource:
-    def __init__(self, resource_id: str, resource_class: Type["BaseResource"]):
+    def __init__(
+        self, resource_id: str, resource_class: Type["BaseResource"], priority: int
+    ):
         self.resource_id = resource_id
         self.resource_class = resource_class
+        self.priority = priority
 
     def __str__(self):
         return self.resource_id
@@ -25,15 +28,18 @@ class _Resource:
     def get_class(self):
         return self.resource_class
 
+    def get_priority(self):
+        return self.priority
+
 
 class ResourceType(Enum):
-    DOCKER = _Resource("docker", DockerResource)
-    INIT_FILES = _Resource("init_files", InitFilesResource)
-    KALI_ENV = _Resource("kali_env", KaliEnvResource)
-    MEMORY = _Resource("executor_agent_memory", MemoryResource)
-    MODEL = _Resource("model", ModelResource)
-    BOUNTY_SETUP = _Resource("bounty_setup", BountySetupResource)
-    REPO_SETUP = _Resource("repo_setup", RepoSetupResource)
+    INIT_FILES = _Resource("init_files", InitFilesResource, 0)
+    REPO_SETUP = _Resource("repo_setup", RepoSetupResource, 1)
+    BOUNTY_SETUP = _Resource("bounty_setup", BountySetupResource, 2)
+    DOCKER = _Resource("docker", DockerResource, 3)
+    MEMORY = _Resource("executor_agent_memory", MemoryResource, 3)
+    MODEL = _Resource("model", ModelResource, 3)
+    KALI_ENV = _Resource("kali_env", KaliEnvResource, 4)
 
     def __str__(self):
         return str(self.value)
@@ -46,6 +52,9 @@ class ResourceType(Enum):
 
     def get_class(self):
         return self.value.get_class()
+
+    def get_priority(self) -> int:
+        return self.value.get_priority()
 
     def exists(self, workflow_id: str) -> bool:
         return resource_dict.contains(
