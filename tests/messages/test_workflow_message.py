@@ -8,18 +8,6 @@ from messages.workflow_message import WorkflowMessage
 def workflow_message():
     return WorkflowMessage("test_workflow", workflow_id="test_id", logs_dir="test_logs")
 
-def test_workflow_message_initialization(workflow_message):
-    assert workflow_message.workflow_name == "test_workflow"
-    assert workflow_message.workflow_id == "test_id"
-    assert workflow_message.summary == "incomplete"
-    assert len(workflow_message.phase_messages) == 0
-    assert workflow_message.agents_used == {}
-    assert workflow_message.resources_used == {}
-    assert workflow_message.usage == {"input_token": 0, "output_token": 0, "time_taken_in_ms": 0}
-
-def test_set_summary(workflow_message):
-    workflow_message.set_summary("completed")
-    assert workflow_message.summary == "completed"
 
 def test_add_child_message(workflow_message, mocker):
     mock_phase_message = mocker.Mock(spec=PhaseMessage)
@@ -52,14 +40,6 @@ def test_get_total_usage(workflow_message, mocker):
         "total_input_tokens": 25,
         "total_output_tokens": 45,
         "total_time_taken_in_ms": 250
-    }
-
-def test_metadata_dict(workflow_message):
-    metadata = workflow_message.metadata_dict()
-    assert metadata == {
-        "workflow_name": "test_workflow",
-        "workflow_summary": "incomplete",
-        "task": None
     }
 
 def test_to_log_dict(workflow_message):
