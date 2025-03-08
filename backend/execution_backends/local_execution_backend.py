@@ -116,7 +116,7 @@ class LocalExecutionBackend(ExecutionBackend):
         Restart a previously stopped workflow from where it left off.
         """
         print(f"Attempting to restart workflow {workflow_id}")
-        active_workflows = self.app.state.active_workflows
+        active_workflows = self.active_workflows
         if workflow_id not in active_workflows:
             print(f"Workflow {workflow_id} not found in active workflows")
             return {"error": f"Workflow {workflow_id} not found"}
@@ -335,6 +335,9 @@ class LocalExecutionBackend(ExecutionBackend):
             else:
                 # If workflow doesn't exist yet, initialize it
                 print(f"Auto-starting new workflow {workflow_id}")
+                self.active_workflows[workflow_id] = {
+                    "status": "initializing",
+                }
                 task = asyncio.create_task(
                     self._run_workflow(workflow_id, websocket_manager, should_exit)
                 )
@@ -349,6 +352,12 @@ class LocalExecutionBackend(ExecutionBackend):
 
             # Handle incoming messages
             while not should_exit:
+                # Check if workflow is still active and not stopped
+                if (workflow_id not in self.active_workflows or 
+                    self.active_workflows[workflow_id].get("status") == "stopped"):
+                    print(f"Breaking WebSocket loop - workflow {workflow_id} is stopped or removed")
+                    break
+                    
                 try:
                     data = await websocket.receive_json()
                     if should_exit:
