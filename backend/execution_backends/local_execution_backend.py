@@ -363,14 +363,16 @@ class LocalExecutionBackend(ExecutionBackend):
                     break
 
                 try:
-                    data = await websocket.receive_json()
+                    data = await asyncio.wait_for(websocket.receive_json(), timeout=1.0)
                     if should_exit:
                         break
 
                     if data.get("type") == "pong":
                         # Heartbeat is handled internally by WebSocketManager
                         continue
-
+                except asyncio.TimeoutError:
+                    # Timeout is normal, just continue the loop to check conditions again
+                    continue
                 except Exception as e:
                     print(f"Error handling WebSocket message: {e}")
                     if "disconnect" in str(e).lower():
