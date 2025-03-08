@@ -93,18 +93,6 @@ class BasePhase(ABC):
         """
         pass
 
-    def get_phase_resources(self) -> Dict[str, Any]:
-        """
-        Get the resources required for all agents in this phase.
-
-        Returns:
-            Dict[str, Any]: A dictionary of resources required by all agents.
-        """
-        phase_resources = {}
-        for agent_class in self.AGENT_CLASSES:
-            phase_resources.update(agent_class.REQUIRED_RESOURCES)
-        return phase_resources
-
     def __rshift__(self, other: "BasePhase") -> "BasePhase":
         """
         Define the order of phases in the workflow.
@@ -118,7 +106,8 @@ class BasePhase(ABC):
         Args:
             other (BasePhase): The next phase in the workflow.
 
-        Returns: BasePhase: The 'other' phase, allowing for method chaining.
+        Returns:
+            BasePhase: The 'other' phase, allowing for method chaining.
         """
         if isinstance(other, BasePhase):
             if self not in self.workflow._phase_graph:
