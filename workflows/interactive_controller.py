@@ -103,7 +103,7 @@ class InteractiveController:
 
             if not interactive:
                 # If switching to non-interactive, trigger next iteration
-                self.workflow.next_iteration_event.set()
+                await self.workflow.next_iteration_queue.put(1)
 
     async def toggle_version(self, message_id: str, direction: str):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})

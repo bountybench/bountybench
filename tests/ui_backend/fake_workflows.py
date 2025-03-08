@@ -31,7 +31,7 @@ class FakeWorkflow:
         self.agent_manager = type("obj", (object,), {"agents": {}})()
         self.interactive_controller = FakeInteractiveController(self)
         self.status = "running"  # Simulating a workflow status
-        self.next_iteration_event = asyncio.Event()
+        self.next_iteration_queue = asyncio.Queue()
         self.initial_prompt = "This is a fake initial prompt."
         self.max_input_tokens = max_input_tokens
         self.max_output_tokens = max_output_tokens
@@ -59,7 +59,7 @@ class FakeWorkflow:
         self.resource_manager.resources.clear()
 
         # Ensure no lingering async events (preventing unexpected executions)
-        self.next_iteration_event.clear()
+        # self.next_iteration_queue.clear()
 
         # Simulate finalizing workflow
         await self._finalize_workflow()

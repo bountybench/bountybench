@@ -253,6 +253,7 @@ class BasePhase(ABC):
             await self.set_last_agent_message(message)
             self._phase_message.add_child_message(message)
 
+            self.workflow.next_iteration_queue.task_done()
             logger.info(
                 f"Finished iteration {iteration_num} of {self.name} with {agent_id}"
             )
@@ -285,13 +286,13 @@ class BasePhase(ABC):
     async def _handle_interactive_mode(self) -> None:
         """Handle the interactive mode if enabled."""
         if self.phase_config.interactive:
-            if hasattr(self.workflow, "next_iteration_event"):
+            if hasattr(self.workflow, "next_iteration_queue"):
                 logger.info("Waiting for 'next' signal ...")
-                self.workflow.next_iteration_event.clear()
-                await self.workflow.next_iteration_event.wait()
+                # self.workflow.next_iteration_queue.clear()
+                await self.workflow.next_iteration_queue.get()
             else:
                 logger.warning(
-                    "Interactive mode is set, but workflow doesn't have next_iteration_event"
+                    "Interactive mode is set, but workflow doesn't have next_iteration_queue"
                 )
 
     async def _run_iteration(self, agent_instance: BaseAgent) -> Message:

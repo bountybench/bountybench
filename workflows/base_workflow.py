@@ -50,7 +50,7 @@ class BaseWorkflow(ABC):
         self._compute_resource_schedule()
         logger.info(f"Finished initializing workflow {self.name}")
 
-        self.next_iteration_event = asyncio.Event()
+        self.next_iteration_queue = asyncio.Queue()
 
         atexit.register(self._finalize_workflow)
 
@@ -251,8 +251,8 @@ class BaseWorkflow(ABC):
         self.agent_manager.deallocate_all_agents()
         self.resource_manager.deallocate_all_resources()
 
-        if hasattr(self, "next_iteration_event"):
-            self.next_iteration_event.clear()
+        # if hasattr(self, "next_iteration_queue"):
+        #     self.next_iteration_queue.clear()
 
         self._finalize_workflow()
 
@@ -264,7 +264,7 @@ class BaseWorkflow(ABC):
         self._setup_interactive_controller()
         self._compute_resource_schedule()
 
-        self.next_iteration_event = asyncio.Event()
+        self.next_iteration_queue = asyncio.Queue()
         self.workflow_message.new_log()
         logger.info(f"Restarted workflow {self.name}")
         
