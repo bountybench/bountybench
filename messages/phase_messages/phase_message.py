@@ -3,7 +3,7 @@ from typing import List, Optional
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
-TIME_TAKEN_IN_MS = "time_taken_in_ms"
+QUERY_TIME_TAKEN_IN_MS= "query_time_taken_in_ms"
 INPUT_TOKEN = "input_token"
 OUTPUT_TOKEN = "output_token"
 
@@ -15,7 +15,7 @@ class PhaseMessage(Message):
         self._summary = "incomplete"
         self._agent_messages = []
         self._phase_summary = None
-        self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, TIME_TAKEN_IN_MS: 0}
+        self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, QUERY_TIME_TAKEN_IN_MS: 0}
         super().__init__(prev)
 
     @property
@@ -89,10 +89,10 @@ class PhaseMessage(Message):
         self.usage[OUTPUT_TOKEN] += increment_output
     
     def set_time_usage(self,time:float):
-        self.usage[TIME_TAKEN_IN_MS] = time
+        self.usage[QUERY_TIME_TAKEN_IN_MS] = time
 
     def increment_time_usage(self, incrementTime: float):
-        self.usage[TIME_TAKEN_IN_MS] += incrementTime
+        self.usage[QUERY_TIME_TAKEN_IN_MS] += incrementTime
 
     def add_child_message(self, agent_message: AgentMessage):
         self._agent_messages.append(agent_message)

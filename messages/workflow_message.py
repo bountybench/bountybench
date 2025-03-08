@@ -8,7 +8,7 @@ from messages.phase_messages.phase_message import PhaseMessage
 from utils.logger import get_main_logger
 
 #Constants 
-TIME_TAKEN_IN_MS = "time_taken_in_ms"
+QUERY_TIME_TAKEN_IN_MS = "query_time_taken_in_ms"
 INPUT_TOKEN = "input_token"
 OUTPUT_TOKEN = "output_token"
 
@@ -30,7 +30,7 @@ class WorkflowMessage(Message):
         self._phase_messages = []
         self.agents_used = {}
         self.resources_used = {}
-        self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, TIME_TAKEN_IN_MS: 0}
+        self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, QUERY_TIME_TAKEN_IN_MS: 0}
 
         # Logging
         self.logs_dir = Path(logs_dir)
@@ -88,11 +88,11 @@ class WorkflowMessage(Message):
     def get_total_usage(self) -> Dict[str, int]:
         total_input_tokens = sum(phase_message.usage[INPUT_TOKEN] for phase_message in self._phase_messages)
         total_output_tokens = sum(phase_message.usage[OUTPUT_TOKEN] for phase_message in self._phase_messages)
-        total_time = sum(phase_message.usage[TIME_TAKEN_IN_MS] for phase_message in self._phase_messages)
+        total_time = sum(phase_message.usage[QUERY_TIME_TAKEN_IN_MS] for phase_message in self._phase_messages)
         usage_dict = {
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
-            "total_time_taken_in_ms": total_time
+            "total_query_time_taken_in_ms": total_time
         }
         self.usage = usage_dict
         return usage_dict

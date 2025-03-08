@@ -29,9 +29,9 @@ def test_add_resource(workflow_message):
 
 def test_get_total_usage(workflow_message, mocker):
     mock_phase1 = mocker.Mock(spec=PhaseMessage)
-    mock_phase1.usage = {"input_token": 10, "output_token": 20, "time_taken_in_ms": 100}
+    mock_phase1.usage = {"input_token": 10, "output_token": 20, "query_time_taken_in_ms": 100}
     mock_phase2 = mocker.Mock(spec=PhaseMessage)
-    mock_phase2.usage = {"input_token": 15, "output_token": 25, "time_taken_in_ms": 150}
+    mock_phase2.usage = {"input_token": 15, "output_token": 25, "query_time_taken_in_ms": 150}
     
     workflow_message._phase_messages = [mock_phase1, mock_phase2]
     
@@ -39,7 +39,7 @@ def test_get_total_usage(workflow_message, mocker):
     assert total_usage == {
         "total_input_tokens": 25,
         "total_output_tokens": 45,
-        "total_time_taken_in_ms": 250
+        "total_query_time_taken_in_ms": 250
     }
 
 def test_to_log_dict(workflow_message):

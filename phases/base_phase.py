@@ -256,13 +256,13 @@ class BasePhase(ABC):
             model_resources = self.resource_manager._resources.resources_by_type(workflow_id, ModelResource)
             total_input_tokens = sum(resource.total_input_tokens for resource in model_resources)
             total_output_tokens = sum(resource.total_output_tokens for resource in model_resources)
-            total_time_in_ms = sum(resource.total_time_in_ms for resource in model_resources)
+            query_total_time_in_ms = sum(resource.total_time_in_ms for resource in model_resources)
 
             message.set_iteration(iteration)
             await self.set_last_agent_message(message)
             self._phase_message.add_child_message(message)
             self._phase_message.set_token_usage(total_input_tokens, total_output_tokens)
-            self._phase_message.set_time_usage(total_time_in_ms)
+            self._phase_message.set_time_usage(query_total_time_in_ms)
 
             logger.info(
                 f"Finished iteration {iteration_num} of {self.name} with {agent_id}"
