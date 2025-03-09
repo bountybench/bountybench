@@ -60,11 +60,10 @@ async def test_call_lm_failure(executor_agent):
     with pytest.raises(Exception) as exc_info:
         await executor_agent.call_lm()
 
+    assert str(exc_info.value) == "Parse error"
     assert (
-        str(exc_info.value)
-        == "call_lm error: Max retries reached without valid response."
-    )
-    assert executor_agent.resources.model.run.call_count == 3  # MAX_RETRIES
+        executor_agent.resources.model.run.call_count == 1
+    )  # don't retry on model run failure
 
 
 @pytest.mark.asyncio
