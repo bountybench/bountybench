@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { Box, CircularProgress, Alert, Typography, IconButton } from '@mui/material';
+import { Box, CircularProgress, Alert, Typography, IconButton, FormControl, Select, MenuItem, Switch } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
@@ -21,24 +21,27 @@ const WorkflowState = {
   RESTARTING: 'RESTARTING'
 };
 
-export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast,   useMockModel,
-  setUseMockModel }) => {
+export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast, useMockModel, setUseMockModel }) => {
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
   const [preservedMessages, setPreservedMessages] = useState([]);
+  const navigate = useNavigate();
   
   const [resources, setResources] = useState([]);
   const [isResourcePanelOpen, setIsResourcePanelOpen] = useState(false);
   const [restart, setRestart] = useState(0);
+
+  // Dashboard Header State
+  const [modelMapping, setModelMapping] = useState([]);
+  const [selectedModelType, setSelectedModelType] = useState('');
+  const [selectedModelName, setSelectedModelName] = useState('');
 
   const [workflowState, setWorkflowState] = useState({
     status: WorkflowState.LOADING,
     message: "Loading workflow instance...",
     error: null
   });
-
-  const navigate = useNavigate();
    
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
@@ -52,12 +55,20 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       }
     };
 
-    if (!hasCheckedValidity) { // Check if validity has already been checked
+    if (!hasCheckedValidity) {
       checkIfWorkflowExists();
       setHasCheckedValidity(true);
     }
   }, [workflowId, navigate, showInvalidWorkflowToast, hasCheckedValidity]);
 
+  // Add interactiveMode to props passed to other components (App-level state)
+  const [localInteractiveMode, setInteractiveMode] = useState(interactiveMode);
+  
+  // Sync with props when they change
+  useEffect(() => {
+    setInteractiveMode(interactiveMode);
+  }, [interactiveMode]);
+  
   const {
     isConnected,
     workflowStatus,
@@ -73,6 +84,120 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     error,
     phaseMessagesCount: phaseMessages?.length
   });
+
+  // Fetch available models for the header
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/workflow/allmodels`);
+        const models = await response.json();
+        setModelMapping(models.allModels);
+      } catch (err) {
+        console.log('Failed to fetch models. Make sure the backend server is running.');
+      }
+    };
+    fetchModels();
+  }, []);
+  
+  // Effect to set defaults based on WebSocket data
+  useEffect(() => {
+    if (currentPhase && currentPhase.model) {
+      const model = currentPhase.model.split('/');
+      if (model.length === 2) {
+        setSelectedModelType(model[0]);
+        setSelectedModelName(model[1]);
+      }
+    }
+  }, [currentPhase]);
+
+  // Model change handler
+  const handleModelChange = async (name) => {
+    setSelectedModelName(name);
+    const new_model_name = `${selectedModelType}/${name}`;
+    
+    try {
+      const url = `${API_BASE_URL}/workflow/${workflowId}/model-change`;
+      const requestBody = { 
+        new_model_name: new_model_name,
+        use_mock_model: useMockModel 
+      };
+  
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+  
+      console.log('Model updated successfully to:', new_model_name);
+    } catch (error) {
+      console.error('Error updating model:', error);
+    }
+  };
+
+  // Handle mock model toggle
+  const handleMockModelToggle = async () => {
+    const newMockState = !useMockModel;
+    setUseMockModel(newMockState);
+
+    if (workflowId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/mock-model`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ use_mock_model: newMockState }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update mock model setting');
+        }
+
+        console.log('Mock model updated successfully:', newMockState);
+      } catch (error) {
+        console.error('Error updating mock model:', error);
+        setUseMockModel(!newMockState); // Revert on error
+      }
+    }
+  };
+
+  // Handle interactive mode toggle
+  const handleInteractiveModeToggle = async () => {
+    // Store the new intended state
+    const newInteractiveMode = !interactiveMode;
+    
+    if (workflowId) {
+      try {
+        // Update UI state immediately for responsive feedback
+        setInteractiveMode(newInteractiveMode);
+        
+        const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/interactive`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ interactive: newInteractiveMode }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update interactive mode');
+        }
+
+        console.log('Backend updated with new interactive mode:', newInteractiveMode);
+        
+        // Notify the parent App component about the change
+        onWorkflowStateUpdate(workflowStatus, currentPhase);
+      } catch (error) {
+        console.error('Error updating interactive mode:', error);
+        // Revert UI state on error
+        setInteractiveMode(!newInteractiveMode);
+      }
+    }
+  };
 
   const getTailMessageId = async () => {
     if (phaseMessages?.length > 0 && phaseMessages[phaseMessages.length - 1].current_children?.length > 0) {
@@ -310,6 +435,13 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   }, [workflowId]);
 
+  // Extracting model types and names
+  const allModelTypes = [...new Set(modelMapping.map(model => model.name.split('/')[0]))];
+  const allModelNames = selectedModelType ? modelMapping
+    .filter(model => model.name.startsWith(selectedModelType))
+    .map(model => model.name.split('/')[1])
+    : [];
+
   if (workflowState.status === WorkflowState.ERROR) {
     return (
       <Box p={2}>
@@ -335,31 +467,119 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const displayMessages = workflowState.status === WorkflowState.COMPLETED ? preservedMessages : phaseMessages;
 
   return (
-    <Box height="100%" overflow="hidden" display="flex">
-      <Box flexGrow={1} overflow="auto">
-        <AgentInteractions
-          interactiveMode={interactiveMode}
-          workflowStatus={workflowStatus}
-          currentPhase={currentPhase}
-          isNextDisabled={isNextDisabled}
-          phaseMessages={displayMessages}
-          onUpdateMessageInput={handleUpdateMessageInput}
-          onRunMessage={handleRunMessage}
-          onTriggerNextIteration={triggerNextIteration}
-          onStopWorkflow={handleStopWorkflow}
-          onRestart={handleRestart}
-          onToggleVersion={handleToggleVersion}
-        />
-      </Box>
-      <Box className={`resource-panel ${isResourcePanelOpen ? 'open' : ''}`}>
-        <IconButton
-          className="toggle-panel"
-          onClick={toggleResourcePanel}
-          size="small"
+    <Box height="100%" overflow="hidden" display="flex" flexDirection="column">
+      {/* Workflow-specific header */}
+      <Box 
+        display="flex" 
+        justifyContent="space-between" 
+        alignItems="center" 
+        p={1} 
+        bgcolor="#266798"
+        borderBottom="1px solid #444"
+      >
+        <Typography 
+          variant="h6" 
+          component="div" 
+          sx={{ flexGrow: 0, cursor: 'pointer' }} 
+          onClick={() => navigate('/')} 
         >
-          {isResourcePanelOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-        </IconButton>
-        <ResourceDict resources={resources} />
+          Workflow Agent
+        </Typography>
+
+        <Box display="flex" alignItems="center" flexGrow={1} justifyContent="flex-end">
+          {/* Only show model selection when not using mock model */}
+          {!useMockModel && (
+            <>
+              <FormControl variant="outlined" sx={{ mx: 2 }}>
+                <Select
+                  value={selectedModelType}
+                  onChange={(e) => setSelectedModelType(e.target.value)}
+                  size="small"
+                >
+                  {allModelTypes.map((type) => (
+                    <MenuItem key={type} value={type}>
+                      {type}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl variant="outlined" sx={{ mr: 2 }}>
+                <Select
+                  value={selectedModelName}
+                  onChange={(e) => handleModelChange(e.target.value)}
+                  size="small"
+                >
+                  {allModelNames.map((name) => (
+                    <MenuItem key={name} value={name}>
+                      {name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </>
+          )}
+
+          <Typography variant="body2" sx={{ mr: 2 }}>
+            Status: <span style={{ fontWeight: 'bold' }}>{workflowStatus || 'Unknown'}</span>
+          </Typography>
+          
+          {currentPhase && (
+            <Typography variant="body2" sx={{ mr: 2 }}>
+              Phase: <span style={{ fontWeight: 'bold' }}>{currentPhase.phase_id || 'N/A'}</span>
+            </Typography>
+          )}
+          
+          <Box display="flex" alignItems="center" mr={2}>
+            <Typography variant="body2" sx={{ mr: 1 }}>Interactive:</Typography>
+            <Switch
+              checked={localInteractiveMode}
+              onChange={handleInteractiveModeToggle}
+              color="primary"
+              size="small"
+              disabled={interactiveMode === false}
+            />
+          </Box>
+
+          <Box display="flex" alignItems="center" mr={2}>
+            <Typography variant="body2" sx={{ mr: 1 }}>Mock Model:</Typography>
+            <Switch
+              checked={useMockModel}
+              onChange={handleMockModelToggle}
+              color="primary"
+              size="small"
+            />
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Main content */}
+      <Box display="flex" flexGrow={1} overflow="hidden">
+        <Box flexGrow={1} overflow="auto">
+          <AgentInteractions
+            interactiveMode={interactiveMode}
+            workflowStatus={workflowStatus}
+            currentPhase={currentPhase}
+            isNextDisabled={isNextDisabled}
+            phaseMessages={displayMessages}
+            onUpdateMessageInput={handleUpdateMessageInput}
+            onRunMessage={handleRunMessage}
+            onTriggerNextIteration={triggerNextIteration}
+            onStopWorkflow={handleStopWorkflow}
+            onRestart={handleRestart}
+            onToggleVersion={handleToggleVersion}
+          />
+        </Box>
+        <Box className={`resource-panel ${isResourcePanelOpen ? 'open' : ''}`}>
+          <IconButton
+            className="toggle-panel"
+            onClick={toggleResourcePanel}
+            size="small"
+          >
+            {isResourcePanelOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          </IconButton>
+          <ResourceDict resources={resources} />
+        </Box>
       </Box>
     </Box>
   );
