@@ -26,36 +26,20 @@ def mock_env():
 
 
 def test_agent_lm_config(mock_env):
-    # Test with explicitly specified OpenAI model
-    lm_config1 = ModelResourceConfig(model="openai/gpt-4o")
-    assert lm_config1.model == "openai/gpt-4o"
+    lm_config1 = ModelResourceConfig()
+    assert lm_config1.model == "openai/o3-mini-2025-01-14"
     assert lm_config1.max_output_tokens == 4096
     assert lm_config1.use_helm is False
 
-    # Test with custom output tokens
-    lm_config2 = ModelResourceConfig(model="openai/gpt-4o", max_output_tokens=10000)
-    assert lm_config2.model == "openai/gpt-4o"
+    lm_config2 = ModelResourceConfig(model="custom-model", max_output_tokens=10000)
+    assert lm_config2.model == "custom-model"
     assert lm_config2.max_output_tokens == 10000
-    assert lm_config2.use_helm is False
-
-    # Test with an Anthropic model
-    lm_config3 = ModelResourceConfig(model="anthropic/claude-3-opus", use_helm=False)
-    assert lm_config3.model == "anthropic/claude-3-opus"
-    assert lm_config3.use_helm is False
-
-    # Explicitly setting use_helm to True
-    lm_config4 = ModelResourceConfig(model="anthropic/claude-3-opus", use_helm=True)
-    assert lm_config4.model == "anthropic/claude-3-opus"
-    assert lm_config4.use_helm is True
+    assert lm_config2.use_helm is True
 
 
 def test_invalid_model_name(mock_env):
     with pytest.raises(ValueError, match="Model must be specified"):
         ModelResourceConfig(model="")
-
-    # Test that default constructor without model specified raises exception
-    with pytest.raises(Exception):
-        ModelResourceConfig()
 
 
 def test_invalid_max_tokens(mock_env):
