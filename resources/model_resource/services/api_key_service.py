@@ -25,12 +25,7 @@ def _model_provider_lookup(model_name: str, helm: bool) -> str:
                 return "GOOGLE_API_KEY"
             elif provider in ["meta", "mistralai"]:
                 return "TOGETHER_API_KEY"
-            else:
-                # Default to OpenAI for unknown providers
-                return "OPENAI_API_KEY"
-        else:
-            # No provider prefix, default to OpenAI
-            return "OPENAI_API_KEY"
+        raise Exception(f"Unknown model: {model_name}, cannot lookup key")
 
 
 # Authentication helpers

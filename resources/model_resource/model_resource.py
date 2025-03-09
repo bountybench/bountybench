@@ -30,7 +30,7 @@ HALLUCINATION_STRINGS = [
 class ModelResourceConfig(BaseResourceConfig):
     """Configuration for ModelResource"""
 
-    model: str = field(default="openai/o3-mini-2025-01-14")
+    model: str
     max_output_tokens: int = field(default=4096)
     max_input_tokens: int = field(default=8192)
     max_iterations_stored_in_memory: int = field(default=3)
@@ -43,13 +43,10 @@ class ModelResourceConfig(BaseResourceConfig):
     def create(cls, **kwargs):
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
 
-    def __post_init__(self):
-        self.validate()
-
     def validate(self) -> None:
         """Validate LLMResource configuration"""
-        if not self.model:
-            raise ValueError("Model must be specified")
+        if not self.model or len(self.model) < 1:
+            raise ValueError("Model must be specified and nonempty")
         if self.max_input_tokens <= 0:
             raise ValueError("max_input_tokens must be positive")
         if self.max_output_tokens <= 0:
@@ -109,9 +106,10 @@ class ModelResource(RunnableBaseResource):
                 )
 
                 model_provider = TogetherModels()
-            else:
-                # Default to OpenAI for any other provider or if no prefix is specified
+            elif model_prefix == "openai":
                 model_provider = OpenAIModels()
+            else:
+                raise Exception(f"Unknown model type: {self.model}")
         return model_provider
 
     def remove_hallucinations(self, response: str):
