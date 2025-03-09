@@ -42,6 +42,8 @@ class BaseWorkflow(ABC):
             additional_metadata=self._get_metadata(),
         )
 
+        self.workflow_id = self.workflow_message.workflow_id
+
         self._check_docker_desktop_availability()
         self._setup_resource_manager()
         self._setup_agent_manager()
@@ -81,7 +83,7 @@ class BaseWorkflow(ABC):
     @property
     def current_phase(self):
         return self._current_phase
-    
+
     @property
     def phase_graph(self):
         return self._phase_graph
@@ -116,13 +118,11 @@ class BaseWorkflow(ABC):
         pass
 
     def _setup_agent_manager(self):
-        self.agent_manager = AgentManager(workflow_id=self.workflow_message.workflow_id)
+        self.agent_manager = AgentManager(workflow_id=self.workflow_id)
         logger.info("Setup agent manager")
 
     def _setup_resource_manager(self):
-        self.resource_manager = ResourceManager(
-            workflow_id=self.workflow_message.workflow_id
-        )
+        self.resource_manager = ResourceManager(workflow_id=self.workflow_id)
         logger.info("Setup resource manager")
 
     def _setup_interactive_controller(self):
@@ -197,7 +197,7 @@ class BaseWorkflow(ABC):
             resource_id,
             resource,
         ) in phase_instance.resource_manager._resources.id_to_resource.get(
-            self.workflow_message.workflow_id, {}
+            self.workflow_id, {}
         ).items():
             self.workflow_message.add_resource(resource_id, resource)
 
@@ -256,7 +256,7 @@ class BaseWorkflow(ABC):
 
         self._finalize_workflow()
 
-    async def restart(self): 
+    async def restart(self):
         self._initialize()
 
         self._setup_resource_manager()
@@ -267,22 +267,25 @@ class BaseWorkflow(ABC):
         self.next_iteration_event = asyncio.Event()
         self.workflow_message.new_log()
         logger.info(f"Restarted workflow {self.name}")
-        
-    async def run_restart(self): 
+
+    async def run_restart(self):
         logger.info(f"Running restarted workflow {self.name}")
         # pick up running from current phase
         self._current_phase.setup()
-        agent_configs =  self._current_phase.define_agents()
+        agent_configs = self._current_phase.define_agents()
         self.agent_manager.initialize_phase_agents(agent_configs)
-        
+
         phase_message = await self._current_phase.run(self.workflow_message, None)
 
-        logger.status(f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
+        logger.status(
+            f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}",
+            phase_message.success,
+        )
 
         self._workflow_iteration_count += 1
         next_phases = self._phase_graph.get(self._current_phase, [])
         self._current_phase = next_phases[0] if next_phases else None
-        
+
         # Continue running the remaining phases (if any)
         if self._current_phase:
             try:

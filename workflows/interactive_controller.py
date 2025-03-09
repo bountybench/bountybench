@@ -11,7 +11,7 @@ logger = get_main_logger(__name__)
 class InteractiveController:
     def __init__(self, workflow):
         self.workflow = workflow
-        self.workflow_message = workflow.workflow_message
+        self.workflow_id = workflow.workflow_id
         self.agent_manager = workflow.agent_manager
         self.resource_manager = workflow.resource_manager
         self._setup_message_handler()
@@ -27,7 +27,7 @@ class InteractiveController:
         return ""
 
     async def set_last_message(self, message_id: str):
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        workflow_messages = message_dict.get(self.workflow_id, {})
         message = workflow_messages.get(message_id)
         if isinstance(message, ActionMessage):
             message = message.parent
@@ -39,7 +39,7 @@ class InteractiveController:
             await self.workflow.current_phase.set_last_agent_message(message)
 
     async def run_message(self, message_id: str):
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        workflow_messages = message_dict.get(self.workflow_id, {})
         message = workflow_messages.get(message_id)
         if message.next or isinstance(message, ActionMessage):
             message = await self.message_handler.run_message(message)
@@ -47,7 +47,7 @@ class InteractiveController:
         return None
 
     async def run_next_message(self):
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        workflow_messages = message_dict.get(self.workflow_id, {})
         if len(workflow_messages) > 0:
             _, last_message = list(workflow_messages.items())[-1]
             if last_message.next:
@@ -61,7 +61,7 @@ class InteractiveController:
         return None
 
     async def edit_message(self, message_id: str, new_message_data: str) -> Message:
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        workflow_messages = message_dict.get(self.workflow_id, {})
         message = workflow_messages.get(message_id)
         message = await self.message_handler.edit_message(message, new_message_data)
         return message
@@ -69,7 +69,7 @@ class InteractiveController:
     async def edit_and_run_message(
         self, message_id: str, new_message_data: str
     ) -> Message:
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        workflow_messages = message_dict.get(self.workflow_id, {})
         message = workflow_messages.get(message_id)
         message = await self.message_handler.edit_message(message, new_message_data)
         if message.next or isinstance(message, ActionMessage):
@@ -106,7 +106,7 @@ class InteractiveController:
                 self.workflow.next_iteration_event.set()
 
     async def toggle_version(self, message_id: str, direction: str):
-        workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})
+        workflow_messages = message_dict.get(self.workflow_id, {})
         message = workflow_messages.get(message_id)
 
         if not message:
@@ -118,7 +118,7 @@ class InteractiveController:
             target_message = message.version_next
         else:
             raise ValueError("Invalid direction. Must be 'prev' or 'next'")
-       # logger.info(f"toggling to {target_message.message}")
+        # logger.info(f"toggling to {target_message.message}")
         from messages.message_utils import generate_subtree
 
         subtree = generate_subtree(target_message)
