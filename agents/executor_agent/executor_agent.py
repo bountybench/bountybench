@@ -97,22 +97,20 @@ class ExecutorAgent(BaseAgent):
         try:
             iterations = 0
             while iterations < MAX_RETRIES:
+                lm_input_message = self.resources.executor_agent_memory.get_memory(
+                    lm_input_message
+                )
                 try:
-                    lm_input_message = self.resources.executor_agent_memory.get_memory(
-                        lm_input_message
-                    )
                     model_output: ActionMessage = await asyncio.to_thread(
                         self.resources.model.run, input_message=lm_input_message
                     )
+                except Exception as e:
+                    # optionally can have fall back / report agent iteration failure message + continue
+                    raise
+                try:
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
                 except Exception as e:
-                    error_msg = str(e)
-                    if "No quota" in error_msg or "InsufficientQuotaError" in error_msg:
-                        raise Exception(
-                            f"API quota exceeded. Please check your model quota/limits"
-                        )
-
                     logger.warning(
                         f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}"
                     )

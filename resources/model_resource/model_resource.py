@@ -157,13 +157,16 @@ class ModelResource(RunnableBaseResource):
             use_helm=self.helm,
         )
 
-        model_response = self.model_provider.make_request(
-            model=self.model,
-            message=model_input,
-            temperature=self.temperature,
-            max_tokens=self.max_output_tokens,
-            stop_sequences=self.stop_sequences,
-        )
+        try:
+            model_response = self.model_provider.make_request(
+                model=self.model,
+                message=model_input,
+                temperature=self.temperature,
+                max_tokens=self.max_output_tokens,
+                stop_sequences=self.stop_sequences,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Error making request to model: {e}")
 
         lm_response = self.remove_hallucinations(model_response.content)
         lm_response = lm_response + f"\n{STOP_TOKEN}"
