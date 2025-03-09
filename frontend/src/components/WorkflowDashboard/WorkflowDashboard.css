@@ -68,7 +68,7 @@
   width: 10px;
 }
 
-.resource-panel {
+.workflow-metadata-panel {
   position: fixed;
   top: 0;
   right: 0;
@@ -81,7 +81,7 @@
   box-shadow: -2px 0 5px rgba(0,0,0,0.1);
 }
 
-.resource-panel.open {
+.workflow-metadata-panel.open {
   transform: translateX(0);
 }
 
