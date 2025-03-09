@@ -1,14 +1,14 @@
 import asyncio
 import os
 import traceback
-from typing import Dict, Any, Callable, List
 from pathlib import Path
+from typing import Any, Callable, Dict, List
 
 from backend.execution_backends import ExecutionBackend
 from backend.schema import (
-    StartWorkflowInput,
     MessageData,
     MessageInputData,
+    StartWorkflowInput,
     UpdateInteractiveModeInput,
 )
 
@@ -35,7 +35,7 @@ class LocalExecutionBackend(ExecutionBackend):
                 interactive=workflow_data.interactive,
                 phase_iterations=workflow_data.iterations,
                 model=workflow_data.model,
-                use_helm=workflow_data.use_helm,
+                helm=workflow_data.use_helm,
                 use_mock_model=workflow_data.use_mock_model,
                 max_input_tokens=workflow_data.max_input_tokens,
                 max_output_tokens=workflow_data.max_output_tokens,
