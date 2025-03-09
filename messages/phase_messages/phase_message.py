@@ -99,6 +99,7 @@ class PhaseMessage(Message):
         log_dict = {
             "phase_id": self.phase_id,
             "phase_summary": self.summary,
+            "success": self.success,
             "agent_messages": (
                 [agent_message.to_log_dict() for agent_message in self.agent_messages]
                 if self.agent_messages
