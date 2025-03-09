@@ -12,7 +12,6 @@ import './App.css';
 import HomePage from './components/HomePage/HomePage';
 import LogViewer from './components/LogViewer/LogViewer';
 
-import { API_BASE_URL } from './config';
 
 function App() {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
@@ -22,16 +21,13 @@ function App() {
   const [currentPhase, setCurrentPhase] = useState(null);
   const toastIdRef = useRef({});
 
-  const handleWorkflowStart = (workflowId, model, isInteractive) => {
+  const handleWorkflowStart = (workflowId, model, isInteractive, useMockModel) => {
+    console.log("=============handleWorkflowStart:=============", { workflowId, model, isInteractive, useMockModel });
     setSelectedWorkflow({ id: workflowId, model: model });
     setInteractiveMode(isInteractive);
+    setUseMockModel(useMockModel)
   };
 
-  // This function is now handled directly in WorkflowDashboard
-  // We keep a simplified version here for other components that might need it
-  const handleInteractiveModeToggle = () => {
-    setInteractiveMode(!interactiveMode);
-  };
 
   const handleWorkflowStateUpdate = (status, phase) => {
     setWorkflowStatus(status);

@@ -386,7 +386,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       // Check if we got a single workflow or multiple workflows response
       if (data.workflow_id) {
         // Single workflow response - navigate to it
-        await onWorkflowStart(data.workflow_id, data.model, interactiveMode);
+        await onWorkflowStart(data.workflow_id, data.model, interactiveMode, useMockModel);
         navigate(`/workflow/${data.workflow_id}`);
       } else if (data.workflows && data.workflows.length > 0) {
         // Multiple workflows - navigate to the first one
@@ -407,7 +407,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         });
         
         // But only navigate to the first one
-        await onWorkflowStart(firstWorkflow.workflow_id, firstWorkflow.model, interactiveMode);
+        await onWorkflowStart(firstWorkflow.workflow_id, firstWorkflow.model, interactiveMode, useMockModel);
         navigate(`/workflow/${firstWorkflow.workflow_id}`);
         
         // Optional: show a notification about multiple workflows

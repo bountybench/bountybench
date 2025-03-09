@@ -21,7 +21,7 @@ const WorkflowState = {
   RESTARTING: 'RESTARTING'
 };
 
-export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast, useMockModel, setUseMockModel }) => {
+export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast, useMockModel}) => {
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
@@ -63,12 +63,26 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   // Add interactiveMode to props passed to other components (App-level state)
   const [localInteractiveMode, setInteractiveMode] = useState(interactiveMode);
+  const [localMockModel, setLocalMockModel] = useState(useMockModel); 
+
   
   // Sync with props when they change
   useEffect(() => {
     setInteractiveMode(interactiveMode);
   }, [interactiveMode]);
+
+
+
+  useEffect(() => {
+    console.log("===========WorkflowDashboard mounted with useMockModel:===========", useMockModel);
+  }, []);
   
+  useEffect(() => {
+    console.log(`===========Workflow ${workflowId} - useMockModel updated to:===========`, useMockModel);
+    setLocalMockModel(useMockModel);
+  }, [useMockModel, workflowId]);
+
+
   const {
     isConnected,
     workflowStatus,
@@ -142,9 +156,9 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
   // Handle mock model toggle
   const handleMockModelToggle = async () => {
-    const newMockState = !useMockModel;
-    setUseMockModel(newMockState);
-
+    const newMockState = !localMockModel;
+    setLocalMockModel(newMockState); // Update locally
+  
     if (workflowId) {
       try {
         const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/mock-model`, {
@@ -152,18 +166,19 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ use_mock_model: newMockState }),
         });
-
+  
         if (!response.ok) {
           throw new Error('Failed to update mock model setting');
         }
-
+  
         console.log('Mock model updated successfully:', newMockState);
       } catch (error) {
         console.error('Error updating mock model:', error);
-        setUseMockModel(!newMockState); // Revert on error
+        setLocalMockModel(!newMockState); // Revert on error
       }
     }
   };
+  
 
   // Handle interactive mode toggle
   const handleInteractiveModeToggle = async () => {
