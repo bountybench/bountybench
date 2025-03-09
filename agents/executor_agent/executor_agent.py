@@ -108,7 +108,21 @@ class ExecutorAgent(BaseAgent):
                     return parsed_response
                 except Exception as e:
                     error_msg = str(e)
-                    if "No quota" in error_msg or "InsufficientQuotaError" in error_msg:
+
+                    # Check for status code on the exception
+                    status_code = None
+                    if hasattr(e, "status_code"):
+                        status_code = e.status_code
+
+                    # Client errors (4xx) should not be retried
+                    if status_code is not None and 400 <= status_code < 500:
+                        raise Exception(
+                            f"Non-retryable API error (HTTP {status_code}): {error_msg}"
+                        )
+                    # Also don't retry quota errors
+                    elif (
+                        "No quota" in error_msg or "InsufficientQuotaError" in error_msg
+                    ):
                         raise Exception(
                             f"API quota exceeded. Please check your model quota/limits"
                         )

@@ -25,22 +25,50 @@ class AnthropicModels(ModelProvider):
     ) -> ModelResponse:
 
         start_time = datetime.now()
-        clean_model_name = self.clean_model_name(model)
-        response = self.client.messages.create(
-            model=clean_model_name,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            messages=[{"role": "user", "content": message}],
-            stop_sequences=stop_sequences,
-        )
-        end_time = datetime.now()
-        response_request_duration = (end_time - start_time).total_seconds() * 1000
-        return ModelResponse(
-            content=response.content[0].text,
-            input_tokens=response.usage.input_tokens,
-            output_tokens=response.usage.output_tokens,
-            time_taken_in_ms=response_request_duration,
-        )
+        status_code = None
+
+        try:
+            clean_model_name = self.clean_model_name(model)
+            response = self.client.messages.create(
+                model=clean_model_name,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                messages=[{"role": "user", "content": message}],
+                stop_sequences=stop_sequences,
+            )
+
+            # For successful responses, we don't typically get HTTP status code
+            # from Anthropic client, but could try to extract if available
+            if hasattr(response, "response") and hasattr(
+                response.response, "status_code"
+            ):
+                status_code = response.response.status_code
+
+            end_time = datetime.now()
+            response_request_duration = (end_time - start_time).total_seconds() * 1000
+            return ModelResponse(
+                content=response.content[0].text,
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                time_taken_in_ms=response_request_duration,
+                status_code=status_code,
+            )
+        except Exception as e:
+            # Extract status code from Anthropic errors
+            try:
+                # Anthropic client exceptions might have status_code attribute
+                # or the error might be contained in e.response.status_code
+                if hasattr(e, "status_code"):
+                    status_code = e.status_code
+                elif hasattr(e, "response") and hasattr(e.response, "status_code"):
+                    status_code = e.response.status_code
+            except:
+                pass  # If we can't extract the code, just continue
+
+            # Attach status code to the exception
+            if status_code is not None:
+                e.status_code = status_code
+            raise
 
     def clean_model_name(self, model_name: str) -> str:
         prefix = "anthropic/"
