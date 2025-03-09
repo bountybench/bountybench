@@ -130,8 +130,15 @@ jobs:
       - name: Lint modified Python files
         run: |
           pip install black isort
-          git diff --name-only --diff-filter=d origin/main HEAD | grep '\.py$' | grep -v "^bountybench/" | xargs -r black --check
-          git diff --name-only --diff-filter=d origin/main HEAD | grep '\.py$' | grep -v "^bountybench/" | xargs -r isort --check --profile black
+          MODIFIED_PY_FILES=$(git diff --name-only --diff-filter=d origin/main HEAD | grep '\.py$' | grep -v "^bountybench/" || echo "")
+          if [ -n "$MODIFIED_PY_FILES" ]; then
+            echo "Running black on modified files..."
+            echo "$MODIFIED_PY_FILES" | xargs black --check
+            echo "Running isort on modified files..."
+            echo "$MODIFIED_PY_FILES" | xargs isort --check --profile black
+          else
+            echo "No modified Python files to lint"
+          fi
 
       - name: Run backend tests with coverage
         run: |
