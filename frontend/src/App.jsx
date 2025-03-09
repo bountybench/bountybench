@@ -84,10 +84,11 @@ function App() {
     }
   };
 
+ 
   const handleMockModelToggle = async () => {
     const newMockState = !useMockModel;
     setUseMockModel(newMockState);
-
+  
     if (selectedWorkflow) {
       try {
         const response = await fetch(`${API_BASE_URL}/workflow/${selectedWorkflow.id}/mock-model`, {
@@ -95,18 +96,30 @@ function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ use_mock_model: newMockState }),
         });
-
+  
         if (!response.ok) {
           throw new Error('Failed to update mock model setting');
         }
-
+  
         console.log('Mock model updated successfully:', newMockState);
       } catch (error) {
         console.error('Error updating mock model:', error);
         setUseMockModel(!newMockState); // Revert on error
+  
+        // Dismiss any existing toast with the same error message and show a new one
+        if (toastIdRef.current["mockModelError"]) {
+          toast.dismiss(toastIdRef.current["mockModelError"]);
+        }
+  
+        toastIdRef.current["mockModelError"] = toast.error("Failed to update mock model setting. Please check API keys.", {
+          position: "top-center",
+          autoClose: 3000,
+          transition: Slide,
+        });
       }
     }
   };
+  
 
 
 
@@ -145,6 +158,29 @@ function App() {
       console.error = originalConsoleError;
     };
   }, []);
+
+
+  // useEffect(() => {
+  //   const originalConsoleError = console.error;
+  
+  //   console.error = function (...args) {
+  //     const errorMessage = args.join(' ');
+  
+  //     // Always create a new toast instead of reusing the same ID
+  //     toast.error(errorMessage, {
+  //       position: "top-center",
+  //       autoClose: 3000,
+  //       transition: Slide,
+  //     });
+  
+  //     originalConsoleError.apply(console, args);
+  //   };
+  
+  //   return () => {
+  //     console.error = originalConsoleError;
+  //   };
+  // }, []);
+  
   
   // Error Toast for invalid workflows
   const showInvalidWorkflowToast = () => {
