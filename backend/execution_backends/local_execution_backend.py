@@ -35,7 +35,7 @@ class LocalExecutionBackend(ExecutionBackend):
                 interactive=workflow_data.interactive,
                 phase_iterations=workflow_data.iterations,
                 model=workflow_data.model,
-                helm=workflow_data.use_helm,
+                use_helm=workflow_data.use_helm,
                 use_mock_model=workflow_data.use_mock_model,
                 max_input_tokens=workflow_data.max_input_tokens,
                 max_output_tokens=workflow_data.max_output_tokens,
