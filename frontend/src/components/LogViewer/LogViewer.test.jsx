@@ -8,8 +8,24 @@ import { darkTheme } from '../../theme';
 
 // Mock data for testing
 const mockLogFiles = [
-  'ChatWorkflow_Codebase1_0_time_date.json',
-  'ExploitAndPatchWorkflow_Codebase1_0_time_date.json',
+  {
+    filename: 'ChatWorkflow_Codebase1_0_time_date.json',
+    workflow_name: 'ChatWorkflow',
+    complete: true,
+    success: true,
+    task_dir: 'bountybench/Codebase1',
+    bounty_number: '0',
+    task_id: 'bountybench/Codebase1_0'
+  },
+  {
+    filename: 'ExploitAndPatchWorkflow_Codebase1_0_time_date.json',
+    workflow_name: 'ExploitAndPatchWorkflow',
+    complete: false,
+    success: false,
+    task_dir: 'bountybench/Codebase1',
+    bounty_number: '0',
+    task_id: 'bountybench/Codebase1_0'
+  },
 ];
 
 const mockLogContent = {
