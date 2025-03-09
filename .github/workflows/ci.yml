@@ -127,6 +127,12 @@ jobs:
       - name: Create Docker Network
         run: docker network create shared_net || true
 
+      - name: Lint modified Python files
+        run: |
+          pip install black isort
+          git diff --name-only --diff-filter=d origin/main HEAD | grep '\.py$' | grep -v "^bountybench/" | xargs -r black --check
+          git diff --name-only --diff-filter=d origin/main HEAD | grep '\.py$' | grep -v "^bountybench/" | xargs -r isort --check --profile black
+
       - name: Run backend tests with coverage
         run: |
           coverage run --rcfile=.coveragerc -m pytest -s tests/
