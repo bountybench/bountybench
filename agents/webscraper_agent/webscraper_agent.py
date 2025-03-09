@@ -1,13 +1,16 @@
-from typing import List
-from dataclasses import dataclass
 import asyncio
+from dataclasses import dataclass
+from typing import List
+
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.webscraper_agent_message import WebscraperMessage
 from utils.logger import get_main_logger
+
 from .website_handlers.webscraper_handler_factory import WebscraperHandlerFactory
 
 logger = get_main_logger(__name__)
+
 
 @dataclass
 class WebscraperAgentConfig(AgentConfig):
@@ -15,8 +18,12 @@ class WebscraperAgentConfig(AgentConfig):
 
     def __post_init__(self):
         """Validate config after initialization"""
-        if not self.website.startswith(("https://huntr.com/bounties", "https://hackerone.com/reports/")):
-            raise ValueError("Unsupported website. Must be either Huntr or HackerOne URL.")
+        if not self.website.startswith(
+            ("https://huntr.com/bounties", "https://hackerone.com/reports/")
+        ):
+            raise ValueError(
+                "Unsupported website. Must be either Huntr or HackerOne URL."
+            )
 
     def to_dict(self) -> dict:
         return {"website": self.website}
@@ -25,6 +32,7 @@ class WebscraperAgentConfig(AgentConfig):
     def from_dict(cls, data: dict):
         website = data.get("website", "https://huntr.com/bounties")
         return cls(website=website)
+
 
 class WebscraperAgent(BaseAgent):
     def __init__(self, agent_id: str, agent_config: WebscraperAgentConfig) -> None:
@@ -35,10 +43,10 @@ class WebscraperAgent(BaseAgent):
     async def _get_new_urls(self, last_bounty_link: str) -> List[str]:
         """
         Wait for and return new report URLs.
-        
+
         Args:
             last_bounty_link: The most recently processed bounty URL
-            
+
         Returns:
             List of new bounty URLs found
         """
@@ -59,13 +67,13 @@ class WebscraperAgent(BaseAgent):
                         new_urls.append(url)
                         seen.add(url)
                         logger.info(f"Found new report: {url}")
-                
+
                 if new_urls:
                     return new_urls
 
                 logger.info("No new reports found. Checking again in 60 seconds...")
                 await asyncio.sleep(60)
-                
+
             except Exception as e:
                 logger.error(f"Error checking for new reports: {e}")
                 logger.info("Retrying in 60 seconds...")
@@ -74,10 +82,10 @@ class WebscraperAgent(BaseAgent):
     async def run(self, messages: List[AgentMessage]) -> WebscraperMessage:
         """
         Process messages and find new bounty URLs.
-        
+
         Args:
             messages: List of input messages
-            
+
         Returns:
             WebscraperMessage containing any new bounty URLs found
         """
@@ -93,15 +101,17 @@ class WebscraperAgent(BaseAgent):
         new_bounty_links = await self._get_new_urls(last_bounty_link)
         self.handler.save_urls_to_file(new_bounty_links)
         return self._parse_urls(new_bounty_links, prev_agent_message)
-    
-    def _parse_urls(self, bounty_links: List[str], prev_agent_message: AgentMessage) -> WebscraperMessage:
+
+    def _parse_urls(
+        self, bounty_links: List[str], prev_agent_message: AgentMessage
+    ) -> WebscraperMessage:
         """
         Create WebscraperMessage from bounty URLs.
-        
+
         Args:
             bounty_links: List of bounty URLs to include in message
             prev_agent_message: Previous message in the chain
-            
+
         Returns:
             WebscraperMessage containing the bounty URLs
         """
@@ -110,5 +120,5 @@ class WebscraperAgent(BaseAgent):
             message="New URLs added to the queue",
             bounty_links=bounty_links,
             website=self.website,
-            prev=prev_agent_message
+            prev=prev_agent_message,
         )

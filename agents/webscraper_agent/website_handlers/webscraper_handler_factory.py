@@ -1,5 +1,6 @@
-from .huntr_webscraper_handler import HuntrWebscraperHandler
 from .hackerone_webscraper_handler import HackeroneWebscraperHandler
+from .huntr_webscraper_handler import HuntrWebscraperHandler
+
 
 class WebscraperHandlerFactory:
     @staticmethod
@@ -9,4 +10,4 @@ class WebscraperHandlerFactory:
         elif website == "https://hackerone.com/reports/":
             return HackeroneWebscraperHandler()
         else:
-            raise ValueError(f"Unsupported website: {website}") 
+            raise ValueError(f"Unsupported website: {website}")
