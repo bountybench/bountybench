@@ -148,10 +148,10 @@ class WorkflowRunner:
 
             with log_file_path.open("r") as log_file:
                 log_data = json.load(log_file)
-                workflow_summary = log_data.get("workflow_metadata", {}).get(
-                    "workflow_summary", ""
-                )
-                if workflow_summary.lower() == "incomplete":
+                workflow_complete = log_data.get("workflow_metadata", {}) \
+                                            .get("workflow_summary", {}) \
+                                            .get("complete", False)
+                if not workflow_complete:
                     console.print(
                         "[bold red]Workflow marked as incomplete in the log file.[/]"
                     )

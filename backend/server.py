@@ -1,19 +1,16 @@
 import asyncio
-
 from starlette.middleware.cors import CORSMiddleware
-
+from backend.execution_backends import ExecutionBackend
 
 class Server:
-    def __init__(self, app, websocket_manager, workflow_factory: dict):
+    def __init__(self, app, websocket_manager, execution_backend: ExecutionBackend):
         self.app = app
-        self.workflow_factory = workflow_factory
-        self.active_workflows = {}
+        self.execution_backend = execution_backend
         self.websocket_manager = websocket_manager
         self.should_exit = False
 
         # Store shared state in app instance
-        self.app.state.active_workflows = self.active_workflows
-        self.app.state.workflow_factory = self.workflow_factory
+        self.app.state.execution_backend = self.execution_backend
         self.app.state.websocket_manager = self.websocket_manager
         self.app.state.should_exit = self.should_exit
 
@@ -56,10 +53,9 @@ class Server:
         # Cancel heartbeat tasks
         for task in self.websocket_manager.heartbeat_tasks:
             task.cancel()
-            await task
             try:
                 await task
             except asyncio.CancelledError:
-                pass  # intentionally passing when shutting down, you intentionally cancel tasks (task.cancel()). This means asyncio.CancelledError is a natural consequence, not an error that needs escalation.
+                pass  # intentionally passing when shutting down
             except Exception as e:
                 raise e

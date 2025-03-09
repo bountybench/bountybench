@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 
 from backend.schema import SaveConfigRequest, StartWorkflowInput
+from backend.execution_backends import ExecutionBackend
 from prompts.vulnerability_prompts import VulnerabilityType
 from resources.model_resource.model_mapping import NonHELMMapping, TokenizerMapping
 from resources.model_resource.model_resource import ModelResourceConfig
@@ -42,52 +43,22 @@ async def list_workflows():
 
 @workflows_router.get("/workflow/active")
 async def list_active_workflows(request: Request):
-    active_workflows = request.app.state.active_workflows
-    active_workflows_list = []
-    for workflow_id, workflow_data in active_workflows.items():
-        active_workflows_list.append(
-            {
-                "id": workflow_id,
-                "status": workflow_data["status"],
-                "name": workflow_data["instance"].__class__.__name__,
-                "task": workflow_data["instance"].task,
-                "timestamp": getattr(
-                    workflow_data["workflow_message"], "timestamp", None
-                ),
-            }
-        )
-    return {"active_workflows": active_workflows_list}
+    execution_backend: ExecutionBackend = request.app.state.execution_backend
+    try:
+        workflows = await execution_backend.list_active_workflows()
+        return {"active_workflows": workflows}
+    except Exception as e:
+        error_traceback = traceback.format_exc()
+        print(f"Error listing workflows: {str(e)}\n{error_traceback}")
+        return {"error": str(e)}
 
 
 @workflows_router.post("/workflow/start")
 async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
     try:
-        workflow_factory = request.app.state.workflow_factory
-        active_workflows = request.app.state.active_workflows
-
-        workflow = workflow_factory[workflow_data.workflow_name](
-            task_dir=Path(workflow_data.task_dir),
-            bounty_number=workflow_data.bounty_number,
-            vulnerability_type=workflow_data.vulnerability_type,
-            interactive=workflow_data.interactive,
-            phase_iterations=workflow_data.iterations,
-            model=workflow_data.model,
-            use_helm=workflow_data.use_helm,
-            use_mock_model=workflow_data.use_mock_model,
-            max_input_tokens=workflow_data.max_input_tokens,
-            max_output_tokens=workflow_data.max_output_tokens,
-        )
-        workflow_id = workflow.workflow_message.workflow_id
-        active_workflows[workflow_id] = {
-            "instance": workflow,
-            "status": "initializing",
-            "workflow_message": workflow.workflow_message,
-        }
-        return {
-            "workflow_id": workflow_id,
-            "model": workflow_data.model,
-            "status": "initializing",
-        }
+        execution_backend: ExecutionBackend = request.app.state.execution_backend
+        result = await execution_backend.start_workflow(workflow_data)
+        return result
     except Exception as e:
         error_traceback = traceback.format_exc()
         print(f"Error starting workflow: {str(e)}\n{error_traceback}")
@@ -152,20 +123,15 @@ async def get_config_defaults():
 
 
 @workflows_router.post("/workflow/save-config")
-async def save_config(request: SaveConfigRequest):
+async def save_config(config_request: SaveConfigRequest, request: Request):
+    """
+    Save configuration with the execution backend.
+    """
+    execution_backend: ExecutionBackend =  request.app.state.execution_backend
     try:
-        # Get the parent directory of the current working directory
-        config_dir = Path(os.getcwd()) / "configs"
-
-        # Create the configs directory if it doesn't exist
-        config_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create the full file path
-        file_path = config_dir / request.fileName
-
-        # Write the configuration to the file
-        file_path.write_text(request.config)
-
-        return {"message": f"Configuration saved successfully to {file_path}"}
+        result = await execution_backend.save_config(config_request.fileName, config_request.config)
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

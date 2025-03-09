@@ -56,3 +56,17 @@
   padding-top: 8px;
   color: white;
 }
+
+.logsList-toggle {
+  top: 50% !important;
+  z-index: 1000 !important;
+  background-color: #132f4c !important;
+  color: white !important;
+  width: 24px !important;
+  height: 24px !important;
+  padding: 18px !important;
+}
+
+.logsList-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
