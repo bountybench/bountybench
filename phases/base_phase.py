@@ -175,7 +175,7 @@ class BasePhase(ABC):
                         resource_id, resource_class, resource_config
                     )
 
-            logger.info(f"Completed setup for {self.name}")
+            logger.info(f"Completed resource setup for {self.name}")
 
             # 3. Define and register agents
             agent_configs = self.define_agents()
@@ -183,7 +183,7 @@ class BasePhase(ABC):
             logger.info(f"Agents for phase {self.name} initialized")
             self.agents = list(self.agent_manager._phase_agents.items())
 
-            logger.info(f"Completed setup for {self.name}")
+            logger.info(f"Completed agent setup for {self.name}")
         except Exception as e:
             logger.error(f"Error during setup for phase {self.name}: {e}")
             raise
