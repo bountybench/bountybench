@@ -29,6 +29,7 @@ class BaseWorkflow(ABC):
         self.max_iterations = 25
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
+        self._phase_graph = {}
         self._root_phase = None
         self._current_phase = None
 
@@ -51,7 +52,7 @@ class BaseWorkflow(ABC):
         self._create_phases()
         self._compute_resource_schedule()
 
-        self._phase_graph = self._build_phase_graph()
+        self._build_phase_graph()
 
         logger.info(f"Finished initializing workflow {self.name}")
 
@@ -65,11 +66,11 @@ class BaseWorkflow(ABC):
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
         self._root_phase = phase
-        logger.info(f"Registered root phase {phase.name}")
+        logger.info(f"Set root phase {phase.name}")
 
     def _build_phase_graph(self) -> Dict[BasePhase, List[BasePhase]]:
         """Traverse phase relationships to build adjacency list"""
-        graph = {}
+        self._phase_graph = {}
         visited = set()
         queue = deque([self._root_phase])
 
@@ -83,7 +84,7 @@ class BaseWorkflow(ABC):
             logger.debug(f"Registered phase: {phase.__class__.__name__}")
             queue.extend(phase.next_phases)
 
-        return graph
+        return self.phase_graph
 
     def register_phase(self, phase: BasePhase):
         """Register a phase and its dependencies."""
