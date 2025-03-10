@@ -1,4 +1,3 @@
-// src/components/WorkflowLauncher/WorkflowLauncher.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useServerAvailability } from '../../hooks/useServerAvailability';
@@ -14,14 +13,13 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { formDataToYaml } from './utils/formDataToYaml'
+import { formDataToYaml } from './utils/formDataToYaml';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SaveIcon from '@mui/icons-material/Save';
 import './WorkflowLauncher.css';
 import { SaveConfigDialog } from './SaveConfigDialog';
 import { TaskSelectionSection } from './TaskSelectionSection';
 import { ModelSelectionSection } from './ModelSelectionSection';
-
 import { API_BASE_URL } from '../../config';
 
 const LauncherState = {
@@ -35,9 +33,13 @@ const LauncherState = {
 const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-14';
 const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
 
-export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode, useMockModel, setUseMockModel}) => {
+export const WorkflowLauncher = ({ onWorkflowStart }) => {
   const navigate = useNavigate();
-  
+
+  // Local toggles for interactive + mock model
+  const [launcherInteractiveMode, setLauncherInteractiveMode] = useState(true);
+  const [launcherUseMockModel, setLauncherUseMockModel] = useState(false);
+
   const [launcherState, setLauncherState] = useState({
     status: LauncherState.CHECKING_SERVER,
     message: "Checking server availability...",
@@ -67,11 +69,12 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [fileName, setFileName] = useState('workflow_config.yaml'); 
   const [saveStatus, setSaveStatus] = useState(null);
 
+  // Form data for tasks, iterations, model info, etc.
   const [formData, setFormData] = useState({
     workflow_name: '',
     tasks: [{ task_dir: 'lunary', bounty_number: '0' }],
     vulnerability_type: '',
-    interactive: true,
+    interactive: true, // for YAML generation only, not used as the actual toggle
     iterations: 30,
     api_key_name: '',
     api_key_value: '',
@@ -81,6 +84,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     max_output_tokens: '',
   });
 
+  // Decide if we show vulnerability type & bounty fields
   const shouldShowVulnerabilityType = (workflowName) => {
     return workflowName.toLowerCase().includes('detect');
   };
@@ -89,7 +93,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     const lowercaseName = workflowName.toLowerCase();
     return lowercaseName.includes('detect') || lowercaseName.includes('exploit') || lowercaseName.includes('patch');
   };
-  
+
   const [allModels, setAllModels] = useState({});
   const [selectedModels, setSelectedModels] = useState([]);
   const [topLevelSelection, setTopLevelSelection] = useState("Non-HELM");
@@ -113,7 +117,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       ...prev,
       model: defaultModel ? defaultModel.name : '',
       use_helm: isHelmModel,
-      use_mock_model: prev.use_mock_model, // Preserve mock model selection
     }));
   };
 
@@ -122,6 +125,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [apiStatus, setApiStatus] = useState({ type: "", message: "" });
   const [isCustomApiKey, setIsCustomApiKey] = useState(false);
 
+  /** Data Fetching */
   const fetchWorkflows = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/workflow/list`);
@@ -210,6 +214,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }
   };
 
+  /** End Data Fetching */
 
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
@@ -301,9 +306,9 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     }));
   };
 
-
   const handleSaveConfirm = async () => {
-    const yamlConfig = formDataToYaml(formData, useMockModel);
+    // We now pass the local launcherUseMockModel instead of a prop
+    const yamlConfig = formDataToYaml(formData, launcherUseMockModel);
     const saveFileName = fileName.endsWith('.yaml') ? fileName : `${fileName}.yaml`;
 
     try {
@@ -336,13 +341,15 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       message: "Creating workflow instance...",
       error: null
     });
+
     try {
-      // Prepare the necessary data (tasks, models, etc.)
+      // Prepare tasks
       const tasks = formData.tasks.map(task => ({
         task_dir: task.task_dir.replace(/^bountybench\//, ''),
         bounty_number: task.bounty_number
       }));
   
+      // Prepare models
       const models = [{
         name: formData.model,
         use_helm: formData.use_helm
@@ -354,14 +361,13 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         tasks: tasks,
         models: models,
         vulnerability_type: formData.vulnerability_type,
-        interactive: interactiveMode,
+        interactive: launcherInteractiveMode,
         phase_iterations: [parseInt(formData.iterations)],
-        use_mock_model: useMockModel,
+        use_mock_model: launcherUseMockModel,
         trials_per_config: 1
       };
 
-
-      console.log(payload)
+      console.log("Starting workflow with payload:", payload);
   
       // Send the request
       const response = await fetch(`${API_BASE_URL}/workflow/start`, {
@@ -377,43 +383,38 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       }
       
       const data = await response.json();
-      
       if (data.error) {
         console.error("Failed to start parallel run:", data.error);
         return;
       }
       
-      // Check if we got a single workflow or multiple workflows response
+      // Check if we got a single workflow or multiple
       if (data.workflow_id) {
-        // Single workflow response - navigate to it
-        await onWorkflowStart(data.workflow_id, data.model, interactiveMode, useMockModel);
+        // Single workflow
+        onWorkflowStart(data.workflow_id, data.model, launcherInteractiveMode, launcherUseMockModel);
         navigate(`/workflow/${data.workflow_id}`);
       } else if (data.workflows && data.workflows.length > 0) {
-        // Multiple workflows - navigate to the first one
-
-        // Set up WebSocket connections for all workflows FIRST
+        // Multiple workflows
         const setupPromises = data.workflows.map(workflow => 
           setupWorkflowWebSocket(workflow.workflow_id)
         );
-
-        // Wait for all websocket connections to be established
         await Promise.all(setupPromises);
 
         const firstWorkflow = data.workflows[0];
-        
-        // Setup WebSocket connections for all workflows in the background
+
+        console.log("==========DEBUG: data.workflows =>", data.workflows);
+
         data.workflows.forEach(workflow => {
-          setupWorkflowWebSocket(workflow.workflow_id);
+          //setupWorkflowWebSocket(workflow.workflow_id);
+          onWorkflowStart(workflow.workflow_id, workflow.model, launcherInteractiveMode, launcherUseMockModel);
         });
         
-        // But only navigate to the first one
-        await onWorkflowStart(firstWorkflow.workflow_id, firstWorkflow.model, interactiveMode, useMockModel);
+        //onWorkflowStart(firstWorkflow.workflow_id, firstWorkflow.model, launcherInteractiveMode, launcherUseMockModel);
         navigate(`/workflow/${firstWorkflow.workflow_id}`);
         
-        // Optional: show a notification about multiple workflows
         const otherWorkflowsCount = data.workflows.length - 1;
         if (otherWorkflowsCount > 0) {
-          toast.info(`Started ${data.workflows.length} workflows in parallel. You are viewing the first one. ${otherWorkflowsCount} other workflows are running in the background.`);
+          toast.info(`Started ${data.workflows.length} workflows. You are viewing the first. ${otherWorkflowsCount} others are running in the background.`);
         }
       } else {
         console.error("Invalid response format", data);
@@ -431,29 +432,21 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   // Helper function to set up WebSocket connections
   const setupWorkflowWebSocket = (workflowId) => {
     const ws = new WebSocket(`${API_BASE_URL.replace('http://', 'ws://')}/ws/${workflowId}`);
-    
     ws.onopen = () => {
       console.log(`WebSocket connection established for workflow ${workflowId}`);
     };
-    
     ws.onmessage = (event) => {
-      // Handle messages (can be used to update a global state if needed)
-      console.log(`Received message from workflow ${workflowId}`);
+      console.log(`Received message from workflow ${workflowId}`, event.data);
     };
-    
     ws.onerror = (error) => {
       console.error(`WebSocket error for workflow ${workflowId}:`, error);
     };
-    
     ws.onclose = () => {
       console.log(`WebSocket connection closed for workflow ${workflowId}`);
     };
-    
-    // Optionally store the WebSocket instances if you need to close them later
-    // e.g., in a useRef array or similar
   };
 
-  // 2. Fetch workflows only once server is confirmed available
+  // 2. Load data once server is confirmed available
   useEffect(() => {
     if (isChecking) {
       setLauncherState({
@@ -465,7 +458,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setLauncherState({
         status: LauncherState.SERVER_ERROR,
         message: "Cannot reach server",
-        error: serverError || "Server is not responding. Please check if the backend is running and refresh the page."
+        error: serverError || "Server is not responding."
       });
     } else if (launcherState.status === LauncherState.LOADING_DATA) {
       const loadData = async () => {
@@ -486,16 +479,26 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           setLauncherState({
             status: LauncherState.SERVER_ERROR,
             message: "Failed to load necessary data",
-            error: error.message || "An error occurred while loading data. Please try again."
+            error: error.message || "An error occurred while loading data."
           });
         }
       };
-  
       loadData();
     }
-  }, [isChecking, isAvailable, serverError, launcherState.status, fetchApiKeys, fetchWorkflows, fetchModels, fetchConfigDefaults]);
+  }, [
+    isChecking,
+    isAvailable,
+    serverError,
+    launcherState.status,
+    fetchApiKeys,
+    fetchWorkflows,
+    fetchModels,
+    fetchConfigDefaults
+  ]);
   
-  if (launcherState.status === LauncherState.CHECKING_SERVER || launcherState.status === LauncherState.LOADING_DATA) {
+  // Show appropriate loading or error
+  if (launcherState.status === LauncherState.CHECKING_SERVER ||
+      launcherState.status === LauncherState.LOADING_DATA) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
         <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
@@ -525,8 +528,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     );
   }
 
-
-  // All good: show the form
+  // Otherwise, render the form
   return (
     <Box className="launcher-container">
       <Typography variant="h5" gutterBottom>
@@ -544,8 +546,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           required
           margin="normal"
         >
-        {(workflows?.length > 0) ? (
-          workflows.map((workflow) => (
+          {(workflows?.length > 0) ? (
+            workflows.map((workflow) => (
               <MenuItem key={workflow.name} value={workflow.name}>
                 <Box display="flex" flexDirection="column">
                   <Typography>{workflow.name}</Typography>
@@ -583,19 +585,20 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           placeholder="e.g., 10"
         />
 
-<FormControlLabel
-                control={
-                  <Switch
-                    checked={useMockModel} 
-                    onChange={(e) => setUseMockModel(e.target.checked)} 
-                    name="use_mock_model"
-                    color="primary"
-                  />
-                }
-                label="Use Mock Model"
-         />
+        {/* Toggle for Mock Model */}
+        <FormControlLabel
+          control={
+            <Switch
+              checked={launcherUseMockModel}
+              onChange={(e) => setLauncherUseMockModel(e.target.checked)}
+              color="primary"
+            />
+          }
+          label="Use Mock Model"
+        />
 
-        {!useMockModel && (
+        {/* If not using Mock Model, show model selection */}
+        {!launcherUseMockModel && (
           <ModelSelectionSection
             formData={formData}
             handleInputChange={handleInputChange}
@@ -610,45 +613,42 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
             handleApiKeyChange={handleApiKeyChange}
             apiStatus={apiStatus}
             configDefaults={configDefaults}
-            setFormData={setFormData} 
+            setFormData={setFormData}
           />
         )}
 
-          <FormControlLabel
+        {/* Toggle for Interactive Mode */}
+        <FormControlLabel
           control={
             <Switch
-              checked={interactiveMode}
-              onChange={(e) => setInteractiveMode(e.target.checked)}
-              name="interactive"
+              checked={launcherInteractiveMode}
+              onChange={(e) => setLauncherInteractiveMode(e.target.checked)}
               color="primary"
             />
           }
           label="Interactive Mode"
-          />
+        />
 
+        <Box display="flex" flexDirection="column" gap={2} mt={2}>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            startIcon={<PlayArrowIcon />}
+          >
+            Run Workflow(s)
+          </Button>
 
-      <Box display="flex" flexDirection="column" gap={2} mt={2}> 
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          startIcon={<PlayArrowIcon />}
-        >
-          Run Workflow(s)
-        </Button>
-
-        <Button
-          variant="outlined"
-          color="secondary"
-          onClick={handleSaveConfiguration}
-          startIcon={<SaveIcon />}
-        >
-          Save Configuration
-        </Button>
-      </Box>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={handleSaveConfiguration}
+            startIcon={<SaveIcon />}
+          >
+            Save Configuration
+          </Button>
+        </Box>
       </form>
-
-
 
       <SaveConfigDialog
         open={openSaveDialog}
@@ -658,9 +658,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         onSave={handleSaveConfirm}
         saveStatus={saveStatus}
       />
-
     </Box>
-
-    
   );
 };
