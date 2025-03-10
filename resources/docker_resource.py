@@ -37,7 +37,6 @@ class DockerResourceConfig(BaseResourceConfig):
         """Validate Docker configuration"""
         pass
 
-
 class DockerResource(RunnableBaseResource):
     """
     Docker Resource to manage Docker containers.
@@ -111,10 +110,6 @@ class DockerResource(RunnableBaseResource):
         unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
         start_progress(f"Running command in Docker: {command}")
         try:
-            # If command is a string, convert it to a list
-            if isinstance(command, str):
-                command = ["/bin/bash", "-c", command]
-
             container = self.client.containers.run(
                 image=docker_image,
                 command=command,  # Pass command directly without additional formatting
@@ -164,17 +159,17 @@ class DockerResource(RunnableBaseResource):
     def handle_docker_exception(self, e: DockerException) -> RuntimeError:
         """Handle different Docker exceptions for clearer debugging and return appropriate runtime error."""
         error_message = ""
-
-        if isinstance(e, APIError):
-            error_message = "Docker API error: " + str(e)
+        
+        if isinstance(e, ImageNotFound):
+            error_message = "Image not found: " + str(e)
         elif isinstance(e, NotFound):
             error_message = "Not found error in Docker: " + str(e)
-        elif isinstance(e, ImageNotFound):
-            error_message = "Image not found: " + str(e)
         elif isinstance(e, ContainerError):
             error_message = "Container error: " + str(e)
         elif isinstance(e, BuildError):
             error_message = "Build error: " + str(e)
+        elif isinstance(e, APIError):
+            error_message = "Docker API error: " + str(e)
         else:
             error_message = "Error while connecting to Docker: " + str(e)
 
@@ -187,6 +182,7 @@ class DockerResource(RunnableBaseResource):
         return {
             "resource_id": self.resource_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "config": self._resource_config.to_dict()
         }
 
     @classmethod
@@ -194,7 +190,7 @@ class DockerResource(RunnableBaseResource):
         """
         Creates a DockerResource instance from a serialized dictionary.
         """
-        return cls(name=data["resource_id"])
+        return cls(resource_id=data["resource_id"], config=data["config"])
 
     def save_to_file(self, filepath: str) -> None:
         """
