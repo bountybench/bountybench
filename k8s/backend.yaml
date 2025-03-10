@@ -5,7 +5,7 @@ metadata:
   labels:
     app: backend
 spec:
-  replicas: 1
+  replicas: 3  # Changed to multiple replicas
   selector:
     matchLabels:
       app: backend
@@ -21,7 +21,7 @@ spec:
         effect: "NoSchedule"
       containers:
       - name: backend
-        image: us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:v1
+        image: us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:v2
         ports:
         - containerPort: 7999
         securityContext:
@@ -36,8 +36,7 @@ spec:
             name: app-secrets
       volumes:
       - name: dind-storage
-        persistentVolumeClaim:
-          claimName: dind-data
+        emptyDir: {}  # Using emptyDir for isolated Docker storage per pod
       - name: logs
         persistentVolumeClaim:
           claimName: logs-data
