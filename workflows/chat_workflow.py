@@ -17,7 +17,7 @@ class ChatWorkflow(BaseWorkflow):
         phase_kwargs = {
             "model": self.params.get("model"),
             "initial_prompt": self.initial_prompt,
-            "helm": self.params.get("helm"),
+            "helm": self.params.get("use_helm"),
             "max_input_tokens": self.params.get("max_input_tokens"),
             "max_output_tokens": self.params.get("max_output_tokens"),
         }
