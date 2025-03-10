@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -11,20 +11,17 @@ from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 
 @pytest.fixture
 def mock_workflow():
-    with (
-        patch("workflows.base_workflow.BaseWorkflow._finalize_workflow"),
-        patch("messages.workflow_message.WorkflowMessage"),
-        patch("messages.message_utils.log_message"),
-    ):
-
+    with patch("workflows.base_workflow.BaseWorkflow._finalize_workflow"):
         workflow = ExploitPatchWorkflow(
-            task_dir=Path("bountybench/lunary"),
+            task_dir=Path("bountybench/setuptools"),
             bounty_number="0",
             model="openai/o3-mini-2025-01-14",
             interactive=False,
             use_mock_model=True,
         )
-        yield workflow
+
+        with patch.object(workflow.workflow_message, "save", Mock()):
+            yield workflow
 
 
 def test_build_phase_graph(mock_workflow):

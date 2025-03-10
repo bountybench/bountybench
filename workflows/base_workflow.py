@@ -13,6 +13,7 @@ from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from utils.logger import get_main_logger
 from workflows.interactive_controller import InteractiveController
+from workflows.workflow_context import WorkflowContext
 
 logger = get_main_logger(__name__)
 
@@ -157,8 +158,10 @@ class BaseWorkflow(ABC):
     async def run(self) -> None:
         """Execute the entire workflow by running all phases in sequence."""
         logger.info(f"Running workflow {self.name}")
-        async for _ in self._run_phases():
-            continue
+
+        with WorkflowContext(self.workflow_id):
+            async for _ in self._run_phases():
+                continue
 
     async def _run_phases(self):
         prev_phase_message = None
