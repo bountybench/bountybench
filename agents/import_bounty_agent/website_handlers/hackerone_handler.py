@@ -14,8 +14,6 @@ class HackerOneHandler(BaseBountyHandler):
     """
 
     def wait_for_page_load(self):
-        logger.info("Waiting for HackerOne timeline...")
-        print("Waiting for HackerOne timeline...")
         self._wait_for_element(
             By.CSS_SELECTOR, "div.timeline-item.activity.spec-activity"
         )
@@ -44,7 +42,6 @@ class HackerOneHandler(BaseBountyHandler):
         response = requests.get(
             f"https://api.hackerone.com/v1/reports/{report_id}", headers=headers
         )
-        logger.info(f"Fetched report data for {report_id}")
 
         # Check if the request was successful
         if response.status_code != 200:
