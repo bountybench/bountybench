@@ -251,8 +251,9 @@ class BaseWorkflow(ABC):
         self.agent_manager.deallocate_all_agents()
         self.resource_manager.deallocate_all_resources()
 
-        # if hasattr(self, "next_iteration_queue"):
-        #     self.next_iteration_queue.clear()
+        if hasattr(self, "next_iteration_queue"):
+            while not self.next_iteration_queue.empty():
+                self.next_iteration_queue.get()
 
         self._finalize_workflow()
 

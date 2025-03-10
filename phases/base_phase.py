@@ -253,7 +253,7 @@ class BasePhase(ABC):
             await self.set_last_agent_message(message)
             self._phase_message.add_child_message(message)
 
-            self.workflow.next_iteration_queue.task_done()
+            # self.workflow.next_iteration_queue.task_done()
             logger.info(
                 f"Finished iteration {iteration_num} of {self.name} with {agent_id}"
             )
@@ -308,6 +308,8 @@ class BasePhase(ABC):
         if self._phase_message.summary == "incomplete":
             self._phase_message.set_summary("completed_failure")
         self.deallocate_resources()
+        while not self.workflow.next_iteration_queue.empty():
+            self.workflow.next_iteration_queue.get()
 
     def _get_current_iteration(self) -> int:
         """

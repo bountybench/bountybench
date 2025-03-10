@@ -59,7 +59,8 @@ class FakeWorkflow:
         self.resource_manager.resources.clear()
 
         # Ensure no lingering async events (preventing unexpected executions)
-        # self.next_iteration_queue.clear()
+        while not self.next_iteration_queue.empty():
+            self.next_iteration_queue.get()
 
         # Simulate finalizing workflow
         await self._finalize_workflow()

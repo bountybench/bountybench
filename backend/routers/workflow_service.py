@@ -44,7 +44,7 @@ async def run_message(workflow_id: str, data: MessageData, request: Request):
         result = await workflow.interactive_controller.run_message(data.message_id)
         if not result:
             await workflow.interactive_controller.set_last_message(data.message_id)
-            num_iter = 2
+            num_iter = workflow.interactive_controller.get_num_iteration(data.num_iter, data.phase_iter)
             results = []
             for i in range(num_iter):
                 result = await next_iteration(workflow_id, active_workflows)

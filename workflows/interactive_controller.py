@@ -20,6 +20,18 @@ class InteractiveController:
         self.message_handler = MessageHandler(self.agent_manager, self.resource_manager)
         logger.info("Setup message handler")
 
+    def get_num_iteration(self, num_iter, phase_iter) -> int:
+        num_iteration = num_iter
+        if phase_iter:
+            iteration = self.workflow.current_phase.iteration_count
+            phase_iter_len = len(self.workflow.current_phase.agents)
+            remaining_agent_iter = phase_iter_len - iteration
+            if remaining_agent_iter > 0:
+                num_iteration = remaining_agent_iter + (num_iter - 1) * phase_iter_len
+            else:
+                num_iteration = num_iter * phase_iter_len
+        return num_iteration
+
     async def get_last_message(self) -> str:
         if self.workflow.current_phase:
             result = self.workflow.current_phase.last_agent_message

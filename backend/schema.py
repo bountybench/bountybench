@@ -33,6 +33,8 @@ class MessageInputData(BaseModel):
 
 class MessageData(BaseModel):
     message_id: str
+    num_iter: Optional[str] = 1
+    phase_iter: Optional[bool] = True
 
 
 class UpdateInteractiveModeInput(BaseModel):
