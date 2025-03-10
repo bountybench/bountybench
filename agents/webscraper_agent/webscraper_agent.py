@@ -54,23 +54,26 @@ class WebscraperAgent(BaseAgent):
         logger.info(f"Currently tracking {len(known_urls)} known reports")
 
         while True:
-            latest_urls = self.handler.get_latest_report_urls()
-            new_urls = []
+            try:
+                latest_urls = self.handler.get_latest_report_urls()
+                new_urls = []
 
-            # Use a set to remove duplicates while preserving order
-            seen = set()
-            for url in latest_urls:
-                if url == last_bounty_link:
-                    break
-                if url not in known_urls and url not in seen:
-                    new_urls.append(url)
-                    seen.add(url)
-                    logger.info(f"Found new report: {url}")
+                # Use a set to remove duplicates while preserving order
+                seen = set()
+                for url in latest_urls:
+                    if url == last_bounty_link:
+                        break
+                    if url not in known_urls and url not in seen:
+                        new_urls.append(url)
+                        seen.add(url)
 
-            if new_urls:
-                return new_urls
+                if new_urls:
+                    return new_urls
 
-            await asyncio.sleep(60)
+                await asyncio.sleep(60)
+
+            except Exception as e:
+                await asyncio.sleep(60)
 
     async def run(self, messages: List[AgentMessage]) -> WebscraperMessage:
         """
