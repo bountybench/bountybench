@@ -2,8 +2,9 @@ import asyncio
 import atexit
 import subprocess
 from abc import ABC, abstractmethod
+from collections import deque
 from enum import Enum
-from typing import Any, Dict, Type
+from typing import Any, Dict, List, Type
 
 from agents.agent_manager import AgentManager
 from messages.phase_messages.phase_message import PhaseMessage
@@ -28,7 +29,6 @@ class BaseWorkflow(ABC):
         self.max_iterations = 25
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
-        self._phase_graph = {}  # Stores phase relationships
         self._root_phase = None
         self._current_phase = None
 
@@ -50,6 +50,9 @@ class BaseWorkflow(ABC):
         self._setup_interactive_controller()
         self._create_phases()
         self._compute_resource_schedule()
+
+        self._phase_graph = self._build_phase_graph()
+
         logger.info(f"Finished initializing workflow {self.name}")
 
         self.next_iteration_event = asyncio.Event()
@@ -62,14 +65,35 @@ class BaseWorkflow(ABC):
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
         self._root_phase = phase
-        self.register_phase(phase)
         logger.info(f"Registered root phase {phase.name}")
+
+    def _build_phase_graph(self) -> Dict[BasePhase, List[BasePhase]]:
+        """Traverse phase relationships to build adjacency list"""
+        graph = {}
+        visited = set()
+        queue = deque([self._root_phase])
+
+        while queue:
+            phase = queue.popleft()
+            if phase in visited:
+                continue
+
+            visited.add(phase)
+            self.register_phase(phase)
+            logger.debug(f"Registered phase: {phase.__class__.__name__}")
+            queue.extend(phase.next_phases)
+
+        return graph
 
     def register_phase(self, phase: BasePhase):
         """Register a phase and its dependencies."""
         if phase not in self._phase_graph:
-            self._phase_graph[phase] = []
-            logger.debug(f"Registered phase: {phase.__class__.__name__}")
+            self._phase_graph[phase] = phase.next_phases
+            phase.phase_config.phase_idx = len(self._phase_graph) - 1
+            logger.debug(
+                f"Registered phase { phase.phase_config.phase_idx}: {phase.__class__.__name__}"
+            )
+            logger.info(f"{phase.phase_config.phase_name} registered")
 
     @abstractmethod
     def _create_phases(self):
@@ -87,26 +111,6 @@ class BaseWorkflow(ABC):
     @property
     def phase_graph(self):
         return self._phase_graph
-
-    def _create_phase(self, phase_class: Type[BasePhase], **kwargs: Any) -> None:
-        """
-        Create a phase instance and register it with the workflow.
-
-        Args:
-            phase_class (Type[BasePhase]): The class of the phase to create.
-            **kwargs: Additional keyword arguments to pass to the phase constructor.
-
-        Raises:
-            TypeError: If the provided class is not a subclass of BasePhase.
-        """
-        if not issubclass(phase_class, BasePhase):
-            raise TypeError(f"{phase_class.__name__} is not a subclass of BasePhase")
-
-        phase_instance = phase_class(
-            workflow=self, interactive=self.interactive, **kwargs
-        )
-        self.register_phase(phase_instance)
-        logger.info(f"Created and registered phase: {phase_class.__name__}")
 
     @abstractmethod
     def _get_initial_prompt(self) -> str:
@@ -236,15 +240,6 @@ class BaseWorkflow(ABC):
         phases = self._phase_graph.keys()
         self.resource_manager.compute_schedule(phases)
         logger.debug("Computed resource schedule for all phases based on agents.")
-
-    def register_phase(self, phase: BasePhase):
-        if phase not in self._phase_graph:
-            self._phase_graph[phase] = []
-            phase.phase_config.phase_idx = len(self._phase_graph) - 1
-            logger.debug(
-                f"Registered phase { phase.phase_config.phase_idx}: {phase.__class__.__name__}"
-            )
-            logger.info(f"{phase.phase_config.phase_name} registered")
 
     async def stop(self):
         # Deallocate agents and resources

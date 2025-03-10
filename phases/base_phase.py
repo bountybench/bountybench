@@ -50,6 +50,8 @@ class BasePhase(ABC):
 
         self.agent_manager: Any = self.workflow.agent_manager
         self.resource_manager: Any = self.workflow.resource_manager
+
+        self.next_phases: List[BasePhase] = []
         self.agents: List[Tuple[str, BaseAgent]] = []
         self.params: Dict[str, Any] = kwargs
         self._done: bool = False
@@ -92,12 +94,12 @@ class BasePhase(ABC):
             phase_resources.update(agent_class.REQUIRED_RESOURCES)
         return phase_resources
 
-    def __rshift__(self, other: "BasePhase") -> "BasePhase":
+    def __rshift__(self, next_phase: "BasePhase") -> "BasePhase":
         """
-        Define the order of phases in the workflow.
+        This method is used to create a directed graph of phases.
+        Phase manages its own adjacency list
 
-        This method is used to create a directed graph of phases. It's typically
-        used in the workflow setup, like:
+        It's typically used in workflow phases setup, like:
         exploit_phase = ExploitPhase(workflow=self, **phase_kwargs)
         patch_phase = PatchPhase(workflow=self, **phase_kwargs)
         exploit_phase >> patch_phase
@@ -108,13 +110,8 @@ class BasePhase(ABC):
         Returns:
             BasePhase: The 'other' phase, allowing for method chaining.
         """
-        if isinstance(other, BasePhase):
-            if self not in self.workflow._phase_graph:
-                self.workflow.register_phase(self)
-            if other not in self.workflow._phase_graph:
-                self.workflow.register_phase(other)
-            self.workflow._phase_graph[self].append(other)
-        return other
+        self.next_phases.append(next_phase)
+        return next_phase
 
     @classmethod
     def get_required_resources(cls) -> Set[ResourceType]:
