@@ -21,11 +21,11 @@ function App() {
   const [currentPhase, setCurrentPhase] = useState(null);
   const toastIdRef = useRef({});
 
-  const handleWorkflowStart = (workflowId, model, isInteractive, useMockModel) => {
-    console.log("=============handleWorkflowStart:=============", { workflowId, model, isInteractive, useMockModel });
+  const handleWorkflowStart = (workflowId, model, isInteractive, isMock) => {
+    console.log("=============handleWorkflowStart:=============", { workflowId, model, isInteractive, isMock});
     setSelectedWorkflow({ id: workflowId, model: model });
     setInteractiveMode(isInteractive);
-    setUseMockModel(useMockModel)
+    setUseMockModel(isMock)
   };
 
 
@@ -95,7 +95,6 @@ function App() {
                   onWorkflowStateUpdate={handleWorkflowStateUpdate} 
                   showInvalidWorkflowToast={showInvalidWorkflowToast}
                   useMockModel={useMockModel}
-                  setUseMockModel={setUseMockModel}
                 />} 
             />
             <Route path="/history-logs" element={<LogViewer />} />

@@ -37,6 +37,10 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const [selectedModelType, setSelectedModelType] = useState('');
   const [selectedModelName, setSelectedModelName] = useState('');
 
+  // Initialize local state with props
+  const [localInteractiveMode, setInteractiveMode] = useState(interactiveMode);
+  const [localMockModel, setUseMockModel] = useState(useMockModel); 
+
   const [workflowState, setWorkflowState] = useState({
     status: WorkflowState.LOADING,
     message: "Loading workflow instance...",
@@ -61,27 +65,16 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   }, [workflowId, navigate, showInvalidWorkflowToast, hasCheckedValidity]);
 
-  // Add interactiveMode to props passed to other components (App-level state)
-  const [localInteractiveMode, setInteractiveMode] = useState(interactiveMode);
-  const [localMockModel, setLocalMockModel] = useState(useMockModel); 
-
-  
-  // Sync with props when they change
+  // Update local state when props change
   useEffect(() => {
     setInteractiveMode(interactiveMode);
   }, [interactiveMode]);
 
-
-
-  useEffect(() => {
-    console.log("===========WorkflowDashboard mounted with useMockModel:===========", useMockModel);
-  }, []);
-  
+  // Update local mock model state when prop changes
   useEffect(() => {
     console.log(`===========Workflow ${workflowId} - useMockModel updated to:===========`, useMockModel);
-    setLocalMockModel(useMockModel);
-  }, [useMockModel, workflowId]);
-
+    setUseMockModel(useMockModel);
+  }, [useMockModel]);
 
   const {
     isConnected,
@@ -133,7 +126,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       const url = `${API_BASE_URL}/workflow/${workflowId}/model-change`;
       const requestBody = { 
         new_model_name: new_model_name,
-        use_mock_model: useMockModel 
+        use_mock_model: localMockModel 
       };
   
       const response = await fetch(url, {
@@ -154,36 +147,10 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   };
 
-  // Handle mock model toggle
-  const handleMockModelToggle = async () => {
-    const newMockState = !localMockModel;
-    setLocalMockModel(newMockState); // Update locally
-  
-    if (workflowId) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/mock-model`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ use_mock_model: newMockState }),
-        });
-  
-        if (!response.ok) {
-          throw new Error('Failed to update mock model setting');
-        }
-  
-        console.log('Mock model updated successfully:', newMockState);
-      } catch (error) {
-        console.error('Error updating mock model:', error);
-        setLocalMockModel(!newMockState); // Revert on error
-      }
-    }
-  };
-  
-
   // Handle interactive mode toggle
   const handleInteractiveModeToggle = async () => {
     // Store the new intended state
-    const newInteractiveMode = !interactiveMode;
+    const newInteractiveMode = !localInteractiveMode;
     
     if (workflowId) {
       try {
@@ -210,6 +177,35 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         console.error('Error updating interactive mode:', error);
         // Revert UI state on error
         setInteractiveMode(!newInteractiveMode);
+      }
+    }
+  };
+
+  // Handle mock model toggle
+  const handleMockModelToggle = async () => {
+    const newMockState = !localMockModel;
+    
+    if (workflowId) {
+      try {
+        // Update UI state immediately for responsive feedback
+        setUseMockModel(newMockState);
+        
+        const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/mock-model`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ use_mock_model: newMockState }),
+        });
+  
+        if (!response.ok) {
+          throw new Error('Failed to update mock model setting');
+        }
+  
+        console.log('Mock model updated successfully:', newMockState);
+        onWorkflowStateUpdate(workflowStatus, currentPhase);
+
+      } catch (error) {
+        console.error('Error updating mock model:', error);
+        setUseMockModel(!newMockState); // Revert on error
       }
     }
   };
@@ -308,7 +304,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       }
     }
   }, [workflowId]);
-
 
   useEffect(() => {
     fetchResources();
@@ -409,7 +404,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
   };
 
-
   const handleStopWorkflow = async () => {
     if (workflowId) {
       try {
@@ -503,7 +497,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
         <Box display="flex" alignItems="center" flexGrow={1} justifyContent="flex-end">
           {/* Only show model selection when not using mock model */}
-          {!useMockModel && (
+          {!localMockModel && (
             <>
               <FormControl variant="outlined" sx={{ mx: 2 }}>
                 <Select
@@ -559,7 +553,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
           <Box display="flex" alignItems="center" mr={2}>
             <Typography variant="body2" sx={{ mr: 1 }}>Mock Model:</Typography>
             <Switch
-              checked={useMockModel}
+              checked={localMockModel}
               onChange={handleMockModelToggle}
               color="primary"
               size="small"
@@ -572,7 +566,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       <Box display="flex" flexGrow={1} overflow="hidden">
         <Box flexGrow={1} overflow="auto">
           <AgentInteractions
-            interactiveMode={interactiveMode}
+            interactiveMode={localInteractiveMode}
             workflowStatus={workflowStatus}
             currentPhase={currentPhase}
             isNextDisabled={isNextDisabled}
