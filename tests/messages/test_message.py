@@ -1,9 +1,7 @@
-from typing import List
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.answer_message import AnswerMessage
 from messages.action_messages.answer_message_interface import AnswerMessageInterface
@@ -19,38 +17,6 @@ class MockResource(BaseResource):
 
     def stop(self):
         pass
-
-
-class MockAgent(BaseAgent):
-    REQUIRED_RESOURCES = [(MockResource, "mock_resource")]
-    OPTIONAL_RESOURCES = [(MockResource, "optional_resource")]
-    ACCESSIBLE_RESOURCES = [
-        (MockResource, "mock_resource"),
-        (MockResource, "optional_resource"),
-    ]
-
-    def run(self, messages: List[Message]) -> Message:
-        self.mock_resource
-        return Message("Mock message")
-
-
-@pytest.fixture
-def agent():
-    agent_config = AgentConfig()
-    return MockAgent("mock_agent", agent_config)
-
-
-def test_initialization(agent):
-    with pytest.raises(AttributeError):
-        _ = agent.mock_resource
-
-
-def test_get_resources(agent):
-    optional = agent.get_optional_resources()
-    required = agent.get_required_resources()
-
-    assert optional == {agent.OPTIONAL_RESOURCES[0][1]}
-    assert required == {agent.REQUIRED_RESOURCES[0][1]}
 
 
 @patch("messages.message_utils.log_message")

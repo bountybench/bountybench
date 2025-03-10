@@ -30,7 +30,7 @@ HALLUCINATION_STRINGS = [
 class ModelResourceConfig(BaseResourceConfig):
     """Configuration for ModelResource"""
 
-    model: str = field(default="openai/o3-mini-2025-01-14")
+    model: str
     max_output_tokens: int = field(default=4096)
     max_input_tokens: int = field(default=8192)
     max_iterations_stored_in_memory: int = field(default=3)
@@ -43,15 +43,10 @@ class ModelResourceConfig(BaseResourceConfig):
     def create(cls, **kwargs):
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
 
-    def __post_init__(self):
-        if "openai/o3" not in self.model.lower():
-            self.use_helm = True
-        self.validate()
-
     def validate(self) -> None:
         """Validate LLMResource configuration"""
-        if not self.model:
-            raise ValueError("Model must be specified")
+        if not self.model or len(self.model) < 1:
+            raise ValueError("Model must be specified and nonempty")
         if self.max_input_tokens <= 0:
             raise ValueError("max_input_tokens must be positive")
         if self.max_output_tokens <= 0:
@@ -84,11 +79,38 @@ class ModelResource(RunnableBaseResource):
         Returns:
             ModelProvider: An instance of the appropriate model provider class.
         """
-        # TODO: Support Different Model Providers (Also handle Azure case)
         if self.helm:
             model_provider = HelmModels()
         else:
-            model_provider = OpenAIModels()
+            # Select provider based on model name prefix
+            model_prefix = self.model.split("/")[0].lower() if "/" in self.model else ""
+
+            if model_prefix == "anthropic":
+                from resources.model_resource.anthropic_models.anthropic_models import (
+                    AnthropicModels,
+                )
+
+                model_provider = AnthropicModels()
+            elif model_prefix == "google":
+                from resources.model_resource.google_models.google_models import (
+                    GoogleModels,
+                )
+
+                model_provider = GoogleModels()
+            elif (
+                model_prefix == "meta"
+                or model_prefix == "mistralai"
+                or model_prefix == "together"
+            ):
+                from resources.model_resource.together_models.together_models import (
+                    TogetherModels,
+                )
+
+                model_provider = TogetherModels()
+            elif model_prefix == "openai":
+                model_provider = OpenAIModels()
+            else:
+                raise Exception(f"Unknown model type: {self.model}")
         return model_provider
 
     def remove_hallucinations(self, response: str):

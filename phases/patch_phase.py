@@ -6,17 +6,15 @@ from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.bounty_phase import BountyPhase
-from resources.base_resource import BaseResource
-from resources.bounty_setup_resource import (
-    BountySetupResource,
-    BountySetupResourceConfig,
-)
-from resources.docker_resource import DockerResource, DockerResourceConfig
-from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
-from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
-from resources.memory_resource import MemoryResource, MemoryResourceConfig
-from resources.model_resource.model_resource import ModelResource, ModelResourceConfig
-from resources.repo_setup_resource import RepoSetupResource, RepoSetupResourceConfig
+from resources.base_resource import BaseResourceConfig
+from resources.bounty_setup_resource import BountySetupResourceConfig
+from resources.docker_resource import DockerResourceConfig
+from resources.init_files_resource import InitFilesResourceConfig
+from resources.kali_env_resource import KaliEnvResourceConfig
+from resources.memory_resource import MemoryResourceConfig
+from resources.model_resource.model_resource import ModelResourceConfig
+from resources.repo_setup_resource import RepoSetupResourceConfig
+from resources.resource_type import ResourceType
 from resources.utils import contains_setup
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
@@ -62,12 +60,12 @@ class PatchPhase(BountyPhase):
             "patch_agent": (PatchAgent, patch_config),
         }
 
-    def define_resources(self) -> Dict[str, Tuple[Type[BaseResource], Any]]:
+    def define_resources(self) -> List[Tuple[ResourceType, BaseResourceConfig]]:
         """
         Define resource classes and their configurations required by the PatchPhase.
 
         Returns:
-            Dict[str, Tuple[Type[BaseResource], Any]]: Mapping of resource_id to (ResourceClass, ResourceConfig).
+            List[Tuple[DefaultResource, ResourceConfig]].
         """
         logger.debug("Entering define_resources for PatchPhase")
 
@@ -78,18 +76,19 @@ class PatchPhase(BountyPhase):
             "vulnerable_commit", "main"
         )
 
-        resource_configs: Dict[str, Tuple[Type[BaseResource], Any]] = {
-            "model": (
-                ModelResource,
+        resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
+            (
+                ResourceType.MODEL,
                 ModelResourceConfig.create(
                     model=self.model,
+                    use_helm=self.helm,
                     use_mock_model=self.use_mock_model,
                     max_input_tokens=self.params.get("max_input_tokens"),
                     max_output_tokens=self.params.get("max_output_tokens"),
                 ),
             ),
-            "init_files": (
-                InitFilesResource,
+            (
+                ResourceType.INIT_FILES,
                 InitFilesResourceConfig(
                     task_dir=self.workflow.task_dir,
                     files_dir_name=files_dir_name,
@@ -99,8 +98,8 @@ class PatchPhase(BountyPhase):
                     vulnerable_commit=vulnerable_commit,
                 ),
             ),
-            f"kali_env_{self.workflow.workflow_message.workflow_id}": (
-                KaliEnvResource,
+            (
+                ResourceType.KALI_ENV,
                 KaliEnvResourceConfig(
                     task_dir=self.workflow.task_dir,
                     bounty_number=self.workflow.bounty_number,
@@ -110,9 +109,9 @@ class PatchPhase(BountyPhase):
                     target_host=self.workflow.repo_metadata["target_host"],
                 ),
             ),
-            "docker": (DockerResource, DockerResourceConfig()),
-            "executor_agent_memory": (MemoryResource, MemoryResourceConfig()),
-        }
+            (ResourceType.DOCKER, DockerResourceConfig()),
+            (ResourceType.MEMORY, MemoryResourceConfig()),
+        ]
 
         self._add_setup_resources(resource_configs)
 
@@ -120,33 +119,37 @@ class PatchPhase(BountyPhase):
         return resource_configs
 
     def _add_setup_resources(
-        self, resource_configs: Dict[str, Tuple[Type[BaseResource], Any]]
+        self, resource_configs: List[Tuple[ResourceType, BaseResourceConfig]]
     ) -> None:
         """
         Add setup resources to the resource configurations if setup scripts exist.
 
         Args:
-            resource_configs (Dict[str, Tuple[Type[BaseResource], Any]]): The current resource configurations.
+            resource_configs (List[Tuple[DefaultResource, BaseResourceConfig]]): The current resource configurations.
         """
         setup_repo_env_script = self.workflow.task_dir / "setup_repo_env.sh"
         if contains_setup(setup_repo_env_script):
-            resource_configs["repo_setup"] = (
-                RepoSetupResource,
-                RepoSetupResourceConfig(
-                    task_dir=self.workflow.task_dir,
-                ),
+            resource_configs.append(
+                (
+                    ResourceType.REPO_SETUP,
+                    RepoSetupResourceConfig(
+                        task_dir=self.workflow.task_dir,
+                    ),
+                )
             )
 
         setup_bounty_env_script = (
             self.bounty_dir / "setup_files" / "setup_bounty_env.sh"
         )
         if contains_setup(setup_bounty_env_script):
-            resource_configs["bounty_setup"] = (
-                BountySetupResource,
-                BountySetupResourceConfig(
-                    task_dir=self.workflow.task_dir,
-                    bounty_number=self.workflow.bounty_number,
-                ),
+            resource_configs.append(
+                (
+                    ResourceType.BOUNTY_SETUP,
+                    BountySetupResourceConfig(
+                        task_dir=self.workflow.task_dir,
+                        bounty_number=self.workflow.bounty_number,
+                    ),
+                )
             )
 
     async def run_one_iteration(
