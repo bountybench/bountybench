@@ -66,18 +66,17 @@ class WebscraperAgent(BaseAgent):
                     if url not in known_urls and url not in seen:
                         new_urls.append(url)
                         seen.add(url)
-                        logger.info(f"Found new report: {url}")
 
                 if new_urls:
+                    logger.info(f"Found new reports: {new_urls}")
                     return new_urls
-
-                logger.info("No new reports found. Checking again in 60 seconds...")
-                await asyncio.sleep(60)
-
+              
+            except ConnectionError as ce:
+                logger.warning(f"Network issue while fetching URLs: {ce}")
             except Exception as e:
-                logger.error(f"Error checking for new reports: {e}")
-                logger.info("Retrying in 60 seconds...")
-                await asyncio.sleep(60)
+                logger.error(f"Unexpected error in _get_new_urls: {e}")
+
+            await asyncio.sleep(60)
 
     async def run(self, messages: List[AgentMessage]) -> WebscraperMessage:
         """
