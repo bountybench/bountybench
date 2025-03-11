@@ -21,6 +21,7 @@ class BaseBountyHandler:
         self.soup = BeautifulSoup(writeup, "html.parser") if writeup else None
 
     def _wait_for_element(self, by, identifier, timeout=30):
+        logger.info(f"Waiting for element: {by}={identifier}")
         try:
             element = WebDriverWait(self.driver, timeout).until(
                 EC.presence_of_element_located((by, identifier))

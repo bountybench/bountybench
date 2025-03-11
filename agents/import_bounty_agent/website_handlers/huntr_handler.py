@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Tuple
 from selenium.webdriver.common.by import By
-from .base_handler import BaseBountyHandler
+from .base_handler import BaseBountyHandler, logger
 
 
 class HuntrHandler(BaseBountyHandler):
@@ -10,6 +10,7 @@ class HuntrHandler(BaseBountyHandler):
     """
 
     def wait_for_page_load(self):
+        logger.info("Waiting for Huntr page load")
         self._wait_for_element(
             By.XPATH,
             "//iframe[@owner='archetype' and @title='archetype' and contains(@style, 'display')]",
