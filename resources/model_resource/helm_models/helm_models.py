@@ -55,18 +55,48 @@ class HelmModels(ModelProvider):
             )
 
         start_time = datetime.now()
-        request_result: RequestResult = self.client.make_request(
-            auth=self.authentication, request=request
-        )
-        end_time = datetime.now()
-        response_request_duration = (end_time - start_time).total_seconds() * 1000
+        status_code = None
 
-        return ModelResponse(
-            content=request_result.completions[0].text,
-            input_tokens=len(self.tokenize(model, message)),
-            output_tokens=len(self.tokenize(model, request_result.completions[0].text)),
-            time_taken_in_ms=response_request_duration,
-        )
+        try:
+            request_result: RequestResult = self.client.make_request(
+                auth=self.authentication, request=request
+            )
+
+            # For successful responses, try to extract status code if available
+            if hasattr(request_result, "response") and hasattr(
+                request_result.response, "status_code"
+            ):
+                status_code = request_result.response.status_code
+
+            end_time = datetime.now()
+            response_request_duration = (end_time - start_time).total_seconds() * 1000
+
+            return ModelResponse(
+                content=request_result.completions[0].text,
+                input_tokens=len(self.tokenize(model, message)),
+                output_tokens=len(
+                    self.tokenize(model, request_result.completions[0].text)
+                ),
+                time_taken_in_ms=response_request_duration,
+                status_code=status_code,
+            )
+        except Exception as e:
+            # Extract status code from Helm API errors
+            try:
+                # Helm exceptions might have status_code or http_status
+                if hasattr(e, "status_code"):
+                    status_code = e.status_code
+                elif hasattr(e, "http_status"):
+                    status_code = e.http_status
+                elif hasattr(e, "response") and hasattr(e.response, "status_code"):
+                    status_code = e.response.status_code
+            except:
+                pass  # If we can't extract the code, just continue
+
+            # Attach status code to the exception
+            if status_code is not None:
+                e.status_code = status_code
+            raise
 
     def tokenize(self, model: str, message: str) -> List[int]:
         tokenizer = ModelRegistry.get_tokenizer(model)
