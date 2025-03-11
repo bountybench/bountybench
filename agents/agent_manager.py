@@ -103,18 +103,16 @@ class AgentManager:
                 if not hasattr(agent, "model"):
                     raise AttributeError("Agent does not have a 'model' attribute")
 
-                existing_model_name = agent.model.model
                 logger.info(f"Updating agent {agent_id} to use_mock_model={use_mock_model}")
-
-                resource_config = ModelResourceConfig.create(
-                    model=existing_model_name,  
-                    use_mock_model=use_mock_model  
-                )
-
-                resource = ModelResource("model", resource_config)
-                setattr(agent, "model", resource)
-
-                logger.info(f"Agent {agent_id} updated: {agent.model.to_dict()}")
+                
+                # Get the updated model from the resource dictionary
+                # instead of creating a new one
+                if self.resource_dict.contains(self.workflow_id, "model"):
+                    updated_model = self.resource_dict.get(self.workflow_id, "model")
+                    setattr(agent, "model", updated_model)
+                    print(f"Agent {agent_id} updated with resource manager model: {id(updated_model)}, use_mock_model={updated_model.use_mock_model}")
+                else:
+                    logger.error(f"Model resource not found in resource dictionary for workflow {self.workflow_id}")
 
     def create_agent(
         self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig

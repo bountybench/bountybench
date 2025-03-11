@@ -499,9 +499,12 @@ async def update_mock_model_mode(workflow_id: str, request: Request):
         # Use InteractiveController to update mock model state
         await workflow.interactive_controller.set_mock_model(new_mock_model_state)
 
-
-        print(f"Updated mock model state for workflow {workflow_id} to {new_mock_model_state}")
-
+        print("==============BACKEND UPDATE MOCK MODEL============")
+        print(workflow.use_mock_model)
+        print(id(workflow.resource_manager.resources.get(workflow_id, "model")))
+        print(workflow.resource_manager.resources.get(workflow_id, "model").use_mock_model)
+        print(workflow.resource_manager.get_resources())
+        print("==========================")
 
         return {"status": "success", "use_mock_model": new_mock_model_state}
 
