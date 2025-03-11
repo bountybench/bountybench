@@ -9,6 +9,8 @@ logger = get_main_logger(__name__)
 
 
 class BountyWorkflow(BaseWorkflow, ABC):
+    required_args = ["task_dir", "bounty_number"]
+
     def _initialize(self):
         self.task_dir = self.params["task_dir"]
         self.bounty_number = self.params["bounty_number"]

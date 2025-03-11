@@ -17,14 +17,27 @@ logger = get_main_logger(__name__)
 
 
 class BaseWorkflow(ABC):
+    """
+    Base class for workflows responsible for parsing and validating arguments
+    self.params will store variables needed for configuring phases
+    Any workflow specific setup should be done by overriding _initalize()
+    """
+
+    required_args = []
+    optional_args = []
 
     def __init__(self, **kwargs):
+        # Validate arguments first
         logger.info(f"Initializing workflow {self.name}")
+        self.validate_arguments(kwargs)
+
+        # Apply defaults for optional arguments
+        kwargs = self.apply_default_values(kwargs)
+
         self.params = kwargs
         self.interactive = kwargs.get("interactive", False)
-        if kwargs.get("phase_iterations"):
-            self.phase_iterations = kwargs.get("phase_iterations")
-
+        # Max number of phases that can run per workflow - current max
+        # is 2 (explit + patch) so not sure why is 25
         self.max_iterations = 25
         self._current_phase_idx = 0
         self._workflow_iteration_count = 0
@@ -81,7 +94,7 @@ class BaseWorkflow(ABC):
     @property
     def current_phase(self):
         return self._current_phase
-    
+
     @property
     def phase_graph(self):
         return self._phase_graph
@@ -112,6 +125,9 @@ class BaseWorkflow(ABC):
         pass
 
     def _initialize(self):
+        logger.warning(
+            "BaseWorkflow Initialize Running. This is not good. each workflow should override _initialize()"
+        )
         """Handles any task level setup pre-resource/agent/phase creation and sets additional params."""
         pass
 
@@ -256,7 +272,7 @@ class BaseWorkflow(ABC):
 
         self._finalize_workflow()
 
-    async def restart(self): 
+    async def restart(self):
         self._initialize()
 
         self._setup_resource_manager()
@@ -267,22 +283,25 @@ class BaseWorkflow(ABC):
         self.next_iteration_event = asyncio.Event()
         self.workflow_message.new_log()
         logger.info(f"Restarted workflow {self.name}")
-        
-    async def run_restart(self): 
+
+    async def run_restart(self):
         logger.info(f"Running restarted workflow {self.name}")
         # pick up running from current phase
         self._current_phase.setup()
-        agent_configs =  self._current_phase.define_agents()
+        agent_configs = self._current_phase.define_agents()
         self.agent_manager.initialize_phase_agents(agent_configs)
-        
+
         phase_message = await self._current_phase.run(self.workflow_message, None)
 
-        logger.status(f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
+        logger.status(
+            f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}",
+            phase_message.success,
+        )
 
         self._workflow_iteration_count += 1
         next_phases = self._phase_graph.get(self._current_phase, [])
         self._current_phase = next_phases[0] if next_phases else None
-        
+
         # Continue running the remaining phases (if any)
         if self._current_phase:
             try:
@@ -295,3 +314,56 @@ class BaseWorkflow(ABC):
     @property
     def name(self):
         return self.__class__.__name__
+
+    def apply_default_values(self, kwargs):
+        """
+        Apply default values for optional arguments that weren't provided.
+
+        Args:
+            kwargs: Dictionary of arguments passed to the workflow
+
+        Returns:
+            Dictionary with default values applied for missing optional arguments
+        """
+        # Create a copy to avoid modifying the original
+        updated_kwargs = kwargs.copy()
+
+        # Apply default values for optional arguments if they're defined
+        if hasattr(self, "default_values"):
+            for arg, default_value in self.default_values.items():
+                if arg in self.optional_args and arg not in updated_kwargs:
+                    updated_kwargs[arg] = default_value
+                    logger.debug(f"Using default value for {arg}: {default_value}")
+
+        return updated_kwargs
+
+    def validate_arguments(self, kwargs):
+        """
+        Validate that all required arguments are present and warn about unexpected arguments.
+        TODO: add helpful man page like usage error messages + sample usage
+        Args:
+            kwargs: Dictionary of arguments passed to the workflow
+
+        Raises:
+            ValueError: If a required argument is missing
+        """
+        # Check for missing required arguments
+        missing_args = [arg for arg in self.required_args if arg not in kwargs]
+        if missing_args:
+            raise ValueError(
+                f"Missing required arguments for {self.name}: {', '.join(missing_args)}"
+            )
+
+        # Check for unexpected arguments
+        expected_args = set(self.required_args + self.optional_args)
+        unexpected_args = set(kwargs.keys()) - expected_args
+        if unexpected_args:
+            logger.warning(
+                f"Warning: The following arguments are not used by {self.name}: {', '.join(unexpected_args)}"
+            )
+
+        # Check for incompatible argument combinations
+        if kwargs.get("use_helm") and kwargs.get("use_mock_model"):
+            raise ValueError(
+                "Incompatible arguments: cannot specify both use_helm and use_mock_model"
+            )

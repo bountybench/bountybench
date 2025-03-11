@@ -22,8 +22,8 @@ if TYPE_CHECKING:
 @dataclass
 class PhaseConfig:
     phase_name: str
+    max_iterations: int
     agent_configs: List[Tuple[str, "AgentConfig"]] = field(default_factory=list)
-    max_iterations: int = field(default=10)
     interactive: bool = False
     phase_idx: Optional[int] = None
 
