@@ -43,12 +43,15 @@ def _auth_helm_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
         # Check if the model is available
         model_url = "https://crfm-models.stanford.edu/api/general_info"
         response = requests.get(model_url)
-        valid_models = [model["name"] for model in response.json()["all_models"]]
-        if model_name not in valid_models:
-            raise ValueError(
-                f"Model {model_name} not found.\n\nAvailable models from Helm: {valid_models}"
-            )
-        return True, ""
+        try:
+            valid_models = [model["name"] for model in response.json()["all_models"]]
+            if model_name not in valid_models:
+                raise ValueError(
+                    f"Model {model_name} not found.\n\nAvailable models from Helm: {valid_models}"
+                )
+            return True, ""
+        except Exception as e:
+            return False, str(e)
 
     return False, response.text
 
@@ -59,15 +62,16 @@ def _auth_together_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
 
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
-        if "error" in response.json():
-            return False, response.json()["error"]
-        valid_models = [model["id"] for model in response.json()]
+        try:
+            valid_models = [model["id"] for model in response.json()]
 
-        if model_name not in valid_models:
-            raise ValueError(
-                f"Model {model_name} not found.\n\nAvailable models from Google: {valid_models}"
-            )
-        return True, ""
+            if model_name not in valid_models:
+                raise ValueError(
+                    f"Model {model_name} not found.\n\nAvailable models from together.ai: {valid_models}"
+                )
+            return True, ""
+        except Exception as e:
+            return False, str(e)
 
     return False, response.text
 
@@ -79,14 +83,16 @@ def _auth_openai_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
 
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
-        if "error" in response.json():
-            return False, response.json()["error"]
-        valid_models = [model["id"] for model in response.json()["data"]]
-        if model_name.split("/")[-1] not in valid_models:
-            raise ValueError(
-                f"Model {model_name} not found.\n\nAvailable models from OpenAI: {valid_models}"
-            )
-        return True, ""
+        try:
+            valid_models = [model["id"] for model in response.json()["data"]]
+
+            if model_name.split("/")[-1] not in valid_models:
+                raise ValueError(
+                    f"Model {model_name} not found.\n\nAvailable models from OpenAI: {valid_models}"
+                )
+            return True, ""
+        except Exception as e:
+            return False, str(e)
 
     return False, response.text
 
@@ -96,15 +102,17 @@ def _auth_anthropic_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
     headers = {"x-api-key": f"{api_key}", "anthropic-version": "2023-06-01"}
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
-        if "error" in response.json():
-            return False, response.json()["error"]
-        valid_models = [model["id"] for model in response.json()["data"]]
-        if model_name.split("/")[-1] not in valid_models:
-            raise ValueError(
-                f"Model {model_name} not found.\n\nAvailable models from Anthropic: {valid_models}"
-            )
+        try:
+            valid_models = [model["id"] for model in response.json()["data"]]
 
-        return True, ""
+            if model_name.split("/")[-1] not in valid_models:
+                raise ValueError(
+                    f"Model {model_name} not found.\n\nAvailable models from Anthropic: {valid_models}"
+                )
+
+            return True, ""
+        except Exception as e:
+            return False, str(e)
 
     return False, response.text
 
@@ -115,17 +123,18 @@ def _auth_google_gemini_api_key(api_key: str, model_name: str) -> Tuple[bool, st
 
     response = requests.get(url, params=params)
     if response.status_code == 200:
-        if "error" in response.json():
-            return False, response.json()["error"]
+        try:
+            valid_models = [
+                model["name"].split("/")[-1] for model in response.json()["models"]
+            ]
 
-        valid_models = [
-            model["name"].split("/")[-1] for model in response.json()["models"]
-        ]
-        if model_name.split("/")[-1] not in valid_models:
-            raise ValueError(
-                f"Model {model_name} not found.\n\nAvailable models from Google: {valid_models}"
-            )
-        return True, ""
+            if model_name.split("/")[-1] not in valid_models:
+                raise ValueError(
+                    f"Model {model_name} not found.\n\nAvailable models from Google: {valid_models}"
+                )
+            return True, ""
+        except Exception as e:
+            return False, str(e)
 
     return False, response.text
 
