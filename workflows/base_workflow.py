@@ -35,6 +35,7 @@ class BaseWorkflow(ABC):
         kwargs = self.apply_default_values(kwargs)
 
         self.params = kwargs
+        # Required for interactive controller
         self.interactive = kwargs.get("interactive", False)
         # Max number of phases that can run per workflow - current max
         # is 2 (explit + patch) so not sure why is 25
@@ -125,9 +126,6 @@ class BaseWorkflow(ABC):
         pass
 
     def _initialize(self):
-        logger.warning(
-            "BaseWorkflow Initialize Running. This is not good. each workflow should override _initialize()"
-        )
         """Handles any task level setup pre-resource/agent/phase creation and sets additional params."""
         pass
 

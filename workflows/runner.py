@@ -105,12 +105,6 @@ class WorkflowRunner:
     def parse_arguments(self) -> None:
         self.args = self.parser.parse_args()
 
-        # Validate that if use_mock_model is true, neither model nor use_helm should be true
-        if self.args.use_mock_model and (self.args.model or self.args.use_helm):
-            raise ValueError(
-                "If use_mock_model is True, neither model nor use_helm should be True"
-            )
-
     def initialize_workflow(self) -> None:
         """Initialize the workflow instance with parsed arguments."""
         workflow_class = self._workflow_factory[self.args.workflow_type]
