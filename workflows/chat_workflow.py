@@ -62,6 +62,7 @@ async def main() -> None:
     workflow = ChatWorkflow(
         interactive=args.interactive,
         model=args.model,
+        use_helm=args.helm,
         max_input_tokens=args.max_input_tokens,
         max_output_tokens=args.max_output_tokens,
         phase_iterations=args.phase_iterations,
