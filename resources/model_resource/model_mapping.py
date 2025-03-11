@@ -45,7 +45,7 @@ class NonHELMMapping:
         "openai/o1-mini-2024-09-12": "o1-mini-2024-09-12",
         "openai/o1-preview-2024-09-12": "o1-preview-2024-09-12",
         "openai/gpt-4o-2024-05-13": "gpt-4o-2024-05-13",
-        "openai/o3-mini-2025-01-14 ": "openai/o3-mini-2025-01-14",
+        "openai/o3-mini ": "openai/o3-mini",
         # Anthropic Models (Claude)
         "anthropic/claude-3-5-sonnet-20240620": "claude-3-5-sonnet-20240620",
         "anthropic/claude-3-opus-20240229": "claude-3-opus-20240229",
