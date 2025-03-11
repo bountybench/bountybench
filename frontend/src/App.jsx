@@ -160,28 +160,7 @@ function App() {
   }, []);
 
 
-  // useEffect(() => {
-  //   const originalConsoleError = console.error;
-  
-  //   console.error = function (...args) {
-  //     const errorMessage = args.join(' ');
-  
-  //     // Always create a new toast instead of reusing the same ID
-  //     toast.error(errorMessage, {
-  //       position: "top-center",
-  //       autoClose: 3000,
-  //       transition: Slide,
-  //     });
-  
-  //     originalConsoleError.apply(console, args);
-  //   };
-  
-  //   return () => {
-  //     console.error = originalConsoleError;
-  //   };
-  // }, []);
-  
-  
+
   // Error Toast for invalid workflows
   const showInvalidWorkflowToast = () => {
     console.error("Workflow ID not found, returning to main.");
