@@ -56,6 +56,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   }, [isAvailable, isChecking]);
 
   const [workflows, setWorkflows] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
   const [configDefaults, setConfigDefaults] = useState({
     max_input_tokens: "",
@@ -68,7 +69,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
 
   const [formData, setFormData] = useState({
     workflow_name: '',
-    tasks: [{ task_dir: 'lunary', bounty_number: '0' }],
+    tasks: [{ task_dir: '', bounty_number: '' }],
     vulnerability_type: '',
     interactive: true,
     iterations: 30,
@@ -141,7 +142,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       });
     } 
   }, []);
-  
+
   const fetchModels = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/workflow/models`);
@@ -206,6 +207,46 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setVulnerabilityTypes(data.vulnerability_types);
     } catch (error) {
       console.error('Failed to fetch vulnerability types:', error);
+    }
+  };
+
+  const fetchTasks = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/tasks`);
+      const data = await response.json();
+      setTasks(data.tasks);
+      
+      if (Array.isArray(data.tasks) && data.tasks.length > 0) {
+        setTasks(data.tasks);
+
+        // Check if lunary with bounty number 0 exists.
+        const lunaryTask = data.tasks.find(task => task.task_dir === 'lunary');
+        if (lunaryTask && lunaryTask.bounty_nums.includes('0')) {
+            setFormData(prev => ({
+                ...prev,
+                tasks: [{ task_dir: 'lunary', bounty_number: '0' }],
+            }));
+        } else {
+            // Fall back to the first available task and its first bounty number.
+            const firstTask = data.tasks[0];
+            setFormData(prev => ({
+                ...prev,
+                tasks: [{ 
+                    task_dir: firstTask.task_dir, 
+                    bounty_number: firstTask.bounty_nums[0] || '' 
+                }],
+            }));
+        }
+      } else {
+          // If no tasks are found, set to empty
+          setTasks([]);
+          setFormData(prev => ({
+              ...prev,
+              tasks: [{ task_dir: '', bounty_number: '' }] 
+          }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
     }
   };
 
@@ -396,6 +437,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           await Promise.all([
             fetchWorkflows(),
             fetchApiKeys(),
+            fetchTasks(),
             fetchModels(),
             fetchVulnerabilityTypes(),
             fetchConfigDefaults()
@@ -491,6 +533,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           shouldShowBounty={shouldShowBounty}
           shouldShowVulnerabilityType={shouldShowVulnerabilityType}
           vulnerabilityTypes={vulnerabilityTypes}
+          tasks={tasks}
           addTask={addTask}
           removeTask={removeTask}
         />
