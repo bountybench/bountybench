@@ -53,13 +53,18 @@ class WebscraperAgent(BaseAgent):
         known_urls = self.handler.get_known_urls()
         logger.info(f"Currently tracking {len(known_urls)} known reports")
 
+        # Use a set to remove duplicates while preserving order
+        seen = set()
+
+        # Track consecutive failures
+        consecutive_failures = 0
+        max_consecutive_failures = 60
+
         while True:
             try:
                 latest_urls = self.handler.get_latest_report_urls()
                 new_urls = []
 
-                # Use a set to remove duplicates while preserving order
-                seen = set()
                 for url in latest_urls:
                     if url == last_bounty_link:
                         break
@@ -70,11 +75,19 @@ class WebscraperAgent(BaseAgent):
                 if new_urls:
                     logger.info(f"Found new reports: {new_urls}")
                     return new_urls
-              
+
+                consecutive_failures = 0
+
             except ConnectionError as ce:
                 logger.warning(f"Network issue while fetching URLs: {ce}")
+                consecutive_failures += 1
             except Exception as e:
                 logger.error(f"Unexpected error in _get_new_urls: {e}")
+                consecutive_failures += 1
+
+            if consecutive_failures >= max_consecutive_failures:
+                logger.error("Failed to fetch URLs for 60 consecutive attempts")
+                raise
 
             await asyncio.sleep(60)
 
