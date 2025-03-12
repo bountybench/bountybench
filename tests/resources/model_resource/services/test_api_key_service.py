@@ -1,15 +1,15 @@
+import os
+import unittest
+from pathlib import Path
+from typing import Tuple
+from unittest.mock import patch
+
+import dotenv
+
 from resources.model_resource.services.api_key_service import (
     AUTH_SERVICE,
     verify_and_auth_api_key,
 )
-from typing import Tuple
-import os
-
-import unittest
-from unittest.mock import patch
-
-import dotenv
-from pathlib import Path
 
 ENV_PATH = Path(dotenv.find_dotenv())
 MODEL_PROVIDERS = ["helm", "openai", "anthropic"]
@@ -30,8 +30,13 @@ class TestApiKeyService(unittest.TestCase):
         Create a mock authentication service
         """
 
-        def mock_auth(api_key: str) -> Tuple[bool, str]:
+        def mock_auth(
+            api_key: str, model_name: str = None, verify_model: bool = False
+        ) -> Tuple[bool, str]:
             if api_key.startswith("sk-test-"):
+                if verify_model and model_name is not None:
+                    if model_name.endswith("invalid-model"):
+                        return False, f"Model {model_name} not found"
                 return True, "Valid test key"
             if api_key.startswith("invalid-"):
                 return False, "Invalid test key"
@@ -117,6 +122,34 @@ class TestApiKeyService(unittest.TestCase):
                 print(f"{requested_api_key} validated.\n")
             else:
                 print(f"{requested_api_key} not found in environment, skipping...\n")
+
+    def test_model_verification_flag(self):
+        """
+        Test that the verify_model flag properly controls model verification
+        """
+        # When verify_model is False, a valid API key should pass even with an invalid model
+        _ok, _message = self.mock_auth_service(
+            "sk-test-valid123", "test/invalid-model", verify_model=False
+        )
+        self.assertTrue(_ok)
+
+        # When verify_model is True, a valid API key with an invalid model should fail
+        _ok, _message = self.mock_auth_service(
+            "sk-test-valid123", "test/invalid-model", verify_model=True
+        )
+        self.assertFalse(_ok)
+
+        # When verify_model is True but model_name is None, it should still pass
+        _ok, _message = self.mock_auth_service(
+            "sk-test-valid123", None, verify_model=True
+        )
+        self.assertTrue(_ok)
+
+        # A valid API key with a valid model should always pass
+        _ok, _message = self.mock_auth_service(
+            "sk-test-valid123", "test/valid-model", verify_model=True
+        )
+        self.assertTrue(_ok)
 
 
 if __name__ == "__main__":
