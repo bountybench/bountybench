@@ -33,28 +33,11 @@ async def restart_workflow(workflow_id: str, request: Request):
 
 @workflow_service_router.post("/workflow/{workflow_id}/run-message")
 async def run_message(workflow_id: str, data: MessageData, request: Request):
-    active_workflows = request.app.state.active_workflows
-    print(f"Running message: {data.message_id}")
-    if workflow_id not in active_workflows:
-        return {"error": f"Workflow {workflow_id} not found"}
-
-    workflow = active_workflows[workflow_id]["instance"]
-
-    try:
-        result = await workflow.interactive_controller.run_message(data.message_id)
-        if not result:
-            await workflow.interactive_controller.set_last_message(data.message_id)
-            num_iter = workflow.interactive_controller.get_num_iteration(data.num_iter, data.phase_iter)
-            results = []
-            for i in range(num_iter):
-                result = await next_iteration(workflow_id, active_workflows)
-                results.append(result)
-            return results
-        return {"status": "updated", "result": result.id}
-    except Exception as e:
-        error_traceback = traceback.format_exc()
-        print(f"Error running message {workflow_id}: {str(e)}\n{error_traceback}")
-        return {"error": str(e), "traceback": error_traceback}
+    execution_backend: ExecutionBackend = request.app.state.execution_backend
+    result = await execution_backend.run_message(workflow_id, data)
+    if "error" in result: # Do not raise an exception
+        print(f"Error running message: {result['error']}") 
+    return result
 
 
 @workflow_service_router.post("/workflow/{workflow_id}/edit-message")
@@ -103,119 +86,6 @@ async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
         print(f"WebSocket disconnected for workflow {workflow_id}")
     except Exception as e:
         print(f"WebSocket error for workflow {workflow_id}: {e}")
-    finally:
-        await websocket_manager.disconnect(workflow_id, websocket)
-        print(f"Cleaned up connection for workflow {workflow_id}")
-
-
-async def run_workflow(
-    workflow_id: str, active_workflows, websocket_manager, should_exit
-):
-    if workflow_id not in active_workflows or should_exit:
-        print(f"Workflow {workflow_id} not found or should exit")
-        return
-
-    workflow_data = active_workflows[workflow_id]
-    workflow = workflow_data["instance"]
-
-    try:
-        # Update status to running after initial start
-        workflow_data["status"] = "running"
-        await websocket_manager.broadcast(
-            workflow_id, {"message_type": "workflow_status", "status": "running"}
-        )
-        print(f"Broadcasted running status for {workflow_id}")
-
-        print(f"Running workflow {workflow_id}")
-        # Run the workflow
-        await workflow.run()
-
-        # Handle successful completion
-        if not should_exit:
-            workflow_data["status"] = "completed"
-            await websocket_manager.broadcast(
-                workflow_id,
-                {
-                    "message_type": "workflow_status",
-                    "status": "completed",
-                },
-            )
-
-    except Exception as e:
-        error_traceback = traceback.format_exc()
-        # Handle errors
-        if not should_exit:
-            print(f"Workflow error: {e}")
-            workflow_data["status"] = "error"
-            await websocket_manager.broadcast(
-                workflow_id,
-                {
-                    "message_type": "workflow_status",
-                    "status": "error",
-                    "error": str(e),
-                    "traceback": error_traceback,
-                },
-            )
-            print(f"Broadcasted error status for {workflow_id}")
-
-
-async def rerun_workflow(
-    workflow_id: str, active_workflows, websocket_manager, should_exit
-):
-    if workflow_id not in active_workflows or should_exit:
-        print(f"Workflow {workflow_id} not found or should exit")
-        return
-
-    workflow_data = active_workflows[workflow_id]
-    workflow = workflow_data["instance"]
-
-    try:
-        # Update status to running after initial start
-        workflow_data["status"] = "running"
-        await websocket_manager.broadcast(
-            workflow_id, {"message_type": "workflow_status", "status": "running"}
-        )
-        print(f"Broadcasted running status for {workflow_id}")
-
-        print(f"Running workflow {workflow_id}")
-        # Run the workflow
-        await workflow.run_restart()
-
-        # Handle successful completion
-        if not should_exit:
-            workflow_data["status"] = "completed"
-            await websocket_manager.broadcast(
-                workflow_id,
-                {
-                    "message_type": "workflow_status",
-                    "status": "completed",
-                },
-            )
-
-    except Exception as e:
-        # Handle errors
-        if not should_exit:
-            print(f"Workflow error: {e}")
-            workflow_data["status"] = "error"
-            await websocket_manager.broadcast(
-                workflow_id,
-                {"message_type": "workflow_status", "status": "error", "error": str(e)},
-            )
-            print(f"Broadcasted error status for {workflow_id}")
-
-
-async def next_iteration(workflow_id: str, active_workflows):
-    print("running next_iteration")
-    if workflow_id not in active_workflows:
-        return {"error": "Workflow not found"}
-
-    workflow = active_workflows[workflow_id]["instance"]
-    if hasattr(workflow, "next_iteration_queue"):
-        print("next_iter triggered")
-        await workflow.next_iteration_queue.put(1)
-        return {"status": "next iteration triggered"}
-    else:
-        return {"error": "Workflow is not in interactive mode"}
 
 
 @workflow_service_router.post("/workflow/{workflow_id}/model-change")
