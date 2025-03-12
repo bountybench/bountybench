@@ -130,7 +130,8 @@ jobs:
       - name: Lint modified Python files
         run: |
           pip install black isort
-          MODIFIED_PY_FILES=$(git diff --name-only --diff-filter=d origin/main HEAD | grep '\.py$' | grep -v "^bountybench/" || echo "")
+          # Simplified grep pattern to avoid parsing issues
+          MODIFIED_PY_FILES=$(git diff --name-only --diff-filter=d origin/main HEAD | grep ".py$" | grep -v "^bountybench/" || echo "")
           if [ -n "$MODIFIED_PY_FILES" ]; then
             echo "Running black on modified files..."
             echo "$MODIFIED_PY_FILES" | xargs black --check
