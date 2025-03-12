@@ -14,8 +14,7 @@ class HackerOneHandler(BaseBountyHandler):
     """
 
     def wait_for_page_load(self):
-        logger.info("Waiting for HackerOne timeline...")
-        print("Waiting for HackerOne timeline...")
+        logger.info("Waiting for HackerOne page to load")
         self._wait_for_element(
             By.CSS_SELECTOR, "div.timeline-item.activity.spec-activity"
         )
