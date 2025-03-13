@@ -109,6 +109,33 @@ class TestApiKeyService(unittest.TestCase):
         Test the complete validation flow with a valid key and saving to .env
         """
 
+        # Custom version of load_dotenv that doesn't add OPENAI_API_KEY
+        def custom_load_dotenv(
+            dotenv_path=None, stream=None, verbose=False, override=False, **kwargs
+        ):
+            # Real load_dotenv adds keys to os.environ, but we'll prevent OPENAI_API_KEY
+
+            # Import a clean version of dotenv without our patches
+            import importlib
+
+            importlib.reload(dotenv)
+
+            # First clear any existing key
+            if "OPENAI_API_KEY" in os.environ:
+                del os.environ["OPENAI_API_KEY"]
+
+            print(f"os environ before load dotenv: {os.environ}")
+
+            # Actually load the dotenv file
+            dotenv.load_dotenv(dotenv_path, stream, verbose, override, **kwargs)
+
+            # Now remove the OPENAI_API_KEY if it was added
+            if "OPENAI_API_KEY" in os.environ:
+                del os.environ["OPENAI_API_KEY"]
+
+            print(f"os environ after custom load dotenv: {os.environ}")
+            return True
+
         def input_args():
             yield "sk-test-valid123"
             yield "y"
@@ -119,7 +146,8 @@ class TestApiKeyService(unittest.TestCase):
             patch("builtins.input", side_effect=input_args()),
             patch("dotenv.find_dotenv", return_value=TEMP_ENV_FILE.name),
             patch("pathlib.Path.is_file", return_value=True),
-            patch("dotenv.load_dotenv", return_value=True),
+            # Use our custom load_dotenv function
+            patch("dotenv.load_dotenv", custom_load_dotenv),
             patch(
                 "resources.model_resource.services.api_key_service.set_key",
                 mock_set_key,
@@ -128,7 +156,9 @@ class TestApiKeyService(unittest.TestCase):
             verify_and_auth_api_key(
                 "openai/test_model", False, auth_service=self.mock_auth_service
             )
-            mock_set_key.assert_not_called()
+
+            # Should be called once (just as in GitHub CI)
+            mock_set_key.assert_called_once()
 
     def test_verify_model_flag_behavior(self):
         """

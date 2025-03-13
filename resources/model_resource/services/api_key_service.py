@@ -177,16 +177,17 @@ def verify_and_auth_api_key(
     model_name: str, helm: bool, auth_service: Optional[Callable] = None
 ):
     requested_api_key: str = _model_provider_lookup(model_name, helm)
+    print(f"[API Service] requested_api_key: {requested_api_key}")
 
     env_path = Path(find_dotenv())
     if env_path.is_file():
-        f"[API Service] .env file found at {env_path}"
+        print(f"[API Service] .env file found at {env_path}")
         load_dotenv(dotenv_path=env_path)
     else:
         raise FileNotFoundError("Could not find .env file in project directory.")
 
     _new_key_requested = False
-
+    print(f"os environ after load dotenv: {os.environ}")
     # Prompt user for API key if not found in environment variables
     if requested_api_key not in os.environ:
         print(f"[API Service] {requested_api_key} not registered.")
