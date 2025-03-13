@@ -191,10 +191,14 @@ def verify_and_auth_api_key(
     # Prompt user for API key if not found in environment variables
     if requested_api_key not in os.environ:
         print(f"[API Service] {requested_api_key} not registered.")
-        requested_api_value = input(
-            f"[API Service] Please Enter your {requested_api_key}: "
-        )
-        _new_key_requested = True
+        try:
+            requested_api_value = input(
+                f"[API Service] Please Enter your {requested_api_key} (Ctrl+C to exit): "
+            )
+            _new_key_requested = True
+        except KeyboardInterrupt:
+            print("\n[API Service] API key input cancelled by user.")
+            raise SystemExit("API key authentication cancelled.")
     else:
         requested_api_value = os.environ[requested_api_key]
 
@@ -206,15 +210,32 @@ def verify_and_auth_api_key(
 
     _ok, _message = auth_service(requested_api_value, model_name, verify_model=True)
 
-    while not _ok:
-        print("[API Service] API key authentication failed. Please double-check.")
-        requested_api_value = input(
-            f"[API Service] Please enter your {requested_api_key}: "
-        )
-        print("[API Service] Received new API key.")
-        _new_key_requested = True
+    import signal
+    import sys
 
-        _ok, _message = auth_service(requested_api_value, model_name, verify_model=True)
+    def signal_handler(sig, frame):
+        print("\n[API Service] API key input cancelled by user.")
+        sys.exit(0)
+
+    # Set up the handler to catch Ctrl+C
+    original_handler = signal.getsignal(signal.SIGINT)
+    signal.signal(signal.SIGINT, signal_handler)
+
+    try:
+        while not _ok:
+            print("[API Service] API key authentication failed. Please double-check.")
+            requested_api_value = input(
+                f"[API Service] Please enter your {requested_api_key} (Ctrl+C to exit): "
+            )
+            print("[API Service] Received new API key.")
+            _new_key_requested = True
+
+            _ok, _message = auth_service(
+                requested_api_value, model_name, verify_model=True
+            )
+    finally:
+        # Restore the original signal handler
+        signal.signal(signal.SIGINT, original_handler)
 
     print("[API Service] API key authentication successful.")
     # Ask user if they want to save the API key to the .env file
