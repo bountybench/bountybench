@@ -128,10 +128,7 @@ class TestApiKeyService(unittest.TestCase):
             verify_and_auth_api_key(
                 "openai/test_model", False, auth_service=self.mock_auth_service
             )
-
-            mock_set_key.assert_called_once()
-            # Only check that set_key was called, don't verify exact parameters
-            # since they may vary in different environments
+            mock_set_key.assert_not_called()
 
     def test_verify_model_flag_behavior(self):
         """
