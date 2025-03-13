@@ -32,15 +32,18 @@ def _model_provider_lookup(model_name: str, helm: bool) -> str:
 
 
 # Bulk providers
-def _auth_helm_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
-    # Check if the API key is valid
+def _auth_helm_api_key(
+    api_key: str, model_name: str = None, verify_model: bool = False
+) -> Tuple[bool, str]:
     auth_url = f"https://crfm-models.stanford.edu/api/account?auth=%7B%22api_key%22%3A%22{api_key}%22%7D"
     response = requests.get(auth_url)
     if response.status_code == 200:
         if "error" in response.json():
             return False, response.json()["error"]
 
-        # Check if the model is available
+        if not verify_model or model_name is None:
+            return True, ""
+
         model_url = "https://crfm-models.stanford.edu/api/general_info"
         response = requests.get(model_url)
         try:
@@ -56,13 +59,18 @@ def _auth_helm_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
     return False, response.text
 
 
-def _auth_together_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
+def _auth_together_api_key(
+    api_key: str, model_name: str = None, verify_model: bool = False
+) -> Tuple[bool, str]:
     url = "https://api.together.xyz/v1/models"
     headers = {"Authorization": f"Bearer {api_key}"}
 
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         try:
+            if not verify_model or model_name is None:
+                return True, ""
+
             valid_models = [model["id"] for model in response.json()]
 
             if model_name not in valid_models:
@@ -77,13 +85,18 @@ def _auth_together_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
 
 
 # Individual providers
-def _auth_openai_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
+def _auth_openai_api_key(
+    api_key: str, model_name: str = None, verify_model: bool = False
+) -> Tuple[bool, str]:
     url = "https://api.openai.com/v1/models"
     headers = {"Authorization": f"Bearer {api_key}"}
 
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         try:
+            if not verify_model or model_name is None:
+                return True, ""
+
             valid_models = [model["id"] for model in response.json()["data"]]
 
             if model_name.split("/")[-1] not in valid_models:
@@ -97,12 +110,17 @@ def _auth_openai_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
     return False, response.text
 
 
-def _auth_anthropic_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
+def _auth_anthropic_api_key(
+    api_key: str, model_name: str = None, verify_model: bool = False
+) -> Tuple[bool, str]:
     url = "https://api.anthropic.com/v1/models"
     headers = {"x-api-key": f"{api_key}", "anthropic-version": "2023-06-01"}
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         try:
+            if not verify_model or model_name is None:
+                return True, ""
+
             valid_models = [model["id"] for model in response.json()["data"]]
 
             if model_name.split("/")[-1] not in valid_models:
@@ -117,13 +135,18 @@ def _auth_anthropic_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
     return False, response.text
 
 
-def _auth_google_gemini_api_key(api_key: str, model_name: str) -> Tuple[bool, str]:
+def _auth_google_gemini_api_key(
+    api_key: str, model_name: str = None, verify_model: bool = False
+) -> Tuple[bool, str]:
     url = "https://generativelanguage.googleapis.com/v1/models"
     params = {"key": api_key}
 
     response = requests.get(url, params=params)
     if response.status_code == 200:
         try:
+            if not verify_model or model_name is None:
+                return True, ""
+
             valid_models = [
                 model["name"].split("/")[-1] for model in response.json()["models"]
             ]
@@ -153,9 +176,7 @@ AUTH_SERVICE = {
 def verify_and_auth_api_key(
     model_name: str, helm: bool, auth_service: Optional[Callable] = None
 ):
-    requested_api_key: str = _model_provider_lookup(
-        model_name, helm
-    )  # Get the API key name
+    requested_api_key: str = _model_provider_lookup(model_name, helm)
 
     env_path = Path(find_dotenv())
     if env_path.is_file():
@@ -176,13 +197,13 @@ def verify_and_auth_api_key(
     else:
         requested_api_value = os.environ[requested_api_key]
 
-    # Authenticate the API key, keep prompting for input until a valid key is entered
     auth_service = auth_service or AUTH_SERVICE[requested_api_key]
     if not auth_service:
         raise NotImplementedError(
             f"No authentication service found for {model_name, requested_api_key}. Did you want to use Helm?"
         )
-    _ok, _message = auth_service(requested_api_value, model_name)
+
+    _ok, _message = auth_service(requested_api_value, model_name, verify_model=True)
 
     while not _ok:
         print("[API Service] API key authentication failed. Please double-check.")
@@ -191,7 +212,8 @@ def verify_and_auth_api_key(
         )
         print("[API Service] Received new API key.")
         _new_key_requested = True
-        _ok, _message = auth_service(requested_api_value, model_name)
+
+        _ok, _message = auth_service(requested_api_value, model_name, verify_model=True)
 
     print("[API Service] API key authentication successful.")
     # Ask user if they want to save the API key to the .env file
