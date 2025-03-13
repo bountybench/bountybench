@@ -573,6 +573,184 @@ async def test_websocket_connection_success(client):
         assert initial_state["status"] == "connected"
 
 
+@pytest.mark.parametrize(
+    "api_key_name,api_key_value",
+    [
+        ("OPENAI_API_KEY", "sk-test-openai-key"),
+        ("ANTHROPIC_API_KEY", "sk-test-anthropic-key"),
+        ("GOOGLE_API_KEY", "sk-test-google-key"),
+        ("TOGETHER_API_KEY", "sk-test-together-key"),
+    ],
+)
+def test_update_api_key_success(client, monkeypatch, api_key_name, api_key_value):
+    """Test updating API keys for different model providers."""
+
+    class MockResponse:
+        def __init__(self, status_code, data=None):
+            self.status_code = status_code
+            self._data = data or {}
+            self.text = "Success"
+
+        def json(self):
+            return self._data
+
+    # Mock the API calls to authentication services
+    def mock_requests_get(*args, **kwargs):
+        return MockResponse(200)
+
+    # Patch the requests.get used in auth services and Path.is_file
+    monkeypatch.setattr("requests.get", mock_requests_get)
+    monkeypatch.setattr("pathlib.Path.is_file", lambda x: True)
+
+    # Mock dotenv functions
+    monkeypatch.setattr("dotenv.set_key", lambda *args, **kwargs: None)
+    monkeypatch.setattr("dotenv.find_dotenv", lambda: "/fake/path/.env")
+
+    # Make the API request
+    payload = {"api_key_name": api_key_name, "api_key_value": api_key_value}
+    response = client.post("/service/api-service/update", json=payload)
+
+    # Assert the response
+    assert response.status_code == 200, f"Expected status code 200 for {api_key_name}"
+    data = response.json()
+    assert "message" in data, "Response should contain 'message'"
+    assert (
+        f"{api_key_name} updated successfully" in data["message"]
+    ), f"Message should confirm {api_key_name} was updated"
+
+
+# Helm is a special case - invalid keys return 200 with "error" in the message
+def test_update_helm_api_key_success(client, monkeypatch):
+    """Test updating HELM API key."""
+    api_key_name = "HELM_API_KEY"
+    api_key_value = "sk-test-helm-key"
+
+    class MockResponse:
+        def __init__(self, status_code, data=None):
+            self.status_code = status_code
+            self._data = data or {}
+            self.text = "Success"
+
+        def json(self):
+            return self._data
+
+    def mock_requests_get(*args, **kwargs):
+        return MockResponse(200, {"status": "success"})
+
+    # Patch the requests.get used in auth services and Path.is_file
+    monkeypatch.setattr("requests.get", mock_requests_get)
+    monkeypatch.setattr("pathlib.Path.is_file", lambda x: True)
+
+    # Mock dotenv functions
+    monkeypatch.setattr("dotenv.set_key", lambda *args, **kwargs: None)
+    monkeypatch.setattr("dotenv.find_dotenv", lambda: "/fake/path/.env")
+
+    # Make the API request
+    payload = {"api_key_name": api_key_name, "api_key_value": api_key_value}
+    response = client.post("/service/api-service/update", json=payload)
+
+    # Assert the response
+    assert response.status_code == 200, f"Expected status code 200 for {api_key_name}"
+    data = response.json()
+    assert "message" in data, "Response should contain 'message'"
+    assert (
+        f"{api_key_name} updated successfully" in data["message"]
+    ), f"Message should confirm {api_key_name} was updated"
+
+
+def test_update_api_key_invalid_key(client, monkeypatch):
+    """Test updating API key with an invalid key that fails authentication."""
+    api_key_name = "OPENAI_API_KEY"
+    api_key_value = "invalid-key"
+
+    class MockResponse:
+        def __init__(self, status_code, json_data, text=""):
+            self.status_code = status_code
+            self._json_data = json_data
+            self.text = text
+
+        def json(self):
+            return self._json_data
+
+    # Mock requests to return error for OpenAI
+    def mock_requests_get(*args, **kwargs):
+        error = {
+            "error": {
+                "message": "Incorrect API key provided",
+                "type": "invalid_request_error",
+                "code": "invalid_api_key",
+            }
+        }
+        return MockResponse(
+            401, error, '{"error": {"message": "Incorrect API key provided"}}'
+        )
+
+    # Patch necessary dependencies
+    monkeypatch.setattr("requests.get", mock_requests_get)
+    monkeypatch.setattr("pathlib.Path.is_file", lambda x: True)
+    monkeypatch.setattr("dotenv.find_dotenv", lambda: "/fake/path/.env")
+
+    # Make the API request
+    payload = {"api_key_name": api_key_name, "api_key_value": api_key_value}
+    response = client.post("/service/api-service/update", json=payload)
+
+    # Assert the response
+    assert response.status_code == 400, "Expected status code 400 for invalid key"
+    data = response.json()
+    assert "detail" in data, "Response should contain error detail"
+    assert (
+        "Incorrect API key" in data["detail"]
+    ), "Error should indicate invalid API key"
+
+
+def test_update_api_key_missing_fields(client):
+    """Test updating API key with missing required fields."""
+    # Test missing key value
+    payload = {"api_key_name": "OPENAI_API_KEY", "api_key_value": ""}
+    response = client.post("/service/api-service/update", json=payload)
+    assert response.status_code == 400, "Expected status code 400 for missing value"
+
+    # Test missing key name
+    payload = {"api_key_name": "", "api_key_value": "sk-test-key"}
+    response = client.post("/service/api-service/update", json=payload)
+    assert response.status_code == 400, "Expected status code 400 for missing name"
+
+
+def test_get_api_keys(client, monkeypatch):
+    """Test retrieving API keys."""
+    # Mock the response from backend API
+    # Don't check specific values, just verify the structure and behavior
+
+    # Set up mocks for dotenv functions
+    monkeypatch.setattr("pathlib.Path.is_file", lambda x: True)
+    monkeypatch.setattr("dotenv.find_dotenv", lambda: "/fake/path/.env")
+
+    # Mock the dotenv_values function to return test data
+    test_env = {
+        "OPENAI_API_KEY": "sk-test-openai-key",
+        "ANTHROPIC_API_KEY": "sk-test-anthropic-key",
+        "HELM_API_KEY": "sk-test-helm-key",
+    }
+    monkeypatch.setattr("dotenv.dotenv_values", lambda x: test_env)
+
+    # Mock os.environ to return the test values
+    monkeypatch.setattr("os.environ", test_env)
+
+    # Make the API request
+    response = client.get("/service/api-service/get")
+
+    # Assert the response basic properties
+    assert response.status_code == 200, "Expected status code 200"
+    data = response.json()
+
+    # Just verify that the expected API keys are returned with some value
+    # Without checking the exact values (which may change during test runs)
+    for key in test_env.keys():
+        assert key in data, f"{key} should be in response"
+        assert isinstance(data[key], str), f"{key} value should be a string"
+        assert len(data[key]) > 0, f"{key} value should not be empty"
+
+
 @pytest.mark.asyncio
 async def test_websocket_receive_status_update(client):
     """Test receiving status updates from the websocket after connection."""
