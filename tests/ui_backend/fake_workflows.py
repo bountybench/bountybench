@@ -25,6 +25,7 @@ class FakeWorkflow:
         self.workflow_message = type(
             "obj", (object,), {"workflow_id": f"fake-{bounty_number}"}
         )
+        self.workflow_id = f"fake-{bounty_number}"
         self.interactive = interactive
         self.phase_iterations = phase_iterations
         self.resource_manager = type("obj", (object,), {"resources": {}})()
