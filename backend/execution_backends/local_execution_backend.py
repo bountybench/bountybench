@@ -17,7 +17,6 @@ from backend.schema import (
 from resources.model_resource.services.api_key_service import check_api_key_validity
 
 
-
 class LocalExecutionBackend(ExecutionBackend):
     """Local execution backend that runs workflows in the same process."""
 
@@ -494,7 +493,6 @@ class LocalExecutionBackend(ExecutionBackend):
                 f"Error updating mock model for workflow {workflow_id}: {str(e)}\n{error_traceback}"
             )
             return {"error": str(e), "traceback": error_traceback}
-
 
     async def save_config(self, filename: str, config_content: str) -> Dict[str, Any]:
         """Save configuration to the local filesystem."""
