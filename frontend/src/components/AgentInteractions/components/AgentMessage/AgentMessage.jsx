@@ -22,7 +22,7 @@ const AgentMessage = ({
   onCellSelect,
   onToggleVersion,
   registerMessageRef,
-  registerToggleOperation  // Add this new prop
+  registerToggleOperation
 }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -287,7 +287,7 @@ const AgentMessage = ({
                 )}
               </Box>
             ) : (
-              <>
+              <Box>
                 <Box className="action-messages-container">
                   {message.current_children.map((actionMessage, index) => (
                     <ActionMessage
@@ -305,7 +305,7 @@ const AgentMessage = ({
                   ))}
                 </Box>
 
-                <>
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                   <Typography variant="caption" sx={{ mx: 1 }}>
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -338,8 +338,8 @@ const AgentMessage = ({
                       </Typography>
                     )}
                   </Box>
-                </>
-              </>
+                </Box>
+              </Box>
             )}
           </Collapse>
         </CardContent>
