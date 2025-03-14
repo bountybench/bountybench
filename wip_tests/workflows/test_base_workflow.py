@@ -1,10 +1,11 @@
-import pytest
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
-from unittest.mock import patch, create_autospec, AsyncMock, MagicMock
-from workflows.base_workflow import BaseWorkflow
-from phases.base_phase import BasePhase
+import pytest
+
 from messages.phase_messages.phase_message import PhaseMessage
+from phases.base_phase import BasePhase
+from workflows.base_workflow import BaseWorkflow
 
 
 @pytest.fixture
