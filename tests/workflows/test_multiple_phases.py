@@ -15,8 +15,9 @@ def mock_workflow():
         workflow = ExploitPatchWorkflow(
             task_dir=Path("bountybench/setuptools"),
             bounty_number="0",
-            model="openai/o3-mini-2025-01-14",
+            model="anthropic/claude-3-5-sonnet-20240620",
             interactive=False,
+            use_helm=True,
             use_mock_model=True,
         )
 

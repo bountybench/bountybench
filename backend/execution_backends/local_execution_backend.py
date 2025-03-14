@@ -40,7 +40,7 @@ class LocalExecutionBackend(ExecutionBackend):
                 max_input_tokens=workflow_data.max_input_tokens,
                 max_output_tokens=workflow_data.max_output_tokens,
             )
-            workflow_id = workflow.workflow_message.workflow_id
+            workflow_id = workflow.workflow_id
             self.active_workflows[workflow_id] = {
                 "instance": workflow,
                 "status": "initializing",
