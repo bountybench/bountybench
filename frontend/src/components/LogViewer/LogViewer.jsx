@@ -1,40 +1,49 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Paper, List, ListItem, ListItemText,ListItemButton,  Collapse } from '@mui/material';
-import CircularProgress from '@mui/material/CircularProgress';
-import PhaseMessage from '../AgentInteractions/components/PhaseMessage/PhaseMessage.jsx';
-import { ExpandLess, ExpandMore } from '@mui/icons-material';
+import { Box, Paper, IconButton, FormControlLabel, Checkbox, Typography, Collapse } from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import LogsList from './LogsList';
+import LogMainContent from './LogMainContent';
 import './LogViewer.css';
 
-const BASE_URL=`http://localhost:7999`
+const BASE_URL = `http://localhost:7999`;
 
-export const LogViewer = ({ workflow }) => {
+export const LogViewer = () => {
   const [logFiles, setLogFiles] = useState([]);
   const [selectedLogContent, setSelectedLogContent] = useState('');
   const [selectedLogFile, setSelectedLogFile] = useState('');
-  const [expandedWorkflows, setExpandedWorkflows] = useState({});
-  const [expandedCodebases, setExpandedCodebases] = useState({});
+  const [expandedGroups, setExpandedGroups] = useState({});
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedCellId, setSelectedCellId] = useState(null);
-
-  // Fetch log file list
+  const [logsListOpen, setLogsListOpen] = useState(true);
+  const [sortOptionsExpanded, setSortOptionsExpanded] = useState(false);
+  const [groupByWorkflow, setGroupByWorkflow] = useState(true);
+  const [groupByTaskId, setGroupByTaskId] = useState(false);
+  const [onlyShowComplete, setOnlyShowComplete] = useState(false);
+  const [onlyShowSuccess, setOnlyShowSuccess] = useState(false);
+  
   useEffect(() => {
-    fetch(`${BASE_URL}/logs`)
-      .then((response) => response.json())
-      .then((data) => {
-        
-        if (Array.isArray(data)) {
-          setLogFiles(data);
-        } else {
-          console.error("Expected an array but got:", data);
-          setLogFiles([]);
-        }
-      })
-      .catch((error) => {
-        console.error('Error fetching log files:', error);
-        setLogFiles([]); 
-      });
+    fetchLogs();
   }, []);
+
+  const fetchLogs = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/logs`);
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setLogFiles(data);
+      } else {
+        console.error("Expected an array but got:", data);
+        setLogFiles([]);
+      }
+    } catch (error) {
+      console.error('Error fetching log files:', error);
+      setLogFiles([]);
+    }
+  };
 
   // Fetch log file content  
   const handleLogClick = async (filename) => {
@@ -47,7 +56,7 @@ export const LogViewer = ({ workflow }) => {
       // Construct current_children for PhaseMessage
       const modifiedContent = content?.phase_messages?.map(phase => {
         if (phase.agent_messages) {
-          
+
           phase.agent_messages = phase.agent_messages.map(agentMessage => ({
             ...agentMessage,
             current_children: agentMessage.action_messages || []
@@ -64,40 +73,44 @@ export const LogViewer = ({ workflow }) => {
     }
   };
 
-  // Function to group logs by workflow type and codebase
   const groupedLogs = useMemo(() => {
+    const filtered = logFiles.filter(file => 
+      (!onlyShowComplete || file.complete) && 
+      (!onlyShowSuccess || file.success)
+    );
+
     const grouped = {};
   
-    logFiles.forEach((file) => {
-      const rawWorkflowType = file.split('_')[0];
-      const workflowType = rawWorkflowType.slice(0, -8); 
-      const codebase = file.split('_')[1];
+    filtered.forEach((file) => {
+      let primaryKey = groupByWorkflow ? file.workflow_name : 'All Workflows';
+      let secondaryKey = groupByTaskId ? file.task_id : 'All Tasks';
   
-      if (!grouped[workflowType]) {
-        grouped[workflowType] = {};
+      if (!grouped[primaryKey]) {
+        grouped[primaryKey] = {};
+      }
+      
+      if (!grouped[primaryKey][secondaryKey]) {
+        grouped[primaryKey][secondaryKey] = [];
       }
   
-      if (!grouped[workflowType][codebase]) {
-        grouped[workflowType][codebase] = [];
-      }
-  
-      grouped[workflowType][codebase].push(file);
+      grouped[primaryKey][secondaryKey].push(file);
     });
+
+    // Sort the files within each group alphabetically by filename
+    Object.keys(grouped).forEach(primaryKey => {
+      Object.keys(grouped[primaryKey]).forEach(secondaryKey => {
+        grouped[primaryKey][secondaryKey].sort((a, b) => a.filename.localeCompare(b.filename));
+      });
+    });
+
     return grouped;
-  }, [logFiles]);
+  }, [logFiles, groupByWorkflow, groupByTaskId, onlyShowComplete, onlyShowSuccess]);
 
-  // Toggle functions for expanding/collapsing groups
-  const toggleWorkflow = (workflow) => {
-    setExpandedWorkflows((prev) => ({ 
-      ...prev, 
-      [workflow]: !prev[workflow] 
-    }));
-  };
 
-  const toggleCodebase = (workflow, codebase) => {
-    setExpandedCodebases((prev) => ({
+  const toggleGroup = (group) => {
+    setExpandedGroups(prev => ({
       ...prev,
-      [`${workflow}_${codebase}`]: !prev[`${workflow}_${codebase}`],
+      [group]: !prev[group]
     }));
   };
 
@@ -110,108 +123,78 @@ export const LogViewer = ({ workflow }) => {
     console.log(`Update placeholder for message ID: ${messageId}`);
     // TODO: Implement update logic
   };
-  
+
+  const toggleLogsList = () => {
+    setLogsListOpen(!logsListOpen);
+  };
+
   return (
     <Box className="log-container">
       <Paper className="log-content">
         <Box className="log-main-layout">
-          {/* Sidebar */}
-          <Box className="log-sidebar-container">
-            <Typography variant='subtitle1' className='log-sidebar-title'>
-              Log History
-            </Typography>
-            <List>
-              {Object.keys(groupedLogs).sort().map((workflow) => (
-                <React.Fragment key={workflow}>
-                  {/* Workflow Type */}
-                  <ListItem button onClick={() => toggleWorkflow(workflow)}>
-                    <ListItemText
-                      primary={
-                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
-                          {workflow}
-                        </Typography>
-                      }
+          {logsListOpen && (
+            <Box className="log-sidebar">
+              <Box className="sort-options">
+                <Typography
+                  variant="subtitle2"
+                  onClick={() => setSortOptionsExpanded(!sortOptionsExpanded)}
+                  className="sort-by-label"
+                >
+                  Sort by {sortOptionsExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                </Typography>
+                <Collapse in={sortOptionsExpanded}>
+                  <Box className="sort-options-grid">
+                    <FormControlLabel
+                      control={<Checkbox checked={groupByWorkflow} onChange={(e) => setGroupByWorkflow(e.target.checked)} size="small" />}
+                      label="Workflow"
+                      className="sort-option-label"
                     />
-                    {expandedWorkflows[workflow] ? <ExpandLess /> : <ExpandMore />}
-                  </ListItem>
-
-                  <Collapse in={expandedWorkflows[workflow]} timeout="auto" unmountOnExit>
-                    <List component="div" disablePadding>
-                      {Object.keys(groupedLogs[workflow]).sort().map((codebase) => (
-                        <React.Fragment key={`${workflow}_${codebase}`}>
-                          {/* Codebase */}
-                          <ListItemButton sx={{ pl: 2 }} onClick={() => toggleCodebase(workflow, codebase)} >
-                            <ListItemText
-                              primary={
-                                <Typography variant="body1" className='codebase-text'>
-                                  {codebase}
-                                </Typography>
-                              }
-                            />
-                            {expandedCodebases[`${workflow}_${codebase}`] ? <ExpandLess /> : <ExpandMore />}
-                          </ListItemButton>
-
-                          <Collapse in={expandedCodebases[`${workflow}_${codebase}`]} timeout="auto" unmountOnExit>
-                            <List component="div" disablePadding>
-                              {groupedLogs[workflow][codebase].map((file) => (
-                                <ListItemButton key={file} sx={{ pl: 4 }} onClick={() => handleLogClick(file)}>
-                                  <ListItemText
-                                    primary={
-                                      <Typography variant="body2" className='codebase-item-text'>
-                                        {file.split('_')[0] === 'ChatWorkflow'
-                                        ? file.split('_').slice(-2).join('_').slice(0, -5)
-                                        : file.split('_').slice(-3).join('_').slice(0, -5)}
-                                      </Typography>
-                                    }
-                                  />
-                                </ListItemButton>
-                              ))}
-                            </List>
-                          </Collapse>
-                        </React.Fragment>
-                      ))}
-                    </List>
-                  </Collapse>
-                </React.Fragment>
-              ))}
-            </List>
-          </Box>
-  
-          {/* Main Content */}
-          <Box className="log-main-container">
-            <Typography variant="subtitle1" gutterBottom>
-              {selectedLogFile ? `Viewing ${selectedLogFile}` : 'Pick a log file to view.'}
-            </Typography>
-            {loading && (
-              <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-                <CircularProgress />
+                    <FormControlLabel
+                      control={<Checkbox checked={groupByTaskId} onChange={(e) => setGroupByTaskId(e.target.checked)} size="small" />}
+                      label="Task ID"
+                      className="sort-option-label"
+                    />
+                    <FormControlLabel
+                      control={<Checkbox checked={onlyShowComplete} onChange={(e) => setOnlyShowComplete(e.target.checked)} size="small" />}
+                      label="Complete"
+                      className="sort-option-label"
+                    />
+                    <FormControlLabel
+                      control={<Checkbox checked={onlyShowSuccess} onChange={(e) => setOnlyShowSuccess(e.target.checked)} size="small" />}
+                      label="Successful"
+                      className="sort-option-label"
+                    />
+                  </Box>
+                </Collapse>
               </Box>
-            )}
-            {!loading && selectedLogContent && (
-              <Box className="log-item-container">
-                {selectedLogContent.map((phase, index) => (
-                  <PhaseMessage
-                    key={index}
-                    message={{
-                      phase_name: phase.phase_id,
-                      phase_summary: phase.phase_summary,
-                      current_children: phase.agent_messages || [],
-                      additional_metadata: phase.additional_metadata || null,
-                    }}
-                    onEditingChange={setIsEditing}            
-                    isEditing={isEditing}            
-                    selectedCellId={selectedCellId}
-                    onCellSelect={setSelectedCellId}
-                    onRerunMessage={handleRerunMessage}
-                    onUpdateMessageInput={handleUpdateMessageInput}
-                  />
-                ))}
-              </Box>
-            )}
-          </Box>
+              <LogsList 
+                groupedLogs={groupedLogs}
+                expandedGroups={expandedGroups}
+                toggleGroup={toggleGroup}
+                handleLogClick={handleLogClick}
+                groupByWorkflow={groupByWorkflow}
+                groupByTaskId={groupByTaskId}
+              />
+            </Box>
+          )}
+          <IconButton onClick={toggleLogsList} className="logsList-toggle" size="small">
+            {logsListOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          </IconButton>
+          <LogMainContent 
+            selectedLogFile={selectedLogFile}
+            loading={loading}
+            selectedLogContent={selectedLogContent}
+            isEditing={isEditing}
+            setIsEditing={setIsEditing}
+            selectedCellId={selectedCellId}
+            setSelectedCellId={setSelectedCellId}
+            handleRerunMessage={handleRerunMessage}
+            handleUpdateMessageInput={handleUpdateMessageInput}
+          />
         </Box>
       </Paper>
     </Box>
   );
 };
+
 export default LogViewer;

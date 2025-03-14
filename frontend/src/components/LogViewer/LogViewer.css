@@ -51,8 +51,66 @@
   font-size: 0.85rem !important;
   color: white;
 }
+
+.log-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  max-width: 250px; 
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.sort-options {
+  padding: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.sort-by-label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: #ffffffe1;  
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+}
+
+.sort-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.sort-option-label {
+  font-size: 0.75rem !important;
+}
+
+.sort-option-label .MuiFormControlLabel-label {
+  font-size: 0.75rem;
+}
+
+.log-sidebar-content {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
 .log-sidebar-title {
-  padding-left: 16px;
-  padding-top: 8px;
-  color: white;
+  padding: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.logsList-toggle {
+  top: 50% !important;
+  z-index: 1000 !important;
+  background-color: #132f4c !important;
+  color: white !important;
+  width: 24px !important;
+  height: 24px !important;
+  padding: 18px !important;
+}
+
+.logsList-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
 }

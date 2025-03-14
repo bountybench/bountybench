@@ -127,7 +127,11 @@ class ModelProvider(ABC):
 
         # If the child thread encountered an error, re-raise it
         if error_holder[0] is not None:
-            raise error_holder[0]
+            exception = error_holder[0]
+            # Log the status code if available
+            if hasattr(exception, "status_code"):
+                logger.error(f"API error with status code: {exception.status_code}")
+            raise exception
 
         # Otherwise, return the response from the child
         return response_holder[0]
