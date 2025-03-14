@@ -31,18 +31,7 @@ const HomePage = () => {
     navigate('/create-workflow');
   };
 
-  const handleWorkflowClick = async (workflowId) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/workflow/restart/${workflowId}`, {
-        method: 'POST',
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      console.log('Workflow restarted successfully');
-    } catch (error) {
-      console.error('Error restarting workflow:', error);
-    }
+  const handleWorkflowClick = (workflowId) => {
     navigate(`/workflow/${workflowId}`);
   };
 
@@ -123,7 +112,7 @@ const HomePage = () => {
           <Typography variant="h5" gutterBottom>
             Active Workflows
           </Typography>
-          {activeWorkflows && activeWorkflows.length === 0 ? (
+          {!activeWorkflows || activeWorkflows.length === 0 ? (
             <Typography>No active workflows</Typography>
           ) : (
             activeWorkflows.map(renderWorkflowButton)
