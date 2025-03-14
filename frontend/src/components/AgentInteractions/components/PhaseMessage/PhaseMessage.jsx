@@ -15,7 +15,7 @@ const PhaseMessage = ({
   onCellSelect,
   onToggleVersion,
   registerMessageRef,
-  registerToggleOperation // Add this new prop
+  registerToggleOperation
 }) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
@@ -24,7 +24,6 @@ const PhaseMessage = ({
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
 
-  // Register this component's ref with parent
   useEffect(() => {
     if (messageContainerRef.current && message.current_id) {
       registerMessageRef(message.current_id, messageContainerRef.current);
@@ -71,7 +70,7 @@ const PhaseMessage = ({
                     onCellSelect={onCellSelect}
                     onToggleVersion={onToggleVersion}
                     registerMessageRef={registerMessageRef}
-                    registerToggleOperation={registerToggleOperation} // Pass the prop to AgentMessage
+                    registerToggleOperation={registerToggleOperation}
                   />
                 ))}
               </Box>

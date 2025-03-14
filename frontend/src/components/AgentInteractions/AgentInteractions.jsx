@@ -160,6 +160,7 @@ const AgentInteractions = ({
     await onRestart();
   };
 
+  // Ensure buttons remain hidden when workflow status updates from parent
   useEffect(() => {
     if (workflowStatus === "stopped") {
       setIsStopping(true);

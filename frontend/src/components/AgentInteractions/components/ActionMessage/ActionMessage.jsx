@@ -18,12 +18,10 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
 
   const [originalMessageContent, setOriginalMessageContent] = useState(formatData(action?.message || ''));
 
-  // Register this action's ref for scrolling
   useEffect(() => {
+    // Register this action's ref for scrolling
     if (actionRef.current && action?.current_id && registerMessageRef) {
-      // Pass the actual DOM element, not the ref object
       registerMessageRef(action.current_id, actionRef.current);
-      console.log("Registered ref for action:", action.current_id);
     }
   }, [action?.current_id, registerMessageRef]);
 

@@ -104,7 +104,7 @@ const AgentMessage = ({
           handleCancelEdit();
         }
         else if (event.shiftKey && event.key === 'Enter') {
-          event.preventDefault(); // Prevent the default action 
+          event.preventDefault();
           if (editing) {
             handleSaveClick();      // Call the save function
           } else {
@@ -123,10 +123,8 @@ const AgentMessage = ({
     };
   }, [editing, message, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, selectedCellId]);
 
-  // Modified click handlers for toggle buttons
   const handlePrevVersion = () => {
     if (message?.version_prev) {
-      // Register the toggle BEFORE it happens
       registerToggleOperation(message.current_id, message.version_prev, 'prev');
       onToggleVersion(message.current_id, 'prev');
     }
@@ -134,7 +132,6 @@ const AgentMessage = ({
 
   const handleNextVersion = () => {
     if (message?.version_next) {
-      // Register the toggle BEFORE it happens
       registerToggleOperation(message.current_id, message.version_next, 'next');
       onToggleVersion(message.current_id, 'next');
     }
@@ -252,7 +249,7 @@ const AgentMessage = ({
                         <Typography variant="caption" sx={{ mx: 1 }}>
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          {/* Modified Arrow Buttons */}
+                          {/* Arrow Buttons */}
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
                             <IconButton
                               aria-label="arrow back"
