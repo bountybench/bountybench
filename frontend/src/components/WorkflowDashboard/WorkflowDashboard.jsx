@@ -4,7 +4,7 @@ import { Box, CircularProgress, Alert, Typography, IconButton } from '@mui/mater
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AgentInteractions from '../AgentInteractions/AgentInteractions';
-import WorkflowMetadataPanel from '../WorkflowMetadataPanel/WorkflowMetadataPanel';
+import ResourceDict from '../ResourceDict/ResourceDict';
 import { useWorkflowWebSocket } from '../../hooks/useWorkflowWebSocket';
 import './WorkflowDashboard.css';
 
@@ -29,7 +29,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const [preservedMessages, setPreservedMessages] = useState([]);
   
   const [resources, setResources] = useState([]);
-  const [isWorkflowMetadataPanelOpen, setIsWorkflowMetadataPanelOpen] = useState(false);
+  const [isResourcePanelOpen, setIsResourcePanelOpen] = useState(false);
   const [restart, setRestart] = useState(0);
 
   const [workflowState, setWorkflowState] = useState({
@@ -175,7 +175,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   }, [phaseMessages, useMockModel, fetchResources]);
 
   const toggleResourcePanel = () => {
-    setIsWorkflowMetadataPanelOpen(!isWorkflowMetadataPanelOpen);
+    setIsResourcePanelOpen(!isResourcePanelOpen);
   };
 
   const triggerNextIteration = async () => {
@@ -351,15 +351,15 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
           onToggleVersion={handleToggleVersion}
         />
       </Box>
-      <Box className={`workflow-metadata-panel ${isWorkflowMetadataPanelOpen ? 'open' : ''}`}>
+      <Box className={`resource-panel ${isResourcePanelOpen ? 'open' : ''}`}>
         <IconButton
           className="toggle-panel"
           onClick={toggleResourcePanel}
           size="small"
         >
-          {isWorkflowMetadataPanelOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          {isResourcePanelOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
         </IconButton>
-        <WorkflowMetadataPanel resources={resources} />
+        <ResourceDict resources={resources} />
       </Box>
     </Box>
   );
