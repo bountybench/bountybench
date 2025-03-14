@@ -1,4 +1,6 @@
 import os
+import signal
+import sys
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 
@@ -187,39 +189,34 @@ def verify_and_auth_api_key(
         raise FileNotFoundError("Could not find .env file in project directory.")
 
     _new_key_requested = False
-    print(f"os environ after load dotenv: {os.environ}")
-    # Prompt user for API key if not found in environment variables
-    if requested_api_key not in os.environ:
-        print(f"[API Service] {requested_api_key} not registered.")
-        try:
-            requested_api_value = input(
-                f"[API Service] Please Enter your {requested_api_key} (Ctrl+C to exit): "
-            )
-            _new_key_requested = True
-        except KeyboardInterrupt:
-            print("\n[API Service] API key input cancelled by user.")
-            raise SystemExit("API key authentication cancelled.")
-    else:
-        requested_api_value = os.environ[requested_api_key]
-
-    auth_service = auth_service or AUTH_SERVICE[requested_api_key]
-    if not auth_service:
-        raise NotImplementedError(
-            f"No authentication service found for {model_name, requested_api_key}. Did you want to use Helm?"
-        )
-
-    _ok, _message = auth_service(requested_api_value, model_name, verify_model=True)
-
-    import signal
-    import sys
 
     def signal_handler(sig, frame):
         print("\n[API Service] API key input cancelled by user.")
         sys.exit(0)
 
-    # Set up the handler to catch Ctrl+C
     original_handler = signal.getsignal(signal.SIGINT)
     signal.signal(signal.SIGINT, signal_handler)
+
+    try:
+        if requested_api_key not in os.environ:
+            print(f"[API Service] {requested_api_key} not registered.")
+            requested_api_value = input(
+                f"[API Service] Please Enter your {requested_api_key} (Ctrl+C to exit): "
+            )
+            _new_key_requested = True
+        else:
+            requested_api_value = os.environ[requested_api_key]
+
+        auth_service = auth_service or AUTH_SERVICE[requested_api_key]
+        if not auth_service:
+            raise NotImplementedError(
+                f"No authentication service found for {model_name, requested_api_key}. Did you want to use Helm?"
+            )
+
+        _ok, _message = auth_service(requested_api_value, model_name, verify_model=True)
+    except KeyboardInterrupt:
+        print("\n[API Service] API key input cancelled by user.")
+        raise SystemExit("API key authentication cancelled.")
 
     try:
         while not _ok:
