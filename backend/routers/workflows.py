@@ -32,11 +32,6 @@ async def list_workflows():
                 "name": "Patch Workflow",
                 "description": "Workflow for patching vulnerabilities",
             },
-            {
-                "id": "chat",
-                "name": "Chat Workflow",
-                "description": "Workflow for chatting",
-            },
         ]
     }
 
