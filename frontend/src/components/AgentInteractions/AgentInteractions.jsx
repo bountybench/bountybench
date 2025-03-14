@@ -8,7 +8,7 @@ import RestoreIcon from '@mui/icons-material/Restore';
 
 const AgentInteractions = ({
   interactiveMode,
-  workflowStatus, // Pass workflowStatus from parent
+  workflowStatus,
   isNextDisabled,
   phaseMessages = [],
   onUpdateMessageInput,
@@ -16,74 +16,166 @@ const AgentInteractions = ({
   onTriggerNextIteration,
   onStopWorkflow,
   onToggleVersion,
-  onRestart
+  onRestart,
+  lastToggledMessageId
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [stopped, setStopped] = useState(false);
   const messagesEndRef = useRef(null);
   const [selectedCellId, setSelectedCellId] = useState(null);
-  const prevMessagesLengthRef = useRef(0);
+  const containerRef = useRef(null);
+  const topAnchorRef = useRef(null);
 
-  // Store message structure for comparison
-  const prevMessageStructureRef = useRef("");
+  // Store a map of message toggle operations (sourceId -> targetId)
+  const messageVersionMap = useRef(new Map());
+
+  // Flag to prevent automatic bottom scrolling when toggling
+  const [isTogglingVersion, setIsTogglingVersion] = useState(false);
+
+  // Simple pass-through function
+  const registerMessageRef = useCallback(() => { }, []);
+
+  // Register a toggle operation before it happens
+  const registerToggleOperation = useCallback((currentId, targetId, direction) => {
+    console.log(`Registering toggle operation: ${currentId} -> ${targetId} (${direction})`);
+    messageVersionMap.current.set(currentId, { targetId, direction });
+  }, []);
 
   const handleKeyDown = useCallback((event) => {
     if (event.key === 'Enter' && event.altKey) {
-      event.preventDefault(); // Prevent the default action
+      event.preventDefault();
       onTriggerNextIteration();
     }
   }, [onTriggerNextIteration]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isEditing, handleKeyDown, onTriggerNextIteration]);
 
+  // Track the last ID we tried to scroll to
+  const lastAttemptedScrollId = useRef(null);
+
+  // Set up isTogglingVersion flag
   useEffect(() => {
-    if (phaseMessages.length === 0) return;
+    if (lastToggledMessageId) {
+      console.log("Setting isTogglingVersion to true");
+      setIsTogglingVersion(true);
 
-    // Create a simplified representation of the message structure 
-    // that ignores content changes but captures structural changes
-    const getMessageStructure = (messages) => {
-      return messages.map(msg => ({
-        id: msg.current_id,
-        children: msg.current_children ? getMessageStructure(msg.current_children) : []
-      }));
-    };
+      // Clear the flag after a longer time to prevent any race conditions
+      const clearFlagTimeout = setTimeout(() => {
+        console.log("Clearing isTogglingVersion flag");
+        setIsTogglingVersion(false);
+      }, 2000);
 
-    const currentStructure = JSON.stringify(getMessageStructure(phaseMessages));
-    const prevStructure = prevMessageStructureRef.current;
+      return () => clearTimeout(clearFlagTimeout);
+    }
+  }, [lastToggledMessageId]);
 
-    // Detect if new messages were added or if this is just a content update
-    const isNewMessage = phaseMessages.length > prevMessagesLengthRef.current;
-    const isStructuralChange = currentStructure !== prevStructure && prevStructure !== "";
-
-    // Only scroll if new messages were added (ignoring content updates)
-    if (isNewMessage || (isStructuralChange && !selectedCellId)) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Improved scroll effect with direct scrolling (no two-step process)
+  useEffect(() => {
+    if (!lastToggledMessageId || lastToggledMessageId === lastAttemptedScrollId.current) {
+      return;
     }
 
-    // Update refs for next comparison
-    prevMessagesLengthRef.current = phaseMessages.length;
-    prevMessageStructureRef.current = currentStructure;
-  }, [phaseMessages, selectedCellId]);
+    lastAttemptedScrollId.current = lastToggledMessageId;
+    console.log("Toggle detected for message ID:", lastToggledMessageId);
 
-  // Custom handler for toggling versions
-  const handleToggleVersion = useCallback((messageId, direction) => {
-    // Just call the original without any auto-scrolling
-    onToggleVersion(messageId, direction);
-  }, [onToggleVersion]);
+    // Get the TARGET ID from our map
+    const toggleInfo = messageVersionMap.current.get(lastToggledMessageId);
+    if (!toggleInfo) {
+      console.error("No toggle info found for message:", lastToggledMessageId);
+      console.log("Make sure you've updated both PhaseMessage.jsx and AgentMessage.jsx!");
+      return;
+    }
+
+    const targetId = toggleInfo.targetId;
+    console.log(`Looking for target message with ID: ${targetId}`);
+
+    // Wait for React to finish rendering, then scroll directly to target
+    const findAndScrollToTarget = () => {
+      // Look for the correct target element
+      let targetElement = document.querySelector(`#message-${targetId}`);
+      if (!targetElement) {
+        targetElement = document.querySelector(`[data-message-id="${targetId}"]`);
+      }
+
+      if (targetElement) {
+        console.log("✅ Found target message, scrolling to it:", targetId);
+
+        // Get the container's scroll position and the element's position
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const elementRect = targetElement.getBoundingClientRect();
+
+        // Calculate desired scroll position (element at top with padding)
+        const padding = 30; // pixels of padding at the top
+        const desiredScrollTop = containerRef.current.scrollTop +
+          (elementRect.top - containerRect.top) -
+          padding;
+
+        // Perform a smooth scroll directly to the target position
+        containerRef.current.scrollTo({
+          top: desiredScrollTop,
+          behavior: 'smooth'
+        });
+
+        console.log("Applied smooth scrolling to target with padding");
+      } else {
+        console.error(`❌ Target message element not found: ${targetId}`);
+        console.log("Dumping all current message element IDs for debugging:");
+        const allMessageElements = document.querySelectorAll('.agent-message-container');
+        Array.from(allMessageElements).forEach(el => {
+          console.log(`- Element ID: ${el.id}, data-message-id: ${el.getAttribute('data-message-id')}`);
+        });
+      }
+
+      // Clean up the map entry
+      messageVersionMap.current.delete(lastToggledMessageId);
+    };
+
+    // First attempt after a delay
+    const firstAttemptTimeout = setTimeout(findAndScrollToTarget, 300);
+
+    // If the first attempt fails, try again with a longer delay
+    const secondAttemptTimeout = setTimeout(() => {
+      const targetElement = document.querySelector(`#message-${targetId}`) ||
+        document.querySelector(`[data-message-id="${targetId}"]`);
+
+      if (!targetElement) {
+        console.log("First attempt failed, trying again...");
+        findAndScrollToTarget();
+      }
+    }, 800);
+
+    return () => {
+      clearTimeout(firstAttemptTimeout);
+      clearTimeout(secondAttemptTimeout);
+    };
+  }, [lastToggledMessageId]);
+
+  // Only scroll to bottom when not toggling and messages update
+  useEffect(() => {
+    if (!isTogglingVersion && !lastToggledMessageId && messagesEndRef.current) {
+      console.log("No toggle in progress, scrolling to bottom");
+      const timeoutId = setTimeout(() => {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    } else {
+      console.log("Skipping auto-scroll to bottom because toggle is in progress");
+    }
+  }, [phaseMessages, lastToggledMessageId, isTogglingVersion]);
 
   useEffect(() => {
     console.log('Phase Messages updated:', phaseMessages);
   }, [phaseMessages]);
 
   const handleStopClick = async () => {
-    setIsStopping(true); // Hide buttons immediately
+    setIsStopping(true);
     await onStopWorkflow();
     setStopped(true);
   };
@@ -113,7 +205,10 @@ const AgentInteractions = ({
 
   return (
     <Box className="interactions-container">
-      <Box className="messages-container">
+      <Box className="messages-container" ref={containerRef}>
+        {/* Top anchor for scrolling to top first - kept for compatibility but not used */}
+        <div ref={topAnchorRef} style={{ height: 0, overflow: 'hidden' }} id="top-scroll-anchor"></div>
+
         {phaseMessages.map((phaseMessage, index) => (
           <PhaseMessage
             key={phaseMessage.current_id}
@@ -124,7 +219,9 @@ const AgentInteractions = ({
             isEditing={isEditing}
             selectedCellId={selectedCellId}
             onCellSelect={setSelectedCellId}
-            onToggleVersion={handleToggleVersion}
+            onToggleVersion={onToggleVersion}
+            registerMessageRef={registerMessageRef}
+            registerToggleOperation={registerToggleOperation}
           />
         ))}
         <div ref={messagesEndRef} />

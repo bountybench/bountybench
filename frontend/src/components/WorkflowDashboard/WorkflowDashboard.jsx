@@ -21,13 +21,13 @@ const WorkflowState = {
   RESTARTING: 'RESTARTING'
 };
 
-export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast,   useMockModel,
-  setUseMockModel }) => {
+export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, showInvalidWorkflowToast, useMockModel, setUseMockModel }) => {
   const { workflowId } = useParams();
   const [isNextDisabled, setIsNextDisabled] = useState(false);
   const [hasCheckedValidity, setHasCheckedValidity] = useState(false);
   const [preservedMessages, setPreservedMessages] = useState([]);
-  
+  const [lastToggledMessageId, setLastToggledMessageId] = useState(null);
+
   const [resources, setResources] = useState([]);
   const [isResourcePanelOpen, setIsResourcePanelOpen] = useState(false);
   const [restart, setRestart] = useState(0);
@@ -39,7 +39,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   });
 
   const navigate = useNavigate();
-   
+
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
     const checkIfWorkflowExists = async () => {
@@ -48,7 +48,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
 
       if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
         showInvalidWorkflowToast();
-        navigate(`/`); 
+        navigate(`/`);
       }
     };
 
@@ -65,10 +65,10 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     phaseMessages,
     error,
   } = useWorkflowWebSocket(workflowId, restart);
-  
-  console.log('WebSocket state:', { 
-    isConnected, 
-    workflowStatus, 
+
+  console.log('WebSocket state:', {
+    isConnected,
+    workflowStatus,
     currentPhase,
     error,
     phaseMessagesCount: phaseMessages?.length
@@ -81,7 +81,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     }
     return null;
   };
-  
+
   useEffect(() => {
     if (error) {
       setWorkflowState({
@@ -213,10 +213,10 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   const handleUpdateMessageInput = async (messageId, newInputData) => {
     const url = `${API_BASE_URL}/workflow/${workflowId}/edit-message`;
     const requestBody = { message_id: messageId, new_input_data: newInputData };
-    
+
     console.log('Sending request to:', url);
     console.log('Request body:', JSON.stringify(requestBody));
-  
+
     setIsNextDisabled(true);
     try {
       const response = await fetch(url, {
@@ -226,13 +226,13 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         },
         body: JSON.stringify(requestBody),
       });
-  
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Error response body:', errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-  
+
       const data = await response.json();
       console.log('Action updated successfully', data);
     } catch (error) {
@@ -289,6 +289,9 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   };
 
   const handleToggleVersion = useCallback(async (messageId, direction) => {
+    // Set which message was toggled so we can scroll to it
+    setLastToggledMessageId(messageId);
+
     try {
       const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/toggle-version`, {
         method: 'POST',
@@ -318,10 +321,10 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     );
   }
 
-  if (workflowState.status === WorkflowState.LOADING || 
-      workflowState.status === WorkflowState.CONNECTING ||
-      workflowState.status === WorkflowState.STARTING ||
-      workflowState.status === WorkflowState.RESTARTING) {
+  if (workflowState.status === WorkflowState.LOADING ||
+    workflowState.status === WorkflowState.CONNECTING ||
+    workflowState.status === WorkflowState.STARTING ||
+    workflowState.status === WorkflowState.RESTARTING) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
         <Box className="launcher-loading" display="flex" flexDirection="column" alignItems="center">
@@ -349,6 +352,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
           onStopWorkflow={handleStopWorkflow}
           onRestart={handleRestart}
           onToggleVersion={handleToggleVersion}
+          lastToggledMessageId={lastToggledMessageId}
         />
       </Box>
       <Box className={`resource-panel ${isResourcePanelOpen ? 'open' : ''}`}>
