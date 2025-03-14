@@ -5,7 +5,6 @@ from fastapi.testclient import TestClient
 
 from backend.main import create_app
 from tests.ui_backend.fake_workflows import (
-    FakeChatWorkflow,
     FakeDetectPatchWorkflow,
     FakeExploitPatchWorkflow,
     FakePatchWorkflow,
@@ -16,10 +15,9 @@ from tests.ui_backend.fake_workflows import (
 @pytest.fixture(scope="module")
 def test_app():
     fake_workflow_factory = {
-        "Detect Workflow": FakeDetectPatchWorkflow,
-        "Exploit and Patch Workflow": FakeExploitPatchWorkflow,
+        "Detect Patch Workflow": FakeDetectPatchWorkflow,
+        "Exploit Patch Workflow": FakeExploitPatchWorkflow,
         "Patch Workflow": FakePatchWorkflow,
-        "Chat Workflow": FakeChatWorkflow,
     }
     app = create_app(workflow_factory=fake_workflow_factory)
     return app

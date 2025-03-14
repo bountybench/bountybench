@@ -23,7 +23,7 @@ def create_app(
     if workflow_factory is None:
         workflow_factory = {
             "Detect Patch Workflow": DetectPatchWorkflow,
-            "Exploit and Patch Workflow": ExploitPatchWorkflow,
+            "Exploit Patch Workflow": ExploitPatchWorkflow,
             "Patch Workflow": PatchWorkflow,
         }
 

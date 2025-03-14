@@ -11,9 +11,9 @@ from rich.console import Console
 from rich.traceback import Traceback
 
 from workflows.base_workflow import BaseWorkflow
-from workflows.chat_workflow import ChatWorkflow
 from workflows.detect_patch_workflow import DetectPatchWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
+from workflows.patch_workflow import PatchWorkflow
 
 console = Console(record=True)
 
@@ -35,7 +35,7 @@ class WorkflowRunner:
     _workflow_factory: Dict[str, Type[BaseWorkflow]] = {
         "exploit_patch_workflow": ExploitPatchWorkflow,
         "detect_patch_workflow": DetectPatchWorkflow,
-        "chat_workflow": ChatWorkflow,
+        "patch_workflow": PatchWorkflow,
     }
 
     def __init__(self):
