@@ -83,7 +83,7 @@ class ExecutorAgent(BaseAgent):
         # TODO: For agent message refactor, here set message along lines of "Model did not return a valid command. Skipping Kali step"
 
         return model_action_message
-    
+
     async def call_lm(
         self, lm_input_message: Optional[Message] = None
     ) -> Optional[ActionMessage]:
@@ -96,14 +96,14 @@ class ExecutorAgent(BaseAgent):
         iterations = 0
         error_history = []
         last_raw_response = None  # Store the last raw response in case parsing fails
-        
+
         start_progress(f"Getting response from LM")
         try:
             while iterations < MAX_RETRIES:
                 lm_input_message = self.resources.executor_agent_memory.get_memory(
                     lm_input_message
                 )
-                
+
                 # Step 1: Call the model
                 try:
                     model_output: ActionMessage = await asyncio.to_thread(
@@ -112,7 +112,9 @@ class ExecutorAgent(BaseAgent):
                     last_raw_response = model_output  # Save the raw response
                 except Exception as e:
                     error_msg = str(e)
-                    error_history.append(f"API error (attempt {iterations+1}): {error_msg}")
+                    error_history.append(
+                        f"API error (attempt {iterations+1}): {error_msg}"
+                    )
 
                     # Check for status code on the exception
                     status_code = None
@@ -137,13 +139,15 @@ class ExecutorAgent(BaseAgent):
                     )
                     iterations += 1
                     continue  # Skip to next iteration without trying to parse
-                
+
                 # Step 2: Only parse if we got a response
                 try:
                     parsed_response = self.parse_response(model_output)
                     return parsed_response  # Success! Return the parsed response
                 except Exception as e:
-                    error_history.append(f"Parse error (attempt {iterations+1}): {str(e)}")
+                    error_history.append(
+                        f"Parse error (attempt {iterations+1}): {str(e)}"
+                    )
                     logger.warning(
                         f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}"
                     )
@@ -156,9 +160,11 @@ class ExecutorAgent(BaseAgent):
                 last_raw_response.set_message(
                     f"{last_raw_response.message}\n\nWarning: Could not parse as CommandMessage after {MAX_RETRIES} attempts.\nError history:\n{error_summary}"
                 )
-                logger.warning(f"Returning unparsed response after {MAX_RETRIES} parse failures")
+                logger.warning(
+                    f"Returning unparsed response after {MAX_RETRIES} parse failures"
+                )
                 return last_raw_response
-            
+
             # If we don't even have a raw response after all retries, raise exception
             error_summary = "\n".join(error_history)
             raise Exception(
