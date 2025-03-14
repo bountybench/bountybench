@@ -49,27 +49,29 @@ async def test_call_lm_success(executor_agent):
     executor_agent.resources.model.run.assert_called_once()
     executor_agent.parse_response.assert_called_once_with(action_msg)
 
+
 @pytest.mark.asyncio
 async def test_call_lm_max_retries_api_error(executor_agent):
     """Test LM call failing with API errors after MAX_RETRIES attempts"""
     # Mock implementation
     executor_agent.resources.model.run = Mock(side_effect=Exception("API error"))
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
-    
+
     # Set MAX_RETRIES for testing
     import agents.executor_agent.executor_agent as executor_module
+
     original_max_retries = executor_module.MAX_RETRIES
     executor_module.MAX_RETRIES = 3
-    
+
     try:
         with pytest.raises(Exception) as exc_info:
             await executor_agent.call_lm()
-        
+
         # Verify correct exception message contains error history
         assert "Max retries (3) reached without valid response" in str(exc_info.value)
         assert "API error (attempt 1)" in str(exc_info.value)
         assert "API error (attempt 3)" in str(exc_info.value)
-        
+
         # Verify the model.run was called exactly MAX_RETRIES times
         assert executor_agent.resources.model.run.call_count == 3
     finally:
@@ -85,22 +87,23 @@ async def test_call_lm_parse_errors_return_raw_response(executor_agent):
     executor_agent.resources.model.run = Mock(return_value=action_msg)
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
     executor_agent.parse_response = Mock(side_effect=Exception("Parse error"))
-    
+
     # Set MAX_RETRIES for testing
     import agents.executor_agent.executor_agent as executor_module
+
     original_max_retries = executor_module.MAX_RETRIES
     executor_module.MAX_RETRIES = 3
-    
+
     try:
         # Should return the raw response instead of raising exception
         result = await executor_agent.call_lm()
-        
+
         # Verify we got back the last raw response
         assert result is action_msg
         assert "unparsable format" in result.message
         assert "Warning: Could not parse as CommandMessage" in result.message
         assert "Parse error (attempt 3)" in result.message
-        
+
         # Verify the model.run and parse_response were called correct number of times
         assert executor_agent.resources.model.run.call_count == 3
         assert executor_agent.parse_response.call_count == 3
@@ -116,26 +119,25 @@ async def test_call_lm_mixed_errors_return_raw_response(executor_agent):
     api_error = Exception("API error")
     action_msg1 = ActionMessage("test_id", "first response")
     action_msg2 = ActionMessage("test_id", "second response")
-    
-    # First call: API error, Second: success but parse error, 
+
+    # First call: API error, Second: success but parse error,
     # Third: success but parse error again
-    executor_agent.resources.model.run = Mock(side_effect=[
-        api_error, 
-        action_msg1,
-        action_msg2
-    ])
+    executor_agent.resources.model.run = Mock(
+        side_effect=[api_error, action_msg1, action_msg2]
+    )
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
     executor_agent.parse_response = Mock(side_effect=Exception("Parse error"))
-    
+
     # Set MAX_RETRIES for testing
     import agents.executor_agent.executor_agent as executor_module
+
     original_max_retries = executor_module.MAX_RETRIES
     executor_module.MAX_RETRIES = 3
-    
+
     try:
         # Should return the last raw response
         result = await executor_agent.call_lm()
-        
+
         # Verify we got back the last raw response (action_msg2)
         assert result is action_msg2
         assert "second response" in result.message
@@ -143,10 +145,12 @@ async def test_call_lm_mixed_errors_return_raw_response(executor_agent):
         assert "API error (attempt 1)" in result.message
         assert "Parse error (attempt 2)" in result.message
         assert "Parse error (attempt 3)" in result.message
-        
+
         # Verify correct call counts
         assert executor_agent.resources.model.run.call_count == 3
-        assert executor_agent.parse_response.call_count == 2  # Only called when API succeeds
+        assert (
+            executor_agent.parse_response.call_count == 2
+        )  # Only called when API succeeds
     finally:
         # Restore original MAX_RETRIES
         executor_module.MAX_RETRIES = original_max_retries
@@ -159,15 +163,17 @@ async def test_call_lm_eventual_success(executor_agent):
     api_error = Exception("API error")
     action_msg = ActionMessage("test_id", "valid command")
     expected_command_msg = CommandMessage("test_id", "command: ls")
-    
+
     executor_agent.resources.model.run = Mock(side_effect=[api_error, action_msg])
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
     # Parse succeeds on second attempt
-    executor_agent.parse_response = Mock(side_effect=[Exception("Parse error"), expected_command_msg])
-    
+    executor_agent.parse_response = Mock(
+        side_effect=[Exception("Parse error"), expected_command_msg]
+    )
+
     # We should eventually get the successfully parsed command
     result = await executor_agent.call_lm()
-    
+
     assert result is expected_command_msg
     assert executor_agent.resources.model.run.call_count == 2
     assert executor_agent.parse_response.call_count == 1
@@ -180,20 +186,25 @@ async def test_call_lm_success_on_last_retry(executor_agent):
     api_error = Exception("API error")
     action_msg = ActionMessage("test_id", "valid command")
     expected_command_msg = CommandMessage("test_id", "command: ls")
-    
+
     # Set MAX_RETRIES for testing
     import agents.executor_agent.executor_agent as executor_module
+
     original_max_retries = executor_module.MAX_RETRIES
     executor_module.MAX_RETRIES = 3
-    
+
     try:
-        executor_agent.resources.model.run = Mock(side_effect=[api_error, api_error, action_msg])
-        executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
+        executor_agent.resources.model.run = Mock(
+            side_effect=[api_error, api_error, action_msg]
+        )
+        executor_agent.resources.executor_agent_memory.get_memory = Mock(
+            return_value=None
+        )
         executor_agent.parse_response = Mock(return_value=expected_command_msg)
-        
+
         # Should succeed on the last try
         result = await executor_agent.call_lm()
-        
+
         assert result is expected_command_msg
         assert executor_agent.resources.model.run.call_count == 3
         assert executor_agent.parse_response.call_count == 1
@@ -205,19 +216,20 @@ async def test_call_lm_success_on_last_retry(executor_agent):
 @pytest.mark.asyncio
 async def test_non_retryable_error(executor_agent):
     """Test LM call with non-retryable error (4xx)"""
+
     # Create an exception with status_code attribute
     class ApiError(Exception):
         def __init__(self, message, status_code):
             super().__init__(message)
             self.status_code = status_code
-    
+
     quota_error = ApiError("Rate limit exceeded", 429)
     executor_agent.resources.model.run = Mock(side_effect=quota_error)
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
-    
+
     with pytest.raises(Exception) as exc_info:
         await executor_agent.call_lm()
-    
+
     # Should fail immediately with the non-retryable error
     assert "Non-retryable API error (HTTP 429)" in str(exc_info.value)
     assert executor_agent.resources.model.run.call_count == 1  # Only called once
