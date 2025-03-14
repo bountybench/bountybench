@@ -65,10 +65,10 @@ export const WorkflowDashboard = ({
     setLocalInteractiveMode(parentInteractive);
   }, [parentInteractive]);
 
-  // useEffect(() => {
-  //   console.log('DEBUG: [useEffect] parentMock changed => ', parentMock);
-  //   setLocalMockModel(parentMock);
-  // }, [parentMock]);
+  useEffect(() => {
+    console.log('DEBUG: [useEffect] parentMock changed => ', parentMock);
+    setLocalMockModel(parentMock);
+  }, [parentMock]);
 
   // WebSocket + workflow data
   const [workflowState, setWorkflowState] = useState({
@@ -113,34 +113,6 @@ export const WorkflowDashboard = ({
   }, [workflowId, navigate, showInvalidWorkflowToast, hasCheckedValidity]);
 
 
-  // useEffect(() => {
-  //   async function fetchRealToggles() {
-  //     try {
-  //       // Some new endpoint that returns { use_mock_model: boolean, interactive: boolean }
-  //       const res = await fetch(`${API_BASE_URL}/workflow/${workflowId}/config`);
-  //       if (!res.ok) {
-  //         console.error(`Failed to fetch toggles for ${workflowId}:`, await res.text());
-  //         return;
-  //       }
-  //       const data = await res.json();
-  //       console.log("DEBUG: Loaded real toggles from server =>", data);
-  
-  //       // Now set local states accordingly
-  //       setLocalMockModel(data.use_mock_model);
-  //       setLocalInteractiveMode(data.interactive);
-  
-  //       // Optionally also update the parent's dictionary
-  //       onUpdateWorkflowSettings?.(workflowId, {
-  //         interactiveMode: data.interactive,
-  //         useMockModel: data.use_mock_model,
-  //       });
-  //     } catch (err) {
-  //       console.error("Error fetching real toggles:", err);
-  //     }
-  //   }
-  
-  //   fetchRealToggles();
-  // }, [workflowId]);
 
   const fetchRealToggles = async () => {
     try {
@@ -160,6 +132,8 @@ export const WorkflowDashboard = ({
       setLocalMockModel(data.use_mock_model);
       setLocalInteractiveMode(data.interactive);
       
+      
+      
       // Also update the parent's dictionary 
       onUpdateWorkflowSettings?.(workflowId, {
         interactiveMode: data.interactive,
@@ -167,6 +141,7 @@ export const WorkflowDashboard = ({
       });
       
       console.log(`DEBUG: [fetchRealToggles] Updated local state: mockModel=${data.use_mock_model}, interactiveMode=${data.interactive}`);
+
     } catch (err) {
       console.error("Error fetching real toggles:", err);
     }
@@ -297,54 +272,6 @@ export const WorkflowDashboard = ({
     }
   };
 
-  // Toggle Mock Model
-  // const handleMockModelToggle = async () => {
-  //   if (!workflowId) return;
-    
-  //   // Log current state before toggling
-  //   console.log('DEBUG: Current mockModel state before toggle =>', localMockModel);
-    
-  //   // Calculate new value by inverting current state
-  //   const newVal = !localMockModel;
-  //   console.log('DEBUG: Toggling mockModel to =>', newVal);
-  
-  //   try {
-  //     // 1. Update local state first for immediate UI feedback
-  //     setLocalMockModel(newVal);
-  //     console.log('DEBUG: Local state updated to =>', newVal);
-  
-  //     // 2. Send the update to the server with proper error handling
-  //     console.log('DEBUG: Sending to server:', { use_mock_model: newVal });
-  //     const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/mock-model`, {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify({ use_mock_model: newVal })
-  //     });
-      
-  //     if (!response.ok) {
-  //       const errorText = await response.text();
-  //       console.error(`Server error: ${response.status} - ${errorText}`);
-  //       throw new Error('Failed to update mock model setting');
-  //     }
-  
-  //     const data = await response.json();
-  //     console.log('DEBUG: Server response =>', data);
-  
-  //     // 3. Update parent state
-  //     console.log('DEBUG: Updating parent state with =>', { useMockModel: newVal });
-  //     onUpdateWorkflowSettings?.(workflowId, { useMockModel: newVal });
-      
-  //     // 4. Notify parent about workflow state update
-  //     onWorkflowStateUpdate?.(workflowStatus, currentPhase);
-      
-      
-  //   } catch (error) {
-  //     console.error('Error updating mock model:', error);
-  //     // Revert local state if server update fails
-  //     console.log('DEBUG: Error occurred, reverting local state to =>', !newVal);
-  //     setLocalMockModel(!newVal);
-  //   }
-  // };
 
   const handleMockModelToggle = async () => {
     if (!workflowId) return;
@@ -378,13 +305,17 @@ export const WorkflowDashboard = ({
       const data = await response.json();
       console.log('DEBUG: Server response =>', data);
   
-      // After successful server update, update parent state
+      // 3. After successful server update, fetch the actual server state
+      // This ensures our UI matches the real backend state
+      await fetchRealToggles();
+      
+      // 4. After confirming the state, update parent component
       onUpdateWorkflowSettings?.(workflowId, { useMockModel: newVal });
       
-      // Notify parent about workflow state update
+      // 5. Notify parent about workflow state update
       onWorkflowStateUpdate?.(workflowStatus, currentPhase);
       
-      // IMPORTANT: After updating the server, refetch resources
+      // 6. After updating the server, refetch resources
       fetchResources();
       
     } catch (error) {

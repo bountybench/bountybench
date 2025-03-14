@@ -54,20 +54,28 @@ class ResourceManager:
     
     def update_mock_model(self, use_mock_model: bool):
         """
-        Updates the `use_mock_model` setting for the ModelResource.
+        Updates the `use_mock_model` setting for all ModelResources and ensures
+        it persists for any future model resources created.
         """
-        if "model" in self._resource_registration:
-            resource_class, resource_config = ModelResource, ModelResourceConfig.create(
-                model=self._resource_registration["model"][1].model, 
-                use_mock_model=use_mock_model 
-            )
-            self._resource_registration["model"] = (resource_class, resource_config)
+        
+        # Store the setting in the workflow params - this will affect future resources
+        for resource_id, (resource_class, resource_config) in self._resource_registration.items():
+            if issubclass(resource_class, ModelResource) and resource_config:
+                # Update the config that will be used for future resource creation
+                resource_config.use_mock_model = use_mock_model
+                logger.info(f"Updated resource registration for '{resource_id}' to use_mock_model={use_mock_model}")
 
-            # Create and set the updated resource
-            resource = resource_class("model", resource_config)
-            self._resources.set(self.workflow_id, "model", resource)
-
-            logger.info(f"Updated ModelResource to use_mock_model={use_mock_model}")
+        for resource_id, resource in self._resources.id_to_resource.get(self.workflow_id, {}).items():
+            if isinstance(resource, ModelResource):
+                # Update the resource itself
+                resource.use_mock_model = use_mock_model
+                
+                # Also update its config
+                if resource._resource_config:
+                    resource._resource_config.use_mock_model = use_mock_model
+                    
+                logger.info(f"Updated ModelResource '{resource_id}' (ID: {id(resource)}) to use_mock_model={use_mock_model}")
+  
 
     def compute_schedule(self, phases: List["BasePhase"]):
         """

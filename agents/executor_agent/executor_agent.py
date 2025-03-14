@@ -68,12 +68,6 @@ class ExecutorAgent(BaseAgent):
         prev_agent_message: Optional[AgentMessage] = None,
     ) -> Message:
         
-        print("=================EXECUTE AGENT MODEL CHECK================")
-        print(f"Agent ID: {self.agent_id}")
-        print(f"Model Resource ID: {id(self.model)}")
-        print(f"use_mock_model: {self.model.use_mock_model}")
-        print("=================================")
-
         model_action_message = await self.call_lm(prev_agent_message)
         if not model_action_message:
             agent_message.set_message("Model failed to produce a valid response.")
@@ -109,9 +103,7 @@ class ExecutorAgent(BaseAgent):
                     lm_input_message = self.executor_agent_memory.get_memory(
                         lm_input_message
                     )
-                    print("=================MOCK VALUE IN EXECUTOR AGENT================")
-                    print(self.model.use_mock_model)
-                    print("=================================")
+
                     model_output: ActionMessage = await asyncio.to_thread(
                         self.model.run, input_message=lm_input_message
                     )

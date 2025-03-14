@@ -89,30 +89,31 @@ class AgentManager:
                 logger.info(f"Updated agent: {agent}, {agent.model.to_dict()}")
     
 
+
     def update_phase_agents_mock_model(self, use_mock_model: bool):
         """
         Ensures all agents update their ModelResource with the new `use_mock_model` setting.
         """
         for agent_id, agent in self._phase_agents.items():
+            # Check if agent uses ModelResource
             if any(
                 isinstance(resource, tuple) and resource[0] == ModelResource
                 for resource in agent.ACCESSIBLE_RESOURCES
             ) or any(
                 resource == ModelResource for resource in agent.ACCESSIBLE_RESOURCES
             ):
-                if not hasattr(agent, "model"):
-                    raise AttributeError("Agent does not have a 'model' attribute")
+                # Check if agent has model attribute
+                if hasattr(agent, "model"):
+                    logger.info(f"Updating agent {agent_id} to use_mock_model={use_mock_model}")
+                    
 
-                logger.info(f"Updating agent {agent_id} to use_mock_model={use_mock_model}")
-                
-                # Get the updated model from the resource dictionary
-                # instead of creating a new one
-                if self.resource_dict.contains(self.workflow_id, "model"):
-                    updated_model = self.resource_dict.get(self.workflow_id, "model")
-                    setattr(agent, "model", updated_model)
-                    print(f"Agent {agent_id} updated with resource manager model: {id(updated_model)}, use_mock_model={updated_model.use_mock_model}")
+                    if self.resource_dict.contains(self.workflow_id, "model"):
+                        updated_model = self.resource_dict.get(self.workflow_id, "model")
+                        # Update the model reference
+                        setattr(agent, "model", updated_model)
+                        print(f"Agent {agent_id} updated with resource manager model: {id(updated_model)}, use_mock_model={updated_model.use_mock_model}")
                 else:
-                    logger.error(f"Model resource not found in resource dictionary for workflow {self.workflow_id}")
+                    logger.error(f"Agent {agent_id} uses ModelResource but has no 'model' attribute")
 
     def create_agent(
         self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig

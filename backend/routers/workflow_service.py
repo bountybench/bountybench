@@ -478,10 +478,11 @@ async def get_workflow_resources(workflow_id: str, request: Request):
 
 
 
+
 @workflow_service_router.post("/workflow/{workflow_id}/mock-model")
 async def update_mock_model_mode(workflow_id: str, request: Request):
     """
-    Toggles the `use_mock_model` setting using InteractiveController.
+    Toggles the `use_mock_model` setting for a specific workflow.
     """
     active_workflows = request.app.state.active_workflows
     if workflow_id not in active_workflows:
@@ -496,17 +497,52 @@ async def update_mock_model_mode(workflow_id: str, request: Request):
 
         workflow = active_workflows[workflow_id]["instance"]
         
-        # Use InteractiveController to update mock model state
-        await workflow.interactive_controller.set_mock_model(new_mock_model_state)
+        print(f"BEFORE UPDATE - Workflow {workflow_id} mock model state: {workflow.params.get('use_mock_model')}")
+        
+        # 1. Update the workflow's params directly
+        workflow.params["use_mock_model"] = new_mock_model_state
+        
+        # 2. Use the ResourceManager's update_mock_model method
+        if hasattr(workflow.resource_manager, "update_mock_model"):
+            workflow.resource_manager.update_mock_model(new_mock_model_state)
+            print(f"Updated mock model state via ResourceManager to: {new_mock_model_state}")
+        
+        # 3. As a backup, try to update all model resources directly
+        resources = workflow.resource_manager.get_resources()
+        for resource_id, resource in resources.items():
+            if hasattr(resource, "use_mock_model"):
+                resource.use_mock_model = new_mock_model_state
+                if hasattr(resource, "_resource_config") and resource._resource_config:
+                    resource._resource_config.use_mock_model = new_mock_model_state
+                print(f"Updated resource {resource_id} (ID: {id(resource)}) mock model state to: {new_mock_model_state}")
+        
+        # 4. Use InteractiveController to update mock model state (if available)
+        if hasattr(workflow.interactive_controller, "set_mock_model"):
+            await workflow.interactive_controller.set_mock_model(new_mock_model_state)
+            print(f"Updated via interactive controller")
 
-        print("==============BACKEND UPDATE MOCK MODEL============")
-        print(workflow.use_mock_model)
-        print(id(workflow.resource_manager.resources.get(workflow_id, "model")))
-        print(workflow.resource_manager.resources.get(workflow_id, "model").use_mock_model)
-        print(workflow.resource_manager.get_resources())
-        print("==========================")
-
-        return {"status": "success", "use_mock_model": new_mock_model_state}
+        print(f"AFTER UPDATE - Workflow {workflow_id} mock model state: {workflow.params.get('use_mock_model')}")
+        
+        # Verify the update worked by checking various places
+        verification = {
+            "workflow_params": workflow.params.get("use_mock_model"),
+            "model_resources": {}
+        }
+        
+        # Check resources again after all updates
+        updated_resources = workflow.resource_manager.get_resources()
+        for resource_id, resource in updated_resources.items():
+            if hasattr(resource, "use_mock_model"):
+                verification["model_resources"][resource_id] = {
+                    "resource_id": id(resource),
+                    "use_mock_model": resource.use_mock_model
+                }
+                
+        return {
+            "status": "success", 
+            "use_mock_model": new_mock_model_state,
+            "verification": verification
+        }
 
     except Exception as e:
         error_traceback = traceback.format_exc()
