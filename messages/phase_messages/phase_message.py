@@ -3,6 +3,9 @@ from typing import List, Optional
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
+QUERY_TIME_TAKEN_IN_MS= "query_time_taken_in_ms"
+INPUT_TOKEN = "input_token"
+OUTPUT_TOKEN = "output_token"
 
 class PhaseMessage(Message):
     def __init__(self, phase_id: str, prev: "PhaseMessage" = None) -> None:
@@ -12,6 +15,7 @@ class PhaseMessage(Message):
         self._summary = "incomplete"
         self._agent_messages = []
         self._phase_summary = None
+        self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, QUERY_TIME_TAKEN_IN_MS: 0}
         super().__init__(prev)
 
     @property
@@ -35,6 +39,10 @@ class PhaseMessage(Message):
     @property
     def summary(self) -> bool:
         return self._summary
+    
+    @property
+    def phase_usage(self) -> str: 
+        return self.usage
 
     @property
     def agent_messages(self) -> List[AgentMessage]:
@@ -80,6 +88,31 @@ class PhaseMessage(Message):
         for action_message in agent_message.action_messages:
             log_message(action_message)
         log_message(agent_message)
+    
+    def calculate_total_usages(self):
+        total_input_tokens = 0
+        total_output_tokens = 0
+        total_query_time_taken_in_ms = 0
+
+        for agent_message in self._agent_messages:
+            for action_message in agent_message._action_messages:
+                metadata = action_message._additional_metadata
+                if isinstance(metadata, tuple) and len(metadata) > 0:
+                    metadata = metadata[0]  # Extract the dictionary from the tuple
+                if isinstance(metadata, dict) and metadata:
+                    #not all metadatas have token information 
+                    if all(key in metadata for key in ['input_tokens', 'output_tokens', 'time_taken_in_ms']):
+                        total_input_tokens += metadata["input_tokens"]
+                        total_output_tokens += metadata["output_tokens"]
+                        total_query_time_taken_in_ms += metadata["time_taken_in_ms"]
+        
+        self.usage = {
+            INPUT_TOKEN: total_input_tokens,
+            OUTPUT_TOKEN: total_output_tokens,
+            QUERY_TIME_TAKEN_IN_MS: total_query_time_taken_in_ms
+        }
+
+        return self.usage
 
     def to_broadcast_dict(self) -> dict:
         base_dict = super().to_broadcast_dict()
@@ -96,9 +129,11 @@ class PhaseMessage(Message):
 
     def to_log_dict(self) -> dict:
         base_dict = super().to_log_dict()
+        usage = self.calculate_total_usages()
         log_dict = {
             "phase_id": self.phase_id,
             "phase_summary": self.summary,
+            "phase_usage": usage, 
             "success": self.success,
             "agent_messages": (
                 [agent_message.to_log_dict() for agent_message in self.agent_messages]
