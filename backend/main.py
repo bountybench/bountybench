@@ -13,9 +13,9 @@ from backend.execution_backends import LocalExecutionBackend
 
 
 def create_app(
-    ws_manager: WebSocketManager = None, 
+    ws_manager: WebSocketManager = None,
     workflow_factory: Dict[str, Callable] = None,
-    backend_type: str = None
+    backend_type: str = None,
 ):
     if ws_manager is None:
         ws_manager = websocket_manager
@@ -30,16 +30,16 @@ def create_app(
     # Determine the execution backend type
     if backend_type is None:
         backend_type = os.environ.get("EXECUTION_BACKEND", "local")
-    
+
     app = FastAPI()
-    
+
     # Create the appropriate execution backend
     if backend_type.lower() == "kubernetes":
         raise NotImplementedError("Kubernetes execution backend is not yet supported.")
     else:
         # Default to local execution
         execution_backend = LocalExecutionBackend(workflow_factory, app=app)
-    
+
     server = Server(app, ws_manager, execution_backend)
     return server.app
 

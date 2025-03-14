@@ -162,9 +162,11 @@ async def save_config(config_request: SaveConfigRequest, request: Request):
     """
     Save configuration with the execution backend.
     """
-    execution_backend: ExecutionBackend =  request.app.state.execution_backend
+    execution_backend: ExecutionBackend = request.app.state.execution_backend
     try:
-        result = await execution_backend.save_config(config_request.fileName, config_request.config)
+        result = await execution_backend.save_config(
+            config_request.fileName, config_request.config
+        )
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
         return result
