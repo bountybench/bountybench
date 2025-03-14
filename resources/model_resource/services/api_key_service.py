@@ -187,7 +187,6 @@ def verify_and_auth_api_key(
         raise FileNotFoundError("Could not find .env file in project directory.")
 
     _new_key_requested = False
-    print(f"os environ after load dotenv: {os.environ}")
     # Prompt user for API key if not found in environment variables
     if requested_api_key not in os.environ:
         print(f"[API Service] {requested_api_key} not registered.")
