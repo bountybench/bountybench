@@ -69,8 +69,8 @@ class ModelResource(RunnableBaseResource):
         self.helm = self._resource_config.use_helm
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
-        self.model_provider: ModelProvider = self.get_model_provider()
         self.use_mock_model = self._resource_config.use_mock_model
+        self.model_provider: ModelProvider = self.get_model_provider()
 
     def get_model_provider(self) -> ModelProvider:
         """
@@ -78,6 +78,8 @@ class ModelResource(RunnableBaseResource):
         Returns:
             ModelProvider: An instance of the appropriate model provider class.
         """
+        if self.use_mock_model:
+            return None
         if self.helm:
             model_provider = HelmModels()
         else:
