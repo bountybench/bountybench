@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { WorkflowLauncher } from './WorkflowLauncher';
 import { useServerAvailability } from '../../hooks/useServerAvailability';
 
+const BACKEND_CALLS = 6
 // Import jest-dom matchers
 import '@testing-library/jest-dom/extend-expect';
 const mockNavigate = jest.fn();
@@ -57,6 +58,7 @@ describe('WorkflowLauncher Component', () => {
     global.fetch
       .mockResolvedValueOnce({ json: () => Promise.resolve({ workflows: [] }) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({ helmModels: [], nonHelmModels: [] }) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({ max_input_tokens: 4096, max_output_tokens: 2048 }) });
@@ -101,7 +103,7 @@ describe('WorkflowLauncher Component', () => {
       expect(screen.getByText(/Start New Workflow/i)).toBeInTheDocument();
     });
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(BACKEND_CALLS));
   });
 
   test('fetches and displays workflows when the server is available', async () => {
@@ -133,7 +135,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(BACKEND_CALLS));
 
     expect(screen.getByText(/Start New Workflow/i)).toBeInTheDocument();
 
@@ -155,6 +157,7 @@ describe('WorkflowLauncher Component', () => {
       { name: 'Detect Workflow 2', description: 'Description 2' }
     ];
     const apiKeys = { HELM_API_KEY: 'mock-api-key' };
+    const tasks = { tasks: [{ task_dir: 'test-dir', bounty_nums: ['123'] }] };
     const models = { 
       helmModels: [{ name: 'model1', description: 'Description 1' }, { name: 'model3', description: 'Description 3' }],
       nonHelmModels: [{ name: 'model2', description: 'Description 2' }]
@@ -163,6 +166,7 @@ describe('WorkflowLauncher Component', () => {
     global.fetch = jest.fn()
       .mockResolvedValueOnce({ json: () => Promise.resolve({ workflows }) })
       .mockResolvedValueOnce({ json: () => Promise.resolve(apiKeys) })
+      .mockResolvedValueOnce({ json: () => Promise.resolve(tasks) })
       .mockResolvedValueOnce({ json: () => Promise.resolve(models) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({ max_input_tokens: 4096, max_output_tokens: 2048 }) })
@@ -183,7 +187,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(BACKEND_CALLS));
   
     const workflowTypeSelect = screen.getByRole('combobox', { name: "Workflow Type" });
     fireEvent.mouseDown(workflowTypeSelect);
@@ -196,9 +200,7 @@ describe('WorkflowLauncher Component', () => {
     });
   
     fireEvent.click(screen.getByText('Detect Workflow 2'));
-  
-    fireEvent.change(screen.getByLabelText(/Task Repository Directory/i), { target: { value: 'test-dir' } });
-    fireEvent.change(screen.getByLabelText(/Bounty Number/i), { target: { value: '123' } });
+
     fireEvent.change(screen.getByLabelText(/Iterations \(per phase\)/i), { target: { value: '5' } });
   
     const modelTypeSelect = screen.getByRole('combobox', { name: /Model Type/i });
@@ -213,7 +215,7 @@ describe('WorkflowLauncher Component', () => {
       fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
     });
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(6));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(BACKEND_CALLS + 1));
     await waitFor(() => expect(onWorkflowStartMock).toHaveBeenCalledWith('123', "test_model", true));
   });
 
@@ -225,6 +227,7 @@ describe('WorkflowLauncher Component', () => {
       { name: 'Detect Workflow 2', description: 'Description 2' }
     ];
     const apiKeys = { HELM_API_KEY: 'mock-api-key' };
+    const tasks = { tasks: [{ task_dir: 'test-dir', bounty_nums: ['123'] }] };
     const models = { 
       helmModels: [{ name: 'model1', description: 'Description 1' }, { name: 'model3', description: 'Description 3' }],
       nonHelmModels: [{ name: 'model2', description: 'Description 2' }]
@@ -233,6 +236,7 @@ describe('WorkflowLauncher Component', () => {
     global.fetch = jest.fn()
       .mockResolvedValueOnce({ json: () => Promise.resolve({ workflows }) })
       .mockResolvedValueOnce({ json: () => Promise.resolve(apiKeys) })
+      .mockResolvedValueOnce({ json: () => Promise.resolve(tasks) })
       .mockResolvedValueOnce({ json: () => Promise.resolve(models) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({}) })
       .mockResolvedValueOnce({ json: () => Promise.resolve({ max_input_tokens: 4096, max_output_tokens: 2048 }) })
@@ -253,7 +257,7 @@ describe('WorkflowLauncher Component', () => {
       );
     });
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(BACKEND_CALLS));
   
     const workflowTypeSelect = screen.getByRole('combobox', { name: "Workflow Type" });
     fireEvent.mouseDown(workflowTypeSelect);
@@ -267,8 +271,6 @@ describe('WorkflowLauncher Component', () => {
   
     fireEvent.click(screen.getByText('Detect Workflow 2'));
   
-    fireEvent.change(screen.getByLabelText(/Task Repository Directory/i), { target: { value: 'test-dir' } });
-    fireEvent.change(screen.getByLabelText(/Bounty Number/i), { target: { value: '123' } });
     fireEvent.change(screen.getByLabelText(/Iterations \(per phase\)/i), { target: { value: '5' } });
   
     const modelTypeSelect = screen.getByRole('combobox', { name: /Model Type/i });
@@ -283,7 +285,7 @@ describe('WorkflowLauncher Component', () => {
       fireEvent.click(screen.getByRole('button', { name: /Start Workflow/i }));
     });
   
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(6));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(BACKEND_CALLS + 1));
     expect(screen.getByText('Failed to start workflow')).toBeInTheDocument();
   });
 });

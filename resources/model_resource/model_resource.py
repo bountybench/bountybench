@@ -79,6 +79,8 @@ class ModelResource(RunnableBaseResource):
         Returns:
             ModelProvider: An instance of the appropriate model provider class.
         """
+        if self.use_mock_model:
+            return None
         if self.helm:
             model_provider = HelmModels()
         else:

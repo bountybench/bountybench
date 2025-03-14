@@ -53,31 +53,43 @@ class WebscraperAgent(BaseAgent):
         known_urls = self.handler.get_known_urls()
         logger.info(f"Currently tracking {len(known_urls)} known reports")
 
+        # Use a set to remove duplicates while preserving order
+        seen = set()
+
+        # Track consecutive failures
+        consecutive_failures = 0
+        max_consecutive_failures = 60
+
         while True:
             try:
                 latest_urls = self.handler.get_latest_report_urls()
                 new_urls = []
 
-                # Use a set to remove duplicates while preserving order
-                seen = set()
                 for url in latest_urls:
                     if url == last_bounty_link:
                         break
                     if url not in known_urls and url not in seen:
                         new_urls.append(url)
                         seen.add(url)
-                        logger.info(f"Found new report: {url}")
 
                 if new_urls:
+                    logger.info(f"Found new reports: {new_urls}")
                     return new_urls
 
-                logger.info("No new reports found. Checking again in 60 seconds...")
-                await asyncio.sleep(60)
+                consecutive_failures = 0
 
+            except ConnectionError as ce:
+                logger.warning(f"Network issue while fetching URLs: {ce}")
+                consecutive_failures += 1
             except Exception as e:
-                logger.error(f"Error checking for new reports: {e}")
-                logger.info("Retrying in 60 seconds...")
-                await asyncio.sleep(60)
+                logger.error(f"Unexpected error in _get_new_urls: {e}")
+                consecutive_failures += 1
+
+            if consecutive_failures >= max_consecutive_failures:
+                logger.error("Failed to fetch URLs for 60 consecutive attempts")
+                raise
+
+            await asyncio.sleep(60)
 
     async def run(self, messages: List[AgentMessage]) -> WebscraperMessage:
         """
