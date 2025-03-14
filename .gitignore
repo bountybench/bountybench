@@ -158,6 +158,7 @@ cython_debug/
 # log files
 logs
 error_logs
+log_scores
 
 # Frontend dependencies
 frontend/node_modules
