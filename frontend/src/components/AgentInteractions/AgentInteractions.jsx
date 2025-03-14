@@ -25,7 +25,6 @@ const AgentInteractions = ({
   const messagesEndRef = useRef(null);
   const [selectedCellId, setSelectedCellId] = useState(null);
   const containerRef = useRef(null);
-  const topAnchorRef = useRef(null);
   const messageVersionMap = useRef(new Map());
   const [isTogglingVersion, setIsTogglingVersion] = useState(false);
   const registerMessageRef = useCallback(() => { }, []);
@@ -53,11 +52,9 @@ const AgentInteractions = ({
 
   useEffect(() => {
     if (lastToggledMessageId) {
-      console.log("Setting isTogglingVersion to true");
       setIsTogglingVersion(true);
 
       const clearFlagTimeout = setTimeout(() => {
-        console.log("Clearing isTogglingVersion flag");
         setIsTogglingVersion(false);
       }, 2000);
 
@@ -71,18 +68,14 @@ const AgentInteractions = ({
     }
 
     lastAttemptedScrollId.current = lastToggledMessageId;
-    console.log("Toggle detected for message ID:", lastToggledMessageId);
 
-    // Get the TARGET ID from our map
     const toggleInfo = messageVersionMap.current.get(lastToggledMessageId);
     if (!toggleInfo) {
       console.error("No toggle info found for message:", lastToggledMessageId);
-      console.log("Make sure you've updated both PhaseMessage.jsx and AgentMessage.jsx!");
       return;
     }
 
     const targetId = toggleInfo.targetId;
-    console.log(`Looking for target message with ID: ${targetId}`);
 
     const findAndScrollToTarget = () => {
       let targetElement = document.querySelector(`#message-${targetId}`);
@@ -103,15 +96,8 @@ const AgentInteractions = ({
           top: desiredScrollTop,
           behavior: 'smooth'
         });
-
-        console.log("Applied smooth scrolling to target with padding");
       } else {
-        console.error(`❌ Target message element not found: ${targetId}`);
-        console.log("Dumping all current message element IDs for debugging:");
-        const allMessageElements = document.querySelectorAll('.agent-message-container');
-        Array.from(allMessageElements).forEach(el => {
-          console.log(`- Element ID: ${el.id}, data-message-id: ${el.getAttribute('data-message-id')}`);
-        });
+        console.error(`Target message element not found: ${targetId}`);
       }
 
       messageVersionMap.current.delete(lastToggledMessageId);
@@ -124,7 +110,6 @@ const AgentInteractions = ({
         document.querySelector(`[data-message-id="${targetId}"]`);
 
       if (!targetElement) {
-        console.log("First attempt failed, trying again...");
         findAndScrollToTarget();
       }
     }, 800);
@@ -183,8 +168,6 @@ const AgentInteractions = ({
   return (
     <Box className="interactions-container">
       <Box className="messages-container" ref={containerRef}>
-        {/* Top anchor for scrolling to top first - kept for compatibility but not used */}
-        <div ref={topAnchorRef} style={{ height: 0, overflow: 'hidden' }} id="top-scroll-anchor"></div>
 
         {phaseMessages.map((phaseMessage, index) => (
           <PhaseMessage
