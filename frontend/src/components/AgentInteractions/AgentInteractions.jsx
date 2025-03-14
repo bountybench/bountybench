@@ -265,8 +265,8 @@ const AgentInteractions = ({
               </Button>
             )}
           </>
-        ) : null}
-        {isStopping && stopped && (
+        )}
+        {isStopping && stopped && !interactiveMode && (
           <Button
             variant="contained"
             color="primary"
@@ -276,9 +276,7 @@ const AgentInteractions = ({
           >
             Restart Resources
           </Button>
-          )}
-        </>
-      )}
+        )}
       </Box>
     </Box>
   );
