@@ -1,4 +1,5 @@
 from typing import Callable, Dict
+import os
 
 import uvicorn
 from fastapi import FastAPI
@@ -9,10 +10,13 @@ from workflows.chat_workflow import ChatWorkflow
 from workflows.detect_patch_workflow import DetectPatchWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
+from backend.execution_backends import LocalExecutionBackend
 
 
 def create_app(
-    ws_manager: WebSocketManager = None, workflow_factory: Dict[str, Callable] = None
+    ws_manager: WebSocketManager = None, 
+    workflow_factory: Dict[str, Callable] = None,
+    backend_type: str = None
 ):
     if ws_manager is None:
         ws_manager = websocket_manager
@@ -25,8 +29,20 @@ def create_app(
             "Chat Workflow": ChatWorkflow,
         }
 
+    # Determine the execution backend type
+    if backend_type is None:
+        backend_type = os.environ.get("EXECUTION_BACKEND", "local")
+    
     app = FastAPI()
-    server = Server(app, ws_manager, workflow_factory)
+    
+    # Create the appropriate execution backend
+    if backend_type.lower() == "kubernetes":
+        raise NotImplementedError("Kubernetes execution backend is not yet supported.")
+    else:
+        # Default to local execution
+        execution_backend = LocalExecutionBackend(workflow_factory, app=app)
+    
+    server = Server(app, ws_manager, execution_backend)
     return server.app
 
 

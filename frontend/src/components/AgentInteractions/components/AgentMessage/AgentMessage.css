@@ -102,6 +102,10 @@
   border-color: #2196f3 !important;
 }
 
+.copy-button {
+  max-height: 32px;
+}
+
 .add-action-button-container {
   display: flex;
   justify-content: center;

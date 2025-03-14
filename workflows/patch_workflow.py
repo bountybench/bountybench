@@ -27,7 +27,7 @@ class PatchWorkflow(BountyWorkflow):
         phase_kwargs = {
             "use_mock_model": self.params.get("use_mock_model"),
             "model": self.params.get("model"),
-            "helm": self.params.get("helm"),
+            "helm": self.params.get("use_helm"),
             "task_dir": self.task_dir,
             "bounty_number": self.bounty_number,
             "vulnerability_type": self.params.get("vulnerability_type"),
@@ -105,6 +105,7 @@ async def main() -> None:
         interactive=args.interactive,
         use_mock_model=args.use_mock_model,
         model=args.model,
+        use_helm=args.helm,
         max_input_tokens=args.max_input_tokens,
         max_output_tokens=args.max_output_tokens,
         phase_iterations=args.phase_iterations,

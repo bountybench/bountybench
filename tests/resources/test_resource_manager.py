@@ -4,9 +4,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agents.base_agent import BaseAgent
-from phases.base_phase import BasePhase, PhaseConfig
+from phases.base_phase import BasePhase
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.resource_manager import ResourceManager
+from resources.resource_type import ResourceType
+
+RESOURCE1 = ResourceType.DOCKER
+RESOURCE2 = ResourceType.INIT_FILES
+RESOURCE3 = ResourceType.BOUNTY_SETUP
+RESOURCE4 = ResourceType.REPO_SETUP
+RESOURCES = [RESOURCE1, RESOURCE2, RESOURCE3, RESOURCE4]
 
 
 class MockResourceConfig(BaseResourceConfig):
@@ -24,16 +31,16 @@ class MockResource(BaseResource):
 
 
 class MockAgent1(BaseAgent):
-    REQUIRED_RESOURCES: List[Union[type, Tuple[type, str]]] = [
-        (MockResource, "resource1"),
-        (MockResource, "resource2"),
+    REQUIRED_RESOURCES: List[ResourceType] = [
+        RESOURCE1,
+        RESOURCE2,
     ]
 
 
 class MockAgent2(BaseAgent):
     REQUIRED_RESOURCES: List[Union[type, Tuple[type, str]]] = [
-        (MockResource, "resource2"),
-        (MockResource, "resource3"),
+        RESOURCE3,
+        RESOURCE4,
     ]
 
 
@@ -41,10 +48,10 @@ class MockPhase1(BasePhase):
     REQUIRED_AGENTS = [MockAgent1]
 
     def define_resources(self):
-        return {
-            "resource1": (MockResource, MockResourceConfig()),
-            "resource2": (MockResource, MockResourceConfig()),
-        }
+        return [
+            (RESOURCE1, MockResourceConfig()),
+            (RESOURCE2, MockResourceConfig()),
+        ]
 
     def define_agents(self):
         pass
@@ -54,18 +61,18 @@ class MockPhase1(BasePhase):
 
     @classmethod
     def get_required_resources(cls):
-        return {"resource1", "resource2"}
+        return {RESOURCE1, RESOURCE2}
 
 
 class MockPhase2(BasePhase):
     REQUIRED_AGENTS = [MockAgent1, MockAgent2]
 
     def define_resources(self):
-        return {
-            "resource1": (MockResource, MockResourceConfig()),
-            "resource2": (MockResource, MockResourceConfig()),
-            "resource3": (MockResource, MockResourceConfig()),
-        }
+        return [
+            (RESOURCE1, MockResourceConfig()),
+            (RESOURCE2, MockResourceConfig()),
+            (RESOURCE3, MockResourceConfig()),
+        ]
 
     def define_agents(self):
         pass
@@ -75,7 +82,7 @@ class MockPhase2(BasePhase):
 
     @classmethod
     def get_required_resources(cls):
-        return {"resource1", "resource2", "resource3"}
+        return {RESOURCE1, RESOURCE2, RESOURCE3}
 
 
 @pytest.fixture
@@ -91,12 +98,37 @@ def mock_workflow():
     return workflow
 
 
-@patch("utils.logger.get_main_logger")
-def test_resource_lifecycle(mock_logger, resource_manager, mock_workflow):
+@pytest.fixture
+def mock_resource_constructors():
+    def mock_init(self, resource_id=None, config=None):
+        return None
+
+    mocks = [
+        patch.object(resource.get_class(), "__init__", mock_init)
+        for resource in RESOURCES
+    ]
+    mocks.extend(
+        [
+            patch.object(resource.get_class(), "stop", mock_init)
+            for resource in RESOURCES
+        ]
+    )
+    [mock.start() for mock in mocks]
+    yield
+    patch.stopall()
+
+
+def get_resource_keys(cls, workflow_id):
+    return {resource.key(workflow_id) for resource in cls.get_required_resources()}
+
+
+def test_resource_lifecycle(
+    resource_manager, mock_workflow, mock_resource_constructors
+):
     # Register resources
-    for i in range(1, 4):
+    for resource in RESOURCES:
         resource_manager.register_resource(
-            f"resource{i}", MockResource, MockResourceConfig()
+            str(resource), MockResource, MockResourceConfig()
         )
 
     phases = [MockPhase1(mock_workflow), MockPhase2(mock_workflow)]
@@ -105,53 +137,70 @@ def test_resource_lifecycle(mock_logger, resource_manager, mock_workflow):
     resource_manager.compute_schedule(phases)
 
     # Check resource lifecycle
-    assert resource_manager._resource_lifecycle["resource1"] == (0, 1)
-    assert resource_manager._resource_lifecycle["resource2"] == (0, 1)
-    assert resource_manager._resource_lifecycle["resource3"] == (1, 1)
+    assert resource_manager._resource_lifecycle[str(RESOURCE1)] == (0, 1)
+    assert resource_manager._resource_lifecycle[str(RESOURCE2)] == (0, 1)
+    assert resource_manager._resource_lifecycle[str(RESOURCE3)] == (1, 1)
 
     # Initialize resources for Phase1
-    resource_manager.initialize_phase_resources(0, MockPhase1.get_required_resources())
-    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource1")
-    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource2")
+    resource_manager.initialize_phase_resources(0, get_resource_keys(MockPhase1, "1"))
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE1)
+    )
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE2)
+    )
     assert not resource_manager._resources.contains(
-        workflow_id=1, resource_id="resource3"
+        workflow_id=1, resource_id=str(RESOURCE3)
     )
 
     # Deallocate resources after Phase1
     resource_manager.deallocate_phase_resources(0)
-    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource1")
-    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource2")
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE1)
+    )
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE2)
+    )
     # Initialize resources for Phase2
-    resource_manager.initialize_phase_resources(1, MockPhase2.get_required_resources())
-    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource1")
-    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource2")
-    assert resource_manager._resources.contains(workflow_id=1, resource_id="resource3")
+    resource_manager.initialize_phase_resources(1, get_resource_keys(MockPhase2, "1"))
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE1)
+    )
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE2)
+    )
+    assert resource_manager._resources.contains(
+        workflow_id=1, resource_id=str(RESOURCE3)
+    )
 
     # Deallocate resources after Phase2
     resource_manager.deallocate_phase_resources(1)
     assert not resource_manager._resources.contains(
-        workflow_id=1, resource_id="resource1"
+        workflow_id=1, resource_id=str(RESOURCE1)
     )
     assert not resource_manager._resources.contains(
-        workflow_id=1, resource_id="resource2"
+        workflow_id=1, resource_id=str(RESOURCE2)
     )
     assert not resource_manager._resources.contains(
-        workflow_id=1, resource_id="resource3"
+        workflow_id=1, resource_id=str(RESOURCE3)
     )
 
 
-@patch("utils.logger.get_main_logger")
-def test_get_resource(mock_logger, resource_manager, mock_workflow):
-    resource_manager.register_resource("resource1", MockResource, MockResourceConfig())
-    resource_manager.register_resource("resource2", MockResource, MockResourceConfig())
+def test_get_resource(resource_manager, mock_workflow, mock_resource_constructors):
+    resource_manager.register_resource(
+        str(RESOURCE1), MockResource, MockResourceConfig()
+    )
+    resource_manager.register_resource(
+        str(RESOURCE2), MockResource, MockResourceConfig()
+    )
     resource_manager.compute_schedule([MockPhase1(mock_workflow)])
-    resource_manager.initialize_phase_resources(0, MockPhase1.get_required_resources())
+    resource_manager.initialize_phase_resources(0, get_resource_keys(MockPhase1, "1"))
 
-    resource = resource_manager.get_resource("resource1")
-    assert isinstance(resource, MockResource)
+    resource = resource_manager.get_resource(str(RESOURCE1))
+    assert isinstance(resource, RESOURCE1.get_class())
 
-    resource = resource_manager.get_resource("resource2")
-    assert isinstance(resource, MockResource)
+    resource = resource_manager.get_resource(str(RESOURCE2))
+    assert isinstance(resource, RESOURCE2.get_class())
 
     with pytest.raises(KeyError):
         resource_manager.get_resource("non_existent_resource")

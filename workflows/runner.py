@@ -73,6 +73,8 @@ class WorkflowRunner:
         while i < len(self.unknown_args):
             arg = self.unknown_args[i]
             if arg in ["--helm", "--use_mock_model"]:
+                if arg == "--helm":
+                    key = "use_helm"
                 key = arg.lstrip("--").replace("-", "_")
                 kwargs[key] = True
                 i += 1
@@ -148,10 +150,12 @@ class WorkflowRunner:
 
             with log_file_path.open("r") as log_file:
                 log_data = json.load(log_file)
-                workflow_summary = log_data.get("workflow_metadata", {}).get(
-                    "workflow_summary", ""
+                workflow_complete = (
+                    log_data.get("workflow_metadata", {})
+                    .get("workflow_summary", {})
+                    .get("complete", False)
                 )
-                if workflow_summary.lower() == "incomplete":
+                if not workflow_complete:
                     console.print(
                         "[bold red]Workflow marked as incomplete in the log file.[/]"
                     )

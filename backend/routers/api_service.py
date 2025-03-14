@@ -19,7 +19,22 @@ async def get_api_key(request: Request):
         )
 
     load_dotenv(dotenv_path=env_path, override=True)
-    return {k: os.environ[k] for k in dotenv_values(env_path)}
+
+    # Mask API keys based on length
+    env_values = dotenv_values(env_path)
+    masked_values = {}
+    for k, v in env_values.items():
+        if v:
+            if len(v) < 20:
+                # For shorter keys, only show last 4 characters
+                masked_values[k] = "*" * (len(v) - 4) + v[-4:] if len(v) > 4 else v
+            else:
+                # For longer keys, show first 4 and last 4 characters
+                masked_values[k] = v[:4] + "*" * (len(v) - 8) + v[-4:]
+        else:
+            masked_values[k] = v
+
+    return masked_values
 
 
 @api_service_router.post("/service/api-service/update")

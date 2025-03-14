@@ -27,23 +27,55 @@ class GoogleModels(ModelProvider):
             self.client = self.create_client(model)
 
         start_time = datetime.now()
-        response = self.client.generate_content(
-            contents=message,
-            generation_config=gemini.types.GenerationConfig(
-                temperature=temperature,
-                stop_sequences=stop_sequences,
-                max_output_tokens=max_tokens,
-            ),
-        )
-        end_time = datetime.now()
-        response_request_duration = (end_time - start_time).total_seconds() * 1000
+        status_code = None
 
-        return ModelResponse(
-            content=response.text,
-            input_tokens=self.client.count_tokens(message).total_tokens,
-            output_tokens=response.usage_metadata.candidates_token_count,
-            time_taken_in_ms=response_request_duration,
-        )
+        try:
+            response = self.client.generate_content(
+                contents=message,
+                generation_config=gemini.types.GenerationConfig(
+                    temperature=temperature,
+                    stop_sequences=stop_sequences,
+                    max_output_tokens=max_tokens,
+                ),
+            )
+
+            # For successful responses, check if we can extract status code
+            if hasattr(response, "response") and hasattr(
+                response.response, "status_code"
+            ):
+                status_code = response.response.status_code
+
+            end_time = datetime.now()
+            response_request_duration = (end_time - start_time).total_seconds() * 1000
+
+            return ModelResponse(
+                content=response.text,
+                input_tokens=self.client.count_tokens(message).total_tokens,
+                output_tokens=response.usage_metadata.candidates_token_count,
+                time_taken_in_ms=response_request_duration,
+                status_code=status_code,
+            )
+        except Exception as e:
+            # Extract status code from Google API errors
+            try:
+                # Google API exceptions might have status_code attribute
+                if hasattr(e, "status_code"):
+                    status_code = e.status_code
+                elif hasattr(e, "response") and hasattr(e.response, "status_code"):
+                    status_code = e.response.status_code
+                # Sometimes errors are included in error.details
+                elif hasattr(e, "details") and isinstance(e.details, list):
+                    for detail in e.details:
+                        if hasattr(detail, "status") and detail.status.isdigit():
+                            status_code = int(detail.status)
+                            break
+            except:
+                pass  # If we can't extract the code, just continue
+
+            # Attach status code to the exception
+            if status_code is not None:
+                e.status_code = status_code
+            raise
 
     def tokenize(self, model: str, message: str) -> List[int]:
         raise NotImplementedError("Tokenization is not supported for Gemini models")

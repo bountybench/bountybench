@@ -265,7 +265,20 @@ const AgentInteractions = ({
               </Button>
             )}
           </>
-        )}
+        ) : null}
+        {isStopping && stopped && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleRestart}
+            startIcon={<RestoreIcon />}
+            size="small"
+          >
+            Restart Resources
+          </Button>
+          )}
+        </>
+      )}
       </Box>
     </Box>
   );
