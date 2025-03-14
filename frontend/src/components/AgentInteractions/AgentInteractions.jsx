@@ -26,17 +26,10 @@ const AgentInteractions = ({
   const [selectedCellId, setSelectedCellId] = useState(null);
   const containerRef = useRef(null);
   const topAnchorRef = useRef(null);
-
-  // Store a map of message toggle operations (sourceId -> targetId)
   const messageVersionMap = useRef(new Map());
-
-  // Flag to prevent automatic bottom scrolling when toggling
   const [isTogglingVersion, setIsTogglingVersion] = useState(false);
-
-  // Simple pass-through function
   const registerMessageRef = useCallback(() => { }, []);
 
-  // Register a toggle operation before it happens
   const registerToggleOperation = useCallback((currentId, targetId, direction) => {
     console.log(`Registering toggle operation: ${currentId} -> ${targetId} (${direction})`);
     messageVersionMap.current.set(currentId, { targetId, direction });
@@ -56,16 +49,13 @@ const AgentInteractions = ({
     };
   }, [isEditing, handleKeyDown, onTriggerNextIteration]);
 
-  // Track the last ID we tried to scroll to
   const lastAttemptedScrollId = useRef(null);
 
-  // Set up isTogglingVersion flag
   useEffect(() => {
     if (lastToggledMessageId) {
       console.log("Setting isTogglingVersion to true");
       setIsTogglingVersion(true);
 
-      // Clear the flag after a longer time to prevent any race conditions
       const clearFlagTimeout = setTimeout(() => {
         console.log("Clearing isTogglingVersion flag");
         setIsTogglingVersion(false);
@@ -75,7 +65,6 @@ const AgentInteractions = ({
     }
   }, [lastToggledMessageId]);
 
-  // Improved scroll effect with direct scrolling (no two-step process)
   useEffect(() => {
     if (!lastToggledMessageId || lastToggledMessageId === lastAttemptedScrollId.current) {
       return;
@@ -95,28 +84,21 @@ const AgentInteractions = ({
     const targetId = toggleInfo.targetId;
     console.log(`Looking for target message with ID: ${targetId}`);
 
-    // Wait for React to finish rendering, then scroll directly to target
     const findAndScrollToTarget = () => {
-      // Look for the correct target element
       let targetElement = document.querySelector(`#message-${targetId}`);
       if (!targetElement) {
         targetElement = document.querySelector(`[data-message-id="${targetId}"]`);
       }
 
       if (targetElement) {
-        console.log("✅ Found target message, scrolling to it:", targetId);
-
-        // Get the container's scroll position and the element's position
         const containerRect = containerRef.current.getBoundingClientRect();
         const elementRect = targetElement.getBoundingClientRect();
 
-        // Calculate desired scroll position (element at top with padding)
-        const padding = 30; // pixels of padding at the top
+        const padding = 30;
         const desiredScrollTop = containerRef.current.scrollTop +
           (elementRect.top - containerRect.top) -
           padding;
 
-        // Perform a smooth scroll directly to the target position
         containerRef.current.scrollTo({
           top: desiredScrollTop,
           behavior: 'smooth'
@@ -132,14 +114,11 @@ const AgentInteractions = ({
         });
       }
 
-      // Clean up the map entry
       messageVersionMap.current.delete(lastToggledMessageId);
     };
 
-    // First attempt after a delay
     const firstAttemptTimeout = setTimeout(findAndScrollToTarget, 300);
 
-    // If the first attempt fails, try again with a longer delay
     const secondAttemptTimeout = setTimeout(() => {
       const targetElement = document.querySelector(`#message-${targetId}`) ||
         document.querySelector(`[data-message-id="${targetId}"]`);
@@ -159,14 +138,11 @@ const AgentInteractions = ({
   // Only scroll to bottom when not toggling and messages update
   useEffect(() => {
     if (!isTogglingVersion && !lastToggledMessageId && messagesEndRef.current) {
-      console.log("No toggle in progress, scrolling to bottom");
       const timeoutId = setTimeout(() => {
         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
       }, 100);
 
       return () => clearTimeout(timeoutId);
-    } else {
-      console.log("Skipping auto-scroll to bottom because toggle is in progress");
     }
   }, [phaseMessages, lastToggledMessageId, isTogglingVersion]);
 
