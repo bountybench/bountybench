@@ -13,7 +13,6 @@ from backend.schema import (
     StartWorkflowInput,
     UpdateInteractiveModeInput,
 )
-
 from resources.model_resource.services.api_key_service import check_api_key_validity
 
 
