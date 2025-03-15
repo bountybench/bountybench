@@ -31,7 +31,7 @@ async def get_api_key(request: Request):
         "AZURE_OPENAI_ENDPOINT",
         "ANTHROPIC_API_KEY",
         "GOOGLE_API_KEY",
-        "TOGETHER_API_KEY"
+        "TOGETHER_API_KEY",
     ]
 
     # Add specific OS environment variables if they're not in .env
