@@ -92,11 +92,6 @@ class WorkflowRunner:
         parser.add_argument(
             "--interactive", action="store_true", help="Enable interactive mode"
         )
-        parser.add_argument(
-            "--use_agent_exploit",
-            action="store_true",
-            help="Use agent-generated exploit (for exploit_and_patch_workflow, detect_and_patch_workflow)",
-        )
 
         return parser
 
