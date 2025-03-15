@@ -311,7 +311,8 @@ const AgentMessage = ({
                       display: 'flex',
                       justifyContent: 'center',
                       p: 0,
-                      mt: 1
+                      mt: 1,
+                      mb: 2
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
