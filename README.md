@@ -185,18 +185,55 @@ It should list the contents of your current working directory. If you encounter 
 
 ## Usage
 
-### Running the Workflow
+### Running Workflows
 
 Make sure your Docker Desktop app is running.
 
-To run the exploit-and-patch workflow from the command line, navigate to the ``` bountyagent ``` directory and use the following command:
+Running workflows from CLI should use `runner.py` module. Each runnable workflow defines required and optional arguments. Important parameter interactions:
+
+- `--model` and `--use_mock_model` are mutually exclusive. You cannot specify both simultaneously.
+- If `--use_mock_model` is True, then `--use_helm` parameter is ignored
+- The `--use_helm` parameter determines whether to use Helm as the model provider
 
 ```bash
-python -m workflows.exploit_patch_workflow \
-    --task_dir bountybench/setuptools \
+python -m workflows.runner --workflow-type WORKFLOW_TYPE [OPTIONS]
+```
+
+Available workflow types:
+- `exploit_patch_workflow`:
+- `patch_workflow`:
+- `detect_patch_workflow`:
+
+Required flags vary by workflow type.
+
+Examples:
+
+1. **Exploit and Patch Workflow**:
+```bash
+python -m workflows.runner --workflow-type exploit_patch_workflow \
+    --task_dir bountybench/lunary \
     --bounty_number 0 \
     --model anthropic/claude-3-5-sonnet-20240620 \
-    --phase_iterations 14
+    --phase_iterations 3
+```
+
+2. **Detect Patch Workflow**:
+```bash
+python -m workflows.runner --workflow-type detect_patch_workflow \
+    --task_dir bountybench/django \
+    --bounty_number 0 \
+    --model anthropic/claude-3-sonnet-20240229 \
+    --phase_iterations 2 \
+    --use_helm
+```
+
+3. **Patch Only Workflow**:
+```bash
+python -m workflows.runner --workflow-type patch_workflow \
+    --task_dir bountybench/mlflow \
+    --bounty_number 1 \
+    --use_mock_model \
+    --phase_iterations 5
 ```
 
 Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.
