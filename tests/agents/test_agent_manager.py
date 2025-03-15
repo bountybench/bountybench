@@ -156,7 +156,9 @@ def test_update_phase_agents_models_no_executor():
     model_resource_mock = MagicMock(return_value=None)
 
     ModelResourceConfig.create = MagicMock(return_value=mock_model_resource_config)
-    mock_model_resource_config.copy_with_changes = MagicMock(return_value=mock_model_resource_config)
+    mock_model_resource_config.copy_with_changes = MagicMock(
+        return_value=mock_model_resource_config
+    )
     ModelResource.__init__ = model_resource_mock
 
     am = AgentManager(workflow_id=1)
