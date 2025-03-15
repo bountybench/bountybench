@@ -97,7 +97,6 @@ class PatchAgent(BaseAgent):
 
         if git_diff(self.codebase):
             self._log("Codebase changes detected")
-            # Note: This is a hacky solution only for Demo purpose.
             docker_output = await self.run_exploit()
 
             exit_code = docker_output.additional_metadata["exit_code"]
