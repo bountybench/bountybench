@@ -5,21 +5,21 @@ from fastapi.testclient import TestClient
 
 from backend.main import create_app
 from tests.ui_backend.fake_workflows import (
-    FakeChatWorkflow,
     FakeDetectPatchWorkflow,
     FakeExploitPatchWorkflow,
     FakePatchWorkflow,
 )
+
+NUM_WORKFLOWS = 3
 
 
 # Fixture for the FastAPI app and test client
 @pytest.fixture(scope="module")
 def test_app():
     fake_workflow_factory = {
-        "Detect Workflow": FakeDetectPatchWorkflow,
-        "Exploit and Patch Workflow": FakeExploitPatchWorkflow,
+        "Detect Patch Workflow": FakeDetectPatchWorkflow,
+        "Exploit Patch Workflow": FakeExploitPatchWorkflow,
         "Patch Workflow": FakePatchWorkflow,
-        "Chat Workflow": FakeChatWorkflow,
     }
     app = create_app(workflow_factory=fake_workflow_factory)
     return app
@@ -37,9 +37,11 @@ def test_list_workflows(client):
     data = response.json()
     assert "workflows" in data, "Response should contain 'workflows' key"
     assert isinstance(data["workflows"], list), "'workflows' should be a list"
-    assert len(data["workflows"]) == 4, "There should be exactly 4 workflows listed"
+    assert (
+        len(data["workflows"]) == NUM_WORKFLOWS
+    ), f"There should be exactly {NUM_WORKFLOWS} workflows listed"
 
-    expected_ids = {"detect_patch", "exploit_patch", "patch", "chat"}
+    expected_ids = {"detect_patch", "exploit_patch", "patch"}
     returned_ids = {wf["id"] for wf in data["workflows"]}
     assert returned_ids == expected_ids, "Workflow IDs do not match expected IDs"
 
@@ -47,7 +49,7 @@ def test_list_workflows(client):
 def test_start_workflow_success(client):
     """Test starting a workflow with valid data."""
     payload = {
-        "workflow_name": "Detect Workflow",
+        "workflow_name": "Detect Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
         "vulnerability_type": "",
@@ -91,27 +93,6 @@ def test_start_workflow_invalid_name(client):
     assert (
         "Unknown Workflow" in data["error"]
     ), "Error message should indicate unknown workflow"
-
-
-@pytest.fixture
-def started_chat_workflow(client):
-    """Fixture to create a started chat workflow for testing."""
-    payload = {
-        "workflow_name": "Chat Workflow",
-        "task_dir": "/path/to/tasks",
-        "bounty_number": "456",
-        "vulnerability_type": "",
-        "interactive": True,
-        "iterations": 2,
-        "model": "test/model",
-        "use_helm": False,
-        "use_mock_model": True,
-        "max_input_tokens": 4096,
-        "max_output_tokens": 2048,
-    }
-    response = client.post("/workflow/start", json=payload)
-    assert response.status_code == 200
-    return response.json()["workflow_id"]
 
 
 @pytest.fixture
@@ -165,9 +146,9 @@ def test_run_message_workflow_not_found(client):
 
 @pytest.fixture
 def started_detect_workflow(client):
-    """Fixture to create a started detect workflow for testing."""
+    """Fixture to create a started detect patch workflow for testing."""
     payload = {
-        "workflow_name": "Detect Workflow",
+        "workflow_name": "Detect Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "654",
         "vulnerability_type": "",
@@ -220,9 +201,9 @@ def test_update_interactive_mode_missing_field(client, started_detect_workflow):
     ], "Error location should point to 'interactive' field"
 
 
-def test_last_message_success(client, started_chat_workflow):
+def test_last_message_success(client, started_patch_workflow):
     """Test retrieving the last message of an existing workflow."""
-    response = client.get(f"/workflow/{started_chat_workflow}/last-message")
+    response = client.get(f"/workflow/{started_patch_workflow}/last-message")
     assert response.status_code == 200, "Expected status code 200 for last message"
     data = response.json()
     assert "message_type" in data, "Response should contain 'message_type'"
@@ -249,7 +230,7 @@ def test_last_message_workflow_not_found(client):
 def test_start_workflow_missing_fields(client):
     """Test starting a workflow with missing required fields."""
     payload = {
-        "workflow_name": "Detect Workflow",
+        "workflow_name": "Detect Patch Workflow",
         # "task_dir" is missing
         "bounty_number": "123",
         "vulnerability_type": "",
@@ -293,7 +274,7 @@ def test_workflow_restart_creates_new_workflow(client):
     and starting a new workflow creates a new instance with a different ID.
     """
     start_payload = {
-        "workflow_name": "Exploit and Patch Workflow",
+        "workflow_name": "Exploit Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "999",
         "vulnerability_type": "",
@@ -306,7 +287,7 @@ def test_workflow_restart_creates_new_workflow(client):
     }
 
     new_payload = {
-        "workflow_name": "Exploit and Patch Workflow",
+        "workflow_name": "Exploit Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "100",
         "vulnerability_type": "",
@@ -399,7 +380,7 @@ def test_stopping_multiple_workflows(client):
     while keeping them in active workflows.
     """
     payload_1 = {
-        "workflow_name": "Exploit and Patch Workflow",
+        "workflow_name": "Exploit Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "101",
         "vulnerability_type": "",
@@ -413,7 +394,7 @@ def test_stopping_multiple_workflows(client):
     }
 
     payload_2 = {
-        "workflow_name": "Detect Workflow",
+        "workflow_name": "Detect Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "102",
         "vulnerability_type": "",
@@ -466,7 +447,7 @@ def test_restarting_workflow_with_same_bounty_number(client):
     Test that stopping a workflow and restarting it with the same bounty number does not overwrite the original workflow.
     """
     payload = {
-        "workflow_name": "Exploit and Patch Workflow",
+        "workflow_name": "Exploit Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "999",
         "vulnerability_type": "",
@@ -551,7 +532,7 @@ async def test_websocket_connection_success(client):
     """Tests connecting to a workflow via websocket."""
     # Setup a known workflow
     start_payload = {
-        "workflow_name": "Detect Workflow",
+        "workflow_name": "Detect Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
         "vulnerability_type": "",
@@ -577,7 +558,7 @@ async def test_websocket_connection_success(client):
 async def test_websocket_receive_status_update(client):
     """Test receiving status updates from the websocket after connection."""
     start_payload = {
-        "workflow_name": "Detect Workflow",
+        "workflow_name": "Detect Patch Workflow",
         "task_dir": "/path/to/tasks",
         "bounty_number": "123",
         "vulnerability_type": "",
