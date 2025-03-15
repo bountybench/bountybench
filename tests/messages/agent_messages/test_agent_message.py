@@ -147,3 +147,98 @@ class TestAgentMessage(unittest.TestCase):
         self.assertEqual(log_dict["message"], "test_msg")
         self.assertEqual(log_dict["action_messages"], [{"action": "msg"}])
         action_message.to_log_dict.assert_called_once()
+
+    def test_iteration_preserved_when_editing(self):
+        """
+        Test that the iteration is preserved when editing an agent message.
+        """
+        agent_manager = MagicMock(spec=AgentManager)
+        resource_manager = MagicMock(spec=ResourceManager)
+        message_handler = MessageHandler(agent_manager, resource_manager)
+
+        # Create an agent message with a specific iteration
+        agent_message = AgentMessage("test_agent_id", "original message")
+        agent_message.set_iteration(3)
+
+        # Edit the message
+        edited_message = asyncio.run(
+            message_handler.edit_message(agent_message, "edited message")
+        )
+
+        # Assert that the iteration is preserved in the edited message
+        self.assertEqual(edited_message.iteration, 3)
+        self.assertEqual(edited_message.message, "edited message")
+        self.assertIsInstance(edited_message, AgentMessage)
+
+    def test_editing_and_running_preserves_iterations(self):
+        """
+        Test that when editing messages and running them:
+        1. Edited messages preserve their iterations
+        2. When running a message, its next message gets iteration+1
+        3. Iteration is preserved through the version chain
+        """
+
+        # Create async mock for agent run method
+        async def create_next_message(*args, **kwargs):
+            # Extract the original message from args (expected as a list)
+            orig_message = args[0][0]
+            # Create a new message with a modified content but preserve agent_id
+            result = AgentMessage(
+                orig_message.agent_id, f"next from {orig_message.message}"
+            )
+            return result
+
+        mock_run = MagicMock(side_effect=create_next_message)
+
+        # Set up mocks
+        mock_agent = MagicMock()
+        mock_agent.run = mock_run
+        agent_manager = MagicMock(spec=AgentManager)
+        agent_manager.get_agent.return_value = mock_agent
+        resource_manager = MagicMock(spec=ResourceManager)
+        message_handler = MessageHandler(agent_manager, resource_manager)
+
+        # Create message chain: message_1 (iteration 1) -> message_2 (iteration 2)
+        message_1 = AgentMessage("test_agent_id", "message 1")
+        message_1.set_iteration(1)
+
+        # Create next placeholder
+        next_message = AgentMessage("test_agent_id", "placeholder")
+        next_message.set_iteration(2)
+        message_1.set_next(next_message)
+
+        # Run to create message_2
+        message_2 = asyncio.run(message_handler.run_message(message_1))
+
+        # Verify message_2 has iteration 2
+        self.assertEqual(message_2.iteration, 2)
+        self.assertEqual(message_2.message, "next from message 1")
+
+        # Now edit message_1 to create message_1*
+        message_1_edit = asyncio.run(
+            message_handler.edit_message(message_1, "edited message 1")
+        )
+
+        # Verify message_1* preserved iteration 1
+        self.assertEqual(message_1_edit.iteration, 1)
+
+        # Run message_1* to create message_2*
+        message_2_star = asyncio.run(message_handler.run_message(message_1_edit))
+
+        # Verify message_2* has iteration 2
+        self.assertEqual(message_2_star.iteration, 2)
+        self.assertEqual(message_2_star.message, "next from edited message 1")
+
+        # Edit message_2 to create message_2**
+        message_2_star_star = asyncio.run(
+            message_handler.edit_message(message_2, "edited message 2")
+        )
+
+        # Verify message_2** preserved iteration 2
+        self.assertEqual(message_2_star_star.iteration, 2)
+
+        # Verify version links
+        self.assertIs(message_1.version_next, message_1_edit)
+        self.assertIs(message_1_edit.version_prev, message_1)
+        self.assertIs(message_2.version_next, message_2_star_star)
+        self.assertIs(message_2_star_star.version_prev, message_2)
