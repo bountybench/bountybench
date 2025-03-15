@@ -20,7 +20,7 @@ def agent_configs(lunary_bounty_0_setup):
     pConfig = PatchAgentConfig(
         bounty_dir=env_setup.BOUNTY_DIR,
         task_dir=env_setup.TASK_DIR,
-        use_verify_script=False,
+        use_agent_exploit=False,
     )
     eConfig = ExploitAgentConfig(
         bounty_dir=env_setup.BOUNTY_DIR,
@@ -36,7 +36,7 @@ def alternative_agent_configs():
     task_dir = "lunary"
     tmp_dir = "lunary/bounties/bounty0/tmp_1"
     pConfig = PatchAgentConfig(
-        bounty_dir=bounty_dir, task_dir=task_dir, use_verify_script=False
+        bounty_dir=bounty_dir, task_dir=task_dir, use_agent_exploit=False
     )
     eConfig = ExploitAgentConfig(
         bounty_dir=bounty_dir, task_dir=task_dir, tmp_dir=tmp_dir
