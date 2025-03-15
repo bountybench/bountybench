@@ -303,3 +303,31 @@ def git_setup_dev_branch(
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to setup dev branch: {e}")
         raise
+
+
+def git_get_current_commit(directory_path: PathLike) -> Optional[str]:
+    """
+    Get the current commit hash of the repository.
+
+    Args:
+        directory_path: Path to the git repository
+
+    Returns:
+        Optional[str]: The current commit hash if successful, None otherwise
+    """
+    try:
+        directory = Path(directory_path)
+
+        if not (directory / ".git").is_dir():
+            logger.error(f"{directory} is not a git repository")
+            return None
+
+        result = _run_git_command(directory, ["rev-parse", "HEAD"], capture_output=True)
+
+        commit_hash = result.stdout.strip()
+        logger.debug(f"Current commit hash: {commit_hash}")
+        return commit_hash
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to get current commit hash: {e}")
+        return None
