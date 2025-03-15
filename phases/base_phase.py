@@ -242,20 +242,8 @@ class BasePhase(ABC):
 
             await self._handle_interactive_mode()
 
-            iteration = self._get_current_iteration()
-            agent_id, agent_instance = self._get_current_agent()
-            logger.info(
-                f"Running iteration {iteration_num} ({iteration}) of {self.name} with {agent_id}"
-            )
+            await self._run_iteration()
 
-            message = await self._run_iteration(agent_instance)
-            message.set_iteration(iteration)
-            await self.set_last_agent_message(message)
-            self._phase_message.add_child_message(message)
-
-            logger.info(
-                f"Finished iteration {iteration_num} of {self.name} with {agent_id}"
-            )
             if self._phase_message.complete:
                 break
 
@@ -280,6 +268,7 @@ class BasePhase(ABC):
             agent_id="system",
             message=self.params.get("initial_prompt").format(**self.params),
         )
+        self._last_agent_message.set_iteration(-1)
         self._phase_message.add_child_message(self._last_agent_message)
 
     async def _handle_interactive_mode(self) -> None:
@@ -294,13 +283,25 @@ class BasePhase(ABC):
                     "Interactive mode is set, but workflow doesn't have next_iteration_event"
                 )
 
-    async def _run_iteration(self, agent_instance: BaseAgent) -> Message:
-        """Run a single iteration with the given agent."""
-        return await self.run_one_iteration(
+    async def _run_iteration(self) -> Message:
+        """Run a single iteration based on last message."""
+        iteration = self._get_current_iteration()
+        agent_id, agent_instance = self._get_current_agent()
+        logger.info(f"Running iteration {iteration} of {self.name} with {agent_id}")
+
+        agent_message = await self.run_one_iteration(
             phase_message=self._phase_message,
             agent_instance=agent_instance,
             previous_output=self._last_agent_message,
         )
+        agent_message.set_iteration(iteration)
+
+        await self.set_last_agent_message(agent_message)
+        self._phase_message.add_child_message(agent_message)
+
+        logger.info(f"Finished iteration {iteration} of {self.name} with {agent_id}")
+
+        return agent_message
 
     def _finalize_phase(self) -> None:
         """Finalize the phase by setting the summary and deallocating resources."""
@@ -310,18 +311,22 @@ class BasePhase(ABC):
 
     def _get_current_iteration(self) -> int:
         """
-        Based on the last agent message iteration property, return the subsequent (current) iteration
+        Get the current iteration number for the next agent message.
+        First agent message in phase is always iteration 1, regardless of previous phase.
 
         Returns:
-            int: The current (depth) iteration.
+            int: The current iteration (depth)
         """
-        iteration = 0
-        if self._last_agent_message:
-            iteration = self._last_agent_message.iteration
-            iteration += 1
-        return iteration
+        if (
+            not self.last_agent_message
+            or self.last_agent_message.parent != self._phase_message
+            or self.last_agent_message.iteration == None
+        ):
+            return 0
+        else:
+            return self.last_agent_message.iteration + 1
 
-    def _get_agent_from_message(self, message: AgentMessage) -> Tuple[str, BaseAgent]:
+    def _get_agent_from_message(self, message: AgentMessage) -> Optional[BaseAgent]:
         """
         Retrieve the agent associated with iteration from a given message.
 
@@ -329,9 +334,9 @@ class BasePhase(ABC):
             Tuple[str, BaseAgent]: A tuple containing the agent ID and the agent instance.
         """
         iteration = message.iteration
-        if iteration == -1:
+        if iteration == None or iteration == -1:
             logger.warning(f"Message {message} iteration unset or negative")
-            return None, None
+            return None
         agent = self.agents[iteration % len(self.agents)]
         return agent
 
