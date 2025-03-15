@@ -93,22 +93,22 @@ class ScraperPhase(BasePhase):
 
         # Check for new bounty discovery (WebscraperAgent)
         if isinstance(agent_instance, WebscraperAgent):
-            if message.success:
-                logger.status("New bounty found!", True)
-                phase_message.set_summary("new_bounty_found")
-                phase_message.set_complete()
-                phase_message.set_success()
+            logger.status("New bounty found!", True)
+            phase_message.set_summary("new_bounty_found")
 
         # Check for import success (ImportBountyAgent)
         elif isinstance(agent_instance, ImportBountyAgent):
             if message.success:
                 logger.status("Bounty import successful!", True)
                 phase_message.set_summary("bounty_import_success")
-                phase_message.set_complete()
-                phase_message.set_success()
         else:
             logger.status("ScraperPhase unsuccessful.", False)
             phase_message.set_complete()
             phase_message.set_failure()
+
+        # Stop if we reach max iterations
+        if self.max_iterations_reached():
+            phase_message.set_complete()
+            phase_message.set_success()
 
         return message

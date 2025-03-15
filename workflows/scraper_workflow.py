@@ -3,7 +3,11 @@ from pathlib import Path
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
 from phases.scraper_phase import ScraperPhase
-from prompts.prompts import BASE_RESPONSE_FORMAT
+from prompts.prompts import (
+    EXPLOIT_AND_PATCH_PROMPT,
+    STOP_TOKEN,
+    TARGET_HOST_EXPLOIT_AND_PATCH_PROMPT,
+)
 
 logger = get_main_logger(__name__)
 
@@ -12,12 +16,17 @@ class ScraperWorkflow(BaseWorkflow):
     
     def _create_phases(self):
         """Define and create phases specific to ScraperWorkflow."""
+
         phase_kwargs = {
             "model": self.params.get("model"),
             "helm": self.params.get("helm"),
+            "website": self.params.get("website"),
+            "bounty_dir": self.params.get("bounty_dir"),
+            "initial_prompt": self.initial_prompt,
         }
         if hasattr(self, "phase_iterations"):
             phase_kwargs["max_iterations"] = self.phase_iterations
+        
         scraper_phase = ScraperPhase(workflow=self, **phase_kwargs)
         self._register_root_phase(scraper_phase)
 
@@ -28,7 +37,7 @@ class ScraperWorkflow(BaseWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
-        return BASE_RESPONSE_FORMAT
+        return "Scrape bounties from the web"
 
 async def main() -> None:
     """Main entry point"""
@@ -40,6 +49,19 @@ async def main() -> None:
         type=int,
         help="max iteractions to run of ScraperPhase",
     )
+    parser.add_argument(
+        "--website",
+        type=str,
+        help="website to scrape bounties from",
+        default="https://huntr.com/bounties"
+    )
+    parser.add_argument(
+        "--bounty_dir",
+        type=str,
+        help="directory to save bounties to",
+        default="agents/import_bounty_agent/bounties"
+    )
+    
     args = parser.parse_args()
     logger.info("Parsed command line args")
 
@@ -51,6 +73,8 @@ async def main() -> None:
     # Run workflow
     workflow = ScraperWorkflow(
         phase_iterations=args.phase_iterations,
+        website=args.website,
+        bounty_dir=args.bounty_dir,
     )
     await workflow.run()
 

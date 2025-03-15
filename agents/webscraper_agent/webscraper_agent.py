@@ -4,6 +4,7 @@ from typing import List
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.agent_message import AgentMessage
+from messages.agent_messages.import_bounty_agent_message import ImportBountyMessage
 from messages.agent_messages.webscraper_agent_message import WebscraperMessage
 from utils.logger import get_main_logger
 
@@ -104,9 +105,11 @@ class WebscraperAgent(BaseAgent):
         prev_agent_message = messages[0]
         last_bounty_link = None
 
-        if prev_agent_message and prev_agent_message.bounty_links:
-            last_bounty_link = prev_agent_message.bounty_links[0]
-            logger.info(f"Last bounty link: {last_bounty_link}")
+        # If the previous message is an ImportBountyMessage, use the bounty_links
+        if prev_agent_message and isinstance(prev_agent_message, ImportBountyMessage):
+            if prev_agent_message.bounty_links:
+                last_bounty_link = prev_agent_message.bounty_links[0]
+                logger.info(f"Last bounty link: {last_bounty_link}")
         else:
             logger.info("No previous bounty links found.")
 
