@@ -244,42 +244,45 @@ const AgentMessage = ({
                       >
                         <KeyboardArrowRightIcon />
                       </Button>
-
-                      <>
-                        <Typography variant="caption" sx={{ mx: 1 }}>
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          {/* Arrow Buttons */}
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            <IconButton
-                              aria-label="arrow back"
-                              disabled={!message?.version_prev}
-                              sx={{ color: 'black' }}
-                              size="small"
-                              onClick={handlePrevVersion}
-                            >
-                              <ArrowBackIcon />
-                            </IconButton>
-                            <IconButton
-                              aria-label="arrow forward"
-                              disabled={!message?.version_next}
-                              sx={{ color: 'black' }}
-                              size="small"
-                              onClick={handleNextVersion}
-                            >
-                              <ArrowForwardIcon />
-                            </IconButton>
-                          </Box>
-
-                          {/* Version Number */}
-                          {(message?.version_next || message?.version_prev) && (
-                            <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
-                              {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
-                            </Typography>
-                          )}
-                        </Box>
-                      </>
                     </Box>
+
+                    {(message?.version_next || message?.version_prev) && (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          borderTop: 'none',
+                          p: 0,
+                          mt: 0
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <IconButton
+                            aria-label="arrow back"
+                            disabled={!message?.version_prev}
+                            sx={{ color: 'black', p: 0.5 }}
+                            size="small"
+                            onClick={handlePrevVersion}
+                          >
+                            <ArrowBackIcon fontSize="small" />
+                          </IconButton>
+
+                          <Typography variant="caption" sx={{ mx: 1, fontWeight: 'bold', color: 'black' }}>
+                            {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
+                          </Typography>
+
+                          <IconButton
+                            aria-label="arrow forward"
+                            disabled={!message?.version_next}
+                            sx={{ color: 'black', p: 0.5 }}
+                            size="small"
+                            onClick={handleNextVersion}
+                          >
+                            <ArrowForwardIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    )}
                   </Box>
                 )}
               </Box>
@@ -302,40 +305,42 @@ const AgentMessage = ({
                   ))}
                 </Box>
 
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                  <Typography variant="caption" sx={{ mx: 1 }}>
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    {/* Modified Arrow Buttons */}
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                {(message?.version_next || message?.version_prev) && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      p: 0,
+                      mt: 1
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <IconButton
                         aria-label="arrow back"
                         disabled={!message?.version_prev}
-                        sx={{ color: 'black' }}
+                        sx={{ color: 'black', p: 0.5 }}
                         size="small"
                         onClick={handlePrevVersion}
                       >
-                        <ArrowBackIcon />
+                        <ArrowBackIcon fontSize="small" />
                       </IconButton>
+
+                      <Typography variant="caption" sx={{ mx: 1, fontWeight: 'bold', color: 'black' }}>
+                        {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
+                      </Typography>
+
                       <IconButton
                         aria-label="arrow forward"
                         disabled={!message?.version_next}
-                        sx={{ color: 'black' }}
+                        sx={{ color: 'black', p: 0.5 }}
                         size="small"
                         onClick={handleNextVersion}
                       >
-                        <ArrowForwardIcon />
+                        <ArrowForwardIcon fontSize="small" />
                       </IconButton>
                     </Box>
-
-                    {/* Version Number */}
-                    {(message?.version_next || message?.version_prev) && (
-                      <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
-                        {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
-                      </Typography>
-                    )}
                   </Box>
-                </Box>
+                )}
               </Box>
             )}
           </Collapse>
