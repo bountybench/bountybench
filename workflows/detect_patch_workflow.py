@@ -13,7 +13,7 @@ class DetectPatchWorkflow(PatchWorkflow):
 
     default_values = {
         "interactive": False,
-        "use_helm": True,
+        "use_helm": False,
         "use_mock_model": False,
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
