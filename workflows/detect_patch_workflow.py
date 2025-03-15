@@ -11,16 +11,6 @@ logger = get_main_logger(__name__)
 class DetectPatchWorkflow(PatchWorkflow):
     """Workflow for detecting vulnerabilities"""
 
-    required_args = ["task_dir", "bounty_number", "model", "phase_iterations"]
-    optional_args = [
-        "interactive",
-        "use_helm",
-        "use_mock_model",
-        "max_input_tokens",
-        "max_output_tokens",
-        "vulnerability_type",
-    ]
-
     default_values = {
         "interactive": False,
         "use_helm": True,

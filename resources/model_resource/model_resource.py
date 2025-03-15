@@ -41,6 +41,11 @@ class ModelResourceConfig(BaseResourceConfig):
 
     @classmethod
     def create(cls, **kwargs):
+        # If using a mock model but no model name provided, use a default name
+        if kwargs.get("use_mock_model", False) and (
+            "model" not in kwargs or kwargs.get("model") is None
+        ):
+            kwargs["model"] = "mock-model"
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
 
     def validate(self) -> None:

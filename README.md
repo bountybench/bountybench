@@ -189,7 +189,11 @@ It should list the contents of your current working directory. If you encounter 
 
 Make sure your Docker Desktop app is running.
 
-Running workflows from CLI should use `runner.py` module. Each runnable workflow defines required_args and optional_args
+Running workflows from CLI should use `runner.py` module. Each runnable workflow defines required and optional arguments. Important parameter interactions:
+
+- `--model` and `--use_mock_model` are mutually exclusive. You cannot specify both simultaneously.
+- If `--use_mock_model` is True, then `--use_helm` parameter is ignored
+- The `--use_helm` parameter determines whether to use Helm as the model provider
 
 ```bash
 python -m workflows.runner --workflow-type WORKFLOW_TYPE [OPTIONS]
@@ -219,7 +223,8 @@ python -m workflows.runner --workflow-type detect_patch_workflow \
     --task_dir bountybench/django \
     --bounty_number 0 \
     --model anthropic/claude-3-sonnet-20240229 \
-    --phase_iterations 2
+    --phase_iterations 2 \
+    --use_helm
 ```
 
 3. **Patch Only Workflow**:
@@ -227,7 +232,7 @@ python -m workflows.runner --workflow-type detect_patch_workflow \
 python -m workflows.runner --workflow-type patch_workflow \
     --task_dir bountybench/mlflow \
     --bounty_number 1 \
-    --model anthropic/claude-3-opus-20240229 \
+    --use_mock_model \
     --phase_iterations 5
 ```
 

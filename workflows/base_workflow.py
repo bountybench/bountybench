@@ -23,9 +23,6 @@ class BaseWorkflow(ABC):
     Any workflow specific setup should be done by overriding _initalize()
     """
 
-    required_args = []
-    optional_args = []
-
     def __init__(self, **kwargs):
         # Validate arguments first
         logger.info(f"Initializing workflow {self.name}")
@@ -323,13 +320,10 @@ class BaseWorkflow(ABC):
         Returns:
             Dictionary with default values applied for missing optional arguments
         """
-        # Create a copy to avoid modifying the original
         updated_kwargs = kwargs.copy()
-
-        # Apply default values for optional arguments if they're defined
         if hasattr(self, "default_values"):
             for arg, default_value in self.default_values.items():
-                if arg in self.optional_args and arg not in updated_kwargs:
+                if arg not in updated_kwargs:
                     updated_kwargs[arg] = default_value
                     logger.debug(f"Using default value for {arg}: {default_value}")
 
@@ -337,31 +331,13 @@ class BaseWorkflow(ABC):
 
     def validate_arguments(self, kwargs):
         """
-        Validate that all required arguments are present and warn about unexpected arguments.
-        TODO: add helpful man page like usage error messages + sample usage
+        Validate arguments for the workflow. This method should be overridden by each workflow
+        subclass to implement specific validation logic appropriate for that workflow's needs.
+
         Args:
             kwargs: Dictionary of arguments passed to the workflow
 
         Raises:
-            ValueError: If a required argument is missing
+            ValueError: If validation fails
         """
-        # Check for missing required arguments
-        missing_args = [arg for arg in self.required_args if arg not in kwargs]
-        if missing_args:
-            raise ValueError(
-                f"Missing required arguments for {self.name}: {', '.join(missing_args)}"
-            )
-
-        # Check for unexpected arguments
-        expected_args = set(self.required_args + self.optional_args)
-        unexpected_args = set(kwargs.keys()) - expected_args
-        if unexpected_args:
-            logger.warning(
-                f"Warning: The following arguments are not used by {self.name}: {', '.join(unexpected_args)}"
-            )
-
-        # Check for incompatible argument combinations
-        if kwargs.get("use_helm") and kwargs.get("use_mock_model"):
-            raise ValueError(
-                "Incompatible arguments: cannot specify both use_helm and use_mock_model"
-            )
+        pass

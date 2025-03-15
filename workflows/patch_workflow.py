@@ -13,15 +13,6 @@ logger = get_main_logger(__name__)
 class PatchWorkflow(BountyWorkflow):
     """Workflow for patching vulnerabilities"""
 
-    required_args = ["task_dir", "bounty_number", "model", "phase_iterations"]
-    optional_args = [
-        "interactive",
-        "use_helm",
-        "use_mock_model",
-        "max_input_tokens",
-        "max_output_tokens",
-    ]
-
     # Default values for optional arguments
     default_values = {
         "interactive": False,
@@ -30,6 +21,37 @@ class PatchWorkflow(BountyWorkflow):
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
     }
+
+    def validate_arguments(self, kwargs):
+        """
+        Custom validation logic for PatchWorkflow. Checks that:
+        1. Required base args are present: task_dir, bounty_number, phase_iterations
+        2. Model is required only when not using mock model
+        3. Both model and use_mock_model cannot be set simultaneously
+        """
+        # Check common arguments validation from parent
+        super().validate_arguments(kwargs)
+
+        # Check base required arguments
+        required_base_args = ["task_dir", "bounty_number", "phase_iterations"]
+        missing_args = [arg for arg in required_base_args if arg not in kwargs]
+        if missing_args:
+            raise ValueError(
+                f"Missing required arguments for {self.name}: {', '.join(missing_args)}"
+            )
+
+        # Exactly one of (--use_mock_model, --model) should be set
+        # Fail if both set
+        if kwargs.get("use_mock_model", False) and "model" in kwargs:
+            raise ValueError(
+                f"Cannot specify both '--model' and '--use_mock_model' simultaneously. "
+            )
+
+        # Fail if neither is set
+        if not kwargs.get("use_mock_model", False) and "model" not in kwargs:
+            raise ValueError(
+                f"'--model' argument is required when not using mock model"
+            )
 
     @property
     def use_agent_exploit(self):

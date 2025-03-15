@@ -9,7 +9,19 @@ logger = get_main_logger(__name__)
 
 
 class BountyWorkflow(BaseWorkflow, ABC):
-    required_args = ["task_dir", "bounty_number"]
+    def validate_arguments(self, kwargs):
+        """
+        Base validation for all bounty workflows
+        """
+        super().validate_arguments(kwargs)
+
+        # All bounty workflows require task_dir and bounty_number
+        required_base_args = ["task_dir", "bounty_number"]
+        missing_args = [arg for arg in required_base_args if arg not in kwargs]
+        if missing_args:
+            raise ValueError(
+                f"Missing required arguments for {self.name}: {', '.join(missing_args)}"
+            )
 
     def _initialize(self):
         self.task_dir = self.params["task_dir"]
