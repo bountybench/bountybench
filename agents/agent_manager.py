@@ -79,9 +79,19 @@ class AgentManager:
                 logger.info(
                     f"Updating agent: {agent}, {agent.resources.model.to_dict()}"
                 )
-                resource_config = ModelResourceConfig.create(model=new_model)
-                resource = ModelResource("model", resource_config)
-                agent.resources.model = resource
+                # If a model resource exist, only need to update the model name
+                # resource_manager already handles resource registration
+                if agent.resources.model:
+                    existing_model_name = agent.resources.model.model
+                    logger.info(
+                        f"Updating agent {agent_id} from {existing_model_name} to {new_model}"
+                    )
+                    agent.resources.model.model = new_model
+                else:
+                    resource_config = ModelResourceConfig.create(model=new_model)
+                    resource = ModelResource("model", resource_config)
+                    agent.resources.model = resource
+                    
                 logger.info(
                     f"Updated agent: {agent}, {agent.resources.model.to_dict()}"
                 )
@@ -95,17 +105,18 @@ class AgentManager:
                 if not agent.resources.has_bound(ResourceType.MODEL):
                     raise AttributeError("Agent does not have a 'model' attribute")
 
-                existing_model_name = agent.resources.model.model
-                logger.info(
-                    f"Updating agent {agent_id} to use_mock_model={use_mock_model}"
-                )
-
-                resource_config = ModelResourceConfig.create(
-                    model=existing_model_name, use_mock_model=use_mock_model
-                )
-
-                resource = ModelResource("model", resource_config)
-                agent.resources.model = resource
+                if agent.resources.model:
+                    existing_model_name = agent.resources.model.model
+                    logger.info(
+                        f"Updating agent {agent_id} to use_mock_model={use_mock_model}"
+                    )
+                    agent.resources.model.use_mock_model = use_mock_model
+                else:
+                    resource_config = ModelResourceConfig.create(
+                        model=existing_model_name, use_mock_model=use_mock_model
+                    )
+                    resource = ModelResource("model", resource_config)
+                    agent.resources.model = resource
 
                 logger.info(
                     f"Agent {agent_id} updated: {agent.resources.model.to_dict()}"

@@ -81,6 +81,7 @@ class InteractiveController:
         self.workflow.params["model"] = new_model_name
         self.resource_manager.update_model(new_model_name)
         self.agent_manager.update_phase_agents_models(new_model_name)
+        logger.info(f"Workflow model changed to {new_model_name}")
 
     async def set_mock_model(self, use_mock_model: bool):
         self.workflow.use_mock_model = use_mock_model
