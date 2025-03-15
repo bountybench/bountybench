@@ -38,8 +38,7 @@ spec:
       - name: dind-storage
         emptyDir: {}
       - name: logs
-        persistentVolumeClaim:
-          claimName: logs-data
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
