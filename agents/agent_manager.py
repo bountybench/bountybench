@@ -91,7 +91,7 @@ class AgentManager:
                     resource_config = ModelResourceConfig.create(model=new_model)
                     resource = ModelResource("model", resource_config)
                     agent.resources.model = resource
-                    
+
                 logger.info(
                     f"Updated agent: {agent}, {agent.resources.model.to_dict()}"
                 )

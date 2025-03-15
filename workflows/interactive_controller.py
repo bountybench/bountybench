@@ -119,7 +119,7 @@ class InteractiveController:
             target_message = message.version_next
         else:
             raise ValueError("Invalid direction. Must be 'prev' or 'next'")
-       # logger.info(f"toggling to {target_message.message}")
+
         from messages.message_utils import generate_subtree
 
         subtree = generate_subtree(target_message)
