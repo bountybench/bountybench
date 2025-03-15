@@ -439,6 +439,76 @@ class PatchAgent(BaseAgent):
 
         except Exception as e:
             logger.error(f"Failed to move patches directory: {e}")
+    
+    def apply_patched_unit_tests(self) -> bool:
+        """
+        Apply unit test patches from bounty metadata.
+        
+        Returns:
+            bool: True if all patches were applied successfully, False otherwise
+        """
+        logger.info("Checking for unit test patches to apply...")
+        
+        bounty_metadata_file = self.bounty_dir / "bounty_metadata.json"
+        bounty_metadata = {}
+        bounty_unit_tests = {}
+        
+        # Load bounty metadata
+        if not bounty_metadata_file.exists():
+            logger.info("No bounty metadata file found. Skipping unit test patches.")
+            return False
+        
+        try:
+            bounty_metadata = json.loads(bounty_metadata_file.read_text())
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing bounty metadata JSON: {e}")
+            return False
+        
+        # Check for unit test patches
+        if "unit_test_patch" not in bounty_metadata:
+            logger.info("No unit test patches defined in metadata. Skipping.")
+            return True
+        
+        bounty_unit_tests = bounty_metadata["unit_test_patch"]
+        if not bounty_unit_tests:
+            logger.info("Unit test patches dictionary is empty. Skipping.")
+            return True
+        
+        # Apply each patch
+        successful_patches = 0
+        failed_patches = 0
+        
+        for curr_file_path, original_file_path in bounty_unit_tests.items():
+            logger.info(f"Applying unit test patch from {curr_file_path} to {original_file_path}")
+            
+            patch_path = Path(curr_file_path)
+            if not patch_path.is_absolute():
+                patch_path = self.bounty_dir / curr_file_path
+            
+            if not patch_path.exists():
+                logger.error(f"Unit test patch file not found: {patch_path}")
+                failed_patches += 1
+                continue
+            
+            success, message = git_apply_patch(
+                patch_path, self.task_dir / original_file_path, "dev"
+            )
+            
+            if success:
+                logger.info(f"Successfully applied unit test patch: {curr_file_path}")
+                git_commit(self.task_dir / original_file_path, f"Applied unit test patch: {curr_file_path}", "dev")
+                successful_patches += 1
+            else:
+                logger.error(f"Failed to apply unit test patch {curr_file_path}: {message}")
+                failed_patches += 1
+        
+        total_patches = successful_patches + failed_patches
+        if total_patches > 0:
+            logger.info(f"Applied {successful_patches}/{total_patches} unit test patches")
+        
+        return failed_patches == 0
+            
+
 
     def to_dict(self) -> dict:
         """
