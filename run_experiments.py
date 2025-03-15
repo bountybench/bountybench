@@ -117,7 +117,7 @@ class ExperimentRunner:
         ]
 
         if use_helm:
-            cmd.append("--helm")
+            cmd.append("--use_helm")
         if use_mock_model:
             cmd.append("--use_mock_model")
         if vulnerability_type and workflow_type.startswith("detect_"):
@@ -132,39 +132,39 @@ class ExperimentRunner:
 
         # Method 1: Use a temporary file to track completion
         import tempfile
-        
+
         # Create a unique marker file
-        marker_file = tempfile.mktemp(suffix='.done')
-        
+        marker_file = tempfile.mktemp(suffix=".done")
+
         # Modify the command to touch the marker file when done
         cmd_str = " ".join(shlex.quote(arg) for arg in command)
         full_cmd = f"cd {shlex.quote(current_dir)} && {cmd_str}; RESULT=$?; touch {marker_file}; exit $RESULT"
-        
+
         mac_script = f"""
         tell application "Terminal"
             activate
             do script "{full_cmd}"
         end tell
         """
-        
+
         # Launch the terminal
         proc = await asyncio.create_subprocess_exec(
             "osascript", "-e", mac_script.strip()
         )
-        
+
         # Wait for the osascript to complete (launches Terminal)
         await proc.wait()
-        
+
         # Now wait for the marker file to appear
         while not os.path.exists(marker_file):
             await asyncio.sleep(1)
-        
+
         # Clean up marker file
         try:
             os.remove(marker_file)
         except:
             pass
-        
+
         # Return 0 to indicate success
         return proc
 
