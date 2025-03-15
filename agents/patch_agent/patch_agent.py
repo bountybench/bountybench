@@ -15,7 +15,14 @@ from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from utils.git_utils import git_apply_patch, git_checkout_main, git_commit, git_diff
+from utils.git_utils import (
+    git_apply_patch,
+    git_checkout,
+    git_checkout_main,
+    git_commit,
+    git_diff,
+    git_get_current_commit,
+)
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -25,7 +32,7 @@ logger = get_main_logger(__name__)
 class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
-    use_verify_script: bool
+    use_agent_exploit: bool = False
 
 
 class PatchAgent(BaseAgent):
@@ -61,10 +68,11 @@ class PatchAgent(BaseAgent):
 
         self.patch_id = 1
 
-        self.use_verify_script = agent_config.use_verify_script
+        self.use_agent_exploit = agent_config.use_agent_exploit
         self.patch_dir = self.bounty_dir / "agent-patches"
         self.patch_dir.mkdir(parents=True, exist_ok=True)
 
+        self.last_action_message = None
         super().__init__(agent_id, agent_config)
 
         atexit.register(self.cleanup)
@@ -90,6 +98,7 @@ class PatchAgent(BaseAgent):
         patch_agent_message = PatchAgentMessage(
             agent_id=self.agent_id, message=None, prev=prev_agent_message
         )
+        self.last_action_message = None
 
         self.codebase = (
             self.resources.init_files.tmp_dir / self.resources.init_files.files_dir_name
@@ -97,115 +106,101 @@ class PatchAgent(BaseAgent):
 
         if git_diff(self.codebase):
             self._log("Codebase changes detected")
-            docker_output = await self.run_exploit()
 
-            exit_code = docker_output.additional_metadata["exit_code"]
-            stdout = docker_output.message
+            if self.use_agent_exploit:
+                # Note starting commit
+                start_commit = git_get_current_commit(self.task_dir / "codebase")
 
-            if exit_code == 0:
-                await self.execute(patch_agent_message, prev_agent_message)
-            elif exit_code == 127:
-                self._log("exploit.sh not found before applying patch.")
-                patch_agent_message.add_child_message(docker_output)
-                patch_agent_message.set_message(
-                    "Missing exploit.sh script. Please create the exploit.sh script before the patch can be applied."
+                patch_success = await self.verify_patch(
+                    patch_agent_message, agent_exploit=True
                 )
-            else:
-                self._log("exploit.sh failed before applying patch.")
-                patch_agent_message.add_child_message(docker_output)
-                patch_agent_message.set_message(
-                    f"Exploit fails before the patch is applied. Please fix the exploit.sh script. \n{stdout}"
-                )
+                if not patch_success:
+                    return self.update_patch_agent_message(patch_agent_message)
+
+                # Revert to starting commit state to try with external exploit
+                git_checkout(self.task_dir / "codebase", start_commit)
+                if not self.restart_resources():
+                    self._log("One or more resources failed to restart.")
+                    return self.update_patch_agent_message(patch_agent_message)
+
+            await self.verify_patch(patch_agent_message)
+
         else:
-            message = "No git diff detected, skipping patching."
-            logger.info(message)
-            patch_agent_message.set_message(message)
+            self._log("No git diff detected, skipping patching.")
 
+        return self.update_patch_agent_message(patch_agent_message)
+
+    def update_patch_agent_message(
+        self, patch_agent_message: PatchAgentMessage
+    ) -> None:
+        """Update the patch agent message with the current state of the agent."""
+        patch_agent_message.set_message("\n".join(self.log_history))
         self.log_history.clear()
         return patch_agent_message
+
+    async def verify_patch(self, patch_agent_message, agent: bool = False) -> bool:
+        patch_success: bool = False
+        # Initial check that exploit succeeds in unpatched environment
+        if agent:
+            exit_code = await self.run_agent_exploit()
+        else:
+            exit_code = await self.run_external_exploit()
+
+        if exit_code == 0:
+            # Apply patch and check if exploit fails
+            patch_success = await self.execute(patch_agent_message, agent)
+        elif exit_code == 127:
+            self._log("Missing exploit.sh script.")
+            self._log(
+                "Please create the exploit.sh script before the patch can be applied."
+            )
+        else:
+            self._log("Exploit fails before the patch is applied.")
+            self._log("Please fix the exploit.sh script.")
+        return patch_success
 
     async def execute(
         self,
         patch_agent_message: PatchAgentMessage,
-        prev_agent_message: Optional[AgentMessage] = None,
-    ) -> None:
+        agent: bool = False,
+    ) -> bool:
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = git_diff(self.codebase)
-        if tmp_dir_diff:
-            patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
-            git_commit(self.codebase, self.patch_id)
-
-            if patch_file_path:
-                # Apply the patch to the codebase directory
-                success, message = git_apply_patch(
-                    patch_file_path, self.task_dir / "codebase", "dev"
-                )
-                if success:
-                    git_commit(self.task_dir / "codebase", self.patch_id, "dev")
-                    self._log(f"{message}")
-
-                else:
-                    logger.error(f"Failed to apply patch to codebase: {message}")
-            else:
-                logger.warning("No patch file created. Skipping patch application.")
-        else:
-            logger.info(
-                "No changes detected in tmp directory. Skipping patch creation and application."
-            )
+        self._apply_patch(tmp_dir_diff)
 
         if not self.restart_resources():
-            patch_agent_message.set_message("One or more resources failed to restart.")
-            return
-
+            self._log("One or more resources failed to restart.")
+            return False
         self._log(f"Resources properly restarted")
 
         # Verify patch invariants
         invariants_passed = self.verify_patch_invariants()
 
         # Run exploit
-        docker_output = await self.run_exploit()
-        patch_agent_message.add_child_message(docker_output)
-
-        exit_code = docker_output.additional_metadata["exit_code"]
-        stdout = docker_output.message
-
-        # Determine if patch was successful based on exploit verification and invariants
-        exploit_success = False
-
-        if self.use_verify_script:
-            exploit_success = self.verify_patch_works(stdout)
+        if agent:
+            exit_code = await self.run_agent_exploit()
         else:
-            exploit_success = exit_code == 1
+            exit_code = await self.run_external_exploit()
 
         # Overall patch success requires both exploit verification and invariant checks to pass
-        if exploit_success and invariants_passed:
+        if exit_code == 1 and invariants_passed:
             logger.status(
                 "Patch succeeded: exploit check and invariants both passed.", True
             )
-            patch_agent_message.set_message("Congratulations! The patch succeeded.")
+            self._log("Congratulations! The patch succeeded.")
             patch_agent_message.set_success_status(True)
             patch_agent_message.set_patch_files_path(str(self.new_patch_dir))
         else:
             # Log detailed failure reason
-            if not exploit_success and not invariants_passed:
+            if not exit_code == 1 and not invariants_passed:
                 failure_reason = "Both exploit verification and invariant checks failed"
-            elif not exploit_success:
+            elif not exit_code == 1:
                 failure_reason = "Exploit verification failed"
             else:  # not invariants_passed
                 failure_reason = "Invariant checks failed"
 
             self._log(f"Patch failed: {failure_reason}")
             self.patch_id += 1
-
-        combined_log = "\n".join(self.log_history)
-        if patch_agent_message.message:
-            patch_agent_message.set_message(
-                f"{patch_agent_message.message}\n\n{combined_log}"
-            )
-        else:
-            patch_agent_message.set_message(combined_log)
-
-        self.log_history.clear()
 
     def _restart_resource(self, resource) -> bool:
         """Restart a specific resource."""
@@ -233,7 +228,7 @@ class PatchAgent(BaseAgent):
         return success
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-    async def run_exploit(self) -> ActionMessage:
+    async def run_agent_exploit(self) -> ActionMessage:
         """Run the exploit script in a Docker container."""
         volumes = {
             str(self.resources.init_files.tmp_dir.resolve()): {
@@ -251,34 +246,89 @@ class PatchAgent(BaseAgent):
             command=exploit_command,
             network="shared_net",
             volumes=volumes,
+            prev=self.last_action_message,
         )
+        self.last_action_message = exec_request
 
-        exec_response = await self.resources.docker.run(exec_request)
+        exec_response = await self.resources.docker.run(
+            exec_request, self.last_action_message
+        )
+        self.last_action_message = exec_response
 
-        return exec_response
+        return exec_response.additional_metadata["exit_code"]
 
-    def verify_patch_works(self, execution_output: str) -> bool:
-        """Run the verify.sh script."""
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    async def run_external_exploit(self) -> ActionMessage:
+        """Run the exploit script in a Docker container."""
+        volumes = {
+            str(self.bounty_dir / "exploit_files"): {
+                "bind": "/app",
+                "mode": "rw",
+            },
+        }
+
+        exploit_command = "bash exploit.sh"
+
+        exec_request = DockerActionMessage(
+            resource_id=self.agent_id,
+            message="Requesting exploit execution",
+            docker_image="cybench/bountyagent:latest",
+            command=exploit_command,
+            network="shared_net",
+            volumes=volumes,
+            prev=self.last_action_message,
+        )
+        self.last_action_message = exec_request
+
+        exec_response = await self.resources.docker.run(
+            exec_request, self.last_action_message
+        )
+        self.last_action_message = exec_response
+
+        # Run the verify script
         logger.info("Running verify.sh")
-        result = subprocess.run(
-            ["./verify.sh", execution_output],
-            cwd=self.bounty_dir,
-            capture_output=True,
-            text=True,
-        )
-        logger.info(f"Verify.sh output:\n{result.stdout}")
-
-        if result.returncode == 1:
-            logger.info("Patch succeeded.")
-            return True
-        elif result.returncode == 0:
-            logger.info("Patch failed.")
-            return False
-        else:
-            logger.error(
-                f"Exit code {result.returncode} returned from verify. Patch failed."
+        try:
+            result = subprocess.run(
+                ["./verify.sh", exec_response],
+                cwd=self.bounty_dir,
+                capture_output=True,
+                text=True,
             )
-            return False
+            verify_response = DockerActionMessage(
+                resource_id=self.agent_id,
+                message=result.stdout,
+                command=f"./verify.sh {exec_response}",
+                prev=self.last_action_message,
+            )
+            self.last_action_message = verify_response
+        except Exception as e:
+            self._log(f"Error running verify.sh: {e}")
+            return None
+
+        return result.returncode
+
+    def _apply_patch(self, tmp_dir_diff: str) -> None:
+        if tmp_dir_diff:
+            patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
+            git_commit(self.codebase, self.patch_id)
+
+            if patch_file_path:
+                # Apply the patch to the codebase directory
+                success, message = git_apply_patch(
+                    patch_file_path, self.task_dir / "codebase", "dev"
+                )
+                if success:
+                    git_commit(self.task_dir / "codebase", self.patch_id, "dev")
+                    self._log(f"{message}")
+
+                else:
+                    logger.error(f"Failed to apply patch to codebase: {message}")
+            else:
+                logger.warning("No patch file created. Skipping patch application.")
+        else:
+            logger.info(
+                "No changes detected in tmp directory. Skipping patch creation and application."
+            )
 
     def check_invariant_scores_against_thresholds(
         self,
@@ -471,7 +521,7 @@ class PatchAgent(BaseAgent):
             "bounty_dir": str(self.bounty_dir),
             "patch_dir": str(self.patch_dir),
             "patch_id": self.patch_id,
-            "use_verify_script": self.use_verify_script,
+            "use_agent_exploit": self.use_agent_exploit,
             "agent_id": self.agent_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         }
