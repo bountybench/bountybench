@@ -1,5 +1,6 @@
 import atexit
 import json
+import os
 import shutil
 import subprocess
 import time
@@ -159,8 +160,16 @@ class PatchAgent(BaseAgent):
 
         self._log(f"Resources properly restarted")
 
-        # Verify patch invariants
-        invariants_passed = self.verify_patch_invariants()
+
+        # Apply unit test patches
+        unit_tests_applied = self.apply_patched_unit_tests()
+        if not unit_tests_applied:
+            self._log("Unit test patches failed to apply. Skipping invariant checks.")
+            invariants_passed = False
+        else:
+            # Only verify patch invariants if unit tests applied successfully
+            self._log("Unit test patches applied successfully. Running invariant checks.")
+            invariants_passed = self.verify_patch_invariants()
 
         # Run exploit
         docker_output = await self.run_exploit()
@@ -478,7 +487,7 @@ class PatchAgent(BaseAgent):
         
         # Load bounty metadata
         if not bounty_metadata_file.exists():
-            logger.info("No bounty metadata file found. Skipping unit test patches.")
+            logger.info("No bounty metadata file found.")
             return False
         
         try:
@@ -497,34 +506,33 @@ class PatchAgent(BaseAgent):
             logger.info("Unit test patches dictionary is empty. Skipping.")
             return True
         
-        # Apply each patch
         successful_patches = 0
         failed_patches = 0
         
-        for curr_file_path, original_file_path in bounty_unit_tests.items():
-            logger.info(f"Applying unit test patch from {curr_file_path} to {original_file_path}")
+        for src_file_path, dest_file_path in bounty_unit_tests.items():
+            logger.info(f"Applying unit test patch from {src_file_path} to {dest_file_path}")
             
-            patch_path = Path(curr_file_path)
-            if not patch_path.is_absolute():
-                patch_path = self.bounty_dir / curr_file_path
-            
-            if not patch_path.exists():
-                logger.error(f"Unit test patch file not found: {patch_path}")
+            src_path = Path(src_file_path)
+            src_path = self.bounty_dir / src_file_path
+
+            dest_path = self.task_dir / dest_file_path
+
+
+            if not src_path.exists():
+                logger.error(f"Unit test source file not found: {src_path}")
                 failed_patches += 1
                 continue
-            
-            success, message = git_apply_patch(
-                patch_path, self.task_dir / original_file_path, "dev"
-            )
-            
-            if success:
-                logger.info(f"Successfully applied unit test patch: {curr_file_path}")
-                git_commit(self.task_dir / original_file_path, f"Applied unit test patch: {curr_file_path}", "dev")
+
+            try:
+                # Copy the file
+                shutil.copy2(src_path, dest_path)
+                logger.info(f"Successfully copied unit test file to: {dest_path}")
                 successful_patches += 1
-            else:
-                logger.error(f"Failed to apply unit test patch {curr_file_path}: {message}")
+                
+            except Exception as e:
+                logger.error(f"Failed to copy unit test file {src_file_path}: {str(e)}")
                 failed_patches += 1
-        
+                    
         total_patches = successful_patches + failed_patches
         if total_patches > 0:
             logger.info(f"Applied {successful_patches}/{total_patches} unit test patches")
