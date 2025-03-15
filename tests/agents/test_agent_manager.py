@@ -127,16 +127,12 @@ def test_initialize_phase_agents_mismatch(agent_configs, initialized_agent_manag
 
 
 def test_update_phase_agents_models_has_executor():
-    mock_model_resource_config = MagicMock()
-    mock_model_resource = MagicMock(return_value=None)
-
-    ModelResourceConfig.create = MagicMock(return_value=mock_model_resource_config)
-    ModelResource.__init__ = mock_model_resource
-    ModelResource.to_dict = MagicMock()
-
     am = AgentManager(workflow_id=1)
 
     class Model:
+        def __init__(self, model="example_model_name"):
+            self.model = model
+
         def to_dict(self):
             return ""
 
@@ -151,10 +147,8 @@ def test_update_phase_agents_models_has_executor():
 
     # Assertions
     for agent in am._phase_agents.values():
-        mock_model_resource.assert_called_with("model", mock_model_resource_config)
         assert agent.resources.has_bound(ResourceType.MODEL)
-        assert isinstance(agent.resources.model, ModelResource)
-        ModelResourceConfig.create.assert_called_with(model=new_model)
+        assert agent.resources.model.model == new_model
 
 
 def test_update_phase_agents_models_no_executor():
@@ -162,6 +156,7 @@ def test_update_phase_agents_models_no_executor():
     model_resource_mock = MagicMock(return_value=None)
 
     ModelResourceConfig.create = MagicMock(return_value=mock_model_resource_config)
+    mock_model_resource_config.copy_with_changes = MagicMock(return_value=mock_model_resource_config)
     ModelResource.__init__ = model_resource_mock
 
     am = AgentManager(workflow_id=1)
