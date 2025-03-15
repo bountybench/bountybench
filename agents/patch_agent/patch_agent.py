@@ -96,13 +96,33 @@ class PatchAgent(BaseAgent):
         )
 
         if git_diff(self.codebase):
-            combined_log = self._log("Git diff detected, applying changes...")
-            await self.execute(patch_agent_message, prev_agent_message)
+            self._log("Codebase changes detected")
+            # Note: This is a hacky solution only for Demo purpose.
+            docker_output = await self.run_exploit()
+
+            exit_code = docker_output.additional_metadata["exit_code"]
+            stdout = docker_output.message
+
+            if exit_code == 0:
+                await self.execute(patch_agent_message, prev_agent_message)
+            elif exit_code == 127:
+                self._log("exploit.sh not found before applying patch.")
+                patch_agent_message.add_child_message(docker_output)
+                patch_agent_message.set_message(
+                    "Missing exploit.sh script. Please create the exploit.sh script before the patch can be applied."
+                )
+            else:
+                self._log("exploit.sh failed before applying patch.")
+                patch_agent_message.add_child_message(docker_output)
+                patch_agent_message.set_message(
+                    f"Exploit fails before the patch is applied. Please fix the exploit.sh script. \n{stdout}"
+                )
         else:
             message = "No git diff detected, skipping patching."
             logger.info(message)
             patch_agent_message.set_message(message)
 
+        self.log_history.clear()
         return patch_agent_message
 
     async def execute(
@@ -123,6 +143,8 @@ class PatchAgent(BaseAgent):
                 )
                 if success:
                     git_commit(self.task_dir / "codebase", self.patch_id, "dev")
+                    self._log(f"{message}")
+
                 else:
                     logger.error(f"Failed to apply patch to codebase: {message}")
             else:
@@ -135,6 +157,8 @@ class PatchAgent(BaseAgent):
         if not self.restart_resources():
             patch_agent_message.set_message("One or more resources failed to restart.")
             return
+
+        self._log(f"Resources properly restarted")
 
         # Verify patch invariants
         invariants_passed = self.verify_patch_invariants()
