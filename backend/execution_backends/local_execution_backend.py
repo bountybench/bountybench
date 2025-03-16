@@ -161,23 +161,37 @@ class LocalExecutionBackend(ExecutionBackend):
 
     async def list_active_workflows(self) -> List[Dict[str, Any]]:
         """
-        List all active workflows.
+        List all active workflows, handling cases where a workflow might be initializing
+        and not have all keys set yet.
         """
         active_workflows_list = []
         for workflow_id, workflow_data in self.active_workflows.items():
-            active_workflows_list.append(
-                {
-                    "id": workflow_id,
-                    "status": workflow_data["status"],
-                    "name": workflow_data["instance"].__class__.__name__,
-                    "task": workflow_data["instance"].task,
-                    "timestamp": getattr(
-                        workflow_data["workflow_message"], "timestamp", None
-                    ),
-                }
-            )
+            workflow_info = {
+                "id": workflow_id,
+                "status": workflow_data.get("status", "unknown"),
+            }
+            
+            # Only add instance-related information if it exists
+            if "instance" in workflow_data:
+                workflow_instance = workflow_data["instance"]
+                workflow_info["name"] = workflow_instance.__class__.__name__
+                workflow_info["task"] = getattr(workflow_instance, "task", None)
+            else:
+                workflow_info["name"] = "Initializing"
+                workflow_info["task"] = None
+                
+            # Handle workflow_message if it exists
+            if "workflow_message" in workflow_data:
+                workflow_info["timestamp"] = getattr(
+                    workflow_data["workflow_message"], "timestamp", None
+                )
+            else:
+                workflow_info["timestamp"] = None
+                
+            active_workflows_list.append(workflow_info)
+        
         return active_workflows_list
-
+    
     async def run_message(
         self, workflow_id: str, message_data: MessageData
     ) -> Dict[str, Any]:
