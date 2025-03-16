@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-import os
-import sys
-import yaml
-import datetime
 import argparse
+import datetime
+import os
 import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
+
+import yaml
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream
