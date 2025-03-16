@@ -391,32 +391,26 @@ def main():
             delete_deployment(apps_api, core_api)
             sys.exit(1)
 
-        # Wait for all tasks to complete with timeout
+        # Wait for all tasks to complete
         import concurrent.futures
-        
-        # Define a reasonable timeout (in seconds) for each pod's processing
-        pod_timeout = 600  # 10 minutes
         
         # Track completed and failed pods
         completed_pods = []
         failed_pods = []
         
-        print(f"\nWaiting for all {len(futures)} pods to complete processing (timeout: {pod_timeout}s per pod)...")
+        print(f"\nWaiting for all {len(futures)} pods to complete processing...")
         
         for future in futures:
             pod_name = futures[future]
             try:
-                # Wait for the future to complete with a timeout
-                result = future.result(timeout=pod_timeout)
+                # Wait for the future to complete
+                result = future.result()
                 if result:
                     print(f"✅ Processing completed successfully for pod {pod_name}")
                     completed_pods.append(pod_name)
                 else:
                     print(f"❌ Processing failed for pod {pod_name}")
                     failed_pods.append(pod_name)
-            except concurrent.futures.TimeoutError:
-                print(f"⏱️ Timeout waiting for pod {pod_name} to complete processing")
-                failed_pods.append(pod_name)
             except Exception as e:
                 print(f"❌ Exception processing pod {pod_name}: {e}")
                 failed_pods.append(pod_name)
