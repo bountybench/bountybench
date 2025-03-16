@@ -22,6 +22,7 @@ spec:
       containers:
       - name: backend
         image: us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:exp
+        imagePullPolicy: Always
         ports:
         - containerPort: 7999
         securityContext:
