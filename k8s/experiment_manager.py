@@ -156,15 +156,101 @@ def parse_command(command_str):
         return command_str.split()
 
 
+def retry_with_backoff(func, max_retries=5, initial_backoff=5, backoff_factor=2, error_msgs_to_retry=None):
+    """
+    Retry a function with exponential backoff.
+    
+    Args:
+        func: Function to retry
+        max_retries: Maximum number of retries
+        initial_backoff: Initial backoff in seconds
+        backoff_factor: Factor to increase backoff with each retry
+        error_msgs_to_retry: List of error message substrings that should trigger a retry
+                            If None, retry on any exception
+    
+    Returns:
+        Result of the function if successful
+    
+    Raises:
+        The last exception if all retries fail
+    """
+    import time
+    
+    retries = 0
+    backoff = initial_backoff
+    last_exception = None
+    
+    while retries < max_retries:
+        try:
+            return func()
+        except Exception as e:
+            last_exception = e
+            error_msg = str(e).lower()
+            
+            # Check if this is a retryable error
+            should_retry = True
+            if error_msgs_to_retry is not None:
+                should_retry = any(msg.lower() in error_msg for msg in error_msgs_to_retry)
+            
+            if not should_retry:
+                raise e
+            
+            retries += 1
+            if retries >= max_retries:
+                break
+                
+            print(f"Retry attempt {retries}/{max_retries} after error: {e}")
+            print(f"Waiting {backoff} seconds before retrying...")
+            time.sleep(backoff)
+            backoff *= backoff_factor
+    
+    # If we get here, all retries failed
+    raise last_exception
+
 def process_pod(api_instance, core_api, pod_name, user_command, timestamp):
     """Process a single pod with all required steps."""
     try:
-        # Step 1: Pull the Docker image
+        # Step 1: Pull the Docker image with retry
         print(f"Pulling Docker image in pod {pod_name}...")
-        pull_result = exec_command_in_pod(
-            api_instance,
-            pod_name,
-            ["docker", "pull", "--quiet", "cybench/bountyagent:latest"],
+        
+        # Define retryable Docker errors
+        docker_retry_errors = [
+            "cannot connect to the docker daemon",
+            "error during connect",
+            "connection refused",
+            "daemon is not running",
+            "resource temporarily unavailable",
+            "timeout",
+            "too many open files",
+            "network is unreachable",
+            "unexpected EOF"
+        ]
+        
+        # Define the pull function to retry
+        def do_docker_pull():
+            # First check if Docker daemon is running
+            docker_info = exec_command_in_pod(
+                api_instance,
+                pod_name,
+                ["docker", "info", "--format", "{{.ServerVersion}}"],
+            )
+            if "error" in docker_info.lower():
+                raise Exception(f"Docker daemon not ready: {docker_info}")
+                
+            # If Docker daemon is running, pull the image
+            return exec_command_in_pod(
+                api_instance,
+                pod_name,
+                ["docker", "pull", "--quiet", "cybench/bountyagent:latest"],
+            )
+        
+        # Retry the pull with backoff
+        pull_result = retry_with_backoff(
+            do_docker_pull,
+            max_retries=5,
+            initial_backoff=5,
+            backoff_factor=2,
+            error_msgs_to_retry=docker_retry_errors
         )
         print(f"Pull result for {pod_name}: {pull_result}")
 
@@ -305,17 +391,41 @@ def main():
             delete_deployment(apps_api, core_api)
             sys.exit(1)
 
-        # Wait for all tasks to complete
+        # Wait for all tasks to complete with timeout
+        import concurrent.futures
+        
+        # Define a reasonable timeout (in seconds) for each pod's processing
+        pod_timeout = 600  # 10 minutes
+        
+        # Track completed and failed pods
+        completed_pods = []
+        failed_pods = []
+        
+        print(f"\nWaiting for all {len(futures)} pods to complete processing (timeout: {pod_timeout}s per pod)...")
+        
         for future in futures:
             pod_name = futures[future]
             try:
-                result = future.result()
+                # Wait for the future to complete with a timeout
+                result = future.result(timeout=pod_timeout)
                 if result:
-                    print(f"Processing completed successfully for pod {pod_name}")
+                    print(f"✅ Processing completed successfully for pod {pod_name}")
+                    completed_pods.append(pod_name)
                 else:
-                    print(f"Processing failed for pod {pod_name}")
+                    print(f"❌ Processing failed for pod {pod_name}")
+                    failed_pods.append(pod_name)
+            except concurrent.futures.TimeoutError:
+                print(f"⏱️ Timeout waiting for pod {pod_name} to complete processing")
+                failed_pods.append(pod_name)
             except Exception as e:
-                print(f"Exception processing pod {pod_name}: {e}")
+                print(f"❌ Exception processing pod {pod_name}: {e}")
+                failed_pods.append(pod_name)
+        
+        # Print summary
+        print(f"\nExperiment Summary:")
+        print(f"- Total pods: {len(futures)}")
+        print(f"- Successful pods: {len(completed_pods)} ({', '.join(completed_pods) if completed_pods else 'None'})")
+        print(f"- Failed pods: {len(failed_pods)} ({', '.join(failed_pods) if failed_pods else 'None'})")
 
     # Ask if user wants to delete the deployment
     delete_choice = input("Do you want to delete the deployment now? (y/n): ").lower()
