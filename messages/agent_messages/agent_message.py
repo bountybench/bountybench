@@ -11,16 +11,13 @@ class AgentMessage(Message):
         agent_id: str,
         message: Optional[str] = "",
         prev: "AgentMessage" = None,
-        iteration: Optional[int] = -1,
     ) -> None:
         self._message = message
-        self._iteration = iteration
+        self._iteration = None
         self._agent_id = agent_id
         self._action_messages = []
         self._memory = None
         super().__init__(prev=prev)
-
-
 
     @property
     def message(self) -> str:

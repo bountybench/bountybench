@@ -80,6 +80,10 @@ class ExecutorAgent(BaseAgent):
                 return
             agent_message.add_child_message(kali_action_message)
             return kali_action_message
+        else:
+            agent_message.set_message(
+                "Model did not return a valid command. Kali Linux action skipped."
+            )
 
         return model_action_message
 
