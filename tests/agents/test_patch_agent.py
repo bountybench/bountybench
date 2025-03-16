@@ -53,7 +53,7 @@ def patch_agent(bounty_setup):
     patch_config = PatchAgentConfig(
         bounty_dir=env_path.BOUNTY_DIR,
         task_dir=env_path.TASK_DIR,
-        use_verify_script=True,
+        use_agent_exploit=True,
     )
     agent = agent_manager.create_agent("test_patch_agent", PatchAgent, patch_config)
 
@@ -109,30 +109,31 @@ def test_check_repo_and_bounty_are_different(patch_agent):
 
 
 @pytest.mark.asyncio
-async def test_run_exploit(bounty_setup, patch_agent):
+async def test_run_agent_exploit(bounty_setup, patch_agent):
     env_path: EnvPath = bounty_setup
     agent = patch_agent
+    agent.last_patch_agent_message = PatchAgentMessage(agent_id="test", message="init")
     exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         exit_code=1,
     )
-    exploit_result = await agent.run_exploit()
-    assert exploit_result.additional_metadata["exit_code"] == 1
+    exit_code = await agent.run_agent_exploit()
+    assert exit_code == 1
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         exit_code=0,
     )
-    exploit_result = await agent.run_exploit()
-    assert exploit_result.additional_metadata["exit_code"] == 0
+    exit_code = await agent.run_agent_exploit()
+    assert exit_code == 0
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         exit_code=2,
     )
-    exploit_result = await agent.run_exploit()
-    assert exploit_result.additional_metadata["exit_code"] == 2
+    exit_code = await agent.run_agent_exploit()
+    assert exit_code == 2
 
 
 @pytest.mark.asyncio
@@ -142,13 +143,15 @@ async def test_restart_resource_check(patch_agent):
     """
     agent = patch_agent
 
-    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+    agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent", message=None
+    )
 
     with patch.object(PatchAgent, "_restart_resource", return_value=False):
-        await agent.execute(patch_agent_message)
+        await agent.execute()
         assert (
             "one or more resources failed to restart."
-            in patch_agent_message.message.lower()
+            in agent.last_patch_agent_message.message.lower()
         )
 
 
@@ -162,7 +165,7 @@ def test_restart_resources_order(bounty_setup):
         agent_config=PatchAgentConfig(
             bounty_dir=env_path.BOUNTY_DIR,
             task_dir=env_path.TASK_DIR,
-            use_verify_script=True,
+            use_agent_exploit=True,
         ),
     )
 
@@ -189,153 +192,140 @@ def test_restart_resources_order(bounty_setup):
 
 
 @pytest.mark.asyncio
-async def test_no_verify_sh_exploit_returns_1(
-    bounty_setup, patch_agent, execute_fixture
-):
+async def test_agent_exploit_0_then_1_success(patch_agent, mocker):
     """
-    No verify.sh used. Exploit should return 0 or 1.
-    If exploit returns 1 → Patch succeeded.
+    Given the agent exploit returns 0 before patch, and 1 after patch,
+    the patch should be marked successful (assuming invariants pass).
     """
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
-    write_to_file_and_make_executable(
-        script_path=exploit_script_dir,
-        exit_code=1,
+    # 1) Mock git_diff() so that the agent sees code changes (thus tries to verify patch).
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", side_effect=[True, True])
+
+    # 2) Mock run_agent_exploit() to return 0 the first time (unpatched),
+    #    and 1 the second time (after patch).
+    run_exploit_mock = mocker.patch.object(
+        patch_agent, "run_agent_exploit", side_effect=[0, 1]
     )
-    agent.use_verify_script = False
 
-    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+    # 3) Ensure that invariants pass
+    mocker.patch.object(patch_agent, "verify_patch_invariants", return_value=True)
 
-    await agent.execute(patch_agent_message)
-    assert "patch succeeded" in patch_agent_message.message.lower()
+    # 4) Call patch_agent.run(...) with a single message
+    initial_msg = PatchAgentMessage(agent_id="test", message="test message")
+    final_msg = await patch_agent.run([initial_msg])
+
+    # 5) Confirm the patch agent recorded success
+    #    You can look at final_msg or patch_agent.log_history
+    #    or final_msg.success.
+    assert final_msg.success is True
+    assert "Congratulations! The patch succeeded." in final_msg.message
+    # Confirm we called run_agent_exploit exactly twice
+    assert run_exploit_mock.call_count == 2
 
 
 @pytest.mark.asyncio
-async def test_no_verify_sh_exploit_returns_0(
-    bounty_setup, patch_agent, execute_fixture
-):
+async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
     """
-    No verify.sh used. Exploit returns 0 → patch failed.
+    Exploit returns 0 (ok) before patch and 0 after patch → exploit is still working,
+    patch must fail.
     """
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
-    write_to_file_and_make_executable(
-        script_path=exploit_script_dir,
-        exit_code=0,
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", side_effect=[True, True])
+    run_exploit_mock = mocker.patch.object(
+        patch_agent, "run_agent_exploit", side_effect=[0, 0]
     )
-    agent.use_verify_script = False
+    # Let invariants pass
+    mocker.patch.object(patch_agent, "verify_patch_invariants", return_value=True)
 
-    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
-    await agent.execute(patch_agent_message)
-    assert "patch failed" in patch_agent_message.message.lower()
+    initial_msg = PatchAgentMessage(agent_id="test", message="test message")
+    final_msg = await patch_agent.run([initial_msg])
+
+    assert final_msg.success is False
+    # You should find "Patch failed: Exploit verification failed" in final_msg or logs
+    assert "Patch failed: Exploit verification failed" in final_msg.message
+    assert run_exploit_mock.call_count == 2
 
 
 @pytest.mark.asyncio
-async def test_no_verify_sh_exploit_invalid_exit_code(
-    bounty_setup, patch_agent, execute_fixture
-):
+async def test_agent_exploit_1_before_patch(patch_agent, mocker):
     """
-    No verify.sh used. Exploit must return 0 or 1.
-    If it returns something else, we consider that patch failed.
+    Exploit returns 1 unpatched → The agent should log it as an invalid exploit.
+    No second run, no patch application.
     """
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
-    write_to_file_and_make_executable(
-        script_path=exploit_script_dir,
-        exit_code=2,
+    patch_agent.use_agent_exploit = True
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", side_effect=[True, True])
+    run_exploit_mock = mocker.patch.object(
+        patch_agent, "run_agent_exploit", return_value=1  # unpatched run
     )
-    agent.use_verify_script = False
+    # Invariants won't matter because we won't even get to patch
+    mock_invariants = mocker.patch.object(patch_agent, "verify_patch_invariants")
 
-    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+    initial_msg = PatchAgentMessage(agent_id="test", message="test message")
+    final_msg = await patch_agent.run([initial_msg])
 
-    await agent.execute(patch_agent_message)
-    # Should result in patch failed
-    assert "patch failed" in patch_agent_message.message.lower()
+    # The code in verify_patch sees exit_code=1 (not 0, not 127) => exploit fails before patch is applied
+    assert run_exploit_mock.call_count == 1
+    # We expect "Exploit fails before the patch is applied" in the logs
+    assert "Exploit fails before the patch is applied" in final_msg.message
+    # Also expect that no patch was applied, no second run
+    mock_invariants.assert_not_called()
+    assert final_msg.success is False
 
 
 @pytest.mark.asyncio
-async def test_with_verify_sh_success(bounty_setup, patch_agent, execute_fixture):
+async def test_external_exploit_0_then_1_success(patch_agent, mocker):
     """
-    Using verify.sh. Exploit can return any exit code or message.
-    Success is determined by verify.sh returning 1.
-    By default, verify.sh checks if 'Success' in output → exit 1 (success).
+    The external exploit (unpatched) returns 0 → exploit success,
+    after patch we expect 'verify.sh' to indicate success is neutralized → return 1,
+    so the final patch is considered successful.
     """
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    verify_script_dir = Path(env_path.VERIFY_SCRIPT_DIR)
-    write_to_file_and_make_executable(
-        script_path=verify_script_dir,
-        exit_code=1,
+    # Force external exploit path
+    patch_agent.use_agent_exploit = False
+
+    # mock git_diff => there is a patch
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", side_effect=[True, True])
+
+    # Mock Docker run to produce exit_code=0 initially
+    docker_run_mock = mocker.patch.object(
+        patch_agent.resources.docker,
+        "run",
+        side_effect=[
+            MagicMock(additional_metadata={"exit_code": 0}),
+            MagicMock(additional_metadata={"exit_code": 1}),
+        ],
     )
-    agent.use_verify_script = True
 
-    # Make sure invariant checks pass
-    with patch.object(PatchAgent, "verify_patch_invariants", return_value=True):
-        patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
-        await agent.execute(patch_agent_message)
-        assert "patch succeeded" in patch_agent_message.message.lower()
+    # Mock subprocess.run() for verify.sh
+    # – The new code’s final exit code is the returncode of verify.sh.
+    # – For the "unpatched" run we can return 0 to confirm exploit works.
+    # – For the "patched" run we want 1 to confirm exploit is neutralized.
+    def mock_subprocess_run(args, cwd, capture_output, check, text):
+        class FakeResult:
+            def __init__(self, returncode, stdout):
+                self.returncode = returncode
+                self.stdout = stdout
+                self.stderr = ""
 
+        if docker_run_mock.call_count == 1:
+            # first call => unpatched => exploit works => verify returns 0
+            return FakeResult(0, "Exploit succeeded unpatched")
+        else:
+            # second call => after patch => exploit neutralized => verify returns 1
+            return FakeResult(1, "Exploit blocked after patch")
 
-@pytest.mark.asyncio
-async def test_with_verify_sh_fail(bounty_setup, patch_agent):
-    """
-    Using verify.sh. If verify.sh returns 0, patch failed.
-    No 'Success' in output → verify.sh returns 0.
-    """
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    verify_script_dir = Path(env_path.VERIFY_SCRIPT_DIR)
-    write_to_file_and_make_executable(
-        script_path=verify_script_dir,
-        exit_code=0,
+    mocker.patch("subprocess.run", side_effect=mock_subprocess_run)
+
+    # Let invariants pass
+    mocker.patch.object(patch_agent, "verify_patch_invariants", return_value=True)
+
+    # Run
+    initial_msg = PatchAgentMessage(
+        agent_id="test", message="run external exploit test"
     )
-    agent.use_verify_script = True
+    final_msg = await patch_agent.run([initial_msg])
 
-    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
-
-    await agent.execute(patch_agent_message)
-
-    assert "patch failed" in patch_agent_message.message.lower()
-
-
-def test_verify_patch_works_success(bounty_setup, patch_agent):
-    # patch works by default but for consistency change it anyway
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    verify_script_dir = Path(env_path.VERIFY_SCRIPT_DIR)
-    write_to_file_and_make_executable(
-        script_path=verify_script_dir,
-        exit_code=1,
-    )
-    result = agent.verify_patch_works("")
-    assert result
-
-
-def test_verify_patch_works_fail(bounty_setup, patch_agent):
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    verify_script_dir = Path(env_path.VERIFY_SCRIPT_DIR)
-    write_to_file_and_make_executable(
-        script_path=verify_script_dir,
-        exit_code=0,
-    )
-    result = agent.verify_patch_works("")
-    assert not result
-
-
-def test_verify_patch_works_other(bounty_setup, patch_agent):
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    verify_script_dir = Path(env_path.VERIFY_SCRIPT_DIR)
-    write_to_file_and_make_executable(
-        script_path=verify_script_dir,
-        exit_code=2,
-    )
-    result = agent.verify_patch_works("")
-    assert not result
+    # We expect success
+    assert final_msg.success is True
+    assert "Congratulations! The patch succeeded." in final_msg.message
 
 
 def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
@@ -409,25 +399,29 @@ def test_verify_patch_invariants_check_fails(bounty_setup, patch_agent):
 async def test_patch_success_requires_invariants(patch_agent):
     """Test that patch success requires both exploit check and invariant check to pass."""
     agent = patch_agent
-    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+    agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent", message=None
+    )
 
     # Mock the verify_patch_invariants method
     with patch.object(PatchAgent, "verify_patch_invariants", return_value=False):
         # Mock exploit success but invariant failure
-        with patch.object(PatchAgent, "verify_patch_works", return_value=True):
+        with patch.object(PatchAgent, "verify_patch", return_value=True):
             # Mock resource restart
             with patch.object(PatchAgent, "_restart_resource", return_value=True):
-                # Mock run_exploit to return success
-                with patch.object(PatchAgent, "run_exploit") as mock_run_exploit:
+                # Mock run_agent_exploit to return success
+                with patch.object(
+                    PatchAgent, "run_agent_exploit"
+                ) as mock_run_agent_exploit:
                     # Create a mock response
                     mock_response = MagicMock()
                     mock_response.additional_metadata = {"exit_code": 1}
                     mock_response.message = "Success"
-                    mock_run_exploit.return_value = mock_response
+                    mock_run_agent_exploit.return_value = mock_response
 
-                    await agent.execute(patch_agent_message)
-                    assert "failed" in patch_agent_message.message.lower()
-                    assert not patch_agent_message.success
+                    await agent.execute()
+                    assert "failed" in agent.last_patch_agent_message.message.lower()
+                    assert not agent.last_patch_agent_message.success
 
 
 def test_check_invariant_scores_against_thresholds_success(patch_agent):
@@ -516,25 +510,30 @@ def test_check_invariant_scores_edge_cases(patch_agent):
 async def test_patch_success_with_invariants(patch_agent):
     """Test that patch succeeds when both exploit check and invariant check pass."""
     agent = patch_agent
-    patch_agent_message = PatchAgentMessage(agent_id="patch_agent", message=None)
+    agent.use_agent_exploit = True
+    agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent", message=None
+    )
 
     # Mock the verify_patch_invariants method
     with patch.object(PatchAgent, "verify_patch_invariants", return_value=True):
         # Mock exploit success
-        with patch.object(PatchAgent, "verify_patch_works", return_value=True):
+        with patch.object(PatchAgent, "verify_patch", return_value=True):
             # Mock resource restart
             with patch.object(PatchAgent, "_restart_resource", return_value=True):
-                # Mock run_exploit to return success
-                with patch.object(PatchAgent, "run_exploit") as mock_run_exploit:
+                # Mock run_agent_exploit to return success
+                with patch.object(
+                    PatchAgent, "run_agent_exploit"
+                ) as mock_run_agent_exploit:
                     # Create a mock response
                     mock_response = MagicMock()
                     mock_response.additional_metadata = {"exit_code": 1}
                     mock_response.message = "Success"
-                    mock_run_exploit.return_value = mock_response
+                    mock_run_agent_exploit.return_value = mock_response
 
-                    await agent.execute(patch_agent_message)
-                    assert "succeeded" in patch_agent_message.message.lower()
-                    assert patch_agent_message.success
+                    await agent.execute()
+                    assert "succeeded" in agent.last_patch_agent_message.message.lower()
+                    assert agent.last_patch_agent_message.success
 
 
 # "uses" the import

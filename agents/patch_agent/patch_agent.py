@@ -138,6 +138,8 @@ class PatchAgent(BaseAgent):
         clear: Optional[bool] = False,
     ) -> None:
         """Update the patch agent message with the current state of the agent."""
+        assert self.last_patch_agent_message
+
         if action_message:
             self.last_patch_agent_message.add_child_message(action_message)
             self.last_action_message = action_message
@@ -179,6 +181,7 @@ class PatchAgent(BaseAgent):
 
         if not self.restart_resources():
             self._log("One or more resources failed to restart.")
+            self.update_patch_agent_message()
             return False
         self._log(f"Resources properly restarted")
 
@@ -197,8 +200,9 @@ class PatchAgent(BaseAgent):
                 "Patch succeeded: exploit check and invariants both passed.", True
             )
             self._log("Congratulations! The patch succeeded.")
-            self.last_patch_agent_message.set_success_status(True)
+            self.last_patch_agent_message.set_success(True)
             self.last_patch_agent_message.set_patch_files_path(str(self.new_patch_dir))
+            self.update_patch_agent_message()
             return True
         else:
             # Log detailed failure reason
@@ -211,6 +215,8 @@ class PatchAgent(BaseAgent):
 
             self._log(f"Patch failed: {failure_reason}")
             self.patch_id += 1
+
+        self.update_patch_agent_message()
         return False
 
     def _restart_resource(self, resource) -> bool:
