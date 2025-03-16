@@ -595,19 +595,23 @@ async def test_patch_success_with_invariants(patch_agent):
     ):
         # Mock exploit success
         with patch.object(PatchAgent, "verify_patch_works", return_value=True):
-            # Mock resource restart
-            with patch.object(PatchAgent, "_restart_resource", return_value=True):
-                # Mock run_exploit to return success
-                with patch.object(PatchAgent, "run_exploit") as mock_run_exploit:
-                    # Create a mock response
-                    mock_response = MagicMock()
-                    mock_response.additional_metadata = {"exit_code": 1}
-                    mock_response.message = "Success"
-                    mock_run_exploit.return_value = mock_response
+            # Mock patch unit test success
+            with patch.object(
+                PatchAgent, "apply_patched_unit_tests", return_value=True
+            ):
+                # Mock resource restart
+                with patch.object(PatchAgent, "_restart_resource", return_value=True):
+                    # Mock run_exploit to return success
+                    with patch.object(PatchAgent, "run_exploit") as mock_run_exploit:
+                        # Create a mock response
+                        mock_response = MagicMock()
+                        mock_response.additional_metadata = {"exit_code": 1}
+                        mock_response.message = "Success"
+                        mock_run_exploit.return_value = mock_response
 
-                    await agent.execute(patch_agent_message)
-                    assert "succeeded" in patch_agent_message.message.lower()
-                    assert patch_agent_message.success
+                        await agent.execute(patch_agent_message)
+                        assert "succeeded" in patch_agent_message.message.lower()
+                        assert patch_agent_message.success
 
 
 # "uses" the import
