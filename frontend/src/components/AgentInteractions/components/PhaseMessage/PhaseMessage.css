@@ -73,7 +73,7 @@
   background-color: #f5f5f5;
   border-radius: 4px;
   cursor: pointer;
-  border-left: 4px solid #2196f3; /* Blue accent to connect with the model box */
+  border-left: 4px solid #838383; /* Blue accent to connect with the model box */
 }
 
 .metadata-toggle:hover {
