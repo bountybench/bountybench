@@ -23,6 +23,7 @@ from utils.git_utils import (
     git_commit,
     git_diff,
     git_get_current_commit,
+    git_remove_changes,
 )
 from utils.logger import get_main_logger
 
@@ -159,13 +160,13 @@ class PatchAgent(BaseAgent):
             # Apply patch and check if exploit fails
             patch_success = await self.execute(agent_exploit)
         elif exit_code == 127:
-            self._log("Missing exploit.sh script.")
             self._log(
-                "Please create the exploit.sh script before the patch can be applied."
+                "Missing exploit.sh script. exploit.sh script before the patch can be applied."
             )
         else:
-            self._log("Exploit fails before the patch is applied.")
-            self._log("Please fix the exploit.sh script.")
+            self._log(
+                "Exploit fails before the patch is applied. exploit.sh must be fixed"
+            )
         return patch_success
 
     async def execute(
@@ -240,83 +241,102 @@ class PatchAgent(BaseAgent):
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_agent_exploit(self) -> ActionMessage:
         """Run the exploit script in a Docker container."""
-        volumes = {
-            str(self.resources.init_files.tmp_dir.resolve() / "exploit.sh"): {
-                "bind": "/app/exploit.sh",
-                "mode": "rw",
-            },
-            str(self.task_dir.resolve() / "codebase"): {
-                "bind": "/app/codebase",
-                "mode": "rw",
-            },
-        }
+        try:
+            volumes = {
+                str(self.resources.init_files.tmp_dir.resolve()): {
+                    "bind": "/app",
+                    "mode": "rw",
+                },
+                str(self.task_dir.resolve() / "codebase"): {
+                    "bind": "/app/codebase",
+                    "mode": "rw",
+                },
+            }
 
-        exploit_command = "bash exploit.sh"
+            exploit_command = "bash exploit.sh"
 
-        exploit_execution = DockerActionMessage(
-            resource_id=self.resources.docker.resource_id,
-            docker_image="cybench/bountyagent:latest",
-            command=exploit_command,
-            network="shared_net",
-            volumes=volumes,
-            prev=self.last_action_message,
-        )
+            exploit_execution = DockerActionMessage(
+                resource_id=self.resources.docker.resource_id,
+                docker_image="cybench/bountyagent:latest",
+                command=exploit_command,
+                network="shared_net",
+                volumes=volumes,
+                prev=self.last_action_message,
+            )
 
-        exploit_execution = await self.resources.docker.run(exploit_execution)
-        self.update_patch_agent_message(exploit_execution)
+            exploit_execution = await self.resources.docker.run(exploit_execution)
+            self.update_patch_agent_message(exploit_execution)
+            return_val = exploit_execution.additional_metadata["exit_code"]
 
-        return exploit_execution.additional_metadata["exit_code"]
+        finally:
+            # Clean up: Reset all changes to the last commit
+            try:
+                git_remove_changes(self.task_dir / "codebase")
+            except Exception as e:
+                raise
+
+        return return_val
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_external_exploit(self) -> ActionMessage:
         """Run the exploit script in a Docker container."""
-        volumes = {
-            str(self.bounty_dir.resolve() / "exploit_files"): {
-                "bind": "/app",
-                "mode": "rw",
-            },
-            str(self.task_dir.resolve() / "codebase"): {
-                "bind": "/app/codebase",
-                "mode": "rw",
-            },
-        }
-
-        exploit_command = "bash exploit.sh"
-
-        exploit_execution = DockerActionMessage(
-            resource_id=self.resources.docker.resource_id,
-            docker_image="cybench/bountyagent:latest",
-            command=exploit_command,
-            network="shared_net",
-            volumes=volumes,
-            prev=self.last_action_message,
-        )
-
-        exploit_execution = await self.resources.docker.run(exploit_execution)
-        self.update_patch_agent_message(exploit_execution)
-
-        # Run the verify script
-        logger.info("Running verify.sh")
         try:
-            result = subprocess.run(
-                ["./verify.sh", exploit_execution.message],
-                cwd=self.bounty_dir,
-                capture_output=True,
-                text=True,
-            )
-            verify_response = ScriptActionMessage(
-                resource_id=f"subprocess",
-                message=result.stdout,
-                command=f"./verify.sh {exploit_execution.message}",
-                exit_code=result.returncode,
+            volumes = {
+                str(Path.cwd().resolve()): {
+                    "bind": "/app",
+                    "mode": "rw",
+                },
+            }
+
+            exploit_command = [
+                "/bin/bash",
+                "-c",
+                f"cd {str(self.bounty_dir / 'exploit_files')} && bash exploit.sh true",
+            ]
+
+            exploit_execution = DockerActionMessage(
+                resource_id=self.resources.docker.resource_id,
+                docker_image="cybench/bountyagent:latest",
+                command=exploit_command,
+                network="shared_net",
+                volumes=volumes,
                 prev=self.last_action_message,
             )
-            self.update_patch_agent_message(verify_response)
-        except Exception as e:
-            self._log(f"Error running verify.sh: {e}")
-            return None
 
-        return result.returncode
+            exploit_execution = await self.resources.docker.run(exploit_execution)
+            self.update_patch_agent_message(exploit_execution)
+
+            # Run the verify script
+            logger.info("Running verify.sh")
+            try:
+                result = subprocess.run(
+                    ["./verify.sh", exploit_execution.message],
+                    cwd=self.bounty_dir,
+                    capture_output=True,
+                    text=True,
+                )
+                verify_response = ScriptActionMessage(
+                    resource_id=f"subprocess",
+                    message=result.stdout,
+                    command=f"./verify.sh {exploit_execution.message}",
+                    exit_code=result.returncode,
+                    prev=self.last_action_message,
+                )
+                self.update_patch_agent_message(verify_response)
+            except Exception as e:
+                self._log(f"Error running verify.sh: {e}")
+                return None
+
+            return_val = result.returncode
+
+        finally:
+            # Clean up: Reset all changes to the last commit
+            try:
+                git_remove_changes(self.task_dir / "codebase")
+            except Exception as e:
+                raise
+
+        return return_val
 
     def _apply_patch(self, tmp_dir_diff: str) -> None:
         if tmp_dir_diff:

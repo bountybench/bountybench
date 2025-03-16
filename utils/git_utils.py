@@ -76,6 +76,16 @@ def git_reset(directory_path: PathLike, branch_name: Optional[str] = None) -> No
         raise
 
 
+def git_remove_changes(directory_path: PathLike) -> None:
+    try:
+        directory = Path(directory_path)
+        _run_git_command(directory, ["reset", "--hard", "HEAD"])
+        _run_git_command(directory, ["clean", "-fd"])
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to remove changes in repository: {e}")
+        raise
+
+
 def git_checkout(directory_path: PathLike, commit: str, force=False) -> None:
     """Checkout a specific commit and clean repository."""
     directory = Path(directory_path)
