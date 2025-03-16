@@ -12,9 +12,7 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
-from messages.action_messages.docker_instruction_action_message import (
-    DockerInstructionActionMessage,
-)
+from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
@@ -120,7 +118,7 @@ class PatchAgent(BaseAgent):
                     return self.update_patch_agent_message(clear=True)
 
                 # Revert to starting commit state to try with external exploit
-                git_checkout(self.task_dir / "codebase", start_commit)
+                git_checkout(self.task_dir / "codebase", start_commit, force=True)
                 if not self.restart_resources():
                     self._log("One or more resources failed to restart.")
                     return self.update_patch_agent_message(clear=True)
@@ -255,21 +253,19 @@ class PatchAgent(BaseAgent):
 
         exploit_command = "bash exploit.sh"
 
-        exec_request = DockerInstructionActionMessage(
-            resource_id=f"{self.agent_id}_helper",
-            message="Requesting agent exploit execution",
+        exploit_execution = DockerActionMessage(
+            resource_id=self.resources.docker.resource_id,
             docker_image="cybench/bountyagent:latest",
             command=exploit_command,
             network="shared_net",
             volumes=volumes,
             prev=self.last_action_message,
         )
-        self.update_patch_agent_message(exec_request)
 
-        exec_response = await self.resources.docker.run(exec_request)
-        self.update_patch_agent_message(exec_response)
+        exploit_execution = await self.resources.docker.run(exploit_execution)
+        self.update_patch_agent_message(exploit_execution)
 
-        return exec_response.additional_metadata["exit_code"]
+        return exploit_execution.additional_metadata["exit_code"]
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_external_exploit(self) -> ActionMessage:
@@ -287,32 +283,31 @@ class PatchAgent(BaseAgent):
 
         exploit_command = "bash exploit.sh"
 
-        exec_request = DockerInstructionActionMessage(
-            resource_id=f"{self.agent_id}_helper",
-            message="Requesting external exploit execution",
+        exploit_execution = DockerActionMessage(
+            resource_id=self.resources.docker.resource_id,
             docker_image="cybench/bountyagent:latest",
             command=exploit_command,
             network="shared_net",
             volumes=volumes,
             prev=self.last_action_message,
         )
-        self.update_patch_agent_message(exec_request)
 
-        exec_response = await self.resources.docker.run(exec_request)
-        self.update_patch_agent_message(exec_response)
+        exploit_execution = await self.resources.docker.run(exploit_execution)
+        self.update_patch_agent_message(exploit_execution)
 
         # Run the verify script
         logger.info("Running verify.sh")
         try:
             result = subprocess.run(
-                ["./verify.sh", exec_response.message],
+                ["./verify.sh", exploit_execution.message],
                 cwd=self.bounty_dir,
                 capture_output=True,
                 text=True,
             )
-            verify_response = DockerActionMessage(
-                resource_id=f"{self.agent_id}_helper",
+            verify_response = ScriptActionMessage(
+                resource_id=f"subprocess",
                 message=result.stdout,
+                command=f"./verify.sh {exploit_execution.message}",
                 exit_code=result.returncode,
                 prev=self.last_action_message,
             )
