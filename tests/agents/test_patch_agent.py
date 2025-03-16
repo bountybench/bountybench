@@ -216,7 +216,9 @@ async def test_external_exploit_0_then_1_success(patch_agent, mocker):
     )
 
     # Let invariants pass
-    mocker.patch.object(patch_agent, "verify_patch_invariants", return_value=True)
+    mocker.patch.object(
+        patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
+    )
 
     # Mock out *all* calls to subprocess.run (including the verify.sh call)
     def mock_subprocess_run(*args, **kwargs):
@@ -267,7 +269,9 @@ async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
         patch_agent, "run_agent_exploit", side_effect=[0, 0]
     )
     # Let invariants pass
-    mocker.patch.object(patch_agent, "verify_patch_invariants", return_value=True)
+    mocker.patch.object(
+        patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
+    )
 
     initial_msg = PatchAgentMessage(agent_id="test", message="test message")
     final_msg = await patch_agent.run([initial_msg])
@@ -350,7 +354,9 @@ async def test_external_exploit_0_then_1_success(patch_agent, mocker):
     mocker.patch("subprocess.run", side_effect=mock_subprocess_run)
 
     # Let invariants pass
-    mocker.patch.object(patch_agent, "verify_patch_invariants", return_value=True)
+    mocker.patch.object(
+        patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
+    )
 
     # Run
     initial_msg = PatchAgentMessage(

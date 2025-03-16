@@ -199,8 +199,8 @@ class PatchAgent(BaseAgent):
             invariants_passed, repo_scores, bounty_scores = (
                 self.verify_patch_invariants()
             )
-            patch_agent_message.set_repo_invariant_scores(repo_scores)
-            patch_agent_message.set_bounty_invariant_scores(bounty_scores)
+            self.last_patch_agent_message.set_repo_invariant_scores(repo_scores)
+            self.last_patch_agent_message.set_bounty_invariant_scores(bounty_scores)
 
         # Run exploit
         if agent_exploit:
