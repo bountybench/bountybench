@@ -20,8 +20,6 @@ class AgentMessage(Message):
         self._memory = None
         super().__init__(prev=prev)
 
-
-
     @property
     def message(self) -> str:
         return self._message

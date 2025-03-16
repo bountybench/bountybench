@@ -115,7 +115,9 @@ class MessageHandler:
         # Maintain the next link so workflow can handle the run message
         if old_message.next:
             new_message.set_next(old_message.next)
-        logger.info(f"new_parent_message current children: {new_parent_message.current_children}")
+        logger.info(
+            f"new_parent_message current children: {new_parent_message.current_children}"
+        )
         self.update_version_links(
             old_message,
             new_message,
