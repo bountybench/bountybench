@@ -16,7 +16,7 @@ test("renders agent type and message", () => {
 			<AgentMessage message={message} />
 		</ThemeProvider>
 	);
-	expect(screen.getByText(/Agent: executor_agent/i)).toBeInTheDocument();
+	expect(screen.getByText(/EXECUTOR_AGENT/i)).toBeInTheDocument();
 	expect(screen.getByText(/custom message/i)).toBeInTheDocument();
 });
 

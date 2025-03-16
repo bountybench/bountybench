@@ -187,7 +187,6 @@ def verify_and_auth_api_key(
         raise FileNotFoundError("Could not find .env file in project directory.")
 
     _new_key_requested = False
-    print(f"os environ after load dotenv: {os.environ}")
     # Prompt user for API key if not found in environment variables
     if requested_api_key not in os.environ:
         print(f"[API Service] {requested_api_key} not registered.")
@@ -235,3 +234,39 @@ def verify_and_auth_api_key(
             print("[API Service] API key NOT saved to .env file.")
             os.environ[requested_api_key] = requested_api_value
     return
+
+
+def check_api_key_validity(model_name: str, helm: bool) -> bool:
+    """
+    Check if the API key exists and is valid without prompting the user.
+    Returns True if the API key is valid, False otherwise.
+    """
+    requested_api_key: str = _model_provider_lookup(model_name, helm)
+
+    env_path = Path(find_dotenv())
+    if env_path.is_file():
+        load_dotenv(dotenv_path=env_path)
+    else:
+        print("[API Service] .env file not found.")
+        return False
+
+    # Check if API key exists and is not empty
+    if requested_api_key not in os.environ or not os.environ[requested_api_key].strip():
+        print(f"[API Service] {requested_api_key} is missing or empty.")
+        return False
+
+    requested_api_value = os.environ[requested_api_key]
+
+    # Authenticate the API key
+    auth_service = AUTH_SERVICE.get(requested_api_key)
+    if not auth_service:
+        print(f"[API Service] No authentication service found for {requested_api_key}.")
+        return False
+
+    _ok, _message = auth_service(requested_api_value)
+
+    if not _ok:
+        print(f"[API Service] API key authentication failed: {_message}")
+        return False
+
+    return True
