@@ -160,9 +160,6 @@ class ExecutorAgent(BaseAgent):
         except Exception as e:
             logger.info(f"LM responded with: {action_message.message}")
             logger.debug(f"Could not parse response as CommandMessage. Error: {e}")
-            action_message.set_message(
-                f"Could not parse response as CommandMessage. Error: {e}"
-            )
             return action_message
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
