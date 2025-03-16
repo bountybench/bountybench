@@ -318,7 +318,7 @@ def git_get_current_commit(directory_path: PathLike) -> Optional[str]:
     try:
         directory = Path(directory_path)
 
-        if not (directory / ".git").is_dir():
+        if not (directory / ".git").exists():
             logger.error(f"{directory} is not a git repository")
             return None
 

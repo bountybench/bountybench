@@ -18,6 +18,9 @@ from docker.errors import (
 )
 
 from messages.action_messages.docker_action_message import DockerActionMessage
+from messages.action_messages.docker_instruction_action_message import (
+    DockerInstructionActionMessage,
+)
 from resources.base_resource import ActionMessage, BaseResourceConfig
 from resources.runnable_base_resource import RunnableBaseResource
 from utils.logger import get_main_logger
@@ -36,6 +39,7 @@ class DockerResourceConfig(BaseResourceConfig):
     def validate(self) -> None:
         """Validate Docker configuration"""
         pass
+
 
 class DockerResource(RunnableBaseResource):
     """
@@ -58,7 +62,9 @@ class DockerResource(RunnableBaseResource):
 
         atexit.register(self.stop)
 
-    async def run(self, docker_message: DockerActionMessage) -> ActionMessage:
+    async def run(
+        self, docker_message: DockerInstructionActionMessage
+    ) -> ActionMessage:
         """Execute a command inside Docker using DockerActionMessage."""
 
         docker_image = docker_message.docker_image
@@ -70,15 +76,11 @@ class DockerResource(RunnableBaseResource):
             docker_image=docker_image, command=command, network=network, volumes=volumes
         )
 
-        return ActionMessage(
+        return DockerActionMessage(
             resource_id=self.resource_id,
             message=f"{output}",
             additional_metadata={
-                "docker_image": docker_image,
-                "command": command,
                 "exit_code": exit_code,
-                "output": output,
-                "success": (exit_code == 0),
             },
             prev=docker_message,
         )
@@ -159,7 +161,7 @@ class DockerResource(RunnableBaseResource):
     def handle_docker_exception(self, e: DockerException) -> RuntimeError:
         """Handle different Docker exceptions for clearer debugging and return appropriate runtime error."""
         error_message = ""
-        
+
         if isinstance(e, ImageNotFound):
             error_message = "Image not found: " + str(e)
         elif isinstance(e, NotFound):
@@ -182,7 +184,7 @@ class DockerResource(RunnableBaseResource):
         return {
             "resource_id": self.resource_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            "config": self._resource_config.to_dict()
+            "config": self._resource_config.to_dict(),
         }
 
     @classmethod
