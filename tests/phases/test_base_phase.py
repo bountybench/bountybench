@@ -1,12 +1,14 @@
-from typing import List, Optional, Tuple
-from unittest.mock import MagicMock
+from typing import Optional, Tuple
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from agents.agent_manager import AgentManager
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.answer_message import AnswerMessageInterface
+from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
+from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from phases.base_phase import BasePhase, PhaseConfig
 from resources.base_resource import BaseResourceConfig
@@ -27,6 +29,12 @@ def mock_workflow():
 
     workflow.resource_manager.is_resource_equivalent.return_value = False
     return workflow
+
+
+@pytest.fixture
+def mock_phase(mock_workflow):
+    mock_phase = MockPhase(mock_workflow)
+    return mock_phase
 
 
 class MockConfig1(AgentConfig):
@@ -78,8 +86,7 @@ class MockPhase(BasePhase):
         return message, False
 
 
-def test_phase_config_from_phase(mock_workflow):
-    mock_phase = MockPhase(workflow=mock_workflow)
+def test_phase_config_from_phase(mock_phase):
     kwargs = {"max_iterations": 20, "interactive": True, "extra_param": "value"}
     phase_config = PhaseConfig.from_phase(mock_phase, **kwargs)
 
@@ -103,9 +110,7 @@ def test_phase_config_from_phase(mock_workflow):
 
 
 # Test BasePhase.setup()
-def test_base_phase_setup(mock_workflow):
-    mock_phase = MockPhase(workflow=mock_workflow)
-
+def test_base_phase_setup(mock_phase):
     # Make sure that the resources are sorted correctly when passed into initialize_phase_resources.
     resource_configs_keys = [
         "init_files",
@@ -128,38 +133,40 @@ def test_base_phase_setup(mock_workflow):
     mock_phase.agent_manager.initialize_phase_agents.assert_called_once()
 
 
-"""
-# Test BasePhase.run() - Single iteration
 @pytest.mark.asyncio
-async def test_base_phase_run_single_iteration(mock_phase, mock_workflow):
+async def test_base_phase_run(mock_phase):
     # Mock the workflow message and previous phase message
-    mock_phase_message = MagicMock(spec=PhaseMessage)
-    mock_phase_message.complete = False
+    mock_phase.params["initial_prompt"] = "Initial Prompt\n"
+
     mock_workflow_message = MagicMock(spec=WorkflowMessage)
     mock_previous_phase_message = MagicMock(spec=PhaseMessage)
 
     # Mock methods that the `run` method will use
     mock_phase._get_current_iteration = MagicMock(return_value=0)
-    mock_phase._get_current_agent = MagicMock(return_value=("agent1", MagicMock(spec=BaseAgent)))
-    mock_phase._run_iteration = MagicMock(return_value=MagicMock(spec=AgentMessage))
+    mock_phase._get_current_agent = MagicMock(
+        return_value=("agent1", MagicMock(spec=BaseAgent))
+    )
+    mock_phase._run_iteration = AsyncMock(return_value=MagicMock(spec=AgentMessage))
 
     # Run the phase
     result = await mock_phase.run(mock_workflow_message, mock_previous_phase_message)
 
     # Check that the run loop was executed and ended
-    mock_phase._run_iteration.assert_called_once()
-    assert result == mock_phase_message
+    mock_phase._run_iteration.assert_called()
+    assert mock_phase._run_iteration.call_count == 10  # max iterations is 10
+    assert not result.complete
 
 
 # Test BasePhase._handle_interactive_mode()
 @pytest.mark.asyncio
-async def test_base_phase_handle_interactive_mode(mock_phase, mock_workflow):
+async def test_base_phase_handle_interactive_mode(mock_phase):
     # Simulate that interactive mode is enabled
     mock_phase.phase_config.interactive = True
+    mock_workflow = mock_phase.workflow
     mock_workflow.next_iteration_event = MagicMock()
 
     # Mock the next iteration event behavior
-    mock_workflow.next_iteration_event.wait = MagicMock()
+    mock_workflow.next_iteration_event.wait = AsyncMock()
 
     # Run the method to handle interactive mode
     await mock_phase._handle_interactive_mode()
@@ -169,12 +176,41 @@ async def test_base_phase_handle_interactive_mode(mock_phase, mock_workflow):
 
 
 # Test if resources are deallocated
-def test_base_phase_deallocate_resources(mock_phase):
+def test_base_phase_deallocate_resources_success(mock_phase):
     # Mock the resource manager to verify deallocation
     mock_phase.resource_manager.deallocate_phase_resources = MagicMock()
 
     # Test deallocation
     mock_phase.deallocate_resources()
-    mock_phase.resource_manager.deallocate_phase_resources.assert_called_once_with(mock_phase.phase_config.phase_idx)
+    mock_phase.resource_manager.deallocate_phase_resources.assert_called_once_with(
+        mock_phase.phase_config.phase_idx
+    )
 
-"""
+
+def test_base_phase_deallocate_resources_success(mock_phase):
+    """Test successful resource deallocation."""
+    mock_phase.resource_manager.deallocate_phase_resources = MagicMock()
+
+    # Test successful deallocation
+    mock_phase.deallocate_resources()
+    mock_phase.resource_manager.deallocate_phase_resources.assert_called_once_with(
+        mock_phase.phase_config.phase_idx
+    )
+
+
+def test_base_phase_deallocate_resources_failure(mock_phase):
+    """Test failure during resource deallocation."""
+    mock_phase.resource_manager.deallocate_phase_resources = MagicMock(
+        side_effect=Exception("Deallocation error")
+    )
+
+    with (
+        patch("logging.Logger.error") as mock_logger,
+        pytest.raises(Exception, match="Deallocation error"),
+    ):
+        mock_phase.deallocate_resources()
+
+    # Verify the logger was called with the expected message
+    mock_logger.assert_called_once()
+    expected_message = f"Failed to deallocate resources for phase {mock_phase.phase_config.phase_idx}: Deallocation error"
+    mock_logger.assert_any_call(expected_message)
