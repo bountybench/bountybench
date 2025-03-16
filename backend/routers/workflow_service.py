@@ -523,25 +523,10 @@ async def update_mock_model_mode(workflow_id: str, request: Request):
 
         print(f"AFTER UPDATE - Workflow {workflow_id} mock model state: {workflow.params.get('use_mock_model')}")
         
-        # Verify the update worked by checking various places
-        verification = {
-            "workflow_params": workflow.params.get("use_mock_model"),
-            "model_resources": {}
-        }
-        
-        # Check resources again after all updates
-        updated_resources = workflow.resource_manager.get_resources()
-        for resource_id, resource in updated_resources.items():
-            if hasattr(resource, "use_mock_model"):
-                verification["model_resources"][resource_id] = {
-                    "resource_id": id(resource),
-                    "use_mock_model": resource.use_mock_model
-                }
                 
         return {
             "status": "success", 
             "use_mock_model": new_mock_model_state,
-            "verification": verification
         }
 
     except Exception as e:
