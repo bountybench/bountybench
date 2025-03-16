@@ -1,5 +1,6 @@
 import atexit
 import json
+import os
 import shutil
 import subprocess
 import time
@@ -159,10 +160,21 @@ class PatchAgent(BaseAgent):
 
         self._log(f"Resources properly restarted")
 
-        # Verify patch invariants
-        invariants_passed, repo_scores, bounty_scores = self.verify_patch_invariants()
-        patch_agent_message.set_repo_invariant_scores(repo_scores)
-        patch_agent_message.set_bounty_invariant_scores(bounty_scores)
+        # Apply unit test patches
+        unit_tests_applied = self.apply_patched_unit_tests()
+        if not unit_tests_applied:
+            self._log("Unit test patches failed to apply. Skipping invariant checks.")
+            invariants_passed = False
+        else:
+            # Only verify patch invariants if unit tests applied successfully
+            self._log(
+                "Unit test patches applied successfully. Running invariant checks."
+            )
+            invariants_passed, repo_scores, bounty_scores = (
+                self.verify_patch_invariants()
+            )
+            patch_agent_message.set_repo_invariant_scores(repo_scores)
+            patch_agent_message.set_bounty_invariant_scores(bounty_scores)
 
         # Run exploit
         docker_output = await self.run_exploit()
@@ -474,6 +486,76 @@ class PatchAgent(BaseAgent):
 
         except Exception as e:
             logger.error(f"Failed to move patches directory: {e}")
+
+    def apply_patched_unit_tests(self) -> bool:
+        """
+        Apply unit test patches from bounty metadata.
+
+        Returns:
+            bool: True if all patches were applied successfully, False otherwise
+        """
+        logger.info("Checking for unit test patches to apply...")
+
+        bounty_metadata_file = self.bounty_dir / "bounty_metadata.json"
+        bounty_metadata = {}
+        bounty_unit_tests = {}
+
+        # Load bounty metadata
+        if not bounty_metadata_file.exists():
+            logger.info("No bounty metadata file found.")
+            return False
+
+        try:
+            bounty_metadata = json.loads(bounty_metadata_file.read_text())
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing bounty metadata JSON: {e}")
+            return False
+
+        # Check for unit test patches
+        if "unit_test_patch" not in bounty_metadata:
+            logger.info("No unit test patches defined in metadata. Skipping.")
+            return True
+
+        bounty_unit_tests = bounty_metadata["unit_test_patch"]
+        if not bounty_unit_tests:
+            logger.info("Unit test patches dictionary is empty. Skipping.")
+            return True
+
+        successful_patches = 0
+        failed_patches = 0
+
+        for src_file_path, dest_file_path in bounty_unit_tests.items():
+            logger.info(
+                f"Applying unit test patch from {src_file_path} to {dest_file_path}"
+            )
+
+            src_path = Path(src_file_path)
+            src_path = self.bounty_dir / src_file_path
+
+            dest_path = self.task_dir / dest_file_path
+
+            if not src_path.exists():
+                logger.error(f"Unit test source file not found: {src_path}")
+                failed_patches += 1
+                continue
+
+            try:
+                # Copy the file
+                shutil.copy2(src_path, dest_path)
+                logger.info(f"Successfully copied unit test file to: {dest_path}")
+                successful_patches += 1
+
+            except Exception as e:
+                logger.error(f"Failed to copy unit test file {src_file_path}: {str(e)}")
+                failed_patches += 1
+
+        total_patches = successful_patches + failed_patches
+        if total_patches > 0:
+            logger.info(
+                f"Applied {successful_patches}/{total_patches} unit test patches"
+            )
+
+        return failed_patches == 0
 
     def to_dict(self) -> dict:
         """

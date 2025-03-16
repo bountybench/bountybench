@@ -96,6 +96,10 @@ class MessageHandler:
         params["prev"] = prev
         params["message"] = edit if edit else params["message"]
         new_message = cls(**params)
+
+        if isinstance(new_message, AgentMessage) and old_message.iteration != None:
+            new_message.set_iteration(old_message.iteration)
+
         return new_message
 
     def _clone_parent_agent_message(
@@ -202,6 +206,9 @@ class MessageHandler:
             f"old_message: {old_message.message}, ID: {old_message.id} with prev {old_message.prev} and next: {old_message.next}"
         )
         new_message.set_next(old_message.next)
+
+        if isinstance(new_message, AgentMessage) and old_message.iteration != None:
+            new_message.set_iteration(old_message.iteration)
 
         if not parent_message:
             parent_message = old_message.parent
