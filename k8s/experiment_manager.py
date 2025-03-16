@@ -145,8 +145,7 @@ def parse_command(command_str):
     # Clean up the command string
     # Remove any trailing backslashes that might cause issues
     command_str = command_str.strip()
-    while command_str.endswith("\\"):
-        command_str = command_str[:-1].strip()
+    command_str = command_str.replace("\\", "")
 
     # Use shlex to parse the command, which handles quotes and escapes properly
     try:
