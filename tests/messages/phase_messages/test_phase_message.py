@@ -11,7 +11,7 @@ from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.resource_manager import ResourceManager
 
-QUERY_TIME_TAKEN_IN_MS= "query_time_taken_in_ms"
+QUERY_TIME_TAKEN_IN_MS = "query_time_taken_in_ms"
 INPUT_TOKEN = "input_token"
 OUTPUT_TOKEN = "output_token"
 
@@ -163,65 +163,64 @@ def test_to_broadcast_dict(mocker):
     assert result_dict["current_children"][0] == {"agent_key": "agent_value"}
     assert result_dict["super_key"] == "super_value"
 
+
 def test_calculate_total_usages(mocker):
     """
     Test the calculate_total_usages method accumulates tokens correctly.
     """
     # Create a phase message
     phase_message = PhaseMessage("phase_1")
-    
+
     # Create mock agent messages with mock action messages
     agent_message1 = MagicMock(spec=AgentMessage)
     agent_message2 = MagicMock(spec=AgentMessage)
-    
+
     # Create mock action messages with token metadata
     action_message1 = MagicMock(spec=ActionMessage)
     action_message1._additional_metadata = {
         "input_tokens": 100,
         "output_tokens": 50,
-        "time_taken_in_ms": 200
+        "time_taken_in_ms": 200,
     }
-    
+
     action_message2 = MagicMock(spec=ActionMessage)
     action_message2._additional_metadata = {
         "input_tokens": 150,
         "output_tokens": 75,
-        "time_taken_in_ms": 300
+        "time_taken_in_ms": 300,
     }
-    
+
     action_message3 = MagicMock(spec=ActionMessage)
     action_message3._additional_metadata = {
         "input_tokens": 200,
         "output_tokens": 100,
-        "time_taken_in_ms": 400
+        "time_taken_in_ms": 400,
     }
-    
+
     # Action message with incomplete metadata
     action_message4 = MagicMock(spec=ActionMessage)
-    action_message4._additional_metadata = {
-        "some_other_field": "value"
-    }
-    
+    action_message4._additional_metadata = {"some_other_field": "value"}
+
     # Set up the mock agent messages' action_messages property
     agent_message1._action_messages = [action_message1, action_message2]
     agent_message2._action_messages = [action_message3, action_message4]
-    
+
     # Add agent messages to phase message
     phase_message._agent_messages = [agent_message1, agent_message2]
-    
+
     # Call the method
     usage = phase_message.calculate_total_usages()
-    
+
     # Verify the token counts are accumulated correctly
     assert usage[INPUT_TOKEN] == 450  # 100 + 150 + 200
     assert usage[OUTPUT_TOKEN] == 225  # 50 + 75 + 100
     assert usage[QUERY_TIME_TAKEN_IN_MS] == 900  # 200 + 300 + 400
-    
+
     # Verify the phase's usage property is updated
     assert phase_message.usage == {
         INPUT_TOKEN: 450,
         OUTPUT_TOKEN: 225,
-        QUERY_TIME_TAKEN_IN_MS: 900
+        QUERY_TIME_TAKEN_IN_MS: 900,
     }
 
 
@@ -234,51 +233,52 @@ def test_to_log_dict(mocker):
     mock_agent_messages = mocker.patch.object(
         PhaseMessage, "agent_messages", new_callable=PropertyMock
     )
-    
+
     # Mock to_log_dict method from parent class
-    mock_super_log = mocker.patch.object(Message, "to_log_dict", return_value={"super_key": "super_value"})
-    
+    mock_super_log = mocker.patch.object(
+        Message, "to_log_dict", return_value={"super_key": "super_value"}
+    )
+
     # Mock calculate_total_usages method
     mocker.patch.object(
-        PhaseMessage, 
-        'calculate_total_usages',
+        PhaseMessage,
+        "calculate_total_usages",
         return_value={
             INPUT_TOKEN: 500,
             OUTPUT_TOKEN: 250,
-            QUERY_TIME_TAKEN_IN_MS: 1000
-        }
+            QUERY_TIME_TAKEN_IN_MS: 1000,
+        },
     )
-    
+
     # Create mock agent message
     agent_msg_mock = MagicMock(spec=AgentMessage)
     agent_msg_mock.to_log_dict.return_value = {"agent_key": "agent_value"}
     mock_agent_messages.return_value = [agent_msg_mock]
-    
+
     # Create and configure PhaseMessage instance
     phase_message = PhaseMessage("phase_1")
     phase_message.set_summary("summary_1")
     phase_message.add_child_message(agent_msg_mock)
-    
+
     # Get the log dict
     result_dict = phase_message.to_log_dict()
-    
+
     # Verify phase details
     assert result_dict["phase_id"] == "phase_1"
     assert result_dict["phase_summary"] == "summary_1"
-    
+
     # Verify agent messages are included
     assert "agent_messages" in result_dict
     assert len(result_dict["agent_messages"]) == 1
     assert result_dict["agent_messages"][0] == {"agent_key": "agent_value"}
-    
+
     # Verify parent class log data
     assert result_dict["super_key"] == "super_value"
-    
+
     # Verify token usage information is included
     assert "phase_usage" in result_dict
     assert result_dict["phase_usage"] == {
         INPUT_TOKEN: 500,
         OUTPUT_TOKEN: 250,
-        QUERY_TIME_TAKEN_IN_MS: 1000
+        QUERY_TIME_TAKEN_IN_MS: 1000,
     }
-

@@ -9,7 +9,7 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-#Constants 
+# Constants
 QUERY_TIME_TAKEN_IN_MS = "query_time_taken_in_ms"
 INPUT_TOKEN = "input_token"
 OUTPUT_TOKEN = "output_token"
@@ -84,19 +84,25 @@ class WorkflowMessage(Message):
 
     def set_complete(self):
         self._complete = True
-    
+
     def get_total_usage(self) -> Dict[str, int]:
-        total_input_tokens = sum(phase_message.usage[INPUT_TOKEN] for phase_message in self._phase_messages)
-        total_output_tokens = sum(phase_message.usage[OUTPUT_TOKEN] for phase_message in self._phase_messages)
-        total_time = sum(phase_message.usage[QUERY_TIME_TAKEN_IN_MS] for phase_message in self._phase_messages)
+        total_input_tokens = sum(
+            phase_message.usage[INPUT_TOKEN] for phase_message in self._phase_messages
+        )
+        total_output_tokens = sum(
+            phase_message.usage[OUTPUT_TOKEN] for phase_message in self._phase_messages
+        )
+        total_time = sum(
+            phase_message.usage[QUERY_TIME_TAKEN_IN_MS]
+            for phase_message in self._phase_messages
+        )
         usage_dict = {
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
-            "total_query_time_taken_in_ms": total_time
+            "total_query_time_taken_in_ms": total_time,
         }
         self.usage = usage_dict
         return usage_dict
-
 
     def add_child_message(self, phase_message: PhaseMessage):
         self._phase_messages.append(phase_message)
@@ -147,13 +153,15 @@ class WorkflowMessage(Message):
         with open(self.log_file, "w") as f:
             json.dump(logs, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
-    
+
     def new_log(self):
         components = [self.workflow_name]
         if self.task:
             for _, value in self.task.items():
                 if value:
-                    components.append(str(value.name if isinstance(value, Path) else value))
+                    components.append(
+                        str(value.name if isinstance(value, Path) else value)
+                    )
         self.log_file = (
             self.logs_dir
             / f"{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
