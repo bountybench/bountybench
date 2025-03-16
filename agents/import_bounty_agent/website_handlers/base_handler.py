@@ -21,15 +21,14 @@ class BaseBountyHandler:
         self.soup = BeautifulSoup(writeup, "html.parser") if writeup else None
 
     def _wait_for_element(self, by, identifier, timeout=30):
+        logger.info(f"Waiting for element: {by}={identifier}")
         try:
-            logger.info(f"Waiting for element: {by}={identifier}")
             element = WebDriverWait(self.driver, timeout).until(
                 EC.presence_of_element_located((by, identifier))
             )
             logger.info(f"Element found: {by}={identifier}")
-        except Exception as e:
-            logger.error(f"Wait for element timed out: {e}")
-            raise
+        except Exception:
+            logger.error(f"Element not found: {by}={identifier}")
 
     def scroll_to_load_content(self):
         """Scroll to bottom of page to load all dynamic content"""

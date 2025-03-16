@@ -23,7 +23,7 @@ class ProgressLogger:
     def _format_elapsed_time(self, elapsed):
         hours, remainder = divmod(elapsed.total_seconds(), 3600)
         minutes, seconds = divmod(remainder, 60)
-        return f"{int(hours):02d}:{int(minutes):02d}:{seconds:06.2f}"
+        return f"{int(hours):02d}:{int(minutes):02d}:{seconds:05.2f}"
 
     def _progress_indicator(self):
         while self.is_running:

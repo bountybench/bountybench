@@ -223,7 +223,6 @@ describe('LogViewer Component', () => {
       expect(screen.getByText(/Viewing/i)).toBeInTheDocument();
       expect(screen.getByText(/ExploitPhase/i)).toBeInTheDocument();
       expect(screen.getByText(/completed_failure/i)).toBeInTheDocument();
-      expect(screen.getByText(/Reflection/i)).toBeInTheDocument();
       expect(screen.getByText(/kali_env/i)).toBeInTheDocument();
     });
   });

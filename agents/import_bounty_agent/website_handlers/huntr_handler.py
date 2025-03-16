@@ -10,8 +10,7 @@ class HuntrHandler(BaseBountyHandler):
     """
 
     def wait_for_page_load(self):
-        logger.info("Waiting for Huntr.com iframe...")
-        print("Waiting for Huntr.com iframe...")
+        logger.info("Waiting for Huntr page load")
         self._wait_for_element(
             By.XPATH,
             "//iframe[@owner='archetype' and @title='archetype' and contains(@style, 'display')]",

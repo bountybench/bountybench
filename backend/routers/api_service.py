@@ -19,7 +19,39 @@ async def get_api_key(request: Request):
         )
 
     load_dotenv(dotenv_path=env_path, override=True)
-    return {k: os.environ[k] for k in dotenv_values(env_path)}
+
+    # Get values from .env file first
+    env_values = dotenv_values(env_path)
+
+    # List of specific API keys to look for
+    specific_keys = [
+        "HELM_API_KEY",
+        "OPENAI_API_KEY",
+        "AZURE_OPENAI_API_KEY",
+        "AZURE_OPENAI_ENDPOINT",
+        "ANTHROPIC_API_KEY",
+        "GOOGLE_API_KEY",
+        "TOGETHER_API_KEY",
+    ]
+
+    # Add specific OS environment variables if they're not in .env
+    for key in specific_keys:
+        if key in os.environ and key not in env_values:
+            env_values[key] = os.environ[key]
+
+    masked_values = {}
+    for k, v in env_values.items():
+        if v:
+            if len(v) < 20:
+                # For shorter keys, only show last 4 characters
+                masked_values[k] = "*" * (len(v) - 4) + v[-4:] if len(v) > 4 else v
+            else:
+                # For longer keys, show first 4 and last 4 characters
+                masked_values[k] = v[:4] + "*" * (len(v) - 8) + v[-4:]
+        else:
+            masked_values[k] = v
+
+    return masked_values
 
 
 @api_service_router.post("/service/api-service/update")

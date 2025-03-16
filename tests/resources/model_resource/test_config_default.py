@@ -12,6 +12,29 @@ def mock_env():
     mock_response.status_code = 200
     mock_response.json.return_value = {"data": []}
 
+    # Different mocks to account for different model providers & JSON responses
+    openai_mock = Mock()
+    openai_mock.status_code = 200
+    openai_mock.json.return_value = {"data": [{"id": "gpt-4o"}]}
+    
+    anthropic_mock = Mock()
+    anthropic_mock.status_code = 200
+    anthropic_mock.json.return_value = {"data": [{"id": "claude-3-opus"}]}
+
+    helm_mock = Mock()
+    helm_mock.status_code = 200
+    helm_mock.json.return_value = {"all_models": [{"name": "anthropic/claude-3-opus"}]}
+
+
+    def get_mock_response(url, *args, **kwargs):
+        if "openai" in url:
+            return openai_mock
+        elif "anthropic" in url:
+            return anthropic_mock
+        elif "crfm-models" in url:
+            return helm_mock
+        return mock_response
+
     with (
         patch("pathlib.Path.is_file", return_value=True),
         patch("dotenv.load_dotenv", return_value=True),
@@ -20,7 +43,7 @@ def mock_env():
             return_value=True,
         ),
         patch("builtins.input", return_value="mock_api_key"),
-        patch("requests.get", return_value=mock_response),
+        patch("requests.get", side_effect=get_mock_response),
     ):
         yield
 
