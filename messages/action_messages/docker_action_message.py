@@ -12,6 +12,7 @@ class DockerActionMessage(ScriptActionMessage):
         command: str,
         message: Optional[str] = "",
         network: Optional[str] = None,
+        work_dir: Optional[str] = None,
         volumes: Optional[Dict[str, Any]] = None,
         exit_code: Optional[int] = None,
         prev: Optional[ActionMessage] = None,
@@ -19,6 +20,7 @@ class DockerActionMessage(ScriptActionMessage):
         additional_metadata = {
             "docker_image": docker_image,
             "network": network,
+            "work_dir": work_dir,
             "volumes": volumes or {},
         }
 
@@ -38,6 +40,10 @@ class DockerActionMessage(ScriptActionMessage):
     @property
     def network(self) -> Optional[str]:
         return self.additional_metadata.get("network")
+
+    @property
+    def work_dir(self) -> Optional[str]:
+        return self.additional_metadata.get("work_dir")
 
     @property
     def volumes(self) -> Dict[str, Any]:

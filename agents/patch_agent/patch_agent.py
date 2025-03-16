@@ -281,24 +281,25 @@ class PatchAgent(BaseAgent):
     async def run_external_exploit(self) -> ActionMessage:
         """Run the exploit script in a Docker container."""
         try:
+            cwd = Path.cwd().resolve()
+            exploit_files_path = self.bounty_dir.resolve() / "exploit_files"
+            relative_path = exploit_files_path.relative_to(cwd)
+
             volumes = {
-                str(Path.cwd().resolve()): {
+                str(cwd): {
                     "bind": "/app",
                     "mode": "rw",
                 },
             }
 
-            exploit_command = [
-                "/bin/bash",
-                "-c",
-                f"cd {str(self.bounty_dir / 'exploit_files')} && bash exploit.sh true",
-            ]
+            exploit_command = "bash exploit.sh true"
 
             exploit_execution = DockerActionMessage(
                 resource_id=self.resources.docker.resource_id,
                 docker_image="cybench/bountyagent:latest",
                 command=exploit_command,
                 network="shared_net",
+                work_dir=f"/app/{str(relative_path)}",
                 volumes=volumes,
                 prev=self.last_action_message,
             )
