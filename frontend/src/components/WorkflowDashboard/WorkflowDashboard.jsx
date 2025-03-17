@@ -178,7 +178,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     setIsResourcePanelOpen(!isResourcePanelOpen);
   };
 
-  const triggerNextIteration = async () => {
+  const triggerNextIteration = async (iterNum, iterType) => {
     if (workflowStatus === "stopped") {
       console.error("Cannot trigger next iteration: Workflow is stopped.");
       return;
@@ -187,13 +187,13 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       setIsNextDisabled(true);
       try {
         const currentMessageId = await getTailMessageId();
-        console.log(`Tail message id is ${currentMessageId}`)
+        console.log(`Tail message id is ${currentMessageId}, proceed to next ${iterNum} ${iterType} iteration(s)`)
         const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/run-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ message_id: currentMessageId }),
+          body: JSON.stringify({ message_id: currentMessageId, num_iter: iterNum, type_iter: iterType }),
         });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, CircularProgress, Button } from '@mui/material';
+import { Box, CircularProgress, Button, TextField, FormControl, Select, MenuItem, InputLabel } from '@mui/material';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import StopIcon from '@mui/icons-material/Stop';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
@@ -23,13 +23,20 @@ const AgentInteractions = ({
   const [stopped, setStopped] = useState(false);
   const messagesEndRef = useRef(null);
   const [selectedCellId, setSelectedCellId] = useState(null);
+  const [selectedIterNum, setSelectedIterNum] = useState(1);
+  const [selectedIterType, setSelectedIterType] = useState('agent');
+
+  const handleInputChange = (event) => {
+    const value = parseInt(event.target.value, 10);
+    setSelectedIterNum(isNaN(value) || value < 0 ? 0 : value);
+  };
 
   const handleKeyDown = useCallback((event) => {
     if (event.key === 'Enter' && event.altKey) {
       event.preventDefault(); // Prevent the default action
-      onTriggerNextIteration();
+      onTriggerNextIteration(selectedIterNum, selectedIterType);
     }
-  }, [onTriggerNextIteration]);
+  }, [selectedIterNum, selectedIterType, onTriggerNextIteration]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -102,10 +109,29 @@ const AgentInteractions = ({
         <>
         {!isStopping && !stopped ? (
           <>
+            <TextField
+              type="number"
+              label="Run X"
+              color="primary"
+              value={selectedIterNum}
+              onChange={handleInputChange}
+            />
+            <FormControl>
+            <InputLabel id="select-label">Iteration</InputLabel>
+              <Select
+                labelId="select-label"
+                label="Iteration"
+                value={selectedIterType}
+                onChange={(e) => setSelectedIterType(e.target.value)}
+              >
+                <MenuItem value="agent">Agent</MenuItem>
+                <MenuItem value="phase">Phase</MenuItem>
+              </Select>
+            </FormControl>
             <Button
               variant="contained"
               color="primary"
-              onClick={onTriggerNextIteration}
+              onClick={() => onTriggerNextIteration(selectedIterNum, selectedIterType)}
               startIcon={<KeyboardDoubleArrowRightIcon />}
               disabled={isNextDisabled}
               size="small"

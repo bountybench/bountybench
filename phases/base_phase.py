@@ -242,7 +242,7 @@ class BasePhase(ABC):
 
             await self._handle_interactive_mode()
 
-            iteration = self._get_current_iteration()
+            iteration = self.get_current_iteration()
             agent_id, agent_instance = self._get_current_agent()
             logger.info(
                 f"Running iteration {iteration_num} ({iteration}) of {self.name} with {agent_id}"
@@ -311,7 +311,7 @@ class BasePhase(ABC):
         while not self.workflow.next_iteration_queue.empty():
             self.workflow.next_iteration_queue.get()
 
-    def _get_current_iteration(self) -> int:
+    def get_current_iteration(self) -> int:
         """
         Based on the last agent message iteration property, return the subsequent (current) iteration
 
@@ -345,7 +345,7 @@ class BasePhase(ABC):
         Returns:
             Tuple[str, BaseAgent]: A tuple containing the agent ID and the agent instance.
         """
-        iteration = self._get_current_iteration()
+        iteration = self.get_current_iteration()
         agent = self.agents[iteration % len(self.agents)]
         return agent
 
