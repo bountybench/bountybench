@@ -19,10 +19,10 @@ class WebscraperBaseHandler(ABC):
         """Get the URL of the most recent public report."""
         pass
 
-    def get_known_urls(self) -> set:
+    def get_known_urls(self, bounty_dir: str) -> set:
         """Get set of URLs that have already been found."""
         file_path = os.path.join(
-            "agents/webscraper_agent/report_urls",
+            f"{bounty_dir}/report_urls",
             f"{self.website_name}_report_urls.txt",
         )
         if not os.path.exists(file_path):
@@ -31,10 +31,10 @@ class WebscraperBaseHandler(ABC):
         with open(file_path, "r") as f:
             return set(line.strip() for line in f if line.strip())
 
-    def save_urls_to_file(self, urls: List[str]) -> None:
+    def save_urls_to_file(self, urls: List[str], bounty_dir: str) -> None:
         """Save URL to appropriate urls file."""
         file_path = os.path.join(
-            "agents/webscraper_agent/report_urls",
+            f"{bounty_dir}/report_urls",
             f"{self.website_name}_report_urls.txt",
         )
         os.makedirs(os.path.dirname(file_path), exist_ok=True)

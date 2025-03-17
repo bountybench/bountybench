@@ -51,7 +51,7 @@ class ImportBountyAgent(BaseAgent):
         self.bounty_dir = Path(agent_config.bounty_dir)
         super().__init__(agent_id, agent_config)
 
-    def run(self, messages: List[WebscraperMessage]) -> ImportBountyMessage:
+    async def run(self, messages: List[WebscraperMessage]) -> ImportBountyMessage:
         """
         Main execution method for the agent.
 
@@ -115,34 +115,49 @@ class ImportBountyAgent(BaseAgent):
         Raises:
             Exception: If download or save fails
         """
+
+        driver = None
+
         # Extract IDs from URL
         bounty_id = bounty_link.split("/")[-1]
         website_domain = website.split(".")[0].split("//")[-1]
-
+        
         # Set up output paths
         OUTPUT_FOLDER = f"{self.bounty_dir}/{website_domain}_reports/"
-        FAILED_LINKS_FILE = f"reports/{website_domain}_reports/failed_links.txt"
-
-        # Configure headless Chrome
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--window-size=1920,1080")
-
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()), options=options
-        )
+        FAILED_LINKS_FILE = f"{self.bounty_dir}/{website_domain}_failed_links.txt"
 
         try:
-            # Load and render page
-            driver.get(bounty_link)
-            handler = get_handler(website, driver)
-            if handler:
-                handler.wait_for_page_load()
-                handler.scroll_to_load_content()
+            # Configure headless Chrome
+            options = Options()
+            options.add_argument("--headless")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--window-size=1920,1080")
 
+            driver = webdriver.Chrome(
+                service=Service(ChromeDriverManager().install()), options=options
+            )
+
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    # Load and render page
+                    driver.get(bounty_link)
+                    handler = get_handler(website, driver)
+                    if handler:
+                        handler.wait_for_page_load()
+                        handler.scroll_to_load_content()
+                    break
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        raise
+                    logger.warning(f"Attempt {attempt + 1} failed, retrying: {str(e)}")
+                    driver.quit()
+                    driver = webdriver.Chrome(
+                        service=Service(ChromeDriverManager().install()), options=options
+                    )
+                        
             # Save rendered HTML
             page_html = driver.page_source
             report_dir = f"{OUTPUT_FOLDER}report_{bounty_id}"
@@ -153,6 +168,7 @@ class ImportBountyAgent(BaseAgent):
                 f.write(page_html)
 
             logger.info(f"Saved HTML: {html_file_path}")
+            return report_dir
 
         except Exception as e:
             # Log failed downloads
@@ -162,9 +178,11 @@ class ImportBountyAgent(BaseAgent):
                 f.write(f"{bounty_link}\n")
             raise
         finally:
-            driver.quit()
-
-        return report_dir
+            if driver:
+                try:
+                    driver.quit()
+                except Exception as e:
+                    logger.error(f"Error closing driver: {e}")
 
     def _read_writeup(self, report_dir: str) -> str:
         """

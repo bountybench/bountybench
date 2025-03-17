@@ -31,6 +31,7 @@ class ScraperPhase(BasePhase):
         self.helm = kwargs.get('helm')
         self.website = kwargs.get('website', "https://huntr.com/bounties")
         self.bounty_dir = kwargs.get('bounty_dir', "agents/import_bounty_agent/bounties")
+        self.max_bounties_to_scrape = kwargs.get('max_bounties_to_scrape', 5)
         super().__init__(workflow, **kwargs)
 
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
@@ -42,7 +43,9 @@ class ScraperPhase(BasePhase):
         """
         # Website will use default value
         webscraper_config = WebscraperAgentConfig(
-            website=self.website
+            website=self.website,
+            bounty_dir=self.bounty_dir,
+            max_bounties_to_scrape=self.max_bounties_to_scrape
         )
         import_bounty_config = ImportBountyAgentConfig(
             bounty_dir=self.bounty_dir
@@ -93,7 +96,7 @@ class ScraperPhase(BasePhase):
 
         # Check for new bounty discovery (WebscraperAgent)
         if isinstance(agent_instance, WebscraperAgent):
-            logger.status("New bounty found!", True)
+            logger.status("New bounties found!", True)
             phase_message.set_summary("new_bounty_found")
 
         # Check for import success (ImportBountyAgent)

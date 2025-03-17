@@ -10,6 +10,6 @@ def get_handler(
 ) -> Optional[BaseBountyHandler]:
     if website == "https://huntr.com/bounties":
         return HuntrHandler(driver, writeup)
-    elif website == "https://hackerone.com/reports":
+    elif website == "https://hackerone.com/reports/":
         return HackerOneHandler(driver, writeup)
     return None
