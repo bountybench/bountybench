@@ -123,6 +123,7 @@ def test_write_import_bounty_message(mock_log, agent):
     assert message.success
 
 
+@pytest.mark.asyncio
 @patch(
     "agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._download_webpage"
 )
@@ -131,7 +132,7 @@ def test_write_import_bounty_message(mock_log, agent):
 )
 @patch("agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._read_writeup")
 @patch("messages.message_utils.log_message")
-def test_run(mock_log, mock_read_writeup, mock_extract_metadata, mock_download, agent):
+async def test_run(mock_log, mock_read_writeup, mock_extract_metadata, mock_download, agent):
     """Test full agent run."""
     test_dir = os.path.join("test_bounties", "report_123456")
     mock_download.return_value = test_dir
@@ -146,7 +147,7 @@ def test_run(mock_log, mock_read_writeup, mock_extract_metadata, mock_download, 
         bounty_links=["https://hackerone.com/reports/123456"],
     )
 
-    result = agent.run([prev_message])
+    result = await agent.run([prev_message])
 
     assert isinstance(result, ImportBountyMessage)
     assert result.success
@@ -170,13 +171,14 @@ def test_read_writeup(agent):
     assert empty_result == ""
 
 
-def test_invalid_input_message(agent):
+@pytest.mark.asyncio
+async def test_invalid_input_message(agent):
     """Test handling of invalid input messages."""
     with pytest.raises(ValueError):
-        agent.run([])  # Empty message list
+        await agent.run([])  # Empty message list
 
     with pytest.raises(ValueError):
-        agent.run([Mock(), Mock()])  # Too many messages
+        await agent.run([Mock(), Mock()])  # Too many messages
 
 
 def test_config_validation():
@@ -210,8 +212,13 @@ def test_download_webpage_error_handling(mock_get_handler, mock_chrome, agent):
 
     assert "Network error" in str(cm.value)
 
-    failed_links_file = os.path.join("reports", "hackerone_reports", "failed_links.txt")
+    failed_links_file = os.path.join(agent.bounty_dir, "hackerone_failed_links.txt")
     assert os.path.exists(os.path.dirname(failed_links_file))
+
+    # Verify the failed link was written
+    with open(failed_links_file, "r") as f:
+        failed_links = f.readlines()
+    assert bounty_link + "\n" in failed_links
 
 
 def test_write_api_metadata(agent):
@@ -248,6 +255,7 @@ def test_extract_metadata_no_handler(mock_get_handler, agent):
     assert "No handler available" in str(cm.value)
 
 
+@pytest.mark.asyncio
 @patch(
     "agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._download_webpage"
 )
@@ -256,7 +264,7 @@ def test_extract_metadata_no_handler(mock_get_handler, agent):
 )
 @patch("agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._read_writeup")
 @patch("messages.message_utils.log_message")
-def test_run_with_multiple_bounties(
+async def test_run_with_multiple_bounties(
     mock_log, mock_read_writeup, mock_extract_metadata, mock_download, agent
 ):
     """Test processing multiple bounty links."""
@@ -280,7 +288,7 @@ def test_run_with_multiple_bounties(
         ],
     )
 
-    result = agent.run([prev_message])
+    result = await agent.run([prev_message])
 
     assert len(result.bounty_dirs) == 2
     assert result.bounty_dirs == test_dirs
