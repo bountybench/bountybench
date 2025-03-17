@@ -106,10 +106,10 @@ class ScraperPhase(BasePhase):
                 phase_message.set_summary("bounty_import_success")
         else:
             logger.status("ScraperPhase unsuccessful.", False)
-            phase_message.set_complete()
-            phase_message.set_failure()
+            # phase_message.set_complete()
+            # phase_message.set_failure()
 
-        # Stop if we reach max iterations
+        # TODO: Stop if we reach max iterations
         # if self.max_iterations_reached():
         #     phase_message.set_complete()
         #     phase_message.set_success()
