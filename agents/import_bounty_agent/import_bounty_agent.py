@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import os
 import sys
@@ -99,6 +100,8 @@ class ImportBountyAgent(BaseAgent):
                 success = False
                 raise
 
+        # Update report URLs
+        self._update_report_urls(bounty_links, website)
         return self._write_import_bounty_message(report_dirs, bounty_links, success)
 
     def _download_webpage(self, bounty_link: str, website: str) -> str:
@@ -284,3 +287,32 @@ class ImportBountyAgent(BaseAgent):
             bounty_dirs=bounty_dirs,
             bounty_links=bounty_links,
         )
+    
+    def _update_report_urls(self, bounty_links: List[str], website: str):
+        """
+        Update the report URLs in the report_urls.json file.
+
+        Args:
+            bounty_links: List of bounty links
+            website: Base website URL
+        """
+        website_domain = website.split(".")[0].split("//")[-1]
+        file_path = os.path.join(self.bounty_dir, f"report_urls/{website_domain}_report_urls.json")
+        if os.path.exists(file_path):
+            with open(file_path, "r") as f:
+                data = json.load(f)
+
+        for bounty_link in bounty_links:
+            if bounty_link not in data.keys():
+                data[bounty_link] = {
+                    "url": bounty_link, 
+                    "website": website, 
+                    "timestamp": datetime.now().isoformat(), 
+                    "imported": True,
+                }
+                logger.info(f"Added new bounty link to {file_path}: {bounty_link}")
+            else:
+                data[bounty_link]["imported"] = True
+
+        with open(file_path, "w") as f:
+            json.dump(data, f, indent=2)
