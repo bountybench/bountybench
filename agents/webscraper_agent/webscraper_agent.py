@@ -78,17 +78,12 @@ class WebscraperAgent(BaseAgent):
                 new_urls = []
 
                 for url in latest_urls:
-                    # if url == last_bounty_link:
-                    #    logger.info(f"Reached last bounty link: {url}")
-                    #    break
+                    if url == last_bounty_link:
+                       logger.info(f"Reached last bounty link: {url}")
                     if url not in known_urls and url not in seen:
                         logger.info(f"Adding new bounty: {url}")
                         new_urls.append(url)
                         seen.add(url)
-                    elif url in known_urls:
-                        logger.info(f"Skipping duplicate bounty: {url}")
-                    elif url in seen:
-                        logger.info(f"Skipping seen bounty: {url}")
                     if len(new_urls) >= self.max_bounties_to_scrape:
                         logger.info(f"Reached max bounties to scrape: {self.max_bounties_to_scrape}")
                         break
