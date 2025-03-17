@@ -9,13 +9,14 @@
   overflow: hidden;
 }
 
+.action-message {
+  border-left: 4px solid #4caf50 !important; /* Green for general */
+}
+
 .action-message.MODEL {
   border-left: 4px solid #2196f3 !important; /* Blue for Model */
 }
 
-.action-message.KALI_ENV {
-  border-left: 4px solid #4caf50 !important; /* Green for Kali_env */
-}
 
 .action-message .MuiCardContent-root {
   padding: 0 !important;
@@ -142,10 +143,6 @@
   border-radius: 4px;
 }
 
-.selected.action-message.MODEL {
-  border-left: 4px solid #966200 !important;
-}
-
-.selected.action-message.KALI_ENV {
+.selected.action-message {
   border-left: 4px solid #966200 !important;
 }

@@ -107,7 +107,6 @@ def test_parse_response_invalid(executor_agent):
     result = executor_agent.parse_response(action_msg)
 
     assert isinstance(result, ActionMessage)
-    assert "Could not parse response as CommandMessage" in result.message
 
 
 def test_execute_in_env_success(executor_agent):

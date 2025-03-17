@@ -20,7 +20,7 @@ class PatchAgentMessage(AgentMessage):
     def success(self) -> bool:
         return self._success
 
-    def set_success_status(self, value: bool):
+    def set_success(self, value: bool):
         self._success = value
 
     def set_repo_invariant_scores(self, value: dict):
