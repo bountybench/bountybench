@@ -301,6 +301,8 @@ class ImportBountyAgent(BaseAgent):
         if os.path.exists(file_path):
             with open(file_path, "r") as f:
                 data = json.load(f)
+        else:
+            data = {}
 
         for bounty_link in bounty_links:
             if bounty_link not in data.keys():
@@ -314,5 +316,6 @@ class ImportBountyAgent(BaseAgent):
             else:
                 data[bounty_link]["imported"] = True
 
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "w") as f:
             json.dump(data, f, indent=2)
