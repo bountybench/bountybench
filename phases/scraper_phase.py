@@ -107,8 +107,8 @@ class ScraperPhase(BasePhase):
             phase_message.set_failure()
 
         # Stop if we reach max iterations
-        if self.max_iterations_reached():
-            phase_message.set_complete()
-            phase_message.set_success()
+        # if self.max_iterations_reached():
+        #     phase_message.set_complete()
+        #     phase_message.set_success()
 
         return message
