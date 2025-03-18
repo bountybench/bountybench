@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional
+from workflows.interactive_controller import IterationType
 
 from pydantic import BaseModel, Field
 
@@ -34,7 +35,7 @@ class MessageInputData(BaseModel):
 class MessageData(BaseModel):
     message_id: str
     num_iter: Optional[int] = 1
-    type_iter: Optional[str] = "agent"
+    type_iter: Optional[str] = IterationType.AGENT
 
 
 class UpdateInteractiveModeInput(BaseModel):
