@@ -11,7 +11,7 @@ class TokenizerMapping:
         "openai/gpt-4-0613": "openai/cl100k_base",
         "openai/gpt-4-32k-0613": "openai/cl100k_base",
         "openai/gpt-4-turbo-2024-04-09": "openai/cl100k_base",
-        "openai/gpt-4o-2024-05-13": "openai/o200k_base",
+        "openai/gpt-4o-2024-11-20": "openai/o200k_base",
         "openai/gpt-3.5-turbo-0125": "openai/cl100k_base",
         # Together Models (LLAMA)
         "meta/llama-3-8b": "meta/llama-3-8b",
@@ -34,6 +34,7 @@ class TokenizerMapping:
         "google/gemini-1.0-pro-001": "google/gemma-2b",
         "google/gemini-1.5-pro-001": "google/gemma-2b",
         "google/gemini-1.5-pro-preview-0409": "google/gemma-2b",
+        "google/gemini-2.0-flash-001": "google/gemma-2b",
         # Other
         "01-ai/yi-large": "01-ai/Yi-6B",
     }
@@ -45,7 +46,7 @@ class NonHELMMapping:
         # OpenAI Models
         "openai/o1-mini-2024-09-12": "o1-mini-2024-09-12",
         "openai/o1-preview-2024-09-12": "o1-preview-2024-09-12",
-        "openai/gpt-4o-2024-05-13": "gpt-4o-2024-05-13",
+        "openai/gpt-4o-2024-11-20": "gpt-4o-2024-11-20",
         "openai/o3-mini-2025-01-31 ": "openai/o3-mini-2025-01-31",
         # Anthropic Models (Claude)
         "anthropic/claude-3-5-sonnet-20240620": "claude-3-5-sonnet-20240620",
@@ -53,6 +54,7 @@ class NonHELMMapping:
         "anthropic/claude-3-opus-20240229": "claude-3-opus-20240229",
         # Google Gemini Models
         "google/gemini-1.5-pro-001": "gemini-1.5-pro",
+        "google/gemini-2.0-flash-001": "gemini-2.0-flash",
         # Together Models (LLAMA)
         "meta/llama-3.1-70b-instruct-turbo": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         "meta/llama-3.1-405b-instruct-turbo": "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
