@@ -9,13 +9,14 @@
   overflow: hidden;
 }
 
+.action-message {
+  border-left: 4px solid #4caf50 !important; /* Green for general */
+}
+
 .action-message.MODEL {
   border-left: 4px solid #2196f3 !important; /* Blue for Model */
 }
 
-.action-message.KALI_ENV {
-  border-left: 4px solid #4caf50 !important; /* Green for Kali_env */
-}
 
 .action-message .MuiCardContent-root {
   padding: 0 !important;
@@ -25,14 +26,20 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 6px 20px;
   background-color: #f8f9fa;
   border-bottom: 1px solid #e0e0e0;
 }
 
+.action-title {
+  display: flex;
+  flex-direction: row;
+  align-items: end;
+  gap: 15px;
+}
+
 .action-message-title {
   font-size: 0.85rem !important;
-  font-weight: 600;
   color: #1f1f1f !important;
 }
 
@@ -136,10 +143,6 @@
   border-radius: 4px;
 }
 
-.selected.action-message.MODEL {
-  border-left: 4px solid #966200 !important;
-}
-
-.selected.action-message.KALI_ENV {
+.selected.action-message {
   border-left: 4px solid #966200 !important;
 }

@@ -76,6 +76,16 @@ def git_reset(directory_path: PathLike, branch_name: Optional[str] = None) -> No
         raise
 
 
+def git_remove_changes(directory_path: PathLike) -> None:
+    try:
+        directory = Path(directory_path)
+        _run_git_command(directory, ["reset", "--hard", "HEAD"])
+        _run_git_command(directory, ["clean", "-fd"])
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to remove changes in repository: {e}")
+        raise
+
+
 def git_checkout(directory_path: PathLike, commit: str, force=False) -> None:
     """Checkout a specific commit and clean repository."""
     directory = Path(directory_path)
@@ -122,7 +132,7 @@ def git_clean_untracked(directory_path: PathLike) -> None:
     _run_git_command(directory, ["clean", "-fd"])
 
 
-def git_init_repo(directory_path: PathLike) -> None:
+def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
     """Initialize git repository if it doesn't exist."""
     directory = Path(directory_path)
     if not directory.exists():
@@ -141,6 +151,14 @@ def git_init_repo(directory_path: PathLike) -> None:
         gitignore = directory / ".gitignore"
         if not gitignore.exists():
             gitignore.write_text("*.log\n.DS_Store\n")
+
+        # If ignore_dirs list is provided, append each entry to .gitignore if not already present
+        if ignore_dirs:
+            current_content = gitignore.read_text() if gitignore.exists() else ""
+            with gitignore.open("a") as f:
+                for ignore_dir in ignore_dirs:
+                    if ignore_dir not in current_content:
+                        f.write(f"{ignore_dir}\n")
 
         # Initial commit
         _run_git_command(directory, ["add", "."])
@@ -303,3 +321,31 @@ def git_setup_dev_branch(
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to setup dev branch: {e}")
         raise
+
+
+def git_get_current_commit(directory_path: PathLike) -> Optional[str]:
+    """
+    Get the current commit hash of the repository.
+
+    Args:
+        directory_path: Path to the git repository
+
+    Returns:
+        Optional[str]: The current commit hash if successful, None otherwise
+    """
+    try:
+        directory = Path(directory_path)
+
+        if not (directory / ".git").exists():
+            logger.error(f"{directory} is not a git repository")
+            return None
+
+        result = _run_git_command(directory, ["rev-parse", "HEAD"], capture_output=True)
+
+        commit_hash = result.stdout.strip()
+        logger.debug(f"Current commit hash: {commit_hash}")
+        return commit_hash
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to get current commit hash: {e}")
+        return None

@@ -4,6 +4,8 @@ import traceback
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
+from fastapi import HTTPException
+
 from backend.execution_backends import ExecutionBackend
 from backend.schema import (
     MessageData,
@@ -11,6 +13,7 @@ from backend.schema import (
     StartWorkflowInput,
     UpdateInteractiveModeInput,
 )
+from resources.model_resource.services.api_key_service import check_api_key_validity
 
 
 class LocalExecutionBackend(ExecutionBackend):
@@ -399,10 +402,8 @@ class LocalExecutionBackend(ExecutionBackend):
 
         workflow = self.active_workflows[workflow_id]["instance"]
         try:
-            result = await workflow.interactive_controller.change_current_model(
-                new_model_name
-            )
-            return {"status": "updated", "result": result.id}
+            await workflow.interactive_controller.change_current_model(new_model_name)
+            return {"status": "updated"}
         except Exception as e:
             error_traceback = traceback.format_exc()
             print(
@@ -477,7 +478,14 @@ class LocalExecutionBackend(ExecutionBackend):
         workflow = self.active_workflows[workflow_id]["instance"]
 
         try:
-            # Use InteractiveController to update mock model state
+            if not use_mock_model:  # User is trying to disable mock mode
+                model_name = workflow.params.get("model")
+                use_helm = workflow.params.get("use_helm")
+                if not check_api_key_validity(model_name, use_helm):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Cannot disable mock mode: API key is missing or invalid.",
+                    )
             await workflow.interactive_controller.set_mock_model(use_mock_model)
             return {"status": "success", "use_mock_model": use_mock_model}
         except Exception as e:

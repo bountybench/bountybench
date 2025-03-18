@@ -41,7 +41,20 @@ class ModelResourceConfig(BaseResourceConfig):
 
     @classmethod
     def create(cls, **kwargs):
+        # If using a mock model but no model name provided, use a default name
+        if kwargs.get("use_mock_model", False) and (
+            "model" not in kwargs or kwargs.get("model") is None
+        ):
+            kwargs["model"] = "mock-model"
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
+
+    def copy_with_changes(self, **kwargs):
+        """
+        Returns a *new* ModelResourceConfig instance with only the specified fields modified.
+        """
+        config_dict = self.__dict__.copy()
+        config_dict.update({k: v for k, v in kwargs.items() if v is not None})
+        return self.__class__(**config_dict)
 
     def validate(self) -> None:
         """Validate LLMResource configuration"""
@@ -69,8 +82,9 @@ class ModelResource(RunnableBaseResource):
         self.helm = self._resource_config.use_helm
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
-        self.model_provider: ModelProvider = self.get_model_provider()
         self.use_mock_model = self._resource_config.use_mock_model
+        if not self.use_mock_model:
+            self.model_provider: ModelProvider = self.get_model_provider()
 
     def get_model_provider(self) -> ModelProvider:
         """
@@ -78,6 +92,8 @@ class ModelResource(RunnableBaseResource):
         Returns:
             ModelProvider: An instance of the appropriate model provider class.
         """
+        if self.use_mock_model:
+            return None
         if self.helm:
             model_provider = HelmModels()
         else:

@@ -4,8 +4,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 
-from backend.schema import SaveConfigRequest, StartWorkflowInput
 from backend.execution_backends import ExecutionBackend
+from backend.schema import SaveConfigRequest, StartWorkflowInput
 from prompts.vulnerability_prompts import VulnerabilityType
 from resources.model_resource.model_mapping import NonHELMMapping, TokenizerMapping
 from resources.model_resource.model_resource import ModelResourceConfig
@@ -24,18 +24,13 @@ async def list_workflows():
             },
             {
                 "id": "exploit_patch",
-                "name": "Exploit and Patch Workflow",
+                "name": "Exploit Patch Workflow",
                 "description": "Workflow for exploiting and patching vulnerabilities",
             },
             {
                 "id": "patch",
                 "name": "Patch Workflow",
                 "description": "Workflow for patching vulnerabilities",
-            },
-            {
-                "id": "chat",
-                "name": "Chat Workflow",
-                "description": "Workflow for chatting",
             },
         ]
     }
@@ -167,9 +162,11 @@ async def save_config(config_request: SaveConfigRequest, request: Request):
     """
     Save configuration with the execution backend.
     """
-    execution_backend: ExecutionBackend =  request.app.state.execution_backend
+    execution_backend: ExecutionBackend = request.app.state.execution_backend
     try:
-        result = await execution_backend.save_config(config_request.fileName, config_request.config)
+        result = await execution_backend.save_config(
+            config_request.fileName, config_request.config
+        )
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
         return result

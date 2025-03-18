@@ -96,6 +96,10 @@ class MessageHandler:
         params["prev"] = prev
         params["message"] = edit if edit else params["message"]
         new_message = cls(**params)
+
+        if isinstance(new_message, AgentMessage) and old_message.iteration != None:
+            new_message.set_iteration(old_message.iteration)
+
         return new_message
 
     def _clone_parent_agent_message(
@@ -115,7 +119,9 @@ class MessageHandler:
         # Maintain the next link so workflow can handle the run message
         if old_message.next:
             new_message.set_next(old_message.next)
-        logger.info(f"new_parent_message current children: {new_parent_message.current_children}")
+        logger.info(
+            f"new_parent_message current children: {new_parent_message.current_children}"
+        )
         self.update_version_links(
             old_message,
             new_message,
@@ -199,7 +205,15 @@ class MessageHandler:
         logger.info(
             f"old_message: {old_message.message}, ID: {old_message.id} with prev {old_message.prev} and next: {old_message.next}"
         )
-        new_message.set_next(old_message.next)
+        if (
+            not new_message.parent
+            or old_message.parent
+            or new_message.parent == old_message.parent
+        ):
+            new_message.set_next(old_message.next)
+
+        if isinstance(new_message, AgentMessage) and old_message.iteration != None:
+            new_message.set_iteration(old_message.iteration)
 
         if not parent_message:
             parent_message = old_message.parent

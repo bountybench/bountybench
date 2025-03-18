@@ -83,10 +83,6 @@ class FakePatchWorkflow(FakeWorkflow):
     pass
 
 
-class FakeChatWorkflow(FakeWorkflow):
-    pass
-
-
 class FakeInteractiveController(InteractiveController):
     async def run_next_message(self) -> Any:
         return type("obj", (object,), {"id": "fake-message-id"})()

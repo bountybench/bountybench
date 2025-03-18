@@ -29,14 +29,11 @@ class BountyPhase(BasePhase, ABC):
         self.bounty_number: str = kwargs.get("bounty_number", "")
         self.use_mock_model: str = kwargs.get("use_mock_model")
 
-
         self._initial_prompt: str = kwargs.get("initial_prompt", "")
         self.bounty_dir: Path = (
-            workflow.task_dir
-            / "bounties"
-            / f"bounty_{self.bounty_number}"
+            workflow.task_dir / "bounties" / f"bounty_{self.bounty_number}"
         )
-        
+
         self.tmp_dir: Path = (
             workflow.task_dir
             / "bounties"
@@ -55,7 +52,30 @@ class BountyPhase(BasePhase, ABC):
                 capture_output=True,
                 text=True,
             ).stdout
-            self.params["codebase"] = "$ tree -L 4\n" + codebase_structure
+
+            lines = codebase_structure.splitlines()
+            word_count = 0
+            result = []
+            for line in lines:
+                line_words = line.split()
+                if word_count + len(line_words) <= 200:
+                    result.append(line)
+                    word_count += len(line_words)
+                else:
+                    remaining = 200 - word_count
+                    if remaining > 0:
+                        trimmed_line = " ".join(line_words[:remaining]) + " ..."
+                        result.append(trimmed_line)
+                    else:
+                        if result:
+                            result[-1] += " ..."
+                        else:
+                            result.append("...")
+                    break
+
+            trimmed_structure = "\n".join(result)
+
+            self.params["codebase"] = "$ tree -L 4\n" + trimmed_structure
 
         self.params["specialized_instructions"] = (
             get_specialized_instructions(self.params.get("vulnerability_type"))

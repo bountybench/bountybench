@@ -1,8 +1,5 @@
-import asyncio
 import atexit
 import json
-import os
-import sys
 import time
 import uuid
 from dataclasses import dataclass
@@ -37,6 +34,7 @@ class DockerResourceConfig(BaseResourceConfig):
         """Validate Docker configuration"""
         pass
 
+
 class DockerResource(RunnableBaseResource):
     """
     Docker Resource to manage Docker containers.
@@ -64,24 +62,20 @@ class DockerResource(RunnableBaseResource):
         docker_image = docker_message.docker_image
         command = docker_message.command
         network = docker_message.network
+        work_dir = docker_message.work_dir
         volumes = docker_message.volumes
 
         output, exit_code = self.execute(
-            docker_image=docker_image, command=command, network=network, volumes=volumes
+            docker_image=docker_image,
+            command=command,
+            network=network,
+            work_dir=work_dir,
+            volumes=volumes,
         )
 
-        return ActionMessage(
-            resource_id=self.resource_id,
-            message=f"{output}",
-            additional_metadata={
-                "docker_image": docker_image,
-                "command": command,
-                "exit_code": exit_code,
-                "output": output,
-                "success": (exit_code == 0),
-            },
-            prev=docker_message,
-        )
+        docker_message.set_message(output)
+        docker_message.set_exit_code(exit_code)
+        return docker_message
 
     def execute(
         self,
@@ -108,7 +102,10 @@ class DockerResource(RunnableBaseResource):
         """
 
         unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
-        start_progress(f"Running command in Docker: {command}")
+        command_trc = (
+            f"{command[:10]}...{command[-10:]}" if len(command) > 23 else command
+        )
+        start_progress(f"Running command in Docker: {command_trc}")
         try:
             container = self.client.containers.run(
                 image=docker_image,
@@ -121,12 +118,9 @@ class DockerResource(RunnableBaseResource):
             )
 
             logs = ""
-            last_line = ""
             for line in container.logs(stdout=True, stderr=True, stream=True):
                 decoded_line = line.decode().strip()
                 logs += decoded_line + "\n"
-                if decoded_line:  # Only update last_line if non-empty
-                    last_line = decoded_line
 
             # Wait for the container to finish and get the exit code
             result = container.wait()
@@ -135,7 +129,7 @@ class DockerResource(RunnableBaseResource):
             logger.info(f"Container logs:\n{logs.strip()}")
             logger.info(f"Exit code: {exit_code}")
 
-            return last_line, exit_code
+            return logs, exit_code
 
         except docker.errors.APIError as e:
             logger.error(f"Docker API error: {str(e)}")
@@ -159,7 +153,7 @@ class DockerResource(RunnableBaseResource):
     def handle_docker_exception(self, e: DockerException) -> RuntimeError:
         """Handle different Docker exceptions for clearer debugging and return appropriate runtime error."""
         error_message = ""
-        
+
         if isinstance(e, ImageNotFound):
             error_message = "Image not found: " + str(e)
         elif isinstance(e, NotFound):
@@ -182,7 +176,7 @@ class DockerResource(RunnableBaseResource):
         return {
             "resource_id": self.resource_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            "config": self._resource_config.to_dict()
+            "config": self._resource_config.to_dict(),
         }
 
     @classmethod

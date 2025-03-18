@@ -20,7 +20,7 @@ def agent_configs(lunary_bounty_0_setup):
     pConfig = PatchAgentConfig(
         bounty_dir=env_setup.BOUNTY_DIR,
         task_dir=env_setup.TASK_DIR,
-        use_verify_script=False,
+        use_agent_exploit=False,
     )
     eConfig = ExploitAgentConfig(
         bounty_dir=env_setup.BOUNTY_DIR,
@@ -36,7 +36,7 @@ def alternative_agent_configs():
     task_dir = "lunary"
     tmp_dir = "lunary/bounties/bounty0/tmp_1"
     pConfig = PatchAgentConfig(
-        bounty_dir=bounty_dir, task_dir=task_dir, use_verify_script=False
+        bounty_dir=bounty_dir, task_dir=task_dir, use_agent_exploit=False
     )
     eConfig = ExploitAgentConfig(
         bounty_dir=bounty_dir, task_dir=task_dir, tmp_dir=tmp_dir
@@ -127,16 +127,12 @@ def test_initialize_phase_agents_mismatch(agent_configs, initialized_agent_manag
 
 
 def test_update_phase_agents_models_has_executor():
-    mock_model_resource_config = MagicMock()
-    mock_model_resource = MagicMock(return_value=None)
-
-    ModelResourceConfig.create = MagicMock(return_value=mock_model_resource_config)
-    ModelResource.__init__ = mock_model_resource
-    ModelResource.to_dict = MagicMock()
-
     am = AgentManager(workflow_id=1)
 
     class Model:
+        def __init__(self, model="example_model_name"):
+            self.model = model
+
         def to_dict(self):
             return ""
 
@@ -151,10 +147,8 @@ def test_update_phase_agents_models_has_executor():
 
     # Assertions
     for agent in am._phase_agents.values():
-        mock_model_resource.assert_called_with("model", mock_model_resource_config)
         assert agent.resources.has_bound(ResourceType.MODEL)
-        assert isinstance(agent.resources.model, ModelResource)
-        ModelResourceConfig.create.assert_called_with(model=new_model)
+        assert agent.resources.model.model == new_model
 
 
 def test_update_phase_agents_models_no_executor():
@@ -162,6 +156,9 @@ def test_update_phase_agents_models_no_executor():
     model_resource_mock = MagicMock(return_value=None)
 
     ModelResourceConfig.create = MagicMock(return_value=mock_model_resource_config)
+    mock_model_resource_config.copy_with_changes = MagicMock(
+        return_value=mock_model_resource_config
+    )
     ModelResource.__init__ = model_resource_mock
 
     am = AgentManager(workflow_id=1)

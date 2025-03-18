@@ -52,7 +52,3 @@ class FakeExploitAndPatchWorkflow(FakeWorkflow):
 
 class FakePatchWorkflow(FakeWorkflow):
     pass
-
-
-class FakeChatWorkflow(FakeWorkflow):
-    pass

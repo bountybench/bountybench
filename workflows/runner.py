@@ -11,9 +11,19 @@ from rich.console import Console
 from rich.traceback import Traceback
 
 from workflows.base_workflow import BaseWorkflow
-from workflows.chat_workflow import ChatWorkflow
 from workflows.detect_patch_workflow import DetectPatchWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
+from workflows.patch_workflow import PatchWorkflow
+
+# This module serves as the single entry point for running workflows via the command line.
+# Example usage:
+# python -m workflows.runner --workflow-type exploit_patch_workflow \
+#     --task_dir bountybench/lunary \
+#     --bounty_number 0 \
+#     --model anthropic/claude-3-5-sonnet-20240620 \
+#     --phase_iterations 1 \
+#     --use_helm
+
 
 console = Console(record=True)
 
@@ -35,7 +45,7 @@ class WorkflowRunner:
     _workflow_factory: Dict[str, Type[BaseWorkflow]] = {
         "exploit_patch_workflow": ExploitPatchWorkflow,
         "detect_patch_workflow": DetectPatchWorkflow,
-        "chat_workflow": ChatWorkflow,
+        "patch_workflow": PatchWorkflow,
     }
 
     def __init__(self):
@@ -46,7 +56,6 @@ class WorkflowRunner:
         self.error_log_dir = Path("error_logs")
 
     def _create_parser(self) -> argparse.ArgumentParser:
-        """Create argument parser that accepts any arguments."""
         parser = argparse.ArgumentParser(description="Run security testing workflows")
         parser.add_argument(
             "--workflow-type",
@@ -55,52 +64,56 @@ class WorkflowRunner:
             choices=list(self._workflow_factory.keys()),
             help="Type of workflow to execute",
         )
+        parser.add_argument(
+            "--task_dir", type=str, help="Path to the task repository directory"
+        )
+        parser.add_argument("--bounty_number", type=str, help="Bounty number to target")
+        parser.add_argument(
+            "--vulnerability_type",
+            type=str,
+            help="Vulnerability type to detect (for detect_patch_workflow)",
+        )
+        parser.add_argument(
+            "--phase_iterations",
+            type=int,
+            help="Maximum iterations for workflow phases",
+        )
+        parser.add_argument(
+            "--use_mock_model", action="store_true", help="Use a mock model for testing"
+        )
+        parser.add_argument("--use_helm", action="store_true", help="Use HelmModels")
+        parser.add_argument("--model", type=str, help="LM model to query")
+        parser.add_argument(
+            "--max_input_tokens", type=int, help="Maximum tokens to pass to the model"
+        )
+        parser.add_argument(
+            "--max_output_tokens", type=int, help="Maximum tokens for model output"
+        )
+        parser.add_argument(
+            "--interactive", action="store_true", help="Enable interactive mode"
+        )
+
         return parser
 
     def parse_arguments(self) -> None:
-        """Parse command line arguments, allowing any additional arguments."""
-        args, unknown = self.parser.parse_known_args()
-        self.args = args
-        self.unknown_args = unknown
+        self.args = self.parser.parse_args()
 
     def initialize_workflow(self) -> None:
         """Initialize the workflow instance with parsed arguments."""
         workflow_class = self._workflow_factory[self.args.workflow_type]
 
-        # Convert unknown args to kwargs
-        kwargs = {}
-        i = 0
-        while i < len(self.unknown_args):
-            arg = self.unknown_args[i]
-            if arg in ["--helm", "--use_mock_model"]:
-                if arg == "--helm":
-                    key = "use_helm"
-                key = arg.lstrip("--").replace("-", "_")
-                kwargs[key] = True
-                i += 1
-            elif arg.startswith("--"):
-                key = arg.lstrip("--").replace("-", "_")
-                if i + 1 < len(self.unknown_args) and not self.unknown_args[
-                    i + 1
-                ].startswith("--"):
-                    value = self.unknown_args[i + 1]
-                    i += 2
-                else:
-                    value = None
-                    i += 1
-                kwargs[key] = value
-            else:
-                # Handle unexpected arguments or raise an error
-                console.print(f"[bold red]Unexpected argument: {arg}[/]")
-                i += 1
+        # Convert parsed args to kwargs
+        kwargs = vars(self.args).copy()
+        # Remove workflow-type as it's not needed for workflow instantiation
+        kwargs.pop("workflow_type")
+
+        # Remove None values from kwargs
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
         # Handle path conversions
         for arg in ["task_dir", "log_dir"]:
             if arg in kwargs and kwargs[arg] is not None:
                 kwargs[arg] = Path(kwargs[arg])
-
-        for arg in ["phase_iterations"]:
-            kwargs[arg] = int(kwargs[arg])
 
         self.kwargs = kwargs
         self.workflow = workflow_class(**kwargs)

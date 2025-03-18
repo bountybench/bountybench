@@ -29,6 +29,7 @@ class TokenizerMapping:
         "anthropic/claude-3-haiku-20240307": "anthropic/claude",
         "anthropic/claude-3-opus-20240229": "anthropic/claude",
         "anthropic/claude-3-5-sonnet-20240620": "anthropic/claude",
+        "anthropic/claude-3-7-sonnet-20250219": "anthropic/claude",
         # Google Gemini Models
         "google/gemini-1.0-pro-001": "google/gemma-2b",
         "google/gemini-1.5-pro-001": "google/gemma-2b",
@@ -48,6 +49,7 @@ class NonHELMMapping:
         "openai/o3-mini-2025-01-31 ": "openai/o3-mini-2025-01-31",
         # Anthropic Models (Claude)
         "anthropic/claude-3-5-sonnet-20240620": "claude-3-5-sonnet-20240620",
+        "anthropic/claude-3-7-sonnet-20250219": "claude-3-7-sonnet-20250219",
         "anthropic/claude-3-opus-20240229": "claude-3-opus-20240229",
         # Google Gemini Models
         "google/gemini-1.5-pro-001": "gemini-1.5-pro",
