@@ -6,11 +6,19 @@ import os
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
 
 import yaml
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream
+
+
+class Status(Enum):
+    """Pod status enum to prevent typos and improve readability."""
+
+    IDLE = "idle"
+    BUSY = "busy"
 
 
 def load_yaml_file(file_path):
@@ -128,57 +136,63 @@ def get_pod_status(api_instance, pod_name):
     try:
         # Define the status file path
         status_file = "/app/pod_status.json"
-        
+
         # Try to read the status file
-        result = exec_command_in_pod(
-            api_instance,
-            pod_name,
-            ["cat", status_file]
-        )
-        
+        result = exec_command_in_pod(api_instance, pod_name, ["cat", status_file])
+
         # If the command succeeded, parse the status
         try:
             status_data = json.loads(result)
-            return status_data.get("status", "idle")  # Default to idle if status key missing
+            status_str = status_data.get(
+                "status", Status.IDLE.value
+            )  # Default to idle if status key missing
+            # Convert string status to enum
+            if status_str == Status.IDLE.value:
+                return Status.IDLE
+            elif status_str == Status.BUSY.value:
+                return Status.BUSY
+            else:
+                print(
+                    f"Warning: Unknown status '{status_str}' in pod {pod_name}, defaulting to IDLE"
+                )
+                return Status.IDLE
         except json.JSONDecodeError:
             print(f"Warning: Invalid status file format in pod {pod_name}")
-            return "idle"  # Default to idle if file format is invalid
-            
+            return Status.IDLE  # Default to idle if file format is invalid
+
     except Exception as e:
         # If file doesn't exist or any other error, assume the pod is idle
-        print(f"Note: Could not read status file from pod {pod_name}, assuming idle: {e}")
-        return "idle"
+        print(
+            f"Note: Could not read status file from pod {pod_name}, assuming idle: {e}"
+        )
+        return Status.IDLE
 
 
 def set_pod_status(api_instance, pod_name, status):
     """Set the status (idle/busy) of a pod using a status file."""
-    if status not in ["idle", "busy"]:
-        raise ValueError(f"Invalid status: {status}. Must be 'idle' or 'busy'.")
-        
+    if not isinstance(status, Status):
+        raise ValueError(f"Invalid status: {status}. Must be a Status enum value.")
+
     # Create status data
     status_data = {
-        "status": status,
-        "timestamp": datetime.datetime.now().isoformat()
+        "status": status.value,  # Use the string value from enum
+        "timestamp": datetime.datetime.now().isoformat(),
     }
-    
+
     # Convert to JSON string
     status_json = json.dumps(status_data)
-    
+
     # Write to status file in pod
     try:
         # First ensure the directory exists
-        exec_command_in_pod(
-            api_instance,
-            pod_name,
-            ["mkdir", "-p", "/app"]
-        )
-        
+        exec_command_in_pod(api_instance, pod_name, ["mkdir", "-p", "/app"])
+
         # Write the status file
         # We need to echo the JSON and redirect to the file
         cmd = ["sh", "-c", f"echo '{status_json}' > /app/pod_status.json"]
         exec_command_in_pod(api_instance, pod_name, cmd)
-        
-        print(f"Pod {pod_name} status set to: {status}")
+
+        print(f"Pod {pod_name} status set to: {status.name}")
         return True
     except Exception as e:
         print(f"Error setting status for pod {pod_name}: {e}")
@@ -189,23 +203,25 @@ def find_idle_pods(api_instance):
     """Find all idle backend pods."""
     pod_names = get_pod_names(api_instance)
     idle_pods = []
-    
+
     for pod_name in pod_names:
         # Check if pod is Running
         pod = api_instance.read_namespaced_pod(name=pod_name, namespace="default")
         if pod.status.phase != "Running":
             continue
-            
+
         # Check if all containers are ready
         container_statuses = pod.status.container_statuses
-        if not container_statuses or not all(status.ready for status in container_statuses):
+        if not container_statuses or not all(
+            status.ready for status in container_statuses
+        ):
             continue
-            
+
         # Check the pod's status file
         status = get_pod_status(api_instance, pod_name)
-        if status == "idle":
+        if status == Status.IDLE:
             idle_pods.append(pod_name)
-    
+
     return idle_pods
 
 
@@ -214,14 +230,12 @@ def reset_pod(api_instance, pod_name):
     try:
         # Clean up logs directory
         exec_command_in_pod(
-            api_instance,
-            pod_name,
-            ["sh", "-c", "rm -rf /app/logs/* || true"]
+            api_instance, pod_name, ["sh", "-c", "rm -rf /app/logs/* || true"]
         )
-        
+
         # Set status to idle
-        set_pod_status(api_instance, pod_name, "idle")
-        
+        set_pod_status(api_instance, pod_name, Status.IDLE)
+
         print(f"Pod {pod_name} has been reset and is ready for reuse")
         return True
     except Exception as e:
@@ -311,8 +325,8 @@ def process_pod(api_instance, core_api, pod_name, user_command, timestamp):
     """Process a single pod with all required steps."""
     try:
         # Mark pod as busy before starting work
-        set_pod_status(api_instance, pod_name, "busy")
-        
+        set_pod_status(api_instance, pod_name, Status.BUSY)
+
         # Step 1: Pull the Docker image with retry
         print(f"Pulling Docker image in pod {pod_name}...")
 
@@ -368,13 +382,13 @@ def process_pod(api_instance, core_api, pod_name, user_command, timestamp):
         copy_logs(core_api, pod_name, timestamp)
 
         # Mark pod as idle after completion
-        set_pod_status(api_instance, pod_name, "idle")
+        set_pod_status(api_instance, pod_name, Status.IDLE)
         return True
     except Exception as e:
         print(f"Error processing pod {pod_name}: {e}")
         # Still mark as idle on error, as the pod is no longer busy
         try:
-            set_pod_status(api_instance, pod_name, "idle")
+            set_pod_status(api_instance, pod_name, Status.IDLE)
         except Exception as status_error:
             print(f"Failed to reset pod status after error: {status_error}")
         return False
@@ -471,7 +485,7 @@ def main():
         delete_deployment(apps_api, core_api)
         print("Cleanup completed.")
         return
-        
+
     # If --reset-pods flag is set, reset all pods to idle and exit
     if args.reset_pods:
         print("Resetting all pods to idle state...")
@@ -479,10 +493,10 @@ def main():
         if not pod_names:
             print("No pods found to reset.")
             return
-            
+
         for pod_name in pod_names:
             reset_pod(core_api, pod_name)
-            
+
         print(f"Reset {len(pod_names)} pods to idle state.")
         return
 
@@ -510,31 +524,31 @@ def main():
 
     # Generate timestamp for log directory
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    
+
     # Check for idle pods if reuse is enabled
     idle_pods = []
     if not args.no_reuse:
         print("Checking for idle pods to reuse...")
         idle_pods = find_idle_pods(core_api)
         print(f"Found {len(idle_pods)} idle pods that can be reused")
-    
+
     # Calculate how many new pods we need to create
     new_pods_needed = max(0, replicas - len(idle_pods))
-    
+
     # Create deployment with required number of new pods if needed
     if new_pods_needed > 0:
         print(f"Creating {new_pods_needed} new pods...")
         create_deployment(apps_api, core_api, yaml_objects, new_pods_needed)
     elif len(idle_pods) >= replicas:
         print(f"Using {replicas} existing idle pods, no new pods needed")
-    
+
     # Select which idle pods to use (if we have more than needed)
     selected_idle_pods = idle_pods[:replicas]
-    
+
     # Process pods as they become ready (for new pods)
     all_ready_pods = selected_idle_pods.copy()  # Start with idle pods
     futures = {}
-    
+
     # If we need to wait for new pods
     if new_pods_needed > 0:
         with ThreadPoolExecutor(max_workers=replicas) as executor:
@@ -542,14 +556,16 @@ def main():
             new_futures, new_ready_pods = process_pods_as_ready(
                 core_api, core_api, new_pods_needed, user_command, timestamp, executor
             )
-            
+
             # Add new pods to our tracking
             futures.update(new_futures)
             all_ready_pods.extend(new_ready_pods)
-            
+
             if len(new_ready_pods) < new_pods_needed:
-                print(f"Warning: Only {len(new_ready_pods)} of {new_pods_needed} new pods became ready after timeout")
-    
+                print(
+                    f"Warning: Only {len(new_ready_pods)} of {new_pods_needed} new pods became ready after timeout"
+                )
+
     # Process the idle pods we're reusing (only if we have any)
     if selected_idle_pods:
         with ThreadPoolExecutor(max_workers=len(selected_idle_pods)) as executor:
@@ -567,14 +583,11 @@ def main():
                     timestamp,
                 )
                 futures[future] = pod_name
-    
+
     if not all_ready_pods:
         print("No pods are ready after timeout. Exiting.")
         delete_deployment(apps_api, core_api)
         sys.exit(1)
-
-    # Wait for all tasks to complete
-    import concurrent.futures
 
     # Track completed and failed pods
     completed_pods = []
@@ -610,12 +623,13 @@ def main():
     )
 
     # Ask if user wants to delete the deployment
-    if new_pods_needed > 0:  # Only ask if we created new pods
-        delete_choice = input("Do you want to delete the new pods now? (y/n): ").lower()
-        if delete_choice.startswith("y"):
-            delete_deployment(apps_api, core_api)
-        else:
-            print("Deployment not deleted. You can delete it manually later or reuse the pods for future experiments.")
+    delete_choice = input("Do you want to delete the new pods now? (y/n): ").lower()
+    if delete_choice.startswith("y"):
+        delete_deployment(apps_api, core_api)
+    else:
+        print(
+            "Deployment not deleted. You can delete it manually later or reuse the pods for future experiments."
+        )
 
     print(f"Experiment completed. Logs are saved in ./logs/exp-{timestamp}/")
 
