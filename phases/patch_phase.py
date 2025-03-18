@@ -179,7 +179,8 @@ class PatchPhase(BountyPhase):
             input_list.append(previous_output)
 
         message: Message = await agent_instance.run(input_list)
-
+        if self._phase_message:
+            message.set_parent(self._phase_message.id)
         if isinstance(agent_instance, PatchAgent):
             if message.success:
                 logger.info("Patch Success!")

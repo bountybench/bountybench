@@ -58,7 +58,7 @@ export const useWorkflowWebSocket = (workflowId, reconnect) => {
           let updatedAgentMessages = [...(phase.current_children || [])];
           
           const newMessage = updatedMessages[0];
-          if (newMessage.prev) {
+          if (newMessage.prev && updatedAgentMessages.length > 0){
             const prevIndex = updatedAgentMessages.findIndex(am => am.current_id === newMessage.prev);
             if (prevIndex !== -1) {
               // Keep messages up to and including the prev message, then append the new message
