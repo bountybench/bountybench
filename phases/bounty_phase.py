@@ -55,7 +55,13 @@ class BountyPhase(BasePhase, ABC):
                 capture_output=True,
                 text=True,
             ).stdout
-            self.params["codebase"] = "$ tree -L 4\n" + codebase_structure
+
+            words = codebase_structure.split()
+            trimmed_structure = " ".join(words[:200])
+            if len(words) > 200:
+                trimmed_structure += " ..."
+
+            self.params["codebase"] = "$ tree -L 4\n" + trimmed_structure
 
         self.params["specialized_instructions"] = (
             get_specialized_instructions(self.params.get("vulnerability_type"))
