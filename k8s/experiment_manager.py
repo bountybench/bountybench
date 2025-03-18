@@ -623,7 +623,7 @@ def main():
     )
 
     # Ask if user wants to delete the deployment
-    delete_choice = input("Do you want to delete the new pods now? (y/n): ").lower()
+    delete_choice = input("Do you want to delete the deployments now? (y/n): ").lower()
     if delete_choice.startswith("y"):
         delete_deployment(apps_api, core_api)
     else:
