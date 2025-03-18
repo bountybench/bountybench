@@ -227,7 +227,10 @@ class BasePhase(ABC):
             not hasattr(self, "_phase_message") or not self._phase_message
         ):
             self._phase_message = PhaseMessage(
-                phase_id=self.name, prev=prev_phase_message
+                phase_id=self.name,
+                max_iterations=self.phase_config.max_iterations,
+                phase_idx=self.phase_config.phase_idx,
+                prev=prev_phase_message,
             )
             workflow_message.add_child_message(self._phase_message)
 
