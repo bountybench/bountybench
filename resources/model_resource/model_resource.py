@@ -48,6 +48,14 @@ class ModelResourceConfig(BaseResourceConfig):
             kwargs["model"] = "mock-model"
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
 
+    def copy_with_changes(self, **kwargs):
+        """
+        Returns a *new* ModelResourceConfig instance with only the specified fields modified.
+        """
+        config_dict = self.__dict__.copy()
+        config_dict.update({k: v for k, v in kwargs.items() if v is not None})
+        return self.__class__(**config_dict)
+
     def validate(self) -> None:
         """Validate LLMResource configuration"""
         if not self.model or len(self.model) < 1:

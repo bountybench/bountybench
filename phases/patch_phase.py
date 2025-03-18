@@ -36,7 +36,6 @@ class PatchPhase(BountyPhase):
             **kwargs: Additional keyword arguments.
         """
         self.use_agent_exploit: bool = kwargs.get("use_agent_exploit", False)
-        self.use_verify_script: bool = kwargs.get("use_verify_script", False)
 
         super().__init__(workflow, **kwargs)
 
@@ -52,7 +51,7 @@ class PatchPhase(BountyPhase):
         patch_config = PatchAgentConfig(
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
-            use_verify_script=self.use_verify_script,
+            use_agent_exploit=self.use_agent_exploit,
         )
 
         return {
