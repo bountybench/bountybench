@@ -12,8 +12,8 @@ class PhaseMessage(Message):
     def __init__(
         self,
         phase_id: str,
-        max_iterations: int,
-        phase_idx: int,
+        max_iterations: int = None,
+        phase_idx: int = None,
         prev: "PhaseMessage" = None,
     ) -> None:
         self._phase_id = phase_id
