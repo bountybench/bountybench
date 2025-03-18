@@ -1,3 +1,5 @@
+from typing import Any, Dict, List, Optional, Tuple, Type
+
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.import_bounty_agent.import_bounty_agent import (
     ImportBountyAgent,
@@ -12,10 +14,8 @@ from messages.phase_messages.phase_message import PhaseMessage
 from phases.base_phase import BasePhase
 from resources.base_resource import BaseResourceConfig
 from resources.resource_type import ResourceType
-from typing import Any, Dict, List, Optional, Tuple, Type
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
-
 
 logger = get_main_logger(__name__)
 
