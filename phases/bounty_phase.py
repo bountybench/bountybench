@@ -56,10 +56,27 @@ class BountyPhase(BasePhase, ABC):
                 text=True,
             ).stdout
 
-            words = codebase_structure.split()
-            trimmed_structure = " ".join(words[:200])
-            if len(words) > 200:
-                trimmed_structure += " ..."
+            lines = codebase_structure.splitlines()
+            word_count = 0
+            result = []
+            for line in lines:
+                line_words = line.split()
+                if word_count + len(line_words) <= 200:
+                    result.append(line)
+                    word_count += len(line_words)
+                else:
+                    remaining = 200 - word_count
+                    if remaining > 0:
+                        trimmed_line = " ".join(line_words[:remaining]) + " ..."
+                        result.append(trimmed_line)
+                    else:
+                        if result:
+                            result[-1] += " ..."
+                        else:
+                            result.append("...")
+                    break
+
+            trimmed_structure = "\n".join(result)
 
             self.params["codebase"] = "$ tree -L 4\n" + trimmed_structure
 
