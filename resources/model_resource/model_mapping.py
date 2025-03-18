@@ -34,6 +34,7 @@ class TokenizerMapping:
         "google/gemini-1.0-pro-001": "google/gemma-2b",
         "google/gemini-1.5-pro-001": "google/gemma-2b",
         "google/gemini-1.5-pro-preview-0409": "google/gemma-2b",
+        "google/gemini-2.0-flash-001": "google/gemma-2b",
         # Other
         "01-ai/yi-large": "01-ai/Yi-6B",
     }
@@ -53,6 +54,7 @@ class NonHELMMapping:
         "anthropic/claude-3-opus-20240229": "claude-3-opus-20240229",
         # Google Gemini Models
         "google/gemini-1.5-pro-001": "gemini-1.5-pro",
+        "google/gemini-2.0-flash-001": "gemini-2.0-flash",
         # Together Models (LLAMA)
         "meta/llama-3.1-70b-instruct-turbo": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         "meta/llama-3.1-405b-instruct-turbo": "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
