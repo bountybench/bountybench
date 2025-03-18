@@ -254,25 +254,23 @@ class BasePhase(ABC):
         log_message(self._phase_message)
         return self._phase_message
 
-    
     def _initialize_last_agent_message(self, prev_phase_message: PhaseMessage) -> None:
         """Initialize the last agent message based on the previous phase message."""
         if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
             first_agent_id, _ = self.agents[0]
-        
+
             self._last_agent_message = AgentMessage(
                 agent_id=first_agent_id,
-                message=prev_phase_message.agent_messages[-1].message
+                message=prev_phase_message.agent_messages[-1].message,
             )
             self._phase_message.add_child_message(self._last_agent_message)
-            logger.info(f"Created initial agent message for {self.name} from previous phase using agent {first_agent_id}")
+            logger.info(
+                f"Created initial agent message for {self.name} from previous phase using agent {first_agent_id}"
+            )
 
         else:
             logger.info(f"Adding initial prompt to phase")
             self._create_initial_agent_message()
-    
-
-    
 
     def _create_initial_agent_message(self) -> None:
         """Create the initial agent message for the phase."""
