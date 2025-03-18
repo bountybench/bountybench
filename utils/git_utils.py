@@ -16,8 +16,8 @@ def _run_git_command(
     args: list[str],
     capture_output: bool = False,
     text: bool = True,  # Added parameter to control text conversion
-    encoding: str = 'utf-8',  # Added parameter to specify encoding
-    errors: str = 'replace',  # Added parameter to handle encoding errors
+    encoding: str = "utf-8",  # Added parameter to specify encoding
+    errors: str = "replace",  # Added parameter to handle encoding errors
 ) -> Optional[subprocess.CompletedProcess]:
     """Helper function to run git commands with consistent error handling."""
     try:
@@ -267,10 +267,14 @@ def git_diff(directory_path: PathLike) -> str:
 
         # Get staged diff - using specific encoding parameters to handle non-UTF-8 content
         diff_result = _run_git_command(
-            directory, 
-            ["diff", "--cached", "--text"], # Added --text flag to help with binary files
+            directory,
+            [
+                "diff",
+                "--cached",
+                "--text",
+            ],  # Added --text flag to help with binary files
             capture_output=True,
-            errors='replace'  # Replace invalid characters instead of failing
+            errors="replace",  # Replace invalid characters instead of failing
         )
         diff = diff_result.stdout if diff_result else ""
         logger.debug(f"Git diff: {diff}")
