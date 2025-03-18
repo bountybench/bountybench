@@ -205,7 +205,11 @@ class MessageHandler:
         logger.info(
             f"old_message: {old_message.message}, ID: {old_message.id} with prev {old_message.prev} and next: {old_message.next}"
         )
-        if not new_message.parent or old_message.parent or new_message.parent == old_message.parent:
+        if (
+            not new_message.parent
+            or old_message.parent
+            or new_message.parent == old_message.parent
+        ):
             new_message.set_next(old_message.next)
 
         if isinstance(new_message, AgentMessage) and old_message.iteration != None:
