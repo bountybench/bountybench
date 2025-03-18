@@ -132,7 +132,7 @@ def git_clean_untracked(directory_path: PathLike) -> None:
     _run_git_command(directory, ["clean", "-fd"])
 
 
-def git_init_repo(directory_path: PathLike) -> None:
+def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
     """Initialize git repository if it doesn't exist."""
     directory = Path(directory_path)
     if not directory.exists():
@@ -151,6 +151,14 @@ def git_init_repo(directory_path: PathLike) -> None:
         gitignore = directory / ".gitignore"
         if not gitignore.exists():
             gitignore.write_text("*.log\n.DS_Store\n")
+
+        # If ignore_dirs list is provided, append each entry to .gitignore if not already present
+        if ignore_dirs:
+            current_content = gitignore.read_text() if gitignore.exists() else ""
+            with gitignore.open("a") as f:
+                for ignore_dir in ignore_dirs:
+                    if ignore_dir not in current_content:
+                        f.write(f"{ignore_dir}\n")
 
         # Initial commit
         _run_git_command(directory, ["add", "."])
