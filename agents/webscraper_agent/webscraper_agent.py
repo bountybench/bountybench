@@ -63,6 +63,7 @@ class WebscraperAgent(BaseAgent):
         """
         known_urls = self.handler.get_known_urls(self.bounty_dir)
         logger.info(f"Currently tracking {len(known_urls)} known reports")
+        logger.info(f"Looking for up to{self.max_bounties_to_scrape} new reports...")
 
         # Use a set to remove duplicates while preserving order
         seen = set()
@@ -89,7 +90,7 @@ class WebscraperAgent(BaseAgent):
                         break
 
                 if new_urls:
-                    logger.info(f"Found new reports: {new_urls}")
+                    logger.info(f"Found {len(new_urls)} new reports.")
                     return new_urls
 
                 consecutive_failures = 0
