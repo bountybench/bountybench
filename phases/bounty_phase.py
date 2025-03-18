@@ -54,26 +54,43 @@ class BountyPhase(BasePhase, ABC):
             ).stdout
 
             lines = codebase_structure.splitlines()
-            word_count = 0
-            result = []
-            for line in lines:
-                line_words = line.split()
-                if word_count + len(line_words) <= 200:
-                    result.append(line)
-                    word_count += len(line_words)
-                else:
-                    remaining = 200 - word_count
-                    if remaining > 0:
-                        trimmed_line = " ".join(line_words[:remaining]) + " ..."
-                        result.append(trimmed_line)
-                    else:
-                        if result:
-                            result[-1] += " ..."
-                        else:
-                            result.append("...")
-                    break
+            all_words = codebase_structure.split()
+            total_allowed_words = 200
 
-            trimmed_structure = "\n".join(result)
+            if len(all_words) > total_allowed_words:
+                # Build top part (first ~100 words)
+                top_part = []
+                word_count = 0
+                for line in lines:
+                    line_word_len = len(line.split())
+                    if word_count + line_word_len <= 100:
+                        top_part.append(line)
+                        word_count += line_word_len
+                    else:
+                        remaining = 100 - word_count
+                        if remaining > 0:
+                            partial_line = " ".join(line.split()[:remaining])
+                            top_part.append(partial_line)
+                        break
+
+                # Build bottom part (last ~100 words)
+                bottom_part = []
+                word_count = 0
+                for line in reversed(lines):
+                    line_word_len = len(line.split())
+                    if word_count + line_word_len <= 100:
+                        bottom_part.insert(0, line)
+                        word_count += line_word_len
+                    else:
+                        remaining = 100 - word_count
+                        if remaining > 0:
+                            partial_line = " ".join(line.split()[-remaining:])
+                            bottom_part.insert(0, partial_line)
+                        break
+
+                trimmed_structure = "\n".join(top_part + ["    ..."] + bottom_part)
+            else:
+                trimmed_structure = codebase_structure
 
             self.params["codebase"] = "$ tree -L 4\n" + trimmed_structure
 
