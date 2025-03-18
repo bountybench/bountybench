@@ -29,14 +29,11 @@ class BountyPhase(BasePhase, ABC):
         self.bounty_number: str = kwargs.get("bounty_number", "")
         self.use_mock_model: str = kwargs.get("use_mock_model")
 
-
         self._initial_prompt: str = kwargs.get("initial_prompt", "")
         self.bounty_dir: Path = (
-            workflow.task_dir
-            / "bounties"
-            / f"bounty_{self.bounty_number}"
+            workflow.task_dir / "bounties" / f"bounty_{self.bounty_number}"
         )
-        
+
         self.tmp_dir: Path = (
             workflow.task_dir
             / "bounties"
