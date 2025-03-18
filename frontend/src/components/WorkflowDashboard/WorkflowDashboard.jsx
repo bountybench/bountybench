@@ -74,13 +74,15 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     phaseMessagesCount: phaseMessages?.length
   });
   const getTailMessageId = async () => {
-    if (phaseMessages?.length > 0 && phaseMessages[phaseMessages.length - 1].current_children?.length > 0) {
-      const lastMessage = phaseMessages[phaseMessages.length - 1].current_children[phaseMessages[phaseMessages.length - 1].current_children.length - 1];
-      return lastMessage.current_id;
-    }
-    else if (phaseMessages?.length > 0 && phaseMessages[phaseMessages.length - 2].current_children?.length > 0) {
-      const lastMessage = phaseMessages[phaseMessages.length - 2].current_children[phaseMessages[phaseMessages.length - 2].current_children.length - 1];
-      return lastMessage.current_id;
+    if (phaseMessages?.length > 0){
+      if (phaseMessages[phaseMessages.length - 1].current_children?.length > 0) {
+        const lastMessage = phaseMessages[phaseMessages.length - 1].current_children[phaseMessages[phaseMessages.length - 1].current_children.length - 1];
+        return lastMessage.current_id;
+      }
+      else if (phaseMessages.length > 1 && phaseMessages[phaseMessages.length - 2].current_children?.length > 0) {
+        const lastMessage = phaseMessages[phaseMessages.length - 2].current_children[phaseMessages[phaseMessages.length - 2].current_children.length - 1];
+        return lastMessage.current_id;
+      }
     }
     return null;
   };
