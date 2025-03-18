@@ -123,19 +123,29 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
   };
 
 
+  const actionResourceId = (action_resource_id) => {
+    if (!action_resource_id) return '';
+    
+    const resourceIdUpperCase = action_resource_id.toUpperCase();
 
+    if (resourceIdUpperCase.startsWith('KALI_ENV')) {
+      return 'KALI_ENV'; // Return KALI_ENV for any KALI_ENV_ prefixed string
+    }
+
+    return resourceIdUpperCase; // Return as is for other cases
+  };
 
   return (
     <Card 
-      className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''} ${selectedCellId === action.current_id ? 'selected' : ''}`}
+      className={`action-message ${actionResourceId(action.resource_id)} ${selectedCellId === action.current_id ? 'selected' : ''}`}
       onClick={handleContainerClick}
       variant="outlined"
     >
       <CardContent>
         <Box className="action-message-header">
-          <Box>
+          <Box className="action-title">
             <Typography className="action-message-title">
-              {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
+              {action.resource_id ? actionResourceId(action.resource_id) : 'BASE_ACTION'}
             </Typography>
             {action.timestamp && (
               <Typography className="message-timestamp">

@@ -120,15 +120,6 @@ else
     echo "No backend deployments found"
 fi
 
-# Handle PVCs based on flag
-if [ "$DELETE_PVCS" = true ]; then
-    echo "Deleting persistent volume claims..."
-    kubectl delete pvc logs-data 2>/dev/null || echo "logs-data PVC already deleted"
-    kubectl delete pvc dind-data 2>/dev/null || echo "dind-data PVC already deleted"
-else
-    echo "Preserving persistent volume claims for future use..."
-fi
-
 # Delete ConfigMap
 echo "Deleting ConfigMap..."
 kubectl delete configmap nginx-config 2>/dev/null || echo "nginx-config already deleted"

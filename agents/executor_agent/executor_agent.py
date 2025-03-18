@@ -80,6 +80,10 @@ class ExecutorAgent(BaseAgent):
                 return
             agent_message.add_child_message(kali_action_message)
             return kali_action_message
+        else:
+            agent_message.set_message(
+                "Model did not return a valid command. Kali Linux action skipped."
+            )
 
         return model_action_message
 
@@ -156,9 +160,6 @@ class ExecutorAgent(BaseAgent):
         except Exception as e:
             logger.info(f"LM responded with: {action_message.message}")
             logger.debug(f"Could not parse response as CommandMessage. Error: {e}")
-            action_message.set_message(
-                f"Could not parse response as CommandMessage. Error: {e}"
-            )
             return action_message
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:

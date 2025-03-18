@@ -76,6 +76,16 @@ def git_reset(directory_path: PathLike, branch_name: Optional[str] = None) -> No
         raise
 
 
+def git_remove_changes(directory_path: PathLike) -> None:
+    try:
+        directory = Path(directory_path)
+        _run_git_command(directory, ["reset", "--hard", "HEAD"])
+        _run_git_command(directory, ["clean", "-fd"])
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to remove changes in repository: {e}")
+        raise
+
+
 def git_checkout(directory_path: PathLike, commit: str, force=False) -> None:
     """Checkout a specific commit and clean repository."""
     directory = Path(directory_path)
@@ -303,3 +313,31 @@ def git_setup_dev_branch(
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to setup dev branch: {e}")
         raise
+
+
+def git_get_current_commit(directory_path: PathLike) -> Optional[str]:
+    """
+    Get the current commit hash of the repository.
+
+    Args:
+        directory_path: Path to the git repository
+
+    Returns:
+        Optional[str]: The current commit hash if successful, None otherwise
+    """
+    try:
+        directory = Path(directory_path)
+
+        if not (directory / ".git").exists():
+            logger.error(f"{directory} is not a git repository")
+            return None
+
+        result = _run_git_command(directory, ["rev-parse", "HEAD"], capture_output=True)
+
+        commit_hash = result.stdout.strip()
+        logger.debug(f"Current commit hash: {commit_hash}")
+        return commit_hash
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to get current commit hash: {e}")
+        return None
