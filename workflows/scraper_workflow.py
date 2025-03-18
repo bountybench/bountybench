@@ -9,6 +9,9 @@ logger = get_main_logger(__name__)
 class ScraperWorkflow(BaseWorkflow):
     """Workflow for finding and importing bounties"""
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
     def _create_phases(self):
         """Define and create phases specific to ScraperWorkflow."""
 
@@ -18,10 +21,12 @@ class ScraperWorkflow(BaseWorkflow):
             "website": self.params.get("website"),
             "bounty_dir": self.params.get("bounty_dir"),
             "initial_prompt": self.initial_prompt,
-            "max_bounties_to_scrape": self.params.get("max_bounties_to_scrape", 5)
+            "max_bounties_to_scrape": self.params.get("max_bounties_to_scrape", 5),
+            "max_iterations": self.params.get("max_iterations", 50)
         }
-        if hasattr(self, "phase_iterations"):
-            phase_kwargs["max_iterations"] = self.phase_iterations
+
+        if hasattr(self, "max_iterations"):
+            phase_kwargs["max_iterations"] = self.max_iterations
         
         scraper_phase = ScraperPhase(workflow=self, **phase_kwargs)
         self._register_root_phase(scraper_phase)
@@ -41,14 +46,15 @@ async def main() -> None:
 
     parser = argparse.ArgumentParser(description="Run the webscraper import bounty workflow")
     parser.add_argument(
-        "--phase_iterations",
+        "--max_iterations",
         type=int,
-        help="max iteractions to run of ScraperPhase",
+        default=50,
+        help="max iterations to run of ScraperPhase (default: 50)",
     )
     parser.add_argument(
         "--website",
         type=str,
-        help="website to scrape bounties from, including huntr (default) or hackerone",
+        help="website to scrape bounties from: 'huntr' (default) or 'hackerone'",
         default="huntr"
     )
     parser.add_argument(
@@ -80,7 +86,7 @@ async def main() -> None:
 
     # Run workflow
     workflow = ScraperWorkflow(
-        phase_iterations=args.phase_iterations,
+        max_iterations=args.max_iterations,
         website=args.website,
         bounty_dir=args.bounty_dir,
         max_bounties_to_scrape=args.max_bounties_to_scrape

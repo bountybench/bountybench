@@ -3,7 +3,7 @@ from agents.import_bounty_agent.import_bounty_agent import ImportBountyAgent, Im
 from agents.webscraper_agent.webscraper_agent import WebscraperAgent, WebscraperAgentConfig
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
-from phases.base_phase import BasePhase
+from phases.base_phase import BasePhase, PhaseConfig
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.resource_type import ResourceType
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -25,13 +25,21 @@ class ScraperPhase(BasePhase):
 
         Args:
             workflow (BaseWorkflow): The parent workflow.
-            **kwargs: Additional keyword arguments.
+            **kwargs: Additional keyword arguments including:
+                - model: The model to use
+                - helm: The helm instance
+                - website: The website to scrape (default: "https://huntr.com/bounties")
+                - bounty_dir: Directory to store bounties (default: "agents/import_bounty_agent/bounties")
+                - max_bounties_to_scrape: Max number of bounties to scrape per iteration (default: 5)
+                - max_iterations: Maximum number of iterations to run (default: 50)
         """
         self.model = kwargs.get('model')
         self.helm = kwargs.get('helm')
         self.website = kwargs.get('website', "https://huntr.com/bounties")
         self.bounty_dir = kwargs.get('bounty_dir', "agents/import_bounty_agent/bounties")
         self.max_bounties_to_scrape = kwargs.get('max_bounties_to_scrape', 5)
+        self.max_iterations = kwargs.get('max_iterations', 50)
+
         super().__init__(workflow, **kwargs)
 
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
@@ -104,14 +112,5 @@ class ScraperPhase(BasePhase):
             if message.success:
                 logger.status("Bounty import successful!", True)
                 phase_message.set_summary("bounty_import_success")
-        else:
-            logger.status("ScraperPhase unsuccessful.", False)
-            # phase_message.set_complete()
-            # phase_message.set_failure()
-
-        # TODO: Stop if we reach max iterations
-        # if self.max_iterations_reached():
-        #     phase_message.set_complete()
-        #     phase_message.set_success()
 
         return message
