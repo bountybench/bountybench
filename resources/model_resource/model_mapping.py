@@ -11,7 +11,7 @@ class TokenizerMapping:
         "openai/gpt-4-0613": "openai/cl100k_base",
         "openai/gpt-4-32k-0613": "openai/cl100k_base",
         "openai/gpt-4-turbo-2024-04-09": "openai/cl100k_base",
-        "openai/gpt-4o-2024-05-13": "openai/o200k_base",
+        "openai/gpt-4o-2024-11-20": "openai/o200k_base",
         "openai/gpt-3.5-turbo-0125": "openai/cl100k_base",
         # Together Models (LLAMA)
         "meta/llama-3-8b": "meta/llama-3-8b",
@@ -45,7 +45,7 @@ class NonHELMMapping:
         # OpenAI Models
         "openai/o1-mini-2024-09-12": "o1-mini-2024-09-12",
         "openai/o1-preview-2024-09-12": "o1-preview-2024-09-12",
-        "openai/gpt-4o-2024-05-13": "gpt-4o-2024-05-13",
+        "openai/gpt-4o-2024-11-20": "gpt-4o-2024-11-20",
         "openai/o3-mini-2025-01-31 ": "openai/o3-mini-2025-01-31",
         # Anthropic Models (Claude)
         "anthropic/claude-3-5-sonnet-20240620": "claude-3-5-sonnet-20240620",
