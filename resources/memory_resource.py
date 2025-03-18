@@ -1,3 +1,4 @@
+import inspect
 import string
 from dataclasses import dataclass, field
 from enum import Enum
@@ -423,3 +424,16 @@ class MemoryResource(BaseResource):
         logger.debug(
             f"Stopping Memory resource {self.resource_id} (no cleanup required)"
         )
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the MemoryResource state to a dictionary.
+        """
+        return {
+            "resource_id": self.resource_id,
+            "collate_fn": f"{self._resource_config.collate_fn.__name__}{inspect.signature(self._resource_config.collate_fn)}",
+            "segment_trunc_fn": f"{self._resource_config.segment_trunc_fn.__name__}{inspect.signature(self._resource_config.segment_trunc_fn)}",
+            "memory_trunc_fn": f"{self._resource_config.memory_trunc_fn.__name__}{inspect.signature(self._resource_config.memory_trunc_fn)}",
+            "scope": self._resource_config.scope.name,
+            "pinned_messages": list(self.pinned_messages),
+        }
