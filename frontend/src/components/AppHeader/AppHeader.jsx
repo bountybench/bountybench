@@ -143,7 +143,7 @@ export const AppHeader = ({
         <Box display="flex" alignItems="center" mr={2}>
           <Typography variant="body2" sx={{ mr: 1 }}>Interactive:</Typography>
           <Switch
-            checked={interactiveMode}
+            checked={!!interactiveMode}
             onChange={onInteractiveModeToggle}
             color="primary"
             size="small"
@@ -154,7 +154,7 @@ export const AppHeader = ({
         <Box display="flex" alignItems="center" mr={2}>
           <Typography variant="body2" sx={{ mr: 1 }}>Mock Model:</Typography>
           <Switch
-            checked={useMockModel}
+            checked={!!useMockModel}
             onChange={onMockModelToggle}
             color="primary"
             size="small"

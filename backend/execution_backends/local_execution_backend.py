@@ -398,10 +398,8 @@ class LocalExecutionBackend(ExecutionBackend):
 
         workflow = self.active_workflows[workflow_id]["instance"]
         try:
-            result = await workflow.interactive_controller.change_current_model(
-                new_model_name
-            )
-            return {"status": "updated", "result": result.id}
+            await workflow.interactive_controller.change_current_model(new_model_name)
+            return {"status": "updated"}
         except Exception as e:
             error_traceback = traceback.format_exc()
             print(

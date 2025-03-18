@@ -46,9 +46,18 @@ class ResourceManager:
 
     def update_model(self, new_model_name: str):
         if "model" in self._resource_registration:
-            resource_class, resource_config = ModelResource, ModelResourceConfig.create(
-                model=new_model_name
-            )
+            existing_config: ModelResourceConfig
+            resource_class, existing_config = self._resource_registration["model"]
+
+            if existing_config:
+                # If existing config, update the model name
+                resource_config = existing_config.copy_with_changes(
+                    model=new_model_name
+                )
+            else:
+                # If no existing config, it's fine to create a new default one with just the model name
+                resource_config = ModelResourceConfig.create(model=new_model_name)
+
             self._resource_registration["model"] = (resource_class, resource_config)
             resource = resource_class("model", resource_config)
             self._resources.set(self.workflow_id, "model", resource)
@@ -59,16 +68,25 @@ class ResourceManager:
         Updates the `use_mock_model` setting for the ModelResource.
         """
         if "model" in self._resource_registration:
-            resource_class, resource_config = ModelResource, ModelResourceConfig.create(
-                model=self._resource_registration["model"][1].model,
-                use_mock_model=use_mock_model,
-            )
-            self._resource_registration["model"] = (resource_class, resource_config)
+            existing_config: ModelResourceConfig
+            resource_class, existing_config = self._resource_registration["model"]
 
-            # Create and set the updated resource
+            if existing_config:
+                # If existing config, update the model name
+                resource_config = existing_config.copy_with_changes(
+                    model=self._resource_registration["model"][1].model,
+                    use_mock_model=use_mock_model,
+                )
+            else:
+                # If no existing config, it's fine to create a new default one with just the model name
+                ModelResourceConfig.create(
+                    model=self._resource_registration["model"][1].model,
+                    use_mock_model=use_mock_model,
+                )
+
+            self._resource_registration["model"] = (resource_class, resource_config)
             resource = resource_class("model", resource_config)
             self._resources.set(self.workflow_id, "model", resource)
-
             logger.info(f"Updated ModelResource to use_mock_model={use_mock_model}")
 
     def compute_schedule(self, phases: List["BasePhase"]):
