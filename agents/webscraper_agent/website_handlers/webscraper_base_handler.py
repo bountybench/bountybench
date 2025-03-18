@@ -1,8 +1,8 @@
+import json
 import os
 from abc import ABC, abstractmethod
-from typing import List
-import json
 from datetime import datetime
+from typing import List
 
 from selenium.webdriver.chrome.options import Options
 
@@ -34,7 +34,9 @@ class WebscraperBaseHandler(ABC):
             with open(file_path, "r") as f:
                 data = json.load(f)
                 # Handle data as a dictionary with URLs as keys
-                return set(url for url, info in data.items() if info.get("imported", False))
+                return set(
+                    url for url, info in data.items() if info.get("imported", False)
+                )
         except (json.JSONDecodeError, FileNotFoundError):
             return set()
 
@@ -52,7 +54,7 @@ class WebscraperBaseHandler(ABC):
         existing_data = {}
         if os.path.exists(file_path):
             try:
-                with open(file_path, 'r') as f:
+                with open(file_path, "r") as f:
                     existing_data = json.load(f)
             except json.JSONDecodeError:
                 existing_data = {}
@@ -65,9 +67,9 @@ class WebscraperBaseHandler(ABC):
                     "url": url,
                     "timestamp": timestamp,
                     "website": self.website_name,
-                    "imported": False
+                    "imported": False,
                 }
-        
+
         # Write to file
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             json.dump(existing_data, f, indent=2)

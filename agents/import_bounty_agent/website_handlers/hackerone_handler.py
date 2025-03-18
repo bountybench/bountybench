@@ -2,9 +2,11 @@ import base64
 import os
 import re
 from typing import Dict, Tuple
-from dotenv import load_dotenv
+
 import requests
+from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
+
 from .base_handler import BaseBountyHandler, logger
 
 

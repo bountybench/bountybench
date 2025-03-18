@@ -1,9 +1,10 @@
+import time
+from typing import Dict, Tuple
+
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from typing import Dict, Tuple
-import time
+from selenium.webdriver.support.ui import WebDriverWait
 
 from utils.logger import get_main_logger
 

@@ -132,7 +132,9 @@ def test_write_import_bounty_message(mock_log, agent):
 )
 @patch("agents.import_bounty_agent.import_bounty_agent.ImportBountyAgent._read_writeup")
 @patch("messages.message_utils.log_message")
-async def test_run(mock_log, mock_read_writeup, mock_extract_metadata, mock_download, agent):
+async def test_run(
+    mock_log, mock_read_writeup, mock_extract_metadata, mock_download, agent
+):
     """Test full agent run."""
     test_dir = os.path.join("test_bounties", "report_123456")
     mock_download.return_value = test_dir

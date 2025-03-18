@@ -1,8 +1,8 @@
-from datetime import datetime
 import json
 import os
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -15,6 +15,7 @@ from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.import_bounty_agent_message import ImportBountyMessage
 from messages.agent_messages.webscraper_agent_message import WebscraperMessage
 from utils.logger import get_main_logger
+
 from .website_handlers.handler_factory import get_handler
 
 logger = get_main_logger(__name__)
@@ -124,7 +125,7 @@ class ImportBountyAgent(BaseAgent):
         # Extract IDs from URL
         bounty_id = bounty_link.split("/")[-1]
         website_domain = website.split(".")[0].split("//")[-1]
-        
+
         # Set up output paths
         OUTPUT_FOLDER = f"{self.bounty_dir}/{website_domain}_reports/"
         FAILED_LINKS_FILE = f"{self.bounty_dir}/{website_domain}_failed_links.txt"
@@ -158,9 +159,10 @@ class ImportBountyAgent(BaseAgent):
                     logger.warning(f"Attempt {attempt + 1} failed, retrying: {str(e)}")
                     driver.quit()
                     driver = webdriver.Chrome(
-                        service=Service(ChromeDriverManager().install()), options=options
+                        service=Service(ChromeDriverManager().install()),
+                        options=options,
                     )
-                        
+
             # Save rendered HTML
             page_html = driver.page_source
             report_dir = f"{OUTPUT_FOLDER}report_{bounty_id}"
@@ -287,7 +289,7 @@ class ImportBountyAgent(BaseAgent):
             bounty_dirs=bounty_dirs,
             bounty_links=bounty_links,
         )
-    
+
     def _update_report_urls(self, bounty_links: List[str], website: str):
         """
         Update the report URLs in the report_urls.json file.
@@ -297,7 +299,9 @@ class ImportBountyAgent(BaseAgent):
             website: Base website URL
         """
         website_domain = website.split(".")[0].split("//")[-1]
-        file_path = os.path.join(self.bounty_dir, f"report_urls/{website_domain}_report_urls.json")
+        file_path = os.path.join(
+            self.bounty_dir, f"report_urls/{website_domain}_report_urls.json"
+        )
         if os.path.exists(file_path):
             with open(file_path, "r") as f:
                 data = json.load(f)
@@ -307,9 +311,9 @@ class ImportBountyAgent(BaseAgent):
         for bounty_link in bounty_links:
             if bounty_link not in data.keys():
                 data[bounty_link] = {
-                    "url": bounty_link, 
-                    "website": website, 
-                    "timestamp": datetime.now().isoformat(), 
+                    "url": bounty_link,
+                    "website": website,
+                    "timestamp": datetime.now().isoformat(),
                     "imported": True,
                 }
                 logger.info(f"Added new bounty link to {file_path}: {bounty_link}")

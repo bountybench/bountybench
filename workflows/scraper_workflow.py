@@ -1,17 +1,19 @@
 import asyncio
 from pathlib import Path
+
+from phases.scraper_phase import ScraperPhase
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
-from phases.scraper_phase import ScraperPhase
 
 logger = get_main_logger(__name__)
 
+
 class ScraperWorkflow(BaseWorkflow):
     """Workflow for finding and importing bounties"""
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-    
+
     def _create_phases(self):
         """Define and create phases specific to ScraperWorkflow."""
 
@@ -22,12 +24,12 @@ class ScraperWorkflow(BaseWorkflow):
             "bounty_dir": self.params.get("bounty_dir"),
             "initial_prompt": self.initial_prompt,
             "max_bounties_to_scrape": self.params.get("max_bounties_to_scrape", 5),
-            "max_iterations": self.params.get("max_iterations", 50)
+            "max_iterations": self.params.get("max_iterations", 50),
         }
 
         if hasattr(self, "max_iterations"):
             phase_kwargs["max_iterations"] = self.max_iterations
-        
+
         scraper_phase = ScraperPhase(workflow=self, **phase_kwargs)
         self._register_root_phase(scraper_phase)
 
@@ -40,11 +42,14 @@ class ScraperWorkflow(BaseWorkflow):
         """
         return "Scrape bounties from the web"
 
+
 async def main() -> None:
     """Main entry point"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Run the webscraper import bounty workflow")
+    parser = argparse.ArgumentParser(
+        description="Run the webscraper import bounty workflow"
+    )
     parser.add_argument(
         "--max_iterations",
         type=int,
@@ -55,21 +60,21 @@ async def main() -> None:
         "--website",
         type=str,
         help="website to scrape bounties from: 'huntr' (default) or 'hackerone'",
-        default="huntr"
+        default="huntr",
     )
     parser.add_argument(
         "--bounty_dir",
         type=str,
         help="directory to save bounties to",
-        default="agents/import_bounty_agent/bounties"
+        default="agents/import_bounty_agent/bounties",
     )
     parser.add_argument(
         "--max_bounties_to_scrape",
         type=int,
         help="maximum number of bounties to scrape per iteration",
-        default=5
+        default=5,
     )
-    
+
     args = parser.parse_args()
     logger.info("Parsed command line args")
 
@@ -89,9 +94,10 @@ async def main() -> None:
         max_iterations=args.max_iterations,
         website=args.website,
         bounty_dir=args.bounty_dir,
-        max_bounties_to_scrape=args.max_bounties_to_scrape
+        max_bounties_to_scrape=args.max_bounties_to_scrape,
     )
     await workflow.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

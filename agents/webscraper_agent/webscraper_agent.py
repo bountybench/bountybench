@@ -32,7 +32,7 @@ class WebscraperAgentConfig(AgentConfig):
         return {
             "website": self.website,
             "bounty_dir": self.bounty_dir,
-            "max_bounties_to_scrape": self.max_bounties_to_scrape
+            "max_bounties_to_scrape": self.max_bounties_to_scrape,
         }
 
     @classmethod
@@ -40,7 +40,11 @@ class WebscraperAgentConfig(AgentConfig):
         website = data.get("website", "https://huntr.com/bounties")
         bounty_dir = data.get("bounty_dir", "agents/import_bounty_agent/bounties")
         max_bounties_to_scrape = data.get("max_bounties_to_scrape", 5)
-        return cls(website=website, bounty_dir=bounty_dir, max_bounties_to_scrape=max_bounties_to_scrape)
+        return cls(
+            website=website,
+            bounty_dir=bounty_dir,
+            max_bounties_to_scrape=max_bounties_to_scrape,
+        )
 
 
 class WebscraperAgent(BaseAgent):
@@ -80,13 +84,15 @@ class WebscraperAgent(BaseAgent):
 
                 for url in latest_urls:
                     if url == last_bounty_link:
-                       logger.info(f"Reached last bounty link: {url}")
+                        logger.info(f"Reached last bounty link: {url}")
                     if url not in known_urls and url not in seen:
                         logger.info(f"Adding new bounty: {url}")
                         new_urls.append(url)
                         seen.add(url)
                     if len(new_urls) >= self.max_bounties_to_scrape:
-                        logger.info(f"Reached max bounties to scrape: {self.max_bounties_to_scrape}")
+                        logger.info(
+                            f"Reached max bounties to scrape: {self.max_bounties_to_scrape}"
+                        )
                         break
 
                 if new_urls:

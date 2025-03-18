@@ -1,8 +1,10 @@
 from typing import Optional
+
 from selenium import webdriver
+
 from .base_handler import BaseBountyHandler
-from .huntr_handler import HuntrHandler
 from .hackerone_handler import HackerOneHandler
+from .huntr_handler import HuntrHandler
 
 
 def get_handler(
