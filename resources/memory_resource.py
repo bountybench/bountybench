@@ -1,3 +1,4 @@
+import inspect
 import string
 from dataclasses import dataclass, field
 from enum import Enum
@@ -423,3 +424,34 @@ class MemoryResource(BaseResource):
         logger.debug(
             f"Stopping Memory resource {self.resource_id} (no cleanup required)"
         )
+
+    def to_dict(self) -> dict:
+        """
+        Serializes the MemoryResource state to a dictionary.
+        """
+
+        def get_function_repr(func):
+            """Helper to get string representation of a function, handling partial functions."""
+            if isinstance(func, partial):
+                # For partial functions, get the name of the original function
+                base_func = func.func
+                base_name = (
+                    base_func.__name__
+                    if hasattr(base_func, "__name__")
+                    else str(base_func)
+                )
+                return f"partial({base_name}){inspect.signature(func)}"
+            else:
+                # For regular functions
+                return f"{func.__name__}{inspect.signature(func)}"
+
+        return {
+            "resource_id": self.resource_id,
+            "collate_fn": get_function_repr(self._resource_config.collate_fn),
+            "segment_trunc_fn": get_function_repr(
+                self._resource_config.segment_trunc_fn
+            ),
+            "memory_trunc_fn": get_function_repr(self._resource_config.memory_trunc_fn),
+            "scope": self._resource_config.scope.name,
+            "pinned_messages": list(self.pinned_messages),
+        }
