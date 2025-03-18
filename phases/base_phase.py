@@ -253,7 +253,6 @@ class BasePhase(ABC):
             await self.set_last_agent_message(message)
             self._phase_message.add_child_message(message)
 
-            # self.workflow.next_iteration_queue.task_done()
             logger.info(
                 f"Finished iteration {iteration_num} of {self.name} with {agent_id}"
             )

@@ -1,3 +1,4 @@
+from enum import Enum
 from messages.action_messages.action_message import ActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
@@ -7,6 +8,9 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
+class IterationType(Enum):
+    AGENT = "agent"
+    PHASE = "phase"
 
 class InteractiveController:
     def __init__(self, workflow):
@@ -24,7 +28,7 @@ class InteractiveController:
         num_iteration = num_iter
         current_iteration = self.workflow.current_phase.get_current_iteration()
         max_iteration = self.workflow.current_phase.phase_config.max_iterations
-        if type_iter == "phase":
+        if type_iter == IterationType.PHASE:
             phase_iter_len = len(self.workflow.current_phase.agents)
             remaining_agent_iter = current_iteration % phase_iter_len
             if remaining_agent_iter > 0:
