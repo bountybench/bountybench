@@ -15,6 +15,9 @@ def _run_git_command(
     directory: Path,
     args: list[str],
     capture_output: bool = False,
+    text: bool = True,  # Added parameter to control text conversion
+    encoding: str = "utf-8",  # Added parameter to specify encoding
+    errors: str = "replace",  # Added parameter to handle encoding errors
 ) -> Optional[subprocess.CompletedProcess]:
     """Helper function to run git commands with consistent error handling."""
     try:
@@ -23,12 +26,14 @@ def _run_git_command(
             cwd=directory,
             check=True,
             capture_output=capture_output,
-            text=True,
+            text=text,  # Use the parameter instead of hardcoding
+            encoding=encoding if text else None,  # Only use encoding if text=True
+            errors=errors if text else None,  # Only use errors if text=True
         )
         logger.debug(f"Git command succeeded: git {' '.join(args)}")
         return result
     except subprocess.CalledProcessError as e:
-        logger.warning(f"Git command failed: git {' '.join(args)} - {e.stderr}")
+        logger.warning(f"Git command failed: git {' '.join(args)} - {str(e)}")
         raise
 
 
@@ -260,9 +265,16 @@ def git_diff(directory_path: PathLike) -> str:
         # Stage all changes
         _run_git_command(directory, ["add", "-A"])
 
-        # Get staged diff
+        # Get staged diff - using specific encoding parameters to handle non-UTF-8 content
         diff_result = _run_git_command(
-            directory, ["diff", "--cached"], capture_output=True
+            directory,
+            [
+                "diff",
+                "--cached",
+                "--text",
+            ],  # Added --text flag to help with binary files
+            capture_output=True,
+            errors="replace",  # Replace invalid characters instead of failing
         )
         diff = diff_result.stdout if diff_result else ""
         logger.debug(f"Git diff: {diff}")
