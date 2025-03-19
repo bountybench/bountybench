@@ -8,9 +8,11 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
+
 class IterationType(Enum):
     AGENT = "agent"
     PHASE = "phase"
+
 
 class InteractiveController:
     def __init__(self, workflow):
