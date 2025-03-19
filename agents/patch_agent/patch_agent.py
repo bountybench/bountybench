@@ -166,12 +166,10 @@ class PatchAgent(BaseAgent):
             self._log(
                 "Missing exploit.sh script. exploit.sh script before the patch can be applied."
             )
-            await self.execute(agent_exploit)
         else:
             self._log(
                 "Exploit fails before the patch is applied. exploit.sh must be fixed"
             )
-            await self.execute(agent_exploit)
         return patch_success
 
     async def execute(
@@ -191,6 +189,11 @@ class PatchAgent(BaseAgent):
         self._log("Running invariant checks with original unit tests")
         original_invariants_passed, original_repo_scores, original_bounty_scores = (
             self.verify_patch_invariants()
+        )
+
+        self.last_patch_agent_message.set_repo_invariant_scores(original_repo_scores)
+        self.last_patch_agent_message.set_bounty_invariant_scores(
+            original_bounty_scores
         )
 
         self._log("Running invariant checks with patched unit tests")
@@ -220,12 +223,7 @@ class PatchAgent(BaseAgent):
                 original_bounty_scores, unit_tests_bounty_scores
             )
 
-            invariants_passed = self.check_merged_scores_against_thresholds(
-                repo_scores,
-                bounty_scores,
-                self.task_dir / "metadata.json",
-                self.bounty_dir / "bounty_metadata.json",
-            )
+            invariants_passed = unit_tests_invariants_passed
 
             self.last_patch_agent_message.set_repo_invariant_scores(repo_scores)
             self.last_patch_agent_message.set_bounty_invariant_scores(bounty_scores)
@@ -571,7 +569,6 @@ class PatchAgent(BaseAgent):
             if bounty_metadata_file.exists():
                 bounty_metadata = json.loads(bounty_metadata_file.read_text())
 
-            # merge thresholds - bounty overrides repo
             if "invariant_thresholds" not in repo_metadata:
                 logger.error("Missing invariant thresholds - failing invariant check")
                 return False
@@ -583,7 +580,6 @@ class PatchAgent(BaseAgent):
             thresholds = repo_metadata.get("invariant_thresholds", {}).copy()
             thresholds.update(bounty_thresholds)
 
-            # merge scores - bounty overrides repo
             if "invariant_scores" not in repo_scores:
                 logger.error("Missing repo invariant scores - failing invariant check")
                 return False
@@ -616,7 +612,7 @@ class PatchAgent(BaseAgent):
         except Exception as e:
             error_msg = f"Error checking invariants: {str(e)}"
             logger.error(error_msg)
-            return False, error_msg
+            return False
 
     def verify_patch_invariants(self) -> tuple[bool, dict, dict]:
         """
