@@ -166,10 +166,12 @@ class PatchAgent(BaseAgent):
             self._log(
                 "Missing exploit.sh script. exploit.sh script before the patch can be applied."
             )
+            await self.execute(agent_exploit)
         else:
             self._log(
                 "Exploit fails before the patch is applied. exploit.sh must be fixed"
             )
+            await self.execute(agent_exploit)
         return patch_success
 
     async def execute(
@@ -186,19 +188,45 @@ class PatchAgent(BaseAgent):
             return False
         self._log(f"Resources properly restarted")
 
-        # Apply unit test patches
+        self._log("Running invariant checks with original unit tests")
+        original_invariants_passed, original_repo_scores, original_bounty_scores = (
+            self.verify_patch_invariants()
+        )
+
+        self._log("Running invariant checks with patched unit tests")
         unit_tests_applied = self.apply_patched_unit_tests()
         if not unit_tests_applied:
             self._log("Unit test patches failed to apply. Skipping invariant checks.")
-            invariants_passed = False
+            invariants_passed = original_invariants_passed
+            repo_scores = original_repo_scores
+            bounty_scores = original_bounty_scores
+
         else:
             # Only verify patch invariants if unit tests applied successfully
             self._log(
                 "Unit test patches applied successfully. Running invariant checks."
             )
-            invariants_passed, repo_scores, bounty_scores = (
-                self.verify_patch_invariants()
+            (
+                unit_tests_invariants_passed,
+                unit_tests_repo_scores,
+                unit_tests_bounty_scores,
+            ) = self.verify_patch_invariants()
+
+            repo_scores = self.merge_max_scores(
+                original_repo_scores, unit_tests_repo_scores
             )
+
+            bounty_scores = self.merge_max_scores(
+                original_bounty_scores, unit_tests_bounty_scores
+            )
+
+            invariants_passed = self.check_merged_scores_against_thresholds(
+                repo_scores,
+                bounty_scores,
+                self.task_dir / "metadata.json",
+                self.bounty_dir / "bounty_metadata.json",
+            )
+
             self.last_patch_agent_message.set_repo_invariant_scores(repo_scores)
             self.last_patch_agent_message.set_bounty_invariant_scores(bounty_scores)
 
@@ -232,6 +260,130 @@ class PatchAgent(BaseAgent):
 
         self.update_patch_agent_message()
         return False
+
+    def merge_max_scores(self, scores1: dict, scores2: dict) -> dict:
+        """
+        Merge two score dictionaries by taking the maximum value for each invariant score.
+
+        Args:
+            scores1: First score dictionary
+            scores2: Second score dictionary
+
+        Returns:
+            dict: Merged dictionary with maximum values
+        """
+        if not scores1:
+            return scores2
+        if not scores2:
+            return scores1
+
+        result = scores1.copy()
+
+        # For invariant_scores key
+        if "invariant_scores" in scores1 and "invariant_scores" in scores2:
+            result_invariants = result.get("invariant_scores", {})
+            scores2_invariants = scores2.get("invariant_scores", {})
+
+            # For each invariant in the second dictionary
+            for invariant, score2 in scores2_invariants.items():
+                if invariant in result_invariants:
+                    # Take the maximum value
+                    result_invariants[invariant] = max(
+                        result_invariants[invariant], score2
+                    )
+                else:
+                    # If not in first dict, add it
+                    result_invariants[invariant] = score2
+
+            result["invariant_scores"] = result_invariants
+        elif "invariant_scores" in scores2:
+            result["invariant_scores"] = scores2["invariant_scores"]
+
+        return result
+
+    def check_merged_scores_against_thresholds(
+        self,
+        repo_scores: dict,
+        bounty_scores: dict,
+        repo_metadata_file: Path,
+        bounty_metadata_file: Path,
+    ) -> bool:
+        """
+        Check merged scores against thresholds from metadata files.
+
+        Args:
+            repo_scores: Repository scores dictionary
+            bounty_scores: Bounty scores dictionary
+            repo_metadata_file: Path to repo metadata file
+            bounty_metadata_file: Path to bounty metadata file
+
+        Returns:
+            bool: True if all scores pass thresholds, False otherwise
+        """
+        try:
+            # Load metadata files
+            repo_metadata = {}
+            bounty_metadata = {}
+
+            if repo_metadata_file.exists():
+                with open(repo_metadata_file) as f:
+                    repo_metadata = json.load(f)
+
+            if bounty_metadata_file.exists():
+                with open(bounty_metadata_file) as f:
+                    bounty_metadata = json.load(f)
+
+            # Get thresholds (bounty overrides repo)
+            if "invariant_thresholds" not in repo_metadata:
+                self._log("Missing invariant thresholds - failing invariant check")
+                return False
+
+            thresholds = repo_metadata.get("invariant_thresholds", {}).copy()
+
+            if bounty_metadata and "invariant_thresholds" in bounty_metadata:
+                bounty_thresholds = bounty_metadata["invariant_thresholds"]
+                thresholds.update(bounty_thresholds)
+
+            # Get merged scores
+            scores = {}
+
+            if repo_scores and "invariant_scores" in repo_scores:
+                scores = repo_scores.get("invariant_scores", {}).copy()
+
+            if bounty_scores and "invariant_scores" in bounty_scores:
+                scores.update(bounty_scores.get("invariant_scores", {}))
+
+            # Check each threshold
+            errors = []
+            for invariant_name, threshold in thresholds.items():
+                if invariant_name not in scores:
+                    errors.append(f"Missing score for {invariant_name}")
+                    continue
+
+                score = scores.get(invariant_name)
+                if not isinstance(score, (int, float)):
+                    errors.append(f"Score for {invariant_name} is not a number")
+                    continue
+
+                if score < threshold:
+                    errors.append(
+                        f"{invariant_name} score ({score}) is below threshold ({threshold})"
+                    )
+
+            if errors:
+                self._log(
+                    f"Found {len(errors)} errors checking invariants against thresholds:"
+                )
+                for error in errors:
+                    self._log(f"  - {error}")
+            else:
+                self._log("All invariant scores pass their thresholds")
+
+            return len(errors) == 0
+
+        except Exception as e:
+            self._log(f"Error checking scores against thresholds: {str(e)}")
+            return False
 
     def _restart_resource(self, resource) -> bool:
         """Restart a specific resource."""
