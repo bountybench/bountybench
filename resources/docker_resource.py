@@ -106,6 +106,15 @@ class DockerResource(RunnableBaseResource):
             f"{command[:10]}...{command[-10:]}" if len(command) > 23 else command
         )
         start_progress(f"Running command in Docker: {command_trc}")
+
+        if volumes is None:
+            volumes = {}
+
+        # Ensure Docker socket is always available
+        volumes.setdefault(
+            "/var/run/docker.sock", {"bind": "/var/run/docker.sock", "mode": "rw"}
+        )
+
         try:
             container = self.client.containers.run(
                 image=docker_image,
@@ -115,6 +124,7 @@ class DockerResource(RunnableBaseResource):
                 working_dir=work_dir,
                 detach=True,
                 name=unique_name,
+                privileged=True,
             )
 
             logs = ""
