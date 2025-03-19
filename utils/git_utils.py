@@ -292,7 +292,7 @@ def git_apply_patch(
         directory = Path(directory_path)
         patch_path = Path(patch_file)
         _checkout_branch(directory, branch_name)
-        _run_git_command(directory, ["apply", str(patch_path.resolve())])
+        _run_git_command(directory, ["apply", "--3way", str(patch_path.resolve())])
         msg = f"Applied patch {patch_path.name} successfully"
         logger.info(msg)
         return True, msg
