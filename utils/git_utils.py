@@ -15,6 +15,9 @@ def _run_git_command(
     directory: Path,
     args: list[str],
     capture_output: bool = False,
+    text: bool = True,  # Added parameter to control text conversion
+    encoding: str = "utf-8",  # Added parameter to specify encoding
+    errors: str = "replace",  # Added parameter to handle encoding errors
 ) -> Optional[subprocess.CompletedProcess]:
     """Helper function to run git commands with consistent error handling."""
     try:
@@ -23,12 +26,14 @@ def _run_git_command(
             cwd=directory,
             check=True,
             capture_output=capture_output,
-            text=True,
+            text=text,  # Use the parameter instead of hardcoding
+            encoding=encoding if text else None,  # Only use encoding if text=True
+            errors=errors if text else None,  # Only use errors if text=True
         )
         logger.debug(f"Git command succeeded: git {' '.join(args)}")
         return result
     except subprocess.CalledProcessError as e:
-        logger.warning(f"Git command failed: git {' '.join(args)} - {e.stderr}")
+        logger.warning(f"Git command failed: git {' '.join(args)} - {str(e)}")
         raise
 
 
@@ -132,7 +137,7 @@ def git_clean_untracked(directory_path: PathLike) -> None:
     _run_git_command(directory, ["clean", "-fd"])
 
 
-def git_init_repo(directory_path: PathLike) -> None:
+def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
     """Initialize git repository if it doesn't exist."""
     directory = Path(directory_path)
     if not directory.exists():
@@ -151,6 +156,14 @@ def git_init_repo(directory_path: PathLike) -> None:
         gitignore = directory / ".gitignore"
         if not gitignore.exists():
             gitignore.write_text("*.log\n.DS_Store\n")
+
+        # If ignore_dirs list is provided, append each entry to .gitignore if not already present
+        if ignore_dirs:
+            current_content = gitignore.read_text() if gitignore.exists() else ""
+            with gitignore.open("a") as f:
+                for ignore_dir in ignore_dirs:
+                    if ignore_dir not in current_content:
+                        f.write(f"{ignore_dir}\n")
 
         # Initial commit
         _run_git_command(directory, ["add", "."])
@@ -252,9 +265,16 @@ def git_diff(directory_path: PathLike) -> str:
         # Stage all changes
         _run_git_command(directory, ["add", "-A"])
 
-        # Get staged diff
+        # Get staged diff - using specific encoding parameters to handle non-UTF-8 content
         diff_result = _run_git_command(
-            directory, ["diff", "--cached"], capture_output=True
+            directory,
+            [
+                "diff",
+                "--cached",
+                "--text",
+            ],  # Added --text flag to help with binary files
+            capture_output=True,
+            errors="replace",  # Replace invalid characters instead of failing
         )
         diff = diff_result.stdout if diff_result else ""
         logger.debug(f"Git diff: {diff}")

@@ -33,7 +33,6 @@ class ModelResourceConfig(BaseResourceConfig):
     model: str
     max_output_tokens: int = field(default=4096)
     max_input_tokens: int = field(default=8192)
-    max_iterations_stored_in_memory: int = field(default=3)
     use_helm: bool = field(default=False)
     temperature: float = field(default=0.5)
     stop_sequences: List[str] = field(default_factory=lambda: [STOP_TOKEN])
@@ -76,9 +75,6 @@ class ModelResource(RunnableBaseResource):
         self.model = self._resource_config.model
         self.max_output_tokens = self._resource_config.max_output_tokens
         self.max_input_tokens = self._resource_config.max_input_tokens
-        self.max_iterations_stored_in_memory = (
-            self._resource_config.max_iterations_stored_in_memory
-        )
         self.helm = self._resource_config.use_helm
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
@@ -247,7 +243,6 @@ class ModelResource(RunnableBaseResource):
                 "model": self.model,
                 "max_output_tokens": self.max_output_tokens,
                 "max_input_tokens": self.max_input_tokens,
-                "max_iterations_stored_in_memory": self.max_iterations_stored_in_memory,
                 "helm": self.helm,
                 "temperature": self.temperature,
                 "stop_sequences": self.stop_sequences,
