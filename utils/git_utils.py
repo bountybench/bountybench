@@ -287,17 +287,61 @@ def git_diff(directory_path: PathLike) -> str:
 def git_apply_patch(
     patch_file: PathLike, directory_path: PathLike, branch_name: Optional[str] = None
 ) -> Tuple[bool, str]:
-    """Apply a git patch to the repository."""
+    """Apply a git patch to the repository with multiple fallback methods."""
+    directory = Path(directory_path)
+    patch_path = Path(patch_file)
+    _checkout_branch(directory, branch_name)
+
+    # Method 1: Standard git apply
     try:
-        directory = Path(directory_path)
-        patch_path = Path(patch_file)
-        _checkout_branch(directory, branch_name)
+        _run_git_command(directory, ["apply", str(patch_path.resolve())])
+        msg = f"Applied patch {patch_path.name} successfully with standard git apply"
+        logger.info(msg)
+        return True, msg
+    except subprocess.CalledProcessError:
+        logger.info(
+            f"Standard git apply failed for {patch_path.name}, trying alternative methods..."
+        )
+
+    # Method 2: Git apply with --3way option
+    try:
         _run_git_command(directory, ["apply", "--3way", str(patch_path.resolve())])
-        msg = f"Applied patch {patch_path.name} successfully"
+        msg = f"Applied patch {patch_path.name} successfully with git apply --3way"
+        logger.info(msg)
+        return True, msg
+    except subprocess.CalledProcessError:
+        logger.info(
+            f"Git apply --3way failed for {patch_path.name}, trying next method..."
+        )
+
+    # Method 3: Git apply with --reject option (allows partial application)
+    try:
+        _run_git_command(directory, ["apply", "--reject", str(patch_path.resolve())])
+        msg = (
+            f"Applied patch {patch_path.name} with git apply --reject (may be partial)"
+        )
+        logger.info(msg)
+        return True, msg
+    except subprocess.CalledProcessError:
+        logger.info(
+            f"Git apply --reject failed for {patch_path.name}, trying next method..."
+        )
+
+    # Method 4: Use Unix patch command as last resort
+    try:
+        result = subprocess.run(
+            ["patch", "-p1", "-i", str(patch_path.resolve())],
+            cwd=directory,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        msg = f"Applied patch {patch_path.name} successfully with Unix patch command"
         logger.info(msg)
         return True, msg
     except subprocess.CalledProcessError as e:
-        msg = f"Failed to apply patch {Path(patch_file).name}: {e}"
+        # All methods failed
+        msg = f"Failed to apply patch {patch_path.name} with all methods: {e}"
         logger.error(msg)
         return False, msg
 
