@@ -294,6 +294,9 @@ class MemoryResource(BaseResource):
                 return msg_node.agent_id
 
             assert isinstance(msg_node, ActionMessage)
+
+            if msg_node.parent.agent_id == msg_node.resource_id:
+                return msg_node.parent.agent_id
             return msg_node.parent.agent_id + "/" + msg_node.resource_id
 
         def add_to_segment(msg_node, segment):
