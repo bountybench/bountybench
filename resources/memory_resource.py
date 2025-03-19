@@ -295,7 +295,7 @@ class MemoryResource(BaseResource):
 
             assert isinstance(msg_node, ActionMessage)
 
-            if msg_node.parent.agent_id == msg_node.resource_id: 
+            if msg_node.parent.agent_id == msg_node.resource_id:
                 return msg_node.parent.agent_id
             return msg_node.parent.agent_id + "/" + msg_node.resource_id
 
