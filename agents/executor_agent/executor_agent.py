@@ -94,8 +94,11 @@ class ExecutorAgent(BaseAgent):
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
         Immediately fails on non-retryable errors like quota limits.
+        Uses a 5-minute timeout for the LLM call.
         """
         iterations = 0
+        # 5-minute timeout in seconds
+        LLM_TIMEOUT = 300
 
         start_progress(f"Getting response from LM")
         try:
@@ -105,11 +108,20 @@ class ExecutorAgent(BaseAgent):
                     lm_input_message = self.resources.executor_agent_memory.get_memory(
                         lm_input_message
                     )
-                    model_output: ActionMessage = await asyncio.to_thread(
-                        self.resources.model.run, input_message=lm_input_message
+                    # Add 5-minute timeout to the LLM call
+                    model_output: ActionMessage = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            self.resources.model.run, input_message=lm_input_message
+                        ),
+                        timeout=LLM_TIMEOUT,
                     )
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        f"LLM call timed out after {LLM_TIMEOUT} seconds. Retrying {iterations + 1}/{MAX_RETRIES}"
+                    )
+                    iterations += 1
                 except Exception as e:
                     error_msg = str(e)
 
