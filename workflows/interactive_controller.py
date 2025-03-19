@@ -1,4 +1,5 @@
 from enum import Enum
+
 from messages.action_messages.action_message import ActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message

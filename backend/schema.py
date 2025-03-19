@@ -1,8 +1,9 @@
 from pathlib import Path
 from typing import Optional
-from workflows.interactive_controller import IterationType
 
 from pydantic import BaseModel, Field
+
+from workflows.interactive_controller import IterationType
 
 
 class StartWorkflowInput(BaseModel):
