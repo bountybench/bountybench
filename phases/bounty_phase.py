@@ -50,18 +50,24 @@ class BountyPhase(BasePhase, ABC):
             # Filter out common nonsensical directories
             for depth in [4, 3, 2]:
                 codebase_structure = subprocess.run(
-                    ["tree", "-L", str(depth), "-I", "_*|venv|node_modules|.git|__pycache__|.idea|.vscode"],
+                    [
+                        "tree",
+                        "-L",
+                        str(depth),
+                        "-I",
+                        "_*|venv|node_modules|.git|__pycache__|.idea|.vscode",
+                    ],
                     cwd=str(self.tmp_dir),
                     capture_output=True,
                     text=True,
                 ).stdout
-                
+
                 tokens = len(codebase_structure.split())
-                
+
                 # If we're under 300 tokens, use this depth
                 if tokens < 300:
                     break
-                    
+
                 # If we've reached minimum depth and still too large, fallback to ls
                 if depth == 2:
                     # Try using ls -la as a fallback
@@ -71,9 +77,13 @@ class BountyPhase(BasePhase, ABC):
                         capture_output=True,
                         text=True,
                     ).stdout
-            
+
             # Add the command that was used to the output
-            command = f"tree -L {depth} -I '_*|venv|node_modules|.git|__pycache__|.idea|.vscode'" if tokens < 300 else "ls -la"
+            command = (
+                f"tree -L {depth} -I '_*|venv|node_modules|.git|__pycache__|.idea|.vscode'"
+                if tokens < 300
+                else "ls -la"
+            )
             self.params["codebase"] = f"$ {command}\n{codebase_structure}"
 
         self.params["specialized_instructions"] = (
