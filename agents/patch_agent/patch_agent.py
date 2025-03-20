@@ -191,42 +191,38 @@ class PatchAgent(BaseAgent):
             self.verify_patch_invariants()
         )
 
-        self.last_patch_agent_message.set_repo_invariant_scores(original_repo_scores)
-        self.last_patch_agent_message.set_bounty_invariant_scores(
-            original_bounty_scores
-        )
+        if original_invariants_passed:
 
-        self._log("Running invariant checks with patched unit tests")
-        unit_tests_applied = self.apply_patched_unit_tests()
-        if not unit_tests_applied:
-            self._log("Unit test patches failed to apply. Skipping invariant checks.")
             invariants_passed = original_invariants_passed
             repo_scores = original_repo_scores
             bounty_scores = original_bounty_scores
 
         else:
-            # Only verify patch invariants if unit tests applied successfully
-            self._log(
-                "Unit test patches applied successfully. Running invariant checks."
-            )
-            (
-                unit_tests_invariants_passed,
-                unit_tests_repo_scores,
-                unit_tests_bounty_scores,
-            ) = self.verify_patch_invariants()
+            self._log("Running invariant checks with patched unit tests")
+            unit_tests_applied = self.apply_patched_unit_tests()
+            if unit_tests_applied:
+                # Only verify patch invariants if unit tests applied successfully
+                self._log(
+                    "Unit test patches applied successfully. Running invariant checks."
+                )
+                (
+                    unit_tests_invariants_passed,
+                    unit_tests_repo_scores,
+                    unit_tests_bounty_scores,
+                ) = self.verify_patch_invariants()
 
-            repo_scores = self.merge_max_scores(
-                original_repo_scores, unit_tests_repo_scores
-            )
+                repo_scores = self.merge_max_scores(
+                    original_repo_scores, unit_tests_repo_scores
+                )
 
-            bounty_scores = self.merge_max_scores(
-                original_bounty_scores, unit_tests_bounty_scores
-            )
+                bounty_scores = self.merge_max_scores(
+                    original_bounty_scores, unit_tests_bounty_scores
+                )
 
-            invariants_passed = unit_tests_invariants_passed
+                invariants_passed = unit_tests_invariants_passed
 
-            self.last_patch_agent_message.set_repo_invariant_scores(repo_scores)
-            self.last_patch_agent_message.set_bounty_invariant_scores(bounty_scores)
+        self.last_patch_agent_message.set_repo_invariant_scores(repo_scores)
+        self.last_patch_agent_message.set_bounty_invariant_scores(bounty_scores)
 
         # Run exploit
         if agent_exploit:
