@@ -235,8 +235,8 @@ class KaliEnvResource(RunnableBaseResource):
                 logger.info(
                     f"Detected Python repository at {codebase_path}. Installing in editable mode..."
                 )
-                cmd = f"pip install -e {codebase_path}"
-                stdout, stderr = self.run_command(cmd, TIMEOUT_PER_COMMAND)
+                cmd = "pip install -e . && git clean -fdx"
+                stdout, stderr = self.run_command(cmd, workdir=codebase_path, timeout=TIMEOUT_PER_COMMAND)
                 logger.info(f"Python repo installation result: {stdout}\n{stderr}")
                 return
 
