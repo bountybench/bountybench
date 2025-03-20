@@ -9,8 +9,16 @@ OUTPUT_TOKEN = "output_token"
 
 
 class PhaseMessage(Message):
-    def __init__(self, phase_id: str, prev: "PhaseMessage" = None) -> None:
+    def __init__(
+        self,
+        phase_id: str,
+        max_iterations: int = None,
+        phase_idx: int = None,
+        prev: "PhaseMessage" = None,
+    ) -> None:
         self._phase_id = phase_id
+        self._max_iterations = max_iterations
+        self._phase_idx = phase_idx
         self._success = False
         self._complete = False
         self._summary = "incomplete"
@@ -22,6 +30,14 @@ class PhaseMessage(Message):
     @property
     def phase_id(self) -> str:
         return self._phase_id
+
+    @property
+    def max_iterations(self) -> str:
+        return self._max_iterations
+
+    @property
+    def phase_idx(self) -> str:
+        return self._phase_idx
 
     @property
     def workflow_id(self) -> str:
@@ -136,9 +152,11 @@ class PhaseMessage(Message):
         usage = self.calculate_total_usages()
         log_dict = {
             "phase_id": self.phase_id,
+            "phase_idx": self.phase_idx,
             "phase_summary": self.summary,
             "phase_usage": usage,
             "success": self.success,
+            "max_iterations": self.max_iterations,
             "agent_messages": (
                 [agent_message.to_log_dict() for agent_message in self.agent_messages]
                 if self.agent_messages
