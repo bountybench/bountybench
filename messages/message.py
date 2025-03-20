@@ -116,3 +116,17 @@ class Message(ABC):
     def to_log_dict(self) -> dict:
         log_dict = self.to_base_dict()
         return log_dict
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Message":
+        """Reconstruct a message from its dictionary representation"""
+        message = cls()
+        message._id = data.get("current_id")
+        message.timestamp = data.get("timestamp")
+
+        if "prev" in data:
+            message._prev = data.get("prev")
+        if "next" in data:
+            message._next = data.get("next")
+
+        return message

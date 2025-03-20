@@ -79,3 +79,34 @@ class ActionMessage(Message):
         action_dict = self.action_dict()
         action_dict.update(base_dict)
         return action_dict
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ActionMessage":
+        """Reconstruct an action message from its dictionary representation"""
+
+        if cls is ActionMessage and "command" in data:
+            from messages.action_messages.command_message import CommandMessage
+
+            return CommandMessage.from_dict(data)
+
+        resource_id = data.get("resource_id")
+        message = data.get("message", "")
+        additional_metadata = data.get("additional_metadata", {})
+
+        action_message = cls(
+            resource_id=resource_id,
+            message=message,
+            additional_metadata=additional_metadata,
+        )
+
+        # Set base Message properties
+        action_message._id = data.get("current_id")
+        action_message.timestamp = data.get("timestamp")
+
+        # Handle prev/next relationships
+        if "prev" in data:
+            action_message._prev = data.get("prev")
+        if "next" in data:
+            action_message._next = data.get("next")
+
+        return action_message

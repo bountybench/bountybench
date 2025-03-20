@@ -165,3 +165,29 @@ class PhaseMessage(Message):
         }
         log_dict.update(base_dict)
         return log_dict
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "PhaseMessage":
+        """Reconstruct a phase message from its dictionary representation"""
+        phase_id = data.get("phase_id")
+        phase_message = cls(phase_id=phase_id)
+
+        # Set base Message properties
+        phase_message._id = data.get("current_id")
+        phase_message.timestamp = data.get("timestamp")
+
+        # Handle prev/next relationships
+        if "prev" in data:
+            phase_message._prev = data.get("prev")
+        if "next" in data:
+            phase_message._next = data.get("next")
+
+        # Set success and summary
+        if data.get("success", False):
+            phase_message.set_success()
+        phase_message.set_summary(data.get("phase_summary", ""))
+
+        # Set usage information
+        phase_message.usage = data.get("phase_usage", {})
+
+        return phase_message

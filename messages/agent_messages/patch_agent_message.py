@@ -65,3 +65,34 @@ class PatchAgentMessage(AgentMessage):
             }
         )
         return base_dict
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "PatchAgentMessage":
+        """Reconstruct a patch agent message from its dictionary representation"""
+        agent_id = data.get("agent_id")
+        message = data.get("message", "")
+        success = data.get("success", False)
+        patch_files_dir = data.get("patch_files_dir")
+
+        agent_message = cls(
+            agent_id=agent_id,
+            message=message,
+            success=success,
+            patch_files_dir=patch_files_dir,
+        )
+
+        # Set base Message properties
+        agent_message._id = data.get("current_id")
+        agent_message.timestamp = data.get("timestamp")
+
+        # Handle prev/next relationships
+        if "prev" in data:
+            agent_message._prev = data.get("prev")
+        if "next" in data:
+            agent_message._next = data.get("next")
+
+        # Set specialized fields
+        agent_message._repo_invariant_scores = data.get("repo_invariant_scores", {})
+        agent_message._bounty_invariant_scores = data.get("bounty_invariant_scores", {})
+
+        return agent_message

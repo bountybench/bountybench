@@ -189,3 +189,45 @@ class WorkflowMessage(Message):
         raise TypeError(
             f"Object of type {obj.__class__.__name__} is not JSON serializable"
         )
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "WorkflowMessage":
+        """Reconstruct a workflow message from its dictionary representation"""
+        workflow_metadata = data.get("workflow_metadata", {})
+        workflow_name = workflow_metadata.get("workflow_name")
+        task = workflow_metadata.get("task")
+        workflow_id = data.get("workflow_id")
+        additional_metadata = data.get("additional_metadata")
+
+        workflow_message = cls(
+            workflow_name=workflow_name,
+            workflow_id=workflow_id,
+            task=task,
+            additional_metadata=additional_metadata,
+        )
+
+        # Set success and completion status
+        workflow_summary = workflow_metadata.get("workflow_summary", {})
+        if workflow_summary.get("success", False):
+            workflow_message.set_success()
+        if workflow_summary.get("complete", False):
+            workflow_message.set_complete()
+
+        # Set timestamps
+        workflow_message._start_time = data.get("start_time")
+        workflow_message._end_time = data.get("end_time")
+
+        # Load resources and agents
+        workflow_message.resources_used = data.get("resources_used", {})
+        workflow_message.agents_used = data.get("agents_used", {})
+
+        # Store usage information
+        workflow_message.usage = data.get("workflow_usage", {})
+
+        # Set up message dictionary in message_utils
+        from messages.message_utils import message_dict
+
+        message_dict[workflow_id] = {}
+        message_dict[workflow_id][workflow_id] = workflow_message
+
+        return workflow_message

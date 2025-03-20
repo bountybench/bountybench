@@ -124,3 +124,38 @@ class AgentMessage(Message):
         }
         log_dict.update(base_dict)
         return log_dict
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "AgentMessage":
+        """Reconstruct an agent message from its dictionary representation"""
+        agent_id = data.get("agent_id")
+        message = data.get("message", "")
+
+        if cls == AgentMessage:
+            # Determine the correct message class based on agent_id
+            if agent_id == "exploit_agent":
+                from messages.agent_messages.exploit_agent_message import (
+                    ExploitAgentMessage,
+                )
+
+                return ExploitAgentMessage.from_dict(data)
+            elif agent_id == "patch_agent":
+                from messages.agent_messages.patch_agent_message import (
+                    PatchAgentMessage,
+                )
+
+                return PatchAgentMessage.from_dict(data)
+
+        agent_message = cls(agent_id=agent_id, message=message)
+
+        # Set base Message properties
+        agent_message._id = data.get("current_id")
+        agent_message.timestamp = data.get("timestamp")
+
+        # Handle prev/next relationships
+        if "prev" in data:
+            agent_message._prev = data.get("prev")
+        if "next" in data:
+            agent_message._next = data.get("next")
+
+        return agent_message
