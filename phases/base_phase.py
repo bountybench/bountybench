@@ -277,18 +277,17 @@ class BasePhase(ABC):
     async def _handle_interactive_mode(self) -> None:
         """Handle the interactive mode if enabled."""
         if self.phase_config.interactive:
-            if hasattr(self.workflow, "next_iteration_event"):
+            if hasattr(self.workflow, "next_iteration_queue"):
                 logger.info("Waiting for 'next' signal ...")
-                self.workflow.next_iteration_event.clear()
-                await self.workflow.next_iteration_event.wait()
+                await self.workflow.next_iteration_queue.get()
             else:
                 logger.warning(
-                    "Interactive mode is set, but workflow doesn't have next_iteration_event"
+                    "Interactive mode is set, but workflow doesn't have next_iteration_queue"
                 )
 
     async def _run_iteration(self) -> Message:
         """Run a single iteration based on last message."""
-        iteration = self._get_current_iteration()
+        iteration = self.get_current_iteration()
         agent_id, agent_instance = self._get_current_agent()
         logger.info(f"Running iteration {iteration} of {self.name} with {agent_id}")
 
@@ -311,8 +310,10 @@ class BasePhase(ABC):
         if self._phase_message.summary == "incomplete":
             self._phase_message.set_summary("completed_failure")
         self.deallocate_resources()
+        while not self.workflow.next_iteration_queue.empty():
+            self.workflow.next_iteration_queue.get()
 
-    def _get_current_iteration(self) -> int:
+    def get_current_iteration(self) -> int:
         """
         Get the current iteration number for the next agent message.
         First agent message in phase is always iteration 1, regardless of previous phase.
@@ -350,7 +351,7 @@ class BasePhase(ABC):
         Returns:
             Tuple[str, BaseAgent]: A tuple containing the agent ID and the agent instance.
         """
-        iteration = self._get_current_iteration()
+        iteration = self.get_current_iteration()
         agent = self.agents[iteration % len(self.agents)]
         return agent
 

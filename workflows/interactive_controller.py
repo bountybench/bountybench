@@ -1,3 +1,5 @@
+from enum import Enum
+
 from messages.action_messages.action_message import ActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
@@ -6,6 +8,11 @@ from messages.message_utils import message_dict
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
+
+
+class IterationType(Enum):
+    AGENT = "agent"
+    PHASE = "phase"
 
 
 class InteractiveController:
@@ -19,6 +26,19 @@ class InteractiveController:
     def _setup_message_handler(self):
         self.message_handler = MessageHandler(self.agent_manager, self.resource_manager)
         logger.info("Setup message handler")
+
+    def get_num_iteration(self, num_iter, type_iter) -> int:
+        num_iteration = num_iter
+        current_iteration = self.workflow.current_phase.get_current_iteration()
+        max_iteration = self.workflow.current_phase.phase_config.max_iterations
+        if type_iter == IterationType.PHASE:
+            phase_iter_len = len(self.workflow.current_phase.agents)
+            remaining_agent_iter = current_iteration % phase_iter_len
+            if remaining_agent_iter > 0:
+                num_iteration = remaining_agent_iter + (num_iter - 1) * phase_iter_len
+            else:
+                num_iteration = num_iter * phase_iter_len
+        return min(num_iteration, max_iteration - current_iteration)
 
     async def get_last_message(self) -> str:
         if self.workflow.current_phase:
@@ -104,7 +124,7 @@ class InteractiveController:
 
             if not interactive:
                 # If switching to non-interactive, trigger next iteration
-                self.workflow.next_iteration_event.set()
+                await self.workflow.next_iteration_queue.put(1)
 
     async def toggle_version(self, message_id: str, direction: str):
         workflow_messages = message_dict.get(self.workflow_message.workflow_id, {})

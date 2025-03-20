@@ -197,8 +197,14 @@ class LocalExecutionBackend(ExecutionBackend):
                 await workflow.interactive_controller.set_last_message(
                     message_data.message_id
                 )
-                result = await self._next_iteration(workflow_id)
-                return result
+                num_iter = workflow.interactive_controller.get_num_iteration(
+                    message_data.num_iter, message_data.type_iter
+                )
+                results = []
+                for _ in range(num_iter):
+                    result = await self._next_iteration(workflow_id)
+                    results.append(result)
+                return results
             return {"status": "updated", "result": result.id}
         except Exception as e:
             error_traceback = traceback.format_exc()
@@ -619,9 +625,9 @@ class LocalExecutionBackend(ExecutionBackend):
             return {"error": "Workflow not found"}
 
         workflow = self.active_workflows[workflow_id]["instance"]
-        if hasattr(workflow, "next_iteration_event"):
+        if hasattr(workflow, "next_iteration_queue"):
             print("next_iter triggered")
-            workflow.next_iteration_event.set()
+            await workflow.next_iteration_queue.put(1)
             return {"status": "next iteration triggered"}
         else:
             return {"error": "Workflow is not in interactive mode"}
