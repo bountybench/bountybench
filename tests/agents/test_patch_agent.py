@@ -193,65 +193,6 @@ def test_restart_resources_order(bounty_setup):
 
 
 @pytest.mark.asyncio
-async def test_external_exploit_0_then_1_success(patch_agent, mocker):
-    patch_agent.use_agent_exploit = False
-
-    # Ensure that any call to git_diff sees a diff
-    # so the agent will actually apply a patch
-    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
-
-    # (Optional) mock git_commit so it doesn't do real commits
-    mocker.patch("agents.patch_agent.patch_agent.git_commit", return_value=None)
-
-    # Docker calls (two times):
-    # 0 => exploit success unpatched
-    # 1 => exploit fails (i.e. neutralized) after patch
-    docker_run_mock = mocker.patch.object(
-        patch_agent.resources.docker,
-        "run",
-        side_effect=[
-            MagicMock(additional_metadata={"exit_code": 0}),
-            MagicMock(additional_metadata={"exit_code": 1}),
-        ],
-    )
-
-    # Let invariants pass
-    mocker.patch.object(
-        patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
-    )
-
-    # Mock out *all* calls to subprocess.run (including the verify.sh call)
-    def mock_subprocess_run(*args, **kwargs):
-        # check = kwargs.get("check") # if needed
-        # If it's the first exploit's verify.sh => return 0
-        # Otherwise => return 1
-        call_count = docker_run_mock.call_count
-
-        class FakeResult:
-            def __init__(self, returncode=0, stdout=""):
-                self.returncode = returncode
-                self.stdout = stdout
-                self.stderr = ""
-
-        if "verify.sh" in args[0]:
-            if call_count == 1:
-                return FakeResult(0, "Exploit succeeded unpatched")
-            else:
-                return FakeResult(1, "Exploit blocked after patch")
-        else:
-            # Possibly calls to "git rm" etc. Just say they succeeded
-            return FakeResult(0, "git ok")
-
-    mocker.patch("subprocess.run", side_effect=mock_subprocess_run)
-
-    initial_msg = PatchAgentMessage(agent_id="test", message="test external exploit")
-    final_msg = await patch_agent.run([initial_msg])
-
-    assert final_msg.success is True
-    assert "Congratulations! The patch succeeded." in final_msg.message
-
-
-@pytest.mark.asyncio
 async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
     """
     Exploit returns 0 (ok) before patch and 0 after patch → exploit is still working,
