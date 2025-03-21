@@ -262,26 +262,17 @@ def test_install_python_repo(
 def test_install_node_repo(
     mock_run_command, mock_is_node, mock_is_python, mock_find_paths, kali_env_resource
 ):
-    """Test the installation of Node.js repositories."""
+    """Test the installation of Node.js repositories - should now skip installation."""
     # Setup mocks
     mock_find_paths.return_value = ["/app/codebase"]
     mock_is_python.return_value = False
     mock_is_node.return_value = True
-    mock_run_command.side_effect = [
-        ("NVM installed", ""),  # First command - install NVM
-        ("Node.js installed", ""),  # Second command - install Node.js
-        ("NPM packages installed", ""),  # Third command - run npm install
-    ]
 
     # Run the method directly
     kali_env_resource._install_repo_in_editable_mode()
 
-    # Verify the commands were called
-    assert mock_run_command.call_count == 3
-
-    # Check the npm install command specifically
-    npm_cmd = 'export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh" && npm install --prefix /app/codebase'
-    mock_run_command.assert_any_call(npm_cmd, 240)  # Double timeout for npm install
+    # Verify no commands were called - we should skip Node.js installation
+    assert mock_run_command.call_count == 0
 
 
 @patch.object(KaliEnvResource, "_find_codebase_paths")

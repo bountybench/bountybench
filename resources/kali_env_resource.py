@@ -208,7 +208,7 @@ class KaliEnvResource(RunnableBaseResource):
     def _install_repo_in_editable_mode(self):
         """
         Detects the repository type and installs it in editable mode.
-        Supports Python and Node.js repositories.
+        Only installs Python repositories, skips Node.js repositories.
         """
         if not self._resource_config.task_dir:
             logger.warning(
@@ -227,9 +227,8 @@ class KaliEnvResource(RunnableBaseResource):
         logger.info(f"Found potential codebase paths: {codebase_paths}")
 
         for codebase_path in codebase_paths:
-            # Check repository type
+            # Check if repository is Python
             is_python = self._is_python_repo(codebase_path)
-            is_node = self._is_node_repo(codebase_path)
 
             if is_python:
                 logger.info(
@@ -240,35 +239,15 @@ class KaliEnvResource(RunnableBaseResource):
                 logger.info(f"Python repo installation result: {stdout}\n{stderr}")
                 return
 
-            elif is_node:
+            # Check if Node.js repo - just log but don't install
+            elif self._is_node_repo(codebase_path):
                 logger.info(
-                    f"Detected Node.js repository at {codebase_path}. Setting up NVM and installing..."
+                    f"Detected Node.js repository at {codebase_path}. Skipping installation."
                 )
-                # Install NVM and Node.js, then install the package
-                setup_commands = [
-                    # Install NVM
-                    "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash",
-                    # Source NVM and install Node.js LTS
-                    'export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh" && nvm install --lts',
-                ]
-
-                for cmd in setup_commands:
-                    stdout, stderr = self.run_command(cmd, TIMEOUT_PER_COMMAND)
-                    logger.info(f"Node.js setup step: {stdout}\n{stderr}")
-
-                # Run npm in the same command as sourcing NVM to ensure npm is available
-                npm_cmd = (
-                    'export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh" && npm install --prefix '
-                    + codebase_path
-                )
-                stdout, stderr = self.run_command(
-                    npm_cmd, TIMEOUT_PER_COMMAND * 2
-                )  # Double timeout for npm install
-                logger.info(f"NPM install result: {stdout}\n{stderr}")
                 return
 
         logger.info(
-            "No recognized Python or Node.js repository found in any codebase location. Skipping installation."
+            "No recognized Python repository found in any codebase location. Skipping installation."
         )
 
     def _find_codebase_paths(self):
