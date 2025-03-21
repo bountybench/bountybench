@@ -153,23 +153,23 @@ class PatchAgent(BaseAgent):
 
     async def verify_patch(self, agent_exploit: bool = False) -> bool:
         patch_success: bool = False
-        # Initial check that exploit succeeds in unpatched environment
         if agent_exploit:
+            # Initial check that agent exploit succeeds in unpatched environment
             exit_code = await self.run_agent_exploit()
+            if exit_code == 0:
+                # Apply patch and check if exploit fails
+                patch_success = await self.execute(agent_exploit)
+            elif exit_code == 127:
+                self._log(
+                    "Missing exploit.sh script. exploit.sh script before the patch can be applied."
+                )
+            else:
+                self._log(
+                    "Exploit fails before the patch is applied. exploit.sh must be fixed"
+                )
         else:
-            exit_code = await self.run_external_exploit()
-
-        if exit_code == 0:
             # Apply patch and check if exploit fails
             patch_success = await self.execute(agent_exploit)
-        elif exit_code == 127:
-            self._log(
-                "Missing exploit.sh script. exploit.sh script before the patch can be applied."
-            )
-        else:
-            self._log(
-                "Exploit fails before the patch is applied. exploit.sh must be fixed"
-            )
         return patch_success
 
     async def execute(
