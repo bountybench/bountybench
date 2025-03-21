@@ -18,6 +18,7 @@ from resources.base_resource import BaseResourceConfig
 from resources.kali_env_resource_util import KaliEnvResourceUtil
 from resources.runnable_base_resource import RunnableBaseResource
 from resources.utils import get_stdout_text
+from utils.git_utils import git_commit_changes
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -237,6 +238,17 @@ class KaliEnvResource(RunnableBaseResource):
                 cmd = f"pip install -e {codebase_path}"
                 stdout, stderr = self.run_command(cmd, TIMEOUT_PER_COMMAND)
                 logger.info(f"Python repo installation result: {stdout}\n{stderr}")
+
+                host_path = self._map_container_path_to_host(codebase_path)
+                if host_path:
+                    logger.info(
+                        f"Updating git history to include changes from installation in latest commit"
+                    )
+                    git_commit_changes(host_path)
+                else:
+                    logger.warning(
+                        f"Could not determine host path for {codebase_path}. Skipping git commit."
+                    )
                 return
 
             # Check if Node.js repo - just log but don't install
@@ -249,6 +261,29 @@ class KaliEnvResource(RunnableBaseResource):
         logger.info(
             "No recognized Python repository found in any codebase location. Skipping installation."
         )
+
+    def _map_container_path_to_host(self, container_path: str) -> Optional[str]:
+        """
+        Maps a path in the container to its corresponding path on the host system.
+        This is needed for Git operations which must be performed on the host.
+        """
+        if not self._resource_config.volumes:
+            return None
+
+        # Standardize container path for comparison
+        container_path = os.path.normpath(container_path)
+
+        # Check each volume mapping to see if the container path is within it
+        for host_path, mount_config in self._resource_config.volumes.items():
+            container_mount = mount_config.get("bind", "")
+            if container_path.startswith(container_mount):
+                # Replace the container mount point with the host path
+                relative_path = os.path.relpath(container_path, container_mount)
+                mapped_host_path = os.path.join(host_path, relative_path)
+                return os.path.normpath(mapped_host_path)
+
+        # If we get here, no matching volume was found
+        return None
 
     def _find_codebase_paths(self):
         """
