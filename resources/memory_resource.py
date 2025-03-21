@@ -177,6 +177,43 @@ class MemoryTruncationFunctions:
         return truncated
 
     @staticmethod
+    def memory_fn_by_message_token(
+        segments, pinned_messages=None, max_message_input_tokens=1024
+    ):
+        trunc_token = "Message is too long. Truncating here..."
+
+        truncated = []
+
+        for segment in segments:
+            trunc_segment = [None for _ in range(len(segment))]
+
+            for j, msg in enumerate(segment):
+                tokens = msg.split()
+                cnt = len(tokens)
+
+                if cnt > max_message_input_tokens:
+                    # Calculate how many tokens to keep from start and end
+                    half_tokens = max_message_input_tokens // 2
+                    start_tokens = tokens[:half_tokens]
+                    end_tokens = tokens[-half_tokens:]
+
+                    # Combine with truncation token in the middle
+                    truncated_msg = (
+                        " ".join(start_tokens)
+                        + "\n"
+                        + trunc_token
+                        + "\n"
+                        + " ".join(end_tokens)
+                    )
+                    trunc_segment[j] = truncated_msg
+                else:
+                    trunc_segment[j] = msg
+
+            truncated.append([x for x in trunc_segment if x is not None])
+
+        return truncated
+
+    @staticmethod
     def validate_segment_trunc_fn(fn):
         assert type(fn(["msg1", "msg2"])) == list, (
             "Segment truncation_fn should take list of messages and "
@@ -212,7 +249,7 @@ class MemoryResourceConfig(BaseResourceConfig):
         default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=6)
     )
     memory_trunc_fn: Callable[[List], List] = field(
-        default=MemoryTruncationFunctions.memory_fn_by_token
+        default=MemoryTruncationFunctions.memory_fn_by_message_token
     )
 
     def validate(self) -> None:
