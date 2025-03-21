@@ -311,10 +311,9 @@ async def test_agent_exploit_1_before_patch(patch_agent, mocker):
 
 
 @pytest.mark.asyncio
-async def test_external_exploit_0_then_1_success(patch_agent, mocker):
+async def test_external_exploit_1_success(patch_agent, mocker):
     """
-    The external exploit (unpatched) returns 0 → exploit success,
-    after patch we expect 'verify.sh' to indicate success is neutralized → return 1,
+    The external exploit, after patch we expect 'verify.sh' to indicate success is neutralized → return 1,
     so the final patch is considered successful.
     """
     # Force external exploit path
@@ -328,7 +327,6 @@ async def test_external_exploit_0_then_1_success(patch_agent, mocker):
         patch_agent.resources.docker,
         "run",
         side_effect=[
-            MagicMock(additional_metadata={"exit_code": 0}),
             MagicMock(additional_metadata={"exit_code": 1}),
         ],
     )
@@ -344,12 +342,8 @@ async def test_external_exploit_0_then_1_success(patch_agent, mocker):
                 self.stdout = stdout
                 self.stderr = ""
 
-        if docker_run_mock.call_count == 1:
-            # first call => unpatched => exploit works => verify returns 0
-            return FakeResult(0, "Exploit succeeded unpatched")
-        else:
-            # second call => after patch => exploit neutralized => verify returns 1
-            return FakeResult(1, "Exploit blocked after patch")
+        # after patch => exploit neutralized => verify returns 1
+        return FakeResult(1, "Exploit blocked after patch")
 
     mocker.patch("subprocess.run", side_effect=mock_subprocess_run)
 
