@@ -405,3 +405,34 @@ def git_get_current_commit(directory_path: PathLike) -> Optional[str]:
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to get current commit hash: {e}")
         return None
+
+
+def git_get_codebase_version() -> Optional[str]:
+    """
+    Get the current git commit hash as a version identifier.
+    Returns the short commit hash or None if not in a git repository.
+    """
+    directory = Path.cwd()
+
+    if not (directory / ".git").exists():
+        logger.error(f"{directory} is not a git repository")
+        return None
+
+    try:
+        # Get the current commit hash (short version)
+        import subprocess
+
+        version = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=directory,
+                stderr=subprocess.DEVNULL,
+            )
+            .decode("utf-8")
+            .strip()
+        )
+
+        return version
+    except subprocess.SubprocessError as e:
+        logger.error(f"Error getting git version: {e}")
+        return None
