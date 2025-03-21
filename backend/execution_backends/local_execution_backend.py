@@ -31,18 +31,22 @@ class LocalExecutionBackend(ExecutionBackend):
         Start a workflow and return the workflow ID, model, and status.
         """
         try:
-            workflow = self.workflow_factory[workflow_data.workflow_name](
-                task_dir=Path(workflow_data.task_dir),
-                bounty_number=workflow_data.bounty_number,
-                vulnerability_type=workflow_data.vulnerability_type,
-                interactive=workflow_data.interactive,
-                phase_iterations=workflow_data.iterations,
-                model=workflow_data.model,
-                use_helm=workflow_data.use_helm,
-                use_mock_model=workflow_data.use_mock_model,
-                max_input_tokens=workflow_data.max_input_tokens,
-                max_output_tokens=workflow_data.max_output_tokens,
-            )
+            workflow_args = {
+                'task_dir': Path(workflow_data.task_dir),
+                'bounty_number': workflow_data.bounty_number,
+                'vulnerability_type': workflow_data.vulnerability_type,
+                'interactive': workflow_data.interactive,
+                'phase_iterations': workflow_data.iterations,
+                'use_helm': workflow_data.use_helm,
+                'use_mock_model': workflow_data.use_mock_model,
+                'max_input_tokens': workflow_data.max_input_tokens,
+                'max_output_tokens': workflow_data.max_output_tokens,
+            }
+
+            if workflow_data.model != '':
+                workflow_args['model'] = workflow_data.model
+
+            workflow = self.workflow_factory[workflow_data.workflow_name](**workflow_args)
             workflow_id = workflow.workflow_message.workflow_id
             self.active_workflows[workflow_id] = {
                 "instance": workflow,
