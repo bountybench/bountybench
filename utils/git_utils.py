@@ -177,6 +177,10 @@ def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> No
 def git_commit_changes(directory_path: PathLike) -> None:
     """Commit all changes in the repository."""
     directory = Path(directory_path)
+    if not (directory / ".git").exists():
+        logger.warning(f"No {directory} repo exists to commit changes to.")
+        return
+
     try:
         _run_git_command(directory, ["add", "."])
         _run_git_command(
