@@ -274,34 +274,6 @@ def git_diff(directory_path: PathLike) -> str:
             logger.error(f"{directory} is not a git repository")
             return ""
 
-        # Check if __pycache__ exists and clean it if it does
-        pycache_dir = directory / "__pycache__"
-        if pycache_dir.is_dir():
-            # First check if __pycache__ is tracked by git before trying to remove it
-            tracked_result = _run_git_command(
-                directory,
-                ["ls-files", "__pycache__"],
-                capture_output=True,
-            )
-            if tracked_result.stdout.strip():
-                _run_git_command(directory, ["rm", "--cached", "-r", "__pycache__"])
-                logger.info(f"Removed cached __pycache__ in {directory}")
-
-        # Clean .pyc files, use a safe approach in case there are no .pyc files
-        try:
-            pyc_result = _run_git_command(
-                directory,
-                ["ls-files", "*.pyc"],
-                capture_output=True,
-            )
-            if pyc_result.stdout.strip():
-                _run_git_command(directory, ["rm", "--cached", "*.pyc"])
-                logger.info("Removed cached .pyc files")
-        except subprocess.CalledProcessError:
-            logger.info(
-                "No .pyc files to remove or encountered an error, handled gracefully."
-            )
-
         # Check untracked files
         untracked_result = _run_git_command(
             directory,
