@@ -169,7 +169,7 @@ def git_init_repo(
                 "*.egg",
                 "*.egg-info",
                 "venv",
-                "venvs",
+                ".venvs",
             ]
             current_content = gitignore.read_text() if gitignore.exists() else ""
 
