@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
+from utils.git_utils import git_get_codebase_version
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -61,6 +62,7 @@ class WorkflowMessage(Message):
         message_dict[self.workflow_id] = {}
         message_dict[self.workflow_id][self.workflow_id] = self
 
+        self._codebase_version = git_get_codebase_version()
         super().__init__()
 
     @property
@@ -78,6 +80,10 @@ class WorkflowMessage(Message):
     @property
     def phase_messages(self) -> List[PhaseMessage]:
         return self._phase_messages
+
+    @property
+    def codebase_version(self) -> str:
+        return self._codebase_version
 
     def set_success(self):
         self._success = True
@@ -142,6 +148,7 @@ class WorkflowMessage(Message):
             "end_time": self._end_time,
             "workflow_id": self.workflow_id,
             "additional_metadata": self.additional_metadata,
+            "codebase_version": self.codebase_version,
         }
 
     def save(self):
