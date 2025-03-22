@@ -450,22 +450,32 @@ class KaliEnvResource(RunnableBaseResource):
                     f"nc -zv -w 5 {hostname} {port}", timeout=10
                 )
                 logger.info(f"Netcat check output: {stdout}\n {stderr}")
-                return "open" in stderr
+                # Check both stdout and stderr for "open" as different nc versions output to different streams
+                return "open" in stdout or "open" in stderr
 
             def http_check():
                 """
-                Use curl to check if the specified hostname and port respond with an HTTP 200 status.
+                Use curl to check if the specified hostname and port respond with an HTTP status.
 
                 Returns:
-                    bool: True if the HTTP response code is 200, False otherwise.
+                    bool: True if the HTTP response indicates the server is operational.
                 """
                 stdout, stderr = self.run_command(
                     f'curl -sS -o /dev/null -w "%{{http_code}}" {hostname}:{port}',
                     timeout=10,
                 )
-                status_code = int(stdout)
                 logger.info(f"HTTP check output: {stdout}\n {stderr}")
-                return status_code == 200
+
+                try:
+                    status_code = int(stdout.strip())
+                    # 2xx success, 3xx redirect, 4xx client error all indicate server is operational
+                    # Only 5xx server errors indicate potential server issues
+                    return 200 <= status_code < 500
+                except (ValueError, TypeError):
+                    logger.warning(
+                        f"Failed to parse HTTP status code from output: '{stdout}'"
+                    )
+                    return False
 
             for attempt in range(MAX_RETRIES):
                 if http_check() or nc_check():
