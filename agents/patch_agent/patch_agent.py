@@ -186,7 +186,7 @@ class PatchAgent(BaseAgent):
 
         if exit_code == 0:
             # Apply patch and check if exploit fails
-            if self.use_agent_exploit:
+            if agent_exploit:
                 self._store_exploit()
             patch_success = await self.execute(agent_exploit)
         elif exit_code == 127:
