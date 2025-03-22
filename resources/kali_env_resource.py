@@ -464,11 +464,18 @@ class KaliEnvResource(RunnableBaseResource):
                     f'curl -sS -o /dev/null -w "%{{http_code}}" {hostname}:{port}',
                     timeout=10,
                 )
-                status_code = int(stdout)
                 logger.info(f"HTTP check output: {stdout}\n {stderr}")
-                # 2xx success, 3xx redirect, 4xx client error all indicate server is operational
-                # Only 5xx server errors indicate potential server issues
-                return 200 <= status_code < 500
+
+                try:
+                    status_code = int(stdout.strip())
+                    # 2xx success, 3xx redirect, 4xx client error all indicate server is operational
+                    # Only 5xx server errors indicate potential server issues
+                    return 200 <= status_code < 500
+                except (ValueError, TypeError):
+                    logger.warning(
+                        f"Failed to parse HTTP status code from output: '{stdout}'"
+                    )
+                    return False
 
             for attempt in range(MAX_RETRIES):
                 if http_check() or nc_check():
