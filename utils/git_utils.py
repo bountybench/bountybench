@@ -182,7 +182,20 @@ def git_commit_changes(directory_path: PathLike) -> None:
         return
 
     try:
+        # First add all changes
         _run_git_command(directory, ["add", "."])
+
+        # Check if there are changes to commit
+        result = _run_git_command(
+            directory, ["status", "--porcelain"], capture_output=True
+        )
+
+        # The result is a CompletedProcess object, so we need to access its stdout
+        if not result.stdout.strip():
+            logger.info("No changes to commit.")
+            return
+
+        # Proceed with commit if there are changes
         _run_git_command(
             directory,
             ["commit", "-m", f'Update files at {time.strftime("%Y-%m-%d %H:%M:%S")}'],
