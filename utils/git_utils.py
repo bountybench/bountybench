@@ -137,7 +137,11 @@ def git_clean_untracked(directory_path: PathLike) -> None:
     _run_git_command(directory, ["clean", "-fd"])
 
 
-def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
+def git_init_repo(
+    directory_path: PathLike,
+    ignore_dirs: list[str] = None,
+    add_to_gitignore: bool = False,
+) -> None:
     """Initialize git repository if it doesn't exist."""
     directory = Path(directory_path)
     if not directory.exists():
@@ -156,6 +160,23 @@ def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> No
         gitignore = directory / ".gitignore"
         if not gitignore.exists():
             gitignore.write_text("*.log\n.DS_Store\n")
+
+        # Add additional patterns if requested
+        if add_to_gitignore:
+            additional_patterns = [
+                "*.pyc",
+                "*__pycache__",
+                "*.egg",
+                "*.egg-info",
+                "venv",
+                ".venvs",
+            ]
+            current_content = gitignore.read_text() if gitignore.exists() else ""
+
+            with gitignore.open("a") as f:
+                for pattern in additional_patterns:
+                    if pattern not in current_content:
+                        f.write(f"{pattern}\n")
 
         # If ignore_dirs list is provided, append each entry to .gitignore if not already present
         if ignore_dirs:
@@ -253,34 +274,6 @@ def git_diff(directory_path: PathLike) -> str:
         if not (directory / ".git").is_dir():
             logger.error(f"{directory} is not a git repository")
             return ""
-
-        # Check if __pycache__ exists and clean it if it does
-        pycache_dir = directory / "__pycache__"
-        if pycache_dir.is_dir():
-            # First check if __pycache__ is tracked by git before trying to remove it
-            tracked_result = _run_git_command(
-                directory,
-                ["ls-files", "__pycache__"],
-                capture_output=True,
-            )
-            if tracked_result.stdout.strip():
-                _run_git_command(directory, ["rm", "--cached", "-r", "__pycache__"])
-                logger.info(f"Removed cached __pycache__ in {directory}")
-
-        # Clean .pyc files, use a safe approach in case there are no .pyc files
-        try:
-            pyc_result = _run_git_command(
-                directory,
-                ["ls-files", "*.pyc"],
-                capture_output=True,
-            )
-            if pyc_result.stdout.strip():
-                _run_git_command(directory, ["rm", "--cached", "*.pyc"])
-                logger.info("Removed cached .pyc files")
-        except subprocess.CalledProcessError:
-            logger.info(
-                "No .pyc files to remove or encountered an error, handled gracefully."
-            )
 
         # Check untracked files
         untracked_result = _run_git_command(

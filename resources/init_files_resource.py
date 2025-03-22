@@ -144,7 +144,7 @@ class InitFilesResource(BaseResource):
         # Set up git repos
 
         git_setup_dev_branch(self.files_dir, self.vulnerable_commit)
-        git_init_repo(tmp_destination_path)
+        git_init_repo(tmp_destination_path, add_to_gitignore=True)
 
     def stop(self) -> None:
         """
