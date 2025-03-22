@@ -1,10 +1,10 @@
 import atexit
 import json
-import os
 import shutil
 import subprocess
 import time
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 
@@ -25,6 +25,7 @@ from utils.git_utils import (
     git_diff,
     git_get_current_commit,
     git_remove_changes,
+    git_reset,
 )
 from utils.logger import get_main_logger
 
@@ -36,6 +37,12 @@ class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
     use_agent_exploit: bool = False
+
+
+class PatchStatus(Enum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+    NO_PATCH = "no_patch"
 
 
 class PatchAgent(BaseAgent):
@@ -178,11 +185,24 @@ class PatchAgent(BaseAgent):
     ) -> bool:
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = git_diff(self.codebase)
-        self._apply_patch(tmp_dir_diff)
 
+        # If patch failed or no patch was detected, then skip the invariant checks
+        result: PatchStatus = self._apply_patch(tmp_dir_diff)
+        if result == PatchStatus.FAILURE:
+            self.update_patch_agent_message()
+            self.patch_id += 1
+            git_reset(self.codebase)
+            return False
+        elif result == PatchStatus.NO_PATCH:
+            self.update_patch_agent_message()
+            return False
+
+        # If resources failed to restart, then skip the invariant checks
         if not self.restart_resources():
             self._log("One or more resources failed to restart.")
             self.update_patch_agent_message()
+            self.patch_id += 1
+            git_reset(self.codebase)
             return False
         self._log(f"Resources properly restarted")
 
@@ -505,7 +525,19 @@ class PatchAgent(BaseAgent):
 
         return return_val
 
-    def _apply_patch(self, tmp_dir_diff: str) -> None:
+    def _apply_patch(self, tmp_dir_diff: str) -> PatchStatus:
+        """
+        Apply the patch to the codebase.
+
+        Args:
+            tmp_dir_diff: The diff to apply to the codebase.
+
+        Returns:
+            PatchStatus:
+                - PatchStatus.SUCCESS if the patch was applied successfully and invariant checks should be run.
+                - PatchStatus.FAILURE if the patch failed to apply.
+                - PatchStatus.NO_PATCH if no patch/no changes were detected in the tmp directory.
+        """
         if tmp_dir_diff:
             patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
             git_commit(self.codebase, self.patch_id)
@@ -518,15 +550,22 @@ class PatchAgent(BaseAgent):
                 if success:
                     git_commit(self.task_dir / "codebase", self.patch_id, "dev")
                     self._log(f"{message}")
+                    return PatchStatus.SUCCESS
 
                 else:
-                    logger.error(f"Failed to apply patch to codebase: {message}")
+                    # Make the error message available to the agent
+                    msg = f"Failed to apply patch to codebase: {message}"
+                    self._log(msg)
+                    logger.error(msg)
+                    return PatchStatus.FAILURE
             else:
                 logger.warning("No patch file created. Skipping patch application.")
+                return PatchStatus.NO_PATCH
         else:
             logger.info(
                 "No changes detected in tmp directory. Skipping patch creation and application."
             )
+            return PatchStatus.NO_PATCH
 
     def check_invariant_scores_against_thresholds(
         self,

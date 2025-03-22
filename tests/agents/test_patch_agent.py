@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agents.agent_manager import AgentManager
-from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
+from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig, PatchStatus
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from tests.test_utils.bounty_setup_test_util import EnvPath
 from tests.test_utils.bounty_setup_test_util import (
@@ -138,22 +138,26 @@ async def test_run_agent_exploit(bounty_setup, patch_agent):
 
 
 @pytest.mark.asyncio
-async def test_restart_resource_check(patch_agent):
+async def test_restart_resource_check(patch_agent, mocker):
     """
     If repo_resource fails to restart, error.
     """
+    mocker.patch("agents.patch_agent.patch_agent.git_reset", return_value=None)
     agent = patch_agent
+    prev_patch_id = agent.patch_id
 
     agent.last_patch_agent_message = PatchAgentMessage(
         agent_id="patch_agent", message=None
     )
 
     with patch.object(PatchAgent, "_restart_resource", return_value=False):
-        await agent.execute()
-        assert (
-            "one or more resources failed to restart."
-            in agent.last_patch_agent_message.message.lower()
-        )
+        with patch.object(PatchAgent, "_apply_patch", return_value=True):
+            await agent.execute()
+            assert (
+                "one or more resources failed to restart."
+                in agent.last_patch_agent_message.message.lower()
+            )
+            assert agent.patch_id == prev_patch_id + 1
 
 
 def test_restart_resources_order(bounty_setup):
@@ -548,6 +552,76 @@ def test_check_invariant_scores_edge_cases(patch_agent):
         for file in files.values():
             if file.exists():
                 file.unlink()
+
+
+@pytest.mark.asyncio
+async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
+    """
+    Test that the repo is reset to its original state if applying the patch fails.
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(False, "Patch failed"),
+    )
+    git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+
+    with patch.object(PatchAgent, "_apply_patch", return_value=PatchStatus.FAILURE):
+        result = await agent.execute()
+
+    git_reset_mock.assert_called_once()
+    assert result is False
+    assert agent.patch_id == prev_patch_id + 1
+
+
+@pytest.mark.asyncio
+async def test_reset_repo_on_apply_patch_skipped(patch_agent, mocker):
+    """
+    Test that the repo is not reset if applying the patch is skipped.
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(False, "Patch failed"),
+    )
+    git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+
+    with patch.object(PatchAgent, "_apply_patch", return_value=PatchStatus.NO_PATCH):
+        result = await agent.execute()
+
+    git_reset_mock.assert_not_called()
+    assert result is False
+    assert agent.patch_id == prev_patch_id
+
+
+@pytest.mark.asyncio
+async def test_reset_repo_on_restart_resources_fail(patch_agent, mocker):
+    """
+    Test that the repo is reset to its original state if restarting the resources fails.
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(True, "Patch succeeded"),
+    )
+    git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+
+    with patch.object(PatchAgent, "_apply_patch", return_value=PatchStatus.SUCCESS):
+        with patch.object(PatchAgent, "restart_resources", return_value=False):
+            result = await agent.execute()
+
+    git_reset_mock.assert_called_once()
+    assert result is False
+    assert agent.patch_id == prev_patch_id + 1
 
 
 # "uses" the import
