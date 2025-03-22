@@ -89,6 +89,31 @@ class PatchAgent(BaseAgent):
         combined = "\n".join(self.log_history)
         return combined
 
+    def _store_exploit(self) -> Optional[str]:
+        """Store the exploit files in a timestamped directory."""
+        try:
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            new_exploit_dir = (
+                self.exploits_dir.parent / f"{self.exploits_dir.name}-{timestamp}"
+            )
+
+            tmp_dir = self.resources.init_files.tmp_dir.resolve()
+
+            if tmp_dir.exists() and tmp_dir.is_dir():
+                if any(tmp_dir.iterdir()):
+                    shutil.copytree(
+                        tmp_dir,
+                        new_exploit_dir,
+                        ignore=shutil.ignore_patterns("codebase"),
+                    )
+                    logger.info(f"Exploits successfully moved to {new_exploit_dir}.")
+                else:
+                    logger.warning("Exploits directory is empty. No files to move.")
+            else:
+                logger.warning("No exploits directory found to move.")
+        except Exception as e:
+            logger.error(f"Failed to move exploits directory: {e}")
+
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """Execute the main workflow of the PatchAgent."""
         if len(messages) != 1:
@@ -153,23 +178,24 @@ class PatchAgent(BaseAgent):
 
     async def verify_patch(self, agent_exploit: bool = False) -> bool:
         patch_success: bool = False
+        # Initial check that exploit succeeds in unpatched environment
         if agent_exploit:
-            # Initial check that agent exploit succeeds in unpatched environment
             exit_code = await self.run_agent_exploit()
-            if exit_code == 0:
-                # Apply patch and check if exploit fails
-                patch_success = await self.execute(agent_exploit)
-            elif exit_code == 127:
-                self._log(
-                    "Missing exploit.sh script. exploit.sh script before the patch can be applied."
-                )
-            else:
-                self._log(
-                    "Exploit fails before the patch is applied. exploit.sh must be fixed"
-                )
         else:
+            exit_code = await self.run_external_exploit()
+
+        if exit_code == 0:
             # Apply patch and check if exploit fails
+            self._store_exploit()
             patch_success = await self.execute(agent_exploit)
+        elif exit_code == 127:
+            self._log(
+                "Missing exploit.sh script. exploit.sh script before the patch can be applied."
+            )
+        else:
+            self._log(
+                "Exploit fails before the patch is applied. exploit.sh must be fixed"
+            )
         return patch_success
 
     async def execute(
