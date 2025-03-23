@@ -11,6 +11,20 @@ logger = get_main_logger(__name__)
 PathLike = Union[Path, str]
 
 
+def git_amend_commit(path: str) -> None:
+    """
+    Amend the current HEAD commit by staging all changes and updating the commit
+    without modifying its commit message.
+
+    Args:
+        path (str): The path to the repository where the commit should be amended.
+    """
+    # Stage all changes in the repository
+    subprocess.run(["git", "add", "-A"], cwd=path, check=True)
+    # Amend the current commit (HEAD)
+    subprocess.run(["git", "commit", "--amend", "--no-edit"], cwd=path, check=True)
+
+
 def _run_git_command(
     directory: Path,
     args: list[str],
