@@ -215,6 +215,8 @@ async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
     run_exploit_mock = mocker.patch.object(
         patch_agent, "run_agent_exploit", side_effect=[0, 0]
     )
+    git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+
     # Let invariants pass
     mocker.patch.object(
         patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
@@ -227,6 +229,7 @@ async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
     # You should find "Patch failed: Exploit verification failed" in final_msg or logs
     assert "Patch failed: Exploit verification failed" in final_msg.message
     assert run_exploit_mock.call_count == 2
+    assert git_reset_mock.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -772,7 +775,7 @@ def test_apply_patch_returns_creation_failure_status(
 # PatchStatus integration tests
 # -----------------------------------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_commit_tracking_success(patch_agent, mocker):
+async def test_commit_tracking_full_workflow_success(patch_agent, mocker):
     """
     Test the full patch workflow with commit tracking:
     - Start with both repos at the same commit
@@ -833,6 +836,79 @@ async def test_commit_tracking_success(patch_agent, mocker):
     assert current_commits["remote"] == patched_commit
     assert agent.last_patch_agent_message.success is True
     assert "Congratulations" in agent.last_patch_agent_message.message
+
+
+@pytest.mark.asyncio
+async def test_commit_tracking_full_workflow_exploit_failure(patch_agent, mocker):
+    """
+    Test the full patch workflow with commit tracking:
+    - Start with both repos at the same commit
+    - Apply patch successfully
+    - Verify both repos move to the new commit
+    - Exploit still succeeds after patch
+    - Verify failure is reported correctly
+    - Verify repos are reset to original commits
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    # Commit states
+    initial_commit = "abc123"
+    patched_commit = "def456"
+    current_commits = {"tmp": initial_commit, "remote": initial_commit}
+
+    def mock_get_current_commit(repo_path):
+        if str(agent.task_dir / "codebase") in str(repo_path):
+            return current_commits["remote"]
+        return current_commits["tmp"]
+
+    def mock_git_commit(repo_path, patch_id, branch="main"):
+        if str(agent.task_dir / "codebase") in str(repo_path):
+            current_commits["remote"] = patched_commit
+        else:
+            current_commits["tmp"] = patched_commit
+        return True
+
+    def mock_git_reset(repo_path):
+        if str(agent.task_dir / "codebase") in str(repo_path):
+            current_commits["remote"] = initial_commit
+        else:
+            current_commits["tmp"] = initial_commit
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_get_current_commit",
+        side_effect=mock_get_current_commit,
+    )
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_commit", side_effect=mock_git_commit
+    )
+    mocker.patch("agents.patch_agent.patch_agent.git_reset", side_effect=mock_git_reset)
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(True, "Patch applied successfully"),
+    )
+
+    agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent", message=None
+    )
+
+    # Mock invariant/exploit checks
+    mocker.patch.object(
+        patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
+    )
+    mocker.patch.object(
+        patch_agent, "run_external_exploit", return_value=0
+    )  # 0 indicates failure (exploit still works)
+
+    agent.use_agent_exploit = False
+    result = await agent.execute()
+
+    assert result is False
+    assert current_commits["tmp"] == initial_commit
+    assert current_commits["remote"] == initial_commit
+    assert agent.last_patch_agent_message.success is False
+    assert "Patch failed" in agent.last_patch_agent_message.message
 
 
 @pytest.mark.asyncio

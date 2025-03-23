@@ -340,9 +340,8 @@ class PatchAgent(BaseAgent):
 
             self._log(f"Patch failed: {failure_reason}")
 
-            # TODO: should we reset both tmp and remote codebases to the previous commits
-            # git_reset(self.codebase)
-            # git_reset(self.task_dir / "codebase")
+            git_reset(self.codebase)
+            git_reset(self.task_dir / "codebase")
             self.patch_id += 1
 
         self.update_patch_agent_message()
