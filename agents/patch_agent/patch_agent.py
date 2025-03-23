@@ -16,7 +16,7 @@ from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
-from resources.resource_type import ResourceType
+from resources.resource_type import AgentResources, ResourceType
 from utils.git_utils import (
     git_apply_patch,
     git_checkout,
@@ -40,9 +40,36 @@ class PatchAgentConfig(AgentConfig):
 
 
 class PatchStatus(Enum):
-    SUCCESS = "success"
-    FAILURE = "failure"
+    # creation and apply were successful, both tmp and remote at commits x + 1
+    PATCH_SUCCESS = "patch_success"
+
+    # no changes detected in tmp directory
     NO_PATCH = "no_patch"
+
+    # common failures
+    # indicates a failure in creating the patch file, raised in self.create_patch_file()
+    # by setting this flag, we know that
+    #   - self.codebase *might* be modified (side effects from self.create_patch_file())
+    #   - remote server is clean and unmodified
+    PATCH_CREATION_FAILURE = "patch_creation_failure"
+
+    # indicates a git commit failure in the tmp directory (self.codebase)
+    # by setting this flag, we know that
+    #   - self.codebase is modified (uncommitted changes)
+    #   - remote server is clean and unmodified
+    TMP_GIT_COMMIT_FAILURE = "tmp_git_commit_failure"
+
+    # indicates a failure in applying the patch to the remote server
+    # by setting this flag, we know that
+    #   - self.codebase is at commit x + 1 and clean
+    #   - remote server is at commit x and *might* be modified
+    PATCH_APPLY_FAILURE = "patch_failure"
+
+    # indicates a git commit failure in the remote server (self.task_dir / "codebase")
+    # by setting this flag, we know that
+    #   - self.codebase is at commit x + 1
+    #   - remote server is modified (uncommitted changes)
+    REMOTE_GIT_COMMIT_FAILURE = "remote_git_commit_failure"
 
 
 class PatchAgent(BaseAgent):
@@ -179,6 +206,52 @@ class PatchAgent(BaseAgent):
             patch_success = await self.execute(agent_exploit)
         return patch_success
 
+    def _on_apply_patch_exit(self, status: PatchStatus) -> bool:
+        """
+        Handles the exit status of the _apply_patch method.
+
+        Returns:
+            bool: True if should continue to restart resources for invariant checks, False otherwise
+        """
+        logger.info(f"Patch status: {status}")
+        match status:
+            case PatchStatus.PATCH_SUCCESS:
+                return True
+
+            case PatchStatus.NO_PATCH:
+                self.update_patch_agent_message()
+                return False
+
+            case PatchStatus.PATCH_CREATION_FAILURE:
+                git_remove_changes(self.codebase)
+
+                self.update_patch_agent_message()
+                self.patch_id += 1
+                return False
+
+            case PatchStatus.TMP_GIT_COMMIT_FAILURE:
+                git_remove_changes(self.codebase)
+
+                self.update_patch_agent_message()
+                self.patch_id += 1
+                return False
+
+            case PatchStatus.PATCH_APPLY_FAILURE:
+                git_reset(self.codebase)
+                git_remove_changes(self.task_dir / "codebase")
+
+                self.update_patch_agent_message()
+                self.patch_id += 1
+                return False
+
+            case PatchStatus.REMOTE_GIT_COMMIT_FAILURE:
+                git_reset(self.codebase)
+                git_remove_changes(self.task_dir / "codebase")
+
+                self.update_patch_agent_message()
+                self.patch_id += 1
+                return False
+
     async def execute(
         self,
         agent_exploit: bool = False,
@@ -188,13 +261,8 @@ class PatchAgent(BaseAgent):
 
         # If patch failed or no patch was detected, then skip the invariant checks
         result: PatchStatus = self._apply_patch(tmp_dir_diff)
-        if result == PatchStatus.FAILURE:
-            self.update_patch_agent_message()
-            self.patch_id += 1
-            git_reset(self.codebase)
-            return False
-        elif result == PatchStatus.NO_PATCH:
-            self.update_patch_agent_message()
+        if not self._on_apply_patch_exit(result):
+            logger.info(f"Patch application failed - {result}")
             return False
 
         # If resources failed to restart, then skip the invariant checks
@@ -203,6 +271,7 @@ class PatchAgent(BaseAgent):
             self.update_patch_agent_message()
             self.patch_id += 1
             git_reset(self.codebase)
+            git_reset(self.task_dir / "codebase")
             return False
         self._log(f"Resources properly restarted")
 
@@ -270,6 +339,10 @@ class PatchAgent(BaseAgent):
                 failure_reason = "Invariant checks failed"
 
             self._log(f"Patch failed: {failure_reason}")
+
+            # TODO: should we reset both tmp and remote codebases to the previous commits
+            # git_reset(self.codebase)
+            # git_reset(self.task_dir / "codebase")
             self.patch_id += 1
 
         self.update_patch_agent_message()
@@ -533,34 +606,44 @@ class PatchAgent(BaseAgent):
             tmp_dir_diff: The diff to apply to the codebase.
 
         Returns:
-            PatchStatus:
-                - PatchStatus.SUCCESS if the patch was applied successfully and invariant checks should be run.
-                - PatchStatus.FAILURE if the patch failed to apply.
-                - PatchStatus.NO_PATCH if no patch/no changes were detected in the tmp directory.
+            PatchStatus: The status of the patch application.
         """
-        if tmp_dir_diff:
-            patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
-            git_commit(self.codebase, self.patch_id)
-
-            if patch_file_path:
-                # Apply the patch to the codebase directory
-                success, message = git_apply_patch(
-                    patch_file_path, self.task_dir / "codebase", "dev"
+        if tmp_dir_diff:  # i.e. git_diff(self.codebase) is non-empty
+            try:
+                patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
+            except Exception as e:
+                logger.warning(
+                    f"No patch file created. Skipping patch application: {e}"
                 )
-                if success:
-                    git_commit(self.task_dir / "codebase", self.patch_id, "dev")
-                    self._log(f"{message}")
-                    return PatchStatus.SUCCESS
+                return PatchStatus.PATCH_CREATION_FAILURE
 
-                else:
-                    # Make the error message available to the agent
-                    msg = f"Failed to apply patch to codebase: {message}"
-                    self._log(msg)
-                    logger.error(msg)
-                    return PatchStatus.FAILURE
+            try:
+                git_commit(self.codebase, self.patch_id)
+            except Exception as e:
+                logger.error(f"Failed to commit changes to tmp directory: {e}")
+                return PatchStatus.TMP_GIT_COMMIT_FAILURE
+
+            # Apply the patch to the codebase directory
+            success, message = git_apply_patch(
+                patch_file_path, self.task_dir / "codebase", "dev"
+            )
+            if success:
+                try:
+                    git_commit(self.task_dir / "codebase", self.patch_id, "dev")
+                except Exception as e:
+                    logger.error(f"Failed to commit changes to remote directory: {e}")
+                    # TODO: do we add this to self._log?
+                    return PatchStatus.REMOTE_GIT_COMMIT_FAILURE
+
+                self._log(f"{message}")
+                return PatchStatus.PATCH_SUCCESS
+
             else:
-                logger.warning("No patch file created. Skipping patch application.")
-                return PatchStatus.NO_PATCH
+                # Make the error message available to the agent
+                msg = f"Failed to apply patch to codebase: {message}"
+                self._log(msg)
+                logger.error(msg)
+                return PatchStatus.PATCH_APPLY_FAILURE
         else:
             logger.info(
                 "No changes detected in tmp directory. Skipping patch creation and application."
@@ -715,6 +798,13 @@ class PatchAgent(BaseAgent):
             return False, {}, {}
 
     def create_patch_file(self, diff: str, directory_path: Path) -> Optional[Path]:
+        """
+        Create a patch file at directory_path using the provided diff.
+
+        Example:
+            tmp_dir_diff = git_diff(self.codebase)
+            patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
+        """
         try:
             directory_path.mkdir(parents=True, exist_ok=True)
             patch_file_path = directory_path / f"patch_{self.patch_id}.patch"
@@ -723,9 +813,9 @@ class PatchAgent(BaseAgent):
                 f"Patch_{self.patch_id} file created successfully at {patch_file_path}"
             )
             return patch_file_path
-        except Exception as e:
+        except Exception as e:  # e.g. Patch file is too large to be written
             logger.error(f"Failed to create patch_{self.patch_id} file: {e}")
-            return None
+            raise
 
     def cleanup(self) -> None:
         """Perform cleanup operations."""

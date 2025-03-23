@@ -62,7 +62,7 @@ def git_commit(
 
         _run_git_command(directory, ["add", "."])
         _run_git_command(directory, ["commit", "-m", f"Commit {commit_info}"])
-        logger.info(f"Commit {commit_info} created successfully")
+        logger.info(f"Commit {commit_info} created successfully in {directory}")
         return True
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to create commit: {e}")

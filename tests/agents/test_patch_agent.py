@@ -151,7 +151,9 @@ async def test_restart_resource_check(patch_agent, mocker):
     )
 
     with patch.object(PatchAgent, "_restart_resource", return_value=False):
-        with patch.object(PatchAgent, "_apply_patch", return_value=True):
+        with patch.object(
+            PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_SUCCESS
+        ):
             await agent.execute()
             assert (
                 "one or more resources failed to restart."
@@ -555,29 +557,6 @@ def test_check_invariant_scores_edge_cases(patch_agent):
 
 
 @pytest.mark.asyncio
-async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
-    """
-    Test that the repo is reset to its original state if applying the patch fails.
-    """
-    agent = patch_agent
-    prev_patch_id = agent.patch_id
-
-    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
-    mocker.patch(
-        "agents.patch_agent.patch_agent.git_apply_patch",
-        return_value=(False, "Patch failed"),
-    )
-    git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
-
-    with patch.object(PatchAgent, "_apply_patch", return_value=PatchStatus.FAILURE):
-        result = await agent.execute()
-
-    git_reset_mock.assert_called_once()
-    assert result is False
-    assert agent.patch_id == prev_patch_id + 1
-
-
-@pytest.mark.asyncio
 async def test_reset_repo_on_apply_patch_skipped(patch_agent, mocker):
     """
     Test that the repo is not reset if applying the patch is skipped.
@@ -590,7 +569,7 @@ async def test_reset_repo_on_apply_patch_skipped(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(False, "Patch failed"),
     )
-    git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
 
     with patch.object(PatchAgent, "_apply_patch", return_value=PatchStatus.NO_PATCH):
         result = await agent.execute()
@@ -603,7 +582,8 @@ async def test_reset_repo_on_apply_patch_skipped(patch_agent, mocker):
 @pytest.mark.asyncio
 async def test_reset_repo_on_restart_resources_fail(patch_agent, mocker):
     """
-    Test that the repo is reset to its original state if restarting the resources fails.
+    Test that the repo is reset to its original state if patch creation and apply was successful,
+    but restarting the resources fails.
     """
     agent = patch_agent
     prev_patch_id = agent.patch_id
@@ -613,13 +593,44 @@ async def test_reset_repo_on_restart_resources_fail(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(True, "Patch succeeded"),
     )
-    git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
 
-    with patch.object(PatchAgent, "_apply_patch", return_value=PatchStatus.SUCCESS):
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_SUCCESS
+    ):
         with patch.object(PatchAgent, "restart_resources", return_value=False):
             result = await agent.execute()
 
-    git_reset_mock.assert_called_once()
+    assert git_reset_mock.call_count == 2
+    assert result is False
+    assert agent.patch_id == prev_patch_id + 1
+
+
+@pytest.mark.asyncio
+async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
+    """
+    Test that the repo is reset to its original state if applying the patch fails.
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(False, "Patch failed"),
+    )
+    git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_remove_changes_mock: MagicMock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_remove_changes"
+    )
+
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_APPLY_FAILURE
+    ):
+        result = await agent.execute()
+
+    assert git_reset_mock.call_count == 1
+    assert git_remove_changes_mock.call_count == 1
     assert result is False
     assert agent.patch_id == prev_patch_id + 1
 
