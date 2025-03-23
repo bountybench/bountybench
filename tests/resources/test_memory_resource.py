@@ -52,7 +52,7 @@ def message_tree():
             agent_message = AgentMessage(agent_id=agent_id, prev=prev_agent)
             prev_agent = agent_message
 
-            action_id = action_message = f"phase_{i}_agent_{j}_action"
+            action_id = action_message = f"action"
             action_message = ActionMessage(
                 resource_id=action_id, message=action_message
             )
@@ -103,8 +103,8 @@ def test_get_memory_from_last_phase_message(message_tree):
     memory_without_prompt = memory.replace("initial prompt\n\n", "")
 
     expected_prev_phases = [
-        "[phase_0_agent_0/phase_0_agent_0_action] phase_0_agent_0_action",
-        "[phase_0_agent_1/phase_0_agent_1_action] phase_0_agent_1_action",
+        "[phase_0_agent_0/action] action",
+        "[phase_0_agent_1/action] action",
     ]
 
     expected_memory = (
@@ -136,11 +136,11 @@ def test_get_memory_from_last_agent_message(message_tree):
     memory_without_prompt = memory.replace("initial prompt\n\n", "")
 
     expected_prev_phases = [
-        "[phase_0_agent_0/phase_0_agent_0_action] phase_0_agent_0_action",
-        "[phase_0_agent_1/phase_0_agent_1_action] phase_0_agent_1_action",
+        "[phase_0_agent_0/action] action",
+        "[phase_0_agent_1/action] action",
     ]
     expected_prev_agents = [
-        "[phase_1_agent_0/phase_1_agent_0_action] phase_1_agent_0_action",
+        "[phase_1_agent_0/action] action",
     ]
     expected_memory = (
         f"{MemoryPrompts._DEFAULT_SEGUE}\n"
@@ -172,14 +172,14 @@ def test_get_memory_from_last_action_message(message_tree):
     memory_without_prompt = memory.replace("initial prompt\n\n", "")
 
     expected_prev_phases = [
-        "[phase_0_agent_0/phase_0_agent_0_action] phase_0_agent_0_action",
-        "[phase_0_agent_1/phase_0_agent_1_action] phase_0_agent_1_action",
+        "[phase_0_agent_0/action] action",
+        "[phase_0_agent_1/action] action",
     ]
     expected_prev_agents = [
-        "[phase_1_agent_0/phase_1_agent_0_action] phase_1_agent_0_action",
+        "[phase_1_agent_0/action] action",
     ]
     expected_prev_actions = [
-        "[phase_1_agent_1/phase_1_agent_1_action] phase_1_agent_1_action"
+        "[phase_1_agent_1/action] action"
     ]
 
     expected_memory = (
