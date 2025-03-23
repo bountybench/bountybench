@@ -570,19 +570,28 @@ async def test_reset_repo_on_apply_patch_skipped(patch_agent, mocker):
         return_value=(False, "Patch failed"),
     )
     git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_remove_changes_mock: MagicMock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_remove_changes"
+    )
 
     with patch.object(PatchAgent, "_apply_patch", return_value=PatchStatus.NO_PATCH):
         result = await agent.execute()
 
     git_reset_mock.assert_not_called()
+    git_remove_changes_mock.assert_not_called()
     assert result is False
-    assert agent.patch_id == prev_patch_id
+    assert (
+        agent.patch_id == prev_patch_id
+    )  # patch is skipped so patch_id should not increment
 
 
+# PatchStatus implication tests
+# - Given a PatchStatus enum, the system should correctly make calls to git_reset and git_remove_changes
+# -----------------------------------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_reset_repo_on_restart_resources_fail(patch_agent, mocker):
     """
-    Test that the repo is reset to its original state if patch creation and apply was successful,
+    Test that tmp and remote codebase are reset to their original states if patch creation and apply was successful,
     but restarting the resources fails.
     """
     agent = patch_agent
@@ -594,6 +603,9 @@ async def test_reset_repo_on_restart_resources_fail(patch_agent, mocker):
         return_value=(True, "Patch succeeded"),
     )
     git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_remove_changes_mock: MagicMock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_remove_changes"
+    )
 
     with patch.object(
         PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_SUCCESS
@@ -601,7 +613,68 @@ async def test_reset_repo_on_restart_resources_fail(patch_agent, mocker):
         with patch.object(PatchAgent, "restart_resources", return_value=False):
             result = await agent.execute()
 
-    assert git_reset_mock.call_count == 2
+    assert git_reset_mock.call_count == 2  # once for tmp, once for remote
+    assert git_remove_changes_mock.call_count == 0
+    assert result is False
+    assert agent.patch_id == prev_patch_id + 1
+
+
+@pytest.mark.asyncio
+async def test_reset_repo_on_patch_creation_fail(patch_agent, mocker):
+    """
+    Test that tmp and remote codebase are reset to their original states if
+    patch creation failed.
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(False, "Patch failed"),
+    )
+    git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_remove_changes_mock: MagicMock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_remove_changes"
+    )
+
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_CREATION_FAILURE
+    ):
+        result = await agent.execute()
+
+    assert git_reset_mock.call_count == 0
+    assert git_remove_changes_mock.call_count == 1  # only once for tmp
+    assert result is False
+    assert agent.patch_id == prev_patch_id + 1
+
+
+@pytest.mark.asyncio
+async def test_reset_repo_on_tmp_git_commit_fail(patch_agent, mocker):
+    """
+    Test that tmp and remote codebase are reset to their original states if
+    patch creation was successful, but git commit in tmp failed.
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(False, "Patch failed"),
+    )
+    git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_remove_changes_mock: MagicMock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_remove_changes"
+    )
+
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.TMP_GIT_COMMIT_FAILURE
+    ):
+        result = await agent.execute()
+
+    assert git_reset_mock.call_count == 0
+    assert git_remove_changes_mock.call_count == 1  # only once for tmp
     assert result is False
     assert agent.patch_id == prev_patch_id + 1
 
@@ -609,7 +682,8 @@ async def test_reset_repo_on_restart_resources_fail(patch_agent, mocker):
 @pytest.mark.asyncio
 async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     """
-    Test that the repo is reset to its original state if applying the patch fails.
+    Test that tmp and remote codebase are reset to their original states if
+    patch creation and tmp git commit were successful, but applying the patch fails.
     """
     agent = patch_agent
     prev_patch_id = agent.patch_id
@@ -629,10 +703,335 @@ async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     ):
         result = await agent.execute()
 
-    assert git_reset_mock.call_count == 1
-    assert git_remove_changes_mock.call_count == 1
+    assert git_reset_mock.call_count == 1  # only once for tmp
+    assert git_remove_changes_mock.call_count == 1  # only once for remote
     assert result is False
     assert agent.patch_id == prev_patch_id + 1
+
+
+@pytest.mark.asyncio
+async def test_reset_repo_on_remote_git_commit_fail(patch_agent, mocker):
+    """
+    Test that tmp and remote codebase are reset to their original states if
+    patch creation, tmp git commit, patch apply were all successful,
+    but git commit in remote failed.
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(False, "Patch failed"),
+    )
+    git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_remove_changes_mock: MagicMock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_remove_changes"
+    )
+
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.REMOTE_GIT_COMMIT_FAILURE
+    ):
+        result = await agent.execute()
+
+    assert git_reset_mock.call_count == 1  # only once for tmp
+    assert git_remove_changes_mock.call_count == 1  # only once for remote
+    assert result is False
+    assert agent.patch_id == prev_patch_id + 1
+
+
+# PatchStatus generation tests
+# - Given a certain state, the system should correctly generate the correct PatchStatus enum
+# -----------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "exception_type",
+    [
+        ValueError("Patch too large"),
+        IOError("Cannot write to file"),
+        PermissionError("Permission denied"),
+    ],
+)
+def test_apply_patch_returns_creation_failure_status(
+    patch_agent, mocker, exception_type
+):
+    """
+    Test that _apply_patch correctly returns PATCH_CREATION_FAILURE status
+    when create_patch_file raises an exception.
+    """
+    agent = patch_agent
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+
+    # Mock create_patch_file to raise the specified exception
+    mocker.patch.object(PatchAgent, "create_patch_file", side_effect=exception_type)
+
+    result = agent._apply_patch("FAKE_DIFF")
+    assert result == PatchStatus.PATCH_CREATION_FAILURE
+
+
+# PatchStatus integration tests
+# -----------------------------------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_commit_tracking_success(patch_agent, mocker):
+    """
+    Test the full patch workflow with commit tracking:
+    - Start with both repos at the same commit
+    - Apply patch successfully
+    - Verify both repos move to the new commit
+    - Verify success is reported correctly
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    # Commit states
+    initial_commit = "abc123"
+    patched_commit = "def456"
+    current_commits = {"tmp": initial_commit, "remote": initial_commit}
+
+    def mock_get_current_commit(repo_path):
+        if str(agent.task_dir / "codebase") in str(repo_path):
+            return current_commits["remote"]
+        return current_commits["tmp"]
+
+    def mock_git_commit(repo_path, patch_id, branch="main"):
+        if str(agent.task_dir / "codebase") in str(repo_path):
+            current_commits["remote"] = patched_commit
+        else:
+            current_commits["tmp"] = patched_commit
+        return True
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_get_current_commit",
+        side_effect=mock_get_current_commit,
+    )
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_commit", side_effect=mock_git_commit
+    )
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(True, "Patch applied successfully"),
+    )
+
+    agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent", message=None
+    )
+
+    # Mock invariant/exploit checks
+    mocker.patch.object(
+        patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
+    )
+    mocker.patch.object(
+        patch_agent, "run_external_exploit", return_value=1
+    )  # 1 indicates success (exploit blocked)
+
+    agent.use_agent_exploit = False
+    result = await agent.execute()
+
+    assert result is True
+    assert current_commits["tmp"] == patched_commit
+    assert current_commits["remote"] == patched_commit
+    assert agent.last_patch_agent_message.success is True
+    assert "Congratulations" in agent.last_patch_agent_message.message
+
+
+@pytest.mark.asyncio
+async def test_commit_tracking_with_failure_in_tmp_commit(patch_agent, mocker):
+    """
+    Test commit tracking when a failure occurs in the tmp git commit:
+    - Both start at same commit
+    - tmp_git_commit fails
+    - Verify tmp changes are removed, remote is untouched
+    - Verify patch_id is incremented
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    # Commit states
+    initial_commit = "abc123"
+    current_commits = {"tmp": initial_commit, "remote": initial_commit}
+    uncommitted_changes = {"tmp": True, "remote": False}
+
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_get_current_commit",
+        return_value=initial_commit,
+    )  # i.e. start_commit = git_get_current_commit
+
+    def mock_git_remove_changes(repo_path):
+        if str(agent.task_dir / "codebase") in str(repo_path):
+            uncommitted_changes["remote"] = False
+        else:
+            uncommitted_changes["tmp"] = False
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_remove_changes",
+        side_effect=mock_git_remove_changes,
+    )
+
+    agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent", message=None
+    )
+
+    # Execute with TMP_GIT_COMMIT_FAILURE status
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.TMP_GIT_COMMIT_FAILURE
+    ):
+        result = await agent.execute()
+
+    # Verify results
+    assert result is False
+    assert uncommitted_changes["tmp"] is False  # Changes should be removed
+    assert uncommitted_changes["remote"] is False  # Remote should be untouched
+    assert agent.patch_id == prev_patch_id + 1  # Patch ID incremented
+
+
+@pytest.mark.asyncio
+async def test_commit_tracking_with_failure_in_patch_apply(patch_agent, mocker):
+    """
+    Test state recovery after patch apply failure:
+    - Both start at same commit
+    - tmp commits successfully
+    - patch apply to remote fails
+    - Verify tmp is reset, remote changes removed
+    - Verify patch_id is incremented
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    # Commit states
+    initial_commit = "abc123"
+    patched_commit = "def456"
+    current_commits = {"tmp": initial_commit, "remote": initial_commit}
+
+    def mock_get_current_commit(repo_path):
+        if str(agent.task_dir / "codebase") in str(repo_path):
+            return current_commits["remote"]
+        return current_commits["tmp"]
+
+    def mock_git_reset(repo_path):
+        if str(agent.codebase) in str(repo_path):
+            current_commits["tmp"] = initial_commit
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_get_current_commit",
+        side_effect=mock_get_current_commit,
+    )
+    mocker.patch("agents.patch_agent.patch_agent.git_reset", side_effect=mock_git_reset)
+    mocker.patch("agents.patch_agent.patch_agent.git_remove_changes")
+
+    agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent", message=None
+    )
+
+    # Simulate tmp being at the patched commit
+    current_commits["tmp"] = patched_commit
+
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_APPLY_FAILURE
+    ):
+        result = await agent.execute()
+
+    assert result is False
+    assert current_commits["tmp"] == initial_commit  # tmp should be reset
+    assert (
+        current_commits["remote"] == initial_commit
+    )  # remote should remain at initial
+    assert agent.patch_id == prev_patch_id + 1  # Patch ID incremented
+
+
+@pytest.mark.asyncio
+async def test_commit_tracking_with_failure_in_remote_commit(patch_agent, mocker):
+    """
+    Test state recovery after remote git commit failure:
+    - Both start at same commit
+    - tmp commits successfully
+    - patch applies to remote successfully
+    - remote git commit fails
+    - Verify tmp is reset, remote changes removed
+    - Verify patch_id is incremented
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    # Commit states
+    initial_commit = "abc123"
+    patched_commit = "def456"
+    current_commits = {"tmp": initial_commit, "remote": initial_commit}
+
+    def mock_get_current_commit(repo_path):
+        if str(agent.task_dir / "codebase") in str(repo_path):
+            return current_commits["remote"]
+        return current_commits["tmp"]
+
+    def mock_git_reset(repo_path):
+        if str(agent.codebase) in str(repo_path):
+            current_commits["tmp"] = initial_commit
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_get_current_commit",
+        side_effect=mock_get_current_commit,
+    )
+    mocker.patch("agents.patch_agent.patch_agent.git_reset", side_effect=mock_git_reset)
+    mocker.patch("agents.patch_agent.patch_agent.git_remove_changes")
+
+    agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent", message=None
+    )
+
+    current_commits["tmp"] = patched_commit
+
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.REMOTE_GIT_COMMIT_FAILURE
+    ):
+        result = await agent.execute()
+
+    # Verify results
+    assert result is False
+    assert current_commits["tmp"] == initial_commit  # tmp should be reset
+    assert (
+        current_commits["remote"] == initial_commit
+    )  # remote should remain at initial
+    assert agent.patch_id == prev_patch_id + 1  # Patch ID incremented
+
+
+@pytest.mark.asyncio
+async def test_sequence_of_failures_patch_id_tracking(patch_agent, mocker):
+    """
+    Test patch ID tracking across a sequence of different failures:
+    - Run three consecutive executions with different failure modes
+    - Verify patch ID increments correctly after each attempt
+    """
+    agent = patch_agent
+    starting_patch_id = agent.patch_id
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    mocker.patch("agents.patch_agent.patch_agent.git_remove_changes")
+
+    agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent", message=None
+    )
+
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.TMP_GIT_COMMIT_FAILURE
+    ):
+        await agent.execute()
+    assert agent.patch_id == starting_patch_id + 1
+
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_APPLY_FAILURE
+    ):
+        await agent.execute()
+    assert agent.patch_id == starting_patch_id + 2
+
+    with patch.object(
+        PatchAgent, "_apply_patch", return_value=PatchStatus.REMOTE_GIT_COMMIT_FAILURE
+    ):
+        await agent.execute()
+    assert agent.patch_id == starting_patch_id + 3
 
 
 # "uses" the import
