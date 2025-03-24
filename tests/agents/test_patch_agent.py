@@ -739,10 +739,10 @@ async def test_reset_repo_on_remote_git_commit_fail(patch_agent, mocker):
 
 
 @pytest.mark.asyncio
-async def test_reset_repo_on_exploit_invariant_check_fail(patch_agent, mocker):
+async def test_reset_repo_on_invariant_checking_fail(patch_agent, mocker):
     """
     Test that tmp and remote codebase are reset to their original states if
-    either invariant checking or exploit checking fails.
+    invariant checking fails.
     """
     agent = patch_agent
     prev_patch_id = agent.patch_id
@@ -757,13 +757,20 @@ async def test_reset_repo_on_exploit_invariant_check_fail(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_remove_changes"
     )
 
-    with patch.object(PatchAgent, "_apply_patch", return_value=None):
-        with patch.object(PatchAgent, "restart_resources", return_value=True):
-            with patch.object(PatchAgent, "run_external_exploit", return_value=0):
-                with patch.object(
-                    PatchAgent, "verify_patch_invariants", return_value=(True, {}, {})
-                ):
-                    result = await agent.execute()
+    mocker.patch.object(PatchAgent, "_apply_patch", return_value=None)
+    mocker.patch.object(PatchAgent, "restart_resources", return_value=True)
+    mocker.patch.object(PatchAgent, "run_external_exploit", return_value=0)
+    mocker.patch.object(
+        PatchAgent, "verify_patch_invariants", return_value=(False, {}, {})
+    )
+    mocker.patch.object(PatchAgent, "apply_patched_unit_tests", return_value=True)
+    mocker.patch.object(
+        PatchAgent,
+        "merge_max_scores",
+        side_effect=[MOCK_REPO_SCORES, MOCK_BOUNTY_SCORES],
+    )
+
+    result = await agent.execute()
 
     assert git_reset_mock.call_count == 2  # once for tmp, once for remote
     assert git_remove_changes_mock.call_count == 0
