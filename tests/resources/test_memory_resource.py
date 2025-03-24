@@ -7,7 +7,7 @@ from messages.action_messages.action_message import ActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
-from resources.memory_resource import (
+from resources.memory_resource.memory_resource import (
     MemoryPrompts,
     MemoryResource,
     MemoryResourceConfig,
