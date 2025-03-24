@@ -7,16 +7,15 @@ from messages.agent_messages.agent_message import ActionMessage, AgentMessage
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResource, BaseResourceConfig
-from utils.logger import get_main_logger
-
-logger = get_main_logger(__name__)
-
 from resources.memory_resource.memory_function import (
     MemoryCollationFunctions,
     MemoryTruncationFunctions,
 )
 from resources.memory_resource.memory_prompt import MemoryPrompts
 from resources.memory_resource.memory_scope import MemoryScope
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
 
 
 @dataclass
@@ -50,14 +49,6 @@ class MemoryResource(BaseResource):
         super().__init__(resource_id, config)
         self.scope = self._resource_config.scope
 
-        # example traversal if scope is workflow, and given message is action_message
-        #  1) go up to workflow message, then do a pre-order traversal,
-        #     stopping at phase_message that contains the action message
-        #  2) go up to that phase_message, then do a pre-order traversal,
-        #     stopping at agent_message that contains the action message
-        #  3) go up to that agent_message, then do a pre-order traversal,
-        #     stopping at given action message
-        # This way, we can segment memory into prev_phase, prev_agent, and prev_action
         self.stop_cls = [WorkflowMessage, PhaseMessage, AgentMessage][self.scope.value]
 
         self.message_hierarchy = {
@@ -73,8 +64,6 @@ class MemoryResource(BaseResource):
 
         self.segment_trunc_fn = self._resource_config.segment_trunc_fn
         self.memory_trunc_fn = self._resource_config.memory_trunc_fn
-
-        self.pinned_messages = set()
 
     def parse_message(self, message: ActionMessage | AgentMessage | PhaseMessage):
         """Given a message, parse into prev_{phase | agent | action} messages.
@@ -93,98 +82,25 @@ class MemoryResource(BaseResource):
             message, (ActionMessage, AgentMessage, PhaseMessage)
         ), f"Invalid message type {type(message)} passed to memory"
 
-        def is_initial_prompt(msg_node):
-            return isinstance(msg_node, AgentMessage) and msg_node.agent_id == "system"
-
-        def extract_children(msg_node):
-            if hasattr(msg_node, "_phase_messages"):
-                return msg_node._phase_messages
-            elif hasattr(msg_node, "_agent_messages"):
-                return msg_node._agent_messages
-            elif hasattr(msg_node, "_action_messages"):
-                return msg_node._action_messages
-            return []
-
-        def extract_id(msg_node):
-            if hasattr(msg_node, "_phase_messages"):
-                return msg_node.workflow_id
-            elif hasattr(msg_node, "_agent_messages"):
-                return msg_node.phase_id
-            elif hasattr(msg_node, "_action_messages"):
-                return msg_node.agent_id
-
-            assert isinstance(msg_node, ActionMessage)
-
-            if msg_node.parent.agent_id == msg_node.resource_id:
-                return msg_node.parent.agent_id
-            return msg_node.parent.agent_id + "/" + msg_node.resource_id.split("_")[0]
-
-        def add_to_segment(msg_node, segment):
-            id_ = extract_id(msg_node)
-
-            segment.append(f"[{id_}] {msg_node._message.strip()}")
-
-        def go_up(msg_node, dst_cls):
-            down_stop = None
-            while not isinstance(msg_node, dst_cls):
-                down_stop = msg_node
-                msg_node = msg_node.parent
-            return msg_node, down_stop
-
-        def go_down(msg_node, sys_messages, stop_instance):
-            if is_initial_prompt(msg_node):
-                sys_messages.add(msg_node._message)
-                return []
-
-            children = extract_children(msg_node)
-
-            # pre-order traversal
-            segment = []
-            if hasattr(msg_node, "_message"):
-                # if AgentMessage has action messages, don't add agent._message
-                # this is to avoid duplicates, as agent._message will include
-                # all action messages otherwise
-                if (
-                    not isinstance(msg_node, AgentMessage)
-                    or msg_node.agent_id != "executor_agent"
-                ):
-                    add_to_segment(msg_node, segment)
-
-            if len(children) > 0:
-                if (
-                    isinstance(msg_node, AgentMessage)
-                    and msg_node.agent_id != "executor_agent"
-                ):
-                    return segment
-                child = children[0].get_latest_version()
-                while child.next:
-                    if child is stop_instance:
-                        break
-                    segment.extend(go_down(child, sys_messages, stop_instance))
-                    child = child.next.get_latest_version()
-
-                if child is not stop_instance:
-                    segment.extend(go_down(child, sys_messages, stop_instance))
-
-            return segment
-
         stop_cls = self.stop_cls
         segments = []
 
         # collect system messages (initial_prompts) separately
         system_messages = set()
         while not isinstance(message, stop_cls):
-            root, down_stop = go_up(message, stop_cls)
+            root, down_stop = self.go_up(message, stop_cls)
             segments.append(
-                go_down(root, sys_messages=system_messages, stop_instance=down_stop)
+                self.go_down(
+                    root, sys_messages=system_messages, stop_instance=down_stop
+                )
             )
             stop_cls = self.message_hierarchy[stop_cls]
 
-        if is_initial_prompt(message):
+        if self.is_initial_prompt(message):
             system_messages.add(message._message)
         else:
             if hasattr(message, "_message") and message._message:
-                add_to_segment(message, segments[-1])
+                self.add_to_segment(message, segments[-1])
 
         # truncate each segment
         trunc_segments = [
@@ -241,14 +157,6 @@ class MemoryResource(BaseResource):
         message.memory = f"{system_message}\n\n{memory_str}"
         return message
 
-    def pin(self, message_str: str):
-        """
-        Pins message.
-
-        Currently, pin is content-based.
-        """
-        self.pinned_messages.add(message_str.strip())
-
     def stop(self):
         logger.debug(
             f"Stopping Memory resource {self.resource_id} (no cleanup required)"
@@ -282,5 +190,79 @@ class MemoryResource(BaseResource):
             ),
             "memory_trunc_fn": get_function_repr(self._resource_config.memory_trunc_fn),
             "scope": self._resource_config.scope.name,
-            "pinned_messages": list(self.pinned_messages),
         }
+
+    def is_initial_prompt(msg_node):
+        return isinstance(msg_node, AgentMessage) and msg_node.agent_id == "system"
+
+    def extract_children(msg_node):
+        if hasattr(msg_node, "_phase_messages"):
+            return msg_node._phase_messages
+        elif hasattr(msg_node, "_agent_messages"):
+            return msg_node._agent_messages
+        elif hasattr(msg_node, "_action_messages"):
+            return msg_node._action_messages
+        return []
+
+    def extract_id(self, msg_node):
+        if hasattr(msg_node, "_phase_messages"):
+            return msg_node.workflow_id
+        elif hasattr(msg_node, "_agent_messages"):
+            return msg_node.phase_id
+        elif hasattr(msg_node, "_action_messages"):
+            return msg_node.agent_id
+
+        assert isinstance(msg_node, ActionMessage)
+
+        if msg_node.parent.agent_id == msg_node.resource_id:
+            return msg_node.parent.agent_id
+        return msg_node.parent.agent_id + "/" + msg_node.resource_id.split("_")[0]
+
+    def add_to_segment(self, msg_node, segment):
+        id_ = self.extract_id(msg_node)
+
+        segment.append(f"[{id_}] {msg_node._message.strip()}")
+
+    def go_up(self, msg_node, dst_cls):
+        down_stop = None
+        while not isinstance(msg_node, dst_cls):
+            down_stop = msg_node
+            msg_node = msg_node.parent
+        return msg_node, down_stop
+
+    def go_down(self, msg_node, sys_messages, stop_instance):
+        if self.is_initial_prompt(msg_node):
+            sys_messages.add(msg_node._message)
+            return []
+
+        children = self.extract_children(msg_node)
+
+        # pre-order traversal
+        segment = []
+        if hasattr(msg_node, "_message"):
+            # if AgentMessage has action messages, don't add agent._message
+            # this is to avoid duplicates, as agent._message will include
+            # all action messages otherwise
+            if (
+                not isinstance(msg_node, AgentMessage)
+                or msg_node.agent_id != "executor_agent"
+            ):
+                self.add_to_segment(msg_node, segment)
+
+        if len(children) > 0:
+            if (
+                isinstance(msg_node, AgentMessage)
+                and msg_node.agent_id != "executor_agent"
+            ):
+                return segment
+            child = children[0].get_latest_version()
+            while child.next:
+                if child is stop_instance:
+                    break
+                segment.extend(self.go_down(child, sys_messages, stop_instance))
+                child = child.next.get_latest_version()
+
+            if child is not stop_instance:
+                segment.extend(self.go_down(child, sys_messages, stop_instance))
+
+        return segment
