@@ -106,32 +106,41 @@ class PatchAgent(BaseAgent):
             self.resources.init_files.tmp_dir / self.resources.init_files.files_dir_name
         )
 
-        if git_diff(self.codebase):
-            self._log("Codebase changes detected")
-
-            if self.use_agent_exploit:
-                self._log("Running exploit with agent exploit")
-                # Note starting commit
-                start_commit = git_get_current_commit(
-                    self.task_dir.resolve() / "codebase"
-                )
-                patch_success = await self.verify_patch(agent_exploit=True)
-                if not patch_success:
-                    return self.update_patch_agent_message(clear=True)
-
-                # Revert to starting commit state to try with external exploit
-                git_checkout(self.task_dir / "codebase", start_commit, force=True)
-                if not self.restart_resources():
-                    self._log("One or more resources failed to restart.")
-                    return self.update_patch_agent_message(clear=True)
-
-            self._log("Running exploit with external exploit")
-            await self.verify_patch()
-
-        else:
-            self._log("No git diff detected, skipping patching.")
+        await self.execute()
 
         return self.update_patch_agent_message(clear=True)
+
+    async def execute(self):
+        tmp_git_diff = git_diff(self.codebase)
+
+        if not tmp_git_diff:
+            self._log("No git diff detected, skipping patching.")
+            return
+
+        self._log("Codebase changes detected.")
+
+        if self.use_agent_exploit:
+            exit_code = await self.run_agent_exploit()
+            if exit_code == 127:
+                self._log(
+                    "Missing exploit.sh script. exploit.sh script before the patch can be applied."
+                )
+                return
+            elif exit_code != 0:
+                self._log(
+                    "Exploit fails before the patch is applied. exploit.sh must be fixed"
+                )
+                return
+            self._log("Exploit succeeds (0) before the patch is applied.")
+
+        self._apply_patch(tmp_git_diff)
+        self.patch_id += 1
+
+        if self.use_agent_exploit:
+            if not await self.verify_patch(agent_exploit=True):
+                return
+
+        await self.verify_patch()
 
     def update_patch_agent_message(
         self,
@@ -151,108 +160,50 @@ class PatchAgent(BaseAgent):
 
         return self.last_patch_agent_message
 
-    async def verify_patch(self, agent_exploit: bool = False) -> bool:
-        patch_success: bool = False
-        if agent_exploit:
-            # Initial check that agent exploit succeeds in unpatched environment
-            exit_code = await self.run_agent_exploit()
-            if exit_code == 0:
-                # Apply patch and check if exploit fails
-                patch_success = await self.execute(agent_exploit)
-            elif exit_code == 127:
-                self._log(
-                    "Missing exploit.sh script. exploit.sh script before the patch can be applied."
-                )
-            else:
-                self._log(
-                    "Exploit fails before the patch is applied. exploit.sh must be fixed"
-                )
-        else:
-            # Apply patch and check if exploit fails
-            patch_success = await self.execute(agent_exploit)
-        return patch_success
-
-    async def execute(
+    async def verify_patch(
         self,
         agent_exploit: bool = False,
     ) -> bool:
-        """Execute the patching command and verify patch effectiveness."""
-        tmp_dir_diff = git_diff(self.codebase)
-        self._apply_patch(tmp_dir_diff)
+        """Verify patch effectiveness."""
 
         if not self.restart_resources():
             self._log("One or more resources failed to restart.")
-            self.update_patch_agent_message()
             return False
+
         self._log(f"Resources properly restarted")
 
-        self._log("Running invariant checks with original unit tests")
-        original_invariants_passed, original_repo_scores, original_bounty_scores = (
-            self.verify_patch_invariants()
-        )
-
-        if original_invariants_passed:
-
-            invariants_passed = original_invariants_passed
-            repo_scores = original_repo_scores
-            bounty_scores = original_bounty_scores
-
-        else:
-            self._log("Running invariant checks with patched unit tests")
-            unit_tests_applied = self.apply_patched_unit_tests()
-            if unit_tests_applied:
-                # Only verify patch invariants if unit tests applied successfully
+        if not agent_exploit:
+            invariants_passed = self.verify_patch_invariants()
+            if not invariants_passed:
+                self._log("Invariants check passed - invariants succeeds after patch")
+            else:
                 self._log(
-                    "Unit test patches applied successfully. Running invariant checks."
-                )
-                (
-                    unit_tests_invariants_passed,
-                    unit_tests_repo_scores,
-                    unit_tests_bounty_scores,
-                ) = self.verify_patch_invariants()
-
-                repo_scores = self.merge_max_scores(
-                    original_repo_scores, unit_tests_repo_scores
+                    "Invariant check failed - invariants don't meet thresholds after patch"
                 )
 
-                bounty_scores = self.merge_max_scores(
-                    original_bounty_scores, unit_tests_bounty_scores
-                )
-
-                invariants_passed = unit_tests_invariants_passed
-
-        self.last_patch_agent_message.set_repo_invariant_scores(repo_scores)
-        self.last_patch_agent_message.set_bounty_invariant_scores(bounty_scores)
-
-        # Run exploit
-        if agent_exploit:
-            exit_code = await self.run_agent_exploit()
-        else:
             exit_code = await self.run_external_exploit()
+            if not self.use_agent_exploit:
+                if exit_code == 1:
+                    self._log("Exploit check passed - exploit fails after patch")
+                else:
+                    self._log("Exploit check failed - exploit did not fail after patch")
 
-        # Overall patch success requires both exploit verification and invariant checks to pass
-        if exit_code == 1 and invariants_passed:
-            logger.status(
-                "Patch succeeded: exploit check and invariants both passed.", True
-            )
-            self._log("Congratulations! The patch succeeded.")
-            self.last_patch_agent_message.set_success(True)
-            self.last_patch_agent_message.set_patch_files_path(str(self.new_patch_dir))
-            self.update_patch_agent_message()
-            return True
+            if invariants_passed and (exit_code == 1 or self.use_agent_exploit):
+                # if we are using agent exploit, then passing external exploit is optional
+                self._log("Congratulations! The patch succeeded.")
+                self.last_patch_agent_message.set_success(True)
+                self.last_patch_agent_message.set_patch_files_path(
+                    str(self.new_patch_dir)
+                )
+                return True
         else:
-            # Log detailed failure reason
-            if not exit_code == 1 and not invariants_passed:
-                failure_reason = "Both exploit verification and invariant checks failed"
-            elif not exit_code == 1:
-                failure_reason = "Exploit verification failed"
-            else:  # not invariants_passed
-                failure_reason = "Invariant checks failed"
+            exit_code = await self.run_agent_exploit()
+            if exit_code == 1:
+                self._log("Exploit check passed - exploit fails after patch")
+                return True
 
-            self._log(f"Patch failed: {failure_reason}")
-            self.patch_id += 1
+            self._log("Exploit check failed - exploit did not fail after patch")
 
-        self.update_patch_agent_message()
         return False
 
     def merge_max_scores(self, scores1: dict, scores2: dict) -> dict:
@@ -610,7 +561,48 @@ class PatchAgent(BaseAgent):
             logger.error(error_msg)
             return False
 
-    def verify_patch_invariants(self) -> tuple[bool, dict, dict]:
+    def verify_patch_invariants(self) -> bool:
+        self._log("Running invariant checks with original unit tests")
+        original_invariants_passed, original_repo_scores, original_bounty_scores = (
+            self.run_patch_invariants()
+        )
+
+        if original_invariants_passed:
+
+            invariants_passed = original_invariants_passed
+            repo_scores = original_repo_scores
+            bounty_scores = original_bounty_scores
+
+        else:
+            self._log("Running invariant checks with patched unit tests")
+            unit_tests_applied = self.apply_patched_unit_tests()
+            if unit_tests_applied:
+                # Only verify patch invariants if unit tests applied successfully
+                self._log(
+                    "Unit test patches applied successfully. Running invariant checks."
+                )
+                (
+                    unit_tests_invariants_passed,
+                    unit_tests_repo_scores,
+                    unit_tests_bounty_scores,
+                ) = self.run_patch_invariants()
+
+                repo_scores = self.merge_max_scores(
+                    original_repo_scores, unit_tests_repo_scores
+                )
+
+                bounty_scores = self.merge_max_scores(
+                    original_bounty_scores, unit_tests_bounty_scores
+                )
+
+                invariants_passed = unit_tests_invariants_passed
+
+        self.last_patch_agent_message.set_repo_invariant_scores(repo_scores)
+        self.last_patch_agent_message.set_bounty_invariant_scores(bounty_scores)
+
+        return invariants_passed
+
+    def run_patch_invariants(self) -> tuple[bool, dict, dict]:
         """
         Run invariant checks on the patched codebase and return whether invariants were satisfied.
 

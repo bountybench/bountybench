@@ -149,7 +149,8 @@ async def test_restart_resource_check(patch_agent):
     )
 
     with patch.object(PatchAgent, "_restart_resource", return_value=False):
-        await agent.execute()
+        await agent.verify_patch()
+        agent.update_patch_agent_message()
         assert (
             "one or more resources failed to restart."
             in agent.last_patch_agent_message.message.lower()
@@ -206,20 +207,23 @@ async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
         return_value=(True, "Patch applied successfully"),
     )
 
+    mocker.patch.object(patch_agent, "restart_resources", return_value=True)
+
     run_exploit_mock = mocker.patch.object(
         patch_agent, "run_agent_exploit", side_effect=[0, 0]
     )
     # Let invariants pass
     mocker.patch.object(
-        patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
+        patch_agent, "run_patch_invariants", return_value=(True, {}, {})
     )
 
     initial_msg = PatchAgentMessage(agent_id="test", message="test message")
     final_msg = await patch_agent.run([initial_msg])
 
     assert final_msg.success is False
-    # You should find "Patch failed: Exploit verification failed" in final_msg or logs
-    assert "Patch failed: Exploit verification failed" in final_msg.message
+    assert (
+        "Exploit check failed - exploit did not fail after patch" in final_msg.message
+    )
     assert run_exploit_mock.call_count == 2
 
 
@@ -237,7 +241,7 @@ async def test_agent_exploit_1_before_patch(patch_agent, mocker):
         patch_agent, "run_agent_exploit", return_value=1  # unpatched run
     )
     # Invariants won't matter because we won't even get to patch
-    mock_invariants = mocker.patch.object(patch_agent, "verify_patch_invariants")
+    mock_invariants = mocker.patch.object(patch_agent, "run_patch_invariants")
 
     initial_msg = PatchAgentMessage(agent_id="test", message="test message")
     final_msg = await patch_agent.run([initial_msg])
@@ -290,7 +294,7 @@ async def test_external_exploit_1_success(patch_agent, mocker):
 
     # Let invariants pass
     mocker.patch.object(
-        patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
+        patch_agent, "run_patch_invariants", return_value=(True, {}, {})
     )
 
     # Run
@@ -321,8 +325,8 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
     assert patch_file_path.exists()
 
 
-def test_verify_patch_invariants_success(bounty_setup, patch_agent):
-    """Test that verify_patch_invariants returns True when invariant checks succeed."""
+def test_run_patch_invariants_success(bounty_setup, patch_agent):
+    """Test that run_patch_invariants returns True when invariant checks succeed."""
     agent = patch_agent
     env_path = bounty_setup
 
@@ -337,7 +341,7 @@ def test_verify_patch_invariants_success(bounty_setup, patch_agent):
     with patch.object(
         PatchAgent, "check_invariant_scores_against_thresholds", return_value=True
     ):
-        result, _, _ = agent.verify_patch_invariants()
+        result, _, _ = agent.run_patch_invariants()
 
     assert result is True
 
@@ -347,8 +351,8 @@ def test_verify_patch_invariants_success(bounty_setup, patch_agent):
             script.unlink()
 
 
-def test_verify_patch_invariants_check_fails(bounty_setup, patch_agent):
-    """Test that verify_patch_invariants returns False when check_invariant_scores_against_thresholds fails."""
+def test_run_patch_invariants_check_fails(bounty_setup, patch_agent):
+    """Test that run_patch_invariants returns False when check_invariant_scores_against_thresholds fails."""
     agent = patch_agent
     env_path = bounty_setup
 
@@ -362,7 +366,7 @@ def test_verify_patch_invariants_check_fails(bounty_setup, patch_agent):
     with patch.object(
         PatchAgent, "check_invariant_scores_against_thresholds", return_value=False
     ):
-        result, _, _ = agent.verify_patch_invariants()
+        result, _, _ = agent.run_patch_invariants()
 
     assert result is False
 
@@ -379,25 +383,24 @@ async def test_patch_success_requires_invariants(patch_agent):
         agent_id="patch_agent", message=None
     )
 
-    # Mock the verify_patch_invariants method
-    with patch.object(
-        PatchAgent, "verify_patch_invariants", return_value=(False, {}, {})
-    ):
+    # Mock the run_patch_invariants method
+    with patch.object(PatchAgent, "run_patch_invariants", return_value=(False, {}, {})):
         # Mock exploit success but invariant failure
         with patch.object(PatchAgent, "verify_patch", return_value=True):
             # Mock resource restart
             with patch.object(PatchAgent, "_restart_resource", return_value=True):
                 # Mock run_agent_exploit to return success
                 with patch.object(
-                    PatchAgent, "run_agent_exploit"
-                ) as mock_run_agent_exploit:
+                    PatchAgent, "run_external_exploit"
+                ) as mock_run_external_exploit:
                     # Create a mock response
                     mock_response = MagicMock()
                     mock_response.additional_metadata = {"exit_code": 1}
                     mock_response.message = "Success"
-                    mock_run_agent_exploit.return_value = mock_response
+                    mock_run_external_exploit.return_value = mock_response
 
-                    await agent.execute()
+                    await agent.verify_patch()
+                    agent.update_patch_agent_message()
                     assert "failed" in agent.last_patch_agent_message.message.lower()
                     assert not agent.last_patch_agent_message.success
 
@@ -439,8 +442,8 @@ def test_check_invariant_scores_against_thresholds_success(patch_agent):
                 file.unlink()
 
 
-def test_verify_patch_invariants_success_returns_scores(patch_agent):
-    """Test that verify_patch_invariants returns True when scores meet thresholds, and returns the scores."""
+def test_run_patch_invariants_success_returns_scores(patch_agent):
+    """Test that run_patch_invariants returns True when scores meet thresholds, and returns the scores."""
     with (
         tempfile.TemporaryDirectory() as tmpdir
     ):  # this is a context manager so we don't have to clean up
@@ -465,15 +468,15 @@ def test_verify_patch_invariants_success_returns_scores(patch_agent):
         with patch.object(
             PatchAgent, "check_invariant_scores_against_thresholds", return_value=True
         ):
-            result, repo_scores, bounty_scores = agent.verify_patch_invariants()
+            result, repo_scores, bounty_scores = agent.run_patch_invariants()
 
         assert result is True
         assert repo_scores == MOCK_REPO_SCORES
         assert bounty_scores == MOCK_BOUNTY_SCORES
 
 
-def test_verify_patch_invariants_failure_returns_scores(patch_agent):
-    """Test that verify_patch_invariants returns False when scores meet thresholds, and still return the scores."""
+def test_run_patch_invariants_failure_returns_scores(patch_agent):
+    """Test that run_patch_invariants returns False when scores meet thresholds, and still return the scores."""
     with (
         tempfile.TemporaryDirectory() as tmpdir
     ):  # this is a context manager so we don't have to clean up
@@ -498,7 +501,7 @@ def test_verify_patch_invariants_failure_returns_scores(patch_agent):
         with patch.object(
             PatchAgent, "check_invariant_scores_against_thresholds", return_value=False
         ):
-            result, repo_scores, bounty_scores = agent.verify_patch_invariants()
+            result, repo_scores, bounty_scores = agent.run_patch_invariants()
 
         assert result is False
         assert repo_scores == MOCK_REPO_SCORES
