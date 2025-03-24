@@ -7,11 +7,11 @@ from messages.action_messages.action_message import ActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
+from resources.memory_resource.memory_function import MemoryTruncationFunctions
+from resources.memory_resource.memory_prompt import MemoryPrompts
 from resources.memory_resource.memory_resource import (
-    MemoryPrompts,
     MemoryResource,
     MemoryResourceConfig,
-    MemoryTruncationFunctions,
 )
 
 
@@ -178,9 +178,7 @@ def test_get_memory_from_last_action_message(message_tree):
     expected_prev_agents = [
         "[phase_1_agent_0] ",
     ]
-    expected_prev_actions = [
-        "[phase_1_agent_1]  [phase_1_agent_1/action] action"
-    ]
+    expected_prev_actions = ["[phase_1_agent_1]  [phase_1_agent_1/action] action"]
 
     expected_memory = (
         f"{MemoryPrompts._DEFAULT_SEGUE}\n"
