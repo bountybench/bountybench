@@ -246,7 +246,7 @@ class MemoryResourceConfig(BaseResourceConfig):
         default=MemoryCollationFunctions.collate_ordered
     )
     segment_trunc_fn: Callable[[List], List] = field(
-        default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=6)
+        default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=9)
     )
     memory_trunc_fn: Callable[[List], List] = field(
         default=MemoryTruncationFunctions.memory_fn_by_message_token
