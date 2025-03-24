@@ -90,7 +90,8 @@ class PatchAgent(BaseAgent):
 
     def _reset_repo(self) -> None:
         """
-        Helper to remove changes in both tmp and remote directories.
+        Helper to remove changes in both self.codebase ("tmp", running in the Kali)
+        and self.task_dir / "codebase" ("remote", running in the backend container).
         """
         git_remove_changes(self.codebase)
         git_remove_changes(self.task_dir / "codebase")
@@ -180,8 +181,8 @@ class PatchAgent(BaseAgent):
             # Apply patch and check if exploit fails
             patch_success = await self.execute(agent_exploit)
 
-        # If execute fails, reset the repo
         if not patch_success:
+            # Remove any changes made to the codebase
             self._reset_repo()
         return patch_success
 
@@ -270,9 +271,8 @@ class PatchAgent(BaseAgent):
                 failure_reason = "Invariant checks failed"
 
             self._log(f"Patch failed: {failure_reason}")
-
-        self.update_patch_agent_message()
-        return False
+            self.update_patch_agent_message()
+            return False
 
     def merge_max_scores(self, scores1: dict, scores2: dict) -> dict:
         """
@@ -534,7 +534,8 @@ class PatchAgent(BaseAgent):
         Returns:
             Tuple[bool, str]: boolean indicating whether the patch was applied successfully and a detailed status message.
         """
-        if tmp_dir_diff:  # i.e. git_diff(self.codebase) is non-empty
+        if tmp_dir_diff:
+            # git_diff(self.codebase) is non-empty
             try:
                 patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
             except Exception as e:
