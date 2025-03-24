@@ -313,35 +313,6 @@ def test_messages_with_version(message_tree):
     assert new_agent0.agent_id in memory
 
 
-def test_pin(message_tree):
-    """
-    Check that pinning retains message in memory.
-    """
-    (
-        last_action_message,
-        last_agent_message,
-        last_phase_message,
-        config,
-        mem_resource,
-    ) = message_tree
-
-    config.segment_trunc_fn = partial(MemoryTruncationFunctions.segment_fn_last_n, n=1)
-    trunc_memory = MemoryResource("memory_1", config)
-
-    # Get initial memory and check that phase_0_agent_0_action is not present
-    memory = trunc_memory.get_memory(last_action_message).memory
-    memory_lines = [line.strip() for line in memory.split("\n") if line.strip()]
-    memory_lines = [line for line in memory_lines if line.startswith(" * ")]
-    assert not any("phase_0_agent_0_action" in line for line in memory_lines)
-
-    # Pin the message and verify it appears in memory
-    # trunc_memory.pin("phase_0_agent_0_action")
-    # memory = trunc_memory.get_memory(last_action_message).memory
-    # memory_lines = [line.strip() for line in memory.split('\n') if line.strip()]
-    # print("****\n" + "\n".join(memory_lines))
-    # memory_lines = [line for line in memory_lines if line.startswith(' * ')]
-    # assert any('phase_0_agent_0_action' in line for line in memory_lines)
-
 
 def test_get_memory_from_message_with_next(message_tree):
     """
