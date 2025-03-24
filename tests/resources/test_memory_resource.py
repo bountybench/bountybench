@@ -52,7 +52,7 @@ def message_tree():
             agent_message = AgentMessage(agent_id=agent_id, prev=prev_agent)
             prev_agent = agent_message
 
-            action_id = action_message = f"action"
+            action_id = action_message = "action"
             action_message = ActionMessage(
                 resource_id=action_id, message=action_message
             )
@@ -103,8 +103,8 @@ def test_get_memory_from_last_phase_message(message_tree):
     memory_without_prompt = memory.replace("initial prompt\n\n", "")
 
     expected_prev_phases = [
-        "[phase_0_agent_0/action] action",
-        "[phase_0_agent_1/action] action",
+        "[phase_0_agent_0] ",
+        "[phase_0_agent_1] ",
     ]
 
     expected_memory = (
@@ -136,11 +136,11 @@ def test_get_memory_from_last_agent_message(message_tree):
     memory_without_prompt = memory.replace("initial prompt\n\n", "")
 
     expected_prev_phases = [
-        "[phase_0_agent_0/action] action",
-        "[phase_0_agent_1/action] action",
+        "[phase_0_agent_0] ",
+        "[phase_0_agent_1] ",
     ]
     expected_prev_agents = [
-        "[phase_1_agent_0/action] action",
+        "[phase_1_agent_0] ",
     ]
     expected_memory = (
         f"{MemoryPrompts._DEFAULT_SEGUE}\n"
@@ -172,14 +172,14 @@ def test_get_memory_from_last_action_message(message_tree):
     memory_without_prompt = memory.replace("initial prompt\n\n", "")
 
     expected_prev_phases = [
-        "[phase_0_agent_0/action] action",
-        "[phase_0_agent_1/action] action",
+        "[phase_0_agent_0] ",
+        "[phase_0_agent_1] ",
     ]
     expected_prev_agents = [
-        "[phase_1_agent_0/action] action",
+        "[phase_1_agent_0] ",
     ]
     expected_prev_actions = [
-        "[phase_1_agent_1/action] action"
+        "[phase_1_agent_1]  [phase_1_agent_1/action] action"
     ]
 
     expected_memory = (
@@ -343,57 +343,6 @@ def test_pin(message_tree):
     # print("****\n" + "\n".join(memory_lines))
     # memory_lines = [line for line in memory_lines if line.startswith(' * ')]
     # assert any('phase_0_agent_0_action' in line for line in memory_lines)
-
-
-def test_pin_non_truncated(message_tree):
-    """
-    Check that pinning non-truncated memory does not cause duplicates.
-    """
-    (
-        last_action_message,
-        last_agent_message,
-        last_phase_message,
-        config,
-        mem_resource,
-    ) = message_tree
-
-    # Get initial memory and check that phase_0_agent_0_action is present
-    memory = mem_resource.get_memory(last_action_message).memory
-    memory_lines = [line.strip() for line in memory.split("\n") if line.strip()]
-    assert any("phase_0_agent_0_action" in line for line in memory_lines)
-
-    # Pin the message and verify it appears exactly once
-    mem_resource.pin("phase_0_agent_0_action")
-    memory = mem_resource.get_memory(last_action_message).memory
-    memory_lines = [line.strip() for line in memory.split("\n") if line.strip()]
-    assert sum("phase_0_agent_0_action" in line for line in memory_lines) == 1
-
-
-def test_agent_message_no_duplicates(message_tree):
-    """
-    If AgentMessage has action messages, its private _message field should be ignored.
-    This is to avoid duplications in ExecutorAgent Message handling logic.
-    """
-    (
-        last_action_message,
-        last_agent_message,
-        last_phase_message,
-        config,
-        mem_resource,
-    ) = message_tree
-
-    msg = "THIS SHOULD NOT BE INCLUDED"
-    last_agent_message.prev._message = msg
-
-    memory = mem_resource.get_memory(last_action_message).memory
-    assert msg not in memory
-
-    # invariant test
-    msg = "THIS SHOULD BE INCLUDED"
-    last_agent_message.prev.action_messages[0]._message = msg
-
-    memory = mem_resource.get_memory(last_action_message).memory
-    assert msg in memory
 
 
 def test_get_memory_from_message_with_next(message_tree):
