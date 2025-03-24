@@ -27,7 +27,7 @@ from utils.git_utils import (
     git_commit,
     git_diff,
     git_get_current_commit,
-    git_remove_changes,
+    git_restore,
 )
 from utils.logger import get_main_logger
 
@@ -546,7 +546,7 @@ class PatchAgent(BaseAgent):
         finally:
             # Clean up: Reset all changes to the last commit
             try:
-                git_remove_changes(self.task_dir / "codebase")
+                git_restore(self.task_dir / "codebase")
             except Exception as e:
                 raise
 
@@ -608,7 +608,7 @@ class PatchAgent(BaseAgent):
         finally:
             # Clean up: Reset all changes to the last commit
             try:
-                git_remove_changes(self.task_dir / "codebase")
+                git_restore(self.task_dir / "codebase")
             except Exception as e:
                 raise
 
