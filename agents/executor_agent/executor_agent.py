@@ -106,7 +106,7 @@ class ExecutorAgent(BaseAgent):
             while iterations < MAX_RETRIES:
                 try:
                     lm_input_message = self.resources.executor_agent_memory.get_memory(
-                        lm_input_message
+                        lm_input_message, model=self.resources.model.model, use_helm=self.resources.model.helm
                     )
                     # Add 5-minute timeout to the LLM call
                     model_output: ActionMessage = await asyncio.wait_for(
