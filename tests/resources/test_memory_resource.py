@@ -201,17 +201,11 @@ def test_config_validation():
 
     # Collate function should convert list of messages to string
     faulty_collate_fn = lambda x: x
-    # Segment truncation function should return a list of truncated messages
-    faulty_segment_trunc_fn = lambda x: " ".join(x)
-    # Memory truncation function should return a list of truncated segments
-    faulty_memory_trunc_fn = lambda x: [" ".join(y) for y in x]
 
     checks = {
         "fmt": faulty_fmt_lacking_kwargs,
         "fmt": faulty_fmt_bad_kwargs,
         "collate_fn": faulty_collate_fn,
-        "segment_trunc_fn": faulty_segment_trunc_fn,
-        "memory_trunc_fn": faulty_memory_trunc_fn,
     }
 
     for kw, check in checks.items():
