@@ -11,12 +11,13 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-from resources.memory_resource.memory_prompt import MemoryPrompts
 from resources.memory_resource.memory_function import (
     MemoryCollationFunctions,
     MemoryTruncationFunctions,
 )
+from resources.memory_resource.memory_prompt import MemoryPrompts
 from resources.memory_resource.memory_scope import MemoryScope
+
 
 @dataclass
 class MemoryResourceConfig(BaseResourceConfig):
