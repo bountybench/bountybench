@@ -102,7 +102,7 @@ class MemoryResource(BaseResource):
 
         # truncate each segment
         trunc_segments = [
-            self.segment_trunc_fn(x) for x in segments
+            self.segment_trunc_fn(segment) for segment in segments
         ]
         # truncate all memory
         trunc_segments = self.memory_trunc_fn(trunc_segments)
@@ -112,9 +112,8 @@ class MemoryResource(BaseResource):
             collated_segment = self.collate_fn(segment, start=start)
             collated_segments.append(collated_segment)
             start += len(segment)
-        trunc_segments = collated_segments
 
-        return trunc_segments, system_messages
+        return collated_segments, system_messages
 
     def get_memory(self, message: ActionMessage | AgentMessage | PhaseMessage):
         messages, system_messages = self.parse_message(message)
