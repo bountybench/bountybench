@@ -102,10 +102,10 @@ class MemoryResource(BaseResource):
 
         # truncate each segment
         trunc_segments = [
-            self.segment_trunc_fn(x, self.pinned_messages) for x in segments
+            self.segment_trunc_fn(x) for x in segments
         ]
         # truncate all memory
-        trunc_segments = self.memory_trunc_fn(trunc_segments, self.pinned_messages)
+        trunc_segments = self.memory_trunc_fn(trunc_segments)
         start = 1
         collated_segments = []
         for segment in trunc_segments:
