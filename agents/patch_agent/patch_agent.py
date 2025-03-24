@@ -629,6 +629,7 @@ class PatchAgent(BaseAgent):
                 git_commit(self.codebase, self.patch_id)
             except Exception as e:
                 logger.error(f"Failed to commit changes to tmp directory: {e}")
+                self._log(f"Failed to commit changes to remote directory: {e}")
                 return PatchStatus.TMP_GIT_COMMIT_FAILURE
 
             # Apply the patch to the codebase directory
@@ -640,7 +641,7 @@ class PatchAgent(BaseAgent):
                     git_commit(self.task_dir / "codebase", self.patch_id, "dev")
                 except Exception as e:
                     logger.error(f"Failed to commit changes to remote directory: {e}")
-                    # TODO: do we add this to self._log?
+                    self._log(f"Failed to commit changes to remote directory: {e}")
                     return PatchStatus.REMOTE_GIT_COMMIT_FAILURE
 
                 self._log(f"{message}")
