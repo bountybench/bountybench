@@ -553,7 +553,15 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
                 control={
                   <Switch
                     checked={useMockModel} 
-                    onChange={(e) => setUseMockModel(e.target.checked)} 
+                    onChange={(e) => {
+                      setUseMockModel(e.target.checked);
+                      setFormData(prev => ({
+                        ...prev,
+                        model: e.target.checked 
+                          ? '' 
+                          : (formData.use_helm ? DEFAULT_HELM_MODEL : DEFAULT_NON_HELM_MODEL)
+                      }));
+                    }} 
                     name="use_mock_model"
                     color="primary"
                   />
