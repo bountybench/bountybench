@@ -39,49 +39,23 @@ class PatchAgentConfig(AgentConfig):
     use_agent_exploit: bool = False
 
 
-class PatchStatus(Enum):
-    # creation and apply were successful, both tmp and remote at commits x + 1
-    PATCH_SUCCESS = "patch_success"
+class RepoStatus(Enum):
+    """
+    When a RepoStatus is set, we pass it to _reset_repo to reset the repo to the starting commit.
+    (with the only exception of RepoStatus.NO_CHANGES, which indicates no patch was applied)
+    """
 
-    # no changes detected in tmp directory
-    NO_PATCH = "no_patch"
+    # no changes, i.e. tmp and remote both at commit x
+    NO_CHANGES = "tmp_x_remote_x"
 
-    # common failures
-    # indicates a failure in creating the patch file, raised in self.create_patch_file()
-    # by setting this flag, we know that
-    #   - self.codebase *might* have been modified (side effects from self.create_patch_file())
-    #   - remote server is clean and unmodified
-    PATCH_CREATION_FAILURE = "patch_creation_failure"
+    # tmp at commit x + changes, remote at commit x
+    TMP_X_CHANGES_REMOTE_X = "tmp_x_changes_remote_x"
 
-    # indicates a git commit failure in the tmp directory (self.codebase)
-    # by setting this flag, we know that
-    #   - self.codebase is modified (uncommitted changes)
-    #   - remote server is clean and unmodified
-    TMP_GIT_COMMIT_FAILURE = "tmp_git_commit_failure"
+    # tmp at commit x + 1, remote at commit x + changes
+    TMP_X1_REMOTE_X_CHANGES = "tmp_x1_remote_x_changes"
 
-    # indicates a failure in applying the patch to the remote server
-    # by setting this flag, we know that
-    #   - self.codebase is at commit x + 1 and clean
-    #   - remote server is at commit x and *might* have been modified
-    PATCH_APPLY_FAILURE = "patch_failure"
-
-    # indicates a git commit failure in the remote server (self.task_dir / "codebase")
-    # by setting this flag, we know that
-    #   - self.codebase is at commit x + 1
-    #   - remote server is modified (uncommitted changes)
-    REMOTE_GIT_COMMIT_FAILURE = "remote_git_commit_failure"
-
-    # indicates a failure in restarting one or more resources
-    # by setting this flag, we know that
-    #   - self.codebase is at commit x + 1
-    #   - remote server is at commit x + 1
-    RESOURCE_RESTART_FAILURE = "resource_restart_failure"
-
-    # indicates a failure in either the exploit verification or invariant checks
-    # by setting this flag, we know that
-    #   - self.codebase is at commit x + 1
-    #   - remote server is at commit x + 1
-    EXPLOIT_INVARIANT_CHECK_FAILURE = "exploit_invariant_check_failure"
+    # tmp and remote are both at commit x + 1
+    TMP_X1_REMOTE_X1 = "tmp_x1_remote_x1"
 
 
 class PatchAgent(BaseAgent):
@@ -218,33 +192,19 @@ class PatchAgent(BaseAgent):
             patch_success = await self.execute(agent_exploit)
         return patch_success
 
-    def _on_apply_patch_exit(self, status: PatchStatus) -> bool:
+    def _reset_repo(self, status: RepoStatus) -> None:
         """
-        Handles the exit status of the _apply_patch method.
-
-        Returns:
-            bool: True if should continue to restart resources for invariant checks, False otherwise
+        Resets both tmp and remote directories to the starting commit, based on the given status.
         """
         match status:
-            case PatchStatus.PATCH_SUCCESS:
-                return True
-
-            case PatchStatus.NO_PATCH:
-                self.update_patch_agent_message()
-                return False
-
-            case (
-                PatchStatus.PATCH_CREATION_FAILURE | PatchStatus.TMP_GIT_COMMIT_FAILURE
-            ):
+            case RepoStatus.TMP_X_CHANGES_REMOTE_X:
                 git_remove_changes(self.codebase)
 
                 self.update_patch_agent_message()
                 self.patch_id += 1
                 return False
 
-            case (
-                PatchStatus.PATCH_APPLY_FAILURE | PatchStatus.REMOTE_GIT_COMMIT_FAILURE
-            ):
+            case RepoStatus.TMP_X1_REMOTE_X_CHANGES:
                 git_reset(self.codebase)
                 git_remove_changes(self.task_dir / "codebase")
 
@@ -252,16 +212,16 @@ class PatchAgent(BaseAgent):
                 self.patch_id += 1
                 return False
 
-            case (
-                PatchStatus.RESOURCE_RESTART_FAILURE
-                | PatchStatus.EXPLOIT_INVARIANT_CHECK_FAILURE
-            ):
+            case RepoStatus.TMP_X1_REMOTE_X1:
                 git_reset(self.codebase)
                 git_reset(self.task_dir / "codebase")
 
                 self.update_patch_agent_message()
                 self.patch_id += 1
                 return False
+
+            case _:
+                raise ValueError(f"Unexpected RepoStatus: {status}")
 
     async def execute(
         self,
@@ -270,18 +230,22 @@ class PatchAgent(BaseAgent):
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = git_diff(self.codebase)
 
-        # If patch failed or no patch was detected, then skip the invariant checks
-        result: PatchStatus = self._apply_patch(tmp_dir_diff)
-        if not self._on_apply_patch_exit(result):
-            logger.info(f"Patch application failed - {result}")
+        # If _apply_patch returns a RepoStatus, then reset the repo and skip the invariant checks
+        repo_status: Optional[RepoStatus] = self._apply_patch(tmp_dir_diff)
+        if repo_status == RepoStatus.NO_CHANGES:
+            self._log(
+                "No changes detected in tmp directory. Skipping patch creation and application."
+            )
+            return False
+        if repo_status:
+            self._reset_repo(repo_status)
             return False
 
-        # If resources failed to restart, then skip the invariant checks
+        # If resources failed to restart, then reset the repo and skip the invariant checks
         if not self.restart_resources():
             self._log("One or more resources failed to restart.")
 
-            result: PatchStatus = PatchStatus.RESOURCE_RESTART_FAILURE
-            self._on_apply_patch_exit(result)
+            self._reset_repo(RepoStatus.TMP_X1_REMOTE_X1)
             return False
         self._log(f"Resources properly restarted")
 
@@ -350,8 +314,7 @@ class PatchAgent(BaseAgent):
 
             self._log(f"Patch failed: {failure_reason}")
 
-            result: PatchStatus = PatchStatus.EXPLOIT_INVARIANT_CHECK_FAILURE
-            self._on_apply_patch_exit(result)
+            self._reset_repo(RepoStatus.TMP_X1_REMOTE_X1)
 
         self.update_patch_agent_message()
         return False
@@ -606,7 +569,7 @@ class PatchAgent(BaseAgent):
 
         return return_val
 
-    def _apply_patch(self, tmp_dir_diff: str) -> PatchStatus:
+    def _apply_patch(self, tmp_dir_diff: str) -> Optional[RepoStatus]:
         """
         Apply the patch to the codebase.
 
@@ -614,7 +577,7 @@ class PatchAgent(BaseAgent):
             tmp_dir_diff: The diff to apply to the codebase.
 
         Returns:
-            PatchStatus: The status of the patch application.
+            Optional[RepoStatus]: The status of the repo after applying the patch. None if successful.
         """
         if tmp_dir_diff:  # i.e. git_diff(self.codebase) is non-empty
             try:
@@ -623,14 +586,15 @@ class PatchAgent(BaseAgent):
                 logger.warning(
                     f"No patch file created. Skipping patch application: {e}"
                 )
-                return PatchStatus.PATCH_CREATION_FAILURE
+                return (
+                    RepoStatus.TMP_X_CHANGES_REMOTE_X
+                )  # deal with possible side effects from self.create_patch_file
 
             try:
                 git_commit(self.codebase, self.patch_id)
             except Exception as e:
-                logger.error(f"Failed to commit changes to tmp directory: {e}")
-                self._log(f"Failed to commit changes to remote directory: {e}")
-                return PatchStatus.TMP_GIT_COMMIT_FAILURE
+                self._log(f"Failed to commit changes to tmp directory: {e}")
+                return RepoStatus.TMP_X_CHANGES_REMOTE_X
 
             # Apply the patch to the codebase directory
             success, message = git_apply_patch(
@@ -640,24 +604,22 @@ class PatchAgent(BaseAgent):
                 try:
                     git_commit(self.task_dir / "codebase", self.patch_id, "dev")
                 except Exception as e:
-                    logger.error(f"Failed to commit changes to remote directory: {e}")
                     self._log(f"Failed to commit changes to remote directory: {e}")
-                    return PatchStatus.REMOTE_GIT_COMMIT_FAILURE
+                    return RepoStatus.TMP_X1_REMOTE_X_CHANGES
 
                 self._log(f"{message}")
-                return PatchStatus.PATCH_SUCCESS
+                return None
 
             else:
                 # Make the error message available to the agent
                 msg = f"Failed to apply patch to codebase: {message}"
                 self._log(msg)
-                logger.error(msg)
-                return PatchStatus.PATCH_APPLY_FAILURE
+                return RepoStatus.TMP_X1_REMOTE_X_CHANGES
         else:
             logger.info(
                 "No changes detected in tmp directory. Skipping patch creation and application."
             )
-            return PatchStatus.NO_PATCH
+            return RepoStatus.NO_CHANGES
 
     def check_invariant_scores_against_thresholds(
         self,

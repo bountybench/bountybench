@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agents.agent_manager import AgentManager
-from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig, PatchStatus
+from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig, RepoStatus
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from tests.test_utils.bounty_setup_test_util import EnvPath
 from tests.test_utils.bounty_setup_test_util import (
@@ -151,9 +151,7 @@ async def test_restart_resource_check(patch_agent, mocker):
     )
 
     with patch.object(PatchAgent, "_restart_resource", return_value=False):
-        with patch.object(
-            PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_SUCCESS
-        ):
+        with patch.object(PatchAgent, "_apply_patch", return_value=None):
             await agent.execute()
             assert (
                 "one or more resources failed to restart."
@@ -560,14 +558,14 @@ def test_check_invariant_scores_edge_cases(patch_agent):
 
 
 @pytest.mark.asyncio
-async def test_reset_repo_on_apply_patch_skipped(patch_agent, mocker):
+async def test_reset_repo_on_empty_diff(patch_agent, mocker):
     """
-    Test that the repo is not reset if applying the patch is skipped.
+    Test that the repo is not reset if git diff returns an empty diff.
     """
     agent = patch_agent
     prev_patch_id = agent.patch_id
 
-    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value=None)
     mocker.patch(
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(False, "Patch failed"),
@@ -577,8 +575,7 @@ async def test_reset_repo_on_apply_patch_skipped(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_remove_changes"
     )
 
-    with patch.object(PatchAgent, "_apply_patch", return_value=PatchStatus.NO_PATCH):
-        result = await agent.execute()
+    result = await agent.execute()
 
     git_reset_mock.assert_not_called()
     git_remove_changes_mock.assert_not_called()
@@ -588,8 +585,8 @@ async def test_reset_repo_on_apply_patch_skipped(patch_agent, mocker):
     )  # patch is skipped so patch_id should not increment
 
 
-# PatchStatus implication tests
-# - Given a PatchStatus enum, the system should correctly make calls to git_reset and git_remove_changes
+# RepoStatus implication tests
+# - Given a RepoStatus enum, the system should correctly make calls to git_reset and git_remove_changes
 # -----------------------------------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_reset_repo_on_restart_resources_fail(patch_agent, mocker):
@@ -610,9 +607,7 @@ async def test_reset_repo_on_restart_resources_fail(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_remove_changes"
     )
 
-    with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_SUCCESS
-    ):
+    with patch.object(PatchAgent, "_apply_patch", return_value=None):
         with patch.object(PatchAgent, "restart_resources", return_value=False):
             result = await agent.execute()
 
@@ -642,7 +637,7 @@ async def test_reset_repo_on_patch_creation_fail(patch_agent, mocker):
     )
 
     with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_CREATION_FAILURE
+        PatchAgent, "_apply_patch", return_value=RepoStatus.TMP_X_CHANGES_REMOTE_X
     ):
         result = await agent.execute()
 
@@ -672,7 +667,7 @@ async def test_reset_repo_on_tmp_git_commit_fail(patch_agent, mocker):
     )
 
     with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.TMP_GIT_COMMIT_FAILURE
+        PatchAgent, "_apply_patch", return_value=RepoStatus.TMP_X_CHANGES_REMOTE_X
     ):
         result = await agent.execute()
 
@@ -702,7 +697,7 @@ async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     )
 
     with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_APPLY_FAILURE
+        PatchAgent, "_apply_patch", return_value=RepoStatus.TMP_X1_REMOTE_X_CHANGES
     ):
         result = await agent.execute()
 
@@ -733,7 +728,7 @@ async def test_reset_repo_on_remote_git_commit_fail(patch_agent, mocker):
     )
 
     with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.REMOTE_GIT_COMMIT_FAILURE
+        PatchAgent, "_apply_patch", return_value=RepoStatus.TMP_X1_REMOTE_X_CHANGES
     ):
         result = await agent.execute()
 
@@ -762,9 +757,7 @@ async def test_reset_repo_on_exploit_invariant_check_fail(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_remove_changes"
     )
 
-    with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_SUCCESS
-    ):
+    with patch.object(PatchAgent, "_apply_patch", return_value=None):
         with patch.object(PatchAgent, "restart_resources", return_value=True):
             with patch.object(PatchAgent, "run_external_exploit", return_value=0):
                 with patch.object(
@@ -778,36 +771,7 @@ async def test_reset_repo_on_exploit_invariant_check_fail(patch_agent, mocker):
     assert agent.patch_id == prev_patch_id + 1
 
 
-# PatchStatus generation tests
-# - Given a certain state, the system should correctly generate the correct PatchStatus enum
-# -----------------------------------------------------------------------------------------------------
-@pytest.mark.parametrize(
-    "exception_type",
-    [
-        ValueError("Patch too large"),
-        IOError("Cannot write to file"),
-        PermissionError("Permission denied"),
-    ],
-)
-def test_apply_patch_returns_creation_failure_status(
-    patch_agent, mocker, exception_type
-):
-    """
-    Test that _apply_patch correctly returns PATCH_CREATION_FAILURE status
-    when create_patch_file raises an exception.
-    """
-    agent = patch_agent
-
-    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
-
-    # Mock create_patch_file to raise the specified exception
-    mocker.patch.object(PatchAgent, "create_patch_file", side_effect=exception_type)
-
-    result = agent._apply_patch("FAKE_DIFF")
-    assert result == PatchStatus.PATCH_CREATION_FAILURE
-
-
-# PatchStatus integration tests
+# RepoStatus integration tests
 # -----------------------------------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_commit_tracking_full_workflow_success(patch_agent, mocker):
@@ -984,9 +948,8 @@ async def test_commit_tracking_with_failure_in_tmp_commit(patch_agent, mocker):
         agent_id="patch_agent", message=None
     )
 
-    # Execute with TMP_GIT_COMMIT_FAILURE status
     with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.TMP_GIT_COMMIT_FAILURE
+        PatchAgent, "_apply_patch", return_value=RepoStatus.TMP_X_CHANGES_REMOTE_X
     ):
         result = await agent.execute()
 
@@ -1040,7 +1003,7 @@ async def test_commit_tracking_with_failure_in_patch_apply(patch_agent, mocker):
     current_commits["tmp"] = patched_commit
 
     with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_APPLY_FAILURE
+        PatchAgent, "_apply_patch", return_value=RepoStatus.TMP_X1_REMOTE_X_CHANGES
     ):
         result = await agent.execute()
 
@@ -1095,7 +1058,7 @@ async def test_commit_tracking_with_failure_in_remote_commit(patch_agent, mocker
     current_commits["tmp"] = patched_commit
 
     with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.REMOTE_GIT_COMMIT_FAILURE
+        PatchAgent, "_apply_patch", return_value=RepoStatus.TMP_X1_REMOTE_X_CHANGES
     ):
         result = await agent.execute()
 
@@ -1127,19 +1090,19 @@ async def test_sequence_of_failures_patch_id_tracking(patch_agent, mocker):
     )
 
     with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.TMP_GIT_COMMIT_FAILURE
+        PatchAgent, "_apply_patch", return_value=RepoStatus.TMP_X_CHANGES_REMOTE_X
     ):
         await agent.execute()
     assert agent.patch_id == starting_patch_id + 1
 
     with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.PATCH_APPLY_FAILURE
+        PatchAgent, "_apply_patch", return_value=RepoStatus.TMP_X1_REMOTE_X_CHANGES
     ):
         await agent.execute()
     assert agent.patch_id == starting_patch_id + 2
 
     with patch.object(
-        PatchAgent, "_apply_patch", return_value=PatchStatus.REMOTE_GIT_COMMIT_FAILURE
+        PatchAgent, "_apply_patch", return_value=RepoStatus.TMP_X1_REMOTE_X_CHANGES
     ):
         await agent.execute()
     assert agent.patch_id == starting_patch_id + 3
