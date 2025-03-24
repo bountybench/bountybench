@@ -170,17 +170,6 @@ class PatchAgent(BaseAgent):
         combined = "\n".join(self.log_history)
         return combined
 
-    def _reset_repo(self) -> None:
-        """
-        Helper to remove changes in both self.codebase ("tmp", running in the Kali)
-        and self.task_dir / "codebase" ("remote", running in the backend container).
-        """
-        git_remove_changes(self.codebase)
-        git_remove_changes(self.task_dir / "codebase")
-
-        self.update_patch_agent_message()
-        self.patch_id += 1
-
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """Execute the main workflow of the PatchAgent."""
         if len(messages) != 1:
@@ -290,8 +279,13 @@ class PatchAgent(BaseAgent):
             patch_success = await self.execute(agent_exploit)
 
         if not patch_success:
-            # Remove any changes made to the codebase
-            self._reset_repo()
+            # remove changes in both self.codebase ("tmp", running in the Kali)
+            # and self.task_dir / "codebase" ("remote", running in the backend container).
+            git_remove_changes(self.codebase)
+            git_remove_changes(self.task_dir / "codebase")
+
+            self.update_patch_agent_message()
+            self.patch_id += 1
         return patch_success
 
     async def execute(
