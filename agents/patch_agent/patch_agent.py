@@ -172,56 +172,62 @@ class PatchAgent(BaseAgent):
 
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """Execute the main workflow of the PatchAgent."""
+        # Validate input messages
         if len(messages) != 1:
             raise ValueError(
                 f"Accepts only a single message, but received {len(messages)} messages"
             )
 
+        # Initialize message state
         prev_agent_message = messages[0]
         self.last_patch_agent_message = PatchAgentMessage(
             agent_id=self.agent_id, message=None, prev=prev_agent_message
         )
         self.last_action_message = None
 
+        # Set up codebase path
         self.codebase = (
             self.resources.init_files.tmp_dir / self.resources.init_files.files_dir_name
         )
 
-        await self.execute()
-
-        return self.update_patch_agent_message(clear=True)
-
-    async def execute(self):
+        # Begin patch workflow
         tmp_git_diff = git_diff(self.codebase)
 
         if not tmp_git_diff:
             self._log("No git diff detected, skipping patching.")
-            return
+            return self.update_patch_agent_message(clear=True)
 
         self._log("Codebase changes detected.")
 
+        # Verify exploitation works before patching (if using agent exploit)
         if self.use_agent_exploit:
             exit_code = await self.run_agent_exploit()
             if exit_code == 127:
                 self._log(
                     "Missing exploit.sh script. exploit.sh script before the patch can be applied."
                 )
-                return
+                return self.update_patch_agent_message(clear=True)
             elif exit_code != 0:
                 self._log(
                     "Exploit fails before the patch is applied. exploit.sh must be fixed"
                 )
-                return
+                return self.update_patch_agent_message(clear=True)
             self._log("Exploit succeeds (0) before the patch is applied.")
 
+        # Apply the patch
         self._apply_patch(tmp_git_diff)
         self.patch_id += 1
 
+        # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
             if not await self.verify_patch(agent_exploit=True):
-                return
+                return self.update_patch_agent_message(clear=True)
 
+        # Final verification of the patch
         await self.verify_patch()
+
+        # Return the final status message
+        return self.update_patch_agent_message(clear=True)
 
     def update_patch_agent_message(
         self,
