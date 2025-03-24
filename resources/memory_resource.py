@@ -112,7 +112,7 @@ class MemoryTruncationFunctions:
     @staticmethod
     def segment_fn_last_n(segment, pinned_messages=None, n=3):
         """Keep last n messages in each segment."""
-        trunc_token = "<TRUNC>"
+        trunc_token = "..."
 
         if len(segment) <= n:
             return segment
@@ -246,7 +246,7 @@ class MemoryResourceConfig(BaseResourceConfig):
         default=MemoryCollationFunctions.collate_ordered
     )
     segment_trunc_fn: Callable[[List], List] = field(
-        default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=6)
+        default=partial(MemoryTruncationFunctions.segment_fn_last_n, n=9)
     )
     memory_trunc_fn: Callable[[List], List] = field(
         default=MemoryTruncationFunctions.memory_fn_by_message_token
@@ -334,12 +334,10 @@ class MemoryResource(BaseResource):
 
             if msg_node.parent.agent_id == msg_node.resource_id:
                 return msg_node.parent.agent_id
-            return msg_node.parent.agent_id + "/" + msg_node.resource_id
+            return msg_node.parent.agent_id + "/" + msg_node.resource_id.split("_")[0]
 
         def add_to_segment(msg_node, segment):
             id_ = extract_id(msg_node)
-            if not msg_node._message.strip():
-                return
 
             segment.append(f"[{id_}] {msg_node._message.strip()}")
 
@@ -363,10 +361,12 @@ class MemoryResource(BaseResource):
                 # if AgentMessage has action messages, don't add agent._message
                 # this is to avoid duplicates, as agent._message will include
                 # all action messages otherwise
-                if not isinstance(msg_node, AgentMessage) or len(children) == 0:
+                if not isinstance(msg_node, AgentMessage) or msg_node.agent_id != "executor_agent":
                     add_to_segment(msg_node, segment)
 
             if len(children) > 0:
+                if isinstance(msg_node, AgentMessage) and msg_node.agent_id != "executor_agent":
+                    return segment
                 child = children[0].get_latest_version()
                 while child.next:
                     if child is stop_instance:
