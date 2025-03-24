@@ -384,25 +384,16 @@ async def test_patch_success_requires_invariants(patch_agent):
     )
 
     # Mock the run_patch_invariants method
-    with patch.object(PatchAgent, "run_patch_invariants", return_value=(False, {}, {})):
-        # Mock exploit success but invariant failure
-        with patch.object(PatchAgent, "verify_patch", return_value=True):
-            # Mock resource restart
-            with patch.object(PatchAgent, "_restart_resource", return_value=True):
-                # Mock run_agent_exploit to return success
-                with patch.object(
-                    PatchAgent, "run_external_exploit"
-                ) as mock_run_external_exploit:
-                    # Create a mock response
-                    mock_response = MagicMock()
-                    mock_response.additional_metadata = {"exit_code": 1}
-                    mock_response.message = "Success"
-                    mock_run_external_exploit.return_value = mock_response
-
-                    await agent.verify_patch()
-                    agent.update_patch_agent_message()
-                    assert "failed" in agent.last_patch_agent_message.message.lower()
-                    assert not agent.last_patch_agent_message.success
+    with patch.object(PatchAgent, "verify_patch_invariants", return_value=False):
+        # Mock resource restart
+        with patch.object(PatchAgent, "_restart_resource", return_value=True):
+            # Mock run_agent_exploit to return success
+            with patch.object(PatchAgent, "run_external_exploit", return_value=1):
+                await agent.verify_patch()
+                agent.update_patch_agent_message()
+                print(agent.last_patch_agent_message)
+                assert "failed" in agent.last_patch_agent_message.message.lower()
+                assert not agent.last_patch_agent_message.success
 
 
 def test_check_invariant_scores_against_thresholds_success(patch_agent):

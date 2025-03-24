@@ -174,7 +174,7 @@ class PatchAgent(BaseAgent):
 
         if not agent_exploit:
             invariants_passed = self.verify_patch_invariants()
-            if not invariants_passed:
+            if invariants_passed:
                 self._log("Invariants check passed - invariants succeeds after patch")
             else:
                 self._log(
