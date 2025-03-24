@@ -31,45 +31,29 @@ class MemoryTruncationFunctions:
     """
 
     @staticmethod
-    def _is_pinned(msg: str, pinned_messages):
-        remove_id = msg.split("]")[-1]
-        return pinned_messages is not None and remove_id in pinned_messages
-
-    @staticmethod
-    def segment_fn_last_n(segment, pinned_messages=None, n=3):
+    def segment_fn_last_n(segment, n=3):
         """Keep last n messages in each segment."""
         trunc_token = "..."
 
         if len(segment) <= n:
             return segment
 
-        truncated = []
-        for i in range(len(segment)):
-            if MemoryTruncationFunctions._is_pinned(segment[i], pinned_messages):
-                if i < len(segment) - n - 1:
-                    truncated += [segment[i], trunc_token]
-                elif i < len(segment) - n:
-                    truncated += [segment[i]]
-
-        if len(truncated) == 0 or truncated[-1] != trunc_token:
-            truncated = truncated + [trunc_token]
-
-        truncated = truncated + segment[-n:]
+        truncated = [trunc_token] + segment[-n:]
         return truncated
 
     @staticmethod
-    def segment_fn_noop(segment, pinned_messages=None):
+    def segment_fn_noop(segment):
         """No-op segment truncation."""
         return segment
 
     @staticmethod
-    def memory_fn_noop(segments, pinned_messages=None):
+    def memory_fn_noop(segments):
         """No-op memory truncation."""
         return segments
 
     @staticmethod
-    def memory_fn_by_token(segments, pinned_messages=None, max_input_tokens=4096):
-        trunc_token = "<TRUNC>"
+    def memory_fn_by_token(segments, max_input_tokens=4096):
+        trunc_token = "Message is too long. Truncating here..."
 
         max_tokens_per_segment = [max_input_tokens // len(segments)] * len(segments)
         max_tokens_per_segment[-1] += max_input_tokens - sum(max_tokens_per_segment)
@@ -86,10 +70,7 @@ class MemoryTruncationFunctions:
                 tokens = segment[j].split()
                 cnt += len(tokens)
 
-                pinned = MemoryTruncationFunctions._is_pinned(
-                    segment[j], pinned_messages
-                )
-                if not pinned and cnt >= max_tokens_per_segment[i]:
+                if cnt >= max_tokens_per_segment[i]:
                     if not trunc_flag:
                         trunc = " ".join(tokens[cnt - max_tokens_per_segment[i] :])
                         trunc_segment[j] = trunc_token + trunc
@@ -104,7 +85,7 @@ class MemoryTruncationFunctions:
 
     @staticmethod
     def memory_fn_by_message_token(
-        segments, pinned_messages=None, max_message_input_tokens=1024
+        segments, max_message_input_tokens=1024
     ):
         trunc_token = "Message is too long. Truncating here..."
 
@@ -138,25 +119,3 @@ class MemoryTruncationFunctions:
             truncated.append([x for x in trunc_segment if x is not None])
 
         return truncated
-
-    @staticmethod
-    def validate_segment_trunc_fn(fn):
-        assert type(fn(["msg1", "msg2"])) == list, (
-            "Segment truncation_fn should take list of messages and "
-            "output truncated list."
-        )
-        assert "msg1" in fn(
-            ["msg1", "msg2"], pinned_messages={"msg1"}
-        ), "Segment truncation_fn should respect pin."
-
-    @staticmethod
-    def validate_memory_trunc_fn(fn):
-        res = fn([["msg1", "msg2"], ["msga", "msgb"]])
-        assert (
-            type(res) is list and type(res[0]) is list
-        ), "Memory truncation_fn should take list of segments and output truncated list"
-
-        res = fn([["msg1", "msg2"], ["msga", "msgb"]], pinned_messages={"msg1"})
-        assert "msg1" in [
-            y for x in res for y in x
-        ], "Memory truncation_fn should respect pin"

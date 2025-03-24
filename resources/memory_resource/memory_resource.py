@@ -38,8 +38,6 @@ class MemoryResourceConfig(BaseResourceConfig):
         """Validate LLMResource configuration"""
         MemoryPrompts.validate_memory_prompt(self.fmt, self.scope)
         MemoryCollationFunctions.validate_collation_fn(self.collate_fn)
-        MemoryTruncationFunctions.validate_segment_trunc_fn(self.segment_trunc_fn)
-        MemoryTruncationFunctions.validate_memory_trunc_fn(self.memory_trunc_fn)
 
 
 class MemoryResource(BaseResource):
