@@ -1,3 +1,7 @@
+ITERATIONS_TO_KEEP = 3
+MSG_TOKEN_LIMIT = [1024, 1024, 1024]  # r_t, o_k_t, o_p_t
+
+
 class MemoryCollationFunctions:
     """
     Collection of memory collation functions.
@@ -31,15 +35,20 @@ class MemoryTruncationFunctions:
     """
 
     @staticmethod
-    def segment_fn_last_n(segment, n=3):
+    def segment_fn_last_n(
+        segment,
+        n=ITERATIONS_TO_KEEP,
+        msg_per_iteration=len(MSG_TOKEN_LIMIT)
+    ):
         """Keep last n messages in each segment."""
         trunc_token = "..."
+        msg_to_keep = n * msg_per_iteration
 
-        if len(segment) <= n:
+        if len(segment) <= msg_to_keep:
             return segment
 
-        truncated = [trunc_token] + segment[-n:]
-        return truncated
+        trunc_segment = [trunc_token] + segment[-msg_to_keep:]
+        return trunc_segment
 
     @staticmethod
     def segment_fn_noop(segment):
@@ -52,51 +61,21 @@ class MemoryTruncationFunctions:
         return segments
 
     @staticmethod
-    def memory_fn_by_token(segments, max_input_tokens=4096):
-        trunc_token = "Message is too long. Truncating here..."
-
-        max_tokens_per_segment = [max_input_tokens // len(segments)] * len(segments)
-        max_tokens_per_segment[-1] += max_input_tokens - sum(max_tokens_per_segment)
-
-        truncated = []
-
-        for i, segment in enumerate(segments):
-            cnt = 0
-
-            trunc_segment = [None for _ in range(len(segment))]
-            trunc_flag = False
-
-            for j in range(len(segment) - 1, -1, -1):
-                tokens = segment[j].split()
-                cnt += len(tokens)
-
-                if cnt >= max_tokens_per_segment[i]:
-                    if not trunc_flag:
-                        trunc = " ".join(tokens[cnt - max_tokens_per_segment[i] :])
-                        trunc_segment[j] = trunc_token + trunc
-                        trunc_flag = True
-                    continue
-
-                trunc_segment[j] = segment[j]
-
-            truncated.append([x for x in trunc_segment if x is not None])
-
-        return truncated
-
-    @staticmethod
     def memory_fn_by_message_token(
-        segments, max_message_input_tokens=1024
+        segments, msg_token_limit=MSG_TOKEN_LIMIT
     ):
         trunc_token = "Message is too long. Truncating here..."
+        msg_per_iteration = len(msg_token_limit)
 
         truncated = []
 
         for segment in segments:
-            trunc_segment = [None for _ in range(len(segment))]
+            trunc_segment = []
 
             for j, msg in enumerate(segment):
                 tokens = msg.split()
                 cnt = len(tokens)
+                max_message_input_tokens = msg_token_limit[j % msg_per_iteration]
 
                 if cnt > max_message_input_tokens:
                     # Calculate how many tokens to keep from start and end
@@ -112,10 +91,10 @@ class MemoryTruncationFunctions:
                         + "\n"
                         + " ".join(end_tokens)
                     )
-                    trunc_segment[j] = truncated_msg
+                    trunc_segment.append(truncated_msg)
                 else:
-                    trunc_segment[j] = msg
+                    trunc_segment.append(msg)
 
-            truncated.append([x for x in trunc_segment if x is not None])
+            truncated.append(trunc_segment)
 
         return truncated
