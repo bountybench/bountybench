@@ -119,3 +119,27 @@ def truncate_input_to_max_tokens(
         return truncated_input
 
     return model_input
+
+
+def truncate_message_to_max_tokens(
+    max_message_input_tokens: int, message: str, model: str, use_helm: bool = False
+) -> str:
+    num_input_tokens = get_num_tokens(message, model, use_helm)
+    truncation_alert = "\n...TRUNCATED...\n"
+    num_tokens_in_truncation_alert = get_num_tokens(truncation_alert, model, use_helm)
+
+    if num_input_tokens >= max_message_input_tokens - num_tokens_in_truncation_alert:
+        tokens = tokenize_input(message, model, use_helm)
+        tokens_to_keep = max_message_input_tokens - num_tokens_in_truncation_alert
+        half_tokens_to_keep = tokens_to_keep // 2
+        beginning_tokens = tokens[:half_tokens_to_keep]
+        end_tokens = tokens[-half_tokens_to_keep:]
+        truncated_tokens = (
+            beginning_tokens
+            + tokenize_input(truncation_alert, model, use_helm)
+            + end_tokens
+        )
+        truncated_message = decode_tokenized_inputs(truncated_tokens, model, use_helm)
+        return truncated_message
+
+    return message

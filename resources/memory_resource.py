@@ -9,6 +9,7 @@ from messages.agent_messages.agent_message import ActionMessage, AgentMessage
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResource, BaseResourceConfig
+from resources.model_resource.model_utils import truncate_message_to_max_tokens
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -178,36 +179,17 @@ class MemoryTruncationFunctions:
 
     @staticmethod
     def memory_fn_by_message_token(
-        segments, pinned_messages=None, max_message_input_tokens=1024
+        segments, model: str, use_helm: bool = False, pinned_messages=None, max_message_input_tokens=1024
     ):
-        trunc_token = "Message is too long. Truncating here..."
-
         truncated = []
 
         for segment in segments:
             trunc_segment = [None for _ in range(len(segment))]
 
             for j, msg in enumerate(segment):
-                tokens = msg.split()
-                cnt = len(tokens)
-
-                if cnt > max_message_input_tokens:
-                    # Calculate how many tokens to keep from start and end
-                    half_tokens = max_message_input_tokens // 2
-                    start_tokens = tokens[:half_tokens]
-                    end_tokens = tokens[-half_tokens:]
-
-                    # Combine with truncation token in the middle
-                    truncated_msg = (
-                        " ".join(start_tokens)
-                        + "\n"
-                        + trunc_token
-                        + "\n"
-                        + " ".join(end_tokens)
-                    )
-                    trunc_segment[j] = truncated_msg
-                else:
-                    trunc_segment[j] = msg
+                trunc_segment[j] = truncate_message_to_max_tokens(
+                    max_message_input_tokens, msg, model, use_helm
+                )
 
             truncated.append([x for x in trunc_segment if x is not None])
 
@@ -293,7 +275,7 @@ class MemoryResource(BaseResource):
 
         self.pinned_messages = set()
 
-    def parse_message(self, message: ActionMessage | AgentMessage | PhaseMessage):
+    def parse_message(self, message: ActionMessage | AgentMessage | PhaseMessage, model: str, use_helm: bool = False):
         """Given a message, parse into prev_{phase | agent | action} messages.
 
         Example traversal if scope is workflow, and given message is action_message
@@ -402,7 +384,7 @@ class MemoryResource(BaseResource):
             self.segment_trunc_fn(x, self.pinned_messages) for x in segments
         ]
         # truncate all memory
-        trunc_segments = self.memory_trunc_fn(trunc_segments, self.pinned_messages)
+        trunc_segments = self.memory_trunc_fn(segments=trunc_segments, model=model, use_helm=use_helm)
         start = 1
         collated_segments = []
         for segment in trunc_segments:
@@ -413,8 +395,8 @@ class MemoryResource(BaseResource):
 
         return trunc_segments, system_messages
 
-    def get_memory(self, message: ActionMessage | AgentMessage | PhaseMessage):
-        messages, system_messages = self.parse_message(message)
+    def get_memory(self, message: ActionMessage | AgentMessage | PhaseMessage, model: str, use_helm: bool = False):
+        messages, system_messages = self.parse_message(message, model, use_helm)
 
         assert len(system_messages) == 1, (
             f"Current memory implementation only supports single initial prompt.\n"
