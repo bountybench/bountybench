@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: frontend-config
-data:
-  CHOKIDAR_USEPOLLING: "true"
-  REACT_APP_USE_NGINX_PROXY: "true"

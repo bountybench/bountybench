@@ -9,13 +9,13 @@ from utils.git_utils import (
     git_apply_patch,
     git_checkout,
     git_checkout_main,
-    git_clean_untracked,
+    git_clean,
     git_commit,
     git_delete_branch,
     git_diff,
     git_has_changes,
     git_init_repo,
-    git_reset,
+    git_restore,
     git_setup_dev_branch,
     git_submodule_update,
 )
@@ -91,14 +91,14 @@ def test_git_checkout(tmp_git_repo):
     assert current_branch.stdout.decode().strip() == "new_branch"
 
 
-def test_git_reset(tmp_git_repo):
+def test_git_restore(tmp_git_repo):
     """Check if we can reset the repository."""
     (tmp_git_repo / "file.txt").write_text("Hello!")
     git_commit(tmp_git_repo, "Initial commit")
     (tmp_git_repo / "file.txt").write_text("New content!")
     git_commit(tmp_git_repo, "Second commit")
 
-    git_reset(tmp_git_repo)
+    git_restore(tmp_git_repo, ref="HEAD~1")
     assert Path(tmp_git_repo / "file.txt").read_text() == "Hello!"
 
 
@@ -107,7 +107,7 @@ def test_git_clean_untracked(tmp_git_repo):
     (tmp_git_repo / "temp_file.txt").write_text("Will be deleted")
 
     assert (tmp_git_repo / "temp_file.txt").exists()
-    git_clean_untracked(tmp_git_repo)
+    git_clean(tmp_git_repo)
     assert not (tmp_git_repo / "temp_file.txt").exists()
 
 
@@ -235,11 +235,11 @@ def test_git_reset_no_previous_commit(tmp_git_repo):
     git_commit(tmp_git_repo, "Initial commit")
 
     # First reset works fine (goes to fixture's initial commit)
-    git_reset(tmp_git_repo)
+    git_restore(tmp_git_repo, ref="HEAD~1")
 
     # Second reset should fail as there's no commit before the fixture's initial one
     with pytest.raises(subprocess.CalledProcessError):
-        git_reset(tmp_git_repo)
+        git_restore(tmp_git_repo, ref="HEAD~1")
 
 
 def test_git_checkout_invalid_commit(tmp_git_repo):
@@ -266,7 +266,7 @@ def test_git_setup_dev_branch_non_repo(tmp_path):
 
 def test_git_clean_no_untracked(tmp_git_repo):
     """Test cleaning when no untracked files exist."""
-    git_clean_untracked(tmp_git_repo)  # Should complete without errors
+    git_clean(tmp_git_repo)  # Should complete without errors
     assert True  # Just verifying no exceptions are raised
 
 

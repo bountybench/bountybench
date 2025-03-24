@@ -1,2 +1,0 @@
-# Link to DockerHub: https://hub.docker.com/r/cyberbench/kali-linux-base
-FROM kalilinux/kali-last-release:latest

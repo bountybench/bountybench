@@ -18,7 +18,7 @@ from resources.base_resource import BaseResourceConfig
 from resources.kali_env_resource_util import KaliEnvResourceUtil
 from resources.runnable_base_resource import RunnableBaseResource
 from resources.utils import get_stdout_text
-from utils.git_utils import git_commit_changes
+from utils.git_utils import git_commit
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -244,7 +244,7 @@ class KaliEnvResource(RunnableBaseResource):
                     logger.info(
                         f"Updating git history to include changes from installation in latest commit"
                     )
-                    git_commit_changes(host_path)
+                    git_commit(host_path)
                 else:
                     logger.warning(
                         f"Could not determine host path for {codebase_path}. Skipping git commit."
