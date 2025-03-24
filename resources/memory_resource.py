@@ -361,11 +361,17 @@ class MemoryResource(BaseResource):
                 # if AgentMessage has action messages, don't add agent._message
                 # this is to avoid duplicates, as agent._message will include
                 # all action messages otherwise
-                if not isinstance(msg_node, AgentMessage) or msg_node.agent_id != "executor_agent":
+                if (
+                    not isinstance(msg_node, AgentMessage)
+                    or msg_node.agent_id != "executor_agent"
+                ):
                     add_to_segment(msg_node, segment)
 
             if len(children) > 0:
-                if isinstance(msg_node, AgentMessage) and msg_node.agent_id != "executor_agent":
+                if (
+                    isinstance(msg_node, AgentMessage)
+                    and msg_node.agent_id != "executor_agent"
+                ):
                     return segment
                 child = children[0].get_latest_version()
                 while child.next:
