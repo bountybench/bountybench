@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Literal, Type
+from typing import TYPE_CHECKING, Literal, Optional, Type
 
 from resources.bounty_setup_resource import BountySetupResource
 from resources.docker_resource import DockerResource
@@ -64,13 +64,13 @@ class AgentResources:
     """
 
     def __init__(self):
-        self.docker: Literal[ResourceType.DOCKER] = None
-        self.init_files: Literal[ResourceType.INIT_FILES] = None
-        self.kali_env: Literal[ResourceType.KALI_ENV] = None
-        self.executor_agent_memory: Literal[ResourceType.MEMORY] = None
-        self.model: Literal[ResourceType.MODEL] = None
-        self.bounty_setup: Literal[ResourceType.BOUNTY_SETUP] = None
-        self.repo_setup: Literal[ResourceType.REPO_SETUP] = None
+        self.docker: Optional[Literal[ResourceType.DOCKER]] = None
+        self.init_files: Optional[Literal[ResourceType.INIT_FILES]] = None
+        self.kali_env: Optional[Literal[ResourceType.KALI_ENV]] = None
+        self.executor_agent_memory: Optional[Literal[ResourceType.MEMORY]] = None
+        self.model: Optional[Literal[ResourceType.MODEL]] = None
+        self.bounty_setup: Optional[Literal[ResourceType.BOUNTY_SETUP]] = None
+        self.repo_setup: Optional[Literal[ResourceType.REPO_SETUP]] = None
 
     def has_attr(self, resource: ResourceType) -> bool:
         return hasattr(self, str(resource))

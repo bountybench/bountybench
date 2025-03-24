@@ -49,7 +49,7 @@ class PatchStatus(Enum):
     # common failures
     # indicates a failure in creating the patch file, raised in self.create_patch_file()
     # by setting this flag, we know that
-    #   - self.codebase *might* be modified (side effects from self.create_patch_file())
+    #   - self.codebase *might* have been modified (side effects from self.create_patch_file())
     #   - remote server is clean and unmodified
     PATCH_CREATION_FAILURE = "patch_creation_failure"
 
@@ -62,7 +62,7 @@ class PatchStatus(Enum):
     # indicates a failure in applying the patch to the remote server
     # by setting this flag, we know that
     #   - self.codebase is at commit x + 1 and clean
-    #   - remote server is at commit x and *might* be modified
+    #   - remote server is at commit x and *might* have been modified
     PATCH_APPLY_FAILURE = "patch_failure"
 
     # indicates a git commit failure in the remote server (self.task_dir / "codebase")
@@ -70,6 +70,18 @@ class PatchStatus(Enum):
     #   - self.codebase is at commit x + 1
     #   - remote server is modified (uncommitted changes)
     REMOTE_GIT_COMMIT_FAILURE = "remote_git_commit_failure"
+
+    # indicates a failure in restarting one or more resources
+    # by setting this flag, we know that
+    #   - self.codebase is at commit x + 1
+    #   - remote server is at commit x + 1
+    RESOURCE_RESTART_FAILURE = "resource_restart_failure"
+
+    # indicates a failure in either the exploit verification or invariant checks
+    # by setting this flag, we know that
+    #   - self.codebase is at commit x + 1
+    #   - remote server is at commit x + 1
+    EXPLOIT_INVARIANT_CHECK_FAILURE = "exploit_invariant_check_failure"
 
 
 class PatchAgent(BaseAgent):
@@ -213,7 +225,6 @@ class PatchAgent(BaseAgent):
         Returns:
             bool: True if should continue to restart resources for invariant checks, False otherwise
         """
-        logger.info(f"Patch status: {status}")
         match status:
             case PatchStatus.PATCH_SUCCESS:
                 return True
@@ -222,21 +233,18 @@ class PatchAgent(BaseAgent):
                 self.update_patch_agent_message()
                 return False
 
-            case PatchStatus.PATCH_CREATION_FAILURE:
+            case (
+                PatchStatus.PATCH_CREATION_FAILURE | PatchStatus.TMP_GIT_COMMIT_FAILURE
+            ):
                 git_remove_changes(self.codebase)
 
                 self.update_patch_agent_message()
                 self.patch_id += 1
                 return False
 
-            case PatchStatus.TMP_GIT_COMMIT_FAILURE:
-                git_remove_changes(self.codebase)
-
-                self.update_patch_agent_message()
-                self.patch_id += 1
-                return False
-
-            case PatchStatus.PATCH_APPLY_FAILURE:
+            case (
+                PatchStatus.PATCH_APPLY_FAILURE | PatchStatus.REMOTE_GIT_COMMIT_FAILURE
+            ):
                 git_reset(self.codebase)
                 git_remove_changes(self.task_dir / "codebase")
 
@@ -244,9 +252,12 @@ class PatchAgent(BaseAgent):
                 self.patch_id += 1
                 return False
 
-            case PatchStatus.REMOTE_GIT_COMMIT_FAILURE:
+            case (
+                PatchStatus.RESOURCE_RESTART_FAILURE
+                | PatchStatus.EXPLOIT_INVARIANT_CHECK_FAILURE
+            ):
                 git_reset(self.codebase)
-                git_remove_changes(self.task_dir / "codebase")
+                git_reset(self.task_dir / "codebase")
 
                 self.update_patch_agent_message()
                 self.patch_id += 1
@@ -268,10 +279,9 @@ class PatchAgent(BaseAgent):
         # If resources failed to restart, then skip the invariant checks
         if not self.restart_resources():
             self._log("One or more resources failed to restart.")
-            self.update_patch_agent_message()
-            self.patch_id += 1
-            git_reset(self.codebase)
-            git_reset(self.task_dir / "codebase")
+
+            result: PatchStatus = PatchStatus.RESOURCE_RESTART_FAILURE
+            self._on_apply_patch_exit(result)
             return False
         self._log(f"Resources properly restarted")
 
@@ -340,9 +350,8 @@ class PatchAgent(BaseAgent):
 
             self._log(f"Patch failed: {failure_reason}")
 
-            git_reset(self.codebase)
-            git_reset(self.task_dir / "codebase")
-            self.patch_id += 1
+            result: PatchStatus = PatchStatus.EXPLOIT_INVARIANT_CHECK_FAILURE
+            self._on_apply_patch_exit(result)
 
         self.update_patch_agent_message()
         return False
