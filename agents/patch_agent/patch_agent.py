@@ -817,6 +817,16 @@ class PatchAgent(BaseAgent):
                 self.bounty_dir / "empty_bounty_scores.json",
             )
 
+    def _load_json_file(self, file_path: Path) -> dict:
+        """Load a JSON file or return an empty dict if it doesn't exist."""
+        if file_path.exists():
+            try:
+                with open(file_path) as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                logger.error(f"Error parsing JSON from {file_path}")
+        return {}
+
     def _cleanup_files(self, file_paths: List[Path]) -> None:
         """Delete files if they exist."""
         for path in file_paths:
