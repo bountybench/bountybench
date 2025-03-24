@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -16,16 +16,14 @@ from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
-from resources.resource_type import AgentResources, ResourceType
+from resources.resource_type import ResourceType
 from utils.git_utils import (
     git_apply_patch,
     git_checkout,
     git_checkout_main,
-    git_commit,
     git_diff,
     git_get_current_commit,
     git_remove_changes,
-    git_reset,
 )
 from utils.logger import get_main_logger
 
@@ -37,25 +35,6 @@ class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
     use_agent_exploit: bool = False
-
-
-class RepoStatus(Enum):
-    """
-    When a RepoStatus is set, we pass it to _reset_repo to reset the repo to the starting commit.
-    (with the only exception of RepoStatus.NO_CHANGES, which indicates no patch was applied)
-    """
-
-    # no changes, i.e. tmp and remote both at commit x
-    NO_CHANGES = "tmp_x_remote_x"
-
-    # tmp at commit x + changes, remote at commit x
-    TMP_X_CHANGES_REMOTE_X = "tmp_x_changes_remote_x"
-
-    # tmp at commit x + 1, remote at commit x + changes
-    TMP_X1_REMOTE_X_CHANGES = "tmp_x1_remote_x_changes"
-
-    # tmp and remote are both at commit x + 1
-    TMP_X1_REMOTE_X1 = "tmp_x1_remote_x1"
 
 
 class PatchAgent(BaseAgent):
@@ -108,6 +87,16 @@ class PatchAgent(BaseAgent):
         logger.info(message)
         combined = "\n".join(self.log_history)
         return combined
+
+    def _reset_repo(self) -> None:
+        """
+        Helper to remove changes in both tmp and remote directories.
+        """
+        git_remove_changes(self.codebase)
+        git_remove_changes(self.task_dir / "codebase")
+
+        self.update_patch_agent_message()
+        self.patch_id += 1
 
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """Execute the main workflow of the PatchAgent."""
@@ -190,38 +179,11 @@ class PatchAgent(BaseAgent):
         else:
             # Apply patch and check if exploit fails
             patch_success = await self.execute(agent_exploit)
+
+        # If execute fails, reset the repo
+        if not patch_success:
+            self._reset_repo()
         return patch_success
-
-    def _reset_repo(self, status: RepoStatus) -> None:
-        """
-        Resets both tmp and remote directories to the starting commit, based on the given status.
-        """
-        match status:
-            case RepoStatus.TMP_X_CHANGES_REMOTE_X:
-                git_remove_changes(self.codebase)
-
-                self.update_patch_agent_message()
-                self.patch_id += 1
-                return False
-
-            case RepoStatus.TMP_X1_REMOTE_X_CHANGES:
-                git_reset(self.codebase)
-                git_remove_changes(self.task_dir / "codebase")
-
-                self.update_patch_agent_message()
-                self.patch_id += 1
-                return False
-
-            case RepoStatus.TMP_X1_REMOTE_X1:
-                git_reset(self.codebase)
-                git_reset(self.task_dir / "codebase")
-
-                self.update_patch_agent_message()
-                self.patch_id += 1
-                return False
-
-            case _:
-                raise ValueError(f"Unexpected RepoStatus: {status}")
 
     async def execute(
         self,
@@ -230,22 +192,17 @@ class PatchAgent(BaseAgent):
         """Execute the patching command and verify patch effectiveness."""
         tmp_dir_diff = git_diff(self.codebase)
 
-        # If _apply_patch returns a RepoStatus, then reset the repo and skip the invariant checks
-        repo_status: Optional[RepoStatus] = self._apply_patch(tmp_dir_diff)
-        if repo_status == RepoStatus.NO_CHANGES:
-            self._log(
-                "No changes detected in tmp directory. Skipping patch creation and application."
-            )
-            return False
-        if repo_status:
-            self._reset_repo(repo_status)
+        # If _apply_patch failed, then skip the invariant checks
+        patch_apply_success, msg = self._apply_patch(tmp_dir_diff)
+        if not patch_apply_success:
+            self._log(msg)
             return False
 
-        # If resources failed to restart, then reset the repo and skip the invariant checks
+        self._log(msg)  # git_apply_patch success message
+
+        # If resources failed to restart, then skip the invariant checks
         if not self.restart_resources():
             self._log("One or more resources failed to restart.")
-
-            self._reset_repo(RepoStatus.TMP_X1_REMOTE_X1)
             return False
         self._log(f"Resources properly restarted")
 
@@ -313,8 +270,6 @@ class PatchAgent(BaseAgent):
                 failure_reason = "Invariant checks failed"
 
             self._log(f"Patch failed: {failure_reason}")
-
-            self._reset_repo(RepoStatus.TMP_X1_REMOTE_X1)
 
         self.update_patch_agent_message()
         return False
@@ -569,7 +524,7 @@ class PatchAgent(BaseAgent):
 
         return return_val
 
-    def _apply_patch(self, tmp_dir_diff: str) -> Optional[RepoStatus]:
+    def _apply_patch(self, tmp_dir_diff: str) -> Tuple[bool, str]:
         """
         Apply the patch to the codebase.
 
@@ -577,49 +532,29 @@ class PatchAgent(BaseAgent):
             tmp_dir_diff: The diff to apply to the codebase.
 
         Returns:
-            Optional[RepoStatus]: The status of the repo after applying the patch. None if successful.
+            Tuple[bool, str]: boolean indicating whether the patch was applied successfully and a detailed status message.
         """
         if tmp_dir_diff:  # i.e. git_diff(self.codebase) is non-empty
             try:
                 patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
             except Exception as e:
-                logger.warning(
-                    f"No patch file created. Skipping patch application: {e}"
-                )
-                return (
-                    RepoStatus.TMP_X_CHANGES_REMOTE_X
-                )  # deal with possible side effects from self.create_patch_file
-
-            try:
-                git_commit(self.codebase, self.patch_id)
-            except Exception as e:
-                self._log(f"Failed to commit changes to tmp directory: {e}")
-                return RepoStatus.TMP_X_CHANGES_REMOTE_X
+                return False, f"No patch file created. Skipping patch application: {e}"
 
             # Apply the patch to the codebase directory
             success, message = git_apply_patch(
                 patch_file_path, self.task_dir / "codebase", "dev"
             )
             if success:
-                try:
-                    git_commit(self.task_dir / "codebase", self.patch_id, "dev")
-                except Exception as e:
-                    self._log(f"Failed to commit changes to remote directory: {e}")
-                    return RepoStatus.TMP_X1_REMOTE_X_CHANGES
-
-                self._log(f"{message}")
-                return None
+                return True, f"{message}"
 
             else:
                 # Make the error message available to the agent
-                msg = f"Failed to apply patch to codebase: {message}"
-                self._log(msg)
-                return RepoStatus.TMP_X1_REMOTE_X_CHANGES
+                return False, f"Failed to apply patch to codebase: {message}"
         else:
-            logger.info(
-                "No changes detected in tmp directory. Skipping patch creation and application."
+            return (
+                False,
+                "No changes detected in tmp directory. Skipping patch creation and application.",
             )
-            return RepoStatus.NO_CHANGES
 
     def check_invariant_scores_against_thresholds(
         self,
