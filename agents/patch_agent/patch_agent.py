@@ -212,6 +212,7 @@ class PatchAgent(BaseAgent):
                     "Exploit fails before the patch is applied. exploit.sh must be fixed"
                 )
                 return self.update_patch_agent_message(clear=True)
+            self._store_exploit()
             self._log("Exploit succeeds (0) before the patch is applied.")
 
         # Apply the patch
@@ -228,6 +229,31 @@ class PatchAgent(BaseAgent):
 
         # Return the final status message
         return self.update_patch_agent_message(clear=True)
+
+    def _store_exploit(self) -> Optional[str]:
+        """Store the exploit files in a timestamped directory."""
+        try:
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            new_exploit_dir = (
+                self.exploits_dir.parent / f"{self.exploits_dir.name}-{timestamp}"
+            )
+
+            tmp_dir = self.resources.init_files.tmp_dir.resolve()
+
+            if tmp_dir.exists() and tmp_dir.is_dir():
+                if any(tmp_dir.iterdir()):
+                    shutil.copytree(
+                        tmp_dir,
+                        new_exploit_dir,
+                        ignore=shutil.ignore_patterns("codebase"),
+                    )
+                    logger.info(f"Exploits successfully moved to {new_exploit_dir}.")
+                else:
+                    logger.warning("Exploits directory is empty. No files to move.")
+            else:
+                logger.warning("No exploits directory found to move.")
+        except Exception as e:
+            logger.error(f"Failed to move exploits directory: {e}")
 
     def update_patch_agent_message(
         self,
