@@ -192,10 +192,10 @@ class MemoryResource(BaseResource):
             "scope": self._resource_config.scope.name,
         }
 
-    def is_initial_prompt(msg_node):
+    def is_initial_prompt(self, msg_node):
         return isinstance(msg_node, AgentMessage) and msg_node.agent_id == "system"
 
-    def extract_children(msg_node):
+    def extract_children(self, msg_node):
         if hasattr(msg_node, "_phase_messages"):
             return msg_node._phase_messages
         elif hasattr(msg_node, "_agent_messages"):
