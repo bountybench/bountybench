@@ -1,12 +1,14 @@
 import atexit
+import functools
 import json
+import os
 import shutil
 import subprocess
 import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple, TypeVar, cast
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -28,6 +30,86 @@ from utils.git_utils import (
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
+
+T = TypeVar("T")
+
+
+def with_deactivated_venv(func: Callable[..., T]) -> Callable[..., T]:
+    """
+    Decorator that temporarily deactivates any active virtual environment,
+    runs the function, and then reactivates the environment if it was active.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> T:
+        # Save current virtual environment state and Python path
+        virtual_env = os.environ.get("VIRTUAL_ENV")
+        orig_path = os.environ.get("PATH", "")
+        orig_pythonpath = os.environ.get("PYTHONPATH", "")
+
+        logger.info(f"Current virtual environment: {virtual_env}")
+        logger.info(f"Original PATH: {orig_path}")
+        logger.info(f"Original PYTHONPATH: {orig_pythonpath}")
+
+        # Deactivate any virtual environment that might be running
+        if virtual_env:
+            logger.info("Deactivating virtual environment")
+            os.environ.pop("VIRTUAL_ENV", None)
+            # Remove virtual env from PATH
+            if "PATH" in os.environ:
+                paths = os.environ["PATH"].split(os.pathsep)
+                # Filter out the virtual env path
+                paths = [p for p in paths if not p.startswith(virtual_env)]
+                os.environ["PATH"] = os.pathsep.join(paths)
+                logger.info(f"PATH after venv removal: {os.environ['PATH']}")
+
+            # Also clean PYTHONPATH - many frameworks add to this
+            if "PYTHONPATH" in os.environ:
+                python_paths = os.environ["PYTHONPATH"].split(os.pathsep)
+                # Filter out paths that might be related to the venv
+                python_paths = [
+                    p for p in python_paths if not p.startswith(virtual_env)
+                ]
+                if python_paths:
+                    os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
+                    logger.info(
+                        f"PYTHONPATH after venv removal: {os.environ['PYTHONPATH']}"
+                    )
+                else:
+                    os.environ.pop("PYTHONPATH", None)
+                    logger.info("PYTHONPATH removed completely")
+
+        try:
+            # Add system Python to the path to ensure scripts can find it
+            python_path = shutil.which("python3") or shutil.which("python")
+            if python_path:
+                python_dir = os.path.dirname(python_path)
+                if python_dir not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = (
+                        f"{python_dir}{os.pathsep}{os.environ.get('PATH', '')}"
+                    )
+                logger.info(f"Added system Python to PATH: {python_dir}")
+                logger.info(f"Final PATH: {os.environ['PATH']}")
+
+            # Run the original function
+            return func(*args, **kwargs)
+        finally:
+            # Restore virtual environment if there was one
+            if virtual_env:
+                logger.info(f"Reactivating virtual environment: {virtual_env}")
+                os.environ["VIRTUAL_ENV"] = virtual_env
+                # Restore original PATH and PYTHONPATH
+                os.environ["PATH"] = orig_path
+                logger.info(f"Restored PATH: {os.environ['PATH']}")
+
+                if orig_pythonpath:
+                    os.environ["PYTHONPATH"] = orig_pythonpath
+                    logger.info(f"Restored PYTHONPATH: {os.environ['PYTHONPATH']}")
+                elif "PYTHONPATH" in os.environ:
+                    os.environ.pop("PYTHONPATH")
+                    logger.info("Removed PYTHONPATH that was added during execution")
+
+    return wrapper
 
 
 @dataclass
@@ -143,6 +225,31 @@ class PatchAgent(BaseAgent):
 
         return self.update_patch_agent_message(clear=True)
 
+    def _store_exploit(self) -> Optional[str]:
+        """Store the exploit files in a timestamped directory."""
+        try:
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            new_exploit_dir = (
+                self.exploits_dir.parent / f"{self.exploits_dir.name}-{timestamp}"
+            )
+
+            tmp_dir = self.resources.init_files.tmp_dir.resolve()
+
+            if tmp_dir.exists() and tmp_dir.is_dir():
+                if any(tmp_dir.iterdir()):
+                    shutil.copytree(
+                        tmp_dir,
+                        new_exploit_dir,
+                        ignore=shutil.ignore_patterns("codebase"),
+                    )
+                    logger.info(f"Exploits successfully moved to {new_exploit_dir}.")
+                else:
+                    logger.warning("Exploits directory is empty. No files to move.")
+            else:
+                logger.warning("No exploits directory found to move.")
+        except Exception as e:
+            logger.error(f"Failed to move exploits directory: {e}")
+
     def update_patch_agent_message(
         self,
         action_message: Optional[ActionMessage] = None,
@@ -168,6 +275,7 @@ class PatchAgent(BaseAgent):
             exit_code = await self.run_agent_exploit()
             if exit_code == 0:
                 # Apply patch and check if exploit fails
+                self._store_exploit()
                 patch_success = await self.execute(agent_exploit)
             elif exit_code == 127:
                 self._log(
@@ -639,9 +747,12 @@ class PatchAgent(BaseAgent):
             logger.error(error_msg)
             return False
 
+    @with_deactivated_venv
     def verify_patch_invariants(self) -> tuple[bool, dict, dict]:
         """
         Run invariant checks on the patched codebase and return whether invariants were satisfied.
+        This method temporarily deactivates any virtual environment before running invariants,
+        and reactivates it afterward.
 
         Returns:
             bool: True if invariants pass, False otherwise
@@ -656,14 +767,18 @@ class PatchAgent(BaseAgent):
             repo_metadata_file = self.task_dir / "metadata.json"
             bounty_metadata_file = self.bounty_dir / "bounty_metadata.json"
 
+            env = os.environ.copy()
+
             logger.info("Running repo invariants script")
             repo_result = subprocess.run(
                 ["bash", "run_repo_invariants.sh"],
                 cwd=self.task_dir,
                 capture_output=True,
                 text=True,
+                env=env,
             )
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
+            logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
 
             logger.info("Running bounty invariants script")
             bounty_result = subprocess.run(
@@ -671,6 +786,7 @@ class PatchAgent(BaseAgent):
                 cwd=self.bounty_dir,
                 capture_output=True,
                 text=True,
+                env=env,
             )
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
 

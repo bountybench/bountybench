@@ -14,6 +14,7 @@ from workflows.base_workflow import BaseWorkflow
 from workflows.detect_patch_workflow import DetectPatchWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
+from utils.logger import get_main_logger, logger_config
 
 # This module serves as the single entry point for running workflows via the command line.
 # Example usage:
@@ -216,6 +217,13 @@ class WorkflowRunner:
             f.write("Traceback:\n")
             f.write(traceback.format_exc())
             f.write("\n" + "=" * 50 + "\n\n")
+
+            # Include recent logs from the buffer
+            f.write("Recent Logs:\n")
+            f.write("-" * 50 + "\n")
+            for log_entry in logger_config.log_buffer_handler.get_logs():
+                f.write(log_entry + "\n")
+            f.write("=" * 50 + "\n\n")  # End of highlighted section
 
             if log_file:
                 f.write("Workflow Log File:\n")

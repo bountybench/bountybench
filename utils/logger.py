@@ -1,6 +1,7 @@
 import logging
 import queue
 import sys
+from collections import deque
 from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 
@@ -11,6 +12,20 @@ STATUS = 25  # between INFO and WARNING
 SUCCESS_STATUS = 26  # just above STATUS
 logging.addLevelName(STATUS, "STATUS")
 logging.addLevelName(SUCCESS_STATUS, "SUCCESS_STATUS")
+
+# Define LogBufferHandler
+class LogBufferHandler(logging.Handler):
+    """Custom logging handler that stores logs in a buffer."""
+    def __init__(self, capacity=1000):
+        super().__init__()
+        self.log_buffer = deque(maxlen=capacity)
+
+    def emit(self, record):
+        log_entry = self.format(record)
+        self.log_buffer.append(log_entry)
+
+    def get_logs(self):
+        return list(self.log_buffer)
 
 
 class CustomLogger(logging.Logger):
@@ -65,6 +80,7 @@ class LoggerConfig:
     def __init__(self):
         self.log_queue = queue.Queue()
         self.queue_listener = self.configure_logging_thread()
+        self.log_buffer_handler = LogBufferHandler()
 
     def configure_logging_thread(self):
         """Configure the logging thread with colored output."""
@@ -107,6 +123,8 @@ class LoggerConfig:
         if not any(isinstance(h, QueueHandler) for h in logger.handlers):
             queue_handler = QueueHandler(self.log_queue)
             logger.addHandler(queue_handler)
+        if not any(isinstance(h, LogBufferHandler) for h in logger.handlers):
+            logger.addHandler(self.log_buffer_handler)
 
         logger.propagate = False
         return logger
