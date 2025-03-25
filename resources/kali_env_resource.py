@@ -27,9 +27,12 @@ DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 DOCKER_CLIENT_INIT_TIMEOUT: int = 300
 
-TIMEOUT_PER_COMMAND = 120
-MAX_RETRIES = 3
-RETRY_DELAY = 5
+TIMEOUT_PER_COMMAND: int = 120
+MAX_RETRIES: int = 3
+RETRY_DELAY: int = 5
+
+# Use a 10-minute timeout for pip installation
+PIP_INSTALL_TIMEOUT: int = 600
 
 # Configure logging
 logger = get_main_logger(__name__)
@@ -236,7 +239,7 @@ class KaliEnvResource(RunnableBaseResource):
                     f"Detected Python repository at {codebase_path}. Installing in editable mode..."
                 )
                 cmd = f"pip install -e {codebase_path}"
-                stdout, stderr = self.run_command(cmd, TIMEOUT_PER_COMMAND)
+                stdout, stderr = self.run_command(cmd, PIP_INSTALL_TIMEOUT)
                 logger.info(f"Python repo installation result: {stdout}\n{stderr}")
 
                 host_path = self._map_container_path_to_host(codebase_path)
