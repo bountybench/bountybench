@@ -252,7 +252,7 @@ def test_install_python_repo(
     kali_env_resource._install_repo_in_editable_mode()
 
     # Verify the pip install command was called
-    mock_run_command.assert_called_once_with("pip install -e /app/codebase", 120)
+    mock_run_command.assert_called_once_with("pip install -e /app/codebase", 600)
 
 
 @patch.object(KaliEnvResource, "_find_codebase_paths")
