@@ -270,14 +270,13 @@ def git_diff(directory_path: PathLike) -> str:
         # Stage all changes
         _run_git_command(directory, ["add", "-A"])
 
-        # Get staged diff - using specific encoding parameters to handle non-UTF-8 content
+        # Get staged diff
         diff_result = _run_git_command(
             directory,
             [
                 "diff",
                 "--cached",
-                "--text",
-            ],  # Added --text flag to help with binary files
+            ],
             capture_output=True,
             errors="replace",  # Replace invalid characters instead of failing
         )
