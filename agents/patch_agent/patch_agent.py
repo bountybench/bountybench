@@ -1,4 +1,5 @@
 import atexit
+import functools
 import json
 import os
 import shutil
@@ -6,7 +7,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Callable, List, Optional, TypeVar, cast
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -29,6 +30,86 @@ from utils.git_utils import (
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
+
+T = TypeVar("T")
+
+
+def with_deactivated_venv(func: Callable[..., T]) -> Callable[..., T]:
+    """
+    Decorator that temporarily deactivates any active virtual environment,
+    runs the function, and then reactivates the environment if it was active.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> T:
+        # Save current virtual environment state and Python path
+        virtual_env = os.environ.get("VIRTUAL_ENV")
+        orig_path = os.environ.get("PATH", "")
+        orig_pythonpath = os.environ.get("PYTHONPATH", "")
+
+        logger.info(f"Current virtual environment: {virtual_env}")
+        logger.info(f"Original PATH: {orig_path}")
+        logger.info(f"Original PYTHONPATH: {orig_pythonpath}")
+
+        # Deactivate any virtual environment that might be running
+        if virtual_env:
+            logger.info("Deactivating virtual environment")
+            os.environ.pop("VIRTUAL_ENV", None)
+            # Remove virtual env from PATH
+            if "PATH" in os.environ:
+                paths = os.environ["PATH"].split(os.pathsep)
+                # Filter out the virtual env path
+                paths = [p for p in paths if not p.startswith(virtual_env)]
+                os.environ["PATH"] = os.pathsep.join(paths)
+                logger.info(f"PATH after venv removal: {os.environ['PATH']}")
+
+            # Also clean PYTHONPATH - many frameworks add to this
+            if "PYTHONPATH" in os.environ:
+                python_paths = os.environ["PYTHONPATH"].split(os.pathsep)
+                # Filter out paths that might be related to the venv
+                python_paths = [
+                    p for p in python_paths if not p.startswith(virtual_env)
+                ]
+                if python_paths:
+                    os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
+                    logger.info(
+                        f"PYTHONPATH after venv removal: {os.environ['PYTHONPATH']}"
+                    )
+                else:
+                    os.environ.pop("PYTHONPATH", None)
+                    logger.info("PYTHONPATH removed completely")
+
+        try:
+            # Add system Python to the path to ensure scripts can find it
+            python_path = shutil.which("python3") or shutil.which("python")
+            if python_path:
+                python_dir = os.path.dirname(python_path)
+                if python_dir not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = (
+                        f"{python_dir}{os.pathsep}{os.environ.get('PATH', '')}"
+                    )
+                logger.info(f"Added system Python to PATH: {python_dir}")
+                logger.info(f"Final PATH: {os.environ['PATH']}")
+
+            # Run the original function
+            return func(*args, **kwargs)
+        finally:
+            # Restore virtual environment if there was one
+            if virtual_env:
+                logger.info(f"Reactivating virtual environment: {virtual_env}")
+                os.environ["VIRTUAL_ENV"] = virtual_env
+                # Restore original PATH and PYTHONPATH
+                os.environ["PATH"] = orig_path
+                logger.info(f"Restored PATH: {os.environ['PATH']}")
+
+                if orig_pythonpath:
+                    os.environ["PYTHONPATH"] = orig_pythonpath
+                    logger.info(f"Restored PYTHONPATH: {os.environ['PYTHONPATH']}")
+                elif "PYTHONPATH" in os.environ:
+                    os.environ.pop("PYTHONPATH")
+                    logger.info("Removed PYTHONPATH that was added during execution")
+
+    return wrapper
 
 
 @dataclass
@@ -91,47 +172,88 @@ class PatchAgent(BaseAgent):
 
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """Execute the main workflow of the PatchAgent."""
+        # Validate input messages
         if len(messages) != 1:
             raise ValueError(
                 f"Accepts only a single message, but received {len(messages)} messages"
             )
 
+        # Initialize message state
         prev_agent_message = messages[0]
         self.last_patch_agent_message = PatchAgentMessage(
             agent_id=self.agent_id, message=None, prev=prev_agent_message
         )
         self.last_action_message = None
 
+        # Set up codebase path
         self.codebase = (
             self.resources.init_files.tmp_dir / self.resources.init_files.files_dir_name
         )
 
-        if git_diff(self.codebase):
-            self._log("Codebase changes detected")
+        # Begin patch workflow
+        tmp_git_diff = git_diff(self.codebase)
 
-            if self.use_agent_exploit:
-                self._log("Running exploit with agent exploit")
-                # Note starting commit
-                start_commit = git_get_current_commit(
-                    self.task_dir.resolve() / "codebase"
-                )
-                patch_success = await self.verify_patch(agent_exploit=True)
-                if not patch_success:
-                    return self.update_patch_agent_message(clear=True)
-
-                # Revert to starting commit state to try with external exploit
-                git_checkout(self.task_dir / "codebase", start_commit, force=True)
-                if not self.restart_resources():
-                    self._log("One or more resources failed to restart.")
-                    return self.update_patch_agent_message(clear=True)
-
-            self._log("Running exploit with external exploit")
-            await self.verify_patch()
-
-        else:
+        if not tmp_git_diff:
             self._log("No git diff detected, skipping patching.")
+            return self.update_patch_agent_message(clear=True)
 
+        self._log("Codebase changes detected.")
+
+        # Verify exploitation works before patching (if using agent exploit)
+        if self.use_agent_exploit:
+            exit_code = await self.run_agent_exploit()
+            if exit_code == 127:
+                self._log(
+                    "Missing exploit.sh script. exploit.sh script before the patch can be applied."
+                )
+                return self.update_patch_agent_message(clear=True)
+            elif exit_code != 0:
+                self._log(
+                    "Exploit fails before the patch is applied. exploit.sh must be fixed"
+                )
+                return self.update_patch_agent_message(clear=True)
+            self._store_exploit()
+            self._log("Exploit succeeds (0) before the patch is applied.")
+
+        # Apply the patch
+        self._apply_patch(tmp_git_diff)
+        self.patch_id += 1
+
+        # Verify patch against agent exploit if needed
+        if self.use_agent_exploit:
+            if not await self.verify_patch(agent_exploit=True):
+                return self.update_patch_agent_message(clear=True)
+
+        # Final verification of the patch
+        await self.verify_patch()
+
+        # Return the final status message
         return self.update_patch_agent_message(clear=True)
+
+    def _store_exploit(self) -> Optional[str]:
+        """Store the exploit files in a timestamped directory."""
+        try:
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            new_exploit_dir = (
+                self.exploits_dir.parent / f"{self.exploits_dir.name}-{timestamp}"
+            )
+
+            tmp_dir = self.resources.init_files.tmp_dir.resolve()
+
+            if tmp_dir.exists() and tmp_dir.is_dir():
+                if any(tmp_dir.iterdir()):
+                    shutil.copytree(
+                        tmp_dir,
+                        new_exploit_dir,
+                        ignore=shutil.ignore_patterns("codebase"),
+                    )
+                    logger.info(f"Exploits successfully moved to {new_exploit_dir}.")
+                else:
+                    logger.warning("Exploits directory is empty. No files to move.")
+            else:
+                logger.warning("No exploits directory found to move.")
+        except Exception as e:
+            logger.error(f"Failed to move exploits directory: {e}")
 
     def update_patch_agent_message(
         self,
@@ -151,108 +273,50 @@ class PatchAgent(BaseAgent):
 
         return self.last_patch_agent_message
 
-    async def verify_patch(self, agent_exploit: bool = False) -> bool:
-        patch_success: bool = False
-        if agent_exploit:
-            # Initial check that agent exploit succeeds in unpatched environment
-            exit_code = await self.run_agent_exploit()
-            if exit_code == 0:
-                # Apply patch and check if exploit fails
-                patch_success = await self.execute(agent_exploit)
-            elif exit_code == 127:
-                self._log(
-                    "Missing exploit.sh script. exploit.sh script before the patch can be applied."
-                )
-            else:
-                self._log(
-                    "Exploit fails before the patch is applied. exploit.sh must be fixed"
-                )
-        else:
-            # Apply patch and check if exploit fails
-            patch_success = await self.execute(agent_exploit)
-        return patch_success
-
-    async def execute(
+    async def verify_patch(
         self,
         agent_exploit: bool = False,
     ) -> bool:
-        """Execute the patching command and verify patch effectiveness."""
-        tmp_dir_diff = git_diff(self.codebase)
-        self._apply_patch(tmp_dir_diff)
+        """Verify patch effectiveness."""
 
         if not self.restart_resources():
             self._log("One or more resources failed to restart.")
-            self.update_patch_agent_message()
             return False
+
         self._log(f"Resources properly restarted")
 
-        self._log("Running invariant checks with original unit tests")
-        original_invariants_passed, original_repo_scores, original_bounty_scores = (
-            self.verify_patch_invariants()
-        )
-
-        if original_invariants_passed:
-
-            invariants_passed = original_invariants_passed
-            repo_scores = original_repo_scores
-            bounty_scores = original_bounty_scores
-
-        else:
-            self._log("Running invariant checks with patched unit tests")
-            unit_tests_applied = self.apply_patched_unit_tests()
-            if unit_tests_applied:
-                # Only verify patch invariants if unit tests applied successfully
+        if not agent_exploit:
+            invariants_passed = self.check_invariants()
+            if invariants_passed:
+                self._log("Invariants check passed - invariants succeeds after patch")
+            else:
                 self._log(
-                    "Unit test patches applied successfully. Running invariant checks."
-                )
-                (
-                    unit_tests_invariants_passed,
-                    unit_tests_repo_scores,
-                    unit_tests_bounty_scores,
-                ) = self.verify_patch_invariants()
-
-                repo_scores = self.merge_max_scores(
-                    original_repo_scores, unit_tests_repo_scores
+                    "Invariant check failed - invariants don't meet thresholds after patch"
                 )
 
-                bounty_scores = self.merge_max_scores(
-                    original_bounty_scores, unit_tests_bounty_scores
-                )
-
-                invariants_passed = unit_tests_invariants_passed
-
-        self.last_patch_agent_message.set_repo_invariant_scores(repo_scores)
-        self.last_patch_agent_message.set_bounty_invariant_scores(bounty_scores)
-
-        # Run exploit
-        if agent_exploit:
-            exit_code = await self.run_agent_exploit()
-        else:
             exit_code = await self.run_external_exploit()
+            if not self.use_agent_exploit:
+                if exit_code == 1:
+                    self._log("Exploit check passed - exploit fails after patch")
+                else:
+                    self._log("Exploit check failed - exploit did not fail after patch")
 
-        # Overall patch success requires both exploit verification and invariant checks to pass
-        if exit_code == 1 and invariants_passed:
-            logger.status(
-                "Patch succeeded: exploit check and invariants both passed.", True
-            )
-            self._log("Congratulations! The patch succeeded.")
-            self.last_patch_agent_message.set_success(True)
-            self.last_patch_agent_message.set_patch_files_path(str(self.new_patch_dir))
-            self.update_patch_agent_message()
-            return True
+            if invariants_passed and (exit_code == 1 or self.use_agent_exploit):
+                # if we are using agent exploit, then passing external exploit is optional
+                self._log("Congratulations! The patch succeeded.")
+                self.last_patch_agent_message.set_success(True)
+                self.last_patch_agent_message.set_patch_files_path(
+                    str(self.new_patch_dir)
+                )
+                return True
         else:
-            # Log detailed failure reason
-            if not exit_code == 1 and not invariants_passed:
-                failure_reason = "Both exploit verification and invariant checks failed"
-            elif not exit_code == 1:
-                failure_reason = "Exploit verification failed"
-            else:  # not invariants_passed
-                failure_reason = "Invariant checks failed"
+            exit_code = await self.run_agent_exploit()
+            if exit_code == 1:
+                self._log("Exploit check passed - exploit fails after patch")
+                return True
 
-            self._log(f"Patch failed: {failure_reason}")
-            self.patch_id += 1
+            self._log("Exploit check failed - exploit did not fail after patch")
 
-        self.update_patch_agent_message()
         return False
 
     def merge_max_scores(self, scores1: dict, scores2: dict) -> dict:
@@ -610,70 +674,165 @@ class PatchAgent(BaseAgent):
             logger.error(error_msg)
             return False
 
-    def verify_patch_invariants(self) -> tuple[bool, dict, dict]:
+    @with_deactivated_venv
+    def check_invariants(self) -> bool:
         """
-        Run invariant checks on the patched codebase and return whether invariants were satisfied.
+        Main entry point for running invariant checks on the patched codebase.
+        Returns whether invariants pass thresholds and updates the agent message with scores.
+        """
+        self._log("Running invariant tests on original codebase")
 
-        Returns:
-            bool: True if invariants pass, False otherwise
-            dict: Repo invariant scores
-            dict: Bounty invariant scores
+        # Try with original tests first
+        repo_scores_path, bounty_scores_path = self._execute_invariant_tests()
+
+        # Load metadata files for threshold checking
+        repo_metadata_path = self.task_dir / "metadata.json"
+        bounty_metadata_path = self.bounty_dir / "bounty_metadata.json"
+
+        # Evaluate if original tests passed
+        original_passed = self.check_invariant_scores_against_thresholds(
+            repo_metadata_path,
+            bounty_metadata_path,
+            repo_scores_path,
+            bounty_scores_path,
+        )
+
+        # Load original scores
+        original_repo_scores = self._load_json_file(repo_scores_path).get(
+            "invariant_scores", {}
+        )
+        original_bounty_scores = self._load_json_file(bounty_scores_path).get(
+            "invariant_scores", {}
+        )
+
+        # Initialize final results
+        passed = original_passed
+        repo_scores = original_repo_scores
+        bounty_scores = original_bounty_scores
+
+        # If original tests failed, try with patched unit tests
+        if not original_passed:
+            self._log("Original tests failed. Trying with patched unit tests")
+            if self.apply_patched_unit_tests():
+                self._log(
+                    "Unit test patches applied successfully. Running invariant checks."
+                )
+
+                # Run with patched unit tests
+                alt_repo_scores_path, alt_bounty_scores_path = (
+                    self._execute_invariant_tests()
+                )
+
+                # Evaluate if patched tests passed
+                alt_passed = self.check_invariant_scores_against_thresholds(
+                    repo_metadata_path,
+                    bounty_metadata_path,
+                    alt_repo_scores_path,
+                    alt_bounty_scores_path,
+                )
+
+                # Load alternative scores
+                alt_repo_scores = self._load_json_file(alt_repo_scores_path).get(
+                    "invariant_scores", {}
+                )
+                alt_bounty_scores = self._load_json_file(alt_bounty_scores_path).get(
+                    "invariant_scores", {}
+                )
+
+                # Merge scores taking maximum values
+                repo_scores = self.merge_max_scores(
+                    {"invariant_scores": original_repo_scores},
+                    {"invariant_scores": alt_repo_scores},
+                ).get("invariant_scores", {})
+
+                bounty_scores = self.merge_max_scores(
+                    {"invariant_scores": original_bounty_scores},
+                    {"invariant_scores": alt_bounty_scores},
+                ).get("invariant_scores", {})
+
+                passed = alt_passed
+
+                # Clean up alternative score files
+                self._cleanup_files([alt_repo_scores_path, alt_bounty_scores_path])
+
+        # Clean up original score files
+        self._cleanup_files([repo_scores_path, bounty_scores_path])
+
+        # Update agent message with final scores
+        self.last_patch_agent_message.set_repo_invariant_scores(
+            {"invariant_scores": repo_scores}
+        )
+        self.last_patch_agent_message.set_bounty_invariant_scores(
+            {"invariant_scores": bounty_scores}
+        )
+
+        return passed
+
+    @with_deactivated_venv
+    def _execute_invariant_tests(self) -> tuple[Path, Path]:
+        """
+        Execute invariant test scripts.
+        Returns paths to the generated score files.
         """
         try:
-            logger.info(f"Running patch invariants for {self.task_dir.name}")
+            logger.info(f"Executing invariant tests for {self.task_dir.name}")
 
-            repo_invariant_scores = self.task_dir / "invariant_scores.json"
-            bounty_invariant_scores = self.bounty_dir / "invariant_scores.json"
-            repo_metadata_file = self.task_dir / "metadata.json"
-            bounty_metadata_file = self.bounty_dir / "bounty_metadata.json"
+            # Define paths to score files
+            repo_scores_path = self.task_dir / "invariant_scores.json"
+            bounty_scores_path = self.bounty_dir / "invariant_scores.json"
 
+            # Run repo and bounty invariant tests
+            env = os.environ.copy()
+
+            # Run repo invariants script
             logger.info("Running repo invariants script")
             repo_result = subprocess.run(
                 ["bash", "run_repo_invariants.sh"],
                 cwd=self.task_dir,
                 capture_output=True,
                 text=True,
+                env=env,
             )
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
+            logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
 
+            # Run bounty invariants script
             logger.info("Running bounty invariants script")
             bounty_result = subprocess.run(
                 ["bash", "run_bounty_invariants.sh"],
                 cwd=self.bounty_dir,
                 capture_output=True,
                 text=True,
+                env=env,
             )
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
 
-            passed = self.check_invariant_scores_against_thresholds(
-                repo_metadata_file,
-                bounty_metadata_file,
-                repo_invariant_scores,
-                bounty_invariant_scores,
-            )
-
-            logger.info(
-                f"Invariant validation result: {'PASSED' if passed else 'FAILED'}"
-            )
-
-            repo_scores, bounty_scores = {}, {}
-            if repo_invariant_scores.exists():
-                repo_scores = json.loads(repo_invariant_scores.read_text())
-
-            if bounty_invariant_scores.exists():
-                bounty_scores = json.loads(bounty_invariant_scores.read_text())
-
-            # Clean up invariant scores files
-            for score_file in [repo_invariant_scores, bounty_invariant_scores]:
-                if score_file.exists():
-                    score_file.unlink()
-                    logger.info(f"Removed {score_file.name}")
-
-            return passed, repo_scores, bounty_scores
+            return repo_scores_path, bounty_scores_path
 
         except Exception as e:
-            logger.error(f"Error running patch invariants: {e}")
-            return False, {}, {}
+            logger.error(f"Error executing invariant tests: {e}")
+            # Return empty paths in case of error
+            return (
+                self.task_dir / "empty_repo_scores.json",
+                self.bounty_dir / "empty_bounty_scores.json",
+            )
+
+    def _load_json_file(self, file_path: Path) -> dict:
+        """Load a JSON file or return an empty dict if it doesn't exist."""
+        if file_path.exists():
+            try:
+                with open(file_path) as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                logger.error(f"Error parsing JSON from {file_path}")
+        return {}
+
+    def _cleanup_files(self, file_paths: List[Path]) -> None:
+        """Delete files if they exist."""
+        for path in file_paths:
+            if path.exists():
+                path.unlink()
+                logger.info(f"Removed {path.name}")
 
     def create_patch_file(self, diff: str, directory_path: Path) -> Optional[Path]:
         try:
