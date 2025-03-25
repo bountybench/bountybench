@@ -64,12 +64,6 @@ def _get_main_branch(directory_path: PathLike) -> str:
         raise ValueError("Neither 'main' nor 'master' branch found in the repository.")
 
 
-def _has_changes(directory: Path) -> bool:
-    """Check if repository has uncommitted changes."""
-    result = _run_git_command(directory, ["status", "--porcelain"], capture_output=True)
-    return bool(result.stdout.strip())
-
-
 def git_commit(
     directory_path: PathLike,
     commit_message: Optional[Union[str, int, float]] = None,
@@ -101,7 +95,7 @@ def git_commit(
         _run_git_command(directory, ["add", "."])
 
         # Check repository status
-        if not _has_changes(directory):
+        if not git_has_changes(directory):
             logger.info(f"No changes to commit in {directory}")
             return False
 
@@ -120,7 +114,7 @@ def git_commit(
         raise
 
 
-def git_restore(
+def git_reset(
     directory_path: PathLike,
     ref: str = "HEAD",
     branch_name: Optional[str] = None,
@@ -216,10 +210,11 @@ def git_has_changes(directory_path: PathLike) -> bool:
     """
     directory = Path(directory_path)
     try:
-        return _has_changes(directory)
+        result = _run_git_command(directory, ["status", "--porcelain"], capture_output=True)
+        return bool(result.stdout.strip())
     except subprocess.CalledProcessError:
         logger.error("Failed to check repository status")
-        return True
+        return True  # Assume changes exist if command fails
 
 
 def git_clean(directory_path: PathLike, remove_ignored: bool = False) -> None:
@@ -242,8 +237,7 @@ def git_clean(directory_path: PathLike, remove_ignored: bool = False) -> None:
 
 def git_init_repo(
     directory_path: PathLike,
-    ignore_dirs: list[str] = None,
-    add_to_gitignore: bool = False,
+    ignore_dirs: list[str] = None
 ) -> None:
     """Initialize git repository if it doesn't exist."""
     directory = Path(directory_path)
@@ -263,35 +257,18 @@ def git_init_repo(
         _run_git_command(directory, ["init"])
         _run_git_command(directory, ["branch", "-m", "main"])
 
-        # Create or update .gitignore file
+        # Create basic .gitignore
         gitignore = directory / ".gitignore"
-        default_patterns = ["*.log", ".DS_Store"]
+        if not gitignore.exists():
+            gitignore.write_text("*.log\n.DS_Store\n")
 
-        # Start with default patterns
-        current_content = gitignore.read_text() if gitignore.exists() else ""
-        patterns_to_add = list(default_patterns)
-
-        # Add additional patterns if requested
-        if add_to_gitignore:
-            additional_patterns = [
-                "*.pyc",
-                "*__pycache__",
-                "*.egg",
-                "*.egg-info",
-                "venv",
-                ".venvs",
-            ]
-            patterns_to_add.extend(additional_patterns)
-
-        # Add any custom ignore directories
+        # If ignore_dirs list is provided, append each entry to .gitignore if not already present
         if ignore_dirs:
-            patterns_to_add.extend(ignore_dirs)
-
-        # Write patterns not already in the file
-        with gitignore.open("w") as f:
-            for pattern in patterns_to_add:
-                if pattern not in current_content:
-                    f.write(f"{pattern}\n")
+            current_content = gitignore.read_text() if gitignore.exists() else ""
+            with gitignore.open("a") as f:
+                for ignore_dir in ignore_dirs:
+                    if ignore_dir not in current_content:
+                        f.write(f"{ignore_dir}\n")
 
         # Initial commit
         _run_git_command(directory, ["add", "."])

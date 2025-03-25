@@ -20,12 +20,10 @@ from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from utils.git_utils import (
     git_apply_patch,
-    git_checkout,
     git_checkout_main,
     git_commit,
     git_diff,
-    git_get_current_commit,
-    git_restore,
+    git_reset,
 )
 from utils.logger import get_main_logger
 
@@ -501,7 +499,7 @@ class PatchAgent(BaseAgent):
         finally:
             # Clean up: Reset all changes to the last commit
             try:
-                git_restore(self.task_dir / "codebase")
+                git_reset(self.task_dir / "codebase")
             except Exception as e:
                 raise
 
@@ -563,7 +561,7 @@ class PatchAgent(BaseAgent):
         finally:
             # Clean up: Reset all changes to the last commit
             try:
-                git_restore(self.task_dir / "codebase")
+                git_reset(self.task_dir / "codebase")
             except Exception as e:
                 raise
 
