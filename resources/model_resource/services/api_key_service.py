@@ -216,7 +216,9 @@ def verify_and_auth_api_key(
     _ok, _message = auth_service(requested_api_value, model_name, verify_model=True)
 
     while not _ok:
-        print("[API Service] API key authentication failed. Please double-check.")
+        print(
+            f"[API Service] API key authentication failed. Please double-check: {_message}"
+        )
         requested_api_value = input(
             f"[API Service] Please enter your {requested_api_key}: "
         )
@@ -276,7 +278,9 @@ def check_api_key_validity(model_name: str, helm: bool) -> bool:
     _ok, _message = auth_service(requested_api_value)
 
     if not _ok:
-        print(f"[API Service] API key authentication failed: {_message}")
+        print(
+            f"[API Service] API key authentication failed. Please double-check: {_message}"
+        )
         return False
 
     return True
