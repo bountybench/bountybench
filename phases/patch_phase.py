@@ -75,7 +75,7 @@ class PatchPhase(BountyPhase):
             "vulnerable_commit", "main"
         )
 
-        output_patches_dir_name: str = f"agent_patches_{self.workflow_id}" 
+        output_patch_files_dir_name: str = f"agent_patches_{self.workflow_id}" 
 
 
         resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
@@ -97,7 +97,7 @@ class PatchPhase(BountyPhase):
                     tmp_dir=self.tmp_dir,
                     bounty_number=self.bounty_number,
                     exploit_files_dir_name=exploit_files_dir_name,
-                    output_patches_dir_name=output_patches_dir_name,
+                    output_patch_files_dir_name=output_patch_files_dir_name,
                     vulnerable_commit=vulnerable_commit,
                 ),
             ),

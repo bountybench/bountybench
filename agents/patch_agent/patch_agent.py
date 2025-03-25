@@ -142,19 +142,16 @@ class PatchAgent(BaseAgent):
     def __init__(self, agent_id: str, agent_config: PatchAgentConfig):
         self.bounty_dir = agent_config.bounty_dir
         self.task_dir = agent_config.task_dir
-        self.exploits_dir = self.bounty_dir / "agent_exploits"
-        self.exploits_dir.mkdir(parents=True, exist_ok=True)
-        self.tmp_exploits_dir = self.task_dir / "tmp"
         self.log_history = []
 
         self.codebase = None
-        self.new_patch_dir = None
+        self.tmp_dir = None
+        self.output_patch_subfolder = None
 
         self.patch_id = 1
 
         self.use_agent_exploit = agent_config.use_agent_exploit
-        self.patch_dir = self.bounty_dir / "agent-patches"
-        self.patch_dir.mkdir(parents=True, exist_ok=True)
+        self.output_patch_dir = None
 
         self.last_patch_agent_message = None
         self.last_action_message = None
@@ -185,10 +182,17 @@ class PatchAgent(BaseAgent):
         )
         self.last_action_message = None
 
+
+        self.tmp_dir = self.resources.init_files.tmp_dir
+
+
         # Set up codebase path
         self.codebase = (
-            self.resources.init_files.tmp_dir / self.resources.init_files.files_dir_name
+            self.tmp_dir / self.resources.init_files.files_dir_name
         )
+
+        self.output_patch_dir = self.resources.init_files.output_patch_files_dir
+
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.codebase)
@@ -200,6 +204,7 @@ class PatchAgent(BaseAgent):
         self._log("Codebase changes detected.")
 
         # Verify exploitation works before patching (if using agent exploit)
+
         if self.use_agent_exploit:
             exit_code = await self.run_agent_exploit()
             if exit_code == 127:
@@ -212,6 +217,7 @@ class PatchAgent(BaseAgent):
                     "Exploit fails before the patch is applied. exploit.sh must be fixed"
                 )
                 return self.update_patch_agent_message(clear=True)
+            
             self._store_exploit()
             self._log("Exploit succeeds (0) before the patch is applied.")
 
@@ -229,31 +235,6 @@ class PatchAgent(BaseAgent):
 
         # Return the final status message
         return self.update_patch_agent_message(clear=True)
-
-    def _store_exploit(self) -> Optional[str]:
-        """Store the exploit files in a timestamped directory."""
-        try:
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-            new_exploit_dir = (
-                self.exploits_dir.parent / f"{self.exploits_dir.name}-{timestamp}"
-            )
-
-            tmp_dir = self.resources.init_files.tmp_dir.resolve()
-
-            if tmp_dir.exists() and tmp_dir.is_dir():
-                if any(tmp_dir.iterdir()):
-                    shutil.copytree(
-                        tmp_dir,
-                        new_exploit_dir,
-                        ignore=shutil.ignore_patterns("codebase"),
-                    )
-                    logger.info(f"Exploits successfully moved to {new_exploit_dir}.")
-                else:
-                    logger.warning("Exploits directory is empty. No files to move.")
-            else:
-                logger.warning("No exploits directory found to move.")
-        except Exception as e:
-            logger.error(f"Failed to move exploits directory: {e}")
 
     def update_patch_agent_message(
         self,
@@ -306,7 +287,7 @@ class PatchAgent(BaseAgent):
                 self._log("Congratulations! The patch succeeded.")
                 self.last_patch_agent_message.set_success(True)
                 self.last_patch_agent_message.set_patch_files_path(
-                    str(self.new_patch_dir)
+                    str(self.output_patch_subfolder)
                 )
                 return True
         else:
@@ -571,7 +552,8 @@ class PatchAgent(BaseAgent):
 
     def _apply_patch(self, tmp_dir_diff: str) -> None:
         if tmp_dir_diff:
-            patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
+            self.output_patch_subfolder = self.output_patch_dir / f"{self.output_patch_dir.name}_{self.patch_id}"
+            patch_file_path = self.create_patch_file(tmp_dir_diff, self.output_patch_subfolder)
             git_commit(self.codebase, self.patch_id)
 
             if patch_file_path:
@@ -849,34 +831,55 @@ class PatchAgent(BaseAgent):
 
     def cleanup(self) -> None:
         """Perform cleanup operations."""
-        self.store_patch()
-
         if self.codebase and self.codebase.exists():
             git_checkout_main(self.codebase, force=True)
 
-    def store_patch(self) -> None:
-        """Store the patches in a timestamped folder."""
+    # def _store_patch(self) -> None:
+    #     """Store the patches in a timestamped folder."""
+    #     try:
+    #         timestamp = time.strftime("%Y%m%d-%H%M%S")
+    #         self.new_patch_dir = self.output_patch_dir.with_name(
+    #             f"{self.output_patch_dir.name}-{timestamp}"
+    #         )
+    #         if self.output_patch_dir.exists() and self.output_patch_dir.is_dir():
+    #             if any(self.output_patch_dir.iterdir()):
+    #                 shutil.copytree(
+    #                     str(self.output_patch_dir),
+    #                     str(self.new_patch_dir),
+    #                     ignore=shutil.ignore_patterns("codebase"),
+    #                 )
+    #                 logger.info(f"Patches successfully moved to {self.new_patch_dir}.")
+    #             else:
+    #                 logger.info("Patches directory is empty. No need to move.")
+    #                 shutil.rmtree(self.output_patch_dir)
+    #         else:
+    #             logger.warning("No patches directory found to move.")
+
+    #     except Exception as e:
+    #         logger.error(f"Failed to move patches directory: {e}")
+    
+
+    def _store_exploit(self) -> Optional[str]:
+        """Store the exploit files in a timestamped directory."""
         try:
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-            self.new_patch_dir = self.patch_dir.with_name(
-                f"{self.patch_dir.name}-{timestamp}"
-            )
-            if self.patch_dir.exists() and self.patch_dir.is_dir():
-                if any(self.patch_dir.iterdir()):
+            self.output_patch_subfolder = self.output_patch_dir / f"{self.output_patch_dir.name}_{self.patch_id}"
+            if self.tmp_dir.exists() and self.tmp_dir.is_dir():
+                if any(self.tmp_dir.iterdir()):
                     shutil.copytree(
-                        str(self.patch_dir),
-                        str(self.new_patch_dir),
+                        self.tmp_dir,
+                        self.output_patch_subfolder,
                         ignore=shutil.ignore_patterns("codebase"),
                     )
-                    logger.info(f"Patches successfully moved to {self.new_patch_dir}.")
+                    logger.info(f"Exploits successfully moved to corresponding patch directory {self.output_patch_subfolder}.")
+                    return str(self.output_patch_subfolder)
                 else:
-                    logger.info("Patches directory is empty. No need to move.")
-                    shutil.rmtree(self.patch_dir)
+                    logger.warning("Exploits directory is empty. No files to move.")
             else:
-                logger.warning("No patches directory found to move.")
-
+                logger.warning("No exploits directory found to move.")
         except Exception as e:
-            logger.error(f"Failed to move patches directory: {e}")
+            logger.error(f"Failed to move exploits directory: {e}")
+
+        return None
 
     def apply_patched_unit_tests(self) -> bool:
         """
@@ -954,7 +957,7 @@ class PatchAgent(BaseAgent):
         """
         return {
             "bounty_dir": str(self.bounty_dir),
-            "patch_dir": str(self.patch_dir),
+            "patch_dir": str(self.output_patch_dir),
             "patch_id": self.patch_id,
             "use_agent_exploit": self.use_agent_exploit,
             "agent_id": self.agent_id,
