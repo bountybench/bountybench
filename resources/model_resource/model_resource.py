@@ -109,9 +109,10 @@ class ModelResource(RunnableBaseResource):
 
                 model_provider = GoogleModels()
             elif (
-                model_prefix == "meta"
+                # TODO: Remove this once we have a better way to handle model prefixes for Together models
+                model_prefix == "meta-llama"
                 or model_prefix == "mistralai"
-                or model_prefix == "together"
+                or model_prefix == "deepseek-ai"
             ):
                 from resources.model_resource.together_models.together_models import (
                     TogetherModels,

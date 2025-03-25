@@ -23,7 +23,7 @@ def _model_provider_lookup(model_name: str, helm: bool) -> str:
                 return "ANTHROPIC_API_KEY"
             elif provider == "google":
                 return "GOOGLE_API_KEY"
-            elif provider in ["meta", "mistralai"]:
+            elif provider in ["meta-llama", "mistralai", "deepseek-ai"]:
                 return "TOGETHER_API_KEY"
         raise Exception(f"Unknown model: {model_name}, cannot lookup key")
 

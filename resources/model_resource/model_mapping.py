@@ -58,6 +58,9 @@ class NonHELMMapping:
         # Together Models (LLAMA)
         "meta/llama-3.1-70b-instruct-turbo": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         "meta/llama-3.1-405b-instruct-turbo": "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
+        # Together Models (DeepSeek)
+        "deepseek-ai/DeepSeek-V3": "deepseek-ai/DeepSeek-V3",
+        "deepseek-ai/DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
         # Mistral Models
         "mistralai/mixtral-8x22b-instruct-v0.1": "mistralai/Mixtral-8x22B-Instruct-v0.1",
     }
