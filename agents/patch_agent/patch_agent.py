@@ -7,7 +7,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, List, Optional, TypeVar, cast
+from typing import Any, Callable, List, Optional, Tuple, TypeVar
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -20,11 +20,8 @@ from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from utils.git_utils import (
     git_apply_patch,
-    git_checkout,
     git_checkout_main,
-    git_commit,
     git_diff,
-    git_get_current_commit,
     git_remove_changes,
 )
 from utils.logger import get_main_logger
@@ -204,7 +201,7 @@ class PatchAgent(BaseAgent):
             exit_code = await self.run_agent_exploit()
             if exit_code == 127:
                 self._log(
-                    "Missing exploit.sh script. exploit.sh script before the patch can be applied."
+                    "Missing exploit.sh script. Create exploit.sh script before the patch can be applied."
                 )
                 return self.update_patch_agent_message(clear=True)
             elif exit_code != 0:
@@ -216,16 +213,27 @@ class PatchAgent(BaseAgent):
             self._log("Exploit succeeds (0) before the patch is applied.")
 
         # Apply the patch
-        self._apply_patch(tmp_git_diff)
-        self.patch_id += 1
+        _apply_patch_success = self._apply_patch(tmp_git_diff)
+        if not _apply_patch_success:
+            git_remove_changes(self.codebase)
+            git_remove_changes(self.task_dir / "codebase")
+            self.patch_id += 1
+            return self.update_patch_agent_message(clear=True)
 
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
             if not await self.verify_patch(agent_exploit=True):
+                git_remove_changes(self.codebase)
+                git_remove_changes(self.task_dir / "codebase")
+                self.patch_id += 1
                 return self.update_patch_agent_message(clear=True)
 
         # Final verification of the patch
-        await self.verify_patch()
+        if not await self.verify_patch():
+            git_remove_changes(self.codebase)
+            git_remove_changes(self.task_dir / "codebase")
+            self.patch_id += 1
+            return self.update_patch_agent_message(clear=True)
 
         # Return the final status message
         return self.update_patch_agent_message(clear=True)
@@ -259,7 +267,7 @@ class PatchAgent(BaseAgent):
         self,
         action_message: Optional[ActionMessage] = None,
         clear: Optional[bool] = False,
-    ) -> None:
+    ) -> AgentMessage:
         """Update the patch agent message with the current state of the agent."""
         assert self.last_patch_agent_message
 
@@ -569,28 +577,43 @@ class PatchAgent(BaseAgent):
 
         return return_val
 
-    def _apply_patch(self, tmp_dir_diff: str) -> None:
+    def _apply_patch(self, tmp_dir_diff: str) -> bool:
+        """
+        Apply the patch to the codebase.
+
+        Args:
+            tmp_dir_diff: The diff to apply to the codebase.
+
+        Returns:
+            bool: boolean indicating whether the patch was applied successfully
+        """
         if tmp_dir_diff:
-            patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
-            git_commit(self.codebase, self.patch_id)
+            # git_diff(self.codebase) is non-empty
+            try:
+                patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
+            except Exception as e:
+                self._log(f"No patch file created. Skipping patch application: {e}")
+                return False
 
             if patch_file_path:
                 # Apply the patch to the codebase directory
                 success, message = git_apply_patch(
                     patch_file_path, self.task_dir / "codebase", "dev"
                 )
+                self._log(message)
                 if success:
-                    git_commit(self.task_dir / "codebase", self.patch_id, "dev")
-                    self._log(f"{message}")
-
+                    return True
                 else:
-                    logger.error(f"Failed to apply patch to codebase: {message}")
+                    return False
+
             else:
-                logger.warning("No patch file created. Skipping patch application.")
+                self._log(f"Failed to apply patch to codebase: {message}")
+                return False
         else:
-            logger.info(
+            self._log(
                 "No changes detected in tmp directory. Skipping patch creation and application."
             )
+            return False
 
     def check_invariant_scores_against_thresholds(
         self,
@@ -835,6 +858,13 @@ class PatchAgent(BaseAgent):
                 logger.info(f"Removed {path.name}")
 
     def create_patch_file(self, diff: str, directory_path: Path) -> Optional[Path]:
+        """
+        Create a patch file at directory_path using the provided diff.
+
+        Example:
+            tmp_dir_diff = git_diff(self.codebase)
+            patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
+        """
         try:
             directory_path.mkdir(parents=True, exist_ok=True)
             patch_file_path = directory_path / f"patch_{self.patch_id}.patch"
@@ -843,9 +873,9 @@ class PatchAgent(BaseAgent):
                 f"Patch_{self.patch_id} file created successfully at {patch_file_path}"
             )
             return patch_file_path
-        except Exception as e:
+        except Exception as e:  # e.g. Patch file is too large to be written
             logger.error(f"Failed to create patch_{self.patch_id} file: {e}")
-            return None
+            raise
 
     def cleanup(self) -> None:
         """Perform cleanup operations."""
