@@ -7,11 +7,11 @@ from messages.action_messages.action_message import ActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.phase_messages.phase_message import PhaseMessage
 from messages.workflow_message import WorkflowMessage
-from resources.memory_resource import (
-    MemoryPrompts,
+from resources.memory_resource.memory_function import MemoryTruncationFunctions
+from resources.memory_resource.memory_prompt import MemoryPrompts
+from resources.memory_resource.memory_resource import (
     MemoryResource,
     MemoryResourceConfig,
-    MemoryTruncationFunctions,
 )
 
 
@@ -178,9 +178,7 @@ def test_get_memory_from_last_action_message(message_tree):
     expected_prev_agents = [
         "[phase_1_agent_0] ",
     ]
-    expected_prev_actions = [
-        "[phase_1_agent_1]  [phase_1_agent_1/action] action"
-    ]
+    expected_prev_actions = ["[phase_1_agent_1]  [phase_1_agent_1/action] action"]
 
     expected_memory = (
         f"{MemoryPrompts._DEFAULT_SEGUE}\n"
@@ -203,17 +201,11 @@ def test_config_validation():
 
     # Collate function should convert list of messages to string
     faulty_collate_fn = lambda x: x
-    # Segment truncation function should return a list of truncated messages
-    faulty_segment_trunc_fn = lambda x: " ".join(x)
-    # Memory truncation function should return a list of truncated segments
-    faulty_memory_trunc_fn = lambda x: [" ".join(y) for y in x]
 
     checks = {
         "fmt": faulty_fmt_lacking_kwargs,
         "fmt": faulty_fmt_bad_kwargs,
         "collate_fn": faulty_collate_fn,
-        "segment_trunc_fn": faulty_segment_trunc_fn,
-        "memory_trunc_fn": faulty_memory_trunc_fn,
     }
 
     for kw, check in checks.items():
@@ -248,48 +240,6 @@ def test_segment_truncation_by_message(message_tree):
     memory_segments[0] == " ".join(expected_prev_phases_memory)
 
 
-def test_memory_truncation_by_token(message_tree):
-    """
-    Check that each segment only contains a single token after truncation.
-    """
-    (
-        last_action_message,
-        last_agent_message,
-        last_phase_message,
-        config,
-        mem_resource,
-    ) = message_tree
-
-    og_memory = mem_resource.get_memory(last_action_message).memory
-    memory_without_prompt = "".join(og_memory.split("\n\n")[1:])
-    memory_lines = [
-        line.strip() for line in memory_without_prompt.split("\n") if line.strip()
-    ]
-    memory_lines = [
-        line for line in memory_lines if line.startswith("[")
-    ]  # Only keep message lines
-
-    # Check that at least one line has multiple tokens
-    assert any(len(line.split()) > 1 for line in memory_lines)
-
-    config.memory_trunc_fn = partial(
-        MemoryTruncationFunctions.memory_fn_by_token, max_input_tokens=3
-    )
-    trunc_memory = (
-        MemoryResource("memory_1", config).get_memory(last_action_message).memory
-    )
-    trunc_memory_without_prompt = "".join(trunc_memory.split("\n\n")[1:])
-    trunc_memory_lines = [
-        line.strip() for line in trunc_memory_without_prompt.split("\n") if line.strip()
-    ]
-    trunc_memory_lines = [
-        line for line in trunc_memory_lines if line.startswith("[")
-    ]  # Only keep message lines
-
-    # Check that each line has exactly one token after the bullet point
-    assert all(len(line.split()) == 1 for line in trunc_memory_lines)
-
-
 def test_messages_with_version(message_tree):
     (
         last_action_message,
@@ -314,35 +264,6 @@ def test_messages_with_version(message_tree):
     assert agent0.agent_id not in memory
     assert new_agent0.agent_id in memory
 
-
-def test_pin(message_tree):
-    """
-    Check that pinning retains message in memory.
-    """
-    (
-        last_action_message,
-        last_agent_message,
-        last_phase_message,
-        config,
-        mem_resource,
-    ) = message_tree
-
-    config.segment_trunc_fn = partial(MemoryTruncationFunctions.segment_fn_last_n, n=1)
-    trunc_memory = MemoryResource("memory_1", config)
-
-    # Get initial memory and check that phase_0_agent_0_action is not present
-    memory = trunc_memory.get_memory(last_action_message).memory
-    memory_lines = [line.strip() for line in memory.split("\n") if line.strip()]
-    memory_lines = [line for line in memory_lines if line.startswith(" * ")]
-    assert not any("phase_0_agent_0_action" in line for line in memory_lines)
-
-    # Pin the message and verify it appears in memory
-    # trunc_memory.pin("phase_0_agent_0_action")
-    # memory = trunc_memory.get_memory(last_action_message).memory
-    # memory_lines = [line.strip() for line in memory.split('\n') if line.strip()]
-    # print("****\n" + "\n".join(memory_lines))
-    # memory_lines = [line for line in memory_lines if line.startswith(' * ')]
-    # assert any('phase_0_agent_0_action' in line for line in memory_lines)
 
 
 def test_get_memory_from_message_with_next(message_tree):

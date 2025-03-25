@@ -6,13 +6,20 @@ from typing import ClassVar, Dict
 class TokenizerMapping:
     mapping: ClassVar[Dict[str, str]] = {
         # OpenAI Models
+        "openai/o1-2024-12-17": "openai/cl100k_base",
+        "openai/o1-2024-12-17-low-reasoning-effort": "openai/cl100k_base",
+        "openai/o1-2024-12-17-high-reasoning-effort": "openai/cl100k_base",
         "openai/o1-mini-2024-09-12": "openai/cl100k_base",
         "openai/o1-preview-2024-09-12": "openai/cl100k_base",
+        "openai/o3-mini-2025-01-31": "openai/cl100k_base",
+        "openai/o3-mini-2025-01-31-low-reasoning-effort": "openai/cl100k_base",
+        "openai/o3-mini-2025-01-31-high-reasoning-effort": "openai/cl100k_base",
         "openai/gpt-4-0613": "openai/cl100k_base",
         "openai/gpt-4-32k-0613": "openai/cl100k_base",
         "openai/gpt-4-turbo-2024-04-09": "openai/cl100k_base",
         "openai/gpt-4o-2024-11-20": "openai/o200k_base",
         "openai/gpt-3.5-turbo-0125": "openai/cl100k_base",
+        "openai/gpt-4.5-preview-2025-02-27": "openai/o200k_base",
         # Together Models (LLAMA)
         "meta/llama-3-8b": "meta/llama-3-8b",
         "meta/llama-3-70b": "meta/llama-3-8b",

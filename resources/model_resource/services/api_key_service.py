@@ -92,6 +92,7 @@ def _auth_openai_api_key(
     headers = {"Authorization": f"Bearer {api_key}"}
 
     response = requests.get(url, headers=headers)
+
     if response.status_code == 200:
         try:
             if not verify_model or model_name is None:
@@ -99,10 +100,19 @@ def _auth_openai_api_key(
 
             valid_models = [model["id"] for model in response.json()["data"]]
 
-            if model_name.split("/")[-1] not in valid_models:
-                raise ValueError(
-                    f"Model {model_name} not found.\n\nAvailable models from OpenAI: {valid_models}"
-                )
+            model_id = model_name.split("/")[-1]
+
+            # Strip -high-reasoning-effort or -low-reasoning-effort suffixes from o1, o3 models
+            if any(model_id.startswith(prefix) for prefix in ["o1", "o3"]):
+                for suffix in ["-high-reasoning-effort", "-low-reasoning-effort"]:
+                    if model_id.endswith(suffix):
+                        model_id = model_id[: -len(suffix)]
+                        break
+
+            if model_id not in valid_models:
+                error_msg = f"Model {model_name} not found.\n\nAvailable models from OpenAI: {valid_models}"
+                raise ValueError(error_msg)
+
             return True, ""
         except Exception as e:
             return False, str(e)
