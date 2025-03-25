@@ -27,8 +27,8 @@ class TokenizerMapping:
         "meta/llama-3.1-70b-instruct-turbo": "meta/llama-3.1-8b",
         "meta/llama-3.1-405b-instruct-turbo": "meta/llama-3.1-8b",
         # Together Models (DeepSeek)
-        "deepseek-ai/deepSeek-v3": "deepseek-ai/DeepSeek-V3",
-        "deepseek-ai/deepSeek-r1": "deepseek-ai/DeepSeek-R1",
+        "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
+        "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
         # Mistral Models
         "mistralai/mistral-large-2407": "mistralai/Mistral-Large-Instruct-2407",
         "mistralai/mixtral-8x22b": "mistralai/Mistral-7B-v0.1",
@@ -69,8 +69,8 @@ class NonHELMMapping:
         "meta/llama-3.1-70b-instruct-turbo": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         "meta/llama-3.1-405b-instruct-turbo": "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
         # Together Models (DeepSeek)
-        "deepseek-ai/deepSeek-v3": "deepseek-ai/DeepSeek-V3",
-        "deepseek-ai/deepSeek-r1": "deepseek-ai/DeepSeek-R1",
+        "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
+        "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
         # Mistral Models
         "mistralai/mixtral-8x22b-instruct-v0.1": "mistralai/Mixtral-8x22B-Instruct-v0.1",
     }
