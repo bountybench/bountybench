@@ -613,7 +613,7 @@ class PatchAgent(BaseAgent):
             self._log(
                 "No changes detected in tmp directory. Skipping patch creation and application."
             )
-            return (False,)
+            return False
 
     def check_invariant_scores_against_thresholds(
         self,
