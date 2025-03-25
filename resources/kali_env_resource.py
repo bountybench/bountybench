@@ -217,46 +217,44 @@ class KaliEnvResource(RunnableBaseResource):
             )
             return
 
-        # Find possible codebase paths
-        codebase_paths = self._find_codebase_paths()
-        if not codebase_paths:
+        codebase_path = "/app/codebase"
+        cmd = f"[ -d {codebase_path} ] && echo 'exists' || echo 'not_exists'"
+        stdout, _ = self.run_command(cmd, TIMEOUT_PER_COMMAND)
+        if stdout.strip() == "not_exists":
             logger.warning(
-                "Could not locate codebase directory in container. Skipping installation."
+                f"Directory {codebase_path} does not exist in the container. Skipping installation"
             )
             return
 
-        logger.info(f"Found potential codebase paths: {codebase_paths}")
+        # Check if repository is Python
+        is_python = self._is_python_repo(codebase_path)
 
-        for codebase_path in codebase_paths:
-            # Check if repository is Python
-            is_python = self._is_python_repo(codebase_path)
+        if is_python:
+            logger.info(
+                f"Detected Python repository at {codebase_path}. Installing in editable mode..."
+            )
+            cmd = f"pip install -e {codebase_path}"
+            stdout, stderr = self.run_command(cmd, TIMEOUT_PER_COMMAND)
+            logger.info(f"Python repo installation result: {stdout}\n{stderr}")
 
-            if is_python:
+            host_path = self._map_container_path_to_host(codebase_path)
+            if host_path:
                 logger.info(
-                    f"Detected Python repository at {codebase_path}. Installing in editable mode..."
+                    f"Updating git history to include changes from installation in latest commit"
                 )
-                cmd = f"pip install -e {codebase_path}"
-                stdout, stderr = self.run_command(cmd, TIMEOUT_PER_COMMAND)
-                logger.info(f"Python repo installation result: {stdout}\n{stderr}")
-
-                host_path = self._map_container_path_to_host(codebase_path)
-                if host_path:
-                    logger.info(
-                        f"Updating git history to include changes from installation in latest commit"
-                    )
-                    git_commit_changes(host_path)
-                else:
-                    logger.warning(
-                        f"Could not determine host path for {codebase_path}. Skipping git commit."
-                    )
-                return
-
-            # Check if Node.js repo - just log but don't install
-            elif self._is_node_repo(codebase_path):
-                logger.info(
-                    f"Detected Node.js repository at {codebase_path}. Skipping installation."
+                git_commit_changes(host_path)
+            else:
+                logger.warning(
+                    f"Could not determine host path for {codebase_path}. Skipping git commit."
                 )
-                return
+            return
+
+        # Check if Node.js repo - just log but don't install
+        elif self._is_node_repo(codebase_path):
+            logger.info(
+                f"Detected Node.js repository at {codebase_path}. Skipping installation."
+            )
+            return
 
         logger.info(
             "No recognized Python repository found in any codebase location. Skipping installation."
@@ -284,28 +282,6 @@ class KaliEnvResource(RunnableBaseResource):
 
         # If we get here, no matching volume was found
         return None
-
-    def _find_codebase_paths(self):
-        """
-        Find possible codebase paths in the container.
-        Returns a list of potential paths, ordered by likelihood.
-        """
-        # Common locations where the codebase might be mounted
-        potential_paths = [
-            "/app/codebase",  # Default path
-            "/app/repo",  # Alternative path
-            f"/app/{self._resource_config.task_dir.name}/codebase",  # Based on task dir
-            "/app",  # Fallback
-        ]
-
-        valid_paths = []
-        for path in potential_paths:
-            cmd = f"[ -d {path} ] && echo 'exists' || echo 'not exists'"
-            stdout, _ = self.run_command(cmd, TIMEOUT_PER_COMMAND)
-            if "exists" in stdout:
-                valid_paths.append(path)
-
-        return valid_paths
 
     def _is_python_repo(self, codebase_path):
         """Check if the repository is a Python repository by looking for setup.py or pyproject.toml"""
