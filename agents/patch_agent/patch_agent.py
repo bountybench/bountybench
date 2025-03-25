@@ -191,7 +191,7 @@ class PatchAgent(BaseAgent):
         tmp_git_diff = git_diff(self.codebase)
 
         if not tmp_git_diff:
-            self._log("No git diff detected, skipping patching.")
+            self._log("No git diff detected within codebase, skipping patching.")
             return self.update_patch_agent_message(clear=True)
 
         self._log("Codebase changes detected.")
