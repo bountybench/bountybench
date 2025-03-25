@@ -195,6 +195,8 @@ Running workflows from CLI should use `runner.py` module. Each runnable workflow
 - If `--use_mock_model` is True, then `--use_helm` parameter is ignored
 - The `--use_helm` parameter determines whether to use Helm as the model provider
 
+If using openai o1/o3, it's [recommended to have at least 25k](https://platform.openai.com/docs/guides/reasoning?api-mode=chat#allocating-space-for-reasoning) `--max_output_tokens`
+
 ```bash
 python -m workflows.runner --workflow-type WORKFLOW_TYPE [OPTIONS]
 ```
