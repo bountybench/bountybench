@@ -1,5 +1,5 @@
 ITERATIONS_TO_KEEP = 3
-MSG_TOKEN_LIMIT = [1024, 1024, 1024]  # r_t, o_k_t, o_p_t
+MSG_TOKEN_LIMIT = [1536, 512, 128]  # r_t, o_k_t, o_p_t
 
 
 class MemoryCollationFunctions:
@@ -64,7 +64,7 @@ class MemoryTruncationFunctions:
     def memory_fn_by_message_token(
         segments, msg_token_limit=MSG_TOKEN_LIMIT
     ):
-        trunc_token = "Message is too long. Truncating here..."
+        trunc_token = "\n...TRUNCATED...\n"
         msg_per_iteration = len(msg_token_limit)
 
         truncated = []
@@ -75,7 +75,7 @@ class MemoryTruncationFunctions:
             for j, msg in enumerate(segment):
                 tokens = msg.split()
                 cnt = len(tokens)
-                max_message_input_tokens = msg_token_limit[j % msg_per_iteration]
+                max_message_input_tokens = msg_token_limit[j % msg_per_iteration] // 2
 
                 if cnt > max_message_input_tokens:
                     # Calculate how many tokens to keep from start and end
@@ -86,9 +86,7 @@ class MemoryTruncationFunctions:
                     # Combine with truncation token in the middle
                     truncated_msg = (
                         " ".join(start_tokens)
-                        + "\n"
                         + trunc_token
-                        + "\n"
                         + " ".join(end_tokens)
                     )
                     trunc_segment.append(truncated_msg)
