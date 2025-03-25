@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 from pathlib import Path
+from unittest import mock
 from unittest.mock import MagicMock, call, patch
 
 import docker
@@ -188,24 +189,6 @@ def test_container_persistence(kali_env_resource):
     assert stderr.strip() == ""
 
 
-@patch.object(KaliEnvResource, "_find_codebase_paths")
-def test_find_codebase_paths(mock_find_paths, kali_env_resource):
-    """Test the detection of codebase paths in the container."""
-    # Get the temporary directory name
-    temp_dir_name = kali_env_resource._resource_config.task_dir.name
-
-    # Setup the mock to return deterministic paths
-    expected_paths = ["/app/codebase", f"/app/{temp_dir_name}/codebase", "/app"]
-    mock_find_paths.return_value = expected_paths
-
-    # Run the method (which is now mocked)
-    paths = kali_env_resource._find_codebase_paths()
-
-    # Verify the mock returns the expected paths
-    assert paths == expected_paths
-    assert mock_find_paths.called
-
-
 @patch.object(KaliEnvResource, "run_command")
 def test_is_python_repo(mock_run_command, kali_env_resource):
     """Test the detection of Python repositories."""
@@ -234,16 +217,14 @@ def test_is_node_repo(mock_run_command, kali_env_resource):
     assert kali_env_resource._is_node_repo("/app/codebase") is False
 
 
-@patch.object(KaliEnvResource, "_find_codebase_paths")
 @patch.object(KaliEnvResource, "_is_python_repo")
 @patch.object(KaliEnvResource, "_is_node_repo")
 @patch.object(KaliEnvResource, "run_command")
 def test_install_python_repo(
-    mock_run_command, mock_is_node, mock_is_python, mock_find_paths, kali_env_resource
+    mock_run_command, mock_is_node, mock_is_python, kali_env_resource
 ):
     """Test the installation of Python repositories."""
     # Setup mocks
-    mock_find_paths.return_value = ["/app/codebase"]
     mock_is_python.return_value = True
     mock_is_node.return_value = False
     mock_run_command.return_value = ("Successfully installed package", "")
@@ -252,40 +233,50 @@ def test_install_python_repo(
     kali_env_resource._install_repo_in_editable_mode()
 
     # Verify the pip install command was called
-    mock_run_command.assert_called_once_with("pip install -e /app/codebase", 600)
+    mock_run_command.assert_has_calls(
+        [
+            mock.call(
+                "[ -d /app/codebase ] && echo 'exists' || echo 'not_exists'", 120
+            ),
+            mock.call("pip install -e /app/codebase", 600),
+        ],
+        any_order=False,
+    )
 
 
-@patch.object(KaliEnvResource, "_find_codebase_paths")
 @patch.object(KaliEnvResource, "_is_python_repo")
 @patch.object(KaliEnvResource, "_is_node_repo")
 @patch.object(KaliEnvResource, "run_command")
 def test_install_node_repo(
-    mock_run_command, mock_is_node, mock_is_python, mock_find_paths, kali_env_resource
+    mock_run_command, mock_is_node, mock_is_python, kali_env_resource
 ):
     """Test the installation of Node.js repositories - should now skip installation."""
     # Setup mocks
-    mock_find_paths.return_value = ["/app/codebase"]
     mock_is_python.return_value = False
     mock_is_node.return_value = True
+    mock_run_command.return_value = ("exists", "")
 
     # Run the method directly
     kali_env_resource._install_repo_in_editable_mode()
 
-    # Verify no commands were called - we should skip Node.js installation
-    assert mock_run_command.call_count == 0
+    # Verify run command only called once (to verify codebase exist) - we should skip Node.js installation
+
+    mock_run_command.assert_called_once_with(
+        "[ -d /app/codebase ] && echo 'exists' || echo 'not_exists'", 120
+    )
 
 
-@patch.object(KaliEnvResource, "_find_codebase_paths")
 @patch.object(KaliEnvResource, "_is_python_repo")
 @patch.object(KaliEnvResource, "_is_node_repo")
+@patch.object(KaliEnvResource, "run_command")
 def test_no_repo_found(
-    mock_is_node, mock_is_python, mock_find_paths, kali_env_resource
+    mock_run_command, mock_is_node, mock_is_python, kali_env_resource
 ):
     """Test the case when no recognized repository is found."""
     # Setup mocks
-    mock_find_paths.return_value = ["/app/codebase"]
     mock_is_python.return_value = False
     mock_is_node.return_value = False
+    mock_run_command.return_value = ("exists", "")
 
     # Run the method directly
     kali_env_resource._install_repo_in_editable_mode()
