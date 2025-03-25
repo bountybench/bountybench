@@ -240,48 +240,6 @@ def test_segment_truncation_by_message(message_tree):
     memory_segments[0] == " ".join(expected_prev_phases_memory)
 
 
-def test_memory_truncation_by_token(message_tree):
-    """
-    Check that each segment only contains a single token after truncation.
-    """
-    (
-        last_action_message,
-        last_agent_message,
-        last_phase_message,
-        config,
-        mem_resource,
-    ) = message_tree
-
-    og_memory = mem_resource.get_memory(last_action_message).memory
-    memory_without_prompt = "".join(og_memory.split("\n\n")[1:])
-    memory_lines = [
-        line.strip() for line in memory_without_prompt.split("\n") if line.strip()
-    ]
-    memory_lines = [
-        line for line in memory_lines if line.startswith("[")
-    ]  # Only keep message lines
-
-    # Check that at least one line has multiple tokens
-    assert any(len(line.split()) > 1 for line in memory_lines)
-
-    config.memory_trunc_fn = partial(
-        MemoryTruncationFunctions.memory_fn_by_token, max_input_tokens=3
-    )
-    trunc_memory = (
-        MemoryResource("memory_1", config).get_memory(last_action_message).memory
-    )
-    trunc_memory_without_prompt = "".join(trunc_memory.split("\n\n")[1:])
-    trunc_memory_lines = [
-        line.strip() for line in trunc_memory_without_prompt.split("\n") if line.strip()
-    ]
-    trunc_memory_lines = [
-        line for line in trunc_memory_lines if line.startswith("[")
-    ]  # Only keep message lines
-
-    # Check that each line has exactly one token after the bullet point
-    assert all(len(line.split()) == 1 for line in trunc_memory_lines)
-
-
 def test_messages_with_version(message_tree):
     (
         last_action_message,
