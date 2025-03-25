@@ -603,6 +603,8 @@ class PatchAgent(BaseAgent):
                 )
                 if success:
                     return True, f"{message}"
+                else:
+                    return False, f"Failed to apply patch to codebase: {message}"
 
             else:
                 # Make the error message available to the agent
