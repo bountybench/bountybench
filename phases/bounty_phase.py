@@ -38,7 +38,7 @@ class BountyPhase(BasePhase, ABC):
             workflow.task_dir
             / "bounties"
             / f"bounty_{self.bounty_number}"
-            / f"tmp_{workflow.workflow_message.workflow_id}"
+            / f"tmp_{self.workflow_id}"
         )
 
         super().__init__(workflow, **kwargs)
