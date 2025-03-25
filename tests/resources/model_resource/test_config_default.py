@@ -52,7 +52,7 @@ def test_agent_lm_config(mock_env):
     # Test with explicitly specified OpenAI model
     lm_config1 = ModelResourceConfig(model="openai/gpt-4o")
     assert lm_config1.model == "openai/gpt-4o"
-    assert lm_config1.max_output_tokens == 4096
+    assert lm_config1.max_output_tokens == 8192
     assert lm_config1.use_helm is False
 
     # Test with custom output tokens

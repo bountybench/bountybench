@@ -16,7 +16,7 @@ class DetectPatchWorkflow(PatchWorkflow):
         "use_helm": False,
         "use_mock_model": False,
         "max_input_tokens": 8192,
-        "max_output_tokens": 4096,
+        "max_output_tokens": 8192,
         "vulnerability_type": None,  # No default vulnerability type
     }
 

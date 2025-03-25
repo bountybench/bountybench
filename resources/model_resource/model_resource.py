@@ -31,7 +31,7 @@ class ModelResourceConfig(BaseResourceConfig):
     """Configuration for ModelResource"""
 
     model: str
-    max_output_tokens: int = field(default=4096)
+    max_output_tokens: int = field(default=8192)
     max_input_tokens: int = field(default=8192)
     use_helm: bool = field(default=False)
     temperature: float = field(default=0.5)
