@@ -46,6 +46,7 @@ class TokenizerMapping:
         "google/gemini-1.5-pro-001": "google/gemma-2b",
         "google/gemini-1.5-pro-preview-0409": "google/gemma-2b",
         "google/gemini-2.0-flash-001": "google/gemma-2b",
+        "google/gemini-2.0-flash-thinking-exp-01-21": "google/gemma-2b",
         # Other
         "01-ai/yi-large": "01-ai/Yi-6B",
     }
