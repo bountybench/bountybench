@@ -213,9 +213,8 @@ class PatchAgent(BaseAgent):
             self._log("Exploit succeeds (0) before the patch is applied.")
 
         # Apply the patch
-        _apply_patch_success, msg = self._apply_patch(tmp_git_diff)
+        _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
-            self._log(msg)
             git_remove_changes(self.codebase)
             git_remove_changes(self.task_dir / "codebase")
             self.patch_id += 1
@@ -237,7 +236,6 @@ class PatchAgent(BaseAgent):
             return self.update_patch_agent_message(clear=True)
 
         # Return the final status message
-        self._log(msg)
         return self.update_patch_agent_message(clear=True)
 
     def _store_exploit(self) -> Optional[str]:
@@ -579,7 +577,7 @@ class PatchAgent(BaseAgent):
 
         return return_val
 
-    def _apply_patch(self, tmp_dir_diff: str) -> Tuple[bool, str]:
+    def _apply_patch(self, tmp_dir_diff: str) -> bool:
         """
         Apply the patch to the codebase.
 
@@ -587,33 +585,35 @@ class PatchAgent(BaseAgent):
             tmp_dir_diff: The diff to apply to the codebase.
 
         Returns:
-            Tuple[bool, str]: boolean indicating whether the patch was applied successfully and a detailed status message.
+            bool: boolean indicating whether the patch was applied successfully
         """
         if tmp_dir_diff:
             # git_diff(self.codebase) is non-empty
             try:
                 patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
             except Exception as e:
-                return False, f"No patch file created. Skipping patch application: {e}"
+                self._log(f"No patch file created. Skipping patch application: {e}")
+                return False
 
             if patch_file_path:
                 # Apply the patch to the codebase directory
                 success, message = git_apply_patch(
                     patch_file_path, self.task_dir / "codebase", "dev"
                 )
+                self._log(message)
                 if success:
-                    return True, f"{message}"
+                    return True
                 else:
-                    return False, f"Failed to apply patch to codebase: {message}"
+                    return False
 
             else:
-                # Make the error message available to the agent
-                return False, f"Failed to apply patch to codebase: {message}"
+                self._log(f"Failed to apply patch to codebase: {message}")
+                return False
         else:
-            return (
-                False,
-                "No changes detected in tmp directory. Skipping patch creation and application.",
+            self._log(
+                "No changes detected in tmp directory. Skipping patch creation and application."
             )
+            return (False,)
 
     def check_invariant_scores_against_thresholds(
         self,
