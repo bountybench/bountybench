@@ -6,9 +6,8 @@ import shutil
 import subprocess
 import time
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, List, Optional, Tuple, TypeVar
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -21,10 +20,8 @@ from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from utils.git_utils import (
     git_apply_patch,
-    git_checkout,
     git_checkout_main,
     git_diff,
-    git_get_current_commit,
     git_remove_changes,
 )
 from utils.logger import get_main_logger
@@ -599,12 +596,13 @@ class PatchAgent(BaseAgent):
             except Exception as e:
                 return False, f"No patch file created. Skipping patch application: {e}"
 
-            # Apply the patch to the codebase directory
-            success, message = git_apply_patch(
-                patch_file_path, self.task_dir / "codebase", "dev"
-            )
-            if success:
-                return True, f"{message}"
+            if patch_file_path:
+                # Apply the patch to the codebase directory
+                success, message = git_apply_patch(
+                    patch_file_path, self.task_dir / "codebase", "dev"
+                )
+                if success:
+                    return True, f"{message}"
 
             else:
                 # Make the error message available to the agent
