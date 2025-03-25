@@ -35,6 +35,11 @@ class HelmModels(ModelProvider):
     ) -> ModelResponse:
         mapped_model = ModelRegistry.get_model(model)
 
+        if "anthropic" in mapped_model:
+            # In HELM, Anthropic models have a max_tokens limit of 4096
+            # (see https://github.com/stanford-crfm/helm/blob/9fa4cfb7f058e71f282a6272357c506a009d67c5/src/helm/clients/anthropic_client.py#L246C5-L246C5)
+            max_tokens = min(max_tokens, 4096)
+
         if "o1" in model:  # o1 and o1-mini don't have stop argument
             request = Request(
                 model=mapped_model,
