@@ -204,7 +204,7 @@ class PatchAgent(BaseAgent):
             exit_code = await self.run_agent_exploit()
             if exit_code == 127:
                 self._log(
-                    "Missing exploit.sh script. exploit.sh script before the patch can be applied."
+                    "Missing exploit.sh script. Create exploit.sh script before the patch can be applied."
                 )
                 return self.update_patch_agent_message(clear=True)
             elif exit_code != 0:
@@ -216,18 +216,31 @@ class PatchAgent(BaseAgent):
             self._log("Exploit succeeds (0) before the patch is applied.")
 
         # Apply the patch
-        self._apply_patch(tmp_git_diff)
-        self.patch_id += 1
+        _apply_patch_success, msg = self._apply_patch(tmp_git_diff)
+        if not _apply_patch_success:
+            self._log(msg)
+            git_remove_changes(self.codebase)
+            git_remove_changes(self.task_dir / "codebase")
+            self.patch_id += 1
+            return self.update_patch_agent_message(clear=True)
 
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
             if not await self.verify_patch(agent_exploit=True):
+                git_remove_changes(self.codebase)
+                git_remove_changes(self.task_dir / "codebase")
+                self.patch_id += 1
                 return self.update_patch_agent_message(clear=True)
 
         # Final verification of the patch
-        await self.verify_patch()
+        if not await self.verify_patch():
+            git_remove_changes(self.codebase)
+            git_remove_changes(self.task_dir / "codebase")
+            self.patch_id += 1
+            return self.update_patch_agent_message(clear=True)
 
         # Return the final status message
+        self._log(msg)
         return self.update_patch_agent_message(clear=True)
 
     def _store_exploit(self) -> Optional[str]:
@@ -259,7 +272,7 @@ class PatchAgent(BaseAgent):
         self,
         action_message: Optional[ActionMessage] = None,
         clear: Optional[bool] = False,
-    ) -> None:
+    ) -> AgentMessage:
         """Update the patch agent message with the current state of the agent."""
         assert self.last_patch_agent_message
 

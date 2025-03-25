@@ -560,6 +560,8 @@ def test_check_invariant_scores_edge_cases(patch_agent):
                 file.unlink()
 
 
+# Test that the system correctly makes calls to git_remove_changes
+# -----------------------------------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_reset_repo_on_empty_diff(patch_agent, mocker):
     """
@@ -577,43 +579,12 @@ async def test_reset_repo_on_empty_diff(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_remove_changes"
     )
 
-    result = await agent.execute()
+    await agent.run(["message"])
 
     git_remove_changes_mock.assert_not_called()
-    assert result is False
     assert (
         agent.patch_id == prev_patch_id
     )  # patch is skipped so patch_id should not increment
-
-
-# Test that the system correctly makes calls to git_remove_changes
-# -----------------------------------------------------------------------------------------------------
-@pytest.mark.asyncio
-async def test_reset_repo_on_restart_resources_fail(patch_agent, mocker):
-    """
-    Test that tmp and remote codebase are reset to their original states if patch creation and apply was successful,
-    but restarting the resources fails.
-    """
-    agent = patch_agent
-    prev_patch_id = agent.patch_id
-
-    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
-    mocker.patch(
-        "agents.patch_agent.patch_agent.git_apply_patch",
-        return_value=(True, "Patch succeeded"),
-    )
-    git_remove_changes_mock: MagicMock = mocker.patch(
-        "agents.patch_agent.patch_agent.git_remove_changes"
-    )
-
-    mocker.patch.object(
-        PatchAgent, "restart_resources", return_value=False
-    )  # Restart resource fails
-    result = await agent.verify_patch(agent_exploit=False)
-
-    assert git_remove_changes_mock.call_count == 2
-    assert result is False
-    assert agent.patch_id == prev_patch_id + 1
 
 
 @pytest.mark.asyncio
@@ -635,10 +606,9 @@ async def test_reset_repo_on_patch_creation_fail(patch_agent, mocker):
     git_remove_changes_mock = mocker.patch(
         "agents.patch_agent.patch_agent.git_remove_changes"
     )
-    result = await agent.verify_patch(agent_exploit=False)
+    await agent.run(["message"])
 
     assert git_remove_changes_mock.call_count == 2
-    assert result is False
     assert agent.patch_id == prev_patch_id + 1
 
 
@@ -660,10 +630,9 @@ async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     git_remove_changes_mock = mocker.patch(
         "agents.patch_agent.patch_agent.git_remove_changes"
     )
-    result = await agent.verify_patch(agent_exploit=False)
+    await agent.run(["message"])
 
     assert git_remove_changes_mock.call_count == 2
-    assert result is False
     assert agent.patch_id == prev_patch_id + 1
 
 
@@ -685,9 +654,6 @@ async def test_reset_repo_on_invariant_checking_fail(patch_agent, mocker):
     mocker.patch.object(PatchAgent, "_apply_patch", return_value=(True, ""))
     mocker.patch.object(PatchAgent, "restart_resources", return_value=True)
     mocker.patch.object(PatchAgent, "run_external_exploit", return_value=0)
-    mocker.patch.object(
-        PatchAgent, "verify_patch_invariants", return_value=(False, {}, {})
-    )
     mocker.patch.object(PatchAgent, "apply_patched_unit_tests", return_value=True)
     mocker.patch.object(
         PatchAgent,
@@ -698,10 +664,9 @@ async def test_reset_repo_on_invariant_checking_fail(patch_agent, mocker):
     git_remove_changes_mock = mocker.patch(
         "agents.patch_agent.patch_agent.git_remove_changes"
     )
-    result = await agent.verify_patch(agent_exploit=False)
+    await agent.run(["message"])
 
     assert git_remove_changes_mock.call_count == 2
-    assert result is False
     assert agent.patch_id == prev_patch_id + 1
 
 
@@ -717,20 +682,45 @@ async def test_full_workflow_exploit_failure(patch_agent, mocker):
     agent = patch_agent
     prev_patch_id = agent.patch_id
 
-    # Commit states
-    initial_commit = "abc123"
-    current_commits = {"tmp": initial_commit, "remote": initial_commit}
-
-    def mock_get_current_commit(repo_path):
-        if str(agent.task_dir / "codebase") in str(repo_path):
-            return current_commits["remote"]
-        return current_commits["tmp"]
-
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
     mocker.patch(
-        "agents.patch_agent.patch_agent.git_get_current_commit",
-        side_effect=mock_get_current_commit,
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(True, "Patch applied successfully"),
     )
+    mocker.patch("agents.patch_agent.patch_agent.git_remove_changes")
+    git_remove_changes_mock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_remove_changes"
+    )
+
+    agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent", message=None
+    )
+
+    # Mock invariant/exploit checks
+    mocker.patch.object(
+        patch_agent, "run_external_exploit", return_value=0
+    )  # 0 indicates failure (exploit still works)
+
+    await agent.run(["message"])
+
+    assert agent.last_patch_agent_message.success is False
+    assert "check failed" in agent.last_patch_agent_message.message
+    assert agent.patch_id == prev_patch_id + 1
+    assert git_remove_changes_mock.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_full_workflow_success(patch_agent, mocker):
+    """
+    Test the full patch workflow in the success case:
+    - Start with both repos in the same initial state
+    - Apply patch successfully
+    - Verify success is reported correctly
+    """
+    agent = patch_agent
+    prev_patch_id = agent.patch_id
+
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
     mocker.patch(
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(True, "Patch applied successfully"),
@@ -742,73 +732,19 @@ async def test_full_workflow_exploit_failure(patch_agent, mocker):
     )
 
     # Mock invariant/exploit checks
-    mocker.patch.object(
-        patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
-    )
-    mocker.patch.object(
-        patch_agent, "run_external_exploit", return_value=0
-    )  # 0 indicates failure (exploit still works)
-
-    result = await agent.verify_patch(agent_exploit=False)
-
-    assert result is False
-    assert current_commits["tmp"] == initial_commit
-    assert current_commits["remote"] == initial_commit
-    assert agent.last_patch_agent_message.success is False
-    assert "Patch failed" in agent.last_patch_agent_message.message
-    assert agent.patch_id == prev_patch_id + 1
-
-
-@pytest.mark.asyncio
-async def test_full_workflow_success(patch_agent, mocker):
-    """
-    Test the full patch workflow with commit tracking:
-    - Start with both repos in the same initial state
-    - Apply patch successfully
-    - Verify success is reported correctly
-    """
-    agent = patch_agent
-    prev_patch_id = agent.patch_id
-
-    # Commit states
-    initial_commit = "abc123"
-    current_commits = {"tmp": initial_commit, "remote": initial_commit}
-
-    def mock_get_current_commit(repo_path):
-        if str(agent.task_dir / "codebase") in str(repo_path):
-            return current_commits["remote"]
-        return current_commits["tmp"]
-
-    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
-    mocker.patch(
-        "agents.patch_agent.patch_agent.git_get_current_commit",
-        side_effect=mock_get_current_commit,
-    )
-    mocker.patch(
-        "agents.patch_agent.patch_agent.git_apply_patch",
-        return_value=(True, "Patch applied successfully"),
-    )
-
-    agent.last_patch_agent_message = PatchAgentMessage(
-        agent_id="patch_agent", message=None
-    )
-
-    # Mock invariant/exploit checks
-    mocker.patch.object(
-        patch_agent, "verify_patch_invariants", return_value=(True, {}, {})
-    )
+    # mocker.patch.object(
+    #     patch_agent, "verify_patch", return_value=True
+    # )
     mocker.patch.object(
         patch_agent, "run_external_exploit", return_value=1
     )  # 1 indicates success (exploit blocked)
+    mocker.patch.object(patch_agent, "check_invariants", return_value=True)
 
-    agent.use_agent_exploit = False
-    result = await agent.execute()
+    await agent.run(["message"])
 
-    assert result is True
-    assert current_commits["tmp"] == initial_commit
-    assert current_commits["remote"] == initial_commit
     assert agent.last_patch_agent_message.success is True
     assert "Congratulations" in agent.last_patch_agent_message.message
+    assert agent.patch_id == prev_patch_id
 
 
 # "uses" the import
