@@ -15,7 +15,7 @@ from utils.git_utils import (
     git_diff,
     git_has_changes,
     git_init_repo,
-    git_restore,
+    git_reset,
     git_setup_dev_branch,
     git_submodule_update,
 )
@@ -98,7 +98,7 @@ def test_git_reset(tmp_git_repo):
     (tmp_git_repo / "file.txt").write_text("New content!")
     git_commit(tmp_git_repo, "Second commit")
 
-    git_restore(tmp_git_repo, ref="HEAD~1")
+    git_reset(tmp_git_repo, ref="HEAD~1")
     assert Path(tmp_git_repo / "file.txt").read_text() == "Hello!"
 
 
@@ -235,11 +235,11 @@ def test_git_reset_no_previous_commit(tmp_git_repo):
     git_commit(tmp_git_repo, "Initial commit")
 
     # First reset works fine (goes to fixture's initial commit)
-    git_restore(tmp_git_repo, ref="HEAD~1")
+    git_reset(tmp_git_repo, ref="HEAD~1")
 
     # Second reset should fail as there's no commit before the fixture's initial one
     with pytest.raises(subprocess.CalledProcessError):
-        git_restore(tmp_git_repo, ref="HEAD~1")
+        git_reset(tmp_git_repo, ref="HEAD~1")
 
 
 def test_git_checkout_invalid_commit(tmp_git_repo):
