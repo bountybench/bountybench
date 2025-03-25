@@ -106,6 +106,7 @@ class PatchPhase(BountyPhase):
                         str(self.tmp_dir.resolve()): {"bind": "/app", "mode": "rw"},
                     },
                     target_host=self.workflow.repo_metadata["target_host"],
+                    install_command=self.workflow.repo_metadata.get("install_command"),
                 ),
             ),
             (ResourceType.DOCKER, DockerResourceConfig()),
