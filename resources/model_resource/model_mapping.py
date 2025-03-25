@@ -29,6 +29,7 @@ class TokenizerMapping:
         # Together Models (DeepSeek)
         "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
         "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
+        "deepseek-ai/deepseek-r1-hide-reasoning": "deepseek-ai/deepseek-r1",
         # Mistral Models
         "mistralai/mistral-large-2407": "mistralai/Mistral-Large-Instruct-2407",
         "mistralai/mixtral-8x22b": "mistralai/Mistral-7B-v0.1",
