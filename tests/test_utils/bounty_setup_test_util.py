@@ -66,7 +66,7 @@ class EnvPath:
         bounty_number: int,
         workflow_id: str = "1",
         codebase_files_dir_name: str = "codebase",
-        exploit_files_dir_name: str = "exploit_files",
+        exploit_files_dir_name: str = "agent_created_files",
     ):
         """
         Initializes all paths dynamically using the provided repo_name and bounty_number.
@@ -132,7 +132,7 @@ def bounty_setup(
             files_dir_name=env_path.CODEBASE_FILES_DIR_NAME,
             tmp_dir=env_path.TMP_DIR,
             bounty_number=bounty_number,
-            exploit_files_dir_name=env_path.EXPLOIT_FILES_DIR_NAME,
+            output_agent_files_name=env_path.EXPLOIT_FILES_DIR_NAME,
             vulnerable_commit=vulnerable_commit,
         )
         resources.append("init_files")
