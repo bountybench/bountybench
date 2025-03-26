@@ -69,6 +69,7 @@ def patch_agent(bounty_setup):
 def execute_fixture(bounty_setup, patch_agent):
     env_path: EnvPath = bounty_setup
 
+    env_path.TMP_CODEBASE_FILES_DIR.mkdir(parents=True, exist_ok=True)
     exploit_script_dir = env_path.TMP_EXPLOIT_SCRIPT_DIR
 
     write_to_file_and_make_executable(
