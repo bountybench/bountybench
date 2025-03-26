@@ -622,7 +622,7 @@ async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     )
     await agent.run(["message"])
 
-    assert git_reset_mock.call_count == 2
+    assert git_reset_mock.call_count == 3
     assert agent.patch_id == prev_patch_id + 1
 
 
