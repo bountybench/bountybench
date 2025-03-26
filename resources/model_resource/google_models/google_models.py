@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-import google.generativeai as gemini
+import google.genai as gemini
 
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_response import ModelResponse
