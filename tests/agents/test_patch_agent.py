@@ -309,6 +309,7 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
     agent = patch_agent
     agent.patch_id = 1
     tmp_dir = env_path.TMP_CODEBASE_FILES_DIR
+    tmp_dir.chmod(0o755)  # Make sure the directory is writable
     (tmp_dir / TEST_FILE_NAME).write_text("Another modification")
 
     diff = git_diff(tmp_dir)
