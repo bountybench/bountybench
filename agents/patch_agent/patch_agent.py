@@ -18,7 +18,13 @@ from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
+from utils.git_utils import (
+    git_apply_patch,
+    git_checkout_main,
+    git_commit,
+    git_diff,
+    git_reset,
+)
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -174,17 +180,12 @@ class PatchAgent(BaseAgent):
         )
         self.last_action_message = None
 
-
         self.tmp_dir = self.resources.init_files.tmp_dir
 
-
         # Set up codebase path
-        self.codebase = (
-            self.tmp_dir / self.resources.init_files.files_dir_name
-        )
+        self.codebase = self.tmp_dir / self.resources.init_files.files_dir_name
 
-        self.output_patch_dir = self.resources.init_files.output_patch_files_dir
-
+        self.output_patch_dir = self.resources.init_files.output_agent_files_dir
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.codebase)
@@ -209,7 +210,7 @@ class PatchAgent(BaseAgent):
                     "Exploit fails before the patch is applied. exploit.sh must be fixed"
                 )
                 return self.update_patch_agent_message(clear=True)
-            
+
             self._store_exploit()
             self._log("Exploit succeeds (0) before the patch is applied.")
 
@@ -564,8 +565,12 @@ class PatchAgent(BaseAgent):
             bool: boolean indicating whether the patch was applied successfully
         """
         if tmp_dir_diff:
-            self.output_patch_subfolder = self.output_patch_dir / f"{self.output_patch_dir.name}_{self.patch_id}"
-            patch_file_path = self.create_patch_file(tmp_dir_diff, self.output_patch_subfolder)
+            self.output_patch_subfolder = (
+                self.output_patch_dir / f"patch_{self.patch_id}"
+            )
+            patch_file_path = self.create_patch_file(
+                tmp_dir_diff, self.output_patch_subfolder
+            )
             git_commit(self.codebase, self.patch_id)
 
             if patch_file_path:
@@ -857,11 +862,12 @@ class PatchAgent(BaseAgent):
         if self.codebase and self.codebase.exists():
             git_checkout_main(self.codebase, force=True)
 
-
     def _store_exploit(self) -> Optional[str]:
         """Store the exploit files in a timestamped directory."""
         try:
-            self.output_patch_subfolder = self.output_patch_dir / f"{self.output_patch_dir.name}_{self.patch_id}"
+            self.output_patch_subfolder = (
+                self.output_patch_dir / f"patch_{self.patch_id}"
+            )
             if self.tmp_dir.exists() and self.tmp_dir.is_dir():
                 if any(self.tmp_dir.iterdir()):
                     shutil.copytree(
@@ -869,7 +875,9 @@ class PatchAgent(BaseAgent):
                         self.output_patch_subfolder,
                         ignore=shutil.ignore_patterns("codebase"),
                     )
-                    logger.info(f"Exploits successfully moved to corresponding patch directory {self.output_patch_subfolder}.")
+                    logger.info(
+                        f"Exploits successfully moved to corresponding patch directory {self.output_patch_subfolder}."
+                    )
                     return str(self.output_patch_subfolder)
                 else:
                     logger.warning("Exploits directory is empty. No files to move.")

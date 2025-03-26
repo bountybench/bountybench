@@ -31,9 +31,10 @@ class InitFilesResourceConfig(BaseResourceConfig):
     files_dir_name: str
     tmp_dir: Path
     bounty_number: str
-    exploit_files_dir_name: Optional[str] = None
-    output_exploit_files_dir_name: Optional[str] = None  # For storing new exploit files created by the agent
-    output_patch_files_dir_name: Optional[str] = None  # For storing new patch files created by the agent
+    input_exploit_files_dir_name: Optional[str] = None
+    output_agent_files_name: Optional[str] = (
+        None  # For storing new exploit files created by the agent
+    )
     vulnerable_commit: Optional[str] = None
 
     def validate(self) -> None:
@@ -68,39 +69,29 @@ class InitFilesResource(BaseResource):
         logger.info(f"Created {self.tmp_dir}")
 
         # Handle exploit files if specified
-        self.exploit_files_dir = None
-        if self._resource_config.exploit_files_dir_name:
-            self.exploit_files_dir = (
+        self.input_exploit_files_dir = None
+        if self._resource_config.input_exploit_files_dir_name:
+            self.input_exploit_files_dir = (
                 self.task_dir
                 / "bounties"
                 / f"bounty_{self._resource_config.bounty_number}"
-                / self._resource_config.exploit_files_dir_name
+                / self._resource_config.input_exploit_files_dir_name
             )
-            self.copy_files(self.exploit_files_dir, self.tmp_dir)
+            self.copy_files(self.input_exploit_files_dir, self.tmp_dir)
             self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
-        
-        self.output_exploit_files_dir = None
-        if self._resource_config.output_exploit_files_dir_name:
-            self.output_exploit_files_dir = (
-                self.task_dir
-                / "bounties"
-                / f"bounty_{self._resource_config.bounty_number}"
-                / self._resource_config.output_exploit_files_dir_name
-            )
-            self.output_exploit_files_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created output exploit files directory: {self.output_exploit_files_dir}")
-        
-        self.output_patch_files_dir = None
-        if self._resource_config.output_patch_files_dir_name:
-            self.output_patch_files_dir = (
-                self.task_dir
-                / "bounties"
-                / f"bounty_{self._resource_config.bounty_number}"
-                / self._resource_config.output_patch_files_dir_name
-            )
-            self.output_patch_files_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created output patch files directory: {self.output_patch_files_dir}")
 
+        self.output_agent_files_dir = None
+        if self._resource_config.output_agent_files_name:
+            self.output_agent_files_dir = (
+                self.task_dir
+                / "bounties"
+                / f"bounty_{self._resource_config.bounty_number}"
+                / self._resource_config.output_agent_files_name
+            )
+            self.output_agent_files_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(
+                f"Created output exploit files directory: {self.output_agent_files_dir}"
+            )
 
         if self._resource_config.vulnerable_commit:
             self.vulnerable_commit = self._resource_config.vulnerable_commit
@@ -260,9 +251,16 @@ class InitFilesResource(BaseResource):
             "task_dir": str(self.task_dir),
             "files_dir": str(self.files_dir),
             "tmp_dir": str(self.tmp_dir),
-            "exploit_files_dir": str(self.exploit_files_dir) if self.exploit_files_dir else None,
-            "output_exploit_files_dir": str(self.output_exploit_files_dir) if self.output_exploit_files_dir else None,
-            "output_patch_files_dir": str(self.output_patch_files_dir) if self.output_patch_files_dir else None,
+            "input_exploit_files_dir": (
+                str(self.input_exploit_files_dir)
+                if self.input_exploit_files_dir
+                else None
+            ),
+            "output_agent_files_dir": (
+                str(self.output_agent_files_dir)
+                if self.output_agent_files_dir
+                else None
+            ),
             "vulnerable_commit": self.vulnerable_commit,
             "resource_id": self.resource_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -276,19 +274,14 @@ class InitFilesResource(BaseResource):
         return cls(
             task_dir=Path(data["task_dir"]),
             files_dir_name=Path(data["files_dir"]).name,
-            exploit_files_dir_name=(
-                Path(data["exploit_files_dir"]).name
-                if data["exploit_files_dir"]
+            input_exploit_files_dir_name=(
+                Path(data["input_exploit_files_dir"]).name
+                if data["input_exploit_files_dir"]
                 else None
             ),
-            output_exploit_files_dir_name=(
-                Path(data["output_exploit_files_dir"]).name
+            output_agent_files_dir_name=(
+                Path(data["output_agent_files_dir"]).name
                 if data["output_exploit_files_dir"]
-                else None
-            ),
-            output_patch_files_dir_name=(
-                Path(data["output_patch_files_dir"]).name
-                if data["output_patch_files_dir"]
                 else None
             ),
             vulnerable_commit=data["vulnerable_commit"],
