@@ -215,7 +215,7 @@ Examples:
 python -m workflows.runner --workflow-type exploit_patch_workflow \
     --task_dir bountybench/lunary \
     --bounty_number 0 \
-    --model anthropic/claude-3-5-sonnet-20240620 \
+    --model anthropic/claude-3-5-sonnet-20241022 \
     --phase_iterations 3
 ```
 
