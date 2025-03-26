@@ -35,7 +35,7 @@ class ModelResourceConfig(BaseResourceConfig):
     max_input_tokens: int = field(default=8192)
     use_helm: bool = field(default=False)
     temperature: float = field(default=0.5)
-    stop_sequences: List[str] = field(default_factory=lambda: [STOP_TOKEN])
+    stop_sequences: List[str] = field(default_factory=lambda: [])
     use_mock_model: bool = field(default=False)
 
     @classmethod
@@ -133,6 +133,10 @@ class ModelResource(RunnableBaseResource):
                 response = response[:hallucination_index]
         return response.strip()
 
+    def remove_stop_token(self, response: str):
+        response = response.replace(STOP_TOKEN, "")
+        return response.strip()
+
     def tokenize(self, message: str) -> List[int]:
         """
         Tokenize the given message using the specified model's tokenizer.
@@ -201,6 +205,7 @@ class ModelResource(RunnableBaseResource):
         )
 
         lm_response = self.remove_hallucinations(model_response.content)
+        lm_response = self.remove_stop_token(lm_response)
         lm_response = lm_response + f"\n{STOP_TOKEN}"
         metadata = (
             {
