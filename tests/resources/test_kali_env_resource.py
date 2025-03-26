@@ -238,7 +238,7 @@ def test_install_python_repo(
             mock.call(
                 "[ -d /app/codebase ] && echo 'exists' || echo 'not_exists'", 120
             ),
-            mock.call("pip install -e /app/codebase", 600),
+            mock.call(command='pip install -e .', timeout=600, workdir='/app/codebase'),
         ],
         any_order=False,
     )
