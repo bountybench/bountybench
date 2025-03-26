@@ -500,7 +500,7 @@ class PatchAgent(BaseAgent):
         try:
             cwd = Path.cwd().resolve()
             exploit_files_path = self.bounty_dir.resolve() / "exploit_files"
-            relative_path = exploit_files_path.relative_to(cwd)
+            relative_path = os.path.relpath(str(exploit_files_path), str(cwd))
 
             volumes = {
                 str(cwd): {

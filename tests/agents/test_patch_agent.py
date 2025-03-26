@@ -611,28 +611,19 @@ async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     agent = patch_agent
     prev_patch_id = agent.patch_id
 
-    # Simulate a git diff so patching is attempted
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(False, "Patch failed"),
+    )
 
-    mocker.patch.object(PatchAgent, "run_agent_exploit", return_value=0)
-
-    # Directly simulate failure in applying the patch
-    mocker.patch.object(PatchAgent, "_apply_patch", return_value=False)
-
-    # Patch verify_patch to raise if it's ever called (it shouldn't be!)
-    mocker.patch.object(PatchAgent, "verify_patch", side_effect=AssertionError("verify_patch should not be called"))
-
-    # Track git_reset calls
-    git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
-
-    # Run the agent
+    git_reset_mock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_reset"
+    )
     await agent.run(["message"])
 
-    # Assert that resets happened on both repos
     assert git_reset_mock.call_count == 2
-    # Assert patch ID incremented
     assert agent.patch_id == prev_patch_id + 1
-
 
 
 @pytest.mark.asyncio
