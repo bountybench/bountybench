@@ -10,6 +10,7 @@ from typing import List, Optional
 from subprocess import Popen, PIPE, CalledProcessError, TimeoutExpired, CompletedProcess
 import sys
 import select
+from resources.utils import run_command
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -639,7 +640,7 @@ class PatchAgent(BaseAgent):
             bounty_metadata_file = self.bounty_dir / "bounty_metadata.json"
 
             logger.info("Running repo invariants script")
-            repo_result = self.patch_invariant_run(
+            repo_result = run_command(
                 ["bash", "run_repo_invariants.sh"],
                 cwd=self.task_dir,
                 capture_output=True,
@@ -648,7 +649,7 @@ class PatchAgent(BaseAgent):
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
 
             logger.info("Running bounty invariants script")
-            bounty_result = self.patch_invariant_run(
+            bounty_result = run_command(
                 ["bash", "run_bounty_invariants.sh"],
                 cwd=self.bounty_dir,
                 capture_output=True,
@@ -685,106 +686,6 @@ class PatchAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Error running patch invariants: {e}")
             return False, {}, {}
-    
-    def patch_invariant_run(self,*popenargs,
-        input=None, capture_output=False, timeout=None, check=False, text=True, **kwargs):
-        """Run command with arguments and return a CompletedProcess instance.
-
-        The returned instance will have attributes args, returncode, stdout and
-        stderr. By default, stdout and stderr are not captured, and those attributes
-        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them.
-
-        If check is True and the exit code was non-zero, it raises a
-        CalledProcessError. The CalledProcessError object will have the return code
-        in the returncode attribute, and output & stderr attributes if those streams
-        were captured.
-
-        If timeout is given, and the process takes too long, a TimeoutExpired
-        exception will be raised.
-
-        There is an optional argument "input", allowing you to
-        pass bytes or a string to the subprocess's stdin.  If you use this argument
-        you may not also use the Popen constructor's "stdin" argument, as
-        it will be used internally.
-
-        By default, all communication is in bytes, and therefore any "input" should
-        be bytes, and the stdout and stderr will be bytes. If in text mode, any
-        "input" should be a string, and stdout and stderr will be strings decoded
-        according to locale encoding, or by "encoding" if set. Text mode is
-        triggered by setting any of text, encoding, errors or universal_newlines.
-
-        The other arguments are the same as for the Popen constructor.
-        """
-        if input is not None:
-            if kwargs.get('stdin') is not None:
-                raise ValueError('stdin and input arguments may not both be used.')
-            kwargs['stdin'] = PIPE
-
-        if capture_output:
-            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
-                raise ValueError('stdout and stderr arguments may not be used '
-                                'with capture_output.')
-            kwargs['stdout'] = PIPE
-            kwargs['stderr'] = PIPE
-        
-        if text:
-            kwargs['text'] = True
-        
-        stdout_lines = []
-        stderr_lines = []
-
-        with Popen(*popenargs, **kwargs) as process:
-            try:
-                fds = []
-                if process.stdout:
-                    fds.append(process.stdout)
-                if process.stderr:
-                    fds.append(process.stderr)
-
-                while fds:
-                    readable, _, _ = select.select(fds, [], [], 0.1)
-                    for fd in readable:
-                        line = fd.readline()
-                        if not line:  # EOF reached - remove from list
-                            fds.remove(fd)
-                            continue
-                        if fd == process.stdout:
-                            sys.stdout.write(line)
-                            sys.stdout.flush()
-                            stdout_lines.append(line)
-                        elif fd == process.stderr:
-                            sys.stderr.write(line)
-                            sys.stderr.flush()
-                            stderr_lines.append(line)
-                # Capture any remaining output after the process ends
-                stdout, stderr = process.communicate(input, timeout=timeout)
-                if stdout:
-                    stdout_lines.append(stdout)
-                if stderr:
-                    stderr_lines.append(stderr)
-            except TimeoutExpired as exc:
-                process.kill()
-                if _mswindows:
-                    # Windows accumulates the output in a single blocking
-                    # read() call run on child threads, with the timeout
-                    # being done in a join() on those threads.  communicate()
-                    # _after_ kill() is required to collect that and add it
-                    # to the exception.
-                    exc.stdout, exc.stderr = process.communicate()
-                else:
-                    # POSIX _communicate already populated the output so
-                    # far into the TimeoutExpired exception.
-                    process.wait()
-                raise
-            except:  # Including KeyboardInterrupt, communicate handled that.
-                process.kill()
-                # We don't call process.wait() as .__exit__ does that for us.
-                raise
-            retcode = process.poll()
-            if check and retcode:
-                raise CalledProcessError(retcode, process.args,
-                                        output=''.join(stdout_lines), stderr=''.join(stderr_lines))
-        return CompletedProcess(process.args, retcode, ''.join(stdout_lines), ''.join(stderr_lines))
 
     def create_patch_file(self, diff: str, directory_path: Path) -> Optional[Path]:
         try:
