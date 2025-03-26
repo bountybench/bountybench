@@ -3,9 +3,9 @@ from typing import List, Optional
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 
+QUERY_TIME_TAKEN_IN_MS = "query_time_taken_in_ms"
 INPUT_TOKEN = "input_token"
 OUTPUT_TOKEN = "output_token"
-QUERY_TIME_TAKEN_IN_MS = "query_time_taken_in_ms"
 TOTAL_ITERATION_TIME_MS = "total_iteration_time_ms"
 
 
