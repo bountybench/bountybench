@@ -2,7 +2,7 @@ from resources.bounty_setup_resource import BountySetupResource
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
-from resources.memory_resource import MemoryResource
+from resources.memory_resource.memory_resource import MemoryResource
 from resources.model_resource.model_resource import ModelResource
 from resources.repo_setup_resource import RepoSetupResource
 from resources.resource_type import AgentResources, ResourceType

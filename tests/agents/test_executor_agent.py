@@ -7,7 +7,7 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.kali_env_resource import KaliEnvResource
-from resources.memory_resource import MemoryResource
+from resources.memory_resource.memory_resource import MemoryResource
 from resources.model_resource.model_resource import ModelResource
 
 

@@ -46,36 +46,45 @@ class BountyPhase(BasePhase, ABC):
     def _create_initial_agent_message(self) -> None:
         """Create the initial agent message for the bounty phase."""
         if self.params.get("task_dir"):
-            codebase_structure = subprocess.run(
-                ["tree", "-L", "4"],
-                cwd=str(self.tmp_dir),
-                capture_output=True,
-                text=True,
-            ).stdout
+            # Start with the highest depth and decrease if needed
+            # Filter out common nonsensical directories
+            for depth in [4, 3, 2]:
+                codebase_structure = subprocess.run(
+                    [
+                        "tree",
+                        "-L",
+                        str(depth),
+                        "-I",
+                        "_*|venv|node_modules|.git|__pycache__|.idea|.vscode",
+                    ],
+                    cwd=str(self.tmp_dir),
+                    capture_output=True,
+                    text=True,
+                ).stdout
 
-            lines = codebase_structure.splitlines()
-            word_count = 0
-            result = []
-            for line in lines:
-                line_words = line.split()
-                if word_count + len(line_words) <= 200:
-                    result.append(line)
-                    word_count += len(line_words)
-                else:
-                    remaining = 200 - word_count
-                    if remaining > 0:
-                        trimmed_line = " ".join(line_words[:remaining]) + " ..."
-                        result.append(trimmed_line)
-                    else:
-                        if result:
-                            result[-1] += " ..."
-                        else:
-                            result.append("...")
+                tokens = len(codebase_structure.split())
+
+                # If we're under 300 tokens, use this depth
+                if tokens < 300:
                     break
 
-            trimmed_structure = "\n".join(result)
+                # If we've reached minimum depth and still too large, fallback to ls
+                if depth == 2:
+                    # Try using ls -la as a fallback
+                    codebase_structure = subprocess.run(
+                        ["ls", "-la"],
+                        cwd=str(self.tmp_dir),
+                        capture_output=True,
+                        text=True,
+                    ).stdout
 
-            self.params["codebase"] = "$ tree -L 4\n" + trimmed_structure
+            # Add the command that was used to the output
+            command = (
+                f"tree -L {depth} -I '_*|venv|node_modules|.git|__pycache__|.idea|.vscode'"
+                if tokens < 300
+                else "ls -la"
+            )
+            self.params["codebase"] = f"$ {command}\n{codebase_structure}"
 
         self.params["specialized_instructions"] = (
             get_specialized_instructions(self.params.get("vulnerability_type"))

@@ -6,19 +6,30 @@ from typing import ClassVar, Dict
 class TokenizerMapping:
     mapping: ClassVar[Dict[str, str]] = {
         # OpenAI Models
+        "openai/o1-2024-12-17": "openai/cl100k_base",
+        "openai/o1-2024-12-17-low-reasoning-effort": "openai/cl100k_base",
+        "openai/o1-2024-12-17-high-reasoning-effort": "openai/cl100k_base",
         "openai/o1-mini-2024-09-12": "openai/cl100k_base",
         "openai/o1-preview-2024-09-12": "openai/cl100k_base",
+        "openai/o3-mini-2025-01-31": "openai/cl100k_base",
+        "openai/o3-mini-2025-01-31-low-reasoning-effort": "openai/cl100k_base",
+        "openai/o3-mini-2025-01-31-high-reasoning-effort": "openai/cl100k_base",
         "openai/gpt-4-0613": "openai/cl100k_base",
         "openai/gpt-4-32k-0613": "openai/cl100k_base",
         "openai/gpt-4-turbo-2024-04-09": "openai/cl100k_base",
-        "openai/gpt-4o-2024-05-13": "openai/o200k_base",
+        "openai/gpt-4o-2024-11-20": "openai/o200k_base",
         "openai/gpt-3.5-turbo-0125": "openai/cl100k_base",
+        "openai/gpt-4.5-preview-2025-02-27": "openai/o200k_base",
         # Together Models (LLAMA)
         "meta/llama-3-8b": "meta/llama-3-8b",
         "meta/llama-3-70b": "meta/llama-3-8b",
         "meta/llama-3-70b-chat": "meta/llama-3-8b",
         "meta/llama-3.1-70b-instruct-turbo": "meta/llama-3.1-8b",
         "meta/llama-3.1-405b-instruct-turbo": "meta/llama-3.1-8b",
+        # Together Models (DeepSeek)
+        "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
+        "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
+        "deepseek-ai/deepseek-r1-hide-reasoning": "deepseek-ai/deepseek-r1",
         # Mistral Models
         "mistralai/mistral-large-2407": "mistralai/Mistral-Large-Instruct-2407",
         "mistralai/mixtral-8x22b": "mistralai/Mistral-7B-v0.1",
@@ -34,6 +45,8 @@ class TokenizerMapping:
         "google/gemini-1.0-pro-001": "google/gemma-2b",
         "google/gemini-1.5-pro-001": "google/gemma-2b",
         "google/gemini-1.5-pro-preview-0409": "google/gemma-2b",
+        "google/gemini-2.0-flash-001": "google/gemma-2b",
+        "google/gemini-2.0-flash-thinking-exp-01-21": "google/gemma-2b",
         # Other
         "01-ai/yi-large": "01-ai/Yi-6B",
     }
@@ -45,7 +58,7 @@ class NonHELMMapping:
         # OpenAI Models
         "openai/o1-mini-2024-09-12": "o1-mini-2024-09-12",
         "openai/o1-preview-2024-09-12": "o1-preview-2024-09-12",
-        "openai/gpt-4o-2024-05-13": "gpt-4o-2024-05-13",
+        "openai/gpt-4o-2024-11-20": "gpt-4o-2024-11-20",
         "openai/o3-mini-2025-01-31 ": "openai/o3-mini-2025-01-31",
         # Anthropic Models (Claude)
         "anthropic/claude-3-5-sonnet-20240620": "claude-3-5-sonnet-20240620",
@@ -53,9 +66,13 @@ class NonHELMMapping:
         "anthropic/claude-3-opus-20240229": "claude-3-opus-20240229",
         # Google Gemini Models
         "google/gemini-1.5-pro-001": "gemini-1.5-pro",
+        "google/gemini-2.0-flash-001": "gemini-2.0-flash",
         # Together Models (LLAMA)
         "meta/llama-3.1-70b-instruct-turbo": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         "meta/llama-3.1-405b-instruct-turbo": "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
+        # Together Models (DeepSeek)
+        "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
+        "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
         # Mistral Models
         "mistralai/mixtral-8x22b-instruct-v0.1": "mistralai/Mixtral-8x22B-Instruct-v0.1",
     }

@@ -144,7 +144,33 @@ def read_writeup(task_dir: Path, bounty_number: str) -> str:
     )
     try:
         writeup = report_path.read_text(encoding="utf-8")
-        writeup = format_writeup(writeup)
+        # get url from metadata
+        metadata_path = (
+            task_dir / "bounties" / f"bounty_{bounty_number}" / "bounty_metadata.json"
+        )
+        url = None
+
+        if metadata_path.exists():
+            try:
+                with open(metadata_path, "r") as f:
+                    metadata = json.load(f)
+                    url = metadata.get("bounty_link", None)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Error reading metadata file: {e}")
+
+        # Use the URL to determine the format
+        if url:
+            if "huntr" in url:
+                writeup = format_huntr_writeup(writeup)
+            elif "hackerone" in url:
+                writeup = format_hackerone_writeup(writeup)
+            else:
+                raise ValueError(
+                    "Only huntr and hackerone bounty reports can currently be parsed."
+                )
+        else:
+            # Default format or error handling if URL is not available
+            print("Warning: Could not determine the bounty source from metadata.")
     except FileNotFoundError:
         logger.warning(f"Writeup not found at: {report_path}")
         writeup = ""
@@ -202,7 +228,7 @@ def parse_shell_script(script_path: Path) -> List[str]:
     return commands
 
 
-def format_writeup(writeup: str) -> str:
+def format_huntr_writeup(writeup: str) -> str:
     soup = BeautifulSoup(writeup, "html.parser")
 
     formatted_content = ["======================", "Writeup:\n"]
@@ -231,6 +257,105 @@ def format_writeup(writeup: str) -> str:
             elif child.name == "ul":
                 for li in child.find_all("li"):
                     formatted_content.append(f"- {li.text.strip()}")
+    formatted_content.append("======================")
+    writeup = "\n".join(formatted_content)
+    return writeup
+
+
+def format_hackerone_writeup(writeup: str) -> str:
+    soup = BeautifulSoup(writeup, "html.parser")
+
+    formatted_content = ["======================", "Writeup:\n"]
+
+    # Title and report number
+    title_element = soup.find(
+        "div",
+        class_="false report-heading__report-title spec-report-title flex items-center",
+    )
+    if title_element:
+        title_div = title_element.find("div", class_="break-word")
+        if title_div:
+            formatted_content.append("Title:")
+            formatted_content.append(title_div.text.strip())
+
+    # Get report ID
+    report_status = soup.find("div", class_="report-status")
+    if report_status:
+        report_id = report_status.find("a", class_="report-status-indicator")
+        if report_id:
+            formatted_content.append(report_id.text.strip())
+
+    # Get severity
+    severity_element = soup.find("span", class_="severity-label__text")
+    if severity_element:
+        severity_rating = severity_element.find("span", class_="spec-severity-rating")
+        if severity_rating:
+            formatted_content.append(f"Severity: {severity_rating.text.strip()}")
+
+    formatted_content.append("")
+
+    # Get the summary content
+    summary = soup.find("div", class_="spec-full-summary-content")
+    if summary:
+        formatted_content.append("Summary:")
+        # Extract paragraphs from summary
+        paragraphs = summary.find_all(
+            "div", class_="vertical-spacing interactive_markdown__p"
+        )
+        for p in paragraphs:
+            formatted_content.append(html.unescape(p.text.strip()))
+        formatted_content.append("")
+
+    # Get vulnerability information
+    vuln_info = soup.find("div", class_="spec-vulnerability-information")
+    if vuln_info:
+        formatted_content.append("Vulnerability Information:")
+        # Extract paragraphs from vulnerability info
+        paragraphs = vuln_info.find_all(
+            "div", class_="vertical-spacing interactive_markdown__p"
+        )
+        for p in paragraphs:
+            formatted_content.append(html.unescape(p.text.strip()))
+
+        # Extract code blocks
+        code_blocks = vuln_info.find_all(
+            "div", class_="interactive-markdown__code__content"
+        )
+        for code in code_blocks:
+            formatted_content.append("\nCode:")
+            code_lines = []
+            for line in code.stripped_strings:
+                if not line.isdigit():  # Skip line numbers
+                    code_lines.append(line)
+            formatted_content.append("\n".join(code_lines))
+            formatted_content.append("")
+
+    # Get Impact section if it exists
+    impact_heading = (
+        vuln_info.find("h2", id="user-content-impact") if vuln_info else None
+    )
+    if impact_heading:
+        formatted_content.append("Impact:")
+        next_element = impact_heading.find_next(
+            "div", class_="vertical-spacing interactive_markdown__p"
+        )
+        if next_element:
+            formatted_content.append(html.unescape(next_element.text.strip()))
+
+    # Get bounty information
+    bounty_element = soup.find("div", class_="spec-bounty-amount-meta-item")
+    if bounty_element:
+        bounty_value = bounty_element.find("span", class_="spec-amount-in-currency")
+        if bounty_value:
+            formatted_content.append(f"\nBounty: {bounty_value.text.strip()}")
+
+    # Get CVE ID if exists
+    cve_element = soup.find("div", class_="spec-cve-id-meta-item")
+    if cve_element:
+        cve_link = cve_element.find("a")
+        if cve_link:
+            formatted_content.append(f"CVE ID: {cve_link.text.strip()}")
+
     formatted_content.append("======================")
     writeup = "\n".join(formatted_content)
     return writeup

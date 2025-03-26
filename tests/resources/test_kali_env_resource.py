@@ -1,14 +1,14 @@
 import shutil
 import tempfile
 from pathlib import Path
-
-from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
-from resources.kali_env_resource_util import DockerContainerStartError
-from unittest.mock import MagicMock, patch
+from unittest import mock
+from unittest.mock import MagicMock, call, patch
 
 import docker
 import pytest
 
+from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
+from resources.kali_env_resource_util import DockerContainerStartError
 
 VOLUME = {
     Path(__file__).parent.resolve() / "test_files": {"bind": "/app/", "mode": "rw"}
@@ -28,7 +28,10 @@ def kali_env_resource():
 
     volume = {str(test_files_dir): {"bind": "/app", "mode": "rw"}}
     resource = KaliEnvResource(
-        resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=volume)
+        resource_id=CONTAINER_NAME,
+        config=KaliEnvResourceConfig(
+            volumes=volume, task_dir=test_files_dir, bounty_number="0"
+        ),
     )
 
     yield resource
@@ -47,14 +50,16 @@ def test_docker_api_error_on_start():
         mock_containers.run.side_effect = docker.errors.APIError("API error")
         MockDocker.return_value = mock_client
 
-
         # Patch the _remove_existing_container method to do nothing
         with patch.object(KaliEnvResource, "_remove_existing_container") as mock_remove:
             mock_remove.return_value = None
             mock_remove.side_effect = None
 
             with pytest.raises(DockerContainerStartError, match=".*Docker API error.*"):
-                KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME))
+                KaliEnvResource(
+                    resource_id=CONTAINER_NAME,
+                    config=KaliEnvResourceConfig(volumes=VOLUME),
+                )
 
 
 def test_container_start_timeout():
@@ -65,15 +70,23 @@ def test_container_start_timeout():
         mock_docker.return_value = mock_client
 
         mock_client.containers.run.return_value = mock_container
-        mock_container.status = "created"  # Simulate that container started but is not running
+        mock_container.status = (
+            "created"  # Simulate that container started but is not running
+        )
         # Simulate the reload to always return 'created'
         mock_container.reload = MagicMock(side_effect=lambda: None)
         with patch.object(KaliEnvResource, "_remove_existing_container") as mock_remove:
             mock_remove.return_value = None
             mock_remove.side_effect = None
 
-            with pytest.raises(DockerContainerStartError, match="Container failed to reach running state."):
-                KaliEnvResource(resource_id=CONTAINER_NAME, config=KaliEnvResourceConfig(volumes=VOLUME))
+            with pytest.raises(
+                DockerContainerStartError,
+                match="Container failed to reach running state.",
+            ):
+                KaliEnvResource(
+                    resource_id=CONTAINER_NAME,
+                    config=KaliEnvResourceConfig(volumes=VOLUME),
+                )
 
 
 def test_container_removal_error():
@@ -174,3 +187,100 @@ def test_container_persistence(kali_env_resource):
     stdout, stderr = kali_env_resource.run_command(check_command)
     assert stdout.strip() == ""
     assert stderr.strip() == ""
+
+
+@patch.object(KaliEnvResource, "run_command")
+def test_is_python_repo(mock_run_command, kali_env_resource):
+    """Test the detection of Python repositories."""
+    # Test case 1: Repository with setup.py
+    mock_run_command.return_value = ("/app/codebase/setup.py", "")
+    assert kali_env_resource._is_python_repo("/app/codebase") is True
+
+    # Test case 2: Repository with pyproject.toml
+    mock_run_command.return_value = ("/app/codebase/pyproject.toml", "")
+    assert kali_env_resource._is_python_repo("/app/codebase") is True
+
+    # Test case 3: Not a Python repository
+    mock_run_command.return_value = ("", "")
+    assert kali_env_resource._is_python_repo("/app/codebase") is False
+
+
+@patch.object(KaliEnvResource, "run_command")
+def test_is_node_repo(mock_run_command, kali_env_resource):
+    """Test the detection of Node.js repositories."""
+    # Test case 1: Repository with package.json
+    mock_run_command.return_value = ("/app/codebase/package.json", "")
+    assert kali_env_resource._is_node_repo("/app/codebase") is True
+
+    # Test case 2: Not a Node.js repository
+    mock_run_command.return_value = ("", "")
+    assert kali_env_resource._is_node_repo("/app/codebase") is False
+
+
+@patch.object(KaliEnvResource, "_is_python_repo")
+@patch.object(KaliEnvResource, "_is_node_repo")
+@patch.object(KaliEnvResource, "run_command")
+def test_install_python_repo(
+    mock_run_command, mock_is_node, mock_is_python, kali_env_resource
+):
+    """Test the installation of Python repositories."""
+    # Setup mocks
+    mock_is_python.return_value = True
+    mock_is_node.return_value = False
+    mock_run_command.return_value = ("Successfully installed package", "")
+
+    # Run the method directly, not through _initialize_bounty_directory
+    kali_env_resource._install_repo_in_editable_mode()
+
+    # Verify the pip install command was called
+    mock_run_command.assert_has_calls(
+        [
+            mock.call(
+                "[ -d /app/codebase ] && echo 'exists' || echo 'not_exists'", 120
+            ),
+            mock.call(command='pip install -e .', timeout=600, workdir='/app/codebase'),
+        ],
+        any_order=False,
+    )
+
+
+@patch.object(KaliEnvResource, "_is_python_repo")
+@patch.object(KaliEnvResource, "_is_node_repo")
+@patch.object(KaliEnvResource, "run_command")
+def test_install_node_repo(
+    mock_run_command, mock_is_node, mock_is_python, kali_env_resource
+):
+    """Test the installation of Node.js repositories - should now skip installation."""
+    # Setup mocks
+    mock_is_python.return_value = False
+    mock_is_node.return_value = True
+    mock_run_command.return_value = ("exists", "")
+
+    # Run the method directly
+    kali_env_resource._install_repo_in_editable_mode()
+
+    # Verify run command only called once (to verify codebase exist) - we should skip Node.js installation
+
+    mock_run_command.assert_called_once_with(
+        "[ -d /app/codebase ] && echo 'exists' || echo 'not_exists'", 120
+    )
+
+
+@patch.object(KaliEnvResource, "_is_python_repo")
+@patch.object(KaliEnvResource, "_is_node_repo")
+@patch.object(KaliEnvResource, "run_command")
+def test_no_repo_found(
+    mock_run_command, mock_is_node, mock_is_python, kali_env_resource
+):
+    """Test the case when no recognized repository is found."""
+    # Setup mocks
+    mock_is_python.return_value = False
+    mock_is_node.return_value = False
+    mock_run_command.return_value = ("exists", "")
+
+    # Run the method directly
+    kali_env_resource._install_repo_in_editable_mode()
+
+    # Verify both repo checks were called
+    mock_is_python.assert_called_once_with("/app/codebase")
+    mock_is_node.assert_called_once_with("/app/codebase")

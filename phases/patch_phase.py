@@ -11,7 +11,7 @@ from resources.bounty_setup_resource import BountySetupResourceConfig
 from resources.docker_resource import DockerResourceConfig
 from resources.init_files_resource import InitFilesResourceConfig
 from resources.kali_env_resource import KaliEnvResourceConfig
-from resources.memory_resource import MemoryResourceConfig
+from resources.memory_resource.memory_resource import MemoryResourceConfig
 from resources.model_resource.model_resource import ModelResourceConfig
 from resources.repo_setup_resource import RepoSetupResourceConfig
 from resources.resource_type import ResourceType
@@ -106,6 +106,7 @@ class PatchPhase(BountyPhase):
                         str(self.tmp_dir.resolve()): {"bind": "/app", "mode": "rw"},
                     },
                     target_host=self.workflow.repo_metadata["target_host"],
+                    install_command=self.workflow.repo_metadata.get("install_command"),
                 ),
             ),
             (ResourceType.DOCKER, DockerResourceConfig()),
