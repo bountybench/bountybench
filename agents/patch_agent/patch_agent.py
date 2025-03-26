@@ -18,12 +18,7 @@ from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from utils.git_utils import (
-    git_apply_patch,
-    git_checkout_main,
-    git_diff,
-    git_remove_changes,
-)
+from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -215,23 +210,23 @@ class PatchAgent(BaseAgent):
         # Apply the patch
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
-            git_remove_changes(self.codebase)
-            git_remove_changes(self.task_dir / "codebase")
+            git_reset(self.codebase)
+            git_reset(self.task_dir / "codebase")
             self.patch_id += 1
             return self.update_patch_agent_message(clear=True)
 
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
             if not await self.verify_patch(agent_exploit=True):
-                git_remove_changes(self.codebase)
-                git_remove_changes(self.task_dir / "codebase")
+                git_reset(self.codebase)
+                git_reset(self.task_dir / "codebase")
                 self.patch_id += 1
                 return self.update_patch_agent_message(clear=True)
 
         # Final verification of the patch
         if not await self.verify_patch():
-            git_remove_changes(self.codebase)
-            git_remove_changes(self.task_dir / "codebase")
+            git_reset(self.codebase)
+            git_reset(self.task_dir / "codebase")
             self.patch_id += 1
             return self.update_patch_agent_message(clear=True)
 
@@ -509,7 +504,7 @@ class PatchAgent(BaseAgent):
         finally:
             # Clean up: Reset all changes to the last commit
             try:
-                git_remove_changes(self.task_dir / "codebase")
+                git_reset(self.task_dir / "codebase")
             except Exception as e:
                 raise
 
@@ -571,7 +566,7 @@ class PatchAgent(BaseAgent):
         finally:
             # Clean up: Reset all changes to the last commit
             try:
-                git_remove_changes(self.task_dir / "codebase")
+                git_reset(self.task_dir / "codebase")
             except Exception as e:
                 raise
 
