@@ -213,8 +213,8 @@ async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
     run_exploit_mock = mocker.patch.object(
         patch_agent, "run_agent_exploit", side_effect=[0, 0]
     )
-    git_remove_changes_mock: MagicMock = mocker.patch(
-        "agents.patch_agent.patch_agent.git_remove_changes"
+    git_reset_mock: MagicMock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_reset"
     )
 
     # Let invariants pass
@@ -228,7 +228,7 @@ async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
         "Exploit check failed - exploit did not fail after patch" in final_msg.message
     )
     assert run_exploit_mock.call_count == 2
-    assert git_remove_changes_mock.call_count == 2
+    assert git_reset_mock.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -560,7 +560,7 @@ def test_check_invariant_scores_edge_cases(patch_agent):
                 file.unlink()
 
 
-# Test that the system correctly makes calls to git_remove_changes
+# Test that the system correctly makes calls to git_reset
 # -----------------------------------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_reset_repo_on_empty_diff(patch_agent, mocker):
@@ -575,13 +575,13 @@ async def test_reset_repo_on_empty_diff(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(False, "Patch failed"),
     )
-    git_remove_changes_mock: MagicMock = mocker.patch(
-        "agents.patch_agent.patch_agent.git_remove_changes"
+    git_reset_mock: MagicMock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_reset"
     )
 
     await agent.run(["message"])
 
-    git_remove_changes_mock.assert_not_called()
+    git_reset_mock.assert_not_called()
     assert (
         agent.patch_id == prev_patch_id
     )  # patch is skipped so patch_id should not increment
@@ -603,12 +603,12 @@ async def test_reset_repo_on_patch_creation_fail(patch_agent, mocker):
         side_effect=Exception("Failed to create patch file"),
     )
 
-    git_remove_changes_mock = mocker.patch(
-        "agents.patch_agent.patch_agent.git_remove_changes"
+    git_reset_mock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_reset"
     )
     await agent.run(["message"])
 
-    assert git_remove_changes_mock.call_count == 2
+    assert git_reset_mock.call_count == 2
     assert agent.patch_id == prev_patch_id + 1
 
 
@@ -627,12 +627,12 @@ async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
         return_value=(False, "Patch failed"),
     )
 
-    git_remove_changes_mock = mocker.patch(
-        "agents.patch_agent.patch_agent.git_remove_changes"
+    git_reset_mock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_reset"
     )
     await agent.run(["message"])
 
-    assert git_remove_changes_mock.call_count == 2
+    assert git_reset_mock.call_count == 2
     assert agent.patch_id == prev_patch_id + 1
 
 
@@ -661,12 +661,12 @@ async def test_reset_repo_on_invariant_checking_fail(patch_agent, mocker):
         side_effect=[MOCK_REPO_SCORES, MOCK_BOUNTY_SCORES],
     )
 
-    git_remove_changes_mock = mocker.patch(
-        "agents.patch_agent.patch_agent.git_remove_changes"
+    git_reset_mock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_reset"
     )
     await agent.run(["message"])
 
-    assert git_remove_changes_mock.call_count == 2
+    assert git_reset_mock.call_count == 2
     assert agent.patch_id == prev_patch_id + 1
 
 
@@ -687,9 +687,9 @@ async def test_full_workflow_exploit_failure(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(True, "Patch applied successfully"),
     )
-    mocker.patch("agents.patch_agent.patch_agent.git_remove_changes")
-    git_remove_changes_mock = mocker.patch(
-        "agents.patch_agent.patch_agent.git_remove_changes"
+    mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_reset_mock = mocker.patch(
+        "agents.patch_agent.patch_agent.git_reset"
     )
 
     agent.last_patch_agent_message = PatchAgentMessage(
@@ -706,7 +706,7 @@ async def test_full_workflow_exploit_failure(patch_agent, mocker):
     assert agent.last_patch_agent_message.success is False
     assert "check failed" in agent.last_patch_agent_message.message
     assert agent.patch_id == prev_patch_id + 1
-    assert git_remove_changes_mock.call_count == 2
+    assert git_reset_mock.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -725,7 +725,7 @@ async def test_full_workflow_success(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(True, "Patch applied successfully"),
     )
-    mocker.patch("agents.patch_agent.patch_agent.git_remove_changes")
+    mocker.patch("agents.patch_agent.patch_agent.git_reset")
 
     agent.last_patch_agent_message = PatchAgentMessage(
         agent_id="patch_agent", message=None
