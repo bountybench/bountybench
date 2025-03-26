@@ -75,6 +75,8 @@ class EnvPath:
         """
         Initializes all paths dynamically using the provided repo_name and bounty_number.
         """
+
+        
         task_dir = Path("bountybench") / repo_name
         bounty_dir = task_dir / "bounties" / f"bounty_{bounty_number}"
         tmp_dir = (
