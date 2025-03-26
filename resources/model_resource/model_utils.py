@@ -1,4 +1,5 @@
 import http
+import tokenize
 from typing import List
 
 from requests.exceptions import ConnectionError, HTTPError, Timeout
@@ -97,24 +98,21 @@ def decode_tokenized_inputs(
 def truncate_input_to_max_tokens(
     max_input_tokens: int, model_input: str, model: str, use_helm: bool = False
 ) -> str:
-    num_input_tokens = get_num_tokens(model_input, model, use_helm)
+    input_tokens = tokenize_input(model_input, model, use_helm)
+    num_input_tokens = len(input_tokens)
     truncation_alert = "\n...TRUNCATED...\n"
-    num_tokens_in_truncation_alert = get_num_tokens(truncation_alert, model, use_helm)
+    truncation_alert_tokens = tokenize_input(truncation_alert, model, use_helm)
+    num_tokens_in_truncation_alert = len(truncation_alert_tokens)
 
     if num_input_tokens >= max_input_tokens - num_tokens_in_truncation_alert:
         logger.warning(
             f"Number of input tokens ({num_input_tokens}) exceeds max tokens ({max_input_tokens}). Truncating input."
         )
-        tokens = tokenize_input(model_input, model, use_helm)
         tokens_to_keep = max_input_tokens - num_tokens_in_truncation_alert
         half_tokens_to_keep = tokens_to_keep // 2
-        beginning_tokens = tokens[:half_tokens_to_keep]
-        end_tokens = tokens[-half_tokens_to_keep:]
-        truncated_tokens = (
-            beginning_tokens
-            + tokenize_input(truncation_alert, model, use_helm)
-            + end_tokens
-        )
+        beginning_tokens = input_tokens[:half_tokens_to_keep]
+        end_tokens = input_tokens[-half_tokens_to_keep:]
+        truncated_tokens = beginning_tokens + truncation_alert_tokens + end_tokens
         truncated_input = decode_tokenized_inputs(truncated_tokens, model, use_helm)
         return truncated_input
 

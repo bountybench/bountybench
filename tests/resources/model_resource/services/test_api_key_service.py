@@ -213,6 +213,61 @@ class TestApiKeyService(unittest.TestCase):
         )
         self.assertTrue(_ok)
 
+    def test_openai_reasoning_suffix_stripping(self):
+        """
+        Test that the reasoning effort suffixes are properly stripped from OpenAI model names
+        during verification.
+        """
+        from resources.model_resource.services.api_key_service import (
+            _auth_openai_api_key,
+        )
+
+        # Create a mock response object for the OpenAI API
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [
+                {"id": "o1-preview-2024-09-12"},
+                {"id": "o3-mini-2025-01-31"},
+                {"id": "gpt-4o-2024-11-20"},
+            ]
+        }
+
+        # Test cases for different model names with reasoning suffixes
+        test_cases = [
+            # Model with high reasoning suffix
+            ("openai/o1-preview-2024-09-12-high-reasoning-effort", True),
+            # Model with low reasoning suffix
+            ("openai/o1-preview-2024-09-12-low-reasoning-effort", True),
+            # Model with high reasoning suffix for o3
+            ("openai/o3-mini-2025-01-31-high-reasoning-effort", True),
+            # Non-o model with suffix (should fail since we don't strip for non-o models)
+            ("openai/gpt-4o-2024-11-20-high-reasoning-effort", False),
+            # Base model names should pass
+            ("openai/o1-preview-2024-09-12", True),
+            ("openai/o3-mini-2025-01-31", True),
+        ]
+
+        # Test each case
+        with patch("requests.get", return_value=mock_response):
+            for model_name, expected_success in test_cases:
+                _ok, _message = _auth_openai_api_key(
+                    "sk-test-key", model_name, verify_model=True
+                )
+                self.assertEqual(
+                    _ok,
+                    expected_success,
+                    f"Model {model_name} expected {'success' if expected_success else 'failure'} but got {'success' if _ok else 'failure'}",
+                )
+
+                # If expected to succeed, verify the message is empty
+                if expected_success:
+                    self.assertEqual(
+                        _message,
+                        "",
+                        f"Expected empty message for {model_name}, got: {_message}",
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
