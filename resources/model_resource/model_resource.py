@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, List
 
 import tiktoken
+import re
 
 from messages.action_messages.action_message import ActionMessage
 from messages.message import Message
@@ -137,6 +138,19 @@ class ModelResource(RunnableBaseResource):
         response = response.replace(STOP_TOKEN, "")
         return response.strip()
 
+    def remove_deepseek_r1_thinking(self, response: str) -> str:
+        if "<think>" not in response:
+            return response
+
+        if "</think>\n\n" in response:
+            # The think block is usually followed by two newlines
+            return re.sub("<think>.*</think>\n\n", "", response, flags=re.DOTALL)
+        elif "</think>" in response:
+            return re.sub("<think>.*</think>", "", response, flags=re.DOTALL)
+        else:
+            # Unclosed think block
+            return ""
+
     def tokenize(self, message: str) -> List[int]:
         """
         Tokenize the given message using the specified model's tokenizer.
@@ -206,6 +220,7 @@ class ModelResource(RunnableBaseResource):
 
         lm_response = self.remove_hallucinations(model_response.content)
         lm_response = self.remove_stop_token(lm_response)
+        lm_response = self.remove_deepseek_r1_thinking(lm_response)
         lm_response = lm_response + f"\n{STOP_TOKEN}"
         metadata = (
             {
