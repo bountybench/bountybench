@@ -34,14 +34,16 @@ class BountyPhase(BasePhase, ABC):
             workflow.task_dir / "bounties" / f"bounty_{self.bounty_number}"
         )
 
-        super().__init__(workflow, **kwargs)
 
         self.tmp_dir: Path = (
             workflow.task_dir
             / "bounties"
             / f"bounty_{self.bounty_number}"
-            / f"tmp_{self.workflow_id}"
+            / f"tmp_{workflow.workflow_message.workflow_id}"
         )
+
+        super().__init__(workflow, **kwargs)
+
 
 
     def _create_initial_agent_message(self) -> None:

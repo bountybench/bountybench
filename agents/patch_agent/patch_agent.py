@@ -831,33 +831,11 @@ class PatchAgent(BaseAgent):
 
     def cleanup(self) -> None:
         """Perform cleanup operations."""
+
+        self._store_exploit()
         if self.codebase and self.codebase.exists():
             git_checkout_main(self.codebase, force=True)
 
-    # def _store_patch(self) -> None:
-    #     """Store the patches in a timestamped folder."""
-    #     try:
-    #         timestamp = time.strftime("%Y%m%d-%H%M%S")
-    #         self.new_patch_dir = self.output_patch_dir.with_name(
-    #             f"{self.output_patch_dir.name}-{timestamp}"
-    #         )
-    #         if self.output_patch_dir.exists() and self.output_patch_dir.is_dir():
-    #             if any(self.output_patch_dir.iterdir()):
-    #                 shutil.copytree(
-    #                     str(self.output_patch_dir),
-    #                     str(self.new_patch_dir),
-    #                     ignore=shutil.ignore_patterns("codebase"),
-    #                 )
-    #                 logger.info(f"Patches successfully moved to {self.new_patch_dir}.")
-    #             else:
-    #                 logger.info("Patches directory is empty. No need to move.")
-    #                 shutil.rmtree(self.output_patch_dir)
-    #         else:
-    #             logger.warning("No patches directory found to move.")
-
-    #     except Exception as e:
-    #         logger.error(f"Failed to move patches directory: {e}")
-    
 
     def _store_exploit(self) -> Optional[str]:
         """Store the exploit files in a timestamped directory."""
