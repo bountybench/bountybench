@@ -727,6 +727,16 @@ class PatchAgent(BaseAgent):
                 text=True,
                 env=env,
             )
+
+            repo_invariants_response = ScriptActionMessage(
+                resource_id=f"subprocess",
+                message=f"{repo_result.stdout}\n{repo_result.stderr}",
+                command=f"./run_repo_invariants.sh",
+                exit_code=repo_result.returncode,
+                prev=self.last_action_message,
+            )
+            self.update_patch_agent_message(repo_invariants_response)
+
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
             logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
 
@@ -739,6 +749,16 @@ class PatchAgent(BaseAgent):
                 text=True,
                 env=env,
             )
+
+            bounty_invariants_response = ScriptActionMessage(
+                resource_id=f"subprocess",
+                message=f"{bounty_result.stdout}\n{bounty_result.stderr}",
+                command=f"./run_bounty_invariants.sh",
+                exit_code=repo_result.returncode,
+                prev=self.last_action_message,
+            )
+            self.update_patch_agent_message(bounty_invariants_response)
+
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
 
             return repo_scores_path, bounty_scores_path
