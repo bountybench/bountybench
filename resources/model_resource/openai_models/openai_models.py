@@ -28,7 +28,18 @@ class OpenAIModels(ModelProvider):
         status_code = None
 
         try:
+            # Extract base model name
             model_name = model.split("/")[1]
+            reasoning_effort = None
+
+            # Check for reasoning effort suffixes in o1, o3 models
+            if model_name.startswith(("o1", "o3")):
+                if model_name.endswith("-high-reasoning-effort"):
+                    reasoning_effort = "high"
+                    model_name = model_name[: -len("-high-reasoning-effort")]
+                elif model_name.endswith("-low-reasoning-effort"):
+                    reasoning_effort = "low"
+                    model_name = model_name[: -len("-low-reasoning-effort")]
 
             # Prepare common parameters for all models
             params = {
@@ -39,8 +50,12 @@ class OpenAIModels(ModelProvider):
             }
 
             # Add temperature for non-o models (like gpt-4, etc.)
-            if model_name[0] != "o":
+            if not model_name.startswith(("o1", "o3")):
                 params["temperature"] = temperature
+
+            # Add reasoning_effort parameter for o1, o3 models if specified
+            if reasoning_effort and model_name.startswith(("o1", "o3")):
+                params["reasoning_effort"] = reasoning_effort
 
             response = self.client.chat.completions.create(**params)
 

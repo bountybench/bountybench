@@ -322,7 +322,10 @@ def git_diff(directory_path: PathLike) -> str:
         # Get staged diff
         diff_result = _run_git_command(
             directory,
-            ["diff", "--cached", "--text"],
+            [
+                "diff",
+                "--cached",
+            ],
             capture_output=True,
             errors="replace",
         )
