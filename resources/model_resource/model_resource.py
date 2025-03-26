@@ -1,8 +1,8 @@
+import re
 from dataclasses import dataclass, field
 from typing import Any, List
 
 import tiktoken
-import re
 
 from messages.action_messages.action_message import ActionMessage
 from messages.message import Message
