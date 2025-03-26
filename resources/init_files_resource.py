@@ -281,7 +281,7 @@ class InitFilesResource(BaseResource):
             ),
             output_agent_files_dir_name=(
                 Path(data["output_agent_files_dir"]).name
-                if data["output_exploit_files_dir"]
+                if data["output_agent_files_dir"]
                 else None
             ),
             vulnerable_commit=data["vulnerable_commit"],

@@ -21,6 +21,9 @@ EXPLOIT_SCRIPT_NAME = "exploit.sh"
 VERIFY_SCRIPT_NAME = "verify.sh"
 
 
+
+workflow_id = "1"
+
 @dataclass
 class EnvPath:
     """
@@ -59,6 +62,7 @@ class EnvPath:
 
     CODEBASE_FILES_DIR_NAME: str = ""
     EXPLOIT_FILES_DIR_NAME: str = ""
+    OUTPUT_PATH_DIR_NAME: str = ""
 
     def __init__(
         self,
@@ -66,7 +70,7 @@ class EnvPath:
         bounty_number: int,
         workflow_id: str = "1",
         codebase_files_dir_name: str = "codebase",
-        exploit_files_dir_name: str = "agent_created_files",
+        exploit_files_dir_name: str = "exploit_files",
     ):
         """
         Initializes all paths dynamically using the provided repo_name and bounty_number.
@@ -81,7 +85,7 @@ class EnvPath:
         verify_script_dir = bounty_dir / VERIFY_SCRIPT_NAME
         tmp_exploit_script_dir = tmp_dir / EXPLOIT_SCRIPT_NAME
         exploit_files_dir = bounty_dir / exploit_files_dir_name
-        agent_patches_dir = bounty_dir / "agent-patches"
+        agent_patches_dir = bounty_dir / f"agent_created_files_{workflow_id}"
 
         # Setting the actual value of each enum member
         self.TASK_DIR = task_dir.resolve()
@@ -93,12 +97,10 @@ class EnvPath:
         self.TMP_EXPLOIT_SCRIPT_DIR = tmp_exploit_script_dir
         self.EXPLOIT_FILES_DIR = exploit_files_dir
         self.AGENT_PATCHES_DIR = agent_patches_dir
+        self.OUTPUT_PATH_DIR_NAME = f"agent_created_files_{workflow_id}"
 
         self.CODEBASE_FILES_DIR_NAME = codebase_files_dir_name
         self.EXPLOIT_FILES_DIR_NAME = exploit_files_dir_name
-
-
-workflow_id = "1"
 
 
 # Setup bounties and initialize needed resources for all agent tests once
@@ -132,7 +134,8 @@ def bounty_setup(
             files_dir_name=env_path.CODEBASE_FILES_DIR_NAME,
             tmp_dir=env_path.TMP_DIR,
             bounty_number=bounty_number,
-            output_agent_files_name=env_path.EXPLOIT_FILES_DIR_NAME,
+            input_exploit_files_dir_name=env_path.EXPLOIT_FILES_DIR_NAME,
+            output_agent_files_name=env_path.OUTPUT_PATH_DIR_NAME,
             vulnerable_commit=vulnerable_commit,
         )
         resources.append("init_files")
