@@ -34,6 +34,10 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
               Summary: {message.phase_summary || '(no summary)'}
             </Typography>
             
+            <Typography className="phase-summary">
+              Iterations: {message.current_children?.length || '(no iterations)'}
+            </Typography>
+
             {message.current_children?.length > 0 && (
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
