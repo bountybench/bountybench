@@ -240,17 +240,17 @@ class KaliEnvResource(RunnableBaseResource):
             stdout, stderr = self.run_command(cmd, PIP_INSTALL_TIMEOUT)
             logger.info(f"Python repo installation result: {stdout}\n{stderr}")
 
-                host_path = self._map_container_path_to_host(codebase_path)
-                if host_path:
-                    logger.info(
-                        f"Updating git history to include changes from installation in latest commit"
-                    )
-                    git_commit(host_path)
-                else:
-                    logger.warning(
-                        f"Could not determine host path for {codebase_path}. Skipping git commit."
-                    )
-                return
+            host_path = self._map_container_path_to_host(codebase_path)
+            if host_path:
+                logger.info(
+                    f"Updating git history to include changes from installation in latest commit"
+                )
+                git_commit(host_path)
+            else:
+                logger.warning(
+                    f"Could not determine host path for {codebase_path}. Skipping git commit."
+                )
+            return
 
         # Check if Node.js repo - just log but don't install
         elif self._is_node_repo(codebase_path):
