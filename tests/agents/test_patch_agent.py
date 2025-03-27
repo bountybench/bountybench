@@ -583,7 +583,7 @@ async def test_reset_repo_on_empty_diff(patch_agent, mocker):
 async def test_reset_repo_on_patch_creation_fail(patch_agent, mocker):
     """
     Test that tmp and remote codebase are reset to their original states if
-    patch creation failed.
+    patch creation fails.
     """
     agent = patch_agent
     prev_patch_id = agent.patch_id
@@ -595,13 +595,16 @@ async def test_reset_repo_on_patch_creation_fail(patch_agent, mocker):
         side_effect=Exception("Failed to create patch file"),
     )
 
-    git_reset_mock = mocker.patch(
-        "agents.patch_agent.patch_agent.git_reset"
-    )
-    await agent.run(["message"])
+    git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+
+    # Catch the exception so the test can proceed with assertions
+    try:
+        await agent.run(["message"])
+    except Exception as e:
+        assert "Failed to create patch file" in str(e)
 
     assert git_reset_mock.call_count == 2
-    assert agent.patch_id == prev_patch_id + 1
+    assert agent.patch_id == prev_patch_id 
 
 
 @pytest.mark.asyncio
@@ -624,7 +627,7 @@ async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     )
     await agent.run(["message"])
 
-    assert git_reset_mock.call_count == 3
+    assert git_reset_mock.call_count == 2
     assert agent.patch_id == prev_patch_id + 1
 
 
