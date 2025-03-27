@@ -210,9 +210,7 @@ def git_has_changes(directory_path: PathLike) -> bool:
     """
     directory = Path(directory_path)
     try:
-        result = _run_git_command(
-            directory, ["status", "--porcelain"], capture_output=True
-        )
+        result = _run_git_command(directory, ["status", "--porcelain"], capture_output=True)
         return bool(result.stdout.strip())
     except subprocess.CalledProcessError:
         logger.error("Failed to check repository status")
@@ -237,7 +235,10 @@ def git_clean(directory_path: PathLike, remove_ignored: bool = False) -> None:
     logger.info(f"Cleaned untracked files in {directory}")
 
 
-def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
+def git_init_repo(
+    directory_path: PathLike,
+    ignore_dirs: list[str] = None
+) -> None:
     """Initialize git repository if it doesn't exist."""
     directory = Path(directory_path)
 
@@ -305,7 +306,7 @@ def git_delete_branch(directory_path: PathLike, branch_name: str) -> None:
 
 
 def git_diff(directory_path: PathLike, exclude_binary: Optional[bool] = True) -> str:
-    """Get git diff of the repository, skipping binary files."""
+    """Get git diff of the repository"""
     try:
         directory = Path(directory_path)
         logger.info(f"Checking for git diff in directory: {directory}")
