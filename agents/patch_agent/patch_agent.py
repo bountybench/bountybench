@@ -389,7 +389,7 @@ class PatchAgent(BaseAgent):
             exploit_command = "bash exploit.sh"
 
             exploit_execution = DockerActionMessage(
-                resource_id=self.resources.docker.resource_id,
+                resource_id=f"exploit_{self.resources.docker.resource_id}",
                 docker_image="cybench/bountyagent:latest",
                 command=exploit_command,
                 network="shared_net",
@@ -428,7 +428,7 @@ class PatchAgent(BaseAgent):
             exploit_command = "bash exploit.sh true"
 
             exploit_execution = DockerActionMessage(
-                resource_id=self.resources.docker.resource_id,
+                resource_id=f"exploit_{self.resources.docker.resource_id}",
                 docker_image="cybench/bountyagent:latest",
                 command=exploit_command,
                 network="shared_net",
@@ -450,7 +450,7 @@ class PatchAgent(BaseAgent):
                     text=True,
                 )
                 verify_response = ScriptActionMessage(
-                    resource_id=f"subprocess",
+                    resource_id=f"verify_subprocess",
                     message=result.stdout,
                     command=f"./verify.sh {exploit_execution.message}",
                     exit_code=result.returncode,
@@ -687,6 +687,63 @@ class PatchAgent(BaseAgent):
 
         return passed
 
+    def _truncate_script_output(
+        self, stdout: str, stderr: Optional[str] = "", max_length: int = 5000
+    ) -> str:
+        """
+        Truncate script output to enforce max_length, keeping the most recent output
+
+        Args:
+            stdout: Standard output from script
+            stderr: Standard error from script (optional)
+            max_length: Maximum total length of the combined output
+
+        Returns:
+            Truncated combined output string
+        """
+        stdout = stdout.strip()
+        stderr = stderr.strip()
+
+        total_length = len(stdout) + len(stderr)
+        truncation_indicator = "\n...TRUNCATED...\n"
+        indicator_length = len(truncation_indicator)
+
+        if total_length <= max_length:
+            if stderr:
+                return f"{stdout}\n\nSTDERR:\n{stderr}"
+            return stdout
+
+        if not stdout:
+            truncated_stderr = (
+                f"{truncation_indicator}{stderr[-(max_length - indicator_length):]}"
+            )
+            return f"STDERR:{truncated_stderr}"
+
+        if not stderr:
+            truncated_stdout = (
+                f"{truncation_indicator}{stdout[-(max_length - indicator_length):]}"
+            )
+            return truncated_stdout
+
+        stderr_prefix = "\n\nSTDERR:\n"
+
+        if len(stderr) < max_length * 0.5:
+            stderr_space = len(stderr)
+            stdout_space = max_length - stderr_space
+        elif len(stdout) < max_length * 0.5:
+            stdout_space = len(stdout)
+            stderr_space = max_length - stdout_space
+        else:
+            stdout_space = max_length // 2
+            stderr_space = max_length - stdout_space
+
+        truncated_stdout = stdout[-int(stdout_space) :]
+        truncated_stderr = stderr[-int(stderr_space) :]
+
+        return (
+            f"{truncation_indicator}{truncated_stdout}{stderr_prefix}{truncated_stderr}"
+        )
+
     @with_deactivated_venv
     def _execute_invariant_tests(self) -> tuple[Path, Path]:
         """
@@ -712,6 +769,18 @@ class PatchAgent(BaseAgent):
                 text=True,
                 env=env,
             )
+
+            repo_invariants_response = ScriptActionMessage(
+                resource_id=f"repo_invariants_subprocess",
+                message=self._truncate_script_output(
+                    repo_result.stdout, repo_result.stderr
+                ),
+                command=f"./run_repo_invariants.sh",
+                exit_code=repo_result.returncode,
+                prev=self.last_action_message,
+            )
+            self.update_patch_agent_message(repo_invariants_response)
+
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
             logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
 
@@ -724,6 +793,18 @@ class PatchAgent(BaseAgent):
                 text=True,
                 env=env,
             )
+
+            bounty_invariants_response = ScriptActionMessage(
+                resource_id=f"bounty_invariants_subprocess",
+                message=self._truncate_script_output(
+                    bounty_result.stdout, bounty_result.stderr
+                ),
+                command=f"./run_bounty_invariants.sh",
+                exit_code=repo_result.returncode,
+                prev=self.last_action_message,
+            )
+            self.update_patch_agent_message(bounty_invariants_response)
+
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
 
             return repo_scores_path, bounty_scores_path
