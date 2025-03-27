@@ -14,6 +14,7 @@ from resources.resource_manager import ResourceManager
 QUERY_TIME_TAKEN_IN_MS = "query_time_taken_in_ms"
 INPUT_TOKEN = "input_token"
 OUTPUT_TOKEN = "output_token"
+TOTAL_ITERATION_TIME_MS = "total_iteration_time_ms"
 
 
 @pytest.fixture
@@ -173,7 +174,9 @@ def test_calculate_total_usages(mocker):
 
     # Create mock agent messages with mock action messages
     agent_message1 = MagicMock(spec=AgentMessage)
+    agent_message1.iteration_time_ms = 700
     agent_message2 = MagicMock(spec=AgentMessage)
+    agent_message2.iteration_time_ms = 600
 
     # Create mock action messages with token metadata
     action_message1 = MagicMock(spec=ActionMessage)
@@ -215,12 +218,14 @@ def test_calculate_total_usages(mocker):
     assert usage[INPUT_TOKEN] == 450  # 100 + 150 + 200
     assert usage[OUTPUT_TOKEN] == 225  # 50 + 75 + 100
     assert usage[QUERY_TIME_TAKEN_IN_MS] == 900  # 200 + 300 + 400
+    assert usage[TOTAL_ITERATION_TIME_MS] == 1300  # 700 + 600
 
     # Verify the phase's usage property is updated
     assert phase_message.usage == {
         INPUT_TOKEN: 450,
         OUTPUT_TOKEN: 225,
         QUERY_TIME_TAKEN_IN_MS: 900,
+        TOTAL_ITERATION_TIME_MS: 1300,
     }
 
 
@@ -247,6 +252,7 @@ def test_to_log_dict(mocker):
             INPUT_TOKEN: 500,
             OUTPUT_TOKEN: 250,
             QUERY_TIME_TAKEN_IN_MS: 1000,
+            TOTAL_ITERATION_TIME_MS: 1500,
         },
     )
 
@@ -281,4 +287,5 @@ def test_to_log_dict(mocker):
         INPUT_TOKEN: 500,
         OUTPUT_TOKEN: 250,
         QUERY_TIME_TAKEN_IN_MS: 1000,
+        TOTAL_ITERATION_TIME_MS: 1500,
     }
