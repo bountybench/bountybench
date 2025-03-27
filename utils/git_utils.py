@@ -304,7 +304,7 @@ def git_delete_branch(directory_path: PathLike, branch_name: str) -> None:
         )
 
 
-def git_diff(directory_path: PathLike) -> str:
+def git_diff(directory_path: PathLike, exclude_binary: Optional[bool] = True) -> str:
     """Get git diff of the repository, skipping binary files."""
     try:
         directory = Path(directory_path)
@@ -318,41 +318,41 @@ def git_diff(directory_path: PathLike) -> str:
         # Stage all changes
         _run_git_command(directory, ["add", "-A"])
 
-        # Get list of changed files
-        numstat_result = _run_git_command(
-            directory,
-            [
-                "diff",
-                "--cached",
-                "--numstat",
-            ],
-            capture_output=True,
-            errors="replace",
-        )
+        if exclude_binary:
+            # Get list of changed files
+            numstat_result = _run_git_command(
+                directory,
+                [
+                    "diff",
+                    "--cached",
+                    "--numstat",
+                ],
+                capture_output=True,
+                errors="replace",
+            )
 
-        if not numstat_result:
-            return ""
+            if not numstat_result:
+                return ""
 
-        # Parse numstat output to get non-binary files
-        non_binary_files = set()
-        for line in numstat_result.stdout.splitlines():
-            parts = line.split("\t")
-            if len(parts) >= 3 and parts[0] != "-" and parts[1] != "-":
-                non_binary_files.add(parts[2])
+            # Parse numstat output to get non-binary files
+            non_binary_files = set()
+            for line in numstat_result.stdout.splitlines():
+                parts = line.split("\t")
+                if len(parts) >= 3 and parts[0] != "-" and parts[1] != "-":
+                    non_binary_files.add(parts[2])
 
-        if not non_binary_files:
-            logger.info("No non-binary files changed")
-            return ""
+            if not non_binary_files:
+                logger.info("No non-binary files changed")
+                return ""
 
-        # Get staged diff for non-binary files
+            args = ["diff", "--cached", "--", *non_binary_files]
+        else:
+            args = ["diff", "--cached"]
+
+        # Get staged diff
         diff_result = _run_git_command(
             directory,
-            [
-                "diff",
-                "--cached",
-                "--",
-                *non_binary_files,
-            ],
+            args,
             capture_output=True,
             errors="replace",
         )
