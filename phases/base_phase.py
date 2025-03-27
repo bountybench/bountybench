@@ -239,7 +239,7 @@ class BasePhase(ABC):
 
         start_count = self.iteration_count
         # Start the iteration at the current count
-        for iteration_num in range(start_count, self.phase_config.max_iterations + 1):
+        for iteration_num in range(start_count, self.phase_config.max_iterations):
 
             if self._phase_message.complete:
                 break

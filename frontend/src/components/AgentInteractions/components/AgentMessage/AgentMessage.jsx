@@ -239,7 +239,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
               )}
               {message.iteration_time_ms && (
                 <Typography className="message-timestamp">
-                  | {formatTimeElapsed(message.iteration_time_ms)} elapsed
+                  | {formatTimeElapsed(message.iteration_time_ms) || '-'} elapsed
                 </Typography>
               )}
             </Box>

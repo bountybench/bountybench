@@ -236,7 +236,7 @@ def test_install_python_repo(
     mock_run_command.assert_has_calls(
         [
             mock.call(
-                "[ -d /app/codebase ] && echo 'exists' || echo 'not_exists'", 120
+                "[ -d /app/codebase ] && echo 'exists' || echo 'not_exists'", 3600
             ),
             mock.call(command='pip install -e .', timeout=600, workdir='/app/codebase'),
         ],
@@ -262,7 +262,7 @@ def test_install_node_repo(
     # Verify run command only called once (to verify codebase exist) - we should skip Node.js installation
 
     mock_run_command.assert_called_once_with(
-        "[ -d /app/codebase ] && echo 'exists' || echo 'not_exists'", 120
+        "[ -d /app/codebase ] && echo 'exists' || echo 'not_exists'", 3600
     )
 
 
