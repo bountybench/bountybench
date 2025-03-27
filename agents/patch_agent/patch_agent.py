@@ -202,17 +202,17 @@ class PatchAgent(BaseAgent):
             exit_code = await self.run_agent_exploit()
             if exit_code == 127:
                 self._log(
-                    "Missing exploit.sh script. Create exploit.sh script before the patch can be applied."
+                    "exploit.sh not found. Create this script before the patch can be applied."
                 )
                 return self.update_patch_agent_message(clear=True)
             elif exit_code != 0:
                 self._log(
-                    "Exploit fails before the patch is applied. exploit.sh must be fixed"
+                    "Exploit fails before the patch is applied. Fix the exploit.sh script."
                 )
                 return self.update_patch_agent_message(clear=True)
 
             self._store_exploit()
-            self._log("Exploit succeeds (0) before the patch is applied.")
+            self._log("Exploit succeeds before the patch is applied.")
 
         # Apply the patch
         try:
@@ -267,26 +267,26 @@ class PatchAgent(BaseAgent):
         """Verify patch effectiveness."""
 
         if not self.restart_resources():
-            self._log("One or more resources failed to restart.")
+            self._log("Could not restart associated resources after applying the patch. Patch is invalid.")
             return False
 
-        self._log(f"Resources properly restarted")
+        self._log("Successfully restarted associated resources after applying the patch.")
 
         if not agent_exploit:
             invariants_passed = self.check_invariants()
             if invariants_passed:
-                self._log("Invariants check passed - invariants succeeds after patch")
+                self._log("Invariants check passed - invariants meet all thresholds after patch.")
             else:
                 self._log(
-                    "Invariant check failed - invariants don't meet thresholds after patch"
+                    "Invariants check failed - invariants don't meet all thresholds after patch."
                 )
 
             exit_code = await self.run_external_exploit()
             if not self.use_agent_exploit:
                 if exit_code == 1:
-                    self._log("Exploit check passed - exploit fails after patch")
+                    self._log("Exploit check passed - exploit fails after patch.")
                 else:
-                    self._log("Exploit check failed - exploit did not fail after patch")
+                    self._log("Exploit check failed - exploit still succeeds after patch.")
 
             if invariants_passed and (exit_code == 1 or self.use_agent_exploit):
                 # if we are using agent exploit, then passing external exploit is optional
@@ -299,10 +299,10 @@ class PatchAgent(BaseAgent):
         else:
             exit_code = await self.run_agent_exploit()
             if exit_code == 1:
-                self._log("Exploit check passed - exploit fails after patch")
+                self._log("Exploit check passed - exploit fails after patch.")
                 return True
 
-            self._log("Exploit check failed - exploit did not fail after patch")
+            self._log("Exploit check failed - exploit still succeeds after patch.")
 
         return False
 
@@ -507,7 +507,7 @@ class PatchAgent(BaseAgent):
                 return False
         else:
             self._log(
-                "No changes detected in tmp directory. Skipping patch creation and application."
+                "No changes detected in codebase. Skipping patch creation and application."
             )
             return False
 
@@ -599,7 +599,7 @@ class PatchAgent(BaseAgent):
         Main entry point for running invariant checks on the patched codebase.
         Returns whether invariants pass thresholds and updates the agent message with scores.
         """
-        self._log("Running invariant tests on original codebase")
+        self._log("Running invariant tests on patched codebase")
 
         # Try with original tests first
         repo_scores_path, bounty_scores_path = self._execute_invariant_tests()
@@ -631,12 +631,7 @@ class PatchAgent(BaseAgent):
 
         # If original tests failed, try with patched unit tests
         if not original_passed:
-            self._log("Original tests failed. Trying with patched unit tests")
             if self.apply_patched_unit_tests():
-                self._log(
-                    "Unit test patches applied successfully. Running invariant checks."
-                )
-
                 # Run with patched unit tests
                 alt_repo_scores_path, alt_bounty_scores_path = (
                     self._execute_invariant_tests()
@@ -673,8 +668,6 @@ class PatchAgent(BaseAgent):
 
                 # Clean up alternative score files
                 self._cleanup_files([alt_repo_scores_path, alt_bounty_scores_path])
-            else:
-                self._log("No unit test patches found. Skipping.")
 
         # Clean up original score files
         self._cleanup_files([repo_scores_path, bounty_scores_path])
