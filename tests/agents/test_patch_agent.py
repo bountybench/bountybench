@@ -33,14 +33,6 @@ def mock_patch_agent_message():
 
     return patch.object(PatchAgentMessage, "__init__", mock_init)
 
-
-def mock_store_patch():
-    def mock_s_patch(self):
-        return
-
-    return patch.object(PatchAgent, "store_patch", mock_s_patch)
-
-
 def mock_restart_resource(return_value: bool = True):
     return patch.object(PatchAgent, "_restart_resource", return_value=return_value)
 
@@ -62,10 +54,8 @@ def patch_agent(bounty_setup):
     agent.codebase = env_path.TMP_CODEBASE_FILES_DIR
 
     mocks = [mock_restart_resource()]
-    store_patch_mock = mock_store_patch()
 
     [mock.start() for mock in mocks]
-    store_patch_mock.start()  # we don't want this to stop during testing so we don't stop
 
     yield agent
 
@@ -79,6 +69,7 @@ def patch_agent(bounty_setup):
 def execute_fixture(bounty_setup, patch_agent):
     env_path: EnvPath = bounty_setup
 
+    env_path.TMP_CODEBASE_FILES_DIR.mkdir(parents=True, exist_ok=True)
     exploit_script_dir = env_path.TMP_EXPLOIT_SCRIPT_DIR
 
     write_to_file_and_make_executable(
@@ -93,7 +84,7 @@ def git_fixture(bounty_setup):
     env_path: EnvPath = bounty_setup
     files_to_delete = [
         env_path.TMP_CODEBASE_FILES_DIR / TEST_FILE_NAME,
-        env_path.AGENT_PATCHES_DIR / "patch_1.patch",
+        env_path.AGENT_PATCHES_DIR / "patch_1"/ "patch_1.patch",
     ]
     yield
     # delete files if they exist
@@ -318,12 +309,13 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
     agent = patch_agent
     agent.patch_id = 1
     tmp_dir = env_path.TMP_CODEBASE_FILES_DIR
+    tmp_dir.chmod(0o755)  # Make sure the directory is writable
     (tmp_dir / TEST_FILE_NAME).write_text("Another modification")
 
     diff = git_diff(tmp_dir)
-    agent.create_patch_file(diff, agent.patch_dir)
+    agent.create_patch_file(diff, agent.output_patch_dir)
 
-    patch_file_path = agent.patch_dir / "patch_1.patch"
+    patch_file_path = agent.output_patch_dir / "patch_1" / "patch_1.patch"
     assert patch_file_path.exists()
 
 
@@ -632,7 +624,7 @@ async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     )
     await agent.run(["message"])
 
-    assert git_reset_mock.call_count == 2
+    assert git_reset_mock.call_count == 3
     assert agent.patch_id == prev_patch_id + 1
 
 
