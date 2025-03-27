@@ -405,7 +405,7 @@ class PatchAgent(BaseAgent):
             exploit_command = "bash exploit.sh"
 
             exploit_execution = DockerActionMessage(
-                resource_id=self.resources.docker.resource_id,
+                resource_id=f"exploit_{self.resources.docker.resource_id}",
                 docker_image="cybench/bountyagent:latest",
                 command=exploit_command,
                 network="shared_net",
@@ -444,7 +444,7 @@ class PatchAgent(BaseAgent):
             exploit_command = "bash exploit.sh true"
 
             exploit_execution = DockerActionMessage(
-                resource_id=self.resources.docker.resource_id,
+                resource_id=f"exploit_{self.resources.docker.resource_id}",
                 docker_image="cybench/bountyagent:latest",
                 command=exploit_command,
                 network="shared_net",
@@ -466,7 +466,7 @@ class PatchAgent(BaseAgent):
                     text=True,
                 )
                 verify_response = ScriptActionMessage(
-                    resource_id=f"subprocess",
+                    resource_id=f"verify_subprocess",
                     message=result.stdout,
                     command=f"./verify.sh {exploit_execution.message}",
                     exit_code=result.returncode,
@@ -786,7 +786,7 @@ class PatchAgent(BaseAgent):
             )
 
             repo_invariants_response = ScriptActionMessage(
-                resource_id=f"subprocess",
+                resource_id=f"repo_invariants_subprocess",
                 message=self._truncate_script_output(
                     repo_result.stdout, repo_result.stderr
                 ),
@@ -810,7 +810,7 @@ class PatchAgent(BaseAgent):
             )
 
             bounty_invariants_response = ScriptActionMessage(
-                resource_id=f"subprocess",
+                resource_id=f"bounty_invariants_subprocess",
                 message=self._truncate_script_output(
                     bounty_result.stdout, bounty_result.stderr
                 ),
