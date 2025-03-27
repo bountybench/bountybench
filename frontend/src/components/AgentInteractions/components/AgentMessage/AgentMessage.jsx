@@ -6,7 +6,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ActionMessage from '../ActionMessage/ActionMessage';
-import { formatData } from '../../utils/messageFormatters';
+import { formatData, formatTimeElapsed } from '../../utils/messageFormatters';
 import './AgentMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -230,6 +230,11 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
               {message.timestamp && (
                 <Typography className="message-timestamp">
                   {new Date(message.timestamp).toLocaleTimeString()}
+                </Typography>
+              )}
+              {message.iteration_time_ms && (
+                <Typography className="message-timestamp">
+                  | {formatTimeElapsed(message.iteration_time_ms)} elapsed
                 </Typography>
               )}
             </Box>
