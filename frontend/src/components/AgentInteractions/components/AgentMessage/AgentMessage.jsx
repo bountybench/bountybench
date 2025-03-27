@@ -12,7 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { CopyButton } from '../buttons/CopyButton';
 
-const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
+const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion, iteration }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message?.message || '');
@@ -227,6 +227,11 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
           <Box className="agent-message-header">
             <Box className="agent-title">
               <Typography className="agent-name">{message.agent_id.toUpperCase()}</Typography>
+              {message.agent_id.toUpperCase() !== 'SYSTEM' && iteration && (
+                <Typography className="message-timestamp">
+                  Iteration {iteration}  |
+                </Typography>
+              )}
               {message.timestamp && (
                 <Typography className="message-timestamp">
                   {new Date(message.timestamp).toLocaleTimeString()}
