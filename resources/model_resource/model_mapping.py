@@ -56,10 +56,16 @@ class TokenizerMapping:
 class NonHELMMapping:
     mapping: ClassVar[Dict[str, str]] = {
         # OpenAI Models
+        "openai/o1-2024-12-17": "o1-2024-12-17",
+        "openai/o1-2024-12-17-low-reasoning-effort": "o1-2024-12-17-low-reasoning-effort",
+        "openai/o1-2024-12-17-high-reasoning-effort": "o1-2024-12-17-high-reasoning-effort",
         "openai/o1-mini-2024-09-12": "o1-mini-2024-09-12",
         "openai/o1-preview-2024-09-12": "o1-preview-2024-09-12",
+        "openai/o3-mini-2025-01-31": "o3-mini-2025-01-31",
+        "openai/o3-mini-2025-01-31-low-reasoning-effort": "o3-mini-2025-01-31-low-reasoning-effort",
+        "openai/o3-mini-2025-01-31-high-reasoning-effort": "o3-mini-2025-01-31-high-reasoning-effort",
         "openai/gpt-4o-2024-11-20": "gpt-4o-2024-11-20",
-        "openai/o3-mini-2025-01-31 ": "openai/o3-mini-2025-01-31",
+        "openai/gpt-4.5-preview-2025-02-27": "gpt-4.5-preview-2025-02-27",
         # Anthropic Models (Claude)
         "anthropic/claude-3-5-sonnet-20240620": "claude-3-5-sonnet-20240620",
         "anthropic/claude-3-7-sonnet-20250219": "claude-3-7-sonnet-20250219",
