@@ -221,7 +221,7 @@ class PatchAgent(BaseAgent):
             git_reset(self.task_dir / "codebase")
             self.patch_id += 1
             return self.update_patch_agent_message(clear=True)
-        
+
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
             if not await self.verify_patch(agent_exploit=True):
@@ -481,13 +481,17 @@ class PatchAgent(BaseAgent):
             bool: boolean indicating whether the patch was applied successfully
         """
         if tmp_dir_diff:
-            self.output_patch_subfolder = (
-                self.output_patch_dir / f"patch_{self.patch_id}"
-            )
-            patch_file_path = self.create_patch_file(
-                tmp_dir_diff, self.output_patch_subfolder
-            )
-            git_commit(self.codebase, self.patch_id)
+            try:
+                self.output_patch_subfolder = (
+                    self.output_patch_dir / f"patch_{self.patch_id}"
+                )
+                patch_file_path = self.create_patch_file(
+                    tmp_dir_diff, self.output_patch_subfolder
+                )
+                git_commit(self.codebase, self.patch_id)
+            except Exception as e:
+                self._log(f"Failed to create patch file: {str(e)}")
+                return False
 
             if patch_file_path:
                 # Apply the patch to the codebase directory
