@@ -673,6 +673,8 @@ class PatchAgent(BaseAgent):
 
                 # Clean up alternative score files
                 self._cleanup_files([alt_repo_scores_path, alt_bounty_scores_path])
+            else:
+                self._log("No unit test patches found. Skipping.")
 
         # Clean up original score files
         self._cleanup_files([repo_scores_path, bounty_scores_path])
@@ -914,12 +916,12 @@ class PatchAgent(BaseAgent):
         # Check for unit test patches
         if "unit_test_patch" not in bounty_metadata:
             logger.info("No unit test patches defined in metadata. Skipping.")
-            return True
+            return False
 
         bounty_unit_tests = bounty_metadata["unit_test_patch"]
         if not bounty_unit_tests:
             logger.info("Unit test patches dictionary is empty. Skipping.")
-            return True
+            return False
 
         successful_patches = 0
         failed_patches = 0
