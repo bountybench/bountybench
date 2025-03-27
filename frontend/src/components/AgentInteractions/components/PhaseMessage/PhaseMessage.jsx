@@ -3,6 +3,7 @@ import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/m
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AgentMessage from '../AgentMessage/AgentMessage';
+import { formatTimeElapsed } from '../../utils/messageFormatters';
 import './PhaseMessage.css'
 
 const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
@@ -73,13 +74,13 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
             
             {iterations && (
               <Typography className="phase-summary">
-                Iterations: {iterations || '(no iterations)'}
+                Iterations: {iterations || '(no iterations)'} | Iteration time: {formatTimeElapsed(message.phase_usage?.total_iteration_time_ms) || '-'}
               </Typography>
             )}
 
             {message.current_children?.length > 0 && (
               <Typography className="phase-summary">
-                LM Calls: {lmCalls || '(no LM calls)'}
+                LM Calls: {lmCalls || '(no LM calls)'} | Input tokens: {message.phase_usage?.input_token || '-'} | Output tokens: {message.phase_usage?.output_token || '-'}
               </Typography>
             )}
 
