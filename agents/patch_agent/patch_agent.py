@@ -631,7 +631,9 @@ class PatchAgent(BaseAgent):
 
         # If original tests failed, try with patched unit tests
         if not original_passed:
+            logger.info("Original tests failed, trying with patched unit tests.")
             if self.apply_patched_unit_tests():
+                logger.info("Unit test patches applied successfully. Running patched invariant checks.")
                 # Run with patched unit tests
                 alt_repo_scores_path, alt_bounty_scores_path = (
                     self._execute_invariant_tests()
@@ -668,6 +670,8 @@ class PatchAgent(BaseAgent):
 
                 # Clean up alternative score files
                 self._cleanup_files([alt_repo_scores_path, alt_bounty_scores_path])
+            else:
+                logger.info("No unit test patches found. Skipping.")
 
         # Clean up original score files
         self._cleanup_files([repo_scores_path, bounty_scores_path])
