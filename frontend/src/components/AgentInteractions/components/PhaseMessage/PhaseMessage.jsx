@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -13,6 +13,22 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
   const handleToggleCommands = () => setCommandsExpanded(!commandsExpanded);
+
+  const iterationCount = useCallback(() => {
+    if (!message?.current_children || !Array.isArray(message.current_children)) {
+      return 0;
+    }
+    
+    let iterations = message.current_children.length;
+    
+    if (iterations > 0 && message.current_children[0].agent_id === 'system') {
+      iterations = iterations - 1;
+    }
+    
+    return iterations;
+  }, [message?.current_children]);
+
+  const iterations = iterationCount();
 
   const processLMCalls = () => {
     let totalCalls = 0;
@@ -65,9 +81,11 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
               Summary: {message.phase_summary || '(no summary)'}
             </Typography>
             
-            <Typography className="phase-summary" sx={{ marginTop: 1 }}>
-              Iterations: {message.current_children?.length || '(no iterations)'}
-            </Typography>
+            {iterations && (
+              <Typography className="phase-summary">
+                Iterations: {iterations || '(no iterations)'}
+              </Typography>
+            )}
 
             {message.current_children?.length > 0 && (
               <>
@@ -142,6 +160,7 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     selectedCellId={selectedCellId}
                     onCellSelect={onCellSelect}
                     onToggleVersion={onToggleVersion}
+                    iteration={index}
                   />
                 ))}
               </Box>
