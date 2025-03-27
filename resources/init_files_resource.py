@@ -32,9 +32,7 @@ class InitFilesResourceConfig(BaseResourceConfig):
     tmp_dir: Path
     bounty_number: str
     input_exploit_files_dir_name: Optional[str] = None
-    output_agent_files_name: Optional[str] = (
-        None  # For storing new exploit files created by the agent
-    )
+    output_agent_files_name: Optional[str] = None
     vulnerable_commit: Optional[str] = None
 
     def validate(self) -> None:

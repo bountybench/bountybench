@@ -865,7 +865,7 @@ class PatchAgent(BaseAgent):
             git_checkout_main(self.codebase, force=True)
 
     def _store_exploit(self) -> Optional[str]:
-        """Store the exploit files in a timestamped directory."""
+        """Store the exploit files."""
         try:
             self.output_patch_subfolder = (
                 self.output_patch_dir / f"patch_{self.patch_id}"
