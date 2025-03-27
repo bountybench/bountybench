@@ -215,10 +215,8 @@ class PatchAgent(BaseAgent):
             self._log("Exploit succeeds (0) before the patch is applied.")
 
         # Apply the patch
-        try:
-            self._apply_patch(tmp_git_diff)
-        except Exception as e:
-            self._log(f"Exception during patch creation or application: {e}")
+        _apply_patch_success = self._apply_patch(tmp_git_diff)
+        if not _apply_patch_success:
             git_reset(self.codebase)
             git_reset(self.task_dir / "codebase")
             self.patch_id += 1
