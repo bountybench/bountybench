@@ -25,7 +25,7 @@ from utils.progress_logger import start_progress, stop_progress
 # Constants with type annotations
 DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
-DOCKER_CLIENT_INIT_TIMEOUT: int = 300
+DOCKER_CLIENT_INIT_TIMEOUT: int = 3600
 
 TIMEOUT_PER_COMMAND: int = 120
 MAX_RETRIES: int = 3
