@@ -71,11 +71,20 @@ class MemoryTruncationFunctions:
 
         for segment in segments:
             trunc_segment = []
+            
+            # Calculate the offset for empty messages at the front
+            # This ensures we align correctly with the token limit pattern
+            offset = len(segment) % msg_per_iteration
+            if offset > 0:
+                offset = msg_per_iteration - offset
 
             for j, msg in enumerate(segment):
                 tokens = msg.split()
                 cnt = len(tokens)
-                max_message_input_tokens = msg_token_limit[j % msg_per_iteration] // 2
+                
+                # Apply the offset to ensure correct token limit is used
+                pattern_index = (j + offset) % msg_per_iteration
+                max_message_input_tokens = msg_token_limit[pattern_index] // 2
 
                 if cnt > max_message_input_tokens:
                     # Calculate how many tokens to keep from start and end
