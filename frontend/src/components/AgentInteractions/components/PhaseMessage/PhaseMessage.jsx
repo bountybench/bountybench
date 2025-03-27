@@ -12,6 +12,27 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
 
+  const countLMCalls = () => {
+    let totalCalls = 0;
+    
+    if (!message.current_children || message.current_children.length === 0) {
+      return totalCalls;
+    }
+    
+    message.current_children.forEach(agentMessage => {
+      if (agentMessage.action_messages && Array.isArray(agentMessage.action_messages)) {
+        const lmCallsInMessage = agentMessage.action_messages.filter(
+          action => action.resource_id === "model"
+        ).length;
+        totalCalls += lmCallsInMessage;
+      }
+    });
+    
+    return totalCalls;
+  };
+
+  const lmCalls = countLMCalls();
+
   return (
     <Box className="message-container phase">
       <Card className="message-bubble phase-bubble">
@@ -37,6 +58,12 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
             <Typography className="phase-summary">
               Iterations: {message.current_children?.length || '(no iterations)'}
             </Typography>
+
+            {message.current_children?.length > 0 && (
+              <Typography className="phase-summary">
+                LM Calls: {lmCalls || '(no LM calls)'}
+              </Typography>
+            )}
 
             {message.current_children?.length > 0 && (
               <Box className="agent-messages-container">
