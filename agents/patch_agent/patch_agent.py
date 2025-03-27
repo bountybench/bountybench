@@ -7,7 +7,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, List, Optional, TypeVar
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -223,7 +223,7 @@ class PatchAgent(BaseAgent):
             git_reset(self.task_dir / "codebase")
             self.patch_id += 1
             return self.update_patch_agent_message(clear=True)
-        
+
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
             if not await self.verify_patch(agent_exploit=True):
