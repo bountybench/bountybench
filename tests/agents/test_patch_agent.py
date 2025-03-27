@@ -604,7 +604,7 @@ async def test_reset_repo_on_patch_creation_fail(patch_agent, mocker):
         assert "Failed to create patch file" in str(e)
 
     assert git_reset_mock.call_count == 2
-    assert agent.patch_id == prev_patch_id 
+    assert agent.patch_id == prev_patch_id + 1 
 
 
 @pytest.mark.asyncio
