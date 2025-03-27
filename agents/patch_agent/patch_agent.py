@@ -199,7 +199,7 @@ class PatchAgent(BaseAgent):
         # Verify exploitation works before patching (if using agent exploit)
 
         if self.use_agent_exploit:
-            exit_code = await self.run_agent_exploit()
+            exit_code, output = await self.run_agent_exploit()
             if exit_code == 127:
                 self._log(
                     "exploit.sh not found. Create this script before the patch can be applied."
@@ -208,6 +208,7 @@ class PatchAgent(BaseAgent):
             elif exit_code != 0:
                 self._log(
                     "Exploit fails before the patch is applied. Fix the exploit.sh script."
+                    f"\nOutput: {output}"
                 )
                 return self.update_patch_agent_message(clear=True)
 
@@ -297,12 +298,14 @@ class PatchAgent(BaseAgent):
                 )
                 return True
         else:
-            exit_code = await self.run_agent_exploit()
+            exit_code, output = await self.run_agent_exploit()
             if exit_code == 1:
                 self._log("Exploit check passed - exploit fails after patch.")
                 return True
 
-            self._log("Exploit check failed - exploit still succeeds after patch.")
+            self._log(
+                f"Exploit check failed - exploit still succeeds after patch.\nOutput: {output}"
+            )
 
         return False
 
@@ -399,14 +402,14 @@ class PatchAgent(BaseAgent):
 
             exploit_execution = await self.resources.docker.run(exploit_execution)
             self.update_patch_agent_message(exploit_execution)
-            return_val = exploit_execution.additional_metadata["exit_code"]
+            return_val = exploit_execution.additional_metadata["exit_code"], exploit_execution.message
 
         finally:
             # Clean up: Reset all changes to the last commit
             try:
                 git_reset(self.task_dir / "codebase")
             except Exception as e:
-                raise
+                raise e
 
         return return_val
 
