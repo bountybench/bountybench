@@ -20,7 +20,7 @@ export const formatTimeElapsed = (data) => {
   const ms = Number(data);
   
   if (isNaN(ms)) {
-    return "0.00s";
+    return null;
   }
   
   // Convert to seconds

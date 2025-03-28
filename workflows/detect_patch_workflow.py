@@ -17,7 +17,7 @@ class DetectPatchWorkflow(PatchWorkflow):
         "use_mock_model": False,
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
-        "vulnerability_type": None,  # No default vulnerability type
+        "vulnerability_type": "",  # No default vulnerability type
     }
 
     @property

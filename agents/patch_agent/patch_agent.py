@@ -18,6 +18,7 @@ from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
+from resources.utils import run_command
 from utils.git_utils import (
     git_apply_patch,
     git_checkout_main,
@@ -28,86 +29,6 @@ from utils.git_utils import (
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
-
-T = TypeVar("T")
-
-
-def with_deactivated_venv(func: Callable[..., T]) -> Callable[..., T]:
-    """
-    Decorator that temporarily deactivates any active virtual environment,
-    runs the function, and then reactivates the environment if it was active.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> T:
-        # Save current virtual environment state and Python path
-        virtual_env = os.environ.get("VIRTUAL_ENV")
-        orig_path = os.environ.get("PATH", "")
-        orig_pythonpath = os.environ.get("PYTHONPATH", "")
-
-        logger.info(f"Current virtual environment: {virtual_env}")
-        logger.info(f"Original PATH: {orig_path}")
-        logger.info(f"Original PYTHONPATH: {orig_pythonpath}")
-
-        # Deactivate any virtual environment that might be running
-        if virtual_env:
-            logger.info("Deactivating virtual environment")
-            os.environ.pop("VIRTUAL_ENV", None)
-            # Remove virtual env from PATH
-            if "PATH" in os.environ:
-                paths = os.environ["PATH"].split(os.pathsep)
-                # Filter out the virtual env path
-                paths = [p for p in paths if not p.startswith(virtual_env)]
-                os.environ["PATH"] = os.pathsep.join(paths)
-                logger.info(f"PATH after venv removal: {os.environ['PATH']}")
-
-            # Also clean PYTHONPATH - many frameworks add to this
-            if "PYTHONPATH" in os.environ:
-                python_paths = os.environ["PYTHONPATH"].split(os.pathsep)
-                # Filter out paths that might be related to the venv
-                python_paths = [
-                    p for p in python_paths if not p.startswith(virtual_env)
-                ]
-                if python_paths:
-                    os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
-                    logger.info(
-                        f"PYTHONPATH after venv removal: {os.environ['PYTHONPATH']}"
-                    )
-                else:
-                    os.environ.pop("PYTHONPATH", None)
-                    logger.info("PYTHONPATH removed completely")
-
-        try:
-            # Add system Python to the path to ensure scripts can find it
-            python_path = shutil.which("python3") or shutil.which("python")
-            if python_path:
-                python_dir = os.path.dirname(python_path)
-                if python_dir not in os.environ.get("PATH", ""):
-                    os.environ["PATH"] = (
-                        f"{python_dir}{os.pathsep}{os.environ.get('PATH', '')}"
-                    )
-                logger.info(f"Added system Python to PATH: {python_dir}")
-                logger.info(f"Final PATH: {os.environ['PATH']}")
-
-            # Run the original function
-            return func(*args, **kwargs)
-        finally:
-            # Restore virtual environment if there was one
-            if virtual_env:
-                logger.info(f"Reactivating virtual environment: {virtual_env}")
-                os.environ["VIRTUAL_ENV"] = virtual_env
-                # Restore original PATH and PYTHONPATH
-                os.environ["PATH"] = orig_path
-                logger.info(f"Restored PATH: {os.environ['PATH']}")
-
-                if orig_pythonpath:
-                    os.environ["PYTHONPATH"] = orig_pythonpath
-                    logger.info(f"Restored PYTHONPATH: {os.environ['PYTHONPATH']}")
-                elif "PYTHONPATH" in os.environ:
-                    os.environ.pop("PYTHONPATH")
-                    logger.info("Removed PYTHONPATH that was added during execution")
-
-    return wrapper
 
 
 @dataclass
@@ -216,10 +137,8 @@ class PatchAgent(BaseAgent):
             self._log("Exploit succeeds before the patch is applied.")
 
         # Apply the patch
-        try:
-            self._apply_patch(tmp_git_diff)
-        except Exception as e:
-            self._log(f"Exception during patch creation or application: {e}")
+        _apply_patch_success = self._apply_patch(tmp_git_diff)
+        if not _apply_patch_success:
             git_reset(self.codebase)
             git_reset(self.task_dir / "codebase")
             self.patch_id += 1
@@ -446,11 +365,9 @@ class PatchAgent(BaseAgent):
             # Run the verify script
             logger.info("Running verify.sh")
             try:
-                result = subprocess.run(
+                result = run_command(
                     ["./verify.sh", exploit_execution.message],
-                    cwd=self.bounty_dir,
-                    capture_output=True,
-                    text=True,
+                    work_dir=self.bounty_dir,
                 )
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
@@ -486,13 +403,17 @@ class PatchAgent(BaseAgent):
             bool: boolean indicating whether the patch was applied successfully
         """
         if tmp_dir_diff:
-            self.output_patch_subfolder = (
-                self.output_patch_dir / f"patch_{self.patch_id}"
-            )
-            patch_file_path = self.create_patch_file(
-                tmp_dir_diff, self.output_patch_subfolder
-            )
-            git_commit(self.codebase, self.patch_id)
+            try:
+                self.output_patch_subfolder = (
+                    self.output_patch_dir / f"patch_{self.patch_id}"
+                )
+                patch_file_path = self.create_patch_file(
+                    tmp_dir_diff, self.output_patch_subfolder
+                )
+                git_commit(self.codebase, self.patch_id)
+            except Exception as e:
+                self._log(f"Failed to create patch file: {str(e)}")
+                return False
 
             if patch_file_path:
                 # Apply the patch to the codebase directory
@@ -596,7 +517,6 @@ class PatchAgent(BaseAgent):
             logger.error(error_msg)
             return False
 
-    @with_deactivated_venv
     def check_invariants(self) -> bool:
         """
         Main entry point for running invariant checks on the patched codebase.
@@ -746,7 +666,6 @@ class PatchAgent(BaseAgent):
             f"{truncation_indicator}{truncated_stdout}{stderr_prefix}{truncated_stderr}"
         )
 
-    @with_deactivated_venv
     def _execute_invariant_tests(self) -> tuple[Path, Path]:
         """
         Execute invariant test scripts.
@@ -759,17 +678,11 @@ class PatchAgent(BaseAgent):
             repo_scores_path = self.task_dir / "invariant_scores.json"
             bounty_scores_path = self.bounty_dir / "invariant_scores.json"
 
-            # Run repo and bounty invariant tests
-            env = os.environ.copy()
-
             # Run repo invariants script
             logger.info("Running repo invariants script")
-            repo_result = subprocess.run(
+            repo_result = run_command(
                 ["bash", "run_repo_invariants.sh"],
-                cwd=self.task_dir,
-                capture_output=True,
-                text=True,
-                env=env,
+                work_dir=self.task_dir,
             )
 
             repo_invariants_response = ScriptActionMessage(
@@ -788,12 +701,9 @@ class PatchAgent(BaseAgent):
 
             # Run bounty invariants script
             logger.info("Running bounty invariants script")
-            bounty_result = subprocess.run(
+            bounty_result = run_command(
                 ["bash", "run_bounty_invariants.sh"],
-                cwd=self.bounty_dir,
-                capture_output=True,
-                text=True,
-                env=env,
+                work_dir=self.bounty_dir,
             )
 
             bounty_invariants_response = ScriptActionMessage(
