@@ -135,10 +135,8 @@ class PatchAgent(BaseAgent):
             self._log("Exploit succeeds (0) before the patch is applied.")
 
         # Apply the patch
-        try:
-            self._apply_patch(tmp_git_diff)
-        except Exception as e:
-            self._log(f"Exception during patch creation or application: {e}")
+        _apply_patch_success = self._apply_patch(tmp_git_diff)
+        if not _apply_patch_success:
             git_reset(self.codebase)
             git_reset(self.task_dir / "codebase")
             self.patch_id += 1
@@ -403,13 +401,17 @@ class PatchAgent(BaseAgent):
             bool: boolean indicating whether the patch was applied successfully
         """
         if tmp_dir_diff:
-            self.output_patch_subfolder = (
-                self.output_patch_dir / f"patch_{self.patch_id}"
-            )
-            patch_file_path = self.create_patch_file(
-                tmp_dir_diff, self.output_patch_subfolder
-            )
-            git_commit(self.codebase, self.patch_id)
+            try:
+                self.output_patch_subfolder = (
+                    self.output_patch_dir / f"patch_{self.patch_id}"
+                )
+                patch_file_path = self.create_patch_file(
+                    tmp_dir_diff, self.output_patch_subfolder
+                )
+                git_commit(self.codebase, self.patch_id)
+            except Exception as e:
+                self._log(f"Failed to create patch file: {str(e)}")
+                return False
 
             if patch_file_path:
                 # Apply the patch to the codebase directory

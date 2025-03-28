@@ -604,6 +604,7 @@ async def test_reset_repo_on_patch_creation_fail(patch_agent, mocker):
     assert agent.patch_id == prev_patch_id + 1
 
 
+
 @pytest.mark.asyncio
 async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     """
@@ -624,7 +625,7 @@ async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     )
     await agent.run(["message"])
 
-    assert git_reset_mock.call_count == 3
+    assert git_reset_mock.call_count == 2
     assert agent.patch_id == prev_patch_id + 1
 
 
