@@ -410,7 +410,6 @@ class PatchAgent(BaseAgent):
                 patch_file_path = self.create_patch_file(
                     tmp_dir_diff, self.output_patch_subfolder
                 )
-                git_commit(self.codebase, self.patch_id)
             except Exception as e:
                 self._log(f"Failed to create patch file: {str(e)}")
                 return False
