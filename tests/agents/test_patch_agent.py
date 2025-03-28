@@ -110,21 +110,21 @@ async def test_run_agent_exploit(bounty_setup, patch_agent):
         script_path=exploit_script_dir,
         exit_code=1,
     )
-    exit_code = await agent.run_agent_exploit()
+    exit_code, _ = await agent.run_agent_exploit()
     assert exit_code == 1
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         exit_code=0,
     )
-    exit_code = await agent.run_agent_exploit()
+    exit_code, _ = await agent.run_agent_exploit()
     assert exit_code == 0
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         exit_code=2,
     )
-    exit_code = await agent.run_agent_exploit()
+    exit_code, _ = await agent.run_agent_exploit()
     assert exit_code == 2
 
 
@@ -144,7 +144,7 @@ async def test_restart_resource_check(patch_agent, mocker):
         await agent.verify_patch()
         agent.update_patch_agent_message()
         assert (
-            "one or more resources failed to restart."
+            "could not restart associated resources after applying the patch. patch is invalid."
             in agent.last_patch_agent_message.message.lower()
         )
 
@@ -202,7 +202,7 @@ async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
     mocker.patch.object(patch_agent, "restart_resources", return_value=True)
 
     run_exploit_mock = mocker.patch.object(
-        patch_agent, "run_agent_exploit", side_effect=[0, 0]
+        patch_agent, "run_agent_exploit", side_effect=[(0, "Exploit passed"), (0, "Exploit passed")]  # unpatched run
     )
     git_reset_mock: MagicMock = mocker.patch(
         "agents.patch_agent.patch_agent.git_reset"
@@ -216,7 +216,7 @@ async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
 
     assert final_msg.success is False
     assert (
-        "Exploit check failed - exploit did not fail after patch" in final_msg.message
+        "Exploit check failed - exploit still succeeds after patch." in final_msg.message
     )
     assert run_exploit_mock.call_count == 2
     assert git_reset_mock.call_count == 2
@@ -233,7 +233,7 @@ async def test_agent_exploit_1_before_patch(patch_agent, mocker):
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
 
     run_exploit_mock = mocker.patch.object(
-        patch_agent, "run_agent_exploit", return_value=1  # unpatched run
+        patch_agent, "run_agent_exploit", return_value=(1, "Exploit failed")  # unpatched run
     )
     # Invariants won't matter because we won't even get to patch
     mock_invariants = mocker.patch.object(patch_agent, "check_invariants")
