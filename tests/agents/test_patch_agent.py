@@ -110,21 +110,21 @@ async def test_run_agent_exploit(bounty_setup, patch_agent):
         script_path=exploit_script_dir,
         exit_code=1,
     )
-    exit_code = await agent.run_agent_exploit()
+    exit_code, _ = await agent.run_agent_exploit()
     assert exit_code == 1
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         exit_code=0,
     )
-    exit_code = await agent.run_agent_exploit()
+    exit_code, _ = await agent.run_agent_exploit()
     assert exit_code == 0
 
     write_to_file_and_make_executable(
         script_path=exploit_script_dir,
         exit_code=2,
     )
-    exit_code = await agent.run_agent_exploit()
+    exit_code, _ = await agent.run_agent_exploit()
     assert exit_code == 2
 
 
