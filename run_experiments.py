@@ -97,7 +97,7 @@ class ExperimentRunner:
         use_helm: bool,
         use_mock_model: bool,
         phase_iterations: int,
-        vulnerability_type: Optional[str] = None,
+        vulnerability_type: Optional[str] = "",
     ) -> List[str]:
         """Build a command for the workflow runner"""
         cmd = [
