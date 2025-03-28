@@ -173,7 +173,7 @@ def git_checkout(
 
     try:
         # Clean first if requested
-        if clean and not force:
+        if clean:
             _run_git_command(directory, ["clean", "-fdx"])
 
         _run_git_command(directory, cmd)
