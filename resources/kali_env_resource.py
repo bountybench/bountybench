@@ -18,7 +18,7 @@ from resources.base_resource import BaseResourceConfig
 from resources.kali_env_resource_util import KaliEnvResourceUtil
 from resources.runnable_base_resource import RunnableBaseResource
 from resources.utils import get_stdout_text
-from utils.git_utils import git_commit_changes
+from utils.git_utils import git_commit
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -27,7 +27,7 @@ DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/dockerd-entrypoint.sh"
 DOCKER_CLIENT_INIT_TIMEOUT: int = 300
 
-TIMEOUT_PER_COMMAND: int = 120
+TIMEOUT_PER_COMMAND: int = 3600
 MAX_RETRIES: int = 3
 RETRY_DELAY: int = 5
 
@@ -59,6 +59,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
     bounty_number: Optional[str] = None
     volumes: Optional[Dict[str, Dict[str, str]]] = None
     target_host: Optional[str] = None
+    install_command: Optional[str] = None
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
@@ -83,6 +84,7 @@ class KaliEnvResource(RunnableBaseResource):
         self.container = self._start(self.resource_id, self._resource_config.volumes)
         self.util.validate_container_status(self.container, logger)
         self.target_host = self._resource_config.target_host
+        self.install_command = self._resource_config.install_command
         self.socket = None  # Socket for writing to the pseudo-terminal
         self._initialize_bounty_directory()
 
@@ -236,8 +238,9 @@ class KaliEnvResource(RunnableBaseResource):
             logger.info(
                 f"Detected Python repository at {codebase_path}. Installing in editable mode..."
             )
-            cmd = f"pip install -e {codebase_path}"
-            stdout, stderr = self.run_command(cmd, PIP_INSTALL_TIMEOUT)
+            # Use the custom install command if provided, otherwise default to editable install
+            cmd = self.install_command if self.install_command is not None else "pip install -e ."
+            stdout, stderr = self.run_command(command=cmd, timeout=PIP_INSTALL_TIMEOUT, workdir=codebase_path)
             logger.info(f"Python repo installation result: {stdout}\n{stderr}")
 
             host_path = self._map_container_path_to_host(codebase_path)
@@ -245,7 +248,7 @@ class KaliEnvResource(RunnableBaseResource):
                 logger.info(
                     f"Updating git history to include changes from installation in latest commit"
                 )
-                git_commit_changes(host_path)
+                git_commit(host_path)
             else:
                 logger.warning(
                     f"Could not determine host path for {codebase_path}. Skipping git commit."

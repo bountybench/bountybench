@@ -18,95 +18,17 @@ from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
+from resources.utils import run_command
 from utils.git_utils import (
     git_apply_patch,
     git_checkout_main,
+    git_commit,
     git_diff,
-    git_remove_changes,
+    git_reset,
 )
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
-
-T = TypeVar("T")
-
-
-def with_deactivated_venv(func: Callable[..., T]) -> Callable[..., T]:
-    """
-    Decorator that temporarily deactivates any active virtual environment,
-    runs the function, and then reactivates the environment if it was active.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> T:
-        # Save current virtual environment state and Python path
-        virtual_env = os.environ.get("VIRTUAL_ENV")
-        orig_path = os.environ.get("PATH", "")
-        orig_pythonpath = os.environ.get("PYTHONPATH", "")
-
-        logger.info(f"Current virtual environment: {virtual_env}")
-        logger.info(f"Original PATH: {orig_path}")
-        logger.info(f"Original PYTHONPATH: {orig_pythonpath}")
-
-        # Deactivate any virtual environment that might be running
-        if virtual_env:
-            logger.info("Deactivating virtual environment")
-            os.environ.pop("VIRTUAL_ENV", None)
-            # Remove virtual env from PATH
-            if "PATH" in os.environ:
-                paths = os.environ["PATH"].split(os.pathsep)
-                # Filter out the virtual env path
-                paths = [p for p in paths if not p.startswith(virtual_env)]
-                os.environ["PATH"] = os.pathsep.join(paths)
-                logger.info(f"PATH after venv removal: {os.environ['PATH']}")
-
-            # Also clean PYTHONPATH - many frameworks add to this
-            if "PYTHONPATH" in os.environ:
-                python_paths = os.environ["PYTHONPATH"].split(os.pathsep)
-                # Filter out paths that might be related to the venv
-                python_paths = [
-                    p for p in python_paths if not p.startswith(virtual_env)
-                ]
-                if python_paths:
-                    os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
-                    logger.info(
-                        f"PYTHONPATH after venv removal: {os.environ['PYTHONPATH']}"
-                    )
-                else:
-                    os.environ.pop("PYTHONPATH", None)
-                    logger.info("PYTHONPATH removed completely")
-
-        try:
-            # Add system Python to the path to ensure scripts can find it
-            python_path = shutil.which("python3") or shutil.which("python")
-            if python_path:
-                python_dir = os.path.dirname(python_path)
-                if python_dir not in os.environ.get("PATH", ""):
-                    os.environ["PATH"] = (
-                        f"{python_dir}{os.pathsep}{os.environ.get('PATH', '')}"
-                    )
-                logger.info(f"Added system Python to PATH: {python_dir}")
-                logger.info(f"Final PATH: {os.environ['PATH']}")
-
-            # Run the original function
-            return func(*args, **kwargs)
-        finally:
-            # Restore virtual environment if there was one
-            if virtual_env:
-                logger.info(f"Reactivating virtual environment: {virtual_env}")
-                os.environ["VIRTUAL_ENV"] = virtual_env
-                # Restore original PATH and PYTHONPATH
-                os.environ["PATH"] = orig_path
-                logger.info(f"Restored PATH: {os.environ['PATH']}")
-
-                if orig_pythonpath:
-                    os.environ["PYTHONPATH"] = orig_pythonpath
-                    logger.info(f"Restored PYTHONPATH: {os.environ['PYTHONPATH']}")
-                elif "PYTHONPATH" in os.environ:
-                    os.environ.pop("PYTHONPATH")
-                    logger.info("Removed PYTHONPATH that was added during execution")
-
-    return wrapper
 
 
 @dataclass
@@ -139,19 +61,16 @@ class PatchAgent(BaseAgent):
     def __init__(self, agent_id: str, agent_config: PatchAgentConfig):
         self.bounty_dir = agent_config.bounty_dir
         self.task_dir = agent_config.task_dir
-        self.exploits_dir = self.bounty_dir / "agent_exploits"
-        self.exploits_dir.mkdir(parents=True, exist_ok=True)
-        self.tmp_exploits_dir = self.task_dir / "tmp"
         self.log_history = []
 
         self.codebase = None
-        self.new_patch_dir = None
+        self.tmp_dir = None
+        self.output_patch_subfolder = None
 
         self.patch_id = 1
 
         self.use_agent_exploit = agent_config.use_agent_exploit
-        self.patch_dir = self.bounty_dir / "agent-patches"
-        self.patch_dir.mkdir(parents=True, exist_ok=True)
+        self.output_patch_dir = None
 
         self.last_patch_agent_message = None
         self.last_action_message = None
@@ -182,10 +101,12 @@ class PatchAgent(BaseAgent):
         )
         self.last_action_message = None
 
+        self.tmp_dir = self.resources.init_files.tmp_dir
+
         # Set up codebase path
-        self.codebase = (
-            self.resources.init_files.tmp_dir / self.resources.init_files.files_dir_name
-        )
+        self.codebase = self.tmp_dir / self.resources.init_files.files_dir_name
+
+        self.output_patch_dir = self.resources.init_files.output_agent_files_dir
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.codebase)
@@ -197,6 +118,7 @@ class PatchAgent(BaseAgent):
         self._log("Codebase changes detected.")
 
         # Verify exploitation works before patching (if using agent exploit)
+
         if self.use_agent_exploit:
             exit_code = await self.run_agent_exploit()
             if exit_code == 127:
@@ -209,59 +131,35 @@ class PatchAgent(BaseAgent):
                     "Exploit fails before the patch is applied. exploit.sh must be fixed"
                 )
                 return self.update_patch_agent_message(clear=True)
+
             self._store_exploit()
             self._log("Exploit succeeds (0) before the patch is applied.")
 
         # Apply the patch
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
-            git_remove_changes(self.codebase)
-            git_remove_changes(self.task_dir / "codebase")
+            git_reset(self.codebase)
+            git_reset(self.task_dir / "codebase")
             self.patch_id += 1
             return self.update_patch_agent_message(clear=True)
 
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
             if not await self.verify_patch(agent_exploit=True):
-                git_remove_changes(self.codebase)
-                git_remove_changes(self.task_dir / "codebase")
+                git_reset(self.codebase)
+                git_reset(self.task_dir / "codebase")
                 self.patch_id += 1
                 return self.update_patch_agent_message(clear=True)
 
         # Final verification of the patch
         if not await self.verify_patch():
-            git_remove_changes(self.codebase)
-            git_remove_changes(self.task_dir / "codebase")
+            git_reset(self.codebase)
+            git_reset(self.task_dir / "codebase")
             self.patch_id += 1
             return self.update_patch_agent_message(clear=True)
 
         # Return the final status message
         return self.update_patch_agent_message(clear=True)
-
-    def _store_exploit(self) -> Optional[str]:
-        """Store the exploit files in a timestamped directory."""
-        try:
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-            new_exploit_dir = (
-                self.exploits_dir.parent / f"{self.exploits_dir.name}-{timestamp}"
-            )
-
-            tmp_dir = self.resources.init_files.tmp_dir.resolve()
-
-            if tmp_dir.exists() and tmp_dir.is_dir():
-                if any(tmp_dir.iterdir()):
-                    shutil.copytree(
-                        tmp_dir,
-                        new_exploit_dir,
-                        ignore=shutil.ignore_patterns("codebase"),
-                    )
-                    logger.info(f"Exploits successfully moved to {new_exploit_dir}.")
-                else:
-                    logger.warning("Exploits directory is empty. No files to move.")
-            else:
-                logger.warning("No exploits directory found to move.")
-        except Exception as e:
-            logger.error(f"Failed to move exploits directory: {e}")
 
     def update_patch_agent_message(
         self,
@@ -314,7 +212,7 @@ class PatchAgent(BaseAgent):
                 self._log("Congratulations! The patch succeeded.")
                 self.last_patch_agent_message.set_success(True)
                 self.last_patch_agent_message.set_patch_files_path(
-                    str(self.new_patch_dir)
+                    str(self.output_patch_subfolder)
                 )
                 return True
         else:
@@ -367,90 +265,6 @@ class PatchAgent(BaseAgent):
 
         return result
 
-    def check_merged_scores_against_thresholds(
-        self,
-        repo_scores: dict,
-        bounty_scores: dict,
-        repo_metadata_file: Path,
-        bounty_metadata_file: Path,
-    ) -> bool:
-        """
-        Check merged scores against thresholds from metadata files.
-
-        Args:
-            repo_scores: Repository scores dictionary
-            bounty_scores: Bounty scores dictionary
-            repo_metadata_file: Path to repo metadata file
-            bounty_metadata_file: Path to bounty metadata file
-
-        Returns:
-            bool: True if all scores pass thresholds, False otherwise
-        """
-        try:
-            # Load metadata files
-            repo_metadata = {}
-            bounty_metadata = {}
-
-            if repo_metadata_file.exists():
-                with open(repo_metadata_file) as f:
-                    repo_metadata = json.load(f)
-
-            if bounty_metadata_file.exists():
-                with open(bounty_metadata_file) as f:
-                    bounty_metadata = json.load(f)
-
-            # Get thresholds (bounty overrides repo)
-            if "invariant_thresholds" not in repo_metadata:
-                self._log("Missing invariant thresholds - failing invariant check")
-                return False
-
-            thresholds = repo_metadata.get("invariant_thresholds", {}).copy()
-
-            if bounty_metadata and "invariant_thresholds" in bounty_metadata:
-                bounty_thresholds = bounty_metadata["invariant_thresholds"]
-                thresholds.update(bounty_thresholds)
-
-            # Get merged scores
-            scores = {}
-
-            if repo_scores and "invariant_scores" in repo_scores:
-                scores = repo_scores.get("invariant_scores", {}).copy()
-
-            if bounty_scores and "invariant_scores" in bounty_scores:
-                scores.update(bounty_scores.get("invariant_scores", {}))
-
-            # Check each threshold
-            errors = []
-            for invariant_name, threshold in thresholds.items():
-                if invariant_name not in scores:
-                    errors.append(f"Missing score for {invariant_name}")
-                    continue
-
-                score = scores.get(invariant_name)
-                if not isinstance(score, (int, float)):
-                    errors.append(f"Score for {invariant_name} is not a number")
-                    continue
-
-                if score < threshold:
-                    errors.append(
-                        f"{invariant_name} score ({score}) is below threshold ({threshold})"
-                    )
-
-            if errors:
-                self._log(
-                    f"Found {len(errors)} errors checking invariants against thresholds:"
-                )
-                for error in errors:
-                    self._log(f"  - {error}")
-            else:
-                self._log("All invariant scores pass their thresholds")
-
-            return len(errors) == 0
-
-        except Exception as e:
-            self._log(f"Error checking scores against thresholds: {str(e)}")
-            return False
-
     def _restart_resource(self, resource) -> bool:
         """Restart a specific resource."""
         try:
@@ -494,7 +308,7 @@ class PatchAgent(BaseAgent):
             exploit_command = "bash exploit.sh"
 
             exploit_execution = DockerActionMessage(
-                resource_id=self.resources.docker.resource_id,
+                resource_id=f"exploit_{self.resources.docker.resource_id}",
                 docker_image="cybench/bountyagent:latest",
                 command=exploit_command,
                 network="shared_net",
@@ -509,7 +323,7 @@ class PatchAgent(BaseAgent):
         finally:
             # Clean up: Reset all changes to the last commit
             try:
-                git_remove_changes(self.task_dir / "codebase")
+                git_reset(self.task_dir / "codebase")
             except Exception as e:
                 raise
 
@@ -521,7 +335,7 @@ class PatchAgent(BaseAgent):
         try:
             cwd = Path.cwd().resolve()
             exploit_files_path = self.bounty_dir.resolve() / "exploit_files"
-            relative_path = exploit_files_path.relative_to(cwd)
+            relative_path = os.path.relpath(str(exploit_files_path), str(cwd))
 
             volumes = {
                 str(cwd): {
@@ -533,7 +347,7 @@ class PatchAgent(BaseAgent):
             exploit_command = "bash exploit.sh true"
 
             exploit_execution = DockerActionMessage(
-                resource_id=self.resources.docker.resource_id,
+                resource_id=f"exploit_{self.resources.docker.resource_id}",
                 docker_image="cybench/bountyagent:latest",
                 command=exploit_command,
                 network="shared_net",
@@ -548,14 +362,12 @@ class PatchAgent(BaseAgent):
             # Run the verify script
             logger.info("Running verify.sh")
             try:
-                result = subprocess.run(
+                result = run_command(
                     ["./verify.sh", exploit_execution.message],
-                    cwd=self.bounty_dir,
-                    capture_output=True,
-                    text=True,
+                    work_dir=self.bounty_dir,
                 )
                 verify_response = ScriptActionMessage(
-                    resource_id=f"subprocess",
+                    resource_id=f"verify_subprocess",
                     message=result.stdout,
                     command=f"./verify.sh {exploit_execution.message}",
                     exit_code=result.returncode,
@@ -571,7 +383,7 @@ class PatchAgent(BaseAgent):
         finally:
             # Clean up: Reset all changes to the last commit
             try:
-                git_remove_changes(self.task_dir / "codebase")
+                git_reset(self.task_dir / "codebase")
             except Exception as e:
                 raise
 
@@ -588,11 +400,16 @@ class PatchAgent(BaseAgent):
             bool: boolean indicating whether the patch was applied successfully
         """
         if tmp_dir_diff:
-            # git_diff(self.codebase) is non-empty
             try:
-                patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
+                self.output_patch_subfolder = (
+                    self.output_patch_dir / f"patch_{self.patch_id}"
+                )
+                patch_file_path = self.create_patch_file(
+                    tmp_dir_diff, self.output_patch_subfolder
+                )
+                git_commit(self.codebase, self.patch_id)
             except Exception as e:
-                self._log(f"No patch file created. Skipping patch application: {e}")
+                self._log(f"Failed to create patch file: {str(e)}")
                 return False
 
             if patch_file_path:
@@ -697,7 +514,6 @@ class PatchAgent(BaseAgent):
             logger.error(error_msg)
             return False
 
-    @with_deactivated_venv
     def check_invariants(self) -> bool:
         """
         Main entry point for running invariant checks on the patched codebase.
@@ -777,6 +593,8 @@ class PatchAgent(BaseAgent):
 
                 # Clean up alternative score files
                 self._cleanup_files([alt_repo_scores_path, alt_bounty_scores_path])
+            else:
+                self._log("No unit test patches found. Skipping.")
 
         # Clean up original score files
         self._cleanup_files([repo_scores_path, bounty_scores_path])
@@ -791,7 +609,63 @@ class PatchAgent(BaseAgent):
 
         return passed
 
-    @with_deactivated_venv
+    def _truncate_script_output(
+        self, stdout: str, stderr: Optional[str] = "", max_length: int = 5000
+    ) -> str:
+        """
+        Truncate script output to enforce max_length, keeping the most recent output
+
+        Args:
+            stdout: Standard output from script
+            stderr: Standard error from script (optional)
+            max_length: Maximum total length of the combined output
+
+        Returns:
+            Truncated combined output string
+        """
+        stdout = stdout.strip()
+        stderr = stderr.strip()
+
+        total_length = len(stdout) + len(stderr)
+        truncation_indicator = "\n...TRUNCATED...\n"
+        indicator_length = len(truncation_indicator)
+
+        if total_length <= max_length:
+            if stderr:
+                return f"{stdout}\n\nSTDERR:\n{stderr}"
+            return stdout
+
+        if not stdout:
+            truncated_stderr = (
+                f"{truncation_indicator}{stderr[-(max_length - indicator_length):]}"
+            )
+            return f"STDERR:{truncated_stderr}"
+
+        if not stderr:
+            truncated_stdout = (
+                f"{truncation_indicator}{stdout[-(max_length - indicator_length):]}"
+            )
+            return truncated_stdout
+
+        stderr_prefix = "\n\nSTDERR:\n"
+
+        if len(stderr) < max_length * 0.5:
+            stderr_space = len(stderr)
+            stdout_space = max_length - stderr_space
+        elif len(stdout) < max_length * 0.5:
+            stdout_space = len(stdout)
+            stderr_space = max_length - stdout_space
+        else:
+            stdout_space = max_length // 2
+            stderr_space = max_length - stdout_space
+
+        truncated_stdout = stdout[-int(stdout_space) :]
+        truncated_stderr = stderr[-int(stderr_space) :]
+
+        return (
+            f"{truncation_indicator}{truncated_stdout}{stderr_prefix}{truncated_stderr}"
+        )
+
     def _execute_invariant_tests(self) -> tuple[Path, Path]:
         """
         Execute invariant test scripts.
@@ -804,30 +678,45 @@ class PatchAgent(BaseAgent):
             repo_scores_path = self.task_dir / "invariant_scores.json"
             bounty_scores_path = self.bounty_dir / "invariant_scores.json"
 
-            # Run repo and bounty invariant tests
-            env = os.environ.copy()
-
             # Run repo invariants script
             logger.info("Running repo invariants script")
-            repo_result = subprocess.run(
+            repo_result = run_command(
                 ["bash", "run_repo_invariants.sh"],
-                cwd=self.task_dir,
-                capture_output=True,
-                text=True,
-                env=env,
+                work_dir=self.task_dir,
             )
+
+            repo_invariants_response = ScriptActionMessage(
+                resource_id=f"repo_invariants_subprocess",
+                message=self._truncate_script_output(
+                    repo_result.stdout, repo_result.stderr
+                ),
+                command=f"./run_repo_invariants.sh",
+                exit_code=repo_result.returncode,
+                prev=self.last_action_message,
+            )
+            self.update_patch_agent_message(repo_invariants_response)
+
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
             logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
 
             # Run bounty invariants script
             logger.info("Running bounty invariants script")
-            bounty_result = subprocess.run(
+            bounty_result = run_command(
                 ["bash", "run_bounty_invariants.sh"],
-                cwd=self.bounty_dir,
-                capture_output=True,
-                text=True,
-                env=env,
+                work_dir=self.bounty_dir,
             )
+
+            bounty_invariants_response = ScriptActionMessage(
+                resource_id=f"bounty_invariants_subprocess",
+                message=self._truncate_script_output(
+                    bounty_result.stdout, bounty_result.stderr
+                ),
+                command=f"./run_bounty_invariants.sh",
+                exit_code=repo_result.returncode,
+                prev=self.last_action_message,
+            )
+            self.update_patch_agent_message(bounty_invariants_response)
+
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
 
             return repo_scores_path, bounty_scores_path
@@ -879,34 +768,36 @@ class PatchAgent(BaseAgent):
 
     def cleanup(self) -> None:
         """Perform cleanup operations."""
-        self.store_patch()
 
+        self._store_exploit()
         if self.codebase and self.codebase.exists():
             git_checkout_main(self.codebase, force=True)
 
-    def store_patch(self) -> None:
-        """Store the patches in a timestamped folder."""
+    def _store_exploit(self) -> Optional[str]:
+        """Store the exploit files."""
         try:
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-            self.new_patch_dir = self.patch_dir.with_name(
-                f"{self.patch_dir.name}-{timestamp}"
+            self.output_patch_subfolder = (
+                self.output_patch_dir / f"patch_{self.patch_id}"
             )
-            if self.patch_dir.exists() and self.patch_dir.is_dir():
-                if any(self.patch_dir.iterdir()):
+            if self.tmp_dir.exists() and self.tmp_dir.is_dir():
+                if any(self.tmp_dir.iterdir()):
                     shutil.copytree(
-                        str(self.patch_dir),
-                        str(self.new_patch_dir),
+                        self.tmp_dir,
+                        self.output_patch_subfolder,
                         ignore=shutil.ignore_patterns("codebase"),
                     )
-                    logger.info(f"Patches successfully moved to {self.new_patch_dir}.")
+                    logger.info(
+                        f"Exploits successfully moved to corresponding patch directory {self.output_patch_subfolder}."
+                    )
+                    return str(self.output_patch_subfolder)
                 else:
-                    logger.info("Patches directory is empty. No need to move.")
-                    shutil.rmtree(self.patch_dir)
+                    logger.warning("Exploits directory is empty. No files to move.")
             else:
-                logger.warning("No patches directory found to move.")
-
+                logger.warning("No exploits directory found to move.")
         except Exception as e:
-            logger.error(f"Failed to move patches directory: {e}")
+            logger.error(f"Failed to move exploits directory: {e}")
+
+        return None
 
     def apply_patched_unit_tests(self) -> bool:
         """
@@ -935,12 +826,12 @@ class PatchAgent(BaseAgent):
         # Check for unit test patches
         if "unit_test_patch" not in bounty_metadata:
             logger.info("No unit test patches defined in metadata. Skipping.")
-            return True
+            return False
 
         bounty_unit_tests = bounty_metadata["unit_test_patch"]
         if not bounty_unit_tests:
             logger.info("Unit test patches dictionary is empty. Skipping.")
-            return True
+            return False
 
         successful_patches = 0
         failed_patches = 0
@@ -984,7 +875,7 @@ class PatchAgent(BaseAgent):
         """
         return {
             "bounty_dir": str(self.bounty_dir),
-            "patch_dir": str(self.patch_dir),
+            "patch_dir": str(self.output_patch_dir),
             "patch_id": self.patch_id,
             "use_agent_exploit": self.use_agent_exploit,
             "agent_id": self.agent_id,

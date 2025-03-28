@@ -14,6 +14,7 @@ class AgentMessage(Message):
     ) -> None:
         self._message = message
         self._iteration = None
+        self._iteration_time_ms = None
         self._agent_id = agent_id
         self._action_messages = []
         self._memory = None
@@ -35,6 +36,13 @@ class AgentMessage(Message):
 
     def set_iteration(self, iteration: int) -> None:
         self._iteration = iteration
+
+    @property
+    def iteration_time_ms(self) -> float:
+        return self._iteration_time_ms
+
+    def set_iteration_time_ms(self, iteration_time_ms: float) -> None:
+        self._iteration_time_ms = iteration_time_ms
 
     @property
     def message_type(self) -> str:
@@ -121,6 +129,7 @@ class AgentMessage(Message):
                 if self.action_messages
                 else None
             ),
+            "iteration_time_ms": self.iteration_time_ms,
         }
         log_dict.update(base_dict)
         return log_dict

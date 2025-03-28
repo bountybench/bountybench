@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
@@ -238,7 +239,7 @@ class BasePhase(ABC):
 
         start_count = self.iteration_count
         # Start the iteration at the current count
-        for iteration_num in range(start_count, self.phase_config.max_iterations + 1):
+        for iteration_num in range(start_count, self.phase_config.max_iterations):
 
             if self._phase_message.complete:
                 break
@@ -291,12 +292,16 @@ class BasePhase(ABC):
         agent_id, agent_instance = self._get_current_agent()
         logger.info(f"Running iteration {iteration} of {self.name} with {agent_id}")
 
-        agent_message = await self.run_one_iteration(
+        start_time = time.time()
+        agent_message: AgentMessage = await self.run_one_iteration(
             phase_message=self._phase_message,
             agent_instance=agent_instance,
             previous_output=self._last_agent_message,
         )
+        iteration_time = time.time() - start_time
+        iteration_time_ms = iteration_time * 1000
         agent_message.set_iteration(iteration)
+        agent_message.set_iteration_time_ms(iteration_time_ms)
 
         await self.set_last_agent_message(agent_message)
         self._phase_message.add_child_message(agent_message)

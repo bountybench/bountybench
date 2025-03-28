@@ -47,6 +47,12 @@ class MessageHandler:
 
         # Run the resource again
         resource = self.resource_manager.get_resource(old_message.resource_id)
+        if not resource:
+            logger.error(
+                f"Cannot run {old_message.resource_id}, no corresponding resource found in resource dict"
+            )
+            return
+
         new_action: ActionMessage = resource.run(input_message)
 
         # Keep next link if the old action had one

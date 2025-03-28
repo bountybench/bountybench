@@ -6,6 +6,7 @@ from messages.message import Message
 QUERY_TIME_TAKEN_IN_MS = "query_time_taken_in_ms"
 INPUT_TOKEN = "input_token"
 OUTPUT_TOKEN = "output_token"
+TOTAL_ITERATION_TIME_MS = "total_iteration_time_ms"
 
 
 class PhaseMessage(Message):
@@ -24,7 +25,12 @@ class PhaseMessage(Message):
         self._summary = "incomplete"
         self._agent_messages = []
         self._phase_summary = None
-        self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, QUERY_TIME_TAKEN_IN_MS: 0}
+        self.usage = {
+            INPUT_TOKEN: 0,
+            OUTPUT_TOKEN: 0,
+            QUERY_TIME_TAKEN_IN_MS: 0,
+            TOTAL_ITERATION_TIME_MS: 0,
+        }
         super().__init__(prev)
 
     @property
@@ -110,8 +116,14 @@ class PhaseMessage(Message):
         total_input_tokens = 0
         total_output_tokens = 0
         total_query_time_taken_in_ms = 0
+        total_iteration_time_ms = 0
 
         for agent_message in self._agent_messages:
+            total_iteration_time_ms += (
+                agent_message.iteration_time_ms
+                if agent_message.iteration_time_ms
+                else 0
+            )
             for action_message in agent_message._action_messages:
                 metadata = action_message._additional_metadata
                 if isinstance(metadata, tuple) and len(metadata) > 0:
@@ -130,6 +142,7 @@ class PhaseMessage(Message):
             INPUT_TOKEN: total_input_tokens,
             OUTPUT_TOKEN: total_output_tokens,
             QUERY_TIME_TAKEN_IN_MS: total_query_time_taken_in_ms,
+            TOTAL_ITERATION_TIME_MS: total_iteration_time_ms,
         }
 
         return self.usage
