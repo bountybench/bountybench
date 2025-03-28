@@ -210,7 +210,9 @@ def git_has_changes(directory_path: PathLike) -> bool:
     """
     directory = Path(directory_path)
     try:
-        result = _run_git_command(directory, ["status", "--porcelain"], capture_output=True)
+        result = _run_git_command(
+            directory, ["status", "--porcelain"], capture_output=True
+        )
         return bool(result.stdout.strip())
     except subprocess.CalledProcessError:
         logger.error("Failed to check repository status")
@@ -235,10 +237,7 @@ def git_clean(directory_path: PathLike, remove_ignored: bool = False) -> None:
     logger.info(f"Cleaned untracked files in {directory}")
 
 
-def git_init_repo(
-    directory_path: PathLike,
-    ignore_dirs: list[str] = None
-) -> None:
+def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
     """Initialize git repository if it doesn't exist."""
     directory = Path(directory_path)
 
@@ -272,7 +271,7 @@ def git_init_repo(
 
         # Initial commit
         _run_git_command(directory, ["add", "."])
-        _run_git_command(directory, ["commit", "-m", "Initial commit"])
+        _run_git_command(directory, ["commit", "-q", "-m", "Initial commit"])
         logger.info(f"Initialized repository in {directory}")
     except subprocess.CalledProcessError as e:
         logger.critical(f"Failed to initialize repository: {e}")
