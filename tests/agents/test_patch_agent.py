@@ -144,7 +144,7 @@ async def test_restart_resource_check(patch_agent, mocker):
         await agent.verify_patch()
         agent.update_patch_agent_message()
         assert (
-            "one or more resources failed to restart."
+            "Could not restart associated resources after applying the patch. Patch is invalid."
             in agent.last_patch_agent_message.message.lower()
         )
 
