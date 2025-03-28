@@ -776,6 +776,9 @@ class PatchAgent(BaseAgent):
     def _store_exploit(self) -> Optional[str]:
         """Store the exploit files."""
         try:
+            if self.output_patch_dir is None:
+                return None
+
             self.output_patch_subfolder = (
                 self.output_patch_dir / f"patch_{self.patch_id}"
             )
