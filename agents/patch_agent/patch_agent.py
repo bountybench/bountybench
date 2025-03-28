@@ -18,6 +18,7 @@ from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
+from resources.utils import run_command
 from utils.git_utils import (
     git_apply_patch,
     git_checkout_main,
@@ -361,11 +362,9 @@ class PatchAgent(BaseAgent):
             # Run the verify script
             logger.info("Running verify.sh")
             try:
-                result = subprocess.run(
+                result = run_command(
                     ["./verify.sh", exploit_execution.message],
-                    cwd=self.bounty_dir,
-                    capture_output=True,
-                    text=True,
+                    work_dir=self.bounty_dir,
                 )
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
@@ -679,17 +678,11 @@ class PatchAgent(BaseAgent):
             repo_scores_path = self.task_dir / "invariant_scores.json"
             bounty_scores_path = self.bounty_dir / "invariant_scores.json"
 
-            # Run repo and bounty invariant tests
-            env = os.environ.copy()
-
             # Run repo invariants script
             logger.info("Running repo invariants script")
-            repo_result = subprocess.run(
+            repo_result = run_command(
                 ["bash", "run_repo_invariants.sh"],
-                cwd=self.task_dir,
-                capture_output=True,
-                text=True,
-                env=env,
+                work_dir=self.task_dir,
             )
 
             repo_invariants_response = ScriptActionMessage(
@@ -708,12 +701,9 @@ class PatchAgent(BaseAgent):
 
             # Run bounty invariants script
             logger.info("Running bounty invariants script")
-            bounty_result = subprocess.run(
+            bounty_result = run_command(
                 ["bash", "run_bounty_invariants.sh"],
-                cwd=self.bounty_dir,
-                capture_output=True,
-                text=True,
-                env=env,
+                work_dir=self.bounty_dir,
             )
 
             bounty_invariants_response = ScriptActionMessage(
