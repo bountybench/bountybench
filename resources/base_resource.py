@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any, Dict
 
+from messages.action_messages.action_message import ActionMessage
+
 
 @dataclass
 class BaseResourceConfig(ABC):
