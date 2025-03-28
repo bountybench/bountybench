@@ -1,16 +1,9 @@
-import atexit
-import re
-import time
 from dataclasses import dataclass
 from pathlib import Path
-from queue import Queue
-from typing import List, Optional
 
 from resources.base_resource import BaseResourceConfig
 from resources.base_setup_resource import BaseSetupResource
-from resources.utils import run_command
 from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 
@@ -55,29 +48,15 @@ class BountySetupResource(BaseSetupResource):
         """
         Serializes the BountySetupResource state to a dictionary.
         """
-        return {
-            "task_dir": str(self.task_dir),
-            "bounty_dir": str(self.bounty_dir),
-            "resource_id": self.resource_id,
-            "bounty_number": self.bounty_number,
-            "container_names": self.container_names,
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        }
-    
-
-    def to_dict(self) -> dict:
-        """
-        Serializes the BountySetupResource state to a dictionary.
-        """
         # Get the base dictionary from parent class
         base_dict = super().to_dict()
-        
+
         # Add bounty-specific properties
         base_dict.update({
             "bounty_dir": str(self.bounty_dir),
             "bounty_number": self.bounty_number,
         })
-        
+
         return base_dict
 
     @classmethod
@@ -86,14 +65,14 @@ class BountySetupResource(BaseSetupResource):
         Creates a BountySetupResource instance from a serialized dictionary.
         """
         common_attrs = super().from_dict(data, **kwargs)
-        
+
         config = BountySetupResourceConfig(
             task_dir=Path(data["task_dir"]),
             bounty_number=data["bounty_number"],
         )
-        
+
         instance = cls(common_attrs["resource_id"], config)
-        
+
         instance.container_names = common_attrs["container_names"]
-        
+
         return instance
