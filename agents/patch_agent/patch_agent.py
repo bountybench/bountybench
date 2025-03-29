@@ -313,24 +313,24 @@ class PatchAgent(BaseAgent):
             exploit_script_path = self.resources.init_files.tmp_dir / "exploit.sh"
             if not exploit_script_path.exists():
                 logger.warning(f"Exploit script not found at {exploit_script_path}")
-                return 127, ""
-                
-            volumes = {
-                str(self.resources.init_files.tmp_dir.resolve()): {
-                    "bind": "/app",
-                    "mode": "rw",
-                },
-                str(self.task_dir.resolve() / "codebase"): {
-                    "bind": "/app/codebase",
-                    "mode": "rw",
-                },
-            }
+                return_val = (127, "")
+            else:
+                volumes = {
+                    str(self.resources.init_files.tmp_dir.resolve()): {
+                        "bind": "/app",
+                        "mode": "rw",
+                    },
+                    str(self.task_dir.resolve() / "codebase"): {
+                        "bind": "/app/codebase",
+                        "mode": "rw",
+                    },
+                }
 
-            # Check if it's a Python repo and install if needed, then run exploit
-            install_command = self.install_command if self.install_command else "pip install --quiet -e ."
-            
-            # Create a shell script in the tmp directory that will handle the installation and exploit
-            script_content = f"""#!/bin/bash
+                # Check if it's a Python repo and install if needed, then run exploit
+                install_command = self.install_command if self.install_command else "pip install --quiet -e ."
+                
+                # Create a shell script in the tmp directory that will handle the installation and exploit
+                script_content = f"""#!/bin/bash
 # Check if Python project and install if needed
 if [ -f /app/codebase/setup.py ] || [ -f /app/codebase/pyproject.toml ]; then
     # Redirect this output to /dev/null
@@ -343,33 +343,33 @@ fi
 # Run the exploit script
 bash /app/exploit.sh
 """
-            
-            # Write the script to a file in the tmp directory
-            script_path = self.resources.init_files.tmp_dir / "run_exploit.sh"
-            with open(script_path, "w") as f:
-                f.write(script_content)
-            
-            # Make the script executable
-            script_path.chmod(script_path.stat().st_mode | 0o755)
-            
-            # Use the script as the command
-            exploit_command = "bash /app/run_exploit.sh"
+                
+                # Write the script to a file in the tmp directory
+                script_path = self.resources.init_files.tmp_dir / "run_exploit.sh"
+                with open(script_path, "w") as f:
+                    f.write(script_content)
+                
+                # Make the script executable
+                script_path.chmod(script_path.stat().st_mode | 0o755)
+                
+                # Use the script as the command
+                exploit_command = "bash /app/run_exploit.sh"
 
-            exploit_execution = DockerActionMessage(
-                resource_id=f"exploit_{self.resources.docker.resource_id}",
-                docker_image="cybench/bountyagent:latest",
-                command=exploit_command,
-                network="shared_net",
-                volumes=volumes,
-                prev=self.last_action_message,
-            )
+                exploit_execution = DockerActionMessage(
+                    resource_id=f"exploit_{self.resources.docker.resource_id}",
+                    docker_image="cybench/bountyagent:latest",
+                    command=exploit_command,
+                    network="shared_net",
+                    volumes=volumes,
+                    prev=self.last_action_message,
+                )
 
-            exploit_execution = await self.resources.docker.run(exploit_execution)
-            self.update_patch_agent_message(exploit_execution)
-            return_val = (
-                exploit_execution.additional_metadata["exit_code"],
-                exploit_execution.message,
-            )
+                exploit_execution = await self.resources.docker.run(exploit_execution)
+                self.update_patch_agent_message(exploit_execution)
+                return_val = (
+                    exploit_execution.additional_metadata["exit_code"],
+                    exploit_execution.message,
+                )
 
         finally:
             # Clean up the temporary script file
