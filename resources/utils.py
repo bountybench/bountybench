@@ -98,7 +98,6 @@ async def run_command_async(command, work_dir=None):
             cwd=work_dir,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            text=True,
         )
 
         stdout_lines = []
