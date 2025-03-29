@@ -19,13 +19,7 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import run_command
-from utils.git_utils import (
-    git_apply_patch,
-    git_checkout_main,
-    git_commit,
-    git_diff,
-    git_reset,
-)
+from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -63,7 +57,7 @@ class PatchAgent(BaseAgent):
         self.task_dir = agent_config.task_dir
         self.log_history = []
 
-        self.codebase = None
+        self.tmp_codebase = None
         self.tmp_dir = None
         self.output_patch_subfolder = None
 
@@ -86,6 +80,10 @@ class PatchAgent(BaseAgent):
         combined = "\n".join(self.log_history)
         return combined
 
+    def _reset_codebase(self):
+        git_reset(self.tmp_codebase)
+        git_reset(self.task_dir / "codebase")
+
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """Execute the main workflow of the PatchAgent."""
         # Validate input messages
@@ -104,12 +102,12 @@ class PatchAgent(BaseAgent):
         self.tmp_dir = self.resources.init_files.tmp_dir
 
         # Set up codebase path
-        self.codebase = self.tmp_dir / self.resources.init_files.files_dir_name
+        self.tmp_codebase = self.tmp_dir / self.resources.init_files.files_dir_name
 
         self.output_patch_dir = self.resources.init_files.output_agent_files_dir
 
         # Begin patch workflow
-        tmp_git_diff = git_diff(self.codebase)
+        tmp_git_diff = git_diff(self.tmp_codebase)
 
         if not tmp_git_diff:
             self._log("No git diff detected within codebase, skipping patching.")
@@ -121,42 +119,46 @@ class PatchAgent(BaseAgent):
 
         if self.use_agent_exploit:
             exit_code, output = await self.run_agent_exploit()
-            if exit_code == 127:
-                self._log(
-                    "exploit.sh not found. Create this script before the patch can be applied."
-                )
+            if exit_code == 0:
+                self._store_exploit()
+                self._log("Exploit succeeds before the patch is applied.")
+            else:
+                self._reset_codebase()
+                if exit_code == 127:
+                    self._log(
+                        "exploit.sh not found. "
+                        "Please create this script before the patch can be applied."
+                    )
+                else:
+                    self._log(
+                        "Exploit fails before the patch is applied. "
+                        "Please fix the exploit.sh script."
+                        f"\nOutput: {output}"
+                    )
+                self._log("Reverting all the changes to the codebase.")
                 return self.update_patch_agent_message(clear=True)
-            elif exit_code != 0:
-                self._log(
-                    "Exploit fails before the patch is applied. Fix the exploit.sh script."
-                    f"\nOutput: {output}"
-                )
-                return self.update_patch_agent_message(clear=True)
-
-            self._store_exploit()
-            self._log("Exploit succeeds before the patch is applied.")
 
         # Apply the patch
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
-            git_reset(self.codebase)
-            git_reset(self.task_dir / "codebase")
+            self._reset_codebase()
             self.patch_id += 1
+            self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
 
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
             if not await self.verify_patch(agent_exploit=True):
-                git_reset(self.codebase)
-                git_reset(self.task_dir / "codebase")
+                self._reset_codebase()
                 self.patch_id += 1
+                self._log("Reverting all the changes to the codebase.")
                 return self.update_patch_agent_message(clear=True)
 
         # Final verification of the patch
         if not await self.verify_patch():
-            git_reset(self.codebase)
-            git_reset(self.task_dir / "codebase")
+            self._reset_codebase()
             self.patch_id += 1
+            self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
 
         # Return the final status message
@@ -187,15 +189,21 @@ class PatchAgent(BaseAgent):
         """Verify patch effectiveness."""
 
         if not self.restart_resources():
-            self._log("Could not restart associated resources after applying the patch. Patch is invalid.")
+            self._log(
+                "Could not restart associated resources after applying the patch. Patch is invalid."
+            )
             return False
 
-        self._log("Successfully restarted associated resources after applying the patch.")
+        self._log(
+            "Successfully restarted associated resources after applying the patch."
+        )
 
         if not agent_exploit:
             invariants_passed = self.check_invariants()
             if invariants_passed:
-                self._log("Invariants check passed - invariants meet all thresholds after patch.")
+                self._log(
+                    "Invariants check passed - invariants meet all thresholds after patch."
+                )
             else:
                 self._log(
                     "Invariants check failed - invariants don't meet all thresholds after patch."
@@ -206,7 +214,9 @@ class PatchAgent(BaseAgent):
                 if exit_code == 1:
                     self._log("Exploit check passed - exploit fails after patch.")
                 else:
-                    self._log("Exploit check failed - exploit still succeeds after patch.")
+                    self._log(
+                        "Exploit check failed - exploit still succeeds after patch."
+                    )
 
             if invariants_passed and (exit_code == 1 or self.use_agent_exploit):
                 # if we are using agent exploit, then passing external exploit is optional
@@ -294,7 +304,7 @@ class PatchAgent(BaseAgent):
         return success
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-    async def run_agent_exploit(self) -> ActionMessage:
+    async def run_agent_exploit(self) -> tuple[int, str]:
         """Run the exploit script in a Docker container."""
         try:
             volumes = {
@@ -321,20 +331,28 @@ class PatchAgent(BaseAgent):
 
             exploit_execution = await self.resources.docker.run(exploit_execution)
             self.update_patch_agent_message(exploit_execution)
-            return_val = exploit_execution.additional_metadata["exit_code"], exploit_execution.message
+            return_val = (
+                exploit_execution.additional_metadata["exit_code"],
+                exploit_execution.message,
+            )
 
         finally:
             # Clean up: Reset all changes to the last commit
             try:
                 git_reset(self.task_dir / "codebase")
             except Exception as e:
-                raise e
+                raise RuntimeError(f"Failed to reset git repository: {str(e)}")
 
         return return_val
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-    async def run_external_exploit(self) -> ActionMessage:
-        """Run the exploit script in a Docker container."""
+    async def run_external_exploit(self) -> Optional[int]:
+        """
+        Run the exploit script in a Docker container.
+
+        Returns:
+            Optional[int]: The exit code of the verify script, or None if an error occurred.
+        """
         try:
             cwd = Path.cwd().resolve()
             exploit_files_path = self.bounty_dir.resolve() / "exploit_files"
@@ -388,7 +406,7 @@ class PatchAgent(BaseAgent):
             try:
                 git_reset(self.task_dir / "codebase")
             except Exception as e:
-                raise
+                raise RuntimeError(f"Failed to reset git repository: {str(e)}") from e
 
         return return_val
 
@@ -555,7 +573,9 @@ class PatchAgent(BaseAgent):
         if not original_passed:
             logger.info("Original tests failed, trying with patched unit tests.")
             if self.apply_patched_unit_tests():
-                logger.info("Unit test patches applied successfully. Running patched invariant checks.")
+                logger.info(
+                    "Unit test patches applied successfully. Running patched invariant checks."
+                )
                 # Run with patched unit tests
                 alt_repo_scores_path, alt_bounty_scores_path = (
                     self._execute_invariant_tests()
@@ -750,7 +770,7 @@ class PatchAgent(BaseAgent):
         Create a patch file at directory_path using the provided diff.
 
         Example:
-            tmp_dir_diff = git_diff(self.codebase)
+            tmp_dir_diff = git_diff(self.tmp_codebase)
             patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
         """
         try:
@@ -769,12 +789,15 @@ class PatchAgent(BaseAgent):
         """Perform cleanup operations."""
 
         self._store_exploit()
-        if self.codebase and self.codebase.exists():
-            git_checkout_main(self.codebase, force=True)
+        if self.tmp_codebase and self.tmp_codebase.exists():
+            git_checkout_main(self.tmp_codebase, force=True)
 
     def _store_exploit(self) -> Optional[str]:
         """Store the exploit files."""
         try:
+            if self.output_patch_dir is None:
+                return None
+
             self.output_patch_subfolder = (
                 self.output_patch_dir / f"patch_{self.patch_id}"
             )
@@ -874,7 +897,7 @@ class PatchAgent(BaseAgent):
         """
         return {
             "bounty_dir": str(self.bounty_dir),
-            "patch_dir": str(self.output_patch_dir),
+            "output_patch_dir": str(self.output_patch_dir),
             "patch_id": self.patch_id,
             "use_agent_exploit": self.use_agent_exploit,
             "agent_id": self.agent_id,
@@ -890,12 +913,12 @@ class PatchAgent(BaseAgent):
             {
                 "bounty_dir": Path(data["bounty_dir"]),
                 "task_dir": Path(data["task_dir"]),
-                "use_verify_script": data["use_verify_script"],
+                "use_agent_exploit": data["use_agent_exploit"],
             }
         )
 
         agent = cls(**kwargs)
-        agent.patch_dir = Path(data["patch_dir"])
+        agent.output_patch_dir = Path(data["output_patch_dir"])
         agent.log_history = data["log_history"]
         agent.patch_id = data["patch_id"]
         agent._agent_id = data["agent_id"]

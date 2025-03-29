@@ -43,15 +43,34 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
     const checkIfWorkflowExists = async () => {
-      const response = await fetch(`${API_BASE_URL}/workflow/active`);
-      const data = await response.json();
-
-      if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
-        showInvalidWorkflowToast();
-        navigate(`/`); 
+      try {
+        const response = await fetch(`${API_BASE_URL}/workflow/active`);
+        
+        if (!response.ok) {
+          console.error(`HTTP error! Status: ${response.status}`);
+          navigate(`/`);
+        }
+        
+        const data = await response.json();
+        
+        // Check if data has the expected structure
+        if (data && data.active_workflows) {
+          if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
+            showInvalidWorkflowToast();
+            navigate(`/`);
+          }
+        } else {
+          // Handle unexpected data structure
+          console.error("Unexpected API response format:", data);
+          navigate(`/`);
+        }
+      } catch (error) {
+        // Handle network errors or other exceptions
+        console.error("Error checking workflow:", error);
+        navigate(`/`);
       }
     };
-
+  
     if (!hasCheckedValidity) { // Check if validity has already been checked
       checkIfWorkflowExists();
       setHasCheckedValidity(true);

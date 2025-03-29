@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List
 
 from fastapi import HTTPException
+from fastapi.websockets import WebSocketState
 
 from backend.execution_backends import ExecutionBackend
 from backend.schema import (
@@ -386,11 +387,20 @@ class LocalExecutionBackend(ExecutionBackend):
                         # Heartbeat is handled internally by WebSocketManager
                         continue
                 except asyncio.TimeoutError:
-                    # Timeout is normal, just continue the loop to check conditions again
+                    # Timeout is normal, verify client state is not disconnected, continue the loop to check conditions again
+                    if websocket.client_state == WebSocketState.DISCONNECTED:
+                        print(f"Client disconnected for workflow {workflow_id}")
+                        break
                     continue
                 except Exception as e:
                     print(f"Error handling WebSocket message: {e}")
-                    if "disconnect" in str(e).lower():
+                    if (
+                        "disconnect" in str(e).lower()
+                        or "not connected" in str(e).lower()
+                    ):
+                        print(
+                            f"Connection broken for workflow {workflow_id}, exiting loop"
+                        )
                         break
 
         except Exception as e:

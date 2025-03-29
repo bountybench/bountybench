@@ -149,6 +149,7 @@ class ModelResource(RunnableBaseResource):
             return re.sub("<think>.*</think>", "", response, flags=re.DOTALL)
         else:
             # Unclosed think block
+            logger.info("The model response contains an unclosed <think> block.")
             return ""
 
     def tokenize(self, message: str) -> List[int]:

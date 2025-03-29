@@ -1,7 +1,7 @@
 import atexit
 import re
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
 from queue import Queue
 from typing import List, Optional
@@ -115,6 +115,8 @@ class BaseSetupResource(BaseResource, ABC):
                     f"Unable to successfully execute {self.setup_script_name} at {self.resource_id}: {e}"
                 )
             finally:
+                logger.info("Pruning dangling docker images...")
+                run_command(command=["docker", "image", "prune", "-f"])
                 stop_progress()
 
             if (
