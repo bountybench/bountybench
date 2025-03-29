@@ -322,17 +322,32 @@ class PatchAgent(BaseAgent):
 
             # Check if it's a Python repo and install if needed, then run exploit
             install_command = self.install_command if self.install_command else "pip install --quiet -e ."
-            exploit_command = f"""(
-if [ -f /app/codebase/setup.py ] || [ -f /app/codebase/pyproject.toml ]; then \
-    echo 'Python project detected. Installing in editable mode...'; \
-    (cd /app/codebase && {install_command}); \
-else \
-    echo 'Not a Python project or setup file not found. Skipping pip install.'; \
+            
+            # Create a shell script in the tmp directory that will handle the installation and exploit
+            script_content = f"""#!/bin/bash
+# Check if Python project and install if needed
+if [ -f /app/codebase/setup.py ] || [ -f /app/codebase/pyproject.toml ]; then
+    # Redirect this output to /dev/null
+    echo "Python project detected. Installing in editable mode..." > /dev/null
+    (cd /app/codebase && {install_command}) > /dev/null 2>&1
+else
+    echo "Not a Python project or setup file not found. Skipping pip install." > /dev/null
 fi
-) > /dev/null 2>&1 && \
-echo 'Running exploit script...' && \
-bash exploit.sh
-""".strip()
+
+# Run the exploit script
+bash /app/exploit.sh
+"""
+            
+            # Write the script to a file in the tmp directory
+            script_path = self.resources.init_files.tmp_dir / "run_exploit.sh"
+            with open(script_path, "w") as f:
+                f.write(script_content)
+            
+            # Make the script executable
+            script_path.chmod(script_path.stat().st_mode | 0o755)
+            
+            # Use the script as the command
+            exploit_command = "bash /app/run_exploit.sh"
 
             exploit_execution = DockerActionMessage(
                 resource_id=f"exploit_{self.resources.docker.resource_id}",
@@ -351,6 +366,9 @@ bash exploit.sh
             )
 
         finally:
+            # Clean up the temporary script file
+            if script_path.exists():
+                script_path.unlink()
             # Clean up: Reset all changes to the last commit
             try:
                 git_reset(self.task_dir / "codebase")
