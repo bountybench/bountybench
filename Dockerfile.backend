@@ -7,6 +7,7 @@ WORKDIR /app
 # Install build tools and other dependencies
 # - Install tools such as nc, tree which are not included in the Debian image
 # - Install dependencies for `docker` and `docker compose`
+# - Install Node.js and npm
 RUN apt-get update && \
     apt-get install -y \
     build-essential \
@@ -31,12 +32,14 @@ RUN apt-get update && \
     "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
     $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
     tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get update \
     && apt-get install -y \
     docker-ce \
     docker-ce-cli \
     containerd.io \
     docker-compose-plugin \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Configures git; Necessary for git commands to work in the container
