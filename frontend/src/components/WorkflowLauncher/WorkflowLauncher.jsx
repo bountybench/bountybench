@@ -31,7 +31,7 @@ const LauncherState = {
   CREATING_WORKFLOW: 'CREATING_WORKFLOW',
 };
 
-const DEFAULT_NON_HELM_MODEL = 'anthropic/claude-3-7-sonnet-20250219';
+const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-31';
 const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20241022';
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode, useMockModel, setUseMockModel}) => {
@@ -77,8 +77,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     api_key_value: '',
     model: '',
     use_helm: false,
-    max_input_tokens: '8192',
-    max_output_tokens: '16384',
+    max_input_tokens: '',
+    max_output_tokens: '',
   });
 
   const shouldShowVulnerabilityType = (workflowName) => {
