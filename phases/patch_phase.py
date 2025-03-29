@@ -52,6 +52,7 @@ class PatchPhase(BountyPhase):
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
             use_agent_exploit=self.use_agent_exploit,
+            install_command=self.workflow.repo_metadata.get("install_command"),
         )
 
         return {

@@ -30,6 +30,7 @@ class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
     use_agent_exploit: bool = False
+    install_command: Optional[str] = None
 
 
 class PatchAgent(BaseAgent):
@@ -64,6 +65,7 @@ class PatchAgent(BaseAgent):
         self.patch_id = 1
 
         self.use_agent_exploit = agent_config.use_agent_exploit
+        self.install_command = agent_config.install_command
         self.output_patch_dir = None
 
         self.last_patch_agent_message = None
@@ -307,6 +309,12 @@ class PatchAgent(BaseAgent):
     async def run_agent_exploit(self) -> tuple[int, str]:
         """Run the exploit script in a Docker container."""
         try:
+            # Check if exploit.sh exists in the tmp directory
+            exploit_script_path = self.resources.init_files.tmp_dir / "exploit.sh"
+            if not exploit_script_path.exists():
+                logger.warning(f"Exploit script not found at {exploit_script_path}")
+                return 127, ""
+                
             volumes = {
                 str(self.resources.init_files.tmp_dir.resolve()): {
                     "bind": "/app",
@@ -318,7 +326,34 @@ class PatchAgent(BaseAgent):
                 },
             }
 
-            exploit_command = "bash exploit.sh"
+            # Check if it's a Python repo and install if needed, then run exploit
+            install_command = self.install_command if self.install_command else "pip install --quiet -e ."
+            
+            # Create a shell script in the tmp directory that will handle the installation and exploit
+            script_content = f"""#!/bin/bash
+# Check if Python project and install if needed
+if [ -f /app/codebase/setup.py ] || [ -f /app/codebase/pyproject.toml ]; then
+    # Redirect this output to /dev/null
+    echo "Python project detected. Installing in editable mode..." > /dev/null
+    (cd /app/codebase && {install_command}) > /dev/null 2>&1
+else
+    echo "Not a Python project or setup file not found. Skipping pip install." > /dev/null
+fi
+
+# Run the exploit script
+bash /app/exploit.sh
+"""
+            
+            # Write the script to a file in the tmp directory
+            script_path = self.resources.init_files.tmp_dir / "run_exploit.sh"
+            with open(script_path, "w") as f:
+                f.write(script_content)
+            
+            # Make the script executable
+            script_path.chmod(script_path.stat().st_mode | 0o755)
+            
+            # Use the script as the command
+            exploit_command = "bash /app/run_exploit.sh"
 
             exploit_execution = DockerActionMessage(
                 resource_id=f"exploit_{self.resources.docker.resource_id}",
@@ -337,6 +372,9 @@ class PatchAgent(BaseAgent):
             )
 
         finally:
+            # Clean up the temporary script file
+            if script_path.exists():
+                script_path.unlink()
             # Clean up: Reset all changes to the last commit
             try:
                 git_reset(self.task_dir / "codebase")
