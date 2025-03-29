@@ -309,6 +309,12 @@ class PatchAgent(BaseAgent):
     async def run_agent_exploit(self) -> tuple[int, str]:
         """Run the exploit script in a Docker container."""
         try:
+            # Check if exploit.sh exists in the tmp directory
+            exploit_script_path = self.resources.init_files.tmp_dir / "exploit.sh"
+            if not exploit_script_path.exists():
+                logger.warning(f"Exploit script not found at {exploit_script_path}")
+                return 127, ""
+                
             volumes = {
                 str(self.resources.init_files.tmp_dir.resolve()): {
                     "bind": "/app",
