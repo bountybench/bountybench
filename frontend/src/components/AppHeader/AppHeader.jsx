@@ -26,29 +26,36 @@ export const AppHeader = ({
   // Initialize navigate
   const navigate = useNavigate();
 
-  // Fetch available models
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/workflow/allmodels`);
-        const models = await response.json();
-
-        setModelMapping(models.allModels);
-        console.log(models.allModels)
-      } catch (err) {
-        console.log('Failed to fetch models. Make sure the backend server is running.');
+// Fetch available models
+useEffect(() => {
+  const fetchModels = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflow/allmodels`);
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch models: ${response.status}`);
+        setModelMapping([]); 
+        return;
       }
-    };
-    fetchModels();
-  }, []);
-    
+      
+      const models = await response.json();
+      setModelMapping(models.allModels || []);
+      console.log(models.allModels);
+    } catch (err) {
+      console.error('Failed to fetch models. Make sure the backend server is running.');
+      setModelMapping([]);
+    }
+  };
+  fetchModels();
+}, []);
+
   // Extracting modelTypes (prefixes) whenever modelMapping changes
-  const allModelTypes = [...new Set(modelMapping.map(model => model.name.split('/')[0]))];
+const allModelTypes = [...new Set((modelMapping || []).map(model => model?.name?.split('/')[0] || ''))];
 
   // Determine modelNames based on selectedModelType
-  const allModelNames = selectedModelType ? modelMapping
-  .filter(model => model.name.startsWith(selectedModelType))  // Filter by selected model type
-  .map(model => model.name.split('/')[1])  // Split the name and get the second part after "/"
+const allModelNames = selectedModelType ? (modelMapping || [])
+  .filter(model => model?.name?.startsWith(selectedModelType))  // Filter by selected model type
+  .map(model => model?.name?.split('/')[1] || '') // Split the name and get the second part after "/"
   : [];
 
   // Effect to set defaults based on selectedWorkflow
