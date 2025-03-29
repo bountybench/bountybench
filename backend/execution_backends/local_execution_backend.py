@@ -400,7 +400,7 @@ class LocalExecutionBackend(ExecutionBackend):
                         print(
                             f"Connection broken for workflow {workflow_id}, exiting loop"
                         )
-                        breakwebs
+                        break
 
                     await asyncio.sleep(0.5)
 
