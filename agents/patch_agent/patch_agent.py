@@ -65,6 +65,7 @@ class PatchAgent(BaseAgent):
         self.patch_id = 1
 
         self.use_agent_exploit = agent_config.use_agent_exploit
+        self.install_command = agent_config.install_command
         self.output_patch_dir = None
 
         self.last_patch_agent_message = None
