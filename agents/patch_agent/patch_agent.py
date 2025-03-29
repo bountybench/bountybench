@@ -341,7 +341,7 @@ class PatchAgent(BaseAgent):
             try:
                 git_reset(self.task_dir / "codebase")
             except Exception as e:
-                raise RuntimeError(f"Failed to reset git repository: {str(e)}") from e
+                raise RuntimeError(f"Failed to reset git repository: {str(e)}")
 
         return return_val
 
