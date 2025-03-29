@@ -79,20 +79,22 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
           </Box>
           <Collapse in={contentExpanded}>
             <Typography className="phase-summary">
-              Summary: {message.phase_summary || '(no summary)'}
+              Summary: {message.phase_summary || '-'}
             </Typography>
             
-            {iterations && (
+            {(iterations !== null && iterations !== undefined) && (
               <Typography className="phase-summary">
-                Iterations: {iterations || '(no iterations)'} | Iteration time: {formatTimeElapsed(message.phase_usage?.total_iteration_time_ms) || '-'}
+                Iterations: {iterations || '-'} | Iteration time: {formatTimeElapsed(message.phase_usage?.total_iteration_time_ms) || '-'}
               </Typography>
             )}
 
             {message.current_children?.length > 0 && (
               <>
-                <Typography className="phase-summary" sx={{ marginTop: 1 }}>
-                  LM Calls: {lmCalls || '(no LM calls)'} | Input tokens: {message.phase_usage?.input_token || '-'} | Output tokens: {message.phase_usage?.output_token || '-'}
-                </Typography>
+                {(lmCalls !== null && iterations !== undefined) && (
+                  <Typography className="phase-summary" sx={{ marginTop: 1 }}>
+                    LM Calls: {lmCalls || '-'} | Input tokens: {message.phase_usage?.input_token || '-'} | Output tokens: {message.phase_usage?.output_token || '-'}
+                  </Typography>
+                )}
 
                 {commands.length > 0 && (
                   <Box className="command-summary-container" sx={{ width: '100%' }}>
