@@ -121,20 +121,25 @@ class PatchAgent(BaseAgent):
 
         if self.use_agent_exploit:
             exit_code, output = await self.run_agent_exploit()
-            if exit_code == 127:
-                self._log(
-                    "exploit.sh not found. Create this script before the patch can be applied."
-                )
+            if exit_code == 0:
+                self._store_exploit()
+                self._log("Exploit succeeds before the patch is applied.")
+            else:
+                git_reset(self.codebase)
+                git_reset(self.task_dir / "codebase")
+                if exit_code == 127:
+                    self._log(
+                        "exploit.sh not found. "
+                        "Please create this script before the patch can be applied."
+                    )
+                else:
+                    self._log(
+                        "Exploit fails before the patch is applied. "
+                        "Please fix the exploit.sh script."
+                        f"\nOutput: {output}"
+                    )
+                self._log("Reverting all the changes to the codebase.")
                 return self.update_patch_agent_message(clear=True)
-            elif exit_code != 0:
-                self._log(
-                    "Exploit fails before the patch is applied. Fix the exploit.sh script."
-                    f"\nOutput: {output}"
-                )
-                return self.update_patch_agent_message(clear=True)
-
-            self._store_exploit()
-            self._log("Exploit succeeds before the patch is applied.")
 
         # Apply the patch
         _apply_patch_success = self._apply_patch(tmp_git_diff)
@@ -142,6 +147,7 @@ class PatchAgent(BaseAgent):
             git_reset(self.codebase)
             git_reset(self.task_dir / "codebase")
             self.patch_id += 1
+            self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
 
         # Verify patch against agent exploit if needed
@@ -150,6 +156,7 @@ class PatchAgent(BaseAgent):
                 git_reset(self.codebase)
                 git_reset(self.task_dir / "codebase")
                 self.patch_id += 1
+                self._log("Reverting all the changes to the codebase.")
                 return self.update_patch_agent_message(clear=True)
 
         # Final verification of the patch
@@ -157,6 +164,7 @@ class PatchAgent(BaseAgent):
             git_reset(self.codebase)
             git_reset(self.task_dir / "codebase")
             self.patch_id += 1
+            self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
 
         # Return the final status message
