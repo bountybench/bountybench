@@ -24,6 +24,7 @@ describe('AppHeader Component', () => {
     
     global.fetch = jest.fn(() =>
       Promise.resolve({
+        ok: true,
         json: () => Promise.resolve({ allModels }),
       })
     );
@@ -82,6 +83,7 @@ describe('AppHeader Component', () => {
     ];
     global.fetch = jest.fn(() =>
       Promise.resolve({
+        ok: true,
         json: () => Promise.resolve({ allModels }),
       })
     );
