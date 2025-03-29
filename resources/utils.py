@@ -1,3 +1,4 @@
+import asyncio
 import html
 import json
 import select
@@ -68,6 +69,75 @@ def run_command(command, work_dir=None):
         return subprocess.CompletedProcess(
             args=command,
             returncode=process.returncode,
+            stdout="".join(stdout_lines),
+            stderr="".join(stderr_lines),
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Command '{' '.join(command)}' failed with return code {e.returncode}"
+        )
+        logger.error(f"stdout: {e.stdout}")
+        logger.error(f"stderr: {e.stderr}")
+        sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+        sys.stderr.flush()
+        raise
+
+
+async def run_command_async(command, work_dir=None):
+    """
+    Runs a shell command asynchronously while capturing output in real-time.
+
+    :param command: List of command arguments.
+    :param work_dir: Working directory to execute the command in.
+    :return: subprocess.CompletedProcess with stdout and stderr as strings.
+    """
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            cwd=work_dir,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            text=True,
+        )
+
+        stdout_lines = []
+        stderr_lines = []
+
+        # Define task to read from stdout
+        async def read_stdout():
+            while True:
+                line = await process.stdout.readline()
+                if not line:
+                    break
+                line_str = line.decode("utf-8")
+                sys.stdout.write(line_str)
+                sys.stdout.flush()
+                stdout_lines.append(line_str)
+
+        # Define task to read from stderr
+        async def read_stderr():
+            while True:
+                line = await process.stderr.readline()
+                if not line:
+                    break
+                line_str = line.decode("utf-8")
+                sys.stderr.write(line_str)
+                sys.stderr.flush()
+                stderr_lines.append(line_str)
+
+        # Run both reading tasks concurrently
+        await asyncio.gather(
+            read_stdout(),
+            read_stderr(),
+        )
+
+        # Wait for the process to complete
+        return_code = await process.wait()
+
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=return_code,
             stdout="".join(stdout_lines),
             stderr="".join(stderr_lines),
         )

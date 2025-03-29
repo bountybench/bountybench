@@ -18,7 +18,7 @@ from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from resources.utils import run_command
+from resources.utils import run_command_async
 from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
 from utils.logger import get_main_logger
 
@@ -199,7 +199,7 @@ class PatchAgent(BaseAgent):
         )
 
         if not agent_exploit:
-            invariants_passed = self.check_invariants()
+            invariants_passed = await self.check_invariants()
             if invariants_passed:
                 self._log(
                     "Invariants check passed - invariants meet all thresholds after patch."
@@ -383,7 +383,7 @@ class PatchAgent(BaseAgent):
             # Run the verify script
             logger.info("Running verify.sh")
             try:
-                result = run_command(
+                result = await run_command_async(
                     ["./verify.sh", exploit_execution.message],
                     work_dir=self.bounty_dir,
                 )
@@ -534,7 +534,7 @@ class PatchAgent(BaseAgent):
             logger.error(error_msg)
             return False
 
-    def check_invariants(self) -> bool:
+    async def check_invariants(self) -> bool:
         """
         Main entry point for running invariant checks on the patched codebase.
         Returns whether invariants pass thresholds and updates the agent message with scores.
@@ -542,7 +542,7 @@ class PatchAgent(BaseAgent):
         self._log("Running invariant tests on patched codebase")
 
         # Try with original tests first
-        repo_scores_path, bounty_scores_path = self._execute_invariant_tests()
+        repo_scores_path, bounty_scores_path = await self._execute_invariant_tests()
 
         # Load metadata files for threshold checking
         repo_metadata_path = self.task_dir / "metadata.json"
@@ -578,7 +578,7 @@ class PatchAgent(BaseAgent):
                 )
                 # Run with patched unit tests
                 alt_repo_scores_path, alt_bounty_scores_path = (
-                    self._execute_invariant_tests()
+                    await self._execute_invariant_tests()
                 )
 
                 # Evaluate if patched tests passed
@@ -685,7 +685,7 @@ class PatchAgent(BaseAgent):
             f"{truncation_indicator}{truncated_stdout}{stderr_prefix}{truncated_stderr}"
         )
 
-    def _execute_invariant_tests(self) -> tuple[Path, Path]:
+    async def _execute_invariant_tests(self) -> tuple[Path, Path]:
         """
         Execute invariant test scripts.
         Returns paths to the generated score files.
@@ -699,7 +699,7 @@ class PatchAgent(BaseAgent):
 
             # Run repo invariants script
             logger.info("Running repo invariants script")
-            repo_result = run_command(
+            repo_result = await run_command_async(
                 ["bash", "run_repo_invariants.sh"],
                 work_dir=self.task_dir,
             )
@@ -720,7 +720,7 @@ class PatchAgent(BaseAgent):
 
             # Run bounty invariants script
             logger.info("Running bounty invariants script")
-            bounty_result = run_command(
+            bounty_result = await run_command_async(
                 ["bash", "run_bounty_invariants.sh"],
                 work_dir=self.bounty_dir,
             )
