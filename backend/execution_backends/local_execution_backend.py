@@ -386,12 +386,23 @@ class LocalExecutionBackend(ExecutionBackend):
                         # Heartbeat is handled internally by WebSocketManager
                         continue
                 except asyncio.TimeoutError:
-                    # Timeout is normal, just continue the loop to check conditions again
+                    # Timeout is normal, verify client state is connected, continue the loop to check conditions again
+                    if not websocket.client_state.connected:
+                        print(f"Client disconnected for workflow {workflow_id}")
+                        break
                     continue
                 except Exception as e:
                     print(f"Error handling WebSocket message: {e}")
-                    if "disconnect" in str(e).lower():
-                        break
+                    if (
+                        "disconnect" in str(e).lower()
+                        or "not connected" in str(e).lower()
+                    ):
+                        print(
+                            f"Connection broken for workflow {workflow_id}, exiting loop"
+                        )
+                        breakwebs
+
+                    await asyncio.sleep(0.5)
 
         except Exception as e:
             print(f"WebSocket error for workflow {workflow_id}: {e}")
