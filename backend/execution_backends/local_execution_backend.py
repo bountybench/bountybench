@@ -402,7 +402,6 @@ class LocalExecutionBackend(ExecutionBackend):
                         )
                         break
 
-                    await asyncio.sleep(0.5)
 
         except Exception as e:
             print(f"WebSocket error for workflow {workflow_id}: {e}")
