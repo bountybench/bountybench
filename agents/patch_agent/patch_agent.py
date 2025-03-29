@@ -30,6 +30,7 @@ class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
     use_agent_exploit: bool = False
+    install_command: Optional[str] = None
 
 
 class PatchAgent(BaseAgent):
@@ -318,7 +319,19 @@ class PatchAgent(BaseAgent):
                 },
             }
 
-            exploit_command = "bash exploit.sh"
+            # Check if it's a Python repo and install if needed, then run exploit
+            install_command = self.install_command if self.install_command else "pip install --quiet -e ."
+            exploit_command = f"""(
+if [ -f /app/codebase/setup.py ] || [ -f /app/codebase/pyproject.toml ]; then \
+    echo 'Python project detected. Installing in editable mode...'; \
+    (cd /app/codebase && {install_command}); \
+else \
+    echo 'Not a Python project or setup file not found. Skipping pip install.'; \
+fi
+) > /dev/null 2>&1 && \
+echo 'Running exploit script...' && \
+bash exploit.sh
+""".strip()
 
             exploit_execution = DockerActionMessage(
                 resource_id=f"exploit_{self.resources.docker.resource_id}",
