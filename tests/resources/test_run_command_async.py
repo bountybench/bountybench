@@ -1,5 +1,6 @@
 import asyncio
 import os
+import sys
 import tempfile
 import time
 
@@ -61,3 +62,92 @@ async def test_concurrent_commands():
     assert elapsed < 1.5, f"Commands did not run concurrently (took {elapsed} seconds)"
     assert results[0].returncode == 0
     assert results[1].returncode == 0
+
+
+@pytest.mark.asyncio
+async def test_output_streaming():
+    """Test that output is streamed in real-time rather than buffered."""
+
+    # Create a temporary script that outputs lines with deliberate delays
+    with tempfile.TemporaryDirectory() as temp_dir:
+        script_path = os.path.join(temp_dir, "incremental_output.sh")
+        with open(script_path, "w") as f:
+            f.write(
+                """#!/bin/bash
+echo "Line 1"
+sleep 0.5
+echo "Line 2"
+sleep 0.5
+echo "Line 3" >&2
+sleep 0.5
+echo "Line 4"
+sleep 0.5
+echo "Line 5" >&2
+"""
+            )
+        os.chmod(script_path, 0o755)
+
+        # Capture timing of output arrival
+        output_times = []
+        original_stdout_write = sys.stdout.write
+        original_stderr_write = sys.stderr.write
+
+        def stdout_monitor(text):
+            """Capture when output arrives at stdout."""
+            output_times.append((time.time(), "stdout", text.strip()))
+            return original_stdout_write(text)
+
+        def stderr_monitor(text):
+            """Capture when output arrives at stderr."""
+            output_times.append((time.time(), "stderr", text.strip()))
+            return original_stderr_write(text)
+
+        # Patch stdout/stderr to monitor when output arrives
+        sys.stdout.write = stdout_monitor
+        sys.stderr.write = stderr_monitor
+
+        start_time = time.time()
+
+        try:
+            # Run the script, which should produce output with delay between lines
+            result = await run_command_async([script_path])
+
+            # Restore stdout/stderr
+            sys.stdout.write = original_stdout_write
+            sys.stderr.write = original_stderr_write
+
+            # Verify the command completed correctly
+            assert result.returncode == 0
+            assert "Line 1" in result.stdout
+            assert "Line 2" in result.stdout
+            assert "Line 4" in result.stdout
+            assert "Line 3" in result.stderr
+            assert "Line 5" in result.stderr
+
+            # Analyze timing to confirm streaming behavior
+            # First, filter out empty lines
+            actual_outputs = [item for item in output_times if item[2]]
+
+            # Verify we have at least 5 output events
+            assert (
+                len(actual_outputs) >= 5
+            ), f"Expected at least 5 output events, got {len(actual_outputs)}"
+
+            # Calculate time differences between first and last outputs
+            time_span = actual_outputs[-1][0] - actual_outputs[0][0]
+
+            # If output is streamed, time_span should be close to 2 seconds (4 sleep periods)
+            # If buffered, it would be close to 0
+            assert (
+                time_span >= 1.5
+            ), f"Output appeared too quickly ({time_span}s), suggesting it was buffered, not streamed"
+
+            # Print actual output timing for debugging
+            print("\nOutput timing (seconds since start, stream, content):")
+            for timestamp, stream, content in actual_outputs:
+                print(f"{timestamp - start_time:.3f}s - {stream}: {content}")
+
+        finally:
+            # Make sure we restore stdout/stderr even if the test fails
+            sys.stdout.write = original_stdout_write
+            sys.stderr.write = original_stderr_write
