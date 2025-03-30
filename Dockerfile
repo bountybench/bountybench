@@ -33,7 +33,7 @@ RUN ln -sf /usr/local/bin/python3.9 /usr/bin/python3 && \
 
 ENV PATH="/venv/bin:$PATH"
 
-COPY ./tools/dockerd-entrypoint.sh /usr/local/bin/
+COPY ./tools/entrypoint.sh /usr/local/bin/
 
 COPY bountybench/requirements.sh /bountybench/requirements.sh
 COPY bountybench/requirements.txt /bountybench/requirements.txt
