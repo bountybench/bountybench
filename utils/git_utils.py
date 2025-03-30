@@ -260,6 +260,8 @@ def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> No
         gitignore = directory / ".gitignore"
         if not gitignore.exists():
             gitignore.write_text("*.log\n.DS_Store\n")
+            gitignore.write_text("\n# Node.js dependencies\nnode_modules/\n")
+
 
         # If ignore_dirs list is provided, append each entry to .gitignore if not already present
         if ignore_dirs:
