@@ -175,11 +175,19 @@ class LocalExecutionBackend(ExecutionBackend):
             active_workflows_list.append(
                 {
                     "id": workflow_id,
-                    "status": workflow_data["status"],
-                    "name": workflow_data["instance"].__class__.__name__,
-                    "task": workflow_data["instance"].task,
+                    "status": workflow_data.get("status", "unknown"),
+                    "name": (
+                        workflow_data.get("instance", {}).__class__.__name__
+                        if "instance" in workflow_data
+                        else "Unknown"
+                    ),
+                    "task": (
+                        workflow_data.get("instance").task
+                        if "instance" in workflow_data
+                        else None
+                    ),
                     "timestamp": getattr(
-                        workflow_data["workflow_message"], "timestamp", None
+                        workflow_data.get("workflow_message", {}), "timestamp", None
                     ),
                 }
             )
