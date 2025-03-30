@@ -311,6 +311,7 @@ class PatchAgent(BaseAgent):
         try:
             # Check if exploit.sh exists in the tmp directory
             exploit_script_path = self.resources.init_files.tmp_dir / "exploit.sh"
+            script_path = self.resources.init_files.tmp_dir / "run_exploit.sh"
             if not exploit_script_path.exists():
                 logger.warning(f"Exploit script not found at {exploit_script_path}")
                 return_val = (127, "")
@@ -345,7 +346,6 @@ bash /app/exploit.sh
 """
                 
                 # Write the script to a file in the tmp directory
-                script_path = self.resources.init_files.tmp_dir / "run_exploit.sh"
                 with open(script_path, "w") as f:
                     f.write(script_content)
                 
