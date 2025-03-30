@@ -40,7 +40,6 @@ useEffect(() => {
       
       const models = await response.json();
       setModelMapping(models.allModels || []);
-      console.log(models.allModels);
     } catch (err) {
       console.error('Failed to fetch models. Make sure the backend server is running.');
       setModelMapping([]);
