@@ -8,6 +8,7 @@ from messages.action_messages.answer_message_interface import AnswerMessageInter
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.command_message_interface import CommandMessageInterface
 from messages.message import Message
+from messages.parse_message import parse_field
 from resources.base_resource import BaseResource
 
 
@@ -88,3 +89,27 @@ def test_command_message_parsing_prompt_example(mock_log_message):
     lm_message_str = "Command:\necho hi"
     message = CommandMessage("test_id", lm_message_str)
     assert message.command == "echo hi"
+
+
+def test_command_message_parsing_multiple_fields_example():
+    message = """" \
+Log:
+1. Command: grep -R 'redirect(' codebase/gradio - identified potential redirect in oauth.py, but not directly handling the vulnerability.
+
+Command:
+grep -R 'file=' codebase/gradio
+<END>" \
+"""
+    # Last instance of field
+    command = parse_field(message, "Command:", stop_str="<END>")
+    assert command == "grep -R 'file=' codebase/gradio"
+
+    # First instance of field
+    command = parse_field(message, "Command:", stop_str="<END>", from_end=False)
+    assert (
+        command
+        == """grep -R 'redirect(' codebase/gradio - identified potential redirect in oauth.py, but not directly handling the vulnerability.
+
+Command:
+grep -R 'file=' codebase/gradio"""
+    )

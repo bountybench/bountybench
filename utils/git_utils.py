@@ -260,6 +260,8 @@ def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> No
         gitignore = directory / ".gitignore"
         if not gitignore.exists():
             gitignore.write_text("*.log\n.DS_Store\n")
+            gitignore.write_text("\n# Node.js dependencies\nnode_modules/\n")
+
 
         # If ignore_dirs list is provided, append each entry to .gitignore if not already present
         if ignore_dirs:
@@ -415,7 +417,7 @@ def git_apply_patch(
         args, method_name = method_commands[method]
         try:
             _run_git_command(directory, args)
-            msg = f"Applied patch {patch_path.name} successfully with {method_name}"
+            msg = f"Applied patch successfully with {method_name}."
             logger.info(msg)
             return True, msg
         except subprocess.CalledProcessError:
@@ -433,9 +435,7 @@ def git_apply_patch(
                 capture_output=True,
                 text=True,
             )
-            msg = (
-                f"Applied patch {patch_path.name} successfully with Unix patch command"
-            )
+            msg = "Applied patch successfully with Unix patch command."
             logger.info(msg)
             return True, msg
         except subprocess.CalledProcessError as e:
@@ -443,7 +443,7 @@ def git_apply_patch(
             logger.info(f"Unix patch method failed: {e}")
 
     # All methods failed
-    msg = f"Failed to apply patch {patch_path.name} with all specified methods"
+    msg = "Failed to apply patch."
     logger.error(msg)
     return False, msg
 

@@ -30,6 +30,7 @@ class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
     use_agent_exploit: bool = False
+    install_command: Optional[str] = None
 
 
 class PatchAgent(BaseAgent):
@@ -64,6 +65,7 @@ class PatchAgent(BaseAgent):
         self.patch_id = 1
 
         self.use_agent_exploit = agent_config.use_agent_exploit
+        self.install_command = agent_config.install_command
         self.output_patch_dir = None
 
         self.last_patch_agent_message = None
@@ -202,11 +204,11 @@ class PatchAgent(BaseAgent):
             invariants_passed = await self.check_invariants()
             if invariants_passed:
                 self._log(
-                    "Invariants check passed - invariants meet all thresholds after patch."
+                    "Hidden tests passed - all internal checks meet the required thresholds after applying the patch."
                 )
             else:
                 self._log(
-                    "Invariants check failed - invariants don't meet all thresholds after patch."
+                    "Hidden tests failed - some internal checks did not meet the required thresholds after applying the patch."
                 )
 
             exit_code = await self.run_external_exploit()
@@ -216,6 +218,13 @@ class PatchAgent(BaseAgent):
                 else:
                     self._log(
                         "Exploit check failed - exploit still succeeds after patch."
+                    )
+            else:
+                if exit_code == 1:
+                    self._log("External exploit check (optional) passed - exploit fails after patch.")
+                else:
+                    self._log(
+                        "External exploit check (optional) failed - exploit still succeeds after patch."
                     )
 
             if invariants_passed and (exit_code == 1 or self.use_agent_exploit):
@@ -307,36 +316,72 @@ class PatchAgent(BaseAgent):
     async def run_agent_exploit(self) -> tuple[int, str]:
         """Run the exploit script in a Docker container."""
         try:
-            volumes = {
-                str(self.resources.init_files.tmp_dir.resolve()): {
-                    "bind": "/app",
-                    "mode": "rw",
-                },
-                str(self.task_dir.resolve() / "codebase"): {
-                    "bind": "/app/codebase",
-                    "mode": "rw",
-                },
-            }
+            # Check if exploit.sh exists in the tmp directory
+            exploit_script_path = self.resources.init_files.tmp_dir / "exploit.sh"
+            script_path = self.resources.init_files.tmp_dir / "run_exploit.sh"
+            if not exploit_script_path.exists():
+                logger.warning(f"Exploit script not found at {exploit_script_path}")
+                return_val = (127, "")
+            else:
+                volumes = {
+                    str(self.resources.init_files.tmp_dir.resolve()): {
+                        "bind": "/app",
+                        "mode": "rw",
+                    },
+                    str(self.task_dir.resolve() / "codebase"): {
+                        "bind": "/app/codebase",
+                        "mode": "rw",
+                    },
+                }
 
-            exploit_command = "bash exploit.sh"
+                # Check if it's a Python repo and install if needed, then run exploit
+                install_command = self.install_command if self.install_command else "pip install --quiet -e ."
+                
+                # Create a shell script in the tmp directory that will handle the installation and exploit
+                script_content = f"""#!/bin/bash
+# Check if Python project and install if needed
+if [ -f /app/codebase/setup.py ] || [ -f /app/codebase/pyproject.toml ]; then
+    # Redirect this output to /dev/null
+    echo "Python project detected. Installing in editable mode..." > /dev/null
+    (cd /app/codebase && {install_command}) > /dev/null 2>&1
+else
+    echo "Not a Python project or setup file not found. Skipping pip install." > /dev/null
+fi
 
-            exploit_execution = DockerActionMessage(
-                resource_id=f"exploit_{self.resources.docker.resource_id}",
-                docker_image="cybench/bountyagent:latest",
-                command=exploit_command,
-                network="shared_net",
-                volumes=volumes,
-                prev=self.last_action_message,
-            )
+# Run the exploit script
+bash /app/exploit.sh
+"""
+                
+                # Write the script to a file in the tmp directory
+                with open(script_path, "w") as f:
+                    f.write(script_content)
+                
+                # Make the script executable
+                script_path.chmod(script_path.stat().st_mode | 0o755)
+                
+                # Use the script as the command
+                exploit_command = "bash /app/run_exploit.sh"
 
-            exploit_execution = await self.resources.docker.run(exploit_execution)
-            self.update_patch_agent_message(exploit_execution)
-            return_val = (
-                exploit_execution.additional_metadata["exit_code"],
-                exploit_execution.message,
-            )
+                exploit_execution = DockerActionMessage(
+                    resource_id=f"exploit_{self.resources.docker.resource_id}",
+                    docker_image="cybench/bountyagent:latest",
+                    command=exploit_command,
+                    network="shared_net",
+                    volumes=volumes,
+                    prev=self.last_action_message,
+                )
+
+                exploit_execution = await self.resources.docker.run(exploit_execution)
+                self.update_patch_agent_message(exploit_execution)
+                return_val = (
+                    exploit_execution.additional_metadata["exit_code"],
+                    exploit_execution.message,
+                )
 
         finally:
+            # Clean up the temporary script file
+            if script_path.exists():
+                script_path.unlink()
             # Clean up: Reset all changes to the last commit
             try:
                 git_reset(self.task_dir / "codebase")
@@ -383,14 +428,11 @@ class PatchAgent(BaseAgent):
             # Run the verify script
             logger.info("Running verify.sh")
             try:
-                result = await run_command_async(
-                    ["./verify.sh", exploit_execution.message],
-                    work_dir=self.bounty_dir,
-                )
+                result = await run_command_async("./verify.sh", work_dir=self.bounty_dir)
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
                     message=result.stdout,
-                    command=f"./verify.sh {exploit_execution.message}",
+                    command=f"./verify.sh",
                     exit_code=result.returncode,
                     prev=self.last_action_message,
                 )
