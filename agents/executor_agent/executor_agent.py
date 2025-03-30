@@ -94,11 +94,14 @@ class ExecutorAgent(BaseAgent):
         Calls the language model and ensures the response is in valid format.
         Retries up to MAX_RETRIES if the response is invalid.
         Immediately fails on non-retryable errors like quota limits.
+        If parsing fails after MAX_RETRIES, returns the last raw response.
         Uses a 5-minute timeout for the LLM call.
         """
         iterations = 0
         # 5-minute timeout in seconds
         LLM_TIMEOUT = 300
+
+        last_raw_response = None  # Store the last raw response in case parsing fails
 
         start_progress(f"Getting response from LM")
         try:
@@ -115,8 +118,7 @@ class ExecutorAgent(BaseAgent):
                         ),
                         timeout=LLM_TIMEOUT,
                     )
-                    parsed_response = self.parse_response(model_output)
-                    return parsed_response
+                    last_raw_response = model_output
                 except asyncio.TimeoutError:
                     logger.warning(
                         f"LLM call timed out after {LLM_TIMEOUT} seconds. Retrying {iterations + 1}/{MAX_RETRIES}"
@@ -130,8 +132,12 @@ class ExecutorAgent(BaseAgent):
                     if hasattr(e, "status_code"):
                         status_code = e.status_code
 
-                    # Client errors (4xx) should not be retried
-                    if status_code is not None and 400 <= status_code < 500:
+                    # Client errors (4xx) should not be retried (except invalid prompts)
+                    if (
+                        status_code is not None
+                        and 400 <= status_code < 500
+                        and "Invalid prompt" not in error_msg
+                    ):
                         raise Exception(
                             f"Non-retryable API error (HTTP {status_code}): {error_msg}"
                         )
@@ -144,9 +150,23 @@ class ExecutorAgent(BaseAgent):
                         )
 
                     logger.warning(
+                        f"Retrying {iterations + 1}/{MAX_RETRIES} after model query error: {e}"
+                    )
+                    iterations += 1
+                    continue  # Skip to next iteration without trying to parse
+
+                try:
+                    parsed_response = self.parse_response(model_output)
+                    return parsed_response
+                except Exception as e:
+                    logger.warning(
                         f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}"
                     )
                     iterations += 1
+
+            # If we've exhausted all retries but have a raw response, return it
+            if last_raw_response:
+                return last_raw_response
 
             # If we've exhausted all retries
             raise Exception(
