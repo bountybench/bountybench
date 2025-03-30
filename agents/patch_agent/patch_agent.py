@@ -221,7 +221,9 @@ class PatchAgent(BaseAgent):
                     )
             else:
                 if exit_code == 1:
-                    self._log("External exploit check (optional) passed - exploit fails after patch.")
+                    self._log(
+                        "External exploit check (optional) passed - exploit fails after patch."
+                    )
                 else:
                     self._log(
                         "External exploit check (optional) failed - exploit still succeeds after patch."
@@ -335,8 +337,12 @@ class PatchAgent(BaseAgent):
                 }
 
                 # Check if it's a Python repo and install if needed, then run exploit
-                install_command = self.install_command if self.install_command else "pip install --quiet -e ."
-                
+                install_command = (
+                    self.install_command
+                    if self.install_command
+                    else "pip install --quiet -e ."
+                )
+
                 # Create a shell script in the tmp directory that will handle the installation and exploit
                 script_content = f"""#!/bin/bash
 # Check if Python project and install if needed
@@ -351,14 +357,14 @@ fi
 # Run the exploit script
 bash /app/exploit.sh
 """
-                
+
                 # Write the script to a file in the tmp directory
                 with open(script_path, "w") as f:
                     f.write(script_content)
-                
+
                 # Make the script executable
                 script_path.chmod(script_path.stat().st_mode | 0o755)
-                
+
                 # Use the script as the command
                 exploit_command = "bash /app/run_exploit.sh"
 
@@ -428,14 +434,11 @@ bash /app/exploit.sh
             # Run the verify script
             logger.info("Running verify.sh")
             try:
-                result = run_command(
-                    ["./verify.sh", exploit_execution.message],
-                    work_dir=self.bounty_dir,
-                )
+                result = run_command("./verify.sh", work_dir=self.bounty_dir)
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
                     message=result.stdout,
-                    command=f"./verify.sh {exploit_execution.message}",
+                    command=f"./verify.sh",
                     exit_code=result.returncode,
                     prev=self.last_action_message,
                 )
