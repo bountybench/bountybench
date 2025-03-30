@@ -35,18 +35,29 @@ PIP_INSTALL_TIMEOUT: int = 1200
 # Configure logging
 logger = get_main_logger(__name__)
 
+import threading
+from contextlib import contextmanager
+
 
 @contextmanager
 def timeout_context(seconds):
-    def signal_handler(signum, frame):
-        raise TimeoutError("Timed out!")
+    """Thread-safe timeout context manager."""
 
-    signal.signal(signal.SIGALRM, signal_handler)
-    signal.alarm(seconds)
+    def check_timeout():
+        if not timeout_occurred[0]:
+            timeout_occurred[0] = True
+
+    timeout_occurred = [False]
+    timer = threading.Timer(seconds, check_timeout)
+    timer.daemon = True
+
     try:
+        timer.start()
         yield
+        if timeout_occurred[0]:
+            raise TimeoutError("Timed out!")
     finally:
-        signal.alarm(0)
+        timer.cancel()
 
 
 @dataclass

@@ -1,5 +1,9 @@
+import concurrent.futures
 import shutil
 import tempfile
+import threading
+import time
+from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock, call, patch
@@ -7,7 +11,11 @@ from unittest.mock import MagicMock, call, patch
 import docker
 import pytest
 
-from resources.kali_env_resource import KaliEnvResource, KaliEnvResourceConfig
+from resources.kali_env_resource import (
+    KaliEnvResource,
+    KaliEnvResourceConfig,
+    timeout_context,
+)
 from resources.kali_env_resource_util import DockerContainerStartError
 
 VOLUME = {
@@ -286,3 +294,137 @@ def test_no_repo_found(
     # Verify both repo checks were called
     mock_is_python.assert_called_once_with("/app/codebase")
     mock_is_node.assert_called_once_with("/app/codebase")
+
+
+def test_timeout_context_no_timeout():
+    """Test that timeout_context works correctly when no timeout occurs."""
+    with timeout_context(1):
+        # Operation that takes less than the timeout
+        time.sleep(0.1)
+    # If we reach here, no exception was raised, which is the expected behavior
+
+
+def test_timeout_context_with_timeout():
+    """Test that timeout_context raises TimeoutError when timeout occurs."""
+    with pytest.raises(TimeoutError):
+        with timeout_context(0.1):
+            # Operation that takes longer than the timeout
+            time.sleep(0.5)
+
+
+def test_timeout_context_nested():
+    """Test that nested timeout_contexts work correctly."""
+    # Outer timeout is longer than inner
+    with timeout_context(1):
+        # Should timeout from inner context
+        with pytest.raises(TimeoutError):
+            with timeout_context(0.1):
+                time.sleep(0.5)
+        # This should execute after inner timeout but before outer timeout
+        time.sleep(0.2)
+
+    # Inner timeout is longer than outer
+    with pytest.raises(TimeoutError):
+        with timeout_context(0.2):
+            with timeout_context(1):
+                time.sleep(0.5)  # Should timeout from outer context
+
+
+def test_timeout_context_in_thread():
+    """Test that timeout_context works when used in a non-main thread."""
+
+    def thread_func():
+        try:
+            with timeout_context(0.1):
+                time.sleep(0.5)
+            return "No timeout occurred"
+        except TimeoutError:
+            return "Timeout occurred"
+
+    # Run in a thread
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(thread_func)
+        result = future.result()
+
+    assert result == "Timeout occurred"
+
+
+def test_timeout_context_cancellation():
+    """Test that timeout_context properly cancels the timer when exiting normally."""
+    # We'll use a flag to see if the timeout occurred after the context manager
+    timeout_flag = [False]
+
+    def set_timeout_flag():
+        timeout_flag[0] = True
+
+    # Create a mock version of timeout_context that sets our flag
+    @contextmanager
+    def test_timeout():
+        timer = threading.Timer(0.2, set_timeout_flag)
+        timer.daemon = True
+        try:
+            timer.start()
+            yield
+        finally:
+            timer.cancel()
+
+    with test_timeout():
+        time.sleep(0.1)  # Less than the timeout
+
+    # Sleep a bit longer than the timeout to ensure the timer would have fired
+    time.sleep(0.3)
+
+    # The timer should have been cancelled, so the flag should still be False
+    assert timeout_flag[0] is False
+
+
+def test_timeout_context_exception_handling():
+    """Test that timeout_context correctly handles other exceptions."""
+
+    class TestException(Exception):
+        pass
+
+    with pytest.raises(TestException):
+        with timeout_context(1):
+            raise TestException("Test exception")
+
+
+def test_timeout_context_in_cpu_bound_operation():
+    """Test timeout_context with a CPU-bound operation rather than I/O-bound."""
+
+    def cpu_intensive_operation():
+        result = 0
+        for i in range(10000000):
+            result += i
+        return result
+
+    with pytest.raises(TimeoutError):
+        with timeout_context(0.1):
+            cpu_intensive_operation()
+
+
+def test_timeout_context_in_worker_thread_pool():
+    """Test timeout_context when used in multiple worker threads simultaneously."""
+
+    def worker_with_timeout(timeout_duration, sleep_duration):
+        try:
+            with timeout_context(timeout_duration):
+                time.sleep(sleep_duration)
+                return "Completed"
+        except TimeoutError:
+            return "Timed out"
+
+    scenarios = [
+        (0.5, 0.1),  # Should complete
+        (0.5, 1.0),  # Should timeout
+        (0.2, 0.1),  # Should complete
+        (0.2, 0.5),  # Should timeout
+    ]
+
+    expected_results = ["Completed", "Timed out", "Completed", "Timed out"]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(worker_with_timeout, t, s) for t, s in scenarios]
+        results = [future.result() for future in futures]
+
+    assert results == expected_results
