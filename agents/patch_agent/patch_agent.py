@@ -219,6 +219,13 @@ class PatchAgent(BaseAgent):
                     self._log(
                         "Exploit check failed - exploit still succeeds after patch."
                     )
+            else:
+                if exit_code == 1:
+                    self._log("External exploit check (optional) passed - exploit fails after patch.")
+                else:
+                    self._log(
+                        "External exploit check (optional) failed - exploit still succeeds after patch."
+                    )
 
             if invariants_passed and (exit_code == 1 or self.use_agent_exploit):
                 # if we are using agent exploit, then passing external exploit is optional
