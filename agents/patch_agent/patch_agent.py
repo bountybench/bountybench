@@ -428,14 +428,11 @@ bash /app/exploit.sh
             # Run the verify script
             logger.info("Running verify.sh")
             try:
-                result = run_command(
-                    ["./verify.sh", exploit_execution.message],
-                    work_dir=self.bounty_dir,
-                )
+                result = run_command("./verify.sh", work_dir=self.bounty_dir)
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
                     message=result.stdout,
-                    command=f"./verify.sh {exploit_execution.message}",
+                    command=f"./verify.sh",
                     exit_code=result.returncode,
                     prev=self.last_action_message,
                 )
