@@ -10,9 +10,11 @@ class ScriptActionMessage(ActionMessage):
         command: str,
         message: Optional[str] = "",
         exit_code: Optional[int] = None,
-        additional_metadata: Optional[Dict[str, Any]] = {},
+        additional_metadata: Optional[Dict[str, Any]] = None,
         prev: Optional[ActionMessage] = None,
     ) -> None:
+
+        additional_metadata = additional_metadata or {}
         additional_metadata["exit_code"] = exit_code
         additional_metadata["command"] = command
 
