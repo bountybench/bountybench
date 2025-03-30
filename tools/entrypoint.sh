@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dockerd >/tmp/dockerd.log 2>&1 &
+dockerd >&1 2>&1 &
 
 # Wait for Docker daemon to start
 while (! docker stats --no-stream >/dev/null 2>&1); do
