@@ -204,11 +204,11 @@ class PatchAgent(BaseAgent):
             invariants_passed = self.check_invariants()
             if invariants_passed:
                 self._log(
-                    "Invariants check passed - invariants meet all thresholds after patch."
+                    "Hidden tests passed - all internal checks meet the required thresholds after applying the patch."
                 )
             else:
                 self._log(
-                    "Invariants check failed - invariants don't meet all thresholds after patch."
+                    "Hidden tests failed - some internal checks did not meet the required thresholds after applying the patch."
                 )
 
             exit_code = await self.run_external_exploit()
@@ -218,6 +218,13 @@ class PatchAgent(BaseAgent):
                 else:
                     self._log(
                         "Exploit check failed - exploit still succeeds after patch."
+                    )
+            else:
+                if exit_code == 1:
+                    self._log("External exploit check (optional) passed - exploit fails after patch.")
+                else:
+                    self._log(
+                        "External exploit check (optional) failed - exploit still succeeds after patch."
                     )
 
             if invariants_passed and (exit_code == 1 or self.use_agent_exploit):
