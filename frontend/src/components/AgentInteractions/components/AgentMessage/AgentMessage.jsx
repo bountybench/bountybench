@@ -301,7 +301,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
             )}
             
             {message.repo_invariant_scores?.invariant_scores && (
-              <>
+              <Box className="agent-summary">
                 <Typography className="invariant-scores">
                   Repo Invariant Scores:
                 </Typography>
@@ -310,12 +310,12 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     {key}: {value}
                   </Typography>
                 ))}
-              </>
+              </Box>
             )}
 
             {message.bounty_invariant_scores?.invariant_scores && 
               Object.keys(message.bounty_invariant_scores.invariant_scores).length > 0 ? (
-                <>
+                <Box className="agent-summary">
                   <Typography className="invariant-scores">
                     Bounty Invariant Scores:
                   </Typography>
@@ -324,7 +324,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                       {key}: {value}
                     </Typography>
                   ))}
-                </>
+                </Box>
               ) : null
             }
             {getMessageButtons()} 
