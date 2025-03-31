@@ -172,3 +172,19 @@
   align-items: end;
   gap: 15px;  
 }
+
+.invariant-scores {
+  background-color: #ffffff;
+  padding: 12px;
+  font-size: 0.75rem !important;
+  color: #1f1f1f !important;
+}
+
+
+.invariant-scores-item {
+  background-color: #ffffff;
+  padding: 6px;
+  padding-left: 24px;
+  font-size: 0.75rem !important;
+  color: #1f1f1f !important;
+}

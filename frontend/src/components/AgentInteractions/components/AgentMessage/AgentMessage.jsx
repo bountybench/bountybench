@@ -300,6 +300,33 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
               </Box>
             )}
             
+            {message.repo_invariant_scores?.invariant_scores && (
+              <>
+                <Typography className="invariant-scores">
+                  Repo Invariant Scores:
+                </Typography>
+                {Object.entries(message.repo_invariant_scores.invariant_scores).map(([key, value]) => (
+                  <Typography key={key} component="div" className="invariant-scores-item">
+                    {key}: {value}
+                  </Typography>
+                ))}
+              </>
+            )}
+
+            {message.bounty_invariant_scores?.invariant_scores && 
+              Object.keys(message.bounty_invariant_scores.invariant_scores).length > 0 ? (
+                <>
+                  <Typography className="invariant-scores">
+                    Bounty Invariant Scores:
+                  </Typography>
+                  {Object.entries(message.bounty_invariant_scores.invariant_scores).map(([key, value]) => (
+                    <Typography key={key} component="div" className="invariant-scores-item">
+                      {key}: {value}
+                    </Typography>
+                  ))}
+                </>
+              ) : null
+            }
             {getMessageButtons()} 
           </Collapse>
         </CardContent>
