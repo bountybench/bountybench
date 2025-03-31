@@ -73,13 +73,21 @@ def run_command(command, work_dir=None):
             stderr="".join(stderr_lines),
         )
 
+    except PermissionError as e:
+        logger.error(
+            f"Command '{''.join(command)}' failed with PermissionError {str(e)}"
+        )
+        sys.stderr.write(f"Error executing command: {''.join(command)}\n")
+        sys.stderr.flush()
+        raise
+
     except Exception as e:
         logger.error(
-            f"Command '{' '.join(command)}' failed with return code {e.returncode}"
+            f"Command '{''.join(command)}' failed with return code {e.returncode}"
         )
         logger.error(f"stdout: {e.stdout}")
         logger.error(f"stderr: {e.stderr}")
-        sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+        sys.stderr.write(f"Error executing command: {''.join(command)}\n")
         sys.stderr.flush()
         raise
 
@@ -141,13 +149,21 @@ async def run_command_async(command, work_dir=None):
             stderr="".join(stderr_lines),
         )
 
+    except PermissionError as e:
+        logger.error(
+            f"Command '{''.join(command)}' failed with PermissionError {str(e)}"
+        )
+        sys.stderr.write(f"Error executing command: {''.join(command)}\n")
+        sys.stderr.flush()
+        raise
+
     except Exception as e:
         logger.error(
-            f"Command '{' '.join(command)}' failed with return code {e.returncode}"
+            f"Command '{''.join(command)}' failed with return code {e.returncode}"
         )
         logger.error(f"stdout: {e.stdout}")
         logger.error(f"stderr: {e.stderr}")
-        sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+        sys.stderr.write(f"Error executing command: {''.join(command)}\n")
         sys.stderr.flush()
         raise
 

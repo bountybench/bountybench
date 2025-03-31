@@ -401,6 +401,10 @@ bash /app/exploit.sh
         try:
             cwd = Path.cwd().resolve()
             exploit_files_path = self.bounty_dir.resolve() / "exploit_files"
+            
+            # Make the script executable
+            exploit_files_path.chmod(exploit_files_path.stat().st_mode | 0o755)
+            
             relative_path = os.path.relpath(str(exploit_files_path), str(cwd))
 
             volumes = {
@@ -428,7 +432,11 @@ bash /app/exploit.sh
             # Run the verify script
             logger.info("Running verify.sh")
             try:
-                result = await run_command_async("./verify.sh", work_dir=self.bounty_dir)
+                # Make the script executable
+                verify_file_path = self.bounty_dir / "verify.sh"
+                verify_file_path.chmod(verify_file_path.stat().st_mode | 0o755)
+                
+                result = await run_command_async(["bash", "verify.sh"], work_dir=self.bounty_dir)
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
                     message=result.stdout,
@@ -739,6 +747,10 @@ bash /app/exploit.sh
             repo_scores_path = self.task_dir / "invariant_scores.json"
             bounty_scores_path = self.bounty_dir / "invariant_scores.json"
 
+            # Make the script executable
+            repo_invariants_file_path = self.task_dir / "run_repo_invariants.sh"
+            repo_invariants_file_path.chmod(repo_invariants_file_path.stat().st_mode | 0o755)
+
             # Run repo invariants script
             logger.info("Running repo invariants script")
             repo_result = await run_command_async(
@@ -759,6 +771,10 @@ bash /app/exploit.sh
 
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
             logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
+
+            # Make the script executable
+            bounty_invariants_file_path = self.bounty_dir / "run_bounty_invariants.sh"
+            bounty_invariants_file_path.chmod(bounty_invariants_file_path.stat().st_mode | 0o755)
 
             # Run bounty invariants script
             logger.info("Running bounty invariants script")
