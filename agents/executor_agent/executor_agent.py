@@ -125,6 +125,10 @@ class ExecutorAgent(BaseAgent):
                         timeout=LLM_TIMEOUT,
                     )
                     last_raw_response = model_output
+                    if error_history:
+                        last_raw_response.add_to_additional_metadata(
+                            "error_history", error_history
+                        )
                 except asyncio.TimeoutError:
                     error_entry = {
                         "type": "TimeoutError",
