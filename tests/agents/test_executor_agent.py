@@ -1,10 +1,12 @@
-from unittest.mock import AsyncMock, Mock
+import asyncio
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
+from messages.action_messages.error_action_message import ErrorActionMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.kali_env_resource import KaliEnvResource
 from resources.memory_resource.memory_resource import MemoryResource
@@ -53,6 +55,8 @@ async def test_call_lm_success(executor_agent):
 @pytest.mark.asyncio
 async def test_call_lm_failure(executor_agent):
     """Test failure of LM call after max retries"""
+    executor_agent.last_executor_agent_message = Mock()
+    executor_agent.last_executor_agent_message.add_child_message = Mock()
     executor_agent.resources.model.run = Mock(side_effect=Exception("API error"))
     executor_agent.parse_response = Mock()
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
@@ -230,3 +234,283 @@ def test_execute_in_env_failure(executor_agent):
     assert isinstance(result, ActionMessage)
     assert "Command failed" in result.message
     assert result.prev == command_msg
+
+
+@pytest.mark.asyncio
+async def test_call_lm_error_history_tracking(executor_agent):
+    """Test that error history is properly tracked during retries"""
+    # Create API errors with different reasons
+    api_error1 = Exception("Rate limit exceeded")
+    api_error2 = Exception("Temporary server error")
+    action_msg = ActionMessage("test_id", "valid command")
+    expected_command_msg = CommandMessage("test_id", "command: ls")
+
+    executor_agent.resources.model.run = Mock(
+        side_effect=[api_error1, api_error2, action_msg]
+    )
+    executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
+    executor_agent.parse_response = Mock(return_value=expected_command_msg)
+
+    # Set up last_executor_agent_message
+    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+        agent_id=executor_agent.agent_id, prev=None
+    )
+
+    result = await executor_agent.call_lm()
+
+    # Check error history was added to successful response
+    assert "error_history" in action_msg.additional_metadata
+    error_history = action_msg.additional_metadata["error_history"]
+    assert len(error_history) == 2
+    assert error_history[0]["type"] == "Exception"
+    assert "Rate limit" in error_history[0]["message"]
+    assert error_history[1]["type"] == "Exception"
+    assert "Temporary server" in error_history[1]["message"]
+    assert error_history[0]["attempt"] == 1
+    assert error_history[1]["attempt"] == 2
+
+
+@pytest.mark.asyncio
+async def test_call_lm_invalid_prompt_error_retry(executor_agent):
+    """Test LM call with Invalid prompt error (400) containing 'Invalid prompt'"""
+
+    # Create an exception with status_code attribute that should be retried
+    class ApiError(Exception):
+        def __init__(self, message, status_code):
+            super().__init__(message)
+            self.status_code = status_code
+
+    invalid_prompt_error = ApiError(
+        "Invalid prompt: your prompt was flagged as potentially violating our usage policy",
+        400,
+    )
+    success_msg = ActionMessage("test_id", "valid command")
+    expected_command_msg = CommandMessage("test_id", "command: ls")
+
+    # First call fails with invalid prompt, second succeeds
+    executor_agent.resources.model.run = Mock(
+        side_effect=[invalid_prompt_error, success_msg]
+    )
+    executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
+    executor_agent.parse_response = Mock(return_value=expected_command_msg)
+
+    # Set up last_executor_agent_message
+    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+        agent_id=executor_agent.agent_id, prev=None
+    )
+
+    result = await executor_agent.call_lm()
+
+    # Verify retry happened and we got a successful result
+    assert result == expected_command_msg
+    assert executor_agent.resources.model.run.call_count == 2
+
+    # Verify error history was recorded
+    assert "error_history" in success_msg.additional_metadata
+    error_history = success_msg.additional_metadata["error_history"]
+    assert len(error_history) == 1
+    assert error_history[0]["status_code"] == 400
+    assert "Invalid prompt" in error_history[0]["message"]
+
+
+@pytest.mark.asyncio
+async def test_call_lm_non_retryable_error(executor_agent):
+    """Test LM call with non-retryable error (e.g., 401 Authentication error)"""
+
+    class ApiError(Exception):
+        def __init__(self, message, status_code):
+            super().__init__(message)
+            self.status_code = status_code
+
+    auth_error = ApiError("Authentication error", 401)
+
+    executor_agent.resources.model.run = Mock(side_effect=auth_error)
+    executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
+
+    # Set up last_executor_agent_message
+    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+        agent_id=executor_agent.agent_id, prev=None
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        await executor_agent.call_lm()
+
+    # Verify exception is re-raised with non-retryable message
+    assert "Non-retryable API error (HTTP 401)" in str(exc_info.value)
+
+    # Verify error was added as child message
+    assert len(executor_agent.last_executor_agent_message.action_messages) == 1
+    child_msg = executor_agent.last_executor_agent_message.action_messages[0]
+    assert isinstance(child_msg, ErrorActionMessage)
+    assert child_msg.error_type == "Exception"
+    assert "Authentication error" in child_msg.message
+
+    # Verify error history exists and contains one entry
+    assert child_msg.error_history is not None
+    assert len(child_msg.error_history) == 1
+    assert child_msg.error_history[0]["status_code"] == 401
+
+
+@pytest.mark.asyncio
+async def test_call_lm_timeout_error(executor_agent):
+    """Test LM call with timeout errors"""
+
+    # Set up timeout error
+    timeout_error = asyncio.TimeoutError()
+    action_msg = ActionMessage("test_id", "valid command")
+    expected_command_msg = CommandMessage("test_id", "command: ls")
+
+    # Patch asyncio.wait_for to simulate timeout
+    with patch(
+        "asyncio.wait_for", side_effect=[timeout_error, timeout_error, action_msg]
+    ):
+        executor_agent.resources.model.run = Mock(return_value=action_msg)
+        executor_agent.resources.executor_agent_memory.get_memory = Mock(
+            return_value=None
+        )
+        executor_agent.parse_response = Mock(return_value=expected_command_msg)
+
+        # Set up last_executor_agent_message
+        executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+            agent_id=executor_agent.agent_id, prev=None
+        )
+
+        result = await executor_agent.call_lm()
+
+    # Verify error history contains timeout entries
+    assert "error_history" in action_msg.additional_metadata
+    error_history = action_msg.additional_metadata["error_history"]
+    assert len(error_history) == 2
+    assert error_history[0]["type"] == "TimeoutError"
+    assert error_history[1]["type"] == "TimeoutError"
+
+
+@pytest.mark.asyncio
+async def test_call_lm_quota_error(executor_agent):
+    """Test LM call with quota/rate limit errors that shouldn't be retried"""
+
+    quota_error = Exception("No quota remaining for GPT-4")
+
+    executor_agent.resources.model.run = Mock(side_effect=quota_error)
+    executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
+
+    # Set up last_executor_agent_message
+    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+        agent_id=executor_agent.agent_id, prev=None
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        await executor_agent.call_lm()
+
+    # Verify exception message
+    assert "API quota exceeded" in str(exc_info.value)
+
+    # Verify error message was added
+    assert len(executor_agent.last_executor_agent_message.action_messages) == 1
+    child_msg = executor_agent.last_executor_agent_message.action_messages[0]
+    assert isinstance(child_msg, ErrorActionMessage)
+    assert child_msg.error_type == "Exception"
+
+    # Check error history
+    assert len(child_msg.error_history) == 1
+    assert "No quota" in child_msg.error_history[0]["message"]
+
+
+@pytest.mark.asyncio
+async def test_execute_in_env_error_action_message(executor_agent):
+    """Test execute_in_env produces ErrorActionMessage on failure"""
+
+    command_msg = CommandMessage("test_id", "command: invalid_command")
+    error_message = "Command not found: invalid_command"
+    executor_agent.resources.kali_env.run = Mock(side_effect=Exception(error_message))
+
+    result = executor_agent.execute_in_env(command_msg)
+
+    # Verify result is an ErrorActionMessage
+    assert isinstance(result, ErrorActionMessage)
+    assert result.message == error_message
+    assert result.error_type == "Exception"
+    assert result.resource_id == executor_agent.resources.kali_env.resource_id
+    assert result.prev == command_msg
+
+
+@pytest.mark.asyncio
+async def test_real_world_openai_invalid_prompt_error(executor_agent):
+    """Test with a real-world OpenAI invalid prompt error format"""
+
+    # Simulate OpenAI's error format
+    openai_error_message = (
+        "Error code: 400 - {'error': {'message': 'Invalid prompt: your prompt was flagged as "
+        "potentially violating our usage policy. Please try again with a different prompt: "
+        "https://platform.openai.com/docs/guides/reasoning#advice-on-prompting', "
+        "'type': 'invalid_request_error', 'param': None, 'code': 'invalid_prompt'}}"
+    )
+
+    class OpenAIError(Exception):
+        def __init__(self, message, status_code):
+            super().__init__(message)
+            self.status_code = status_code
+
+    openai_error = OpenAIError(openai_error_message, 400)
+    action_msg = ActionMessage("test_id", "command: ls")
+    expected_command_msg = CommandMessage("test_id", "command: ls")
+
+    executor_agent.resources.model.run = Mock(side_effect=[openai_error, action_msg])
+    executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
+    executor_agent.parse_response = Mock(return_value=expected_command_msg)
+
+    # Set up last_executor_agent_message
+    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+        agent_id=executor_agent.agent_id, prev=None
+    )
+
+    result = await executor_agent.call_lm()
+
+    # Should retry on invalid prompt and succeed
+    assert result == expected_command_msg
+    assert executor_agent.resources.model.run.call_count == 2
+
+    # Check error history
+    assert "error_history" in action_msg.additional_metadata
+    error_history = action_msg.additional_metadata["error_history"]
+    assert len(error_history) == 1
+    assert "Invalid prompt" in error_history[0]["message"]
+    assert error_history[0]["status_code"] == 400
+
+
+@pytest.mark.asyncio
+async def test_action_message_add_to_additional_metadata(executor_agent):
+    """Test the add_to_additional_metadata method on ActionMessage"""
+
+    message = ActionMessage("test_id", "test message")
+
+    # Add data to additional metadata
+    message.add_to_additional_metadata("key1", "value1")
+    message.add_to_additional_metadata("key2", {"nested": "data"})
+
+    # Verify values were added
+    assert message.additional_metadata["key1"] == "value1"
+    assert message.additional_metadata["key2"] == {"nested": "data"}
+
+
+def test_error_action_message_properties():
+    """Test ErrorActionMessage properties work correctly"""
+
+    error_history = [
+        {"type": "TimeoutError", "message": "Request timed out", "attempt": 1},
+        {"type": "ValueError", "message": "Invalid format", "attempt": 2},
+    ]
+
+    error_message = ErrorActionMessage(
+        resource_id="test_resource",
+        message="An error occurred",
+        error_type="TestError",
+        error_history=error_history,
+        prev=None,
+    )
+
+    # Test properties
+    assert error_message.error_type == "TestError"
+    assert error_message.error_history == error_history
+    assert error_message.message == "An error occurred"
+    assert error_message.resource_id == "test_resource"
