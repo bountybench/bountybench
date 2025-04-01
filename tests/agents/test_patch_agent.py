@@ -150,6 +150,24 @@ async def test_restart_resource_check(patch_agent, mocker):
         )
 
 
+@pytest.mark.asyncio
+async def test_fail_if_external_exploit_fails(patch_agent, mocker):
+    """
+    Exploit returns 1 before patch applies - should return
+    """
+    patch_agent.use_external_exploit = True
+
+    mocker.patch.object(patch_agent, "restart_resources", return_value=True)
+    mocker.patch.object(PatchAgent, "run_external_exploit", return_value=1)
+    git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+
+    initial_msg = PatchAgentMessage(agent_id="test", message="test message")
+    final_msg = await patch_agent.run([initial_msg])
+
+    assert final_msg.success is False
+    assert git_reset_mock.call_count == 1
+
+
 def test_restart_resources_order(bounty_setup):
     """Test that resources are restarted in the correct order: repo_setup first, then bounty_setup."""
     env_path: EnvPath = bounty_setup
@@ -202,11 +220,12 @@ async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
 
     mocker.patch.object(patch_agent, "restart_resources", return_value=True)
 
-    run_exploit_mock = mocker.patch.object(
+    run_agent_exploit_mock = mocker.patch.object(
         patch_agent,
         "run_agent_exploit",
         side_effect=[(0, "Exploit passed"), (0, "Exploit passed")],  # unpatched run
     )
+
     git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
 
     # Let invariants pass
@@ -220,7 +239,7 @@ async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
         "Exploit check failed - exploit still succeeds after patch."
         in final_msg.message
     )
-    assert run_exploit_mock.call_count == 2
+    assert run_agent_exploit_mock.call_count == 2
     assert git_reset_mock.call_count == 2
 
 
@@ -265,31 +284,16 @@ async def test_external_exploit_1_success(patch_agent, mocker):
 
     # mock git_diff => there is a patch
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
-
-    # Mock Docker run to produce exit_code=0 initially
-    docker_run_mock = mocker.patch.object(
-        patch_agent.resources.docker,
-        "run",
-        side_effect=[
-            MagicMock(additional_metadata={"exit_code": 1}),
-        ],
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(True, "Applied patch successfully"),
     )
 
-    # Mock subprocess.run() for verify.sh
-    # – The new code’s final exit code is the returncode of verify.sh.
-    # – For the "unpatched" run we can return 0 to confirm exploit works.
-    # – For the "patched" run we want 1 to confirm exploit is neutralized.
-    def mock_subprocess_run(*args, **kwargs):
-        class FakeResult:
-            def __init__(self, returncode, stdout):
-                self.returncode = returncode
-                self.stdout = stdout
-                self.stderr = ""
-
-        # after patch => exploit neutralized => verify returns 1
-        return FakeResult(1, "Exploit blocked after patch")
-
-    mocker.patch("subprocess.run", side_effect=mock_subprocess_run)
+    run_external_exploit_mock = mocker.patch.object(
+        PatchAgent,
+        "run_external_exploit",
+        side_effect=[0, 1],
+    )
 
     # Let invariants pass
     mocker.patch.object(patch_agent, "check_invariants", return_value=True)
@@ -303,6 +307,7 @@ async def test_external_exploit_1_success(patch_agent, mocker):
     # We expect success
     assert final_msg.success is True
     assert "Congratulations! The patch succeeded." in final_msg.message
+    assert run_external_exploit_mock.call_count == 2
 
 
 def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
@@ -570,6 +575,7 @@ async def test_reset_repo_on_empty_diff(patch_agent, mocker):
     prev_patch_id = agent.patch_id
 
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value=None)
+    mocker.patch.object(patch_agent, "run_external_exploit", return_value=0)
     mocker.patch(
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(False, "Patch failed"),
@@ -594,6 +600,7 @@ async def test_reset_repo_on_patch_creation_fail(patch_agent, mocker):
     prev_patch_id = agent.patch_id
 
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch.object(patch_agent, "run_external_exploit", return_value=0)
     mocker.patch.object(
         PatchAgent,
         "create_patch_file",
@@ -617,6 +624,8 @@ async def test_reset_repo_on_apply_patch_fail(patch_agent, mocker):
     prev_patch_id = agent.patch_id
 
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch.object(patch_agent, "run_external_exploit", return_value=0)
+
     mocker.patch(
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(False, "Patch failed"),
@@ -680,10 +689,7 @@ async def test_full_workflow_exploit_failure(patch_agent, mocker):
         agent_id="patch_agent", message=None
     )
 
-    # Mock invariant/exploit checks
-    mocker.patch.object(
-        patch_agent, "run_external_exploit", return_value=0
-    )  # 0 indicates failure (exploit still works)
+    mocker.patch.object(PatchAgent, "run_external_exploit", return_value=0)
 
     await agent.run(["message"])
 
@@ -715,13 +721,11 @@ async def test_full_workflow_success(patch_agent, mocker):
         agent_id="patch_agent", message=None
     )
 
-    # Mock invariant/exploit checks
-    # mocker.patch.object(
-    #     patch_agent, "verify_patch", return_value=True
-    # )
-    mocker.patch.object(
-        patch_agent, "run_external_exploit", return_value=1
-    )  # 1 indicates success (exploit blocked)
+    run_external_exploit_mock = mocker.patch.object(
+        PatchAgent,
+        "run_external_exploit",
+        side_effect=[0, 1],
+    )
     mocker.patch.object(patch_agent, "check_invariants", return_value=True)
 
     await agent.run(["message"])
@@ -729,6 +733,7 @@ async def test_full_workflow_success(patch_agent, mocker):
     assert agent.last_patch_agent_message.success is True
     assert "Congratulations" in agent.last_patch_agent_message.message
     assert agent.patch_id == prev_patch_id
+    assert run_external_exploit_mock.call_count == 2
 
 
 # "uses" the import

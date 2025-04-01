@@ -117,8 +117,7 @@ class PatchAgent(BaseAgent):
 
         self._log("Codebase changes detected.")
 
-        # Verify exploitation works before patching (if using agent exploit)
-
+        # Check Agent generated exploit - if fail, skip patch validation
         if self.use_agent_exploit:
             exit_code, output = await self.run_agent_exploit()
             if exit_code == 0:
@@ -138,6 +137,21 @@ class PatchAgent(BaseAgent):
                         f"\nOutput: {output}"
                     )
                 self._log("Reverting all the changes to the codebase.")
+                return self.update_patch_agent_message(clear=True)
+        else:
+            # Verify external exploit works before patching
+            # If external exploit fails, no way to verify patch is valid
+            exit_code = await self.run_external_exploit()
+            if exit_code == 1:
+                self._log(
+                    "External Exploit failed before patching. This is an infra issue"
+                )
+                return self.update_patch_agent_message(clear=True)
+
+            # Exploit / verify have side effects - restart resources
+            # no codebase changes yet, so failures are infra problems
+            if not self.restart_resources():
+                self._log("Failed to restart resources - infra issue")
                 return self.update_patch_agent_message(clear=True)
 
         # Apply the patch
@@ -221,7 +235,9 @@ class PatchAgent(BaseAgent):
                     )
             else:
                 if exit_code == 1:
-                    self._log("External exploit check (optional) passed - exploit fails after patch.")
+                    self._log(
+                        "External exploit check (optional) passed - exploit fails after patch."
+                    )
                 else:
                     self._log(
                         "External exploit check (optional) failed - exploit still succeeds after patch."
@@ -295,8 +311,12 @@ class PatchAgent(BaseAgent):
                 }
 
                 # Check if it's a Python repo and install if needed, then run exploit
-                install_command = self.install_command if self.install_command else "pip install --quiet -e ."
-                
+                install_command = (
+                    self.install_command
+                    if self.install_command
+                    else "pip install --quiet -e ."
+                )
+
                 # Create a shell script in the tmp directory that will handle the installation and exploit
                 script_content = f"""#!/bin/bash
 # Check if Python project and install if needed
@@ -311,14 +331,14 @@ fi
 # Run the exploit script
 bash /app/exploit.sh
 """
-                
+
                 # Write the script to a file in the tmp directory
                 with open(script_path, "w") as f:
                     f.write(script_content)
-                
+
                 # Make the script executable
                 script_path.chmod(script_path.stat().st_mode | 0o755)
-                
+
                 # Use the script as the command
                 exploit_command = "bash /app/run_exploit.sh"
 
@@ -361,10 +381,10 @@ bash /app/exploit.sh
         try:
             cwd = Path.cwd().resolve()
             exploit_files_path = self.bounty_dir.resolve() / "exploit_files"
-            
+
             # Make the script executable
             exploit_files_path.chmod(exploit_files_path.stat().st_mode | 0o755)
-            
+
             relative_path = os.path.relpath(str(exploit_files_path), str(cwd))
 
             volumes = {
@@ -395,8 +415,10 @@ bash /app/exploit.sh
                 # Make the script executable
                 verify_file_path = self.bounty_dir / "verify.sh"
                 verify_file_path.chmod(verify_file_path.stat().st_mode | 0o755)
-                
-                result = await run_command_async(["bash", "verify.sh"], work_dir=self.bounty_dir)
+
+                result = await run_command_async(
+                    ["bash", "verify.sh"], work_dir=self.bounty_dir
+                )
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
                     message=result.stdout,
@@ -694,7 +716,9 @@ bash /app/exploit.sh
 
             # Make the script executable
             repo_invariants_file_path = self.task_dir / "run_repo_invariants.sh"
-            repo_invariants_file_path.chmod(repo_invariants_file_path.stat().st_mode | 0o755)
+            repo_invariants_file_path.chmod(
+                repo_invariants_file_path.stat().st_mode | 0o755
+            )
 
             # Run repo invariants script
             logger.info("Running repo invariants script")
@@ -719,7 +743,9 @@ bash /app/exploit.sh
 
             # Make the script executable
             bounty_invariants_file_path = self.bounty_dir / "run_bounty_invariants.sh"
-            bounty_invariants_file_path.chmod(bounty_invariants_file_path.stat().st_mode | 0o755)
+            bounty_invariants_file_path.chmod(
+                bounty_invariants_file_path.stat().st_mode | 0o755
+            )
 
             # Run bounty invariants script
             logger.info("Running bounty invariants script")
@@ -734,7 +760,7 @@ bash /app/exploit.sh
                     bounty_result.stdout, bounty_result.stderr
                 ),
                 command=f"./run_bounty_invariants.sh",
-                exit_code=repo_result.returncode,
+                exit_code=bounty_result.returncode,
                 prev=self.last_action_message,
             )
             self.update_patch_agent_message(bounty_invariants_response)
