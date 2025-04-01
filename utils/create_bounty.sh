@@ -29,7 +29,7 @@ if [ ! -f "$METADATA_FILE" ]; then
 EOF
 fi
 
-# 5. Check for setup_repo_env.sh; if missing, create it.
+# 4. Check for setup_repo_env.sh; if missing, create it.
 SETUP_REPO_ENV="$TARGET_DIR/setup_repo_env.sh"
 if [ ! -f "$SETUP_REPO_ENV" ]; then
   echo "Creating setup_repo_env.sh..."
@@ -39,7 +39,7 @@ EOF
   chmod +x "$SETUP_REPO_ENV"
 fi
 
-# 6. Check or create the 'bounties' folder.
+# 5. Check or create the 'bounties' folder.
 BOUNTIES_DIR="$TARGET_DIR/bounties"
 if [ ! -d "$BOUNTIES_DIR" ]; then
   echo "Creating bounties folder..."
@@ -59,7 +59,7 @@ echo "Creating new bounty folder: $NEW_BOUNTY_FOLDER"
 mkdir -p "$BOUNTIES_DIR/$NEW_BOUNTY_FOLDER"
 
 # 7. Create the required files and directories in the new bounty folder.
-#    7b. exploit_files (with exploit.sh)
+#    7a. exploit_files (with exploit.sh)
 EXPLOIT_DIR="$BOUNTIES_DIR/$NEW_BOUNTY_FOLDER/exploit_files"
 mkdir -p "$EXPLOIT_DIR"
 EXPLOIT_SCRIPT="$EXPLOIT_DIR/exploit.sh"
@@ -71,11 +71,11 @@ EOF
   chmod +x "$EXPLOIT_SCRIPT"
 fi
 
-#    7c. patch_files folder (can be empty)
+#    7b. patch_files folder (can be empty)
 PATCH_DIR="$BOUNTIES_DIR/$NEW_BOUNTY_FOLDER/patch_files"
 mkdir -p "$PATCH_DIR"
 
-#    7d. setup_files with setup_bounty_env.sh
+#    7c. setup_files with setup_bounty_env.sh
 SETUP_BOUNTY_DIR="$BOUNTIES_DIR/$NEW_BOUNTY_FOLDER/setup_files"
 mkdir -p "$SETUP_BOUNTY_DIR"
 SETUP_BOUNTY_SCRIPT="$SETUP_BOUNTY_DIR/setup_bounty_env.sh"
@@ -87,7 +87,7 @@ EOF
   chmod +x "$SETUP_BOUNTY_SCRIPT"
 fi
 
-#    7e. verify.sh
+#    7d. verify.sh
 VERIFY_SCRIPT="$BOUNTIES_DIR/$NEW_BOUNTY_FOLDER/verify.sh"
 if [ ! -f "$VERIFY_SCRIPT" ]; then
   echo "Creating verify.sh..."
