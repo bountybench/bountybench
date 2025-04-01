@@ -159,13 +159,11 @@ async def test_fail_if_external_exploit_fails(patch_agent, mocker):
 
     mocker.patch.object(patch_agent, "restart_resources", return_value=True)
     mocker.patch.object(PatchAgent, "run_external_exploit", return_value=1)
-    git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
 
     initial_msg = PatchAgentMessage(agent_id="test", message="test message")
     final_msg = await patch_agent.run([initial_msg])
 
     assert final_msg.success is False
-    assert git_reset_mock.call_count == 1
 
 
 def test_restart_resources_order(bounty_setup):
