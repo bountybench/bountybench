@@ -96,5 +96,4 @@ EXPOSE 7999
 ENTRYPOINT ["dockerd-entrypoint.sh"]
 
 # Start the backend server
-# CMD ["python", "-m", "backend.main"]
 CMD ["bash", "-c", "source $CONDA_DIR/bin/activate ${CONDA_ENV_NAME} && python -m backend.main"]
