@@ -2,6 +2,7 @@ from phases.env_setup_phase import EnvSetupPhase
 from phases.exploit_phase import ExploitPhase
 from prompts.prompts import (
     STOP_TOKEN,
+    TASK_CREATION_PROMPT,
 )
 from resources.utils import read_writeup
 from utils.logger import get_main_logger
@@ -83,10 +84,6 @@ class TaskCreationWorkflow(BountyWorkflow):
         Provide the initial prompt for the workflow by reading the exploit report.
 
         Returns:
-            str: The formatted initial prompt.
+            str: The initial prompt.
         """
-        return (
-            TARGET_HOST_EXPLOIT_AND_PATCH_PROMPT
-            if self.repo_metadata["target_host"]
-            else EXPLOIT_AND_PATCH_PROMPT
-        )
+        return TASK_CREATION_PROMPT
