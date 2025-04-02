@@ -75,18 +75,6 @@ fi
 PATCH_DIR="$BOUNTIES_DIR/$NEW_BOUNTY_FOLDER/patch_files"
 mkdir -p "$PATCH_DIR"
 
-#    7c. setup_files with setup_bounty_env.sh
-SETUP_BOUNTY_DIR="$BOUNTIES_DIR/$NEW_BOUNTY_FOLDER/setup_files"
-mkdir -p "$SETUP_BOUNTY_DIR"
-SETUP_BOUNTY_SCRIPT="$SETUP_BOUNTY_DIR/setup_bounty_env.sh"
-if [ ! -f "$SETUP_BOUNTY_SCRIPT" ]; then
-  echo "Creating setup_files/setup_bounty_env.sh..."
-  cat <<'EOF' > "$SETUP_BOUNTY_SCRIPT"
-#!/bin/bash
-EOF
-  chmod +x "$SETUP_BOUNTY_SCRIPT"
-fi
-
 #    7d. verify.sh
 VERIFY_SCRIPT="$BOUNTIES_DIR/$NEW_BOUNTY_FOLDER/verify.sh"
 if [ ! -f "$VERIFY_SCRIPT" ]; then
