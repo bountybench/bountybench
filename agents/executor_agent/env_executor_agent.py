@@ -25,7 +25,7 @@ class ExecutorAgentConfig(AgentConfig):
     """Configuration for ExecutorAgent"""
 
 
-class ExecutorAgent(BaseAgent):
+class EnvExecutorAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
         ResourceType.INIT_FILES,
