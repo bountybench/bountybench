@@ -66,10 +66,13 @@ class BaseSetupResource(BaseResource, ABC):
         # Make the script executable
         script_path.chmod(0o755)
 
-    def _start(self) -> None:
+     def _start(self, action_message: SetupActionMessage) -> SetupActionMessage:
         """Start the environment by running the appropriate setup script."""
         if not self.work_dir.exists():
-            raise FileNotFoundError(f"Work directory does not exist: {self.work_dir}")
+            error_msg = f"Work directory does not exist: {self.work_dir}"
+            action_message.set_message(error_msg)
+            action_message.set_exit_code(-1)
+            raise FileNotFoundError(error_msg)
 
         try:
             start_progress(f"Executing {self.setup_script_name} in {self.work_dir}")
@@ -79,7 +82,10 @@ class BaseSetupResource(BaseResource, ABC):
                 # Fix and prepare the script
                 script_path = self.work_dir / self.setup_script_name
                 if not script_path.exists():
-                    raise FileNotFoundError(f"Setup script not found: {script_path}")
+                    error_msg = f"Setup script not found: {script_path}"
+                    action_message.set_message(error_msg)
+                    action_message.set_exit_code(-1)
+                    raise FileNotFoundError(error_msg)
 
                 # Fix script format and make executable
                 self.fix_script_format(script_path)
@@ -102,52 +108,74 @@ class BaseSetupResource(BaseResource, ABC):
                     else:
                         raise  # Re-raise if it's not an exec format error
 
-                if result.returncode != 0:
-                    raise RuntimeError(
-                        f"{self.name} setup script failed with return code {result.returncode}"
-                    )
+                if result:
+                    stdout = result.stdout.decode('utf-8') if isinstance(result.stdout, bytes) else result.stdout or ""
+                    stderr = result.stderr.decode('utf-8') if isinstance(result.stderr, bytes) else result.stderr or ""
+                    
+                    action_message.set_script_output(stdout)
+                    action_message.set_script_error(stderr)
+                    action_message.set_exit_code(result.returncode)
+
+                if result and result.returncode != 0:
+                    error_msg = f"{self.name} setup script failed with return code {result.returncode}"
+                    action_message.set_message(error_msg)
+                    raise RuntimeError(error_msg)
 
             except Exception as e:
-                logger.error(
-                    f"Unable to successfully execute {self.setup_script_name} at {self.resource_id}: {e}"
-                )
-                raise RuntimeError(
-                    f"Unable to successfully execute {self.setup_script_name} at {self.resource_id}: {e}"
-                )
+                error_msg = f"Unable to successfully execute {self.setup_script_name} at {self.resource_id}: {e}"
+                logger.error(error_msg)
+                action_message.set_message(error_msg)
+                action_message.set_exit_code(-1)
+                raise RuntimeError(error_msg)
             finally:
                 logger.info("Pruning dangling docker images...")
-                run_command(command=["docker", "image", "prune", "-f"])
+                prune_result = run_command(command=["docker", "image", "prune", "-f"])
+                if prune_result and prune_result.stdout:
+                    action_message.additional_metadata["prune_output"] = prune_result.stdout
                 stop_progress()
 
             if (
                 result and result.stdout
             ):  # Only process output if result exists and has stdout
-                self.container_names = self.extract_container_names(
+                container_names = self.extract_container_names(
                     result.stdout, result.stderr
                 )
+                
+                # Update the container names in both the resource and the action message
+                self.container_names = container_names
+                action_message.set_container_names(container_names)
 
-                if self.container_names:
+                if container_names:
                     try:
-                        success = self.wait_until_all_containers_healthy()
+                        success, health_status = self.wait_until_all_containers_healthy()
+                        action_message.additional_metadata["health_status"] = health_status
+                        
                         if not success:
-                            raise RuntimeError(
-                                f"Wait until all containers healthy returned {success}"
-                            )
+                            error_msg = f"Wait until all containers healthy returned {success}"
+                            action_message.set_message(error_msg)
+                            action_message.set_exit_code(-1)
+                            raise RuntimeError(error_msg)
                     except Exception as e:
-                        raise RuntimeError(
-                            f"Failed to wait until all containers healthy: {e}"
-                        )
-            logger.info(
-                    f"{self.name} environment setup complete for {self.resource_id}"
-                )
+                        error_msg = f"Failed to wait until all containers healthy: {e}"
+                        action_message.set_message(error_msg)
+                        action_message.set_exit_code(-1)
+                        raise RuntimeError(error_msg)
+            
+            success_msg = f"{self.name} environment setup complete for {self.resource_id}"
+            logger.info(success_msg)
+            action_message.set_message(success_msg)
+            return action_message
 
         except FileNotFoundError as e:
             logger.error(str(e))
+            action_message.set_message(str(e))
+            action_message.set_exit_code(-1)
             raise
         except Exception as e:
-            logger.error(
-                f"Unable to set up {self.name} environment at {self.resource_id}: {e}"
-            )
+            error_msg = f"Unable to set up {self.name} environment at {self.resource_id}: {e}"
+            logger.error(error_msg)
+            action_message.set_message(error_msg)
+            action_message.set_exit_code(-1)
             raise
 
     def restart(self) -> None:
