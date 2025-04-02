@@ -41,13 +41,11 @@ class TaskCreationWorkflow(BountyWorkflow):
         # Exactly one of (--use_mock_model, --model) should be set
         # Fail if both set
         if kwargs.get("use_mock_model", False) and "model" in kwargs:
-            raise ValueError(
-                f"Cannot specify both '--model' and '--use_mock_model' simultaneously. "
-            )
+            raise ValueError("Cannot specify both '--model' and '--use_mock_model' simultaneously.")
 
         # Fail if neither is set
         if not kwargs.get("use_mock_model", False) and "model" not in kwargs:
-            raise ValueError(f"'--model' is required when not using mock model")
+            raise ValueError("'--model' is required when not using mock model")
 
     def _create_phases(self):
         """Define and create phases specific to TaskCreationWorkflow."""
