@@ -50,6 +50,9 @@ class ActionMessage(Message):
     def additional_metadata(self) -> str:
         return self._additional_metadata
 
+    def add_to_additional_metadata(self, key: str, value: Any) -> str:
+        self._additional_metadata[key] = value
+
     @property
     def memory(self):
         return self._memory
