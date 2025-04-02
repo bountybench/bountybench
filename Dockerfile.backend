@@ -49,13 +49,36 @@ RUN git config --global user.email "temp@example.com" \
 # Set BLIS_ARCH environment variable
 ENV BLIS_ARCH=generic
 
-# Upgrade pip, setuptools, and wheel
-RUN pip install --upgrade pip setuptools wheel
+# Install Miniconda based on architecture (base image is multi-arch)
+ENV CONDA_DIR=/opt/conda
+ENV PATH="${CONDA_DIR}/bin:${PATH}"
+RUN ARCH=$(uname -m) && \ 
+    if [ "$ARCH" = "x86_64" ]; then \
+    MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+    MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh"; \
+    else \
+    echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    wget --quiet "$MINICONDA_URL" -O /tmp/miniconda.sh && \
+    /bin/bash /tmp/miniconda.sh -b -p ${CONDA_DIR} && \
+    rm /tmp/miniconda.sh && \
+    ${CONDA_DIR}/bin/conda init bash && \
+    echo ". ${CONDA_DIR}/etc/profile.d/conda.sh" >> ~/.bashrc && \
+    ${CONDA_DIR}/bin/conda config --set always_yes yes --set changeps1 no
 
-# Install Python dependencies
+# Copy the requirements file into the container
 COPY requirements.txt .
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
+
+# Create base conda environment
+# - Upgrade pip, setuptools, and wheel
+# - Install Python dependencies
+ENV CONDA_ENV_NAME=backend_env
+RUN bash -c "source ${CONDA_DIR}/bin/activate && \
+    ${CONDA_DIR}/bin/conda create -n ${CONDA_ENV_NAME} python=3.11 -y && \
+    ${CONDA_DIR}/bin/conda install -n ${CONDA_ENV_NAME} pip -y && \
+    ${CONDA_DIR}/bin/conda run -n ${CONDA_ENV_NAME} pip install --upgrade pip setuptools wheel && \
+    ${CONDA_DIR}/bin/conda run -n ${CONDA_ENV_NAME} pip install -r requirements.txt"
 
 # Copy the entire project into the container
 COPY . .
@@ -73,4 +96,5 @@ EXPOSE 7999
 ENTRYPOINT ["dockerd-entrypoint.sh"]
 
 # Start the backend server
-CMD ["python", "-m", "backend.main"]
+# CMD ["python", "-m", "backend.main"]
+CMD ["bash", "-c", "source $CONDA_DIR/bin/activate ${CONDA_ENV_NAME} && python -m backend.main"]
