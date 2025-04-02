@@ -27,11 +27,14 @@ class EnvAgent(BaseAgent):
 
     REQUIRED_RESOURCES = [
         ResourceType.INIT_FILES,
+        ResourceType.KALI_ENV,
     ]
     OPTIONAL_RESOURCES = [
     ]
     ACCESSIBLE_RESOURCES = [
         ResourceType.INIT_FILES,
+        ResourceType.KALI_ENV,
+
     ]
 
     def __init__(self, agent_id: str, agent_config: EnvAgentConfig):
