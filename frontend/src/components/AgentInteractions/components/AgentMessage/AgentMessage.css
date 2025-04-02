@@ -172,3 +172,26 @@
   align-items: end;
   gap: 15px;  
 }
+
+.agent-summary {
+  margin-top: 8px;
+  color: #333333;
+  padding: 8px;
+  margin: 16px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.invariant-scores {
+  padding: 12px;
+  font-size: 0.8rem !important;
+  color: #1f1f1f !important;
+}
+
+
+.invariant-scores-item {
+  padding: 6px;
+  padding-left: 24px;
+  font-size: 0.75rem !important;
+  color: #1f1f1f !important;
+}
