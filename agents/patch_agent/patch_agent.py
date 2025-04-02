@@ -143,10 +143,12 @@ class PatchAgent(BaseAgent):
             # If external exploit fails, no way to verify patch is valid
             exit_code = await self.run_external_exploit()
             if exit_code == 1:
-                self._log(
+                logger.error(
                     "External Exploit failed before patching. This is an infra issue"
                 )
-                return self.update_patch_agent_message(clear=True)
+                raise Exception(
+                    f"External Exploit for {self.bounty_dir.resolve()} failed"
+                )
 
             # Exploit / verify have side effects - restart resources
             # no codebase changes yet, so failures are infra problems

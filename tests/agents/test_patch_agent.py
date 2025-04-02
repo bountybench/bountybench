@@ -153,17 +153,20 @@ async def test_restart_resource_check(patch_agent, mocker):
 @pytest.mark.asyncio
 async def test_fail_if_external_exploit_fails(patch_agent, mocker):
     """
-    Exploit returns 1 before patch applies - should return
+    Exploit returns 1 before patch applies
     """
-    patch_agent.use_external_exploit = True
-
+    patch_agent.use_agent_exploit = False
     mocker.patch.object(patch_agent, "restart_resources", return_value=True)
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch(
+        "agents.patch_agent.patch_agent.git_apply_patch",
+        return_value=(True, "Patch applied successfully"),
+    )
     mocker.patch.object(PatchAgent, "run_external_exploit", return_value=1)
 
     initial_msg = PatchAgentMessage(agent_id="test", message="test message")
-    final_msg = await patch_agent.run([initial_msg])
-
-    assert final_msg.success is False
+    with pytest.raises(Exception, match=f"External Exploit for") as e:
+        await patch_agent.run([initial_msg])
 
 
 def test_restart_resources_order(bounty_setup):
