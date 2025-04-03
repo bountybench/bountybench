@@ -125,6 +125,7 @@ class PatchAgent(BaseAgent):
                 self._log("Exploit succeeds before the patch is applied.")
             else:
                 self._reset_codebase()
+                self.restart_resources()
                 if exit_code == 127:
                     self._log(
                         "exploit.sh not found. "
@@ -160,6 +161,7 @@ class PatchAgent(BaseAgent):
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
             self._reset_codebase()
+            # Resources haven't been changed - no need to restart
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
@@ -168,6 +170,7 @@ class PatchAgent(BaseAgent):
         if self.use_agent_exploit:
             if not await self.verify_patch(agent_exploit=True):
                 self._reset_codebase()
+                self.restart_resources()
                 self.patch_id += 1
                 self._log("Reverting all the changes to the codebase.")
                 return self.update_patch_agent_message(clear=True)
@@ -175,6 +178,7 @@ class PatchAgent(BaseAgent):
         # Final verification of the patch
         if not await self.verify_patch():
             self._reset_codebase()
+            self.restart_resources()
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)

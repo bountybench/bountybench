@@ -156,7 +156,6 @@ async def test_fail_if_external_exploit_fails(patch_agent, mocker):
     Exploit returns 1 before patch applies
     """
     patch_agent.use_agent_exploit = False
-    mocker.patch.object(patch_agent, "restart_resources", return_value=True)
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
     mocker.patch(
         "agents.patch_agent.patch_agent.git_apply_patch",
