@@ -13,8 +13,8 @@ class PatchAgentMessage(AgentMessage):
         super().__init__(agent_id=agent_id, message=message, prev=prev)
         self._success = success
         self._patch_files_dir = patch_files_dir
-        self._repo_invariant_scores = {}
-        self._bounty_invariant_scores = {}
+        self._repo_invariant_scores = []
+        self._bounty_invariant_scores = []
 
     @property
     def success(self) -> bool:
@@ -23,22 +23,22 @@ class PatchAgentMessage(AgentMessage):
     def set_success(self, value: bool):
         self._success = value
 
-    def set_repo_invariant_scores(self, value: dict):
-        self._repo_invariant_scores = value
+    def add_repo_invariant_score(self, score: dict):
+        self._repo_invariant_scores.append(score)
 
-    def set_bounty_invariant_scores(self, value: dict):
-        self._bounty_invariant_scores = value
+    def add_bounty_invariant_score(self, score: dict):
+        self._bounty_invariant_scores.append(score)
 
     @property
     def patch_files_dir(self) -> str:
         return self._patch_files_dir
 
     @property
-    def repo_invariant_scores(self) -> dict:
+    def repo_invariant_scores(self) -> list:
         return self._repo_invariant_scores
 
     @property
-    def bounty_invariant_scores(self) -> dict:
+    def bounty_invariant_scores(self) -> list:
         return self._bounty_invariant_scores
 
     def set_patch_files_path(self, value: str):

@@ -247,46 +247,6 @@ class PatchAgent(BaseAgent):
 
         return False
 
-    def merge_max_scores(self, scores1: dict, scores2: dict) -> dict:
-        """
-        Merge two score dictionaries by taking the maximum value for each invariant score.
-
-        Args:
-            scores1: First score dictionary
-            scores2: Second score dictionary
-
-        Returns:
-            dict: Merged dictionary with maximum values
-        """
-        if not scores1:
-            return scores2
-        if not scores2:
-            return scores1
-
-        result = scores1.copy()
-
-        # For invariant_scores key
-        if "invariant_scores" in scores1 and "invariant_scores" in scores2:
-            result_invariants = result.get("invariant_scores", {})
-            scores2_invariants = scores2.get("invariant_scores", {})
-
-            # For each invariant in the second dictionary
-            for invariant, score2 in scores2_invariants.items():
-                if invariant in result_invariants:
-                    # Take the maximum value
-                    result_invariants[invariant] = max(
-                        result_invariants[invariant], score2
-                    )
-                else:
-                    # If not in first dict, add it
-                    result_invariants[invariant] = score2
-
-            result["invariant_scores"] = result_invariants
-        elif "invariant_scores" in scores2:
-            result["invariant_scores"] = scores2["invariant_scores"]
-
-        return result
-
     def _restart_resource(self, resource) -> bool:
         """Restart a specific resource."""
         try:
@@ -616,8 +576,12 @@ bash /app/exploit.sh
 
         # Initialize final results
         passed = original_passed
-        repo_scores = original_repo_scores
-        bounty_scores = original_bounty_scores
+
+        self.last_patch_agent_message.add_repo_invariant_score({"invariant_scores": original_repo_scores})
+        self.last_patch_agent_message.add_bounty_invariant_score({"invariant_scores": original_bounty_scores})
+
+        # Clean up score files
+        self._cleanup_files([repo_scores_path, bounty_scores_path])
 
         # If original tests failed, try with patched unit tests
         if not original_passed:
@@ -647,16 +611,8 @@ bash /app/exploit.sh
                     "invariant_scores", {}
                 )
 
-                # Merge scores taking maximum values
-                repo_scores = self.merge_max_scores(
-                    {"invariant_scores": original_repo_scores},
-                    {"invariant_scores": alt_repo_scores},
-                ).get("invariant_scores", {})
-
-                bounty_scores = self.merge_max_scores(
-                    {"invariant_scores": original_bounty_scores},
-                    {"invariant_scores": alt_bounty_scores},
-                ).get("invariant_scores", {})
+                self.last_patch_agent_message.add_repo_invariant_score({"invariant_scores": alt_repo_scores})
+                self.last_patch_agent_message.add_bounty_invariant_score({"invariant_scores": alt_bounty_scores})
 
                 passed = alt_passed
 
@@ -664,17 +620,6 @@ bash /app/exploit.sh
                 self._cleanup_files([alt_repo_scores_path, alt_bounty_scores_path])
             else:
                 logger.info("No unit test patches found. Skipping.")
-
-        # Clean up original score files
-        self._cleanup_files([repo_scores_path, bounty_scores_path])
-
-        # Update agent message with final scores
-        self.last_patch_agent_message.set_repo_invariant_scores(
-            {"invariant_scores": repo_scores}
-        )
-        self.last_patch_agent_message.set_bounty_invariant_scores(
-            {"invariant_scores": bounty_scores}
-        )
 
         return passed
 

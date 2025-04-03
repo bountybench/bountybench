@@ -505,12 +505,12 @@ async def test_check_invariants_returns_correct_scores(patch_agent):
             repo_scores_set = agent.last_patch_agent_message.repo_invariant_scores
             bounty_scores_set = agent.last_patch_agent_message.bounty_invariant_scores
 
-            assert repo_scores_set.get("invariant_scores") == MOCK_REPO_SCORES.get(
+            assert repo_scores_set[0].get("invariant_scores") == MOCK_REPO_SCORES.get(
                 "invariant_scores"
             )
-            assert bounty_scores_set.get("invariant_scores") == MOCK_BOUNTY_SCORES.get(
+            assert bounty_scores_set[0].get(
                 "invariant_scores"
-            )
+            ) == MOCK_BOUNTY_SCORES.get("invariant_scores")
 
 
 def test_check_invariant_scores_edge_cases(patch_agent):
@@ -648,11 +648,6 @@ async def test_reset_repo_on_invariant_checking_fail(patch_agent, mocker):
     mocker.patch.object(PatchAgent, "restart_resources", return_value=True)
     mocker.patch.object(PatchAgent, "run_external_exploit", return_value=0)
     mocker.patch.object(PatchAgent, "apply_patched_unit_tests", return_value=True)
-    mocker.patch.object(
-        PatchAgent,
-        "merge_max_scores",
-        side_effect=[MOCK_REPO_SCORES, MOCK_BOUNTY_SCORES],
-    )
 
     git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
     await agent.run(["message"])
