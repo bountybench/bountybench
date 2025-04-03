@@ -14,6 +14,8 @@ class TokenizerMapping:
         "openai/o3-mini-2025-01-31": "openai/cl100k_base",
         "openai/o3-mini-2025-01-31-low-reasoning-effort": "openai/cl100k_base",
         "openai/o3-mini-2025-01-31-high-reasoning-effort": "openai/cl100k_base",
+        "openai/o3-mini-2025-01-31": "openai/cl100k_base",
+        "openai/o3-2025-03-24": "openai/cl100k_base",
         "openai/gpt-4-0613": "openai/cl100k_base",
         "openai/gpt-4-32k-0613": "openai/cl100k_base",
         "openai/gpt-4-turbo-2024-04-09": "openai/cl100k_base",
@@ -65,6 +67,7 @@ class NonHELMMapping:
         "openai/o3-mini-2025-01-31": "o3-mini-2025-01-31",
         "openai/o3-mini-2025-01-31-low-reasoning-effort": "o3-mini-2025-01-31-low-reasoning-effort",
         "openai/o3-mini-2025-01-31-high-reasoning-effort": "o3-mini-2025-01-31-high-reasoning-effort",
+        "openai/o3-2025-03-24": "o3-2025-03-24",
         "openai/gpt-4o-2024-11-20": "gpt-4o-2024-11-20",
         "openai/gpt-4.5-preview-2025-02-27": "gpt-4.5-preview-2025-02-27",
         # Anthropic Models (Claude)
