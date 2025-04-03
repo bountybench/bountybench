@@ -34,10 +34,6 @@ def mock_patch_agent_message():
     return patch.object(PatchAgentMessage, "__init__", mock_init)
 
 
-def mock_restart_resource(return_value: bool = True):
-    return patch.object(PatchAgent, "_restart_resource", return_value=return_value)
-
-
 @pytest.fixture(scope="module")
 def patch_agent(bounty_setup):
     env_path: EnvPath = bounty_setup
@@ -54,7 +50,7 @@ def patch_agent(bounty_setup):
     # agent's codebase parameter is initialized in the run function so we do it here
     agent.codebase = env_path.TMP_CODEBASE_FILES_DIR
 
-    mocks = [mock_restart_resource()]
+    mocks = [patch.object(PatchAgent, "_restart_resource", return_value=True)]
 
     [mock.start() for mock in mocks]
 
@@ -141,7 +137,11 @@ async def test_restart_resource_check(patch_agent, mocker):
         agent_id="patch_agent", message=None
     )
 
-    with patch.object(PatchAgent, "_restart_resource", return_value=False):
+    with patch.object(
+        PatchAgent,
+        "_restart_resource",
+        side_effect=Exception("some resource restart failure"),
+    ):
         await agent.verify_patch()
         agent.update_patch_agent_message()
         assert (
@@ -153,18 +153,32 @@ async def test_restart_resource_check(patch_agent, mocker):
 @pytest.mark.asyncio
 async def test_fail_if_external_exploit_fails(patch_agent, mocker):
     """
-    Exploit returns 1 before patch applies
+    Exploit returns 1 (failure) before patch applies - which makes the workflow run invalid
     """
     patch_agent.use_agent_exploit = False
-    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
-    mocker.patch(
-        "agents.patch_agent.patch_agent.git_apply_patch",
-        return_value=(True, "Patch applied successfully"),
-    )
     mocker.patch.object(PatchAgent, "run_external_exploit", return_value=1)
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
 
     initial_msg = PatchAgentMessage(agent_id="test", message="test message")
     with pytest.raises(Exception, match=f"External Exploit for") as e:
+        await patch_agent.run([initial_msg])
+
+
+@pytest.mark.asyncio
+async def test_restart_resource_fail_raises_exception(patch_agent, mocker):
+    """
+    Exploit returns 0 (success) before patch applies, restart resource fails
+    """
+    patch_agent.use_agent_exploit = False
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
+    mocker.patch.object(patch_agent, "run_external_exploit", return_value=0)
+    mocker.patch.object(
+        PatchAgent,
+        "_restart_resource",
+        side_effect=Exception("some resource restart fail"),
+    )
+    initial_msg = PatchAgentMessage(agent_id="test", message="test message")
+    with pytest.raises(Exception, match=f"Failed to restart resources") as e:
         await patch_agent.run([initial_msg])
 
 

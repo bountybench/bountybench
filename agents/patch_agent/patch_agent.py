@@ -125,7 +125,8 @@ class PatchAgent(BaseAgent):
                 self._log("Exploit succeeds before the patch is applied.")
             else:
                 self._reset_codebase()
-                self.restart_resources()
+                if not self.restart_resources():
+                    raise Exception("Failed to restart resources")
                 if exit_code == 127:
                     self._log(
                         "exploit.sh not found. "
@@ -154,9 +155,7 @@ class PatchAgent(BaseAgent):
             # Exploit / verify have side effects - restart resources
             # no codebase changes yet, so failures are infra problems
             if not self.restart_resources():
-                self._log("Failed to restart resources - infra issue")
-                return self.update_patch_agent_message(clear=True)
-
+                raise Exception("Failed to restart resources")
         # Apply the patch
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
@@ -170,7 +169,8 @@ class PatchAgent(BaseAgent):
         if self.use_agent_exploit:
             if not await self.verify_patch(agent_exploit=True):
                 self._reset_codebase()
-                self.restart_resources()
+                if not self.restart_resources():
+                    raise Exception("Failed to restart resources")
                 self.patch_id += 1
                 self._log("Reverting all the changes to the codebase.")
                 return self.update_patch_agent_message(clear=True)
@@ -178,7 +178,8 @@ class PatchAgent(BaseAgent):
         # Final verification of the patch
         if not await self.verify_patch():
             self._reset_codebase()
-            self.restart_resources()
+            if not self.restart_resources():
+                raise Exception("Failed to restart resources")
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
@@ -210,6 +211,7 @@ class PatchAgent(BaseAgent):
     ) -> bool:
         """Verify patch effectiveness."""
 
+        # Failure to restart resources may be due to patch, do not raise exception
         if not self.restart_resources():
             self._log(
                 "Could not restart associated resources after applying the patch. Patch is invalid."
@@ -269,30 +271,39 @@ class PatchAgent(BaseAgent):
 
         return False
 
-    def _restart_resource(self, resource) -> bool:
+    # Now that failure to restart resources raises exception, add retries
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    def _restart_resource(self, resource) -> None:
         """Restart a specific resource."""
         try:
             resource.restart()
             logger.info(f"{resource.resource_id} resource restarted successfully.")
             return True
         except Exception as e:
-            logger.error(f"Failed to restart {resource.resource_id} resource: {e}")
-            return False
+            logger.error(
+                f"Attempt failed to restart {resource.resource_id} resource: {e}"
+            )
+            # Re-raise the exception so the @retry decorator catches it and knows to retry
+            raise e
 
-    def restart_resources(self):
+    def restart_resources(self) -> bool:
         """Restart necessary resources and check success."""
-        success = True
-
         # Must restart repo_setup first, then bounty_setup (same order as initialization)
         if self.resources.has_bound(ResourceType.REPO_SETUP):
-            success &= self._restart_resource(self.resources.repo_setup)
+            try:
+                self._restart_resource(self.resources.repo_setup)
+            except Exception as e:
+                logger.error(f"Failed to restart repo resource")
+                return False
 
         if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
-            success &= self._restart_resource(self.resources.bounty_setup)
+            try:
+                self._restart_resource(self.resources.bounty_setup)
+            except Exception as e:
+                logger.error(f"Failed to restart bounty resource")
+                return False
 
-        if not success:
-            logger.error("One or more resources failed to restart.")
-        return success
+        return True
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_agent_exploit(self) -> tuple[int, str]:
@@ -605,8 +616,12 @@ bash /app/exploit.sh
         # Initialize final results
         passed = original_passed
 
-        self.last_patch_agent_message.add_repo_invariant_score({"invariant_scores": original_repo_scores})
-        self.last_patch_agent_message.add_bounty_invariant_score({"invariant_scores": original_bounty_scores})
+        self.last_patch_agent_message.add_repo_invariant_score(
+            {"invariant_scores": original_repo_scores}
+        )
+        self.last_patch_agent_message.add_bounty_invariant_score(
+            {"invariant_scores": original_bounty_scores}
+        )
 
         # Clean up score files
         self._cleanup_files([repo_scores_path, bounty_scores_path])
@@ -639,8 +654,12 @@ bash /app/exploit.sh
                     "invariant_scores", {}
                 )
 
-                self.last_patch_agent_message.add_repo_invariant_score({"invariant_scores": alt_repo_scores})
-                self.last_patch_agent_message.add_bounty_invariant_score({"invariant_scores": alt_bounty_scores})
+                self.last_patch_agent_message.add_repo_invariant_score(
+                    {"invariant_scores": alt_repo_scores}
+                )
+                self.last_patch_agent_message.add_bounty_invariant_score(
+                    {"invariant_scores": alt_bounty_scores}
+                )
 
                 passed = alt_passed
 
