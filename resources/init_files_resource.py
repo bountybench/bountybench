@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 import time
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -138,7 +139,7 @@ class InitFilesResource(BaseResource):
             git_checkout(self.files_dir, self.vulnerable_commit, force=True)
 
             tmp_destination_path = self.tmp_dir / self.files_dir_name
-            self.copy_files(self.files_dir, tmp_destination_path)
+            self.copy_files(self.files_dir, tmp_destination_path, ignore_git=False)
             git_dir = tmp_destination_path / ".git"
 
             if git_dir.exists():
@@ -158,7 +159,7 @@ class InitFilesResource(BaseResource):
         # Set up git repos
 
         git_setup_dev_branch(self.files_dir, self.vulnerable_commit)
-        git_init_repo(tmp_destination_path)
+        # git_init_repo(tmp_destination_path)
 
     def stop(self) -> None:
         """
@@ -200,7 +201,7 @@ class InitFilesResource(BaseResource):
         except Exception as e:
             print(f"Warning: Failed to remove {path}: {e}")
 
-    def copy_files(self, source: Path, destination: Path):
+    def copy_files(self, source: Path, destination: Path, ignore_git: bool = True):
         source = source.resolve()
         destination = destination.resolve()
         try:
@@ -208,13 +209,143 @@ class InitFilesResource(BaseResource):
                 shutil.copy2(source, destination)
                 logger.info(f"Copied file {source} to {destination}")
             elif source.is_dir():
-                # Exclude the .git folder
+                # Create a custom ignore function to handle .git files and directories
+                def custom_ignore(src, names):
+                    if ignore_git:
+                        return [n for n in names if n == '.git' or n.startswith('.git')]
+                    return []
+                
+                # Special handling for .git
+                git_file = source / '.git'
+                
                 shutil.copytree(
                     source,
                     destination,
                     dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns(".git", ".git*"),
+                    ignore=custom_ignore,
                 )
+                
+                # If we're not ignoring git and .git exists
+                if not ignore_git and git_file.exists():
+                    if git_file.is_file():
+                        # Check if it's a Git submodule reference
+                        with open(git_file, 'r') as f:
+                            content = f.read().strip()
+                            
+                        if content.startswith('gitdir:'):
+                            # It's a submodule reference
+                            gitdir_path = content.split('gitdir:')[1].strip()
+                            
+                            # Convert relative path to absolute
+                            if not os.path.isabs(gitdir_path):
+                                gitdir_path = os.path.normpath(os.path.join(source, gitdir_path))
+                            
+                            actual_git_dir = Path(gitdir_path)
+                            if actual_git_dir.exists() and actual_git_dir.is_dir():
+                                # Initialize a new Git repository instead of copying the submodule reference
+                                import subprocess
+                                
+                                # Remove any existing .git file or directory
+                                dest_git_path = destination / '.git'
+                                if dest_git_path.exists():
+                                    if dest_git_path.is_file():
+                                        dest_git_path.unlink()
+                                    else:  # is_dir
+                                        shutil.rmtree(dest_git_path)
+                                
+                                # Initialize a new Git repository
+                                try:
+                                    subprocess.run(
+                                        ['git', 'init'],
+                                        cwd=str(destination),
+                                        check=True,
+                                        capture_output=True,
+                                    )
+                                    logger.info(f"Initialized new Git repository at {destination}")
+                                    
+                                    # Copy objects and refs from the original repository
+                                    for dir_name in ['objects', 'refs', 'hooks', 'info']:
+                                        src_dir = actual_git_dir / dir_name
+                                        dst_dir = dest_git_path / dir_name
+                                        if src_dir.exists():
+                                            if not dst_dir.exists():
+                                                dst_dir.mkdir(parents=True, exist_ok=True)
+                                            shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
+                                    
+                                    # Copy important files, but handle config specially
+                                    for file_name in ['HEAD', 'description', 'index']:
+                                        src_file = actual_git_dir / file_name
+                                        if src_file.exists():
+                                            shutil.copy2(src_file, dest_git_path / file_name)
+                                    
+                                    # Handle config file specially - create a clean config without worktree references
+                                    config_file = actual_git_dir / 'config'
+                                    if config_file.exists():
+                                        # Create a new clean config file instead of copying the old one
+                                        with open(dest_git_path / 'config', 'w') as f:
+                                            f.write("[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n")
+                                    
+                                    logger.info(f"Copied Git data from {actual_git_dir} to {dest_git_path}")
+                                except subprocess.CalledProcessError as e:
+                                    logger.error(f"Failed to initialize Git repository: {e}")
+                                    # Fall back to copying the reference file
+                                    shutil.copy2(git_file, destination / '.git')
+                            else:
+                                logger.warning(f"Referenced Git directory {actual_git_dir} does not exist or is not a directory")
+                                # Fall back to copying the reference file
+                                shutil.copy2(git_file, destination / '.git')
+                        else:
+                            # It's a regular .git file, just copy it
+                            shutil.copy2(git_file, destination / '.git')
+                            logger.info(f"Copied .git file from {git_file} to {destination / '.git'}")
+                    elif git_file.is_dir():
+                        # It's a regular Git directory
+                        import subprocess
+                        
+                        # Remove any existing .git file or directory
+                        dest_git_path = destination / '.git'
+                        if dest_git_path.exists():
+                            if dest_git_path.is_file():
+                                dest_git_path.unlink()
+                            else:  # is_dir
+                                shutil.rmtree(dest_git_path)
+                        
+                        # Initialize a new Git repository
+                        try:
+                            subprocess.run(
+                                ['git', 'init'],
+                                cwd=str(destination),
+                                check=True,
+                                capture_output=True,
+                            )
+                            logger.info(f"Initialized new Git repository at {destination}")
+                            
+                            # Copy objects and refs from the original repository
+                            for dir_name in ['objects', 'refs', 'hooks', 'info']:
+                                src_dir = git_file / dir_name
+                                dst_dir = dest_git_path / dir_name
+                                if src_dir.exists():
+                                    if not dst_dir.exists():
+                                        dst_dir.mkdir(parents=True, exist_ok=True)
+                                    shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
+                            
+                            # Copy important files, but handle config specially
+                            for file_name in ['HEAD', 'description', 'index']:
+                                src_file = git_file / file_name
+                                if src_file.exists():
+                                    shutil.copy2(src_file, dest_git_path / file_name)
+                            
+                            # Handle config file specially - create a clean config without worktree references
+                            config_file = git_file / 'config'
+                            if config_file.exists():
+                                # Create a new clean config file instead of copying the old one
+                                with open(dest_git_path / 'config', 'w') as f:
+                                    f.write("[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n")
+                            
+                            logger.info(f"Copied Git data from {git_file} to {dest_git_path}")
+                        except subprocess.CalledProcessError as e:
+                            logger.error(f"Failed to initialize Git repository: {e}")
+                
                 logger.info(f"Copied directory {source} to {destination}")
             else:
                 raise ValueError(f"Source {source} is neither a file nor a directory")
