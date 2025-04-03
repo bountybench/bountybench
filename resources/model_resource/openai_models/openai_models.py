@@ -44,7 +44,6 @@ class OpenAIModels(ModelProvider):
                     model_name = model_name[: -len("-low-reasoning-effort")]
 
             # Prepare common parameters for all models
-            # TODO: maybe worth using "instructions" key for parts of the prompt
             params = {
                 "model": model_name,
                 "input": message,
@@ -57,7 +56,7 @@ class OpenAIModels(ModelProvider):
 
             # Add reasoning_effort parameter for o1, o3 models if specified
             if reasoning_effort and model_name.startswith(("o1", "o3")):
-                params["resasoning"]["effort"] = reasoning_effort
+                params["reasoning"] = {"effort": reasoning_effort}
 
             response = self.client.responses.create(**params)
 
