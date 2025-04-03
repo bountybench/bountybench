@@ -6,6 +6,7 @@ from pathlib import Path
 from queue import Queue
 from typing import List, Optional
 
+from messages.action_messages.setup_resources_action_message import SetupResourcesMessage
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.utils import run_command
 from utils.logger import get_main_logger
@@ -13,6 +14,15 @@ from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 
+class SetupResourceException(Exception):
+    """
+    Exception that carries an ActionMessage with it to provide detailed information
+    about the error that occurred during resource operations.
+    """
+    
+    def __init__(self, message: str, action_message: SetupResourcesMessage):
+        super().__init__(message)
+        self.action_message = action_message
 
 class BaseSetupResource(BaseResource, ABC):
     """Base class for setup resources with common functionality."""
@@ -66,13 +76,20 @@ class BaseSetupResource(BaseResource, ABC):
         # Make the script executable
         script_path.chmod(0o755)
 
-     def _start(self, action_message: SetupActionMessage) -> SetupActionMessage:
+    def _start(self) -> SetupResourcesMessage:
         """Start the environment by running the appropriate setup script."""
+
+        action_message = SetupResourcesMessage(
+            resource_id=self.resource_id,
+            setup_script_name=self.setup_script_name,
+        )
+        
         if not self.work_dir.exists():
             error_msg = f"Work directory does not exist: {self.work_dir}"
             action_message.set_message(error_msg)
             action_message.set_exit_code(-1)
-            raise FileNotFoundError(error_msg)
+            #raise FileNotFoundError(error_msg)
+            raise SetupResourceException(error_msg, action_message)
 
         try:
             start_progress(f"Executing {self.setup_script_name} in {self.work_dir}")
@@ -85,7 +102,9 @@ class BaseSetupResource(BaseResource, ABC):
                     error_msg = f"Setup script not found: {script_path}"
                     action_message.set_message(error_msg)
                     action_message.set_exit_code(-1)
-                    raise FileNotFoundError(error_msg)
+                    #raise FileNotFoundError(error_msg)
+                    raise SetupResourceException(error_msg, action_message)
+
 
                 # Fix script format and make executable
                 self.fix_script_format(script_path)
@@ -101,37 +120,46 @@ class BaseSetupResource(BaseResource, ABC):
                         logger.warning(
                             f"Direct execution failed, trying with explicit bash for {self.setup_script_name}"
                         )
+                        bash_command = f"bash ./{self.setup_script_name}"
                         result = run_command(
-                            command=["bash", f"./{self.setup_script_name}"],
+                            command=["bash", f"{bash_command}"],
                             work_dir=str(self.work_dir),
                         )
+                        action_message.additional_metadata["command"] = bash_command
+
                     else:
-                        raise  # Re-raise if it's not an exec format error
+                        action_message.set_message(f"OS error while executing script: {e}")
+                        action_message.set_exit_code(-1)
+                        raise SetupResourceException(str(e), action_message)
+                        #raise
 
                 if result:
                     stdout = result.stdout.decode('utf-8') if isinstance(result.stdout, bytes) else result.stdout or ""
                     stderr = result.stderr.decode('utf-8') if isinstance(result.stderr, bytes) else result.stderr or ""
                     
-                    action_message.set_script_output(stdout)
-                    action_message.set_script_error(stderr)
+                    output_message = f"Script output:\n{stdout}\n\nScript errors:\n{stderr}" if stderr else f"Script output:\n{stdout}"
+                    action_message.set_message(output_message)
                     action_message.set_exit_code(result.returncode)
 
                 if result and result.returncode != 0:
                     error_msg = f"{self.name} setup script failed with return code {result.returncode}"
-                    action_message.set_message(error_msg)
-                    raise RuntimeError(error_msg)
+                    logger.error(error_msg)
+                    #raise RuntimeError(error_msg)
+                    action_message.set_message(action_message.message + f"\n\n{error_msg}")
+                    raise SetupResourceException(error_msg, action_message)
+
 
             except Exception as e:
                 error_msg = f"Unable to successfully execute {self.setup_script_name} at {self.resource_id}: {e}"
                 logger.error(error_msg)
+                error_msg = action_message.message + f"\n\n{error_msg}"
                 action_message.set_message(error_msg)
                 action_message.set_exit_code(-1)
-                raise RuntimeError(error_msg)
+                #raise RuntimeError(error_msg)
+                raise SetupResourceException(error_msg, action_message)
             finally:
                 logger.info("Pruning dangling docker images...")
                 prune_result = run_command(command=["docker", "image", "prune", "-f"])
-                if prune_result and prune_result.stdout:
-                    action_message.additional_metadata["prune_output"] = prune_result.stdout
                 stop_progress()
 
             if (
@@ -147,41 +175,52 @@ class BaseSetupResource(BaseResource, ABC):
 
                 if container_names:
                     try:
-                        success, health_status = self.wait_until_all_containers_healthy()
-                        action_message.additional_metadata["health_status"] = health_status
+                        success = self.wait_until_all_containers_healthy()
                         
                         if not success:
                             error_msg = f"Wait until all containers healthy returned {success}"
-                            action_message.set_message(error_msg)
+                            logger.error(error_msg)
+                            action_message.set_message(action_message.message + f"\n\n{error_msg}")
                             action_message.set_exit_code(-1)
-                            raise RuntimeError(error_msg)
+                            #raise RuntimeError(error_msg)
+                            raise SetupResourceException(error_msg, action_message)
                     except Exception as e:
                         error_msg = f"Failed to wait until all containers healthy: {e}"
-                        action_message.set_message(error_msg)
+                        logger.error(error_msg)
+                        action_message.set_message(action_message.message + f"\n\n{error_msg}")
                         action_message.set_exit_code(-1)
-                        raise RuntimeError(error_msg)
+                        #raise RuntimeError(error_msg)
+                        raise SetupResourceException(error_msg, action_message)
+
             
             success_msg = f"{self.name} environment setup complete for {self.resource_id}"
             logger.info(success_msg)
-            action_message.set_message(success_msg)
+            action_message.set_message(action_message.message + f"\n\n{success_msg}")
+            action_message.set_exit_code(0)
             return action_message
 
         except FileNotFoundError as e:
-            logger.error(str(e))
-            action_message.set_message(str(e))
+            error_msg = str(e)
+            logger.error(error_msg)
+            error_msg = action_message.message + f"\n\n{error_msg}"
+            action_message.set_message(error_msg)
             action_message.set_exit_code(-1)
-            raise
+            #raise
+            raise SetupResourceException(error_msg, action_message)
         except Exception as e:
             error_msg = f"Unable to set up {self.name} environment at {self.resource_id}: {e}"
             logger.error(error_msg)
+            error_msg = action_message.message + f"\n\n{error_msg}"
             action_message.set_message(error_msg)
             action_message.set_exit_code(-1)
-            raise
+            raise SetupResourceException(error_msg, action_message)
+            #raise
 
-    def restart(self) -> None:
+    def restart(self) -> SetupResourcesMessage:
         """Restart the environment by stopping and then starting it again."""
         self.stop()
-        self._start()
+        start_message = self._start()
+        return start_message
 
     def stop(self) -> None:
         """Stop the environment by using docker compose down."""

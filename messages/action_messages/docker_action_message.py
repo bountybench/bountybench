@@ -9,7 +9,7 @@ class DockerActionMessage(ScriptActionMessage):
         self,
         resource_id: str,
         docker_image: str,
-        command: str,
+        command: Optional[str] = "",
         message: Optional[str] = "",
         network: Optional[str] = None,
         work_dir: Optional[str] = None,

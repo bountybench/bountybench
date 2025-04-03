@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, List, Optional, TypeVar
 
+from resources.base_setup_resource import SetupResourceException
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from agents.base_agent import AgentConfig, BaseAgent
@@ -290,12 +291,20 @@ class PatchAgent(BaseAgent):
     def _restart_resource(self, resource) -> bool:
         """Restart a specific resource."""
         try:
-            resource.restart()
+            setup_resource_action_message = resource.restart()
+            print(setup_resource_action_message)
+            print(setup_resource_action_message.message)
+            print(setup_resource_action_message.exit_code)
+            setup_resource_action_message.set_prev(self.last_action_message)
+            self.update_patch_agent_message(setup_resource_action_message)
             logger.info(f"{resource.resource_id} resource restarted successfully.")
             return True
-        except Exception as e:
+        except SetupResourceException as e:
             logger.error(f"Failed to restart {resource.resource_id} resource: {e}")
+            e.action_message.set_prev(self.last_action_message)
+            self.update_patch_agent_message(e.action_message)
             return False
+
 
     def restart_resources(self):
         """Restart necessary resources and check success."""

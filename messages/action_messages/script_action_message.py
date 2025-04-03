@@ -7,7 +7,7 @@ class ScriptActionMessage(ActionMessage):
     def __init__(
         self,
         resource_id: str,
-        command: str,
+        command: Optional[str] = "",
         message: Optional[str] = "",
         exit_code: Optional[int] = None,
         additional_metadata: Optional[Dict[str, Any]] = None,
