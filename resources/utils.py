@@ -98,6 +98,7 @@ async def run_command_async(command, work_dir=None, timeout=None):
 
     :param command: List of command arguments.
     :param work_dir: Working directory to execute the command in.
+    :param timeout: Optional timeout in seconds for the command to complete. If not set, no timeout is applied.
     :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
     try:
