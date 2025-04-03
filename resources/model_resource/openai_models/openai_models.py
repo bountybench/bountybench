@@ -1,4 +1,5 @@
 from datetime import datetime
+from time import time
 from typing import List
 
 import tiktoken
@@ -21,6 +22,7 @@ class OpenAIModels(ModelProvider):
         message: str,
         temperature: float,
         max_tokens: int,
+        # Unused by new responses api
         stop_sequences: List[str],
     ) -> ModelResponse:
 
@@ -42,11 +44,11 @@ class OpenAIModels(ModelProvider):
                     model_name = model_name[: -len("-low-reasoning-effort")]
 
             # Prepare common parameters for all models
+            # TODO: maybe worth using "instructions" key for parts of the prompt
             params = {
                 "model": model_name,
-                "messages": [{"role": "user", "content": message}],
-                "max_completion_tokens": max_tokens,
-                "stop": stop_sequences,
+                "input": message,
+                "max_output_tokens": max_tokens,
             }
 
             # Add temperature for non-o models (like gpt-4, etc.)
@@ -55,9 +57,9 @@ class OpenAIModels(ModelProvider):
 
             # Add reasoning_effort parameter for o1, o3 models if specified
             if reasoning_effort and model_name.startswith(("o1", "o3")):
-                params["reasoning_effort"] = reasoning_effort
+                params["resasoning"]["effort"] = reasoning_effort
 
-            response = self.client.chat.completions.create(**params)
+            response = self.client.responses.create(**params)
 
             # For successful responses, we don't typically get HTTP status code
             # from OpenAI client, but could try to extract if available
@@ -70,11 +72,10 @@ class OpenAIModels(ModelProvider):
             response_request_duration = (end_time - start_time).total_seconds() * 1000
 
             return ModelResponse(
-                content=response.choices[0].message.content,
-                input_tokens=response.usage.prompt_tokens,
-                output_tokens=response.usage.completion_tokens,
-                time_taken_in_ms=response_request_duration,
-                status_code=status_code,
+                content=response.output_text,
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                time_taken_in_ms=float(time()) - response.created_at,
             )
         except Exception as e:
             # Extract status code from OpenAI errors
