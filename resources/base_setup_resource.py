@@ -218,9 +218,11 @@ class BaseSetupResource(BaseResource, ABC):
 
     def restart(self) -> SetupResourcesMessage:
         """Restart the environment by stopping and then starting it again."""
-        self.stop()
-        start_message = self._start()
-        return start_message
+        try:
+            self.stop()
+            return self._start()
+        except SetupResourceException:
+            raise
 
     def stop(self) -> None:
         """Stop the environment by using docker compose down."""

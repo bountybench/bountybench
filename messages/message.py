@@ -25,6 +25,7 @@ class Message(ABC):
     @property
     def prev(self) -> str:
         return self._prev
+    
 
     @property
     def next(self) -> str:
