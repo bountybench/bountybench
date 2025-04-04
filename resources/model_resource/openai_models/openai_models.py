@@ -7,6 +7,9 @@ from openai import OpenAI
 
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_response import ModelResponse
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
 
 
 class OpenAIModels(ModelProvider):
@@ -67,13 +70,19 @@ class OpenAIModels(ModelProvider):
             ):
                 status_code = response.response.status_code
 
-            end_time = datetime.now()
-            response_request_duration = (end_time - start_time).total_seconds() * 1000
+            output_tokens = response.usage.output_tokens
+            if model_name.startswith(("o1", "o3")):
+                reasoning_tokens = response.usage.output_tokens_details.reasoning_tokens
+                logger.info(f"reasoning tokens: {reasoning_tokens}")
+                output_tokens += reasoning_tokens
 
+            logger.info(
+                f"max output tokens: {max_tokens} - total output tokens: {output_tokens}"
+            )
             return ModelResponse(
                 content=response.output_text,
                 input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
+                output_tokens=output_tokens,
                 time_taken_in_ms=float(time()) - response.created_at,
             )
         except Exception as e:

@@ -157,16 +157,6 @@ class ExecutorAgent(BaseAgent):
                         status_code = e.status_code
                         error_entry["status_code"] = status_code
 
-                        # Client errors (4xx) should not be retried (except invalid prompts)
-                        if (
-                            400 <= status_code < 500
-                            and "Invalid prompt" not in error_msg
-                        ):
-                            error_history.append(error_entry)
-                            raise Exception(
-                                f"Non-retryable API error (HTTP {status_code}): {error_msg}"
-                            )
-
                     # Also don't retry quota errors
                     if "No quota" in error_msg or "InsufficientQuotaError" in error_msg:
                         error_history.append(error_entry)
