@@ -110,7 +110,6 @@ class EnvAgent(BaseAgent):
                 self.container_names = self.extract_container_names(
                     result.stdout, result.stderr
                 )
-
                 if self.container_names:
                     success = self.wait_until_all_containers_healthy()
                     if not success:
