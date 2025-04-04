@@ -14,9 +14,11 @@ from utils.git_utils import (
     git_checkout,
     git_checkout_main,
     git_delete_branch,
-    git_init_repo,
     git_setup_dev_branch,
     git_submodule_update,
+    create_git_ignore_function,
+    prepare_git_directory,
+    initialize_git_repository,
 )
 from utils.logger import get_main_logger
 
@@ -200,33 +202,6 @@ class InitFilesResource(BaseResource):
                 shutil.rmtree(path)
         except Exception as e:
             print(f"Warning: Failed to remove {path}: {e}")
-
-    def _create_git_ignore_function(self, ignore_git):
-        """Create a custom ignore function for shutil.copytree."""
-        def custom_ignore(src, names):
-            if ignore_git:
-                return [n for n in names if n == '.git' or n.startswith('.git')]
-            return []
-        return custom_ignore
-    
-    def _prepare_git_directory(self, dest_git_path):
-        """Prepare the destination .git directory by removing existing one if needed."""
-        if dest_git_path.exists():
-            if dest_git_path.is_file():
-                dest_git_path.unlink()
-            else:  # is_dir
-                shutil.rmtree(dest_git_path)
-    
-    def _initialize_git_repository(self, destination):
-        """Initialize a new Git repository at the destination."""
-        import subprocess
-        subprocess.run(
-            ['git', 'init'],
-            cwd=str(destination),
-            check=True,
-            capture_output=True,
-        )
-        logger.info(f"Initialized new Git repository at {destination}")
     
     def _copy_git_directories(self, src_git_dir, dest_git_path):
         """Copy Git directories like objects, refs, hooks, and info."""
@@ -276,10 +251,10 @@ class InitFilesResource(BaseResource):
         
         # Setup the destination Git repository
         dest_git_path = destination / '.git'
-        self._prepare_git_directory(dest_git_path)
+        prepare_git_directory(dest_git_path)
         
         try:
-            self._initialize_git_repository(destination)
+            initialize_git_repository(destination)
             self._copy_git_directories(actual_git_dir, dest_git_path)
             self._copy_git_files(actual_git_dir, dest_git_path)
             self._create_clean_git_config(dest_git_path)
@@ -292,10 +267,10 @@ class InitFilesResource(BaseResource):
     def _handle_git_directory(self, git_dir, destination):
         """Handle regular Git directories."""
         dest_git_path = destination / '.git'
-        self._prepare_git_directory(dest_git_path)
+        prepare_git_directory(dest_git_path)
         
         try:
-            self._initialize_git_repository(destination)
+            initialize_git_repository(destination)
             self._copy_git_directories(git_dir, dest_git_path)
             self._copy_git_files(git_dir, dest_git_path)
             self._create_clean_git_config(dest_git_path)
@@ -324,7 +299,7 @@ class InitFilesResource(BaseResource):
                 raise ValueError(f"Source {source} is neither a file nor a directory")
             
             # Copy the directory structure
-            ignore_func = self._create_git_ignore_function(ignore_git)
+            ignore_func = create_git_ignore_function(ignore_git)
             shutil.copytree(
                 source,
                 destination,
