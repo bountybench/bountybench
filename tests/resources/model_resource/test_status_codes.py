@@ -28,9 +28,18 @@ class TestModelStatusCodes(unittest.TestCase):
         # Setup
         mock_api_key.return_value = "test_key"
         mock_client = MagicMock()
+
+        # Set up the mock response for the responses API
+        mock_response = MagicMock()
+        mock_response.output_text = "Test response"
+        mock_response.usage = MagicMock()
+        mock_response.usage.input_tokens = 10
+        mock_response.usage.output_tokens = 20
+        mock_response.created_at = 0
         # In our mock, we need to make sure the response doesn't have a response attribute
-        self.mock_response.response = None
-        mock_client.chat.completions.create.return_value = self.mock_response
+        mock_response.response = None
+
+        mock_client.responses.create.return_value = mock_response
         mock_create_client.return_value = mock_client
 
         # Test
@@ -58,7 +67,7 @@ class TestModelStatusCodes(unittest.TestCase):
         mock_client = MagicMock()
         mock_error = Exception("API error")
         mock_error.status_code = 404
-        mock_client.chat.completions.create.side_effect = mock_error
+        mock_client.responses.create.side_effect = mock_error
         mock_create_client.return_value = mock_client
 
         # Test and Verify
