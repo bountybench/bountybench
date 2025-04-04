@@ -1,5 +1,7 @@
 import concurrent.futures
+import os
 import shutil
+import sys
 import tempfile
 import threading
 import time
@@ -130,6 +132,89 @@ def test_run_multiple_commands(kali_env_resource):
     stdout, stderr = kali_env_resource.run_command(command)
     assert stdout.strip() == "Hello\nWorld"
     assert stderr.strip() == ""
+
+
+def test_output_streaming(kali_env_resource):
+    """Test that output is streamed in real-time rather than buffered."""
+
+    test_output_stream_script = """#!/bin/bash
+echo "Line 1"
+sleep 0.5
+echo "Line 2"
+sleep 0.5
+echo "Line 3" >&2
+sleep 0.5
+echo "Line 4"
+sleep 0.5
+echo "Line 5" >&2
+"""
+    # Capture timing of output arrival
+    output_times = []
+    original_stdout_write = sys.stdout.write
+    original_stderr_write = sys.stderr.write
+
+    def stdout_monitor(text):
+        """Capture when output arrives at stdout."""
+        output_times.append((time.time(), "stdout", text.strip()))
+        return original_stdout_write(text)
+
+    def stderr_monitor(text):
+        """Capture when output arrives at stderr."""
+        output_times.append((time.time(), "stderr", text.strip()))
+        return original_stderr_write(text)
+
+    # Patch stdout/stderr to monitor when output arrives
+    sys.stdout.write = stdout_monitor
+    sys.stderr.write = stderr_monitor
+
+    start_time = time.time()
+
+    try:
+        kali_env_resource._run_non_tty_command(
+            f"cat << 'EOF' > test_output_stream.sh\n{test_output_stream_script}\nEOF"
+        )
+        # Run the script, which should produce output with delay between lines
+        stdout_text, stderr_text = kali_env_resource._run_non_tty_command(
+            "chmod +x test_output_stream.sh && ./test_output_stream.sh"
+        )
+
+        # Restore stdout/stderr
+        sys.stdout.write = original_stdout_write
+        sys.stderr.write = original_stderr_write
+
+        assert "Line 1" in stdout_text
+        assert "Line 2" in stdout_text
+        assert "Line 4" in stdout_text
+        assert "Line 3" in stderr_text
+        assert "Line 5" in stderr_text
+
+        # Analyze timing to confirm streaming behavior
+        # First, filter out empty lines
+        actual_outputs = [item for item in output_times if item[2]]
+
+        # Verify we have at least 5 output events
+        assert (
+            len(actual_outputs) >= 5
+        ), f"Expected at least 5 output events, got {len(actual_outputs)}"
+
+        # Calculate time differences between first and last outputs
+        time_span = actual_outputs[-1][0] - actual_outputs[0][0]
+
+        # If output is streamed, time_span should be close to 2 seconds (4 sleep periods)
+        # If buffered, it would be close to 0
+        assert (
+            time_span >= 1.5
+        ), f"Output appeared too quickly ({time_span}s), suggesting it was buffered, not streamed"
+
+        # Print actual output timing for debugging
+        print("\nOutput timing (seconds since start, stream, content):")
+        for timestamp, stream, content in actual_outputs:
+            print(f"{timestamp - start_time:.3f}s - {stream}: {content}")
+
+    finally:
+        # Make sure we restore stdout/stderr even if the test fails
+        sys.stdout.write = original_stdout_write
+        sys.stderr.write = original_stderr_write
 
 
 def test_command_with_error(kali_env_resource):
