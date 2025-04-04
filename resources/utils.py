@@ -92,12 +92,13 @@ def run_command(command, work_dir=None):
         raise
 
 
-async def run_command_async(command, work_dir=None):
+async def run_command_async(command, work_dir=None, timeout=None):
     """
     Runs a shell command asynchronously while capturing output in real-time.
 
     :param command: List of command arguments.
     :param work_dir: Working directory to execute the command in.
+    :param timeout: Optional timeout in seconds for the command to complete. If not set, no timeout is applied.
     :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
     try:
@@ -133,21 +134,46 @@ async def run_command_async(command, work_dir=None):
                 sys.stderr.flush()
                 stderr_lines.append(line_str)
 
-        # Run both reading tasks concurrently
-        await asyncio.gather(
-            read_stdout(),
-            read_stderr(),
-        )
+        stdout_task = asyncio.create_task(read_stdout())
+        stderr_task = asyncio.create_task(read_stderr())
+        try:
+            if timeout is not None:
+                return_code = await asyncio.wait_for(process.wait(), timeout)
+            else:
+                return_code = await process.wait()
 
-        # Wait for the process to complete
-        return_code = await process.wait()
+            # Run both reading tasks concurrently
+            await asyncio.gather(
+                stdout_task,
+                stderr_task,
+            )
 
-        return subprocess.CompletedProcess(
-            args=command,
-            returncode=return_code,
-            stdout="".join(stdout_lines),
-            stderr="".join(stderr_lines),
-        )
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=return_code,
+                stdout="".join(stdout_lines),
+                stderr="".join(stderr_lines),
+            )
+        except TimeoutError:
+            process.kill()
+            stdout_task.cancel()
+            stderr_task.cancel()
+            await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=-1,  # Using returncode -1 to indicate timeout
+                stdout="".join(stdout_lines),
+                stderr="".join(stderr_lines)
+                + (f"\nCommand timed out after {timeout} seconds" if timeout else ""),
+            )
+        finally:
+            if process and process.returncode is None:
+                try:
+                    process.kill()
+                    await asyncio.sleep(0.1)  # Allow time for resources to be released
+                except Exception:
+                    pass
 
     except PermissionError as e:
         logger.error(
