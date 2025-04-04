@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -5,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from resources.init_files_resource import InitFilesResource, InitFilesResourceConfig
+from utils.git_utils import create_git_ignore_function, prepare_git_directory, initialize_git_repository, cleanup_git_branches
 
 
 @pytest.fixture
@@ -93,3 +95,240 @@ def test_safe_remove(resource, setup_dirs):
     test_dir_path.mkdir(parents=True, exist_ok=True)
     resource.safe_remove(test_dir_path)
     assert not test_dir_path.exists()
+
+
+@pytest.fixture
+def setup_git_repos():
+    """Setup Git repositories for testing, including a main repo and a submodule."""
+    test_dir = Path.cwd() / "tests" / "resources" / "git_test_files"
+    
+    # Clean up any existing test directories
+    if test_dir.exists():
+        shutil.rmtree(test_dir)
+    
+    # Create test directory structure
+    test_dir.mkdir(parents=True, exist_ok=True)
+    main_repo = test_dir / "main_repo"
+    submodule_repo = test_dir / "submodule_repo"
+    destination = test_dir / "destination"
+    
+    # Create main repository
+    main_repo.mkdir()
+    (main_repo / "main_file.txt").write_text("Content in main repo")
+    
+    # Initialize main repository
+    subprocess.run(["git", "init"], cwd=main_repo, check=True)
+    subprocess.run(["git", "add", "."], cwd=main_repo, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=main_repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=main_repo, check=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit in main repo"], cwd=main_repo, check=True)
+    subprocess.run(["git", "branch", "-m", "main"], cwd=main_repo, check=True)
+    
+    # Create another branch in main repo
+    subprocess.run(["git", "checkout", "-b", "feature"], cwd=main_repo, check=True)
+    (main_repo / "feature_file.txt").write_text("Content in feature branch")
+    subprocess.run(["git", "add", "."], cwd=main_repo, check=True)
+    subprocess.run(["git", "commit", "-m", "Commit in feature branch"], cwd=main_repo, check=True)
+    subprocess.run(["git", "checkout", "main"], cwd=main_repo, check=True)
+    
+    # Create submodule repository
+    submodule_repo.mkdir()
+    (submodule_repo / "submodule_file.txt").write_text("Content in submodule")
+    
+    # Initialize submodule repository
+    subprocess.run(["git", "init"], cwd=submodule_repo, check=True)
+    subprocess.run(["git", "add", "."], cwd=submodule_repo, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=submodule_repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=submodule_repo, check=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit in submodule"], cwd=submodule_repo, check=True)
+    subprocess.run(["git", "branch", "-m", "main"], cwd=submodule_repo, check=True)
+    
+    # Create a submodule reference in main repo
+    subprocess.run(["git", "submodule", "add", f"file://{submodule_repo}", "sub"], 
+                  cwd=main_repo, check=True)
+    subprocess.run(["git", "commit", "-m", "Add submodule"], cwd=main_repo, check=True)
+    
+    # Create destination directory
+    if destination.exists():
+        shutil.rmtree(destination)
+    destination.mkdir()
+    
+    yield main_repo, submodule_repo, destination
+    
+    # Clean up
+    if test_dir.exists():
+        shutil.rmtree(test_dir)
+
+
+def test_create_git_ignore_function():
+    """Test the create_git_ignore_function utility."""
+    # Test with ignore_git=True
+    ignore_func = create_git_ignore_function(True)
+    names = [".git", ".gitignore", "file.txt", ".gitattributes"]
+    ignored = ignore_func("/some/path", names)
+    assert ".git" in ignored
+    assert ".gitattributes" in ignored
+    assert "file.txt" not in ignored
+    
+    # Test with ignore_git=False
+    ignore_func = create_git_ignore_function(False)
+    ignored = ignore_func("/some/path", names)
+    assert len(ignored) == 0
+
+
+def test_prepare_git_directory(tmp_path):
+    """Test the prepare_git_directory utility."""
+    # Test with non-existent directory
+    git_dir = tmp_path / ".git"
+    prepare_git_directory(git_dir)
+    assert not git_dir.exists()
+    
+    # Test with existing file
+    git_dir.write_text("gitdir: /path/to/repo")
+    assert git_dir.is_file()
+    prepare_git_directory(git_dir)
+    assert not git_dir.exists()
+    
+    # Test with existing directory
+    git_dir.mkdir()
+    (git_dir / "config").write_text("[core]\n\tbare = false")
+    assert git_dir.is_dir()
+    prepare_git_directory(git_dir)
+    assert not git_dir.exists()
+
+
+def test_initialize_git_repository(tmp_path):
+    """Test the initialize_git_repository utility."""
+    initialize_git_repository(tmp_path)
+    git_dir = tmp_path / ".git"
+    assert git_dir.exists()
+    assert git_dir.is_dir()
+    
+    # Check that basic Git files were created
+    assert (git_dir / "HEAD").exists()
+    assert (git_dir / "config").exists()
+
+
+def test_copy_files_with_git(resource, setup_git_repos):
+    """Test copying files with Git repositories."""
+    main_repo, _, destination = setup_git_repos
+    
+    # Copy the repository with Git data
+    resource.copy_files(main_repo, destination, ignore_git=False)
+    
+    # Check that files were copied
+    assert (destination / "main_file.txt").exists()
+    assert (destination / "sub").exists()
+    assert (destination / "sub" / "submodule_file.txt").exists()
+    
+    # Check that .git directory exists and is a directory (not a file)
+    git_dir = destination / ".git"
+    assert git_dir.exists()
+    assert git_dir.is_dir()
+    
+    # Verify Git functionality in the copied repository
+    result = subprocess.run(
+        ["git", "status"],
+        cwd=destination,
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True
+    )
+    assert "On branch main" in result.stdout
+    
+    # Verify that only main branch exists
+    branch_result = subprocess.run(
+        ["git", "branch"],
+        cwd=destination,
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True
+    )
+    assert "* main" in branch_result.stdout
+    assert "feature" not in branch_result.stdout
+
+
+def test_cleanup_git_branches(setup_git_repos):
+    """Test the cleanup_git_branches function."""
+    main_repo, _, destination = setup_git_repos
+    
+    # Copy the repository structure without Git data
+    if destination.exists():
+        shutil.rmtree(destination)
+    shutil.copytree(main_repo, destination, ignore=shutil.ignore_patterns(".git"))
+    
+    # Initialize a new Git repository
+    initialize_git_repository(destination)
+    
+    # Create multiple branches
+    subprocess.run(["git", "add", "."], cwd=destination, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=destination, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=destination, check=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=destination, check=True)
+    
+    # Create feature branch
+    subprocess.run(["git", "checkout", "-b", "feature"], cwd=destination, check=True)
+    (destination / "feature_file.txt").write_text("Feature content")
+    subprocess.run(["git", "add", "."], cwd=destination, check=True)
+    subprocess.run(["git", "commit", "-m", "Feature commit"], cwd=destination, check=True)
+    
+    # Create another branch
+    subprocess.run(["git", "checkout", "-b", "dev"], cwd=destination, check=True)
+    
+    # Verify we have multiple branches
+    branch_result = subprocess.run(
+        ["git", "branch"],
+        cwd=destination,
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True
+    )
+    assert "feature" in branch_result.stdout
+    assert "* dev" in branch_result.stdout
+    
+    # Run cleanup_git_branches
+    cleanup_git_branches(destination)
+    
+    # Verify only main branch exists now
+    branch_result = subprocess.run(
+        ["git", "branch"],
+        cwd=destination,
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True
+    )
+    assert "* main" in branch_result.stdout
+    assert "feature" not in branch_result.stdout
+    assert "dev" not in branch_result.stdout
+
+
+def test_handle_git_submodule(resource, setup_git_repos):
+    """Test handling of Git submodules."""
+    main_repo, _, destination = setup_git_repos
+    
+    # Get the submodule .git file
+    submodule_git_file = main_repo / "sub" / ".git"
+    assert submodule_git_file.exists()
+    assert submodule_git_file.is_file()
+    
+    # Create a destination for the submodule
+    sub_destination = destination / "sub"
+    sub_destination.mkdir(parents=True)
+    
+    # Copy the submodule directory
+    resource.copy_files(main_repo / "sub", sub_destination, ignore_git=False)
+    
+    # Verify the submodule was converted to a standalone Git repository
+    git_dir = sub_destination / ".git"
+    assert git_dir.exists()
+    assert git_dir.is_dir()
+    
+    # Verify Git functionality in the copied submodule
+    result = subprocess.run(
+        ["git", "status"],
+        cwd=sub_destination,
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True
+    )
+    assert "On branch main" in result.stdout
