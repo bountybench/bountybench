@@ -1,9 +1,7 @@
 from phases.env_setup_phase import EnvSetupPhase
 from phases.exploit_phase import ExploitPhase
-from prompts.prompts import (
-    STOP_TOKEN,
-    TASK_CREATION_PROMPT,
-)
+from prompts.prompts import STOP_TOKEN
+from prompts.task_creation_prompt import TASK_CREATION_PROMPT
 from resources.utils import read_writeup
 from utils.logger import get_main_logger
 from workflows.bounty_workflow import BountyWorkflow
