@@ -1,6 +1,5 @@
 import atexit
 import os
-import signal
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -96,9 +95,6 @@ class KaliEnvResource(RunnableBaseResource):
         self.install_command = self._resource_config.install_command
         self.socket = None  # Socket for writing to the pseudo-terminal
         self._initialize_bounty_directory()
-
-        if self.target_host:
-            self.connect_to_target_hosts_check(self.target_host)
 
         atexit.register(self.stop)
 

@@ -98,6 +98,24 @@ class InitFilesResource(BaseResource):
                 self.task_dir, self._resource_config.bounty_number
             )["vulnerable_commit"]
 
+        # Call create_bounty.sh script to set up the required file structure
+        create_bounty_script = Path("utils/create_bounty.sh")
+        if create_bounty_script.exists():
+            logger.info(f"Running create_bounty.sh script on {self.tmp_dir}")
+            try:
+                result = subprocess.run(
+                    [str(create_bounty_script), str(self.tmp_dir)],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                logger.info(f"create_bounty.sh output: {result.stdout}")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Error running create_bounty.sh: {e}")
+                logger.error(f"Script stderr: {e.stderr}")
+        else:
+            logger.warning(f"create_bounty.sh script not found at {create_bounty_script}")
+
         # Initialize resource
         self._start()
         atexit.register(self.stop)
