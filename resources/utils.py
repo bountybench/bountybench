@@ -1,9 +1,11 @@
 import asyncio
 import html
 import json
+import os
 import select
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import List, Union
 
@@ -101,6 +103,7 @@ async def run_command_async(command, work_dir=None, timeout=None):
     :param timeout: Optional timeout in seconds for the command to complete. If not set, no timeout is applied.
     :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
+    save_output = True
     try:
         process = await asyncio.create_subprocess_exec(
             *command,
@@ -148,6 +151,29 @@ async def run_command_async(command, work_dir=None, timeout=None):
                 stderr_task,
             )
 
+            # Wait for the process to complete
+            return_code = await process.wait()
+
+            if isinstance(command, List):
+                command = "".join(command)
+
+            if save_output:
+                try:
+                    timestamp = time.strftime("%Y%m%d_%H%M%S")
+
+                    filename = f"{command}_{timestamp}.txt"
+
+                    output_dir = "run_command_outputs"
+                    os.makedirs(output_dir, exist_ok=True)
+                    full_path = os.path.join(output_dir, filename)
+
+                    with open(full_path, "w") as f:
+                        f.write(f"{stdout_lines}\n\n{stderr_lines}")
+
+                    print(f"Command results saved to {filename}")
+                except Exception as e:
+                    print(f"Error saving command results: {e}")
+
             return subprocess.CompletedProcess(
                 args=command,
                 returncode=return_code,
@@ -159,6 +185,29 @@ async def run_command_async(command, work_dir=None, timeout=None):
             stdout_task.cancel()
             stderr_task.cancel()
             await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+
+            # Wait for the process to complete
+            return_code = await process.wait()
+
+            if isinstance(command, List):
+                command = "".join(command)
+
+            if save_output:
+                try:
+                    timestamp = time.strftime("%Y%m%d_%H%M%S")
+
+                    filename = f"{command}_{timestamp}.txt"
+
+                    output_dir = "run_command_outputs"
+                    os.makedirs(output_dir, exist_ok=True)
+                    full_path = os.path.join(output_dir, filename)
+
+                    with open(full_path, "w") as f:
+                        f.write(f"{stdout_lines}\n\n{stderr_lines}")
+
+                    print(f"Command results saved to {filename}")
+                except Exception as e:
+                    print(f"Error saving command results: {e}")
 
             return subprocess.CompletedProcess(
                 args=command,
