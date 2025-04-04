@@ -1,5 +1,6 @@
 import subprocess
 import time
+import shutil
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
@@ -519,3 +520,33 @@ def git_get_codebase_version() -> Optional[str]:
     except subprocess.CalledProcessError as e:
         logger.error(f"Error getting git version: {e}")
         return None
+
+
+def create_git_ignore_function(ignore_git):
+    """Create a custom ignore function for shutil.copytree."""
+    def custom_ignore(src, names):
+        if ignore_git:
+            return [n for n in names if n == '.git' or n.startswith('.git')]
+        return []
+    return custom_ignore
+
+
+def prepare_git_directory(dest_git_path):
+    """Prepare the destination .git directory by removing existing one if needed."""
+    if dest_git_path.exists():
+        if dest_git_path.is_file():
+            dest_git_path.unlink()
+        else:  # is_dir
+            shutil.rmtree(dest_git_path)
+
+
+def initialize_git_repository(destination):
+    """Initialize a new Git repository at the destination."""
+    import subprocess
+    subprocess.run(
+        ['git', 'init'],
+        cwd=str(destination),
+        check=True,
+        capture_output=True,
+    )
+    logger.info(f"Initialized new Git repository at {destination}")
