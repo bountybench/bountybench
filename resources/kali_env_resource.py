@@ -384,7 +384,7 @@ class KaliEnvResource(RunnableBaseResource):
             logger.error(f"Error cleaning up tmp files: {e}")
 
     def _run_non_tty_command(
-        self, command: str, workdir: Optional[str]
+        self, command: str, workdir: Optional[str] = None
     ) -> Tuple[str, str]:
         exec_id = self.create_exec(command, workdir, tty=False)
         output_stream = self.client.api.exec_start(exec_id, stream=True, demux=True)
