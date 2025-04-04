@@ -2,12 +2,15 @@ import atexit
 import time
 from dataclasses import dataclass
 from pathlib import Path
+import re
+from queue import Queue
 from typing import List, Optional
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.env_agent_message import EnvAgentMessage
 from resources.resource_type import ResourceType
+from resources.utils import run_command
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -41,6 +44,7 @@ class EnvAgent(BaseAgent):
         self.bounty_dir = agent_config.bounty_dir
         self.task_dir = agent_config.task_dir
         self.tmp_dir = agent_config.tmp_dir
+        self.container_names = []
 
         super().__init__(agent_id, agent_config)
 
@@ -90,13 +94,35 @@ class EnvAgent(BaseAgent):
         3. Test if Kali env can connect to the target host
         """
         try:
+            script_name = "run_repo_invariants.sh"
+            tmp_dir = self.resources.init_files.tmp_dir
+            script_path = tmp_dir / script_name
+            if not script_path.exists():
+                self._log(f"{script_name} not found.", clear=True)
+                return
+            result = run_command(command=["bash", script_name], work_dir=str(tmp_dir))
+            if result.returncode != 0:
+                self._log(f"{script_name} failed with return code {result.returncode}", clear=True)
+                return
+            if (
+                result and result.stdout
+            ):  # Only process output if result exists and has stdout
+                self.container_names = self.extract_container_names(
+                    result.stdout, result.stderr
+                )
 
+                if self.container_names:
+                    success = self.wait_until_all_containers_healthy()
+                    if not success:
+                        self._log("Failed to wait until all containers healthy.", clear=True)
+                        return
         except Exception as e:
             error_msg = f"Error during env setup execution: {str(e)}"
             logger.status(error_msg)
             self.log_history.append(error_msg)
             env_agent_message.set_message("\n".join(self.log_history))
-        def wait_until_all_containers_healthy(
+
+    def wait_until_all_containers_healthy(
         self, timeout: int = 300, check_interval: int = 2
     ) -> bool:
         """
@@ -114,9 +140,6 @@ class EnvAgent(BaseAgent):
             container_queue.put(container)
 
         start_time = time.time()
-
-        start_progress("Checking container health")
-
         try:
             while not container_queue.empty():
                 container = container_queue.queue[0]
@@ -149,9 +172,7 @@ class EnvAgent(BaseAgent):
             logger.info("All containers are healthy.")
             return True
         except Exception as e:
-            raise
-        finally:
-            stop_progress()
+            raise RuntimeError(f"Failed to wait until all containers healthy: {e}")
 
     def extract_container_names(
         self, stdout: Optional[str] = None, stderr: Optional[str] = None
