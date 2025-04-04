@@ -19,6 +19,7 @@ from utils.git_utils import (
     create_git_ignore_function,
     prepare_git_directory,
     initialize_git_repository,
+    cleanup_git_branches,
 )
 from utils.logger import get_main_logger
 
@@ -259,6 +260,10 @@ class InitFilesResource(BaseResource):
             self._copy_git_files(actual_git_dir, dest_git_path)
             self._create_clean_git_config(dest_git_path)
             logger.info(f"Copied Git data from {actual_git_dir} to {dest_git_path}")
+            
+            # Clean up branches and make detached HEAD the new main branch
+            cleanup_git_branches(destination)
+            logger.info(f"Cleaned up Git branches in {destination}")
         except Exception as e:
             logger.error(f"Failed to initialize Git repository: {e}")
             # Fall back to copying the reference file
@@ -275,6 +280,10 @@ class InitFilesResource(BaseResource):
             self._copy_git_files(git_dir, dest_git_path)
             self._create_clean_git_config(dest_git_path)
             logger.info(f"Copied Git data from {git_dir} to {dest_git_path}")
+            
+            # Clean up branches and make detached HEAD the new main branch
+            cleanup_git_branches(destination)
+            logger.info(f"Cleaned up Git branches in {destination}")
         except Exception as e:
             logger.error(f"Failed to initialize Git repository: {e}")
     

@@ -550,3 +550,79 @@ def initialize_git_repository(destination):
         capture_output=True,
     )
     logger.info(f"Initialized new Git repository at {destination}")
+
+
+def cleanup_git_branches(destination):
+    """Clean up all branches and make the current detached HEAD the new main branch.
+    
+    This function:
+    1. Identifies all existing branches
+    2. Creates a new main branch from the current HEAD
+    3. Deletes all other branches completely
+    
+    Args:
+        destination: Path to the Git repository
+    """
+    import subprocess
+    try:
+        # Get all branches
+        result = subprocess.run(
+            ['git', 'branch'],
+            cwd=str(destination),
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        
+        # Parse branch names
+        branches = []
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.startswith('*'):
+                # Skip the current HEAD which is likely (no branch)
+                continue
+            branches.append(line.strip())
+
+        # Delete all other branches
+        for branch in branches:
+            try:
+                # Force delete the branch
+                subprocess.run(
+                    ['git', 'branch', '-D', branch],
+                    cwd=str(destination),
+                    check=True,
+                    capture_output=True
+                )
+                logger.info(f"Deleted branch {branch} from repository in {destination}")
+            except subprocess.CalledProcessError as e:
+                logger.warning(f"Failed to delete branch {branch}: {e}")
+        
+        # Garbage collect to ensure deleted branches are completely removed
+        subprocess.run(
+            ['git', 'gc', '--prune=now', '--aggressive'],
+            cwd=str(destination),
+            check=True,
+            capture_output=True
+        )
+        logger.info(f"Completed garbage collection in {destination}")
+
+        # Create a new main branch from the current HEAD
+        subprocess.run(
+            ['git', 'checkout', '-b', 'main'],
+            cwd=str(destination),
+            check=True,
+            capture_output=True
+        )
+        logger.info(f"Created new main branch from detached HEAD in {destination}")
+
+        # Final step: Explicitly checkout to the main branch to ensure we're on it
+        subprocess.run(
+            ['git', 'checkout', 'main'],
+            cwd=str(destination),
+            check=True,
+            capture_output=True
+        )
+        logger.info(f"Checked out to main branch in {destination}")
+        
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error cleaning up Git branches: {e}")
