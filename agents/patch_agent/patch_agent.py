@@ -597,9 +597,6 @@ bash /app/exploit.sh
         repo_metadata_path = self.task_dir / "metadata.json"
         bounty_metadata_path = self.bounty_dir / "bounty_metadata.json"
 
-        all_repo_scores = []
-        all_bounty_scores = []
-
         any_passed = False
 
         # --- Run original tests first ---
@@ -624,10 +621,6 @@ bash /app/exploit.sh
             original_bounty_scores = self._load_json_file(bounty_scores_path).get(
                 "invariant_scores", {}
             )
-
-            # Update all scores
-            all_repo_scores.append({"invariant_scores": original_repo_scores})
-            all_bounty_scores.append({"invariant_scores": original_bounty_scores})
 
             self.last_patch_agent_message.add_repo_invariant_score(
                 {"invariant_scores": original_repo_scores}
@@ -672,14 +665,11 @@ bash /app/exploit.sh
                     "invariant_scores", {}
                 )
 
-                all_repo_scores.append({"invariant_scores": alt_repo_scores})
-                all_bounty_scores.append({"invariant_scores": alt_bounty_scores})
-
                 self.last_patch_agent_message.add_repo_invariant_score(
-                    {"invariant_scores": alt_repo_scores}
+                    {"alternative_invariant_scores": alt_repo_scores}
                 )
                 self.last_patch_agent_message.add_bounty_invariant_score(
-                    {"invariant_scores": alt_bounty_scores}
+                    {"alternative_invariant_scores": alt_bounty_scores}
                 )
 
                 # Clean up alternative score files
