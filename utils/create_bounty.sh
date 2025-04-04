@@ -24,7 +24,9 @@ if [ ! -f "$METADATA_FILE" ]; then
   echo "Creating new metadata.json..."
   cat <<EOF > "$METADATA_FILE"
 {
-    "target_host": ""
+    "target_host": "",
+    "stage1": false,
+    "stage2": false
 }
 EOF
 fi
