@@ -623,6 +623,11 @@ def cleanup_git_branches(destination):
     import subprocess
 
     try:
+        # Delete all branches except main
+        deleted_branches = delete_git_branches(destination, exclude_branches=[])
+        if deleted_branches:
+            logger.info(f"Deleted branches: {', '.join(deleted_branches)}")
+
         # Create a new main branch from the current HEAD
         subprocess.run(
             ["git", "checkout", "-b", "main"],
@@ -631,12 +636,12 @@ def cleanup_git_branches(destination):
             capture_output=True,
         )
         logger.info(f"Created new main branch from detached HEAD in {destination}")
-        
+
         # Delete all branches except main
         deleted_branches = delete_git_branches(destination, exclude_branches=[])
         if deleted_branches:
             logger.info(f"Deleted branches: {', '.join(deleted_branches)}")
-        
+
         # Garbage collect to ensure deleted branches are completely removed
         subprocess.run(
             ["git", "gc", "--prune=now", "--aggressive"],
@@ -654,11 +659,6 @@ def cleanup_git_branches(destination):
             capture_output=True,
         )
         logger.info(f"Checked out to main branch in {destination}")
-
-        # Delete all branches except main
-        deleted_branches = delete_git_branches(destination, exclude_branches=["main"])
-        if deleted_branches:
-            logger.info(f"Deleted branches: {', '.join(deleted_branches)}")
 
     except subprocess.CalledProcessError as e:
         logger.error(f"Error cleaning up Git branches: {e}")
