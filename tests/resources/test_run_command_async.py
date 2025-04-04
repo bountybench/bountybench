@@ -44,6 +44,19 @@ async def test_run_command_async():
 
 
 @pytest.mark.asyncio
+async def test_run_command_async_timeout():
+    """Test that the timeout parameter works correctly."""
+
+    # Test with a command that sleeps for 2 seconds, but timeout is set to 1 second
+    result = await run_command_async(["sleep", "2"], timeout=1)
+
+    assert result.returncode == -1, "Expected return code -1 for timeout"
+    assert (
+        "timed out after 1 seconds" in result.stderr
+    ), "Expected timeout message in stderr"
+
+
+@pytest.mark.asyncio
 async def test_concurrent_commands():
     start_time = time.time()
 
@@ -151,3 +164,33 @@ echo "Line 5" >&2
             # Make sure we restore stdout/stderr even if the test fails
             sys.stdout.write = original_stdout_write
             sys.stderr.write = original_stderr_write
+
+
+@pytest.mark.asyncio
+async def test_timeout_with_output_streaming():
+    """Test that output is properly captured even when a command times out."""
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        script_path = os.path.join(temp_dir, "streaming_timeout.sh")
+        with open(script_path, "w") as f:
+            f.write(
+                """#!/bin/bash
+            echo "Line 1"
+            sleep 0.5
+            echo "Line 2"
+            sleep 0.5
+            echo "Line 3" >&2
+            sleep 3
+            echo "Line 4 - should not appear"
+            """
+            )
+        os.chmod(script_path, 0o755)
+
+        # Set timeout to 1.5 seconds - should see first 3 lines but not the 4th
+        result = await run_command_async([script_path], timeout=1.5)
+
+        assert result.returncode == -1, "Expected returncode -1 for timeout"
+        assert "Line 1" in result.stdout
+        assert "Line 2" in result.stdout
+        assert "Line 3" in result.stderr
+        assert "Line 4" not in result.stdout, "Should not include output after timeout"
