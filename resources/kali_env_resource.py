@@ -346,6 +346,14 @@ class KaliEnvResource(RunnableBaseResource):
             f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})..."
         )
         try:
+            # Pull the latest image before starting the container
+            logger.info(f"Pulling the latest Docker image: {DOCKER_IMAGE}")
+            try:
+                self.client.images.pull(DOCKER_IMAGE)
+                logger.info(f"Successfully pulled the latest image: {DOCKER_IMAGE}")
+            except Exception as e:
+                logger.warning(f"Failed to pull the latest image: {e}. Will use existing image if available.")
+                
             print(self.client.containers)
             print("in start")
             print("-" * 90)

@@ -120,13 +120,13 @@ class DockerResource(RunnableBaseResource):
             logs = ""
             for line in container.logs(stdout=True, stderr=True, stream=True):
                 decoded_line = line.decode().strip()
+                print(decoded_line)
                 logs += decoded_line + "\n"
 
             # Wait for the container to finish and get the exit code
             result = container.wait()
             exit_code = result["StatusCode"]
 
-            logger.info(f"Container logs:\n{logs.strip()}")
             logger.info(f"Exit code: {exit_code}")
 
             return logs, exit_code
