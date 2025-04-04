@@ -73,7 +73,7 @@ class OpenAIModels(ModelProvider):
             output_tokens = response.usage.output_tokens
             if model_name.startswith(("o1", "o3")):
                 reasoning_tokens = response.usage.output_tokens_details.reasoning_tokens
-                logger.info(f"resasoning tokens: {reasoning_tokens}")
+                logger.info(f"reasoning tokens: {reasoning_tokens}")
                 output_tokens += reasoning_tokens
 
             logger.info(
