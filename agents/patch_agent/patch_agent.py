@@ -277,23 +277,27 @@ class PatchAgent(BaseAgent):
         """Restart a specific resource."""
         try:
             setup_resource_action_message = resource.restart()
+            print("======================================")
             print(setup_resource_action_message)
             print(setup_resource_action_message.message)
             print(setup_resource_action_message.exit_code)
             setup_resource_action_message.set_prev(self.last_action_message)
             self.update_patch_agent_message(setup_resource_action_message)
             logger.info(f"{resource.resource_id} resource restarted successfully.")
+            print("LOOOOOOOOOOOOOOOK I AM HERE")
+            print(self.last_patch_agent_message.current_children)
+            print("================================")
             return True
         except Exception as e:
-            logger.error(f"Failed to restart {resource.resource_id} resource: {e}")
-            e.action_message.set_prev(self.last_action_message)
-            self.update_patch_agent_message(e.action_message)
-            raise
-
             logger.error(
                 f"Attempt failed to restart {resource.resource_id} resource: {e}"
             )
-            # Re-raise the exception so the @retry decorator catches it and knows to retry
+            e.action_message.set_prev(self.last_action_message)
+            self.update_patch_agent_message(e.action_message)
+            print("======================================")
+            print("LOOOOOOOOOOOOOOOK I AM HERE")
+            print(self.last_patch_agent_message.current_children)
+            print("================================")
             raise e
 
     def restart_resources(self) -> bool:
