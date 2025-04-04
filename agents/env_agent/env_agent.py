@@ -237,3 +237,12 @@ class EnvAgent(BaseAgent):
 
         data = json.loads(filepath.read_text())
         return cls.from_dict(data, **kwargs)
+
+    def cleanup(self) -> None:
+        """Perform cleanup operations."""
+        try:
+            if self.tmp_dir.exists():
+                run_command(command=["docker", "compose", "down"], work_dir=str(self.tmp_dir))
+                logger.info(f"Removed all the containers created by docker compose: {self.tmp_dir}")
+        except Exception as e:
+            logger.info(f"Error during final cleanup: {e}")
