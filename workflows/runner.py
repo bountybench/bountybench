@@ -13,6 +13,7 @@ from rich.traceback import Traceback
 from workflows.base_workflow import BaseWorkflow
 from workflows.detect_patch_workflow import DetectPatchWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
+from workflows.exploit_workflow import ExploitWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from utils.logger import get_main_logger, logger_config
 
@@ -47,6 +48,7 @@ class WorkflowRunner:
         "exploit_patch_workflow": ExploitPatchWorkflow,
         "detect_patch_workflow": DetectPatchWorkflow,
         "patch_workflow": PatchWorkflow,
+        "exploit_workflow": ExploitWorkflow,
     }
 
     def __init__(self):
