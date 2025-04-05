@@ -67,7 +67,7 @@ class ExecutorAgent(BaseAgent):
         except Exception as e:
             agent_message_str = self.last_executor_agent_message.message or ""
             self.last_executor_agent_message.set_message(
-                f"{agent_message_str}.\nExecutor agent iteration failed: {str(e)}"
+                f"{agent_message_str}.\nExecutor agent iteration failed\n\n{str(e)}"
             )
 
             # Wrap and raise custom exception that carries the agent message
@@ -101,8 +101,7 @@ class ExecutorAgent(BaseAgent):
             agent_message.set_message(
                 "Model did not return a valid command. Kali Linux action skipped."
             )
-
-        return model_action_message
+            raise
 
     async def call_lm(
         self, lm_input_message: Optional[Message] = None
@@ -250,7 +249,6 @@ class ExecutorAgent(BaseAgent):
         """
         try:
             kali_message = self.resources.kali_env.run(executor_message)
-
             return kali_message
 
         except Exception as e:
@@ -258,12 +256,14 @@ class ExecutorAgent(BaseAgent):
             logger.exception(
                 f"Failed to execute command: {executor_message.command}.\nException: {str(e)}"
             )
-            return ErrorActionMessage(
+            kali_failure_message = ErrorActionMessage(
                 resource_id=self.resources.kali_env.resource_id,
                 message=str(e),
                 error_type=exception_type,
                 prev=executor_message,
             )
+            self.last_executor_agent_message.add_child_message(kali_failure_message)
+            raise
 
     def to_dict(self) -> dict:
         """
