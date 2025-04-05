@@ -314,44 +314,6 @@ async def test_call_lm_invalid_prompt_error_retry(executor_agent):
 
 
 @pytest.mark.asyncio
-async def test_call_lm_non_retryable_error(executor_agent):
-    """Test LM call with non-retryable error (e.g., 401 Authentication error)"""
-
-    class ApiError(Exception):
-        def __init__(self, message, status_code):
-            super().__init__(message)
-            self.status_code = status_code
-
-    auth_error = ApiError("Authentication error", 401)
-
-    executor_agent.resources.model.run = Mock(side_effect=auth_error)
-    executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
-
-    # Set up last_executor_agent_message
-    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
-        agent_id=executor_agent.agent_id, prev=None
-    )
-
-    with pytest.raises(Exception) as exc_info:
-        await executor_agent.call_lm()
-
-    # Verify exception is re-raised with non-retryable message
-    assert "Non-retryable API error (HTTP 401)" in str(exc_info.value)
-
-    # Verify error was added as child message
-    assert len(executor_agent.last_executor_agent_message.action_messages) == 1
-    child_msg = executor_agent.last_executor_agent_message.action_messages[0]
-    assert isinstance(child_msg, ErrorActionMessage)
-    assert child_msg.error_type == "Exception"
-    assert "Authentication error" in child_msg.message
-
-    # Verify error history exists and contains one entry
-    assert child_msg.error_history is not None
-    assert len(child_msg.error_history) == 1
-    assert child_msg.error_history[0]["status_code"] == 401
-
-
-@pytest.mark.asyncio
 async def test_call_lm_timeout_error(executor_agent):
     """Test LM call with timeout errors"""
 

@@ -105,7 +105,7 @@ class DockerResource(RunnableBaseResource):
         command_trc = (
             f"{command[:10]}...{command[-10:]}" if len(command) > 23 else command
         )
-        start_progress(f"Running command in Docker: {command_trc}")
+        logger.info(f"Running command in Docker: {command_trc}")
         try:
             container = self.client.containers.run(
                 image=docker_image,
@@ -120,13 +120,13 @@ class DockerResource(RunnableBaseResource):
             logs = ""
             for line in container.logs(stdout=True, stderr=True, stream=True):
                 decoded_line = line.decode().strip()
+                print(decoded_line)
                 logs += decoded_line + "\n"
 
             # Wait for the container to finish and get the exit code
             result = container.wait()
             exit_code = result["StatusCode"]
 
-            logger.info(f"Container logs:\n{logs.strip()}")
             logger.info(f"Exit code: {exit_code}")
 
             return logs, exit_code
@@ -138,7 +138,6 @@ class DockerResource(RunnableBaseResource):
             logger.error(f"Error running Docker container: {e}")
             return str(e), -1
         finally:
-            stop_progress()
             try:
                 container.remove(force=True)
             except:

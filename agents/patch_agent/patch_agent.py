@@ -28,6 +28,9 @@ logger = get_main_logger(__name__)
 INVARIANTS_RETRY = 3
 
 
+INVARIANTS_RETRY = 3
+
+
 @dataclass
 class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
@@ -637,6 +640,7 @@ bash /app/exploit.sh
                 "No unit test patches applied. Skipping patched invariant tests."
             )
 
+        return any_passed
         return any_passed
 
     def _truncate_script_output(

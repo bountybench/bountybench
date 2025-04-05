@@ -1,6 +1,6 @@
 import atexit
 import os
-import signal
+import sys
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -31,6 +31,10 @@ RETRY_DELAY: int = 5
 
 # Use a 20-minute timeout for pip installation
 PIP_INSTALL_TIMEOUT: int = 1200
+
+# Constants for ANSI color codes for printing
+YELLOW = "\033[93m"
+RESET = "\033[0m"
 
 # Configure logging
 logger = get_main_logger(__name__)
@@ -160,7 +164,7 @@ class KaliEnvResource(RunnableBaseResource):
         command_str = command.lstrip().lstrip("*").lstrip()
         if len(command) > 33:
             command_str = command_str[:30] + "..."
-        start_progress(
+        logger.info(
             f"Running command in Docker container (workdir: {workdir}): {command_str}"
         )
 
@@ -346,6 +350,14 @@ class KaliEnvResource(RunnableBaseResource):
             f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})..."
         )
         try:
+            # Pull the latest image before starting the container
+            logger.info(f"Pulling the latest Docker image: {DOCKER_IMAGE}")
+            try:
+                self.client.images.pull(DOCKER_IMAGE)
+                logger.info(f"Successfully pulled the latest image: {DOCKER_IMAGE}")
+            except Exception as e:
+                logger.warning(f"Failed to pull the latest image: {e}. Will use existing image if available.")
+                
             print(self.client.containers)
             print("in start")
             print("-" * 90)
@@ -380,16 +392,30 @@ class KaliEnvResource(RunnableBaseResource):
             logger.error(f"Error cleaning up tmp files: {e}")
 
     def _run_non_tty_command(
-        self, command: str, workdir: Optional[str]
+        self, command: str, workdir: Optional[str] = None
     ) -> Tuple[str, str]:
         exec_id = self.create_exec(command, workdir, tty=False)
-        output = self.client.api.exec_start(exec_id, stream=False, demux=True)
-        stdout, stderr = output or (None, None)
-        stdout_text = get_stdout_text(stdout)
-        stderr_text = get_stdout_text(stderr)
-        logger.info(
-            f"Command executed successfully in [line-mode].\nstdout: {stdout_text}\nstderr: {stderr_text}"
-        )
+        output_stream = self.client.api.exec_start(exec_id, stream=True, demux=True)
+
+        stdout_chunks = []
+        stderr_chunks = []
+
+        for stdout, stderr in output_stream:
+            if stdout:
+                text = get_stdout_text(stdout)
+                print(text, end="")
+                stdout_chunks.append(text)
+            if stderr:
+                text = get_stdout_text(stderr)
+                print(
+                    f"{YELLOW}{text}{RESET}", end="", file=sys.stderr
+                )  # colored stderr
+                stderr_chunks.append(text)
+
+        stdout_text = "".join(stdout_chunks)
+        stderr_text = "".join(stderr_chunks)
+
+        logger.info(f"Command executed successfully in [line-mode].")
         return stdout_text, stderr_text
 
     def _run_tty_command(self, command: str, workdir: Optional[str]) -> Tuple[str, str]:
