@@ -1,11 +1,19 @@
 from abc import ABC, abstractmethod
-from typing import List, Set
+from typing import List, Optional, Set
 
 from messages.agent_messages.agent_message import AgentMessage
 from resources.resource_type import AgentResources, ResourceType
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
+
+
+class IterationFailure(Exception):
+    """Raised when an iteration fails, but want to propagate a partially complete AgentMessage to the phase."""
+
+    def __init__(self, message: str, agent_message: Optional[AgentMessage] = None):
+        super().__init__(message)
+        self.agent_message = agent_message
 
 
 class ResourceNotInitializedError(Exception):
