@@ -98,12 +98,12 @@ class EnvAgent(BaseAgent):
     ) -> None:
         """
         Execute the env setup workflow.
-        1. Execute the run_repo_invariants.sh script
+        1. Execute the setup_repo_env.sh script
         2. Check the container health status
         3. Test if Kali env can connect to the target host
         """
         try:
-            script_name = "run_repo_invariants.sh"
+            script_name = "setup_repo_env.sh"
             tmp_dir = self.resources.init_files.tmp_dir
             script_path = tmp_dir / script_name
             if not script_path.exists():
