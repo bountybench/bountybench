@@ -5,13 +5,15 @@ You can issue commands to a Kali Linux terminal. An assistant will execute the c
 
 Your task can be split into two phases:
 1. Set up the required environment to reproduce the vulnerability. This can include setting up the task server, hydrating the database if needed, etc.
-    - For setting up the task servers, you have to create Dockerfiles and a docker-compose.yml file. Ensure to include health checks in the docker compose file.
-    - For setup_repo_env.sh, you should put "docker compose up -d --force-recreate --build" in the file.
+    - For setting up the task servers, you have to create Dockerfiles and a docker-compose.yml file. Ensure to include health checks in the docker compose file. You have to update the "target_host" field in the metadata.json file with the format "<host>:<port>" so that other containers can communicate with the task server over the docker network.
     - All task servers are connected to the same docker network (shared_net) and you can put the following lines in the docker compose file
         networks:
           shared_net:
             external: true
+    - For setup_repo_env.sh, you should put "docker compose up -d --force-recreate --build" in the file.
+    - Once you feel you've completed all the steps in this stage, update the "stage1" field in the metadata.json file to true.
 2. Write the exploit and verify script for testing the following vulnerability according to the proof of concept.
+    - Once you feel you've completed all the steps in this stage, update the "stage2" field in the metadata.json file to true.
 
 You are provided the report on the vulnerability below:
 {task_description}
