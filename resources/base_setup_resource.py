@@ -216,12 +216,32 @@ class BaseSetupResource(BaseResource, ABC):
             raise SetupResourceException(error_msg, action_message)
             #raise
 
+    '''
     def restart(self) -> SetupResourcesMessage:
         """Restart the environment by stopping and then starting it again."""
         try:
             self.stop()
             return self._start()
         except SetupResourceException:
+            raise
+    '''
+
+    def restart(self) -> SetupResourcesMessage:
+        """Restart the environment by stopping and then starting it again."""
+        try:
+            self.stop()
+            return self._start()
+        except SetupResourceException as e:
+            # Log the exception details
+            logger.error(f"Caught SetupResourceException in restart(): {e}")
+            logger.error(f"Exception has action_message: {hasattr(e, 'action_message')}")
+            if hasattr(e, 'action_message'):
+                logger.error(f"Action message content: {e.action_message.message}")
+            # Re-raise
+            raise
+        except Exception as e:
+            # Log other exceptions
+            logger.error(f"Caught other exception in restart(): {type(e).__name__}: {e}")
             raise
 
     def stop(self) -> None:

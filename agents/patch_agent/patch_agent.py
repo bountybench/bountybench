@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, List, Optional, TypeVar
 
+from resources.base_setup_resource import SetupResourceException
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from agents.base_agent import AgentConfig, BaseAgent
@@ -272,7 +273,8 @@ class PatchAgent(BaseAgent):
         return False
 
     # Now that failure to restart resources raises exception, add retries
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    #@retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    '''
     def _restart_resource(self, resource) -> None:
         """Restart a specific resource."""
         try:
@@ -299,6 +301,48 @@ class PatchAgent(BaseAgent):
             print(self.last_patch_agent_message.current_children)
             print("================================")
             raise e
+    '''
+
+    def _restart_resource(self, resource) -> None:
+        """Restart a specific resource."""
+        try:
+            setup_resource_action_message = resource.restart()
+            setup_resource_action_message.set_prev(self.last_action_message)
+            self.update_patch_agent_message(setup_resource_action_message)
+            logger.info(f"{resource.resource_id} resource restarted successfully.")
+            return True
+        except SetupResourceException as e:
+            # Specifically catch SetupResourceException
+            logger.error(f"Caught SetupResourceException in *restart*resource: {e}")
+            logger.error(f"Has action_message: {hasattr(e, 'action_message')}")
+            
+            if hasattr(e, 'action_message'):
+                # Add detailed debugging
+                logger.error(f"Action message type: {type(e.action_message).__name__}")
+                logger.error(f"Action message: {e.action_message.message}")
+                logger.error(f"Last action message: {self.last_action_message}")
+                
+                try:
+                    # Try setting prev and updating
+                    e.action_message.set_prev(self.last_action_message)
+                    logger.error("Successfully set prev")
+                    self.update_patch_agent_message(e.action_message)
+                    logger.error("Successfully updated patch agent message")
+                except Exception as inner_e:
+                    # Catch any errors in this specific part
+                    logger.error(f"Error in handling action message: {inner_e}")
+                    
+                    # Try a fallback approach
+                    from messages.action_messages.script_action_message import ScriptActionMessage
+                    error_message = ScriptActionMessage(
+                        resource_id=resource.resource_id,
+                        command="restart",
+                        message=f"Failed to restart resource (fallback): {str(e)}",
+                        exit_code=-1,
+                        prev=self.last_action_message
+                    )
+                    self.update_patch_agent_message(error_message)
+            raise  # Re-raise so restart_resources can catch it
 
     def restart_resources(self) -> bool:
         """Restart necessary resources and check success."""
