@@ -2,7 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import List, Optional
 
-from agents.base_agent import AgentConfig, BaseAgent
+from agents.base_agent import AgentConfig, BaseAgent, IterationFailure
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.command_message_interface import CommandMessageInterface
@@ -62,7 +62,19 @@ class ExecutorAgent(BaseAgent):
             agent_id=self.agent_id, prev=prev_agent_message
         )
 
-        await self.execute(self.last_executor_agent_message, prev_agent_message)
+        try:
+            await self.execute(self.last_executor_agent_message, prev_agent_message)
+        except Exception as e:
+            agent_message_str = self.last_executor_agent_message.message or ""
+            self.last_executor_agent_message.set_message(
+                f"{agent_message_str}.\nExecutor agent iteration failed: {str(e)}"
+            )
+
+            # Wrap and raise custom exception that carries the agent message
+            raise IterationFailure(
+                message=f"agent.execute failed: {str(e)}",
+                agent_message=self.last_executor_agent_message,
+            ) from e
 
         return self.last_executor_agent_message
 
