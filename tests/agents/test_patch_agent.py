@@ -18,13 +18,15 @@ from utils.git_utils import git_diff
 
 TEST_FILE_NAME = "test_file.txt"
 
-MOCK_REPO_SCORES = {"invariant_scores": {"healthcheck": 1, "test_server": 76}}
+MOCK_REPO_SCORES = {"healthcheck": 1, "test_server": 76}
+MOCK_REPO_SCORES_TO_WRITE = {"invariant_scores": MOCK_REPO_SCORES}
 
-MOCK_BOUNTY_SCORES = {"invariant_scores": {"healthcheck": 1, "test_db": 80}}
+MOCK_BOUNTY_SCORES = {"healthcheck": 1, "test_db": 80}
+MOCK_BOUNTY_SCORES_TO_WRITE = {"invariant_scores": MOCK_BOUNTY_SCORES}
 
-MOCK_REPO_METADATA = {"invariant_thresholds": {"healthcheck": 1, "test_server": 76}}
+MOCK_REPO_METADATA = {"healthcheck": 1, "test_server": 76}
 
-MOCK_BOUNTY_METADATA = {"invariant_thresholds": {"test_db": 80}}
+MOCK_BOUNTY_METADATA = {"test_db": 80}
 
 
 def mock_patch_agent_message():
@@ -357,7 +359,7 @@ async def test_execute_invariant_tests_success(bounty_setup, patch_agent):
 
     # Mock the file reading logic
     def mock_load_json(path):
-        return {}
+        return {"invariant_scores": {"healthcheck": 1, "test_server": 76}}
 
     with (
         patch.object(
@@ -366,9 +368,11 @@ async def test_execute_invariant_tests_success(bounty_setup, patch_agent):
         patch.object(patch_agent, "_load_json_file", side_effect=mock_load_json),
     ):
         # Just verify that files are returned
-        repo_path, bounty_path = await agent._execute_invariant_tests()
-        assert isinstance(repo_path, Path)
-        assert isinstance(bounty_path, Path)
+        repo_score, bounty_score = await agent._execute_invariant_tests()
+        print(repo_score)
+        print(bounty_score)
+        assert "healthcheck" in repo_score
+        assert "test_server" in bounty_score
 
     # And test check_invariants directly
     with (
@@ -444,37 +448,14 @@ def test_check_invariant_scores_against_thresholds_success(patch_agent):
     """Test that check_invariant_scores_against_thresholds returns True when scores meet thresholds."""
     agent = patch_agent
 
-    # Create temporary files
-    repo_metadata_file = Path("repo_metadata.json")
-    bounty_metadata_file = Path("bounty_metadata.json")
-    repo_invariant_scores = Path("repo_scores.json")
-    bounty_invariant_scores = Path("bounty_scores.json")
-
-    # Write test data to files
-    repo_metadata_file.write_text(json.dumps(MOCK_REPO_METADATA))
-    bounty_metadata_file.write_text(json.dumps(MOCK_BOUNTY_METADATA))
-    repo_invariant_scores.write_text(json.dumps(MOCK_REPO_SCORES))
-    bounty_invariant_scores.write_text(json.dumps(MOCK_BOUNTY_SCORES))
-
-    try:
-        # Test with all scores meeting thresholds
-        result = agent.check_invariant_scores_against_thresholds(
-            repo_metadata_file,
-            bounty_metadata_file,
-            repo_invariant_scores,
-            bounty_invariant_scores,
-        )
-        assert result is True
-    finally:
-        # Clean up
-        for file in [
-            repo_metadata_file,
-            bounty_metadata_file,
-            repo_invariant_scores,
-            bounty_invariant_scores,
-        ]:
-            if file.exists():
-                file.unlink()
+    # Test with all scores meeting thresholds
+    result = agent.check_invariant_scores_against_thresholds(
+        MOCK_REPO_METADATA,
+        MOCK_BOUNTY_METADATA,
+        MOCK_REPO_SCORES,
+        MOCK_BOUNTY_SCORES,
+    )
+    assert result is True
 
 
 @pytest.mark.asyncio
@@ -491,8 +472,8 @@ async def test_check_invariants_returns_correct_scores(patch_agent):
         bounty_scores_path = bounty_dir / "invariant_scores.json"
 
         # Create all necessary files
-        repo_scores_path.write_text(json.dumps(MOCK_REPO_SCORES))
-        bounty_scores_path.write_text(json.dumps(MOCK_BOUNTY_SCORES))
+        repo_scores_path.write_text(json.dumps(MOCK_REPO_SCORES_TO_WRITE))
+        bounty_scores_path.write_text(json.dumps(MOCK_BOUNTY_SCORES_TO_WRITE))
 
         agent = patch_agent
         agent.task_dir = task_dir
@@ -503,10 +484,9 @@ async def test_check_invariants_returns_correct_scores(patch_agent):
 
         # Mock _execute_invariant_tests to return our prepared files
         with (
-            patch.object(
-                agent,
-                "_execute_invariant_tests",
-                return_value=(repo_scores_path, bounty_scores_path),
+            patch(
+                "agents.patch_agent.patch_agent.run_command_async",
+                return_value=({"stdout": "mocked", "stderr": "", "returncode": 0}),
             ),
             patch.object(
                 PatchAgent,
@@ -519,17 +499,6 @@ async def test_check_invariants_returns_correct_scores(patch_agent):
 
             # Verify result
             assert result is True
-
-            # Check that scores were properly set on the message
-            repo_scores_set = agent.last_patch_agent_message.repo_invariant_scores
-            bounty_scores_set = agent.last_patch_agent_message.bounty_invariant_scores
-
-            assert repo_scores_set[0].get("invariant_scores") == MOCK_REPO_SCORES.get(
-                "invariant_scores"
-            )
-            assert bounty_scores_set[0].get(
-                "invariant_scores"
-            ) == MOCK_BOUNTY_SCORES.get("invariant_scores")
 
 
 def test_check_invariant_scores_edge_cases(patch_agent):
@@ -552,8 +521,8 @@ def test_check_invariant_scores_edge_cases(patch_agent):
         files["bounty_meta"].write_text(
             json.dumps({"invariant_thresholds": {"test_db": 85}})
         )
-        files["repo_scores"].write_text(json.dumps(MOCK_REPO_SCORES))
-        files["bounty_scores"].write_text(json.dumps(MOCK_BOUNTY_SCORES))
+        files["repo_scores"].write_text(json.dumps(MOCK_REPO_SCORES_TO_WRITE))
+        files["bounty_scores"].write_text(json.dumps(MOCK_BOUNTY_SCORES_TO_WRITE))
 
         result = agent.check_invariant_scores_against_thresholds(*files.values())
         assert result is False

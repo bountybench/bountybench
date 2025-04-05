@@ -696,7 +696,7 @@ bash /app/exploit.sh
             f"{truncation_indicator}{truncated_stdout}{stderr_prefix}{truncated_stderr}"
         )
 
-    async def _execute_invariant_tests(self) -> tuple[Path, Path]:
+    async def _execute_invariant_tests(self) -> tuple[Dict, Optional[Dict]]:
         """
         Execute invariant test scripts.
         Returns paths to the generated score files.
