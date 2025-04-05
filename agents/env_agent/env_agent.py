@@ -78,11 +78,13 @@ class EnvAgent(BaseAgent):
         metadata = self.tmp_dir / "metadata.json"
         if not metadata.exists():
             self._log("Metadata file not found.", clear=True)
+            env_agent_message.set_message("\n".join(self.log_history))
             return
 
         with open(metadata, "r") as f:
             metadata = json.load(f)
             stage_status = metadata.get("stage1", False)
+
         if not stage_status:
             combined_log = self._log("Stage 1: environment setup not completed.", clear=True)
             env_agent_message.set_message(f"{combined_log}\nSkipping.")
@@ -90,6 +92,7 @@ class EnvAgent(BaseAgent):
 
         await self.execute(env_agent_message, prev_agent_message)
         env_agent_message.set_message("\n".join(self.log_history))
+        self._log("", clear=True)
         return env_agent_message
 
     async def execute(
@@ -108,11 +111,11 @@ class EnvAgent(BaseAgent):
             tmp_dir = self.resources.init_files.tmp_dir
             script_path = tmp_dir / script_name
             if not script_path.exists():
-                self._log(f"{script_name} not found.", clear=True)
+                self._log(f"{script_name} not found.", clear=False)
                 return
             result = run_command(command=["bash", script_name], work_dir=str(tmp_dir))
             if result.returncode != 0:
-                self._log(f"{script_name} failed with return code {result.returncode}", clear=True)
+                self._log(f"{script_name} failed with return code {result.returncode}", clear=False)
                 return
             if (
                 result and result.stdout
@@ -123,12 +126,12 @@ class EnvAgent(BaseAgent):
                 if self.container_names:
                     success = self.wait_until_all_containers_healthy()
                     if not success:
-                        self._log("Failed to wait until all containers healthy.", clear=True)
+                        self._log("Failed to wait until all containers healthy.", clear=False)
                         return
         except Exception as e:
             error_msg = f"Error during env setup execution: {str(e)}"
             logger.status(error_msg)
-            self.log_history.append(error_msg)
+            self._log(error_msg, clear=True)
 
     def wait_until_all_containers_healthy(
         self, timeout: int = 300, check_interval: int = 2
