@@ -324,7 +324,7 @@ class BasePhase(ABC):
 
     async def _pause_phase(self) -> None:
         """Pause the phase if an iteration fails."""
-        self.set_interactive_mode(True)
+        await self.set_interactive_mode(True)
         # Clear any outstanding next_iteration calls
         if hasattr(self.workflow, "next_iteration_queue"):
             logger.info("Clearing next iteration queue")
