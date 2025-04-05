@@ -120,7 +120,7 @@ class BaseSetupResource(BaseResource, ABC):
                         logger.warning(
                             f"Direct execution failed, trying with explicit bash for {self.setup_script_name}"
                         )
-                        bash_command = f"bash ./{self.setup_script_name}"
+                        bash_command = f"./{self.setup_script_name}"
                         result = run_command(
                             command=["bash", f"{bash_command}"],
                             work_dir=str(self.work_dir),
