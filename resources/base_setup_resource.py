@@ -198,7 +198,6 @@ class BaseSetupResource(BaseResource, ABC):
             action_message.set_message(action_message.message + f"\n\n{success_msg}")
             action_message.set_exit_code(0)
             return action_message
-
         except FileNotFoundError as e:
             error_msg = str(e)
             logger.error(error_msg)
@@ -216,7 +215,7 @@ class BaseSetupResource(BaseResource, ABC):
             raise SetupResourceException(error_msg, action_message)
             #raise
 
-    '''
+    
     def restart(self) -> SetupResourcesMessage:
         """Restart the environment by stopping and then starting it again."""
         try:
@@ -224,8 +223,9 @@ class BaseSetupResource(BaseResource, ABC):
             return self._start()
         except SetupResourceException:
             raise
-    '''
+    
 
+    '''
     def restart(self) -> SetupResourcesMessage:
         """Restart the environment by stopping and then starting it again."""
         try:
@@ -243,6 +243,7 @@ class BaseSetupResource(BaseResource, ABC):
             # Log other exceptions
             logger.error(f"Caught other exception in restart(): {type(e).__name__}: {e}")
             raise
+    '''
 
     def stop(self) -> None:
         """Stop the environment by using docker compose down."""
