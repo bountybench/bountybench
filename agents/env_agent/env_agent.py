@@ -89,6 +89,7 @@ class EnvAgent(BaseAgent):
             return env_agent_message
 
         await self.execute(env_agent_message, prev_agent_message)
+        env_agent_message.set_message("\n".join(self.log_history))
         return env_agent_message
 
     async def execute(
@@ -128,7 +129,6 @@ class EnvAgent(BaseAgent):
             error_msg = f"Error during env setup execution: {str(e)}"
             logger.status(error_msg)
             self.log_history.append(error_msg)
-            env_agent_message.set_message("\n".join(self.log_history))
 
     def wait_until_all_containers_healthy(
         self, timeout: int = 300, check_interval: int = 2
