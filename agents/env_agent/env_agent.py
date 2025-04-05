@@ -3,6 +3,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import json
 from queue import Queue
 from typing import List, Optional
 
@@ -74,8 +75,16 @@ class EnvAgent(BaseAgent):
             agent_id=self.agent_id, message=None, prev=prev_agent_message
         )
 
-        if "stage1" not in prev_agent_message.message:
-            combined_log = self._log("Stage 1 not completed.", clear=True)
+        metadata = self.tmp_dir / "metadata.json"
+        if not metadata.exists():
+            self._log("Metadata file not found.", clear=True)
+            return
+
+        with open(metadata, "r") as f:
+            metadata = json.load(f)
+            stage_status = metadata.get("stage1", False)
+        if not stage_status:
+            combined_log = self._log("Stage 1: environment setup not completed.", clear=True)
             env_agent_message.set_message(f"{combined_log}\nSkipping.")
             return env_agent_message
 
