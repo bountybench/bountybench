@@ -75,18 +75,6 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
 
-    def _log(self, message: str) -> str:
-        """Helper to append a message to log_history, log it, and return the combined log.
-        Optionally clears the history after returning the combined log."""
-        self.log_history.append(message)
-        logger.info(message)
-        combined = "\n".join(self.log_history)
-        return combined
-
-    def _reset_codebase(self):
-        git_reset(self.tmp_codebase)
-        git_reset(self.task_dir / "codebase")
-
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """Execute the main workflow of the PatchAgent."""
         # Validate input messages
@@ -114,7 +102,7 @@ class PatchAgent(BaseAgent):
 
         if not tmp_git_diff:
             self._log("No git diff detected within codebase, skipping patching.")
-            return self.update_patch_agent_message(clear=True)
+            return self._update_patch_agent_message(clear=True)
 
         self._log("Codebase changes detected.")
 
@@ -140,7 +128,7 @@ class PatchAgent(BaseAgent):
                         f"\nOutput: {output}"
                     )
                 self._log("Reverting all the changes to the codebase.")
-                return self.update_patch_agent_message(clear=True)
+                return self._update_patch_agent_message(clear=True)
         else:
             # Verify external exploit works before patching
             # If external exploit fails, no way to verify patch is valid
@@ -164,7 +152,7 @@ class PatchAgent(BaseAgent):
             # Resources haven't been changed - no need to restart
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
-            return self.update_patch_agent_message(clear=True)
+            return self._update_patch_agent_message(clear=True)
 
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
@@ -174,7 +162,7 @@ class PatchAgent(BaseAgent):
                     raise Exception("Failed to restart resources")
                 self.patch_id += 1
                 self._log("Reverting all the changes to the codebase.")
-                return self.update_patch_agent_message(clear=True)
+                return self._update_patch_agent_message(clear=True)
 
         # Final verification of the patch
         if not await self.verify_patch():
@@ -183,28 +171,10 @@ class PatchAgent(BaseAgent):
                 raise Exception("Failed to restart resources")
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
-            return self.update_patch_agent_message(clear=True)
+            return self._update_patch_agent_message(clear=True)
 
         # Return the final status message
-        return self.update_patch_agent_message(clear=True)
-
-    def update_patch_agent_message(
-        self,
-        action_message: Optional[ActionMessage] = None,
-        clear: Optional[bool] = False,
-    ) -> AgentMessage:
-        """Update the patch agent message with the current state of the agent."""
-        assert self.last_patch_agent_message
-
-        if action_message:
-            self.last_patch_agent_message.add_child_message(action_message)
-            self.last_action_message = action_message
-
-        self.last_patch_agent_message.set_message("\n".join(self.log_history))
-        if clear:
-            self.log_history.clear()
-
-        return self.last_patch_agent_message
+        return self._update_patch_agent_message(clear=True)
 
     async def verify_patch(
         self,
@@ -272,40 +242,6 @@ class PatchAgent(BaseAgent):
 
         return False
 
-    # Now that failure to restart resources raises exception, add retries
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-    def _restart_resource(self, resource) -> None:
-        """Restart a specific resource."""
-        try:
-            resource.restart()
-            logger.info(f"{resource.resource_id} resource restarted successfully.")
-            return True
-        except Exception as e:
-            logger.error(
-                f"Attempt failed to restart {resource.resource_id} resource: {e}"
-            )
-            # Re-raise the exception so the @retry decorator catches it and knows to retry
-            raise e
-
-    def restart_resources(self) -> bool:
-        """Restart necessary resources and check success."""
-        # Must restart repo_setup first, then bounty_setup (same order as initialization)
-        if self.resources.has_bound(ResourceType.REPO_SETUP):
-            try:
-                self._restart_resource(self.resources.repo_setup)
-            except Exception as e:
-                logger.error(f"Failed to restart repo resource")
-                return False
-
-        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
-            try:
-                self._restart_resource(self.resources.bounty_setup)
-            except Exception as e:
-                logger.error(f"Failed to restart bounty resource")
-                return False
-
-        return True
-
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_agent_exploit(self) -> tuple[int, str]:
         """Run the exploit script in a Docker container."""
@@ -370,7 +306,7 @@ bash /app/exploit.sh
                 )
 
                 exploit_execution = await self.resources.docker.run(exploit_execution)
-                self.update_patch_agent_message(exploit_execution)
+                self._update_patch_agent_message(exploit_execution)
                 return_val = (
                     exploit_execution.additional_metadata["exit_code"],
                     exploit_execution.message,
@@ -425,7 +361,7 @@ bash /app/exploit.sh
             )
 
             exploit_execution = await self.resources.docker.run(exploit_execution)
-            self.update_patch_agent_message(exploit_execution)
+            self._update_patch_agent_message(exploit_execution)
 
             # Run the verify script
             logger.info("Running verify.sh")
@@ -444,7 +380,7 @@ bash /app/exploit.sh
                     exit_code=result.returncode,
                     prev=self.last_action_message,
                 )
-                self.update_patch_agent_message(verify_response)
+                self._update_patch_agent_message(verify_response)
             except Exception as e:
                 self._log(f"Error running verify.sh: {e}")
                 return None
@@ -459,6 +395,152 @@ bash /app/exploit.sh
                 raise RuntimeError(f"Failed to reset git repository: {str(e)}") from e
 
         return return_val
+
+    def restart_resources(self) -> bool:
+        """Restart necessary resources and check success."""
+        # Must restart repo_setup first, then bounty_setup (same order as initialization)
+        if self.resources.has_bound(ResourceType.REPO_SETUP):
+            try:
+                self._restart_resource(self.resources.repo_setup)
+            except Exception as e:
+                logger.error(f"Failed to restart repo resource")
+                return False
+
+        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
+            try:
+                self._restart_resource(self.resources.bounty_setup)
+            except Exception as e:
+                logger.error(f"Failed to restart bounty resource")
+                return False
+
+        return True
+
+    async def check_invariants(self) -> bool:
+        """
+        Main entry point for running invariant checks on the patched codebase.
+        Returns whether invariants pass thresholds and updates the agent message with scores.
+        """
+        self._log("Running invariant tests on patched codebase")
+
+        repo_metadata = {}
+        bounty_metadata = {}
+
+        # Load metadata files for threshold checking
+        repo_metadata_path = self.task_dir / "metadata.json"
+        bounty_metadata_path = self.bounty_dir / "bounty_metadata.json"
+
+        if repo_metadata_path.exists():
+            repo_metadata = json.loads(repo_metadata_path.read_text())
+
+        if bounty_metadata_path.exists():
+            bounty_metadata = json.loads(bounty_metadata_path.read_text())
+
+        any_passed = False
+
+        # --- Run original tests first ---
+        for attempt in range(INVARIANTS_RETRY):
+            self._log(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
+
+            # Try with original tests first
+            original_repo_scores, original_bounty_scores = (
+                await self._execute_invariant_tests()
+            )
+
+            # Evaluate if original tests passed
+            original_passed = self.check_invariant_scores_against_thresholds(
+                repo_metadata,
+                bounty_metadata,
+                original_repo_scores,
+                original_bounty_scores,
+            )
+
+            # Update any_passed if this attempt succeeded
+            if original_passed:
+                any_passed = True
+
+        # --- Now run patched unit tests (if any) ---
+        if self.apply_patched_unit_tests():
+            logger.info(
+                "Unit test patches applied successfully. Running patched invariant checks."
+            )
+
+            for attempt in range(INVARIANTS_RETRY):
+                self._log(f"[Patched] Attempt {attempt + 1} of {INVARIANTS_RETRY}")
+
+                # Run with patched unit tests
+                alt_repo_scores, alt_bounty_scores = (
+                    await self._execute_invariant_tests()
+                )
+
+                # Evaluate if patched tests passed
+                alt_passed = self.check_invariant_scores_against_thresholds(
+                    repo_metadata,
+                    bounty_metadata,
+                    alt_repo_scores,
+                    alt_bounty_scores,
+                )
+
+                # Update any_passed if alt tests succeeded
+                if alt_passed:
+                    any_passed = True
+        else:
+            logger.info(
+                "No unit test patches applied. Skipping patched invariant tests."
+            )
+
+        return any_passed
+
+    def cleanup(self) -> None:
+        """Perform cleanup operations."""
+
+        self._store_exploit()
+        if self.tmp_codebase and self.tmp_codebase.exists():
+            git_checkout_main(self.tmp_codebase, force=True)
+
+    # Now that failure to restart resources raises exception, add retries
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    def _restart_resource(self, resource) -> None:
+        """Restart a specific resource."""
+        try:
+            resource.restart()
+            logger.info(f"{resource.resource_id} resource restarted successfully.")
+            return True
+        except Exception as e:
+            logger.error(
+                f"Attempt failed to restart {resource.resource_id} resource: {e}"
+            )
+            # Re-raise the exception so the @retry decorator catches it and knows to retry
+            raise e
+
+    def _update_patch_agent_message(
+        self,
+        action_message: Optional[ActionMessage] = None,
+        clear: Optional[bool] = False,
+    ) -> AgentMessage:
+        """Update the patch agent message with the current state of the agent."""
+        assert self.last_patch_agent_message
+
+        if action_message:
+            self.last_patch_agent_message.add_child_message(action_message)
+            self.last_action_message = action_message
+
+        self.last_patch_agent_message.set_message("\n".join(self.log_history))
+        if clear:
+            self.log_history.clear()
+
+        return self.last_patch_agent_message
+
+    def _log(self, message: str) -> str:
+        """Helper to append a message to log_history, log it, and return the combined log.
+        Optionally clears the history after returning the combined log."""
+        self.log_history.append(message)
+        logger.info(message)
+        combined = "\n".join(self.log_history)
+        return combined
+
+    def _reset_codebase(self):
+        git_reset(self.tmp_codebase)
+        git_reset(self.task_dir / "codebase")
 
     def _apply_patch(self, tmp_dir_diff: str) -> bool:
         """
@@ -562,81 +644,6 @@ bash /app/exploit.sh
             logger.error(error_msg)
             return False
 
-    async def check_invariants(self) -> bool:
-        """
-        Main entry point for running invariant checks on the patched codebase.
-        Returns whether invariants pass thresholds and updates the agent message with scores.
-        """
-        self._log("Running invariant tests on patched codebase")
-
-        repo_metadata = {}
-        bounty_metadata = {}
-
-        # Load metadata files for threshold checking
-        repo_metadata_path = self.task_dir / "metadata.json"
-        bounty_metadata_path = self.bounty_dir / "bounty_metadata.json"
-
-        if repo_metadata_path.exists():
-            repo_metadata = json.loads(repo_metadata_path.read_text())
-
-        if bounty_metadata_path.exists():
-            bounty_metadata = json.loads(bounty_metadata_path.read_text())
-
-        any_passed = False
-
-        # --- Run original tests first ---
-        for attempt in range(INVARIANTS_RETRY):
-            self._log(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
-
-            # Try with original tests first
-            original_repo_scores, original_bounty_scores = (
-                await self._execute_invariant_tests()
-            )
-
-            # Evaluate if original tests passed
-            original_passed = self.check_invariant_scores_against_thresholds(
-                repo_metadata,
-                bounty_metadata,
-                original_repo_scores,
-                original_bounty_scores,
-            )
-
-            # Update any_passed if this attempt succeeded
-            if original_passed:
-                any_passed = True
-
-        # --- Now run patched unit tests (if any) ---
-        if self.apply_patched_unit_tests():
-            logger.info(
-                "Unit test patches applied successfully. Running patched invariant checks."
-            )
-
-            for attempt in range(INVARIANTS_RETRY):
-                self._log(f"[Patched] Attempt {attempt + 1} of {INVARIANTS_RETRY}")
-
-                # Run with patched unit tests
-                alt_repo_scores, alt_bounty_scores = (
-                    await self._execute_invariant_tests()
-                )
-
-                # Evaluate if patched tests passed
-                alt_passed = self.check_invariant_scores_against_thresholds(
-                    repo_metadata,
-                    bounty_metadata,
-                    alt_repo_scores,
-                    alt_bounty_scores,
-                )
-
-                # Update any_passed if alt tests succeeded
-                if alt_passed:
-                    any_passed = True
-        else:
-            logger.info(
-                "No unit test patches applied. Skipping patched invariant tests."
-            )
-
-        return any_passed
-
     def _truncate_script_output(
         self, stdout: str, stderr: Optional[str] = "", max_length: int = 5000
     ) -> str:
@@ -734,7 +741,7 @@ bash /app/exploit.sh
                 additional_metadata={"repo_invariant_scores": repo_scores},
                 prev=self.last_action_message,
             )
-            self.update_patch_agent_message(repo_invariants_response)
+            self._update_patch_agent_message(repo_invariants_response)
 
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
             logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
@@ -767,7 +774,7 @@ bash /app/exploit.sh
                 additional_metadata={"bounty_invariant_scores": bounty_scores},
                 prev=self.last_action_message,
             )
-            self.update_patch_agent_message(bounty_invariants_response)
+            self._update_patch_agent_message(bounty_invariants_response)
 
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
 
@@ -817,13 +824,6 @@ bash /app/exploit.sh
         except Exception as e:  # e.g. Patch file is too large to be written
             logger.error(f"Failed to create patch_{self.patch_id} file: {e}")
             raise
-
-    def cleanup(self) -> None:
-        """Perform cleanup operations."""
-
-        self._store_exploit()
-        if self.tmp_codebase and self.tmp_codebase.exists():
-            git_checkout_main(self.tmp_codebase, force=True)
 
     def _store_exploit(self) -> Optional[str]:
         """Store the exploit files."""
@@ -937,6 +937,13 @@ bash /app/exploit.sh
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         }
 
+    def save_to_file(self, filepath: Path) -> None:
+        """
+        Saves the agent state to a JSON file.
+        """
+        state = self.to_dict()
+        filepath.write_text(json.dumps(state, indent=2))
+
     @classmethod
     def from_dict(cls, data: dict, **kwargs) -> "PatchAgent":
         """
@@ -956,13 +963,6 @@ bash /app/exploit.sh
         agent.patch_id = data["patch_id"]
         agent._agent_id = data["agent_id"]
         return agent
-
-    def save_to_file(self, filepath: Path) -> None:
-        """
-        Saves the agent state to a JSON file.
-        """
-        state = self.to_dict()
-        filepath.write_text(json.dumps(state, indent=2))
 
     @classmethod
     def load_from_file(cls, filepath: Path, **kwargs) -> "PatchAgent":
