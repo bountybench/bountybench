@@ -12,6 +12,7 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.patch_agent.invariant_check_util import (
     apply_patched_unit_tests,
+    check_invariant_scores_against_thresholds,
     cleanup_files,
     load_json_file,
 )
@@ -192,7 +193,8 @@ class PatchAgent(BaseAgent):
         # Failure to restart resources may be due to patch, do not raise exception
         if not self.restart_resources():
             self._log(
-                "Could not restart associated resources after applying the patch. Patch is invalid."
+                "Could not restart associated resources after applying the patch. "
+                "Patch is invalid."
             )
             return False
 
@@ -410,14 +412,14 @@ bash /app/exploit.sh
             try:
                 self._restart_resource(self.resources.repo_setup)
             except Exception as e:
-                logger.error(f"Failed to restart repo resource")
+                logger.error(f"Failed to restart repo resource: {str(e)}")
                 return False
 
         if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
             try:
                 self._restart_resource(self.resources.bounty_setup)
             except Exception as e:
-                logger.error(f"Failed to restart bounty resource")
+                logger.error(f"Failed to restart bounty resource: {str(e)}")
                 return False
 
         return True
@@ -454,7 +456,7 @@ bash /app/exploit.sh
             )
 
             # Evaluate if original tests passed
-            original_passed = self.check_invariant_scores_against_thresholds(
+            original_passed = check_invariant_scores_against_thresholds(
                 repo_metadata,
                 bounty_metadata,
                 original_repo_scores,
@@ -480,7 +482,7 @@ bash /app/exploit.sh
                 )
 
                 # Evaluate if patched tests passed
-                alt_passed = self.check_invariant_scores_against_thresholds(
+                alt_passed = check_invariant_scores_against_thresholds(
                     repo_metadata,
                     bounty_metadata,
                     alt_repo_scores,
@@ -577,78 +579,15 @@ bash /app/exploit.sh
                     patch_file_path, self.task_dir / "codebase", "dev"
                 )
                 self._log(message)
-                if success:
-                    return True
-                else:
-                    return False
-
+                return success
             else:
                 self._log(f"Failed to apply patch to codebase: {message}")
                 return False
         else:
             self._log(
-                "No changes detected in codebase. Skipping patch creation and application."
+                "No changes detected in codebase. "
+                "Skipping patch creation and application."
             )
-            return False
-
-    def check_invariant_scores_against_thresholds(
-        self,
-        repo_invariant_threshold: Dict,
-        bounty_invariant_threshold: Dict,
-        repo_invariant_scores: Dict,
-        bounty_invariant_scores: Optional[Dict] = None,
-    ) -> bool:
-        """
-        Check invariant scores against thresholds defined in metadata files.
-
-        Args:
-            repo_invariant_threshold: Repo invariant thresholds file
-            bounty_invariant_threshold: Bounty invariant thresholds - potentially empty
-            repo_invariant_scores: Repo invariant scores
-            bounty_invariant_scores: Bounty invariant scores - potentially empty
-        """
-        try:
-            if not repo_invariant_threshold:
-                logger.error(
-                    "Missing repo invariant thresholds - failing invariant check"
-                )
-                return False
-
-            thresholds = repo_invariant_threshold.copy()
-            thresholds.update(bounty_invariant_threshold)
-
-            if not repo_invariant_scores:
-                logger.error("Missing repo invariant scores - failing invariant check")
-                return False
-
-            scores = repo_invariant_scores.copy()
-            if bounty_invariant_scores:
-                scores.update(bounty_invariant_scores)
-
-            errors = []
-            for invariant_name, threshold in thresholds.items():
-                if invariant_name not in scores:
-                    errors.append(f"Missing score for {invariant_name}")
-                    continue
-
-                score = scores.get(invariant_name)
-                if not isinstance(score, (int, float)):
-                    errors.append(f"Score for {invariant_name} is not a number")
-                    continue
-
-                if score < threshold:
-                    errors.append(
-                        f"{invariant_name} score ({score}) is below threshold ({threshold})"
-                    )
-
-            logger.info(
-                f"Found {len(errors)} errors while checking invariants: {errors}"
-            )
-            return len(errors) == 0
-
-        except Exception as e:
-            error_msg = f"Error checking invariants: {str(e)}"
-            logger.error(error_msg)
             return False
 
     async def _execute_invariant_tests(self) -> tuple[Dict, Optional[Dict]]:
