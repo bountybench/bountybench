@@ -54,6 +54,4 @@ def truncate_script_output(
     truncated_stdout = stdout[-int(stdout_space) :]
     truncated_stderr = stderr[-int(stderr_space) :]
 
-    return (
-        f"{truncation_indicator}{truncated_stdout}{stderr_prefix}{truncated_stderr}"
-    )
+    return f"{truncation_indicator}{truncated_stdout}{stderr_prefix}{truncated_stderr}"

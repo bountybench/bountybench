@@ -1,10 +1,12 @@
-from pathlib import Path
-from utils.logger import get_main_logger
 import json
 import shutil
+from pathlib import Path
 from typing import Dict, List, Optional
 
+from utils.logger import get_main_logger
+
 logger = get_main_logger(__name__)
+
 
 def check_invariant_scores_against_thresholds(
     repo_invariant_threshold: Dict,
@@ -23,9 +25,7 @@ def check_invariant_scores_against_thresholds(
     """
     try:
         if not repo_invariant_threshold:
-            logger.error(
-                "Missing repo invariant thresholds - failing invariant check"
-            )
+            logger.error("Missing repo invariant thresholds - failing invariant check")
             return False
 
         thresholds = repo_invariant_threshold.copy()
@@ -55,9 +55,7 @@ def check_invariant_scores_against_thresholds(
                     f"{invariant_name} score ({score}) is below threshold ({threshold})"
                 )
 
-        logger.info(
-            f"Found {len(errors)} errors while checking invariants: {errors}"
-        )
+        logger.info(f"Found {len(errors)} errors while checking invariants: {errors}")
         return len(errors) == 0
 
     except Exception as e:
@@ -129,11 +127,10 @@ def apply_patched_unit_tests(bounty_dir: Path, task_dir: Path) -> bool:
 
     total_patches = successful_patches + failed_patches
     if total_patches > 0:
-        logger.info(
-            f"Applied {successful_patches}/{total_patches} unit test patches"
-        )
+        logger.info(f"Applied {successful_patches}/{total_patches} unit test patches")
 
     return failed_patches == 0
+
 
 def cleanup_files(file_paths: List[Path]) -> None:
     """Delete files if they exist."""
@@ -141,6 +138,7 @@ def cleanup_files(file_paths: List[Path]) -> None:
         if path.exists():
             path.unlink()
             logger.info(f"Removed {path.name}")
+
 
 def load_json_file(file_path: Path) -> dict:
     """Load a JSON file or return an empty dict if it doesn't exist."""
