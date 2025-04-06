@@ -510,6 +510,45 @@ bash /app/exploit.sh
 
         return return_val
 
+    async def _run_invariant_test_suite(self, repo_metadata_path, bounty_metadata_path, is_patched=False) -> bool:
+        """
+        Run a suite of invariant tests (original or patched) and process the results.
+        """
+        suite_passed = False
+        prefix = "[Patched]" if is_patched else ""
+        score_key = "alternative_invariant_scores" if is_patched else "invariant_scores"
+
+        for attempt in range(INVARIANTS_RETRY):
+            self._log(f"{prefix} Attempt {attempt + 1} of {INVARIANTS_RETRY}")
+
+            # Execute the tests
+            repo_scores_path, bounty_scores_path = await self._execute_invariant_tests()
+
+            # Evaluate if tests passed
+            test_passed = check_invariant_scores_against_thresholds(
+                repo_metadata_path,
+                bounty_metadata_path,
+                repo_scores_path,
+                bounty_scores_path,
+            )
+
+            # Load scores
+            repo_scores = self._load_json_file(repo_scores_path).get("invariant_scores", {})
+            bounty_scores = self._load_json_file(bounty_scores_path).get("invariant_scores", {})
+
+            # Add scores to the message
+            self.last_patch_agent_message.add_repo_invariant_score({score_key: repo_scores})
+            self.last_patch_agent_message.add_bounty_invariant_score({score_key: bounty_scores})
+
+            # Clean up score files
+            self._cleanup_files([repo_scores_path, bounty_scores_path])
+
+            # Update suite_passed if this attempt succeeded
+            if test_passed:
+                suite_passed = True
+
+        return suite_passed
+
     async def check_invariants(self) -> bool:
         """
         Main entry point for running invariant checks on the patched codebase.
@@ -524,84 +563,19 @@ bash /app/exploit.sh
         any_passed = False
 
         # --- Run original tests first ---
-        for attempt in range(INVARIANTS_RETRY):
-            self._log(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
-
-            # Try with original tests first
-            repo_scores_path, bounty_scores_path = await self._execute_invariant_tests()
-
-            # Evaluate if original tests passed
-            original_passed = check_invariant_scores_against_thresholds(
-                repo_metadata_path,
-                bounty_metadata_path,
-                repo_scores_path,
-                bounty_scores_path,
-            )
-
-            # Load original scores
-            original_repo_scores = self._load_json_file(repo_scores_path).get(
-                "invariant_scores", {}
-            )
-            original_bounty_scores = self._load_json_file(bounty_scores_path).get(
-                "invariant_scores", {}
-            )
-
-            self.last_patch_agent_message.add_repo_invariant_score(
-                {"invariant_scores": original_repo_scores}
-            )
-            self.last_patch_agent_message.add_bounty_invariant_score(
-                {"invariant_scores": original_bounty_scores}
-            )
-
-            self._cleanup_files([repo_scores_path, bounty_scores_path])
-
-            # Update any_passed if this attempt succeeded
-            if original_passed:
-                any_passed = True
+        original_passed = await self._run_invariant_test_suite(repo_metadata_path, bounty_metadata_path, is_patched=False)
+        if original_passed:
+            any_passed = True
 
         # --- Now run patched unit tests (if any) ---
         if apply_patched_unit_tests(self.bounty_dir, self.task_dir):
             logger.info(
                 "Unit test patches applied successfully. Running patched invariant checks."
             )
-
-            for attempt in range(INVARIANTS_RETRY):
-                self._log(f"[Patched] Attempt {attempt + 1} of {INVARIANTS_RETRY}")
-
-                # Run with patched unit tests
-                alt_repo_scores_path, alt_bounty_scores_path = (
-                    await self._execute_invariant_tests()
-                )
-
-                # Evaluate if patched tests passed
-                alt_passed = check_invariant_scores_against_thresholds(
-                    repo_metadata_path,
-                    bounty_metadata_path,
-                    alt_repo_scores_path,
-                    alt_bounty_scores_path,
-                )
-
-                # Load alternative scores
-                alt_repo_scores = self._load_json_file(alt_repo_scores_path).get(
-                    "invariant_scores", {}
-                )
-                alt_bounty_scores = self._load_json_file(alt_bounty_scores_path).get(
-                    "invariant_scores", {}
-                )
-
-                self.last_patch_agent_message.add_repo_invariant_score(
-                    {"alternative_invariant_scores": alt_repo_scores}
-                )
-                self.last_patch_agent_message.add_bounty_invariant_score(
-                    {"alternative_invariant_scores": alt_bounty_scores}
-                )
-
-                # Clean up alternative score files
-                self._cleanup_files([alt_repo_scores_path, alt_bounty_scores_path])
-
-                # Update any_passed if alt tests succeeded
-                if alt_passed:
-                    any_passed = True
+            
+            patched_passed = await self._run_invariant_test_suite(repo_metadata_path, bounty_metadata_path, is_patched=True)
+            if patched_passed:
+                any_passed = True
         else:
             logger.info(
                 "No unit test patches applied. Skipping patched invariant tests."
