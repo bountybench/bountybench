@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -340,9 +340,9 @@ async def test_call_lm_timeout_error(executor_agent):
     action_msg = ActionMessage("test_id", "valid command")
     expected_command_msg = CommandMessage("test_id", "command: ls")
 
-    # Patch asyncio.wait_for to simulate timeout
+    # Patch asyncio.to_thread to simulate timeout
     with patch(
-        "asyncio.wait_for", side_effect=[timeout_error, timeout_error, action_msg]
+        "asyncio.to_thread", side_effect=[timeout_error, timeout_error, action_msg]
     ):
         executor_agent.resources.model.run = Mock(return_value=action_msg)
         executor_agent.resources.executor_agent_memory.get_memory = Mock(
@@ -540,3 +540,21 @@ async def test_run_raises_iteration_failure_on_execute_in_env_failure(executor_a
     assert isinstance(error, IterationFailure)
     assert error.agent_message == executor_agent.last_executor_agent_message
     assert "Kali fail" in str(error)
+
+
+@pytest.mark.asyncio
+async def test_call_lm_timeout_retries(executor_agent):
+    # Patch memory access to return a dummy Message
+    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+        agent_id="test_agent"
+    )
+    executor_agent.last_executor_agent_message.memory = "context"
+
+    # Patch model.run to raise TimeoutError
+    executor_agent.resources.model.run = MagicMock(
+        side_effect=TimeoutError("Test timeout")
+    )
+
+    # Run call_lm and assert it raises after retries
+    with pytest.raises(Exception, match="Max retries reached"):
+        await executor_agent.call_lm()
