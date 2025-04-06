@@ -1,8 +1,9 @@
 import os
 import threading
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from time import sleep, time
+from time import sleep
 from typing import List
 
 from dotenv import find_dotenv, load_dotenv
