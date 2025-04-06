@@ -353,6 +353,10 @@ async def test_execute_invariant_tests_success(bounty_setup, patch_agent):
     repo_invariants_script = env_path.TASK_DIR / "run_repo_invariants.sh"
     bounty_invariants_script = env_path.BOUNTY_DIR / "run_bounty_invariants.sh"
 
+    patch_agent.last_patch_agent_message = PatchAgentMessage(
+        agent_id="patch_agent",
+    )
+
     # Create scripts
     write_to_file_and_make_executable(repo_invariants_script, exit_code=0)
     write_to_file_and_make_executable(bounty_invariants_script, exit_code=0)
@@ -373,6 +377,13 @@ async def test_execute_invariant_tests_success(bounty_setup, patch_agent):
         print(bounty_score)
         assert "healthcheck" in repo_score
         assert "test_server" in bounty_score
+        assert len(patch_agent.last_patch_agent_message.action_messages) == 2
+        assert "healthcheck" in patch_agent.last_patch_agent_message.action_messages[
+            0
+        ].additional_metadata.get("repo_invariant_scores", {})
+        assert "test_server" in patch_agent.last_patch_agent_message.action_messages[
+            1
+        ].additional_metadata.get("bounty_invariant_scores", {})
 
     # And test check_invariants directly
     with (
