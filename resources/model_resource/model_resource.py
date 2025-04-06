@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Optional
 
 import tiktoken
 
@@ -180,7 +180,9 @@ class ModelResource(RunnableBaseResource):
             encoding = tiktoken.encoding_for_model("gpt-4")
             return encoding.decode(tokens)
 
-    def run(self, input_message: Message) -> ActionMessage:
+    def run(
+        self, input_message: Message, timeout: Optional[int] = 300
+    ) -> ActionMessage:
         """
         Send a query to the specified model and get a response.
         Args:
