@@ -234,7 +234,7 @@ class BasePhase(ABC):
 
             self._initialize_last_agent_message(prev_phase_message)
 
-        with PhaseContext(self._phase_message.phase_id):
+        with PhaseContext(self._phase_message.id):
             start_count = self.iteration_count
             # Start the iteration at the current count
             for iteration_num in range(start_count, self.phase_config.max_iterations):

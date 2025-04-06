@@ -164,7 +164,7 @@ class BaseWorkflow(ABC):
     async def run(self) -> None:
         """Execute the entire workflow by running all phases in sequence."""
         logger.info(f"Running workflow {self.name}")
-        with WorkflowContext(self.workflow_message.workflow_id):
+        with WorkflowContext(self.workflow_message.id):
             async for _ in self._run_phases():
                 continue
 
