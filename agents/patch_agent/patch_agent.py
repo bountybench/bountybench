@@ -12,6 +12,7 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.patch_agent.invariant_check_util import (
     check_invariant_scores_against_thresholds,
+    apply_patched_unit_tests,
 )
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
@@ -640,10 +641,10 @@ bash /app/exploit.sh
                 exit_code=repo_result.returncode,
                 prev=self.last_action_message,
             )
-            self._update_patch_agent_message(repo_invariants_response)
-
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
             logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
+
+            self._update_patch_agent_message(repo_invariants_response)
 
             # Make the script executable
             bounty_invariants_file_path = self.bounty_dir / "run_bounty_invariants.sh"
