@@ -47,10 +47,10 @@ class FakeModelResourceConfig(ModelResourceConfig):
 def test_model_run_times_out():
     config = FakeModelResourceConfig(
         model="openai/gpt-4",
-        use_mock_model=False,
         timeout=5,  # 5 second timeout (since 5 second logging)
     )
     model = ModelResource("test_model", config)
+    model.use_mock_model = False
     model.model_provider = SlowFakeProvider()  # Inject our slow provider
 
     input_message = AgentMessage(agent_id="agent_1", message="Test")
