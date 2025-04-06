@@ -490,23 +490,22 @@ bash /app/exploit.sh
 
     def restart_resources(self) -> bool:
         """Restart necessary resources and check success."""
-        # Must restart repo_setup first, then bounty_setup (same order as initialization)
+        # Must restart repo_setup first, then bounty_setup
         if self.resources.has_bound(ResourceType.REPO_SETUP):
             try:
                 self._restart_resource(self.resources.repo_setup)
             except Exception as e:
-                logger.error(f"Failed to restart repo resource")
+                logger.error(f"Failed to restart repo resource: {e}")
                 return False
 
         if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
             try:
                 self._restart_resource(self.resources.bounty_setup)
             except Exception as e:
-                logger.error(f"Failed to restart bounty resource")
+                logger.error(f"Failed to restart bounty resource: {e}")
                 return False
 
         return True
-
 
     async def _run_invariant_test_suite(self, repo_metadata_path, bounty_metadata_path, is_patched=False) -> bool:
         """
@@ -609,7 +608,7 @@ bash /app/exploit.sh
             repo_invariants_response = ScriptActionMessage(
                 resource_id="repo_invariants_subprocess",
                 message=truncate_script_output(repo_result.stdout, repo_result.stderr),
-                command=f"./run_repo_invariants.sh",
+                command="./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 prev=self.last_action_message,
             )
@@ -632,17 +631,18 @@ bash /app/exploit.sh
             )
 
             bounty_invariants_response = ScriptActionMessage(
-                resource_id=f"bounty_invariants_subprocess",
+                resource_id="bounty_invariants_subprocess",
                 message=truncate_script_output(
                     bounty_result.stdout, bounty_result.stderr
                 ),
-                command=f"./run_bounty_invariants.sh",
+                command="./run_bounty_invariants.sh",
                 exit_code=bounty_result.returncode,
                 prev=self.last_action_message,
             )
             self._update_patch_agent_message(bounty_invariants_response)
 
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
+            logger.info(f"Bounty invariants script stderr:\n{bounty_result.stderr}")
 
             return repo_scores_path, bounty_scores_path
 
