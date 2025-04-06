@@ -17,6 +17,10 @@ from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
+from resources.bounty_setup_resource import (
+    BountySetupResource,
+    BountySetupResourceConfig,
+)
 from resources.resource_type import ResourceType
 from resources.utils import run_command_async
 from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
@@ -309,6 +313,34 @@ class PatchAgent(BaseAgent):
         return True
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    def _stop_resource(self, resource) -> None:
+        """Stop a specific resource."""
+        try:
+            resource.stop()
+            logger.info(f"{resource.resource_id} resource stopped successfully.")
+        except Exception as e:
+            logger.error(f"Attempt failed to stop {resource.resource_id} resource: {e}")
+            raise e
+
+    def stop_resources(self) -> bool:
+        """stop necessary resources and check success."""
+        if self.resources.has_bound(ResourceType.REPO_SETUP):
+            try:
+                self._stop_resource(self.resources.repo_setup)
+            except Exception as e:
+                logger.error(f"Failed to stop repo resource")
+                return False
+
+        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
+            try:
+                self._stop_resource(self.resources.bounty_setup)
+            except Exception as e:
+                logger.error(f"Failed to stop bounty resource")
+                return False
+
+        return True
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_agent_exploit(self) -> tuple[int, str]:
         """Run the exploit script in a Docker container."""
         try:
@@ -387,6 +419,132 @@ bash /app/exploit.sh
                 git_reset(self.task_dir / "codebase")
             except Exception as e:
                 raise RuntimeError(f"Failed to reset git repository: {str(e)}")
+
+        return return_val
+
+    def _setup_environment_for_bounty(self, bounty_number: int):
+        """
+        Set up the environment for a specific bounty number by setting the BountySetupResource.
+        """
+        config = BountySetupResourceConfig(
+            task_dir=self.task_dir,
+            bounty_number=bounty_number,
+        )
+
+        try:
+            bounty_number_resource = BountySetupResource(
+                f"bounty_{bounty_number}_resource", config
+            )
+            return bounty_number_resource
+        except Exception as e:
+            logger.error(
+                f"Failed to set up environment for bounty {bounty_number}: {str(e)}"
+            )
+            raise e
+
+    async def run_exploit_from(self, bounty_number: int) -> Optional[int]:
+        """
+        Set up environment for bounty_number, and run the exploit script in a Docker container.
+
+        Returns:
+            Optional[int]: The exit code of the verify script, or None if an error occurred.
+        """
+        bounty_number_resource: BountySetupResource = None
+        try:
+            cwd = Path.cwd().resolve()
+            # Get the path to the exploit files for the specific bounty
+            all_bounties_dir = self.task_dir.resolve() / "bounties"
+            bounty_number_dir = all_bounties_dir / f"bounty_{bounty_number}"
+            if not bounty_number_dir.exists() or not bounty_number_dir.is_dir():
+                logger.error(f"Bounty directory for {bounty_number} not found.")
+                return None
+
+            exploit_files_path = bounty_number_dir / "exploit_files"
+            if not exploit_files_path.exists() or not exploit_files_path.is_dir():
+                logger.error(f"Exploit files for bounty {bounty_number} not found.")
+                return None
+
+            # Make the script executable
+            exploit_files_path.chmod(exploit_files_path.stat().st_mode | 0o755)
+
+            relative_path = os.path.relpath(str(exploit_files_path), str(cwd))
+
+            volumes = {
+                str(cwd): {
+                    "bind": "/app",
+                    "mode": "rw",
+                },
+            }
+
+            # Stop the repo and bounty benvironment for the current running bounty
+            if not self.stop_resources():
+                raise Exception("Failed to stop current resources.")
+
+            # Set up the environment for the specific bounty
+            # - First, run the repo environment setup
+            # - Then, run the bounty setup for bounty_number
+            logger.info(f"Setting up environment for bounty {bounty_number}...")
+            self._restart_resource(self.resources.repo_setup)
+            bounty_number_resource = self._setup_environment_for_bounty(bounty_number)
+
+            exploit_command = "bash exploit.sh true"
+
+            exploit_execution = DockerActionMessage(
+                resource_id=f"exploit_{self.resources.docker.resource_id}",
+                docker_image="cybench/bountyagent:latest",
+                command=exploit_command,
+                network="shared_net",
+                work_dir=f"/app/{str(relative_path)}",  # relative_path now points to the exploit_files directory belonging to bounty_number
+                volumes=volumes,
+                prev=self.last_action_message,
+            )
+
+            exploit_execution = await self.resources.docker.run(exploit_execution)
+
+            # Run the verify script
+            logger.info("Running verify.sh")
+            try:
+                # Make the script executable
+                verify_file_path = bounty_number_dir / "verify.sh"
+                verify_file_path.chmod(verify_file_path.stat().st_mode | 0o755)
+
+                result = await run_command_async(
+                    ["bash", "verify.sh"], work_dir=bounty_number_dir
+                )
+                verify_response = ScriptActionMessage(
+                    resource_id=f"verify_subprocess",
+                    message=result.stdout,
+                    command=f"./verify.sh",
+                    exit_code=result.returncode,
+                    prev=self.last_action_message,
+                )
+                self.update_patch_agent_message(verify_response)
+            except Exception as e:
+                self._log(f"Error running verify.sh: {e}")
+                return None
+
+            return_val = result.returncode
+
+        finally:
+            # Clean up: stop the bounty resource for bounty_number if started,
+            # restart the resources for current bounty
+            try:
+                if bounty_number_resource:
+                    try:
+                        bounty_number_resource.stop()
+                        logger.info(
+                            f"Stopped bounty_{bounty_number} resource successfully."
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to stop bounty_{bounty_number} resource: {e}"
+                        )
+                if not self.restart_resources():
+                    raise Exception("Failed to restart resources")
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to reset resources after running exploit from {bounty_number}: {str(e)}"
+                )
 
         return return_val
 

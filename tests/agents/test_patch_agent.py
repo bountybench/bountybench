@@ -9,6 +9,8 @@ import pytest
 from agents.agent_manager import AgentManager
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
+from resources.bounty_setup_resource import BountySetupResource
+from resources.resource_type import ResourceType
 from tests.test_utils.bounty_setup_test_util import EnvPath
 from tests.test_utils.bounty_setup_test_util import (
     lunary_bounty_0_setup as bounty_setup,
@@ -748,6 +750,173 @@ async def test_full_workflow_success(patch_agent, mocker):
     assert "Congratulations" in agent.last_patch_agent_message.message
     assert agent.patch_id == prev_patch_id
     assert run_external_exploit_mock.call_count == 2
+
+
+# Tests for running exploit from other bounties
+# -----------------------------------------------------------------------------------------------------
+def test_stop_resources_success(patch_agent, mocker):
+    agent = patch_agent
+    agent.resources.has_bound = MagicMock(
+        side_effect=lambda rt: rt
+        in [ResourceType.REPO_SETUP, ResourceType.BOUNTY_SETUP]
+    )
+    stop_resource_mock = mocker.patch.object(agent, "_stop_resource", return_value=True)
+    result = agent.stop_resources()
+    assert result is True
+    assert stop_resource_mock.call_count == 2
+
+
+def test_stop_resources_failure(patch_agent, mocker):
+    agent = patch_agent
+    agent.resources.has_bound = MagicMock(
+        side_effect=lambda rt: rt
+        in [ResourceType.REPO_SETUP, ResourceType.BOUNTY_SETUP]
+    )
+
+    def mock_stop_resource(resource):
+        if resource.resource_id == "bounty_setup":
+            raise Exception("Failed to stop bounty resource")
+        return True
+
+    stop_resource_mock = mocker.patch.object(
+        agent, "_stop_resource", side_effect=mock_stop_resource
+    )
+
+    result = agent.stop_resources()
+    assert result is False
+    assert stop_resource_mock.call_count == 2
+
+
+def test_setup_environment_for_bounty_success(patch_agent, mocker):
+    agent: PatchAgent = patch_agent
+    bounty_number = 1
+
+    mocker.patch("pathlib.Path.exists", return_value=True)
+    mocker.patch("pathlib.Path.is_dir", return_value=True)
+    mocker.patch("pathlib.Path.chmod")
+    mocker.patch("pathlib.Path.stat")
+
+    with patch.object(BountySetupResource, "setup", return_value=None):
+        resource = agent._setup_environment_for_bounty(bounty_number)
+
+    assert isinstance(resource, BountySetupResource)
+    assert resource.bounty_number == bounty_number
+    assert resource.task_dir == agent.task_dir
+
+
+def test_setup_environment_for_bounty_failure(patch_agent, mocker):
+    agent = patch_agent
+    bounty_number = 1
+
+    mocker.patch("pathlib.Path.exists", return_value=True)
+    mocker.patch("pathlib.Path.is_dir", return_value=True)
+    mocker.patch("pathlib.Path.chmod")
+    mocker.patch("pathlib.Path.stat")
+
+    mocker.patch(
+        "agents.patch_agent.patch_agent.BountySetupResource",
+        side_effect=Exception("Failed to instantiate BountySetupResource"),
+    )
+
+    with pytest.raises(Exception, match="Failed to instantiate BountySetupResource"):
+        agent._setup_environment_for_bounty(bounty_number)
+
+
+@pytest.mark.asyncio
+async def test_run_exploit_from_missing_bounty_dir(patch_agent, mocker):
+    agent = patch_agent
+    bounty_number = 1
+
+    # Mock directory checks to simulate missing directory
+    mocker.patch("pathlib.Path.exists", return_value=False)
+    mocker.patch("pathlib.Path.is_dir", return_value=False)
+
+    result = await agent.run_exploit_from(bounty_number)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_run_exploit_from_success(patch_agent, mocker):
+    agent = patch_agent
+    bounty_number = 1
+
+    mocker.patch("pathlib.Path.exists", return_value=True)
+    mocker.patch("pathlib.Path.is_dir", return_value=True)
+    mocker.patch("pathlib.Path.chmod")
+    mocker.patch("pathlib.Path.stat")
+
+    stop_resources_mock = mocker.patch.object(
+        agent, "stop_resources", return_value=True
+    )
+    restart_resources_mock = mocker.patch.object(
+        agent, "restart_resources", return_value=True
+    )
+
+    mock_bounty_resource = MagicMock()
+    mocker.patch.object(
+        agent, "_setup_environment_for_bounty", return_value=mock_bounty_resource
+    )
+
+    mock_docker_run = mocker.patch.object(
+        agent.resources.docker, "run", return_value=MagicMock()
+    )
+    mock_run_command_async = mocker.patch(
+        "agents.patch_agent.patch_agent.run_command_async",
+        return_value=MagicMock(returncode=0),
+    )
+    agent.last_patch_agent_message = PatchAgentMessage(agent_id="test", message="init")
+
+    result = await agent.run_exploit_from(bounty_number)
+    assert result == 0
+    stop_resources_mock.assert_called_once()
+    restart_resources_mock.assert_called_once()
+    mock_docker_run.assert_called_once()
+    mock_run_command_async.assert_called_once()
+    mock_bounty_resource.stop.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_exploit_from_verify_failure(patch_agent, mocker):
+    agent = patch_agent
+    bounty_number = 1
+
+    mocker.patch("pathlib.Path.exists", return_value=True)
+    mocker.patch("pathlib.Path.is_dir", return_value=True)
+    mocker.patch("pathlib.Path.chmod")
+    mocker.patch("pathlib.Path.stat")
+    mocker.patch.object(agent, "stop_resources", return_value=True)
+    mocker.patch.object(agent, "restart_resources", return_value=True)
+    mocker.patch.object(
+        agent, "_setup_environment_for_bounty", return_value=MagicMock()
+    )
+    mocker.patch.object(agent.resources.docker, "run", return_value=MagicMock())
+    mocker.patch(
+        "agents.patch_agent.patch_agent.run_command_async",
+        side_effect=Exception("Failed to run verify.sh"),
+    )
+    agent.last_patch_agent_message = PatchAgentMessage(agent_id="test", message="init")
+
+    result = await agent.run_exploit_from(bounty_number)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_run_exploit_from_restart_failure_in_cleanup(patch_agent, mocker):
+    agent = patch_agent
+    bounty_number = 1
+
+    mocker.patch("pathlib.Path.exists", return_value=True)
+    mocker.patch("pathlib.Path.is_dir", return_value=True)
+    mocker.patch("pathlib.Path.chmod")
+    mocker.patch("pathlib.Path.stat")
+    mocker.patch.object(agent, "stop_resources", return_value=True)
+    mocker.patch.object(agent, "restart_resources", return_value=False)
+    mocker.patch.object(
+        agent, "_setup_environment_for_bounty", side_effect=Exception("Setup failed")
+    )
+
+    with pytest.raises(RuntimeError, match="Failed to reset resources"):
+        await agent.run_exploit_from(bounty_number)
 
 
 # "uses" the import
