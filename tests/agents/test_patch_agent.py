@@ -9,6 +9,7 @@ import pytest
 from agents.agent_manager import AgentManager
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
+from agents.patch_agent.invariant_check_util import check_invariant_scores_against_thresholds
 from tests.test_utils.bounty_setup_test_util import EnvPath
 from tests.test_utils.bounty_setup_test_util import (
     lunary_bounty_0_setup as bounty_setup,
@@ -145,7 +146,7 @@ async def test_restart_resource_check(patch_agent, mocker):
         side_effect=Exception("some resource restart failure"),
     ):
         await agent.verify_patch()
-        agent.update_patch_agent_message()
+        agent._update_patch_agent_message()
         assert (
             "could not restart associated resources after applying the patch. patch is invalid."
             in agent.last_patch_agent_message.message.lower()
@@ -338,7 +339,7 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
     (tmp_dir / TEST_FILE_NAME).write_text("Another modification")
 
     diff = git_diff(tmp_dir)
-    agent.create_patch_file(diff, agent.output_patch_dir)
+    agent._create_patch_file(diff, agent.output_patch_dir)
 
     patch_file_path = agent.output_patch_dir / "patch_1" / "patch_1.patch"
     assert patch_file_path.exists()
@@ -366,8 +367,8 @@ async def test_execute_invariant_tests_success(bounty_setup, patch_agent):
         return {"invariant_scores": {"healthcheck": 1, "test_server": 76}}
 
     with (
-        patch.object(
-            PatchAgent, "check_invariant_scores_against_thresholds", return_value=True
+        patch(
+            "agents.patch_agent.invariant_check_util.check_invariant_scores_against_thresholds", return_value=True
         ),
         patch.object(patch_agent, "_load_json_file", side_effect=mock_load_json),
     ):
@@ -392,8 +393,8 @@ async def test_execute_invariant_tests_success(bounty_setup, patch_agent):
             "_execute_invariant_tests",
             return_value=(Path("mock1"), Path("mock2")),
         ),
-        patch.object(
-            PatchAgent, "check_invariant_scores_against_thresholds", return_value=True
+        patch(
+            "agents.patch_agent.invariant_check_util.check_invariant_scores_against_thresholds", return_value=True
         ),
         patch.object(
             patch_agent, "_load_json_file", return_value={"invariant_scores": {}}
@@ -417,8 +418,8 @@ async def test_execute_patch_invariants_check_fails(bounty_setup, patch_agent):
     write_to_file_and_make_executable(bounty_invariants_script, exit_code=0)
 
     with (
-        patch.object(
-            PatchAgent, "check_invariant_scores_against_thresholds", return_value=False
+        patch(
+            "agents.patch_agent.invariant_check_util.check_invariant_scores_against_thresholds", return_value=False
         ),
         patch.object(
             patch_agent, "_load_json_file", return_value={"invariant_scores": {}}
@@ -449,7 +450,7 @@ async def test_patch_success_requires_invariants(patch_agent):
             # Mock run_agent_exploit to return success
             with patch.object(PatchAgent, "run_external_exploit", return_value=1):
                 await agent.verify_patch()
-                agent.update_patch_agent_message()
+                agent._update_patch_agent_message()
                 print(agent.last_patch_agent_message)
                 assert "failed" in agent.last_patch_agent_message.message.lower()
                 assert not agent.last_patch_agent_message.success
@@ -457,10 +458,8 @@ async def test_patch_success_requires_invariants(patch_agent):
 
 def test_check_invariant_scores_against_thresholds_success(patch_agent):
     """Test that check_invariant_scores_against_thresholds returns True when scores meet thresholds."""
-    agent = patch_agent
-
     # Test with all scores meeting thresholds
-    result = agent.check_invariant_scores_against_thresholds(
+    result = check_invariant_scores_against_thresholds(
         MOCK_REPO_METADATA,
         MOCK_BOUNTY_METADATA,
         MOCK_REPO_SCORES,
@@ -499,9 +498,8 @@ async def test_check_invariants_returns_correct_scores(patch_agent):
                 "agents.patch_agent.patch_agent.run_command_async",
                 return_value=({"stdout": "mocked", "stderr": "", "returncode": 0}),
             ),
-            patch.object(
-                PatchAgent,
-                "check_invariant_scores_against_thresholds",
+            patch(
+                "agents.patch_agent.invariant_check_util.check_invariant_scores_against_thresholds",
                 return_value=True,
             ),
         ):
@@ -535,20 +533,20 @@ def test_check_invariant_scores_edge_cases(patch_agent):
         files["repo_scores"].write_text(json.dumps(MOCK_REPO_SCORES_TO_WRITE))
         files["bounty_scores"].write_text(json.dumps(MOCK_BOUNTY_SCORES_TO_WRITE))
 
-        result = agent.check_invariant_scores_against_thresholds(*files.values())
+        result = check_invariant_scores_against_thresholds(*files.values())
         assert result is False
 
         # Case 2: Missing scores for a threshold
         files["repo_meta"].write_text(
             json.dumps({"invariant_thresholds": {"missing_score": 50}})
         )
-        result = agent.check_invariant_scores_against_thresholds(*files.values())
+        result = check_invariant_scores_against_thresholds(*files.values())
         assert result is False
 
         # Case 3: Missing invariant_scores key in scores file
         files["repo_meta"].write_text(json.dumps(MOCK_REPO_METADATA))
         files["repo_scores"].write_text(json.dumps({"other_key": "value"}))
-        result = agent.check_invariant_scores_against_thresholds(*files.values())
+        result = check_invariant_scores_against_thresholds(*files.values())
         assert result is False
 
     finally:
@@ -597,7 +595,7 @@ async def test_reset_repo_on_patch_creation_fail(patch_agent, mocker):
     mocker.patch.object(patch_agent, "run_external_exploit", return_value=0)
     mocker.patch.object(
         PatchAgent,
-        "create_patch_file",
+        "_create_patch_file",
         side_effect=Exception("Failed to create patch file"),
     )
 
@@ -650,7 +648,7 @@ async def test_reset_repo_on_invariant_checking_fail(patch_agent, mocker):
     mocker.patch.object(PatchAgent, "_apply_patch", return_value=(True, ""))
     mocker.patch.object(PatchAgent, "restart_resources", return_value=True)
     mocker.patch.object(PatchAgent, "run_external_exploit", return_value=0)
-    mocker.patch.object(PatchAgent, "apply_patched_unit_tests", return_value=True)
+    mocker.patch("agents.patch_agent.invariant_check_util.apply_patched_unit_tests", return_value=True)
 
     git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
     await agent.run(["message"])
