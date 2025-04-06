@@ -23,8 +23,8 @@ from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import run_command_async
 from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
-from utils.truncation_utils import truncate_script_output
 from utils.logger import get_main_logger
+from utils.truncation_utils import truncate_script_output
 
 logger = get_main_logger(__name__)
 
@@ -676,16 +676,12 @@ bash /app/exploit.sh
                 work_dir=self.task_dir,
             )
 
-            repo_scores = load_json_file(repo_scores_path).get(
-                "invariant_scores", {}
-            )
+            repo_scores = load_json_file(repo_scores_path).get("invariant_scores", {})
             cleanup_files([repo_scores_path])
 
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
-                message=truncate_script_output(
-                    repo_result.stdout, repo_result.stderr
-                ),
+                message=truncate_script_output(repo_result.stdout, repo_result.stderr),
                 command=f"./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 additional_metadata={"repo_invariant_scores": repo_scores},
