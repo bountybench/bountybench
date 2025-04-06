@@ -5,7 +5,7 @@ import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -737,8 +737,6 @@ bash /app/exploit.sh
                 self.task_dir / "empty_repo_scores.json",
                 self.bounty_dir / "empty_bounty_scores.json",
             )
-
-
 
     def create_patch_file(self, diff: str, directory_path: Path) -> Optional[Path]:
         """
