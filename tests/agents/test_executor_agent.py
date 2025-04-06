@@ -340,9 +340,9 @@ async def test_call_lm_timeout_error(executor_agent):
     action_msg = ActionMessage("test_id", "valid command")
     expected_command_msg = CommandMessage("test_id", "command: ls")
 
-    # Patch asyncio.wait_for to simulate timeout
+    # Patch asyncio.to_thread to simulate timeout
     with patch(
-        "asyncio.wait_for", side_effect=[timeout_error, timeout_error, action_msg]
+        "asyncio.to_thread", side_effect=[timeout_error, timeout_error, action_msg]
     ):
         executor_agent.resources.model.run = Mock(return_value=action_msg)
         executor_agent.resources.executor_agent_memory.get_memory = Mock(

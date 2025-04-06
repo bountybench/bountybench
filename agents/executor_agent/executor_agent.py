@@ -118,7 +118,6 @@ class ExecutorAgent(BaseAgent):
         last_raw_response = None  # Store the last raw response in case parsing fails
         error_history = []  # Track error history across retries
 
-        start_progress(f"Getting response from LM")
         try:
             iterations = 0
             while iterations < MAX_RETRIES:
@@ -127,6 +126,7 @@ class ExecutorAgent(BaseAgent):
                         lm_input_message
                     )
 
+                    logger.info(f"Getting response from LM")
                     model_output: ActionMessage = await asyncio.to_thread(
                         self.resources.model.run,
                         input_message=lm_input_message,
@@ -220,10 +220,7 @@ class ExecutorAgent(BaseAgent):
             )
             self.last_executor_agent_message.add_child_message(model_failure_message)
 
-            raise  # Re-raise the exception after logging it, we will save error, but end workflow
-
-        finally:
-            stop_progress()
+            raise
 
     def parse_response(self, action_message: ActionMessage) -> ActionMessage:
         """
