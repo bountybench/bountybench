@@ -3,11 +3,14 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from agents.base_agent import IterationFailure
 from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.error_action_message import ErrorActionMessage
+from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
+from messages.message import Message
 from resources.kali_env_resource import KaliEnvResource
 from resources.memory_resource.memory_resource import MemoryResource
 from resources.model_resource.model_resource import ModelResource
@@ -223,17 +226,32 @@ def test_execute_in_env_success(executor_agent):
 
 
 def test_execute_in_env_failure(executor_agent):
-    """Test execute_in_env when command execution fails"""
+    """Test execute_in_env raises and adds ErrorActionMessage to agent message"""
     command_msg = CommandMessage("test_id", "command: invalid")
     executor_agent.resources.kali_env.run = Mock(
         side_effect=Exception("Command failed")
     )
 
-    result = executor_agent.execute_in_env(command_msg)
+    # Set the last_executor_agent_message to capture added error messages
+    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+        agent_id="test_agent"
+    )
 
-    assert isinstance(result, ActionMessage)
-    assert "Command failed" in result.message
-    assert result.prev == command_msg
+    with pytest.raises(Exception) as exc_info:
+        executor_agent.execute_in_env(command_msg)
+
+    assert "Command failed" in str(exc_info.value)
+
+    # Ensure an ErrorActionMessage was added
+    error_messages = executor_agent.last_executor_agent_message.action_messages
+    assert len(error_messages) == 1
+
+    error_msg = error_messages[0]
+    assert isinstance(error_msg, ErrorActionMessage)
+    assert error_msg.prev == command_msg
+    assert error_msg.message == "Command failed"
+    assert error_msg.error_type == "Exception"
+    assert error_msg.resource_id == executor_agent.resources.kali_env.resource_id
 
 
 @pytest.mark.asyncio
@@ -379,24 +397,6 @@ async def test_call_lm_quota_error(executor_agent):
 
 
 @pytest.mark.asyncio
-async def test_execute_in_env_error_action_message(executor_agent):
-    """Test execute_in_env produces ErrorActionMessage on failure"""
-
-    command_msg = CommandMessage("test_id", "command: invalid_command")
-    error_message = "Command not found: invalid_command"
-    executor_agent.resources.kali_env.run = Mock(side_effect=Exception(error_message))
-
-    result = executor_agent.execute_in_env(command_msg)
-
-    # Verify result is an ErrorActionMessage
-    assert isinstance(result, ErrorActionMessage)
-    assert result.message == error_message
-    assert result.error_type == "Exception"
-    assert result.resource_id == executor_agent.resources.kali_env.resource_id
-    assert result.prev == command_msg
-
-
-@pytest.mark.asyncio
 async def test_real_world_openai_invalid_prompt_error(executor_agent):
     """Test with a real-world OpenAI invalid prompt error format"""
 
@@ -476,3 +476,67 @@ def test_error_action_message_properties():
     assert error_message.error_history == error_history
     assert error_message.message == "An error occurred"
     assert error_message.resource_id == "test_resource"
+
+
+@pytest.mark.asyncio
+async def test_run_raises_iteration_failure_on_execute_failure(executor_agent):
+    """Test that ExecutorAgent.run raises IterationFailure if execute fails"""
+    # Mock failure in execute
+    executor_agent.execute = AsyncMock(side_effect=Exception("Execution fail"))
+
+    with pytest.raises(IterationFailure) as exc_info:
+        await executor_agent.run([])
+
+    error = exc_info.value
+    assert isinstance(error, IterationFailure)
+    assert error.agent_message == executor_agent.last_executor_agent_message
+    assert isinstance(error.agent_message, ExecutorAgentMessage)
+    assert "Execution fail" in str(error)
+
+
+@pytest.mark.asyncio
+async def test_run_raises_iteration_failure_on_call_lm_failure(executor_agent):
+    """Test run fails due to call_lm failure inside execute"""
+    # Patch call_lm to raise
+    executor_agent.call_lm = AsyncMock(side_effect=Exception("LM failed"))
+    # Patch execute to call call_lm
+    executor_agent.execute = ExecutorAgent.execute.__get__(executor_agent)
+
+    # Create dummy message input
+    message = AgentMessage("test_id", "input")
+
+    with pytest.raises(IterationFailure) as exc_info:
+        await executor_agent.run([message])
+
+    error = exc_info.value
+    assert isinstance(error, IterationFailure)
+    assert error.agent_message == executor_agent.last_executor_agent_message
+    assert "LM failed" in str(error)
+
+
+@pytest.mark.asyncio
+async def test_run_raises_iteration_failure_on_execute_in_env_failure(executor_agent):
+    """Test run fails due to execute_in_env failure"""
+    # Create a CommandMessage that passes `issubclass(..., CommandMessageInterface)`
+    from messages.action_messages.command_message import CommandMessage
+
+    command_msg = CommandMessage("test_id", "command: ls")
+
+    # Patch call_lm to return a CommandMessage
+    executor_agent.call_lm = AsyncMock(return_value=command_msg)
+
+    # Patch execute_in_env to raise
+    executor_agent.resources.kali_env.run = Mock(side_effect=Exception("Kali fail"))
+
+    # Run full execute
+    executor_agent.execute = ExecutorAgent.execute.__get__(executor_agent)
+
+    message = AgentMessage("test_id", "input")
+
+    with pytest.raises(IterationFailure) as exc_info:
+        await executor_agent.run([message])
+
+    error = exc_info.value
+    assert isinstance(error, IterationFailure)
+    assert error.agent_message == executor_agent.last_executor_agent_message
+    assert "Kali fail" in str(error)
