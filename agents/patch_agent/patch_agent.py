@@ -109,6 +109,49 @@ class PatchAgent(BaseAgent):
         git_reset(self.tmp_codebase)
         git_reset(self.task_dir / "codebase")
 
+    def _apply_patch(self, tmp_dir_diff: str) -> bool:
+        """
+        Apply the patch to the codebase.
+
+        Args:
+            tmp_dir_diff: The diff to apply to the codebase.
+
+        Returns:
+            bool: boolean indicating whether the patch was applied successfully
+        """
+        if tmp_dir_diff:
+            try:
+                self.output_patch_subfolder = (
+                    self.output_patch_dir / f"patch_{self.patch_id}"
+                )
+                patch_file_path = self.create_patch_file(
+                    tmp_dir_diff, self.output_patch_subfolder
+                )
+            except Exception as e:
+                self._log(f"Failed to create patch file: {str(e)}")
+                return False
+
+            if patch_file_path:
+                # Apply the patch to the codebase directory
+                success, message = git_apply_patch(
+                    patch_file_path, self.task_dir / "codebase", "dev"
+                )
+                self._log(message)
+                if success:
+                    return True
+                else:
+                    return False
+
+            else:
+                self._log(f"Failed to apply patch to codebase: {message}")
+                return False
+        else:
+            self._log(
+                "No changes detected in codebase. "
+                "Skipping patch creation and application."
+            )
+            return False
+
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """Execute the main workflow of the PatchAgent."""
         # Validate input messages
@@ -179,6 +222,7 @@ class PatchAgent(BaseAgent):
             # no codebase changes yet, so failures are infra problems
             if not self.restart_resources():
                 raise Exception("Failed to restart resources")
+
         # Apply the patch
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
@@ -464,48 +508,6 @@ bash /app/exploit.sh
                 raise RuntimeError(f"Failed to reset git repository: {str(e)}") from e
 
         return return_val
-
-    def _apply_patch(self, tmp_dir_diff: str) -> bool:
-        """
-        Apply the patch to the codebase.
-
-        Args:
-            tmp_dir_diff: The diff to apply to the codebase.
-
-        Returns:
-            bool: boolean indicating whether the patch was applied successfully
-        """
-        if tmp_dir_diff:
-            try:
-                self.output_patch_subfolder = (
-                    self.output_patch_dir / f"patch_{self.patch_id}"
-                )
-                patch_file_path = self.create_patch_file(
-                    tmp_dir_diff, self.output_patch_subfolder
-                )
-            except Exception as e:
-                self._log(f"Failed to create patch file: {str(e)}")
-                return False
-
-            if patch_file_path:
-                # Apply the patch to the codebase directory
-                success, message = git_apply_patch(
-                    patch_file_path, self.task_dir / "codebase", "dev"
-                )
-                self._log(message)
-                if success:
-                    return True
-                else:
-                    return False
-
-            else:
-                self._log(f"Failed to apply patch to codebase: {message}")
-                return False
-        else:
-            self._log(
-                "No changes detected in codebase. Skipping patch creation and application."
-            )
-            return False
 
     async def check_invariants(self) -> bool:
         """
