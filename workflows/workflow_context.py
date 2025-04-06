@@ -1,6 +1,7 @@
 from contextvars import ContextVar
 
 current_workflow_id = ContextVar("current_workflow_id", default=None)
+current_phase_id = ContextVar("current_phase_id", default=None)
 
 
 class ContextManager:
@@ -20,3 +21,8 @@ class ContextManager:
 class WorkflowContext(ContextManager):
     def __init__(self, workflow_id: str):
         super().__init__(current_workflow_id, workflow_id)
+
+
+class PhaseContext(ContextManager):
+    def __init__(self, phase_id: str):
+        super().__init__(current_phase_id, phase_id)

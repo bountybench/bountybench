@@ -6,10 +6,7 @@ from typing import List
 class Message(ABC):
 
     def __init__(self, prev: "Message" = None) -> None:
-        self._prev = prev
-        if prev is not None and hasattr(prev, "set_next"):
-            prev.set_next(self)
-
+        self._prev = None
         self._next = None
         self._version_prev = None
         self._version_next = None
@@ -17,7 +14,14 @@ class Message(ABC):
 
         self.timestamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
         self._id = str(id(self))
+
         self._set_parent_from_context()
+        # Message structure is tiered - messages can only have direct links within the same parent
+        # If no parent gets set, assume message can be linked to any other message
+        if prev and (not self.parent or prev.parent == self.parent):
+            self._prev = prev
+            if hasattr(prev, "set_next"):
+                prev.set_next(self)
 
     def _set_parent_from_context(self):
         """Override this method in subclasses to set the parent message from the context."""
