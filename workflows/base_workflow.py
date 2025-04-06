@@ -34,11 +34,7 @@ class BaseWorkflow(ABC):
         self.params = kwargs
         # Required for interactive controller
         self.interactive = kwargs.get("interactive", False)
-        # Max number of phases that can run per workflow - current max
-        # is 2 (explit + patch) so not sure why is 25
-        self.max_iterations = 25
         self._current_phase_idx = 0
-        self._workflow_iteration_count = 0
         self._phase_graph = {}  # Stores phase relationships
         self._root_phase = None
         self._current_phase = None
@@ -174,15 +170,17 @@ class BaseWorkflow(ABC):
 
             self._current_phase = self._root_phase
 
+            # Run all phases one at a time
             while self._current_phase:
                 logger.info(f"Running {self._current_phase.name}")
                 phase_message = await self._run_single_phase(
                     self._current_phase, prev_phase_message
                 )
+                # Note: this phase message is unused as a return value
                 yield phase_message
 
                 prev_phase_message = phase_message
-                if not phase_message.success or self._max_iterations_reached():
+                if not phase_message.success:
                     break
 
                 next_phases = self._phase_graph.get(self._current_phase, [])
@@ -226,12 +224,7 @@ class BaseWorkflow(ABC):
             phase_message.success,
         )
 
-        self._workflow_iteration_count += 1
-
         return phase_message
-
-    def _max_iterations_reached(self) -> bool:
-        return self._workflow_iteration_count >= self.max_iterations
 
     def _handle_workflow_exception(self, exception: Exception):
         raise exception
@@ -251,7 +244,7 @@ class BaseWorkflow(ABC):
         """
         phases = self._phase_graph.keys()
         self.resource_manager.compute_schedule(phases)
-        logger.debug("Computed resource schedule for all phases based on agents.")
+        logger.info("Computed resource schedule for all phases based on agents.")
 
     def register_phase(self, phase: BasePhase):
         if phase not in self._phase_graph:
@@ -299,7 +292,6 @@ class BaseWorkflow(ABC):
             phase_message.success,
         )
 
-        self._workflow_iteration_count += 1
         next_phases = self._phase_graph.get(self._current_phase, [])
         self._current_phase = next_phases[0] if next_phases else None
 
@@ -331,7 +323,9 @@ class BaseWorkflow(ABC):
             for arg, default_value in self.default_values.items():
                 if arg not in updated_kwargs:
                     updated_kwargs[arg] = default_value
-                    logger.debug(f"Using default value for {arg}: {default_value}")
+                    logger.info(f"Using default value for {arg}: {default_value}")
+        else:
+            logger.info(f"No default values found for {self.name}")
 
         return updated_kwargs
 
