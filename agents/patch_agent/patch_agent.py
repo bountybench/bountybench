@@ -319,40 +319,6 @@ class PatchAgent(BaseAgent):
 
         return False
 
-    # Now that failure to restart resources raises exception, add retries
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-    def _restart_resource(self, resource) -> None:
-        """Restart a specific resource."""
-        try:
-            resource.restart()
-            logger.info(f"{resource.resource_id} resource restarted successfully.")
-            return True
-        except Exception as e:
-            logger.error(
-                f"Attempt failed to restart {resource.resource_id} resource: {e}"
-            )
-            # Re-raise the exception so the @retry decorator catches it and knows to retry
-            raise e
-
-    def restart_resources(self) -> bool:
-        """Restart necessary resources and check success."""
-        # Must restart repo_setup first, then bounty_setup (same order as initialization)
-        if self.resources.has_bound(ResourceType.REPO_SETUP):
-            try:
-                self._restart_resource(self.resources.repo_setup)
-            except Exception as e:
-                logger.error(f"Failed to restart repo resource")
-                return False
-
-        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
-            try:
-                self._restart_resource(self.resources.bounty_setup)
-            except Exception as e:
-                logger.error(f"Failed to restart bounty resource")
-                return False
-
-        return True
-
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_agent_exploit(self) -> tuple[int, str]:
         """Run the exploit script in a Docker container."""
@@ -506,6 +472,41 @@ bash /app/exploit.sh
                 raise RuntimeError(f"Failed to reset git repository: {str(e)}") from e
 
         return return_val
+
+    # Now that failure to restart resources raises exception, add retries
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    def _restart_resource(self, resource) -> None:
+        """Restart a specific resource."""
+        try:
+            resource.restart()
+            logger.info(f"{resource.resource_id} resource restarted successfully.")
+            return True
+        except Exception as e:
+            logger.error(
+                f"Attempt failed to restart {resource.resource_id} resource: {e}"
+            )
+            # Re-raise the exception so the @retry decorator catches it and knows to retry
+            raise e
+
+    def restart_resources(self) -> bool:
+        """Restart necessary resources and check success."""
+        # Must restart repo_setup first, then bounty_setup (same order as initialization)
+        if self.resources.has_bound(ResourceType.REPO_SETUP):
+            try:
+                self._restart_resource(self.resources.repo_setup)
+            except Exception as e:
+                logger.error(f"Failed to restart repo resource")
+                return False
+
+        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
+            try:
+                self._restart_resource(self.resources.bounty_setup)
+            except Exception as e:
+                logger.error(f"Failed to restart bounty resource")
+                return False
+
+        return True
+
 
     async def _run_invariant_test_suite(self, repo_metadata_path, bounty_metadata_path, is_patched=False) -> bool:
         """
