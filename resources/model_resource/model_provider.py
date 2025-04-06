@@ -2,7 +2,7 @@ import os
 import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
-from time import sleep
+from time import sleep, time
 from typing import List
 
 from dotenv import find_dotenv, load_dotenv
@@ -89,6 +89,7 @@ class ModelProvider(ABC):
         max_tokens: int,
         stop_sequences: List[str],
         logging_interval: float = 5.0,
+        timeout: float = 300.0,
     ) -> ModelResponse:
         """
         A method that:
@@ -96,6 +97,7 @@ class ModelProvider(ABC):
             - Logs a message while waiting for the request to finish.
             - Returns the ModelResponse once the thread is done.
         """
+        start_time = time.time()
 
         done_flag = [False]  # Shared boolean to signal completion
         response_holder = [None]  # Holds the ModelResponse when done
@@ -116,14 +118,16 @@ class ModelProvider(ABC):
         request_thread = threading.Thread(target=run_request)
         request_thread.start()
 
-        time = 0
         # Periodically log heartbeat until request completes or fails
         while not done_flag[0]:
+            elapsed = time.time() - start_time
+            if elapsed > timeout:
+                logger.warning(f"Timeout of {timeout}s reached. Cancelling request.")
+                raise TimeoutError(f"Model request timed out after {timeout} seconds")
             logger.info(
-                f"{time}s has passed. Still waiting for LLM provider to respond..."
+                f"{elapsed:.1f}s has passed. Still waiting for LLM provider to respond..."
             )
             sleep(logging_interval)
-            time += logging_interval
 
         # If the child thread encountered an error, re-raise it
         if error_holder[0] is not None:
