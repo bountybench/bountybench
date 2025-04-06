@@ -370,7 +370,7 @@ async def test_execute_invariant_tests_success(bounty_setup, patch_agent):
         patch(
             "agents.patch_agent.invariant_check_util.check_invariant_scores_against_thresholds", return_value=True
         ),
-        patch.object(patch_agent, "_load_json_file", side_effect=mock_load_json),
+        patch("agents.patch_agent.invariant_check_util.load_json_file", side_effect=mock_load_json),
     ):
         # Just verify that files are returned
         repo_score, bounty_score = await agent._execute_invariant_tests()
@@ -396,8 +396,8 @@ async def test_execute_invariant_tests_success(bounty_setup, patch_agent):
         patch(
             "agents.patch_agent.invariant_check_util.check_invariant_scores_against_thresholds", return_value=True
         ),
-        patch.object(
-            patch_agent, "_load_json_file", return_value={"invariant_scores": {}}
+        patch(
+            "agents.patch_agent.invariant_check_util.load_json_file", return_value={"invariant_scores": {}}
         ),
         patch.object(patch_agent, "_cleanup_files"),
     ):
@@ -421,15 +421,17 @@ async def test_execute_patch_invariants_check_fails(bounty_setup, patch_agent):
         patch(
             "agents.patch_agent.invariant_check_util.check_invariant_scores_against_thresholds", return_value=False
         ),
-        patch.object(
-            patch_agent, "_load_json_file", return_value={"invariant_scores": {}}
+        patch(
+            "agents.patch_agent.invariant_check_util.load_json_file", return_value={"invariant_scores": {}}
         ),
         patch.object(
             patch_agent,
             "_execute_invariant_tests",
             return_value=(Path("mock1"), Path("mock2")),
         ),
-        patch.object(patch_agent, "_cleanup_files"),
+        patch(
+            "agents.patch_agent.invariant_check_util.cleanup_files"
+        ),
     ):
         result = await agent.check_invariants()
         assert result is False
