@@ -39,8 +39,13 @@ class SlowFakeProvider(ModelProvider):
         return 3
 
 
+class FakeModelResourceConfig(ModelResourceConfig):
+    def validate(self):
+        pass
+
+
 def test_model_run_times_out():
-    config = ModelResourceConfig(
+    config = FakeModelResourceConfig(
         model="openai/gpt-4",
         use_mock_model=False,
         timeout=5,  # 5 second timeout (since 5 second logging)
