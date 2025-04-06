@@ -10,7 +10,10 @@ from typing import List, Optional
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from agents.base_agent import AgentConfig, BaseAgent
-from agents.patch_agent.invariant_check_util import apply_patched_unit_tests
+from agents.patch_agent.invariant_check_util import (
+    apply_patched_unit_tests,
+    cleanup_files,
+)
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.action_messages.script_action_message import ScriptActionMessage
@@ -146,6 +149,7 @@ class PatchAgent(BaseAgent):
             # no codebase changes yet, so failures are infra problems
             if not self.restart_resources():
                 raise Exception("Failed to restart resources")
+
         # Apply the patch
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
@@ -730,7 +734,7 @@ bash /app/exploit.sh
             repo_scores = self._load_json_file(repo_scores_path).get(
                 "invariant_scores", {}
             )
-            self._cleanup_files([repo_scores_path])
+            cleanup_files([repo_scores_path])
 
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
@@ -763,7 +767,7 @@ bash /app/exploit.sh
             bounty_scores = self._load_json_file(bounty_scores_path).get(
                 "invariant_scores", {}
             )
-            self._cleanup_files([bounty_scores_path])
+            cleanup_files([bounty_scores_path])
 
             bounty_invariants_response = ScriptActionMessage(
                 resource_id=f"bounty_invariants_subprocess",
@@ -798,13 +802,6 @@ bash /app/exploit.sh
             except json.JSONDecodeError:
                 logger.error(f"Error parsing JSON from {file_path}")
         return {}
-
-    def _cleanup_files(self, file_paths: List[Path]) -> None:
-        """Delete files if they exist."""
-        for path in file_paths:
-            if path.exists():
-                path.unlink()
-                logger.info(f"Removed {path.name}")
 
     def create_patch_file(self, diff: str, directory_path: Path) -> Optional[Path]:
         """
