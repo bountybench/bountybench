@@ -10,17 +10,19 @@ from typing import List, Optional
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from agents.base_agent import AgentConfig, BaseAgent
+from agents.patch_agent.invariant_check_util import (
+    check_invariant_scores_against_thresholds,
+)
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from agents.patch_agent.invariant_check_util import check_invariant_scores_against_thresholds
 from resources.utils import run_command_async
 from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
-from utils.truncation_util import truncate_script_output
 from utils.logger import get_main_logger
+from utils.truncation_util import truncate_script_output
 
 logger = get_main_logger(__name__)
 
@@ -630,9 +632,7 @@ bash /app/exploit.sh
 
             repo_invariants_response = ScriptActionMessage(
                 resource_id="repo_invariants_subprocess",
-                message=truncate_script_output(
-                    repo_result.stdout, repo_result.stderr
-                ),
+                message=truncate_script_output(repo_result.stdout, repo_result.stderr),
                 command=f"./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 prev=self.last_action_message,
