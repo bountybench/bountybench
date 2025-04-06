@@ -12,6 +12,7 @@ from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResourceConfig
 from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
+from workflows.workflow_context import PhaseContext
 
 logger = get_main_logger(__name__)
 
@@ -233,25 +234,26 @@ class BasePhase(ABC):
 
             self._initialize_last_agent_message(prev_phase_message)
 
-        start_count = self.iteration_count
-        # Start the iteration at the current count
-        for iteration_num in range(start_count, self.phase_config.max_iterations):
+        with PhaseContext(self._phase_message.phase_id):
+            start_count = self.iteration_count
+            # Start the iteration at the current count
+            for iteration_num in range(start_count, self.phase_config.max_iterations):
 
-            if self._phase_message.complete:
-                break
+                if self._phase_message.complete:
+                    break
 
-            await self._handle_interactive_mode()
+                await self._handle_interactive_mode()
 
-            await self._run_iteration()
+                await self._run_iteration()
 
-            if self._phase_message.complete:
-                break
+                if self._phase_message.complete:
+                    break
 
-            self.iteration_count += 1
+                self.iteration_count += 1
 
-        self._finalize_phase()
+            self._finalize_phase()
 
-        log_message(self._phase_message)
+            log_message(self._phase_message)
         return self._phase_message
 
     def _initialize_last_agent_message(self, prev_phase_message: PhaseMessage) -> None:
@@ -316,7 +318,6 @@ class BasePhase(ABC):
                 agent_message.set_iteration_time_ms(iteration_time_ms)
 
                 await self.set_last_agent_message(agent_message)
-                self._phase_message.add_child_message(agent_message)
 
     async def _pause_phase(self) -> None:
         """Pause the phase if an iteration fails."""

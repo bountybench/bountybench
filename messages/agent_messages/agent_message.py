@@ -2,6 +2,8 @@ from typing import List, Optional
 
 from messages.action_messages.action_message import ActionMessage
 from messages.message import Message
+from messages.message_dict import message_dict
+from workflows.workflow_context import current_phase_id, current_workflow_id
 
 
 class AgentMessage(Message):
@@ -19,7 +21,16 @@ class AgentMessage(Message):
         self._agent_id = agent_id
         self._action_messages = []
         self._memory = None
+
         super().__init__(prev=prev)
+
+    def _set_parent_from_context(self):
+        workflow_id = current_workflow_id.get()
+        parent_id = current_phase_id.get()
+
+        if parent_id:
+            parent_message = message_dict[workflow_id][parent_id]
+            parent_message.add_child_message(self)
 
     @property
     def message(self) -> str:
