@@ -114,8 +114,6 @@ class ExecutorAgent(BaseAgent):
         Uses a 5-minute timeout for the LLM call.
         """
         iterations = 0
-        # 5-minute timeout in seconds
-        LLM_TIMEOUT = 300
 
         last_raw_response = None  # Store the last raw response in case parsing fails
         error_history = []  # Track error history across retries
@@ -128,28 +126,27 @@ class ExecutorAgent(BaseAgent):
                     lm_input_message = self.resources.executor_agent_memory.get_memory(
                         lm_input_message
                     )
-                    # Add 5-minute timeout to the LLM call
-                    model_output: ActionMessage = await asyncio.wait_for(
-                        asyncio.to_thread(
-                            self.resources.model.run, input_message=lm_input_message
-                        ),
-                        timeout=LLM_TIMEOUT,
+
+                    model_output: ActionMessage = await asyncio.to_thread(
+                        self.resources.model.run,
+                        input_message=lm_input_message,
                     )
+
                     last_raw_response = model_output
                     if error_history:
                         last_raw_response.add_to_additional_metadata(
                             "error_history", error_history
                         )
-                except asyncio.TimeoutError:
+                except asyncio.TimeoutError as e:
                     error_entry = {
                         "type": "TimeoutError",
-                        "message": f"LLM call timed out after {LLM_TIMEOUT} seconds",
+                        "message": f"LLM call timed out: {str(e)}",
                         "attempt": iterations + 1,
                     }
                     error_history.append(error_entry)
 
                     logger.warning(
-                        f"LLM call timed out after {LLM_TIMEOUT} seconds. Retrying {iterations + 1}/{MAX_RETRIES}"
+                        f"LLM call timed out: {str(e)}. Retrying {iterations + 1}/{MAX_RETRIES}"
                     )
                     iterations += 1
                     continue
