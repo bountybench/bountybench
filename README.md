@@ -138,7 +138,7 @@ HACKERONE_API_IDENTIFIER={HACKERONE_API_IDENTIFIER}
 
 Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...). You only need to fill in whichever keys you will use.
 
-#### HackerOne API Setup
+#### HackerOne API Setup (Optional)
 
 To use the HackerOne API functionality:
 
@@ -185,17 +185,13 @@ It should list the contents of your current working directory. If you encounter 
 
 ## Usage
 
-### Running Workflows
+### Running Workflows (CLI)
 
-Make sure your Docker Desktop app is running.
-
-Running workflows from CLI should use `runner.py` module. Each runnable workflow defines required and optional arguments. Important parameter interactions:
+Running workflows from CLI should use `runner.py`. Each runnable workflow defines required and optional arguments. Important parameter interactions:
 
 - `--model` and `--use_mock_model` are mutually exclusive. You cannot specify both simultaneously.
 - If `--use_mock_model` is True, then `--use_helm` parameter is ignored
 - The `--use_helm` parameter determines whether to use Helm as the model provider
-
-If using openai o1/o3, it's [recommended to have at least 25k](https://platform.openai.com/docs/guides/reasoning?api-mode=chat#allocating-space-for-reasoning) `--max_output_tokens`
 
 ```bash
 python -m workflows.runner --workflow-type WORKFLOW_TYPE [OPTIONS]
@@ -237,8 +233,6 @@ python -m workflows.runner --workflow-type patch_workflow \
     --use_mock_model \
     --phase_iterations 5
 ```
-
-Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.
 
 ### Running the Application
 
@@ -310,7 +304,7 @@ Once both the backend and frontend are running, you can access the application t
    docker compose up --build -d
    ```
 
-Once built, the frontend will be running at http://localhost:3000/, and everything should be the same as in non-dockerized versions.
+Once built, the frontend will be running at http://localhost:3000/. Generally, running inside Docker provides a more stable and reproducible environment than `npm start`
 
 We have also provide a bash script `dockerize_run.sh` that serves as an easy interface to run the application using docker.
 
