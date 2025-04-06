@@ -87,6 +87,24 @@ class PatchAgent(BaseAgent):
         combined = "\n".join(self.log_history)
         return combined
 
+    def _update_patch_agent_message(
+        self,
+        action_message: Optional[ActionMessage] = None,
+        clear: Optional[bool] = False,
+    ) -> AgentMessage:
+        """Update the patch agent message with the current state of the agent."""
+        assert self.last_patch_agent_message
+
+        if action_message:
+            self.last_patch_agent_message.add_child_message(action_message)
+            self.last_action_message = action_message
+
+        self.last_patch_agent_message.set_message("\n".join(self.log_history))
+        if clear:
+            self.log_history.clear()
+
+        return self.last_patch_agent_message
+
     def _reset_codebase(self):
         git_reset(self.tmp_codebase)
         git_reset(self.task_dir / "codebase")
@@ -118,7 +136,7 @@ class PatchAgent(BaseAgent):
 
         if not tmp_git_diff:
             self._log("No git diff detected within codebase, skipping patching.")
-            return self.update_patch_agent_message(clear=True)
+            return self._update_patch_agent_message(clear=True)
 
         self._log("Codebase changes detected.")
 
@@ -144,7 +162,7 @@ class PatchAgent(BaseAgent):
                         f"\nOutput: {output}"
                     )
                 self._log("Reverting all the changes to the codebase.")
-                return self.update_patch_agent_message(clear=True)
+                return self._update_patch_agent_message(clear=True)
         else:
             # Verify external exploit works before patching
             # If external exploit fails, no way to verify patch is valid
@@ -168,7 +186,7 @@ class PatchAgent(BaseAgent):
             # Resources haven't been changed - no need to restart
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
-            return self.update_patch_agent_message(clear=True)
+            return self._update_patch_agent_message(clear=True)
 
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
@@ -178,7 +196,7 @@ class PatchAgent(BaseAgent):
                     raise Exception("Failed to restart resources")
                 self.patch_id += 1
                 self._log("Reverting all the changes to the codebase.")
-                return self.update_patch_agent_message(clear=True)
+                return self._update_patch_agent_message(clear=True)
 
         # Final verification of the patch
         if not await self.verify_patch():
@@ -187,28 +205,10 @@ class PatchAgent(BaseAgent):
                 raise Exception("Failed to restart resources")
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
-            return self.update_patch_agent_message(clear=True)
+            return self._update_patch_agent_message(clear=True)
 
         # Return the final status message
-        return self.update_patch_agent_message(clear=True)
-
-    def update_patch_agent_message(
-        self,
-        action_message: Optional[ActionMessage] = None,
-        clear: Optional[bool] = False,
-    ) -> AgentMessage:
-        """Update the patch agent message with the current state of the agent."""
-        assert self.last_patch_agent_message
-
-        if action_message:
-            self.last_patch_agent_message.add_child_message(action_message)
-            self.last_action_message = action_message
-
-        self.last_patch_agent_message.set_message("\n".join(self.log_history))
-        if clear:
-            self.log_history.clear()
-
-        return self.last_patch_agent_message
+        return self._update_patch_agent_message(clear=True)
 
     async def verify_patch(
         self,
@@ -219,7 +219,8 @@ class PatchAgent(BaseAgent):
         # Failure to restart resources may be due to patch, do not raise exception
         if not self.restart_resources():
             self._log(
-                "Could not restart associated resources after applying the patch. Patch is invalid."
+                "Could not restart associated resources after applying the patch. "
+                "Patch is invalid."
             )
             return False
 
@@ -374,7 +375,7 @@ bash /app/exploit.sh
                 )
 
                 exploit_execution = await self.resources.docker.run(exploit_execution)
-                self.update_patch_agent_message(exploit_execution)
+                self._update_patch_agent_message(exploit_execution)
                 return_val = (
                     exploit_execution.additional_metadata["exit_code"],
                     exploit_execution.message,
@@ -429,7 +430,7 @@ bash /app/exploit.sh
             )
 
             exploit_execution = await self.resources.docker.run(exploit_execution)
-            self.update_patch_agent_message(exploit_execution)
+            self._update_patch_agent_message(exploit_execution)
 
             # Run the verify script
             logger.info("Running verify.sh")
@@ -448,7 +449,7 @@ bash /app/exploit.sh
                     exit_code=result.returncode,
                     prev=self.last_action_message,
                 )
-                self.update_patch_agent_message(verify_response)
+                self._update_patch_agent_message(verify_response)
             except Exception as e:
                 self._log(f"Error running verify.sh: {e}")
                 return None
@@ -637,7 +638,7 @@ bash /app/exploit.sh
                 exit_code=repo_result.returncode,
                 prev=self.last_action_message,
             )
-            self.update_patch_agent_message(repo_invariants_response)
+            self._update_patch_agent_message(repo_invariants_response)
 
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
             logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
@@ -664,7 +665,7 @@ bash /app/exploit.sh
                 exit_code=bounty_result.returncode,
                 prev=self.last_action_message,
             )
-            self.update_patch_agent_message(bounty_invariants_response)
+            self._update_patch_agent_message(bounty_invariants_response)
 
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
 
