@@ -5,7 +5,7 @@ class PatchAgentMessage(AgentMessage):
     def __init__(
         self,
         agent_id: str,
-        message: str,
+        message: str = None,
         success: bool = False,
         patch_files_dir: str = None,
         prev: AgentMessage = None,

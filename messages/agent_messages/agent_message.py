@@ -9,10 +9,10 @@ class AgentMessage(Message):
     def __init__(
         self,
         agent_id: str,
-        message: Optional[str] = "",
+        message: Optional[str] = None,
         prev: "AgentMessage" = None,
     ) -> None:
-        self._message = message
+        self._message = message or ""
         self._iteration = None
         self._iteration_time_ms = None
         self._agent_id = agent_id

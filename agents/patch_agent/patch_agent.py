@@ -100,7 +100,7 @@ class PatchAgent(BaseAgent):
         # Initialize message state
         prev_agent_message = messages[0]
         self.last_patch_agent_message = PatchAgentMessage(
-            agent_id=self.agent_id, message=None, prev=prev_agent_message
+            agent_id=self.agent_id, prev=prev_agent_message
         )
         self.last_action_message = None
 
