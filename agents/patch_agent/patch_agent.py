@@ -138,10 +138,7 @@ class PatchAgent(BaseAgent):
                     patch_file_path, self.task_dir / "codebase", "dev"
                 )
                 self._log(message)
-                if success:
-                    return True
-                else:
-                    return False
+                return success
 
             else:
                 self._log(f"Failed to apply patch to codebase: {message}")
