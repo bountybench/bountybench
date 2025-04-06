@@ -2,6 +2,7 @@ from pathlib import Path
 from utils.logger import get_main_logger
 import json
 import shutil
+from typing import List, Optional
 
 logger = get_main_logger(__name__)
 
@@ -74,3 +75,20 @@ def apply_patched_unit_tests(bounty_dir: Path, task_dir: Path) -> bool:
         )
 
     return failed_patches == 0
+
+def cleanup_files(file_paths: List[Path]) -> None:
+    """Delete files if they exist."""
+    for path in file_paths:
+        if path.exists():
+            path.unlink()
+            logger.info(f"Removed {path.name}")
+
+def load_json_file(file_path: Path) -> dict:
+    """Load a JSON file or return an empty dict if it doesn't exist."""
+    if file_path.exists():
+        try:
+            with open(file_path) as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            logger.error(f"Error parsing JSON from {file_path}")
+    return {}

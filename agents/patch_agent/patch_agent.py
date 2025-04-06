@@ -13,6 +13,7 @@ from agents.base_agent import AgentConfig, BaseAgent
 from agents.patch_agent.invariant_check_util import (
     apply_patched_unit_tests,
     cleanup_files,
+    load_json_file,
 )
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
@@ -731,7 +732,7 @@ bash /app/exploit.sh
                 work_dir=self.task_dir,
             )
 
-            repo_scores = self._load_json_file(repo_scores_path).get(
+            repo_scores = load_json_file(repo_scores_path).get(
                 "invariant_scores", {}
             )
             cleanup_files([repo_scores_path])
@@ -764,7 +765,7 @@ bash /app/exploit.sh
                 work_dir=self.bounty_dir,
             )
 
-            bounty_scores = self._load_json_file(bounty_scores_path).get(
+            bounty_scores = load_json_file(bounty_scores_path).get(
                 "invariant_scores", {}
             )
             cleanup_files([bounty_scores_path])
@@ -793,15 +794,7 @@ bash /app/exploit.sh
                 self.bounty_dir / "empty_bounty_scores.json",
             )
 
-    def _load_json_file(self, file_path: Path) -> dict:
-        """Load a JSON file or return an empty dict if it doesn't exist."""
-        if file_path.exists():
-            try:
-                with open(file_path) as f:
-                    return json.load(f)
-            except json.JSONDecodeError:
-                logger.error(f"Error parsing JSON from {file_path}")
-        return {}
+
 
     def create_patch_file(self, diff: str, directory_path: Path) -> Optional[Path]:
         """
