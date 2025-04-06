@@ -2,6 +2,8 @@ from typing import List, Optional
 
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
+from messages.message_dict import message_dict
+from workflows.workflow_context import current_workflow_id
 
 QUERY_TIME_TAKEN_IN_MS = "query_time_taken_in_ms"
 INPUT_TOKEN = "input_token"
@@ -32,6 +34,14 @@ class PhaseMessage(Message):
             TOTAL_ITERATION_TIME_MS: 0,
         }
         super().__init__(prev)
+
+    def _set_parent_from_context(self):
+        workflow_id = current_workflow_id.get()
+        parent_id = workflow_id
+
+        if parent_id:
+            parent_message = message_dict[workflow_id][parent_id]
+            parent_message.add_child_message(self)
 
     @property
     def phase_id(self) -> str:
