@@ -448,7 +448,7 @@ bash /app/exploit.sh
 
         # --- Run original tests first ---
         for attempt in range(INVARIANTS_RETRY):
-            self._log(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
+            logger.info(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
 
             # Try with original tests first
             original_repo_scores, original_bounty_scores = (
@@ -474,7 +474,7 @@ bash /app/exploit.sh
             )
 
             for attempt in range(INVARIANTS_RETRY):
-                self._log(f"[Patched] Attempt {attempt + 1} of {INVARIANTS_RETRY}")
+                logger.info(f"[Patched] Attempt {attempt + 1} of {INVARIANTS_RETRY}")
 
                 # Run with patched unit tests
                 alt_repo_scores, alt_bounty_scores = (
@@ -540,8 +540,7 @@ bash /app/exploit.sh
         return self.last_patch_agent_message
 
     def _log(self, message: str) -> str:
-        """Helper to append a message to log_history, log it, and return the combined log.
-        Optionally clears the history after returning the combined log."""
+        """Helper to append a message to log_history, log it, and return the combined log. Optionally clears the history after returning the combined log."""
         self.log_history.append(message)
         logger.info(message)
         combined = "\n".join(self.log_history)
@@ -566,7 +565,7 @@ bash /app/exploit.sh
                 self.output_patch_subfolder = (
                     self.output_patch_dir / f"patch_{self.patch_id}"
                 )
-                patch_file_path = self.create_patch_file(
+                patch_file_path = self._create_patch_file(
                     tmp_dir_diff, self.output_patch_subfolder
                 )
             except Exception as e:
@@ -619,9 +618,9 @@ bash /app/exploit.sh
             cleanup_files([repo_scores_path])
 
             repo_invariants_response = ScriptActionMessage(
-                resource_id=f"repo_invariants_subprocess",
+                resource_id="repo_invariants_subprocess",
                 message=truncate_script_output(repo_result.stdout, repo_result.stderr),
-                command=f"./run_repo_invariants.sh",
+                command="./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 additional_metadata={"repo_invariant_scores": repo_scores},
                 prev=self.last_action_message,
@@ -650,11 +649,11 @@ bash /app/exploit.sh
             cleanup_files([bounty_scores_path])
 
             bounty_invariants_response = ScriptActionMessage(
-                resource_id=f"bounty_invariants_subprocess",
+                resource_id="bounty_invariants_subprocess",
                 message=truncate_script_output(
                     bounty_result.stdout, bounty_result.stderr
                 ),
-                command=f"./run_bounty_invariants.sh",
+                command="./run_bounty_invariants.sh",
                 exit_code=bounty_result.returncode,
                 additional_metadata={"bounty_invariant_scores": bounty_scores},
                 prev=self.last_action_message,
@@ -662,6 +661,7 @@ bash /app/exploit.sh
             self._update_patch_agent_message(bounty_invariants_response)
 
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
+            logger.info(f"Bounty invariants script errors:\n{bounty_result.stderr}")
 
             return repo_scores, bounty_scores
 
@@ -673,13 +673,13 @@ bash /app/exploit.sh
                 self.bounty_dir / "empty_bounty_scores.json",
             )
 
-    def create_patch_file(self, diff: str, directory_path: Path) -> Optional[Path]:
+    def _create_patch_file(self, diff: str, directory_path: Path) -> Optional[Path]:
         """
         Create a patch file at directory_path using the provided diff.
 
         Example:
             tmp_dir_diff = git_diff(self.tmp_codebase)
-            patch_file_path = self.create_patch_file(tmp_dir_diff, self.patch_dir)
+            patch_file_path = self._create_patch_file(tmp_dir_diff, self.patch_dir)
         """
         try:
             directory_path.mkdir(parents=True, exist_ok=True)
@@ -710,7 +710,8 @@ bash /app/exploit.sh
                         ignore=shutil.ignore_patterns("codebase"),
                     )
                     logger.info(
-                        f"Exploits successfully moved to corresponding patch directory {self.output_patch_subfolder}."
+                        f"Exploits successfully moved to corresponding "
+                        f"patch directory {self.output_patch_subfolder}."
                     )
                     return str(self.output_patch_subfolder)
                 else:
