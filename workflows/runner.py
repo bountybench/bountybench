@@ -10,11 +10,11 @@ from typing import Dict, Type
 from rich.console import Console
 from rich.traceback import Traceback
 
+from utils.logger import get_main_logger, logger_config
 from workflows.base_workflow import BaseWorkflow
 from workflows.detect_patch_workflow import DetectPatchWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
-from utils.logger import get_main_logger, logger_config
 
 # This module serves as the single entry point for running workflows via the command line.
 # Example usage:
@@ -89,9 +89,6 @@ class WorkflowRunner:
         )
         parser.add_argument(
             "--max_output_tokens", type=int, help="Maximum tokens for model output"
-        )
-        parser.add_argument(
-            "--interactive", action="store_true", help="Enable interactive mode"
         )
 
         return parser
