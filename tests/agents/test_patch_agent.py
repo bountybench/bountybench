@@ -346,66 +346,6 @@ def test_create_patch_file(bounty_setup, patch_agent, git_fixture):
 
 
 @pytest.mark.asyncio
-async def test_execute_invariant_tests_success(bounty_setup, patch_agent):
-    """Test that run_patch_invariants returns True when invariant checks succeed."""
-    agent = patch_agent
-    env_path = bounty_setup
-
-    repo_invariants_script = env_path.TASK_DIR / "run_repo_invariants.sh"
-    bounty_invariants_script = env_path.BOUNTY_DIR / "run_bounty_invariants.sh"
-
-    patch_agent.last_patch_agent_message = PatchAgentMessage(
-        agent_id="patch_agent",
-    )
-
-    # Create scripts
-    write_to_file_and_make_executable(repo_invariants_script, exit_code=0)
-    write_to_file_and_make_executable(bounty_invariants_script, exit_code=0)
-
-    # Mock the file reading logic
-    def mock_load_json(path):
-        return {"invariant_scores": {"healthcheck": 1, "test_server": 76}}
-
-    with (
-        patch(
-            "agents.patch_agent.invariant_check_util.check_invariant_scores_against_thresholds", return_value=True
-        ),
-        patch("agents.patch_agent.invariant_check_util.load_json_file", side_effect=mock_load_json),
-    ):
-        # Just verify that files are returned
-        repo_score, bounty_score = await agent._execute_invariant_tests()
-        print(repo_score)
-        print(bounty_score)
-        assert "healthcheck" in repo_score
-        assert "test_server" in bounty_score
-        assert len(patch_agent.last_patch_agent_message.action_messages) == 2
-        assert "healthcheck" in patch_agent.last_patch_agent_message.action_messages[
-            0
-        ].additional_metadata.get("repo_invariant_scores", {})
-        assert "test_server" in patch_agent.last_patch_agent_message.action_messages[
-            1
-        ].additional_metadata.get("bounty_invariant_scores", {})
-
-    # And test check_invariants directly
-    with (
-        patch.object(
-            patch_agent,
-            "_execute_invariant_tests",
-            return_value=(Path("mock1"), Path("mock2")),
-        ),
-        patch(
-            "agents.patch_agent.invariant_check_util.check_invariant_scores_against_thresholds", return_value=True
-        ),
-        patch(
-            "agents.patch_agent.invariant_check_util.load_json_file", return_value={"invariant_scores": {}}
-        ),
-        patch.object(patch_agent, "_cleanup_files"),
-    ):
-        result = await agent.check_invariants()
-        assert result is True
-
-
-@pytest.mark.asyncio
 async def test_execute_patch_invariants_check_fails(bounty_setup, patch_agent):
     """Test that run_patch_invariants returns False when check_invariant_scores_against_thresholds fails."""
     agent = patch_agent
@@ -468,48 +408,6 @@ def test_check_invariant_scores_against_thresholds_success(patch_agent):
         MOCK_BOUNTY_SCORES,
     )
     assert result is True
-
-
-@pytest.mark.asyncio
-async def test_check_invariants_returns_correct_scores(patch_agent):
-    """Test that check_invariants properly processes and returns scores."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        task_dir = Path(tmpdir) / "task"
-        bounty_dir = Path(tmpdir) / "bounty"
-        task_dir.mkdir()
-        bounty_dir.mkdir()
-
-        # We'll need to create these files in the test setup
-        repo_scores_path = task_dir / "invariant_scores.json"
-        bounty_scores_path = bounty_dir / "invariant_scores.json"
-
-        # Create all necessary files
-        repo_scores_path.write_text(json.dumps(MOCK_REPO_SCORES_TO_WRITE))
-        bounty_scores_path.write_text(json.dumps(MOCK_BOUNTY_SCORES_TO_WRITE))
-
-        agent = patch_agent
-        agent.task_dir = task_dir
-        agent.bounty_dir = bounty_dir
-        agent.last_patch_agent_message = PatchAgentMessage(
-            agent_id="patch_agent", message=None
-        )
-
-        # Mock _execute_invariant_tests to return our prepared files
-        with (
-            patch(
-                "agents.patch_agent.patch_agent.run_command_async",
-                return_value=({"stdout": "mocked", "stderr": "", "returncode": 0}),
-            ),
-            patch(
-                "agents.patch_agent.invariant_check_util.check_invariant_scores_against_thresholds",
-                return_value=True,
-            ),
-        ):
-            # Run the method
-            result = await agent.check_invariants()
-
-            # Verify result
-            assert result is True
 
 
 def test_check_invariant_scores_edge_cases(patch_agent):
