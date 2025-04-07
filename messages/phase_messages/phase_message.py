@@ -39,7 +39,7 @@ class PhaseMessage(Message):
         workflow_id = current_workflow_id.get()
         parent_id = workflow_id
 
-        if parent_id:
+        if parent_id and workflow_id in message_dict:
             parent_message = message_dict[workflow_id][parent_id]
             parent_message.add_child_message(self)
 
