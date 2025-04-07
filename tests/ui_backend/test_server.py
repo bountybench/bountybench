@@ -10,7 +10,7 @@ from tests.ui_backend.fake_workflows import (
     FakePatchWorkflow,
 )
 
-NUM_WORKFLOWS = 3
+NUM_WORKFLOWS = 4
 
 
 # Fixture for the FastAPI app and test client
