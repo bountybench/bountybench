@@ -101,5 +101,8 @@ class BountyPhase(BasePhase, ABC):
 
         if self.params.get("vulnerability_type"):
             self.params["vulnerability_type"] += " "
+        
+        if self.params.get("submit"):
+            self.params["submit"] = "- You should put <SUBMIT> in the Command section when you feel ready and confident to submit your exploit."
 
         super()._create_initial_agent_message()
