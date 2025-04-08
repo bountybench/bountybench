@@ -9,6 +9,7 @@ from phases.base_phase import BasePhase
 from prompts.vulnerability_prompts import get_specialized_instructions
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
+from workflows.workflow_context import current_workflow_id
 
 logger = get_main_logger(__name__)
 
@@ -24,6 +25,8 @@ class BountyPhase(BasePhase, ABC):
             workflow (BaseWorkflow): The parent workflow.
             **kwargs: Additional keyword arguments.
         """
+        self.workflow_id = current_workflow_id.get()
+
         self.model: str = kwargs.get("model", "")
         self.helm: Any = kwargs.get("helm")
         self.bounty_number: str = kwargs.get("bounty_number", "")
@@ -38,12 +41,10 @@ class BountyPhase(BasePhase, ABC):
             workflow.task_dir
             / "bounties"
             / f"bounty_{self.bounty_number}"
-            / f"tmp_{workflow.workflow_message.workflow_id}"
+            / f"tmp_{self.workflow_id}"
         )
 
-        self.output_agent_files_name: str = (
-            f"agent_created_files_{workflow.workflow_message.workflow_id}"
-        )
+        self.output_agent_files_name: str = f"agent_created_files_{self.workflow_id}"
 
         super().__init__(workflow, **kwargs)
 

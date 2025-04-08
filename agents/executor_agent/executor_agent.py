@@ -92,6 +92,18 @@ class ExecutorAgent(BaseAgent):
 
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
+            # Note: can adjust the check condition later
+            if "submit" in model_action_message.command:
+                # Note: create an empty action message to protect the memory resource
+                empty_action_message = ActionMessage(
+                    resource_id="submission",
+                    message="",
+                    prev=model_action_message,
+                )
+                agent_message.add_child_message(empty_action_message)
+                agent_message.set_submission(value=True)
+                return
+
             kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
                 return
