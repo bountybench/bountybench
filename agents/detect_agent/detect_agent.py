@@ -122,7 +122,7 @@ class DetectAgent(BaseAgent):
                             "Exploit succeeded before the validation stage."
                         )
                         await self.execute(detect_agent_message, prev_agent_message)
-                    
+
             else:
                 combined_log = self._log(
                     f"Waiting for the submission...", clear=True
