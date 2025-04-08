@@ -15,6 +15,7 @@ from workflows.base_workflow import BaseWorkflow
 from workflows.detect_patch_workflow import DetectPatchWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
+from workflows.detect_workflow import DetectWorkflow
 
 # This module serves as the single entry point for running workflows via the command line.
 # Example usage:
@@ -47,6 +48,7 @@ class WorkflowRunner:
         "exploit_patch_workflow": ExploitPatchWorkflow,
         "detect_patch_workflow": DetectPatchWorkflow,
         "patch_workflow": PatchWorkflow,
+        "detect_workflow": DetectWorkflow,
     }
 
     def __init__(self):
