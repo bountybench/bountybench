@@ -46,6 +46,8 @@ class BountyPhase(BasePhase, ABC):
 
         self.output_agent_files_name: str = f"agent_created_files_{self.workflow_id}"
 
+        self.submit = kwargs.get("submit", True)
+
         super().__init__(workflow, **kwargs)
 
     def _create_initial_agent_message(self) -> None:
