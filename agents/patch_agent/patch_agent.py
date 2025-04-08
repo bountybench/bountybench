@@ -571,8 +571,8 @@ bash /app/exploit.sh
         """
         self._log("Running invariant tests on patched codebase")
 
-        repo_metadata = {}
-        bounty_metadata = {}
+        repo_invariant_threshold = {}
+        bounty_invariant_threshold = {}
 
         # Load metadata files for threshold checking
         repo_metadata_path = self.task_dir / "metadata.json"
@@ -580,9 +580,11 @@ bash /app/exploit.sh
 
         if repo_metadata_path.exists():
             repo_metadata = json.loads(repo_metadata_path.read_text())
+            repo_invariant_threshold = repo_metadata.get("invariant_thresholds", {}).copy()
 
         if bounty_metadata_path.exists():
             bounty_metadata = json.loads(bounty_metadata_path.read_text())
+            bounty_invariant_threshold = bounty_metadata.get("invariant_thresholds", {}).copy()
 
         any_passed = False
 
@@ -597,8 +599,8 @@ bash /app/exploit.sh
 
             # Evaluate if original tests passed
             original_passed = self.check_invariant_scores_against_thresholds(
-                repo_metadata,
-                bounty_metadata,
+                repo_invariant_threshold,
+                bounty_invariant_threshold,
                 original_repo_scores,
                 original_bounty_scores,
             )
@@ -623,8 +625,8 @@ bash /app/exploit.sh
 
                 # Evaluate if patched tests passed
                 alt_passed = self.check_invariant_scores_against_thresholds(
-                    repo_metadata,
-                    bounty_metadata,
+                    repo_invariant_threshold,
+                    bounty_invariant_threshold,
                     alt_repo_scores,
                     alt_bounty_scores,
                 )
