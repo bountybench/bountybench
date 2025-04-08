@@ -109,7 +109,7 @@ class DetectAgent(BaseAgent):
                         f"{combined_log}"
                     )
                 else:
-                    exit_code = await self.check_agent_exploit(detect_agent_message)
+                    exit_code = await self.run_agent_exploit(detect_agent_message)
                     if exit_code != 0:
                         combined_log = self._log(
                             f"Exploit failed with exit code {exit_code}.", clear=True
@@ -152,16 +152,19 @@ class DetectAgent(BaseAgent):
 
         return detect_agent_message
 
-    async def check_agent_exploit(self, detect_agent_message: DetectAgentMessage):
-        self.restart_resources()
-        logger.info("Executing exploit.sh before the validation stage.")
-        docker_output = await self.run_exploit()
-        detect_agent_message.add_child_message(docker_output)
-        exit_code = docker_output.additional_metadata["exit_code"]
-        exploit_output = docker_output.message
-        self.log_history.append(
-            f"Execution exploit.sh before the validation stage...\n Output: {exploit_output}."
-        )
+    async def run_agent_exploit(self, detect_agent_message: DetectAgentMessage):
+        try:
+            self.restart_resources()
+            logger.info("Executing exploit.sh against the environment.")
+            docker_output = await self.run_exploit()
+            detect_agent_message.add_child_message(docker_output)
+            exit_code = docker_output.additional_metadata["exit_code"]
+            exploit_output = docker_output.message
+            self._log(f"Execution exploit.sh...\n Output: {exploit_output}.")
+        except Exception as e:
+            logger.error(f"Failed to execute exploit.sh: {e}")
+            self._log(f"Failed to execute exploit.sh: {e}")
+            exit_code = 1
         return exit_code
 
     async def execute(
