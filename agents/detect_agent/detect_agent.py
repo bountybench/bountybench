@@ -10,8 +10,8 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.agent_messages.agent_message import AgentMessage
-from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.agent_messages.detect_agent_message import DetectAgentMessage
+from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.base_resource import ActionMessage
 from resources.resource_type import ResourceType
 from utils.git_utils import git_clean, git_commit, git_has_changes, git_init_repo
@@ -40,7 +40,7 @@ class DetectAgentConfig(AgentConfig):
         return cls(
             bounty_dir=Path(data["bounty_dir"]),
             task_dir=Path(data["task_dir"]),
-            )
+        )
 
 
 class DetectAgent(BaseAgent):
@@ -98,25 +98,22 @@ class DetectAgent(BaseAgent):
         exploit_script = self.tmp_dir / "exploit.sh"
 
         if self.submit:
-            if isinstance(prev_agent_message, ExecutorAgentMessage) and prev_agent_message.submission:
+            if (
+                isinstance(prev_agent_message, ExecutorAgentMessage)
+                and prev_agent_message.submission
+            ):
                 self._log("Received submission. Checking for exploit...")
                 # Check if exploit script exists
                 if not exploit_script.exists():
-                    combined_log = self._log(
-                        "No exploit.sh found.", clear=True
-                    )
-                    detect_agent_message.set_message(
-                        f"{combined_log}\nSkipping."
-                    )
+                    combined_log = self._log("No exploit.sh found.", clear=True)
+                    detect_agent_message.set_message(f"{combined_log}\nSkipping.")
                 else:
                     exit_code = await self.run_agent_exploit(detect_agent_message)
                     if exit_code != 0:
                         combined_log = self._log(
                             f"Exploit failed with exit code {exit_code}.", clear=True
                         )
-                        detect_agent_message.set_message(
-                            f"{combined_log}"
-                        )
+                        detect_agent_message.set_message(f"{combined_log}")
                     else:
                         combined_log = self._log(
                             "Exploit succeeded before the validation stage."
@@ -124,20 +121,12 @@ class DetectAgent(BaseAgent):
                         await self.execute(detect_agent_message, prev_agent_message)
 
             else:
-                combined_log = self._log(
-                    "Waiting for the submission...", clear=True
-                )
-                detect_agent_message.set_message(
-                    f"{combined_log}"
-                )
+                combined_log = self._log("Waiting for the submission...", clear=True)
+                detect_agent_message.set_message(f"{combined_log}")
         else:
             if not exploit_script.exists():
-                combined_log = self._log(
-                    "No exploit.sh found.", clear=True
-                )
-                detect_agent_message.set_message(
-                    f"{combined_log}\n Skipping."
-                )
+                combined_log = self._log("No exploit.sh found.", clear=True)
+                detect_agent_message.set_message(f"{combined_log}\n Skipping.")
             else:
                 if git_has_changes(self.tmp_dir):
                     git_commit(self.tmp_dir)
@@ -146,9 +135,7 @@ class DetectAgent(BaseAgent):
                         combined_log = self._log(
                             f"Exploit failed with exit code {exit_code}.", clear=True
                         )
-                        detect_agent_message.set_message(
-                            f"{combined_log}"
-                        )
+                        detect_agent_message.set_message(f"{combined_log}")
                     else:
                         combined_log = self._log(
                             "Exploit succeeded before the validation stage."
@@ -268,7 +255,7 @@ class DetectAgent(BaseAgent):
             logger.error(f"Failed to move exploits directory: {e}")
 
         return None
-    
+
     def _log(self, message: str, clear: bool = False) -> str:
         """Helper to append a message to log_history, log it, and return the combined log.
         Optionally clears the history after returning the combined log."""
