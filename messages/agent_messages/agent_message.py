@@ -131,6 +131,7 @@ class AgentMessage(Message):
                 for action_message in self.current_children
             ],
             "iteration": self.iteration,
+            "iteration_time_ms": self.iteration_time_ms,
         }
         broadcast_dict.update(base_dict)
         return broadcast_dict

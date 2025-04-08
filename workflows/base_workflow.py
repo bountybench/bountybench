@@ -164,7 +164,7 @@ class BaseWorkflow(ABC):
     async def run(self) -> None:
         """Execute the entire workflow by running all phases in sequence."""
         logger.info(f"Running workflow {self.name}")
-        with WorkflowContext(self.workflow_message.id):
+        with WorkflowContext(self.workflow_message.workflow_id):
             async for _ in self._run_phases():
                 continue
 
@@ -292,7 +292,8 @@ class BaseWorkflow(ABC):
         agent_configs = self._current_phase.define_agents()
         self.agent_manager.initialize_phase_agents(agent_configs)
 
-        phase_message = await self._current_phase.run(self.workflow_message, None)
+        with WorkflowContext(self.workflow_message.workflow_id):
+            phase_message = await self._current_phase.run(None)
 
         logger.status(
             f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}",
