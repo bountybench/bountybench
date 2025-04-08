@@ -90,6 +90,9 @@ class WorkflowRunner:
         parser.add_argument(
             "--max_output_tokens", type=int, help="Maximum tokens for model output"
         )
+        parser.add_argument(
+            "--submit", action="store_true", help="Enable agent to submit the exploit"
+        )
 
         return parser
 
