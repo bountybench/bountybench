@@ -1,8 +1,9 @@
 import asyncio
-from typing import Dict, List
+from typing import List
 
 from messages.config import MessageType, set_logging_level, should_log
 from messages.message import Message
+from messages.message_dict import message_dict
 from utils.logger import get_main_logger
 from utils.websocket_manager import websocket_manager
 
@@ -10,9 +11,6 @@ logger = get_main_logger(__name__)
 
 # Set the logging level
 set_logging_level(MessageType.AGENT)
-
-# Dict of workflow_id -> Dict of message_id -> Message
-message_dict: Dict[str, Dict[str, Message]] = {}
 
 
 def broadcast_update(messages):
