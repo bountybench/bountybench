@@ -164,7 +164,6 @@ class DetectAgent(BaseAgent):
         )
         return exit_code
 
-
     async def execute(
         self,
         detect_agent_message: DetectAgentMessage,
