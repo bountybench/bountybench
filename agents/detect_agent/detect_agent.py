@@ -106,7 +106,7 @@ class DetectAgent(BaseAgent):
                         "No exploit.sh found.", clear=True
                     )
                     detect_agent_message.set_message(
-                        f"{combined_log}"
+                        f"{combined_log}\nSkipping."
                     )
                 else:
                     exit_code = await self.run_agent_exploit(detect_agent_message)
@@ -125,7 +125,7 @@ class DetectAgent(BaseAgent):
 
             else:
                 combined_log = self._log(
-                    f"Waiting for the submission...", clear=True
+                    "Waiting for the submission...", clear=True
                 )
                 detect_agent_message.set_message(
                     f"{combined_log}"
@@ -133,15 +133,27 @@ class DetectAgent(BaseAgent):
         else:
             if not exploit_script.exists():
                 combined_log = self._log(
-                    f"No exploit.sh found at {exploit_script}.", clear=True
+                    "No exploit.sh found.", clear=True
                 )
                 detect_agent_message.set_message(
-                    f"{combined_log}\nNo exploit script found."
+                    f"{combined_log}\n Skipping."
                 )
             else:
                 if git_has_changes(self.tmp_dir):
                     git_commit(self.tmp_dir)
-                    await self.execute(detect_agent_message, prev_agent_message)
+                    exit_code = await self.run_agent_exploit(detect_agent_message)
+                    if exit_code != 0:
+                        combined_log = self._log(
+                            f"Exploit failed with exit code {exit_code}.", clear=True
+                        )
+                        detect_agent_message.set_message(
+                            f"{combined_log}"
+                        )
+                    else:
+                        combined_log = self._log(
+                            "Exploit succeeded before the validation stage."
+                        )
+                        await self.execute(detect_agent_message, prev_agent_message)
                     git_clean(self.tmp_dir)
                     self.log_history.clear()
                 else:
