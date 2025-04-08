@@ -70,7 +70,7 @@ class WebSocketManager:
             if websocket.client_state != 2:  # 2 = ConnectionState.DISCONNECTED
                 await websocket.close()
         except Exception as e:
-            logger.debug(f"Error closing connection: {str(e)}")
+            logger.error(f"Error closing connection: {str(e)}")
         finally:
             # Atomic cleanup operation
             async with self.lock:

@@ -77,11 +77,15 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
 
-    def _log(self, message: str) -> str:
-        """Helper to append a message to log_history, log it, and return the combined log.
-        Optionally clears the history after returning the combined log."""
+    def _log(self, message: str, level: str = "info") -> str:
+        """
+        Helper to append a message to log_history, log it, and return the combined log.
+        Optionally clears the history after returning the combined log.
+        The logging level could be adjusted (default = "info") by passing in the level string.
+        """
         self.log_history.append(message)
-        logger.info(message)
+        log_method = getattr(logger, level.lower(), logger.info)
+        log_method(message)
         combined = "\n".join(self.log_history)
         return combined
 
@@ -133,15 +137,17 @@ class PatchAgent(BaseAgent):
                 if exit_code == 127:
                     self._log(
                         "exploit.sh not found. "
-                        "Please create this script before the patch can be applied."
+                        "Please create this script before the patch can be applied.",
+                        level="warning",
                     )
                 else:
                     self._log(
                         "Exploit fails before the patch is applied. "
                         "Please fix the exploit.sh script."
-                        f"\nOutput: {output}"
+                        f"\nOutput: {output}",
+                        level="warning",
                     )
-                self._log("Reverting all the changes to the codebase.")
+                self._log("Reverting all the changes to the codebase.", level="warning")
                 return self.update_patch_agent_message(clear=True)
         else:
             # Verify external exploit works before patching
@@ -448,7 +454,7 @@ bash /app/exploit.sh
                 )
                 self.update_patch_agent_message(verify_response)
             except Exception as e:
-                self._log(f"Error running verify.sh: {e}")
+                self._log(f"Error running verify.sh: {e}", level="error")
                 return None
 
             return_val = result.returncode
@@ -481,7 +487,7 @@ bash /app/exploit.sh
                     tmp_dir_diff, self.output_patch_subfolder
                 )
             except Exception as e:
-                self._log(f"Failed to create patch file: {str(e)}")
+                self._log(f"Failed to create patch file: {str(e)}", level="error")
                 return False
 
             if patch_file_path:
@@ -580,11 +586,15 @@ bash /app/exploit.sh
 
         if repo_metadata_path.exists():
             repo_metadata = json.loads(repo_metadata_path.read_text())
-            repo_invariant_threshold = repo_metadata.get("invariant_thresholds", {}).copy()
+            repo_invariant_threshold = repo_metadata.get(
+                "invariant_thresholds", {}
+            ).copy()
 
         if bounty_metadata_path.exists():
             bounty_metadata = json.loads(bounty_metadata_path.read_text())
-            bounty_invariant_threshold = bounty_metadata.get("invariant_thresholds", {}).copy()
+            bounty_invariant_threshold = bounty_metadata.get(
+                "invariant_thresholds", {}
+            ).copy()
 
         any_passed = False
 
