@@ -41,7 +41,7 @@ def test_list_workflows(client):
         len(data["workflows"]) == NUM_WORKFLOWS
     ), f"There should be exactly {NUM_WORKFLOWS} workflows listed"
 
-    expected_ids = {"detect_patch", "exploit_patch", "patch", "exploit"}
+    expected_ids = {"detect_patch", "exploit_patch", "patch", "exploit", "detect"}
     returned_ids = {wf["id"] for wf in data["workflows"]}
     assert returned_ids == expected_ids, "Workflow IDs do not match expected IDs"
 
