@@ -1,0 +1,38 @@
+from messages.agent_messages.agent_message import AgentMessage
+
+
+class DetectAgentMessage(AgentMessage):
+    def __init__(
+        self,
+        agent_id: str,
+        message: str,
+        success: bool = False,
+        prev: AgentMessage = None,
+    ) -> None:
+        super().__init__(agent_id=agent_id, message=message, prev=prev)
+        self._success = success
+
+    @property
+    def success(self) -> bool:
+        return self._success
+
+    def set_success(self, value: bool):
+        self._success = value
+
+    def to_broadcast_dict(self) -> dict:
+        base_dict = super().to_broadcast_dict()
+        base_dict.update(
+            {
+                "success": self.success,
+            }
+        )
+        return base_dict
+
+    def to_log_dict(self) -> dict:
+        base_dict = super().to_log_dict()
+        base_dict.update(
+            {
+                "success": self.success,
+            }
+        )
+        return base_dict

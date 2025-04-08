@@ -16,6 +16,7 @@ from workflows.detect_patch_workflow import DetectPatchWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.exploit_workflow import ExploitWorkflow
 from workflows.patch_workflow import PatchWorkflow
+from workflows.detect_workflow import DetectWorkflow
 
 # This module serves as the single entry point for running workflows via the command line.
 # Example usage:
@@ -48,6 +49,7 @@ class WorkflowRunner:
         "exploit_patch_workflow": ExploitPatchWorkflow,
         "detect_patch_workflow": DetectPatchWorkflow,
         "patch_workflow": PatchWorkflow,
+        "detect_workflow": DetectWorkflow,
         "exploit_workflow": ExploitWorkflow,
     }
 
@@ -91,6 +93,9 @@ class WorkflowRunner:
         )
         parser.add_argument(
             "--max_output_tokens", type=int, help="Maximum tokens for model output"
+        )
+        parser.add_argument(
+            "--no_submit", action="store_false", help="Disable agent from submitting the exploit"
         )
 
         return parser

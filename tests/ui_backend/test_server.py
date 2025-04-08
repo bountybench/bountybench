@@ -10,7 +10,7 @@ from tests.ui_backend.fake_workflows import (
     FakePatchWorkflow,
 )
 
-NUM_WORKFLOWS = 4
+NUM_WORKFLOWS = 5
 
 
 # Fixture for the FastAPI app and test client
@@ -41,7 +41,7 @@ def test_list_workflows(client):
         len(data["workflows"]) == NUM_WORKFLOWS
     ), f"There should be exactly {NUM_WORKFLOWS} workflows listed"
 
-    expected_ids = {"detect_patch", "exploit_patch", "patch", "exploit"}
+    expected_ids = {"detect_patch", "exploit_patch", "patch", "exploit", "detect"}
     returned_ids = {wf["id"] for wf in data["workflows"]}
     assert returned_ids == expected_ids, "Workflow IDs do not match expected IDs"
 
