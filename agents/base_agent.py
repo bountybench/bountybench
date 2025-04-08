@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Set
+from pathlib import Path
+from typing import List, Optional, TypeVar
 
 from messages.agent_messages.agent_message import AgentMessage
 from resources.resource_type import AgentResources, ResourceType
@@ -26,6 +27,9 @@ class AgentConfig(ABC):
     """Abstract base class for all agent configurations."""
 
     pass
+
+
+T = TypeVar("T", bound="BaseAgent")
 
 
 class BaseAgent(ABC):
@@ -68,3 +72,22 @@ class BaseAgent(ABC):
     @property
     def agent_id(self) -> str:
         return self._agent_id
+
+    def save_to_file(self, filepath: Path) -> None:
+        """
+        Saves the agent state to a JSON file.
+        """
+        import json
+
+        state = self.to_dict()
+        filepath.write_text(json.dumps(state, indent=2))
+
+    @classmethod
+    def load_from_file(cls, filepath: Path, **kwargs) -> T:
+        """
+        Loads an agent state from a JSON file.
+        """
+        import json
+
+        data = json.loads(filepath.read_text())
+        return cls.from_dict(data, **kwargs)
