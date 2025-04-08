@@ -84,7 +84,7 @@ class DetectAgent(BaseAgent):
         atexit.register(self.cleanup)
 
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
-        """Execute the main workflow of the ExploitAgent."""
+        """Execute the main workflow of the DetectAgent."""
         if len(messages) != 1:
             raise ValueError(
                 f"Accepts only a single message, but received {len(messages)} messages"
@@ -244,7 +244,7 @@ class DetectAgent(BaseAgent):
         return combined
 
     def to_dict(self) -> dict:
-        """Serializes the ExploitAgent state to a dictionary."""
+        """Serializes the DetectAgent state to a dictionary."""
         return {
             "bounty_dir": str(self.bounty_dir),
             "tmp_dir": str(self.tmp_dir),
