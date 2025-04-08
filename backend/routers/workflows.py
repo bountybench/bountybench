@@ -32,6 +32,11 @@ async def list_workflows():
                 "name": "Patch Workflow",
                 "description": "Workflow for patching vulnerabilities",
             },
+            {
+                "id": "detect",
+                "name": "Detect Workflow",
+                "description": "Workflow for detecting vulnerabilities",
+            },
         ]
     }
 

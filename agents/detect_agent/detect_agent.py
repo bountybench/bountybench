@@ -233,29 +233,6 @@ class DetectAgent(BaseAgent):
             logger.error(f"Failed to restart {resource.resource_id} resource: {e}")
             return False
 
-    def _store_exploit(self) -> Optional[str]:
-        """Store the exploit files."""
-        try:
-            new_exploit_dir = self.output_exploits_dir / f"exploit_{self.exploit_id}"
-
-            if self.tmp_dir.exists() and self.tmp_dir.is_dir():
-                if any(self.tmp_dir.iterdir()):
-                    shutil.copytree(
-                        self.tmp_dir,
-                        new_exploit_dir,
-                        ignore=shutil.ignore_patterns("codebase"),
-                    )
-                    logger.info(f"Exploits successfully moved to {new_exploit_dir}.")
-                    return str(new_exploit_dir)
-                else:
-                    logger.warning("Exploits directory is empty. No files to move.")
-            else:
-                logger.warning("No exploits directory found to move.")
-        except Exception as e:
-            logger.error(f"Failed to move exploits directory: {e}")
-
-        return None
-
     def _log(self, message: str, clear: bool = False) -> str:
         """Helper to append a message to log_history, log it, and return the combined log.
         Optionally clears the history after returning the combined log."""
@@ -270,7 +247,6 @@ class DetectAgent(BaseAgent):
         """Serializes the ExploitAgent state to a dictionary."""
         return {
             "bounty_dir": str(self.bounty_dir),
-            "output_exploits_dir": str(self.output_exploits_dir),
             "tmp_dir": str(self.tmp_dir),
             "agent_id": self.agent_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
