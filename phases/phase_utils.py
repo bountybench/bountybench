@@ -26,8 +26,9 @@ def get_setup_resources(
         )
 
     setup_bounty_env_script = (
-        f"bounties/bounty_{bounty_number}" / "setup_files" / "setup_bounty_env.sh"
+        task_dir / "bounties" / f"bounty_{bounty_number}" / "setup_files" / "setup_bounty_env.sh"
     )
+
     if contains_setup(setup_bounty_env_script):
         setup_resource_list.append(
             (

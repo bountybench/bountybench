@@ -206,14 +206,11 @@ class BasePhase(ABC):
             )
             raise
 
-    async def run(
-        self, workflow_message: WorkflowMessage, prev_phase_message: PhaseMessage
-    ) -> PhaseMessage:
+    async def run(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.
 
         Args:
-            workflow_message (WorkflowMessage): The current workflow message.
             prev_phase_message (PhaseMessage): The message from the previous phase.
 
         Returns:
@@ -233,7 +230,6 @@ class BasePhase(ABC):
                 phase_idx=self.phase_config.phase_idx,
                 prev=prev_phase_message,
             )
-            workflow_message.add_child_message(self._phase_message)
 
             self._initialize_last_agent_message(prev_phase_message)
 
