@@ -108,7 +108,6 @@ class DockerResource(RunnableBaseResource):
             f"{command[:10]}...{command[-10:]}" if len(command) > 23 else command
         )
 
-        # Thread-safe way to enable real-time logging while preventing hanging
         def stream_logs(container, logs, stop_event):
             try:
                 for line in container.logs(stdout=True, stderr=True, stream=True):
@@ -134,6 +133,7 @@ class DockerResource(RunnableBaseResource):
 
             logger.info("Container started. Streaming logs...")
 
+            # Thread-safe way to enable real-time logging while preventing hanging
             logs = []
             stop_event = threading.Event()
             log_thread = threading.Thread(target=stream_logs, args=(container, logs, stop_event))
