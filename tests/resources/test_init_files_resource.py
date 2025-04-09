@@ -136,16 +136,9 @@ def test_verify_files_copy(resource, setup_dirs):
         "verify script" in verify_file_path.read_text()
     ), "verify.sh content is incorrect"
 
-    # Check that verify_files directory and its contents were copied
-    # The destination should now be the tmp directory with the verify_files directory
-    verify_files_dir = tmp_dir / "verify_files"
-
-    # List the contents of tmp_dir to see what's actually there
-    print(f"Contents of tmp_dir: {list(tmp_dir.iterdir())}")
-
-    assert verify_files_dir.exists(), "verify_files directory was not copied"
-    assert verify_files_dir.is_dir(), "verify_files is not a directory"
-
-    helper_file = verify_files_dir / "helper.sh"
-    assert helper_file.exists(), "helper.sh file inside verify_files was not copied"
-    assert "helper script" in helper_file.read_text(), "helper.sh content is incorrect"
+    # Check that verify.sh was copied
+    helper_file_path = tmp_dir / "helper.sh"
+    assert helper_file_path.exists(), "helper.sh file was not copied"
+    assert (
+        "helper script" in helper_file_path.read_text()
+    ), "helper.sh content is incorrect"

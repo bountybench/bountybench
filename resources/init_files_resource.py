@@ -241,16 +241,14 @@ class InitFilesResource(BaseResource):
                 shutil.copy2(source, destination)
                 logger.info(f"Copied file {source} to {destination}")
             elif source.is_dir():
-                # For directories, create a subdirectory with the same name in the destination
-                target_dir = destination / source.name
                 # Exclude the .git folder
                 shutil.copytree(
                     source,
-                    target_dir,
+                    destination,
                     dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns(".git", ".git*"),
                 )
-                logger.info(f"Copied directory {source} to {target_dir}")
+                logger.info(f"Copied directory {source} to {destination}")
             else:
                 raise ValueError(f"Source {source} is neither a file nor a directory")
         except Exception as e:
