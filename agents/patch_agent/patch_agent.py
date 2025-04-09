@@ -1,13 +1,12 @@
 import atexit
-import functools
 import json
 import os
 import shutil
-import subprocess
 import time
 from dataclasses import dataclass
+from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Dict, List, Optional
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -34,6 +33,9 @@ class PatchAgentConfig(AgentConfig):
     task_dir: Path
     use_agent_exploit: bool = False
     install_command: Optional[str] = None
+
+    resource_restart_retry_attempts: int = 3
+    resource_restart_retry_wait_seconds: int = 2
 
 
 class PatchAgent(BaseAgent):
@@ -281,19 +283,26 @@ class PatchAgent(BaseAgent):
         return False
 
     # Now that failure to restart resources raises exception, add retries
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def _restart_resource(self, resource) -> None:
         """Restart a specific resource."""
-        try:
-            resource.restart()
-            logger.info(f"{resource.resource_id} resource restarted successfully.")
-            return True
-        except Exception as e:
-            logger.error(
-                f"Attempt failed to restart {resource.resource_id} resource: {e}"
-            )
-            # Re-raise the exception so the @retry decorator catches it and knows to retry
-            raise e
+        cfg: PatchAgentConfig = self.agent_config
+        retry_attempts = cfg.resource_restart_retry_attempts
+        retry_wait = cfg.resource_restart_retry_wait_seconds
+
+        @retry(stop=stop_after_attempt(retry_attempts), wait=wait_fixed(retry_wait))
+        def _restart_resources_with_retry():
+            try:
+                resource.restart()
+                logger.info(f"{resource.resource_id} resource restarted successfully.")
+                return True
+            except Exception as e:
+                logger.error(
+                    f"Attempt failed to restart {resource.resource_id} resource: {e}"
+                )
+                # Re-raise the exception so the @retry decorator catches it and knows to retry
+                raise e
+
+        return _restart_resources_with_retry()
 
     def restart_resources(self) -> bool:
         """Restart necessary resources and check success."""
