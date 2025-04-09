@@ -33,6 +33,7 @@ class InitFilesResourceConfig(BaseResourceConfig):
     bounty_number: str
     input_exploit_files_dir_name: Optional[str] = None
     input_verify_file_name: Optional[str] = None
+    input_verify_files_dir_name: Optional[str] = "verify_files"
     output_agent_files_name: Optional[str] = None
     vulnerable_commit: Optional[str] = None
 
@@ -78,7 +79,7 @@ class InitFilesResource(BaseResource):
             )
             self.copy_files(self.input_exploit_files_dir, self.tmp_dir)
             self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
-        
+
         self.input_verify_file_name = None
         if self._resource_config.input_verify_file_name:
             self.input_verify_file_name = (
@@ -88,6 +89,27 @@ class InitFilesResource(BaseResource):
                 / self._resource_config.input_verify_file_name
             )
             self.copy_files(self.input_verify_file_name, self.tmp_dir)
+
+        self.input_verify_files_dir = None
+        if self._resource_config.input_verify_files_dir_name:
+            self.input_verify_files_dir = (
+                self.task_dir
+                / "bounties"
+                / f"bounty_{self._resource_config.bounty_number}"
+                / self._resource_config.input_verify_files_dir_name
+            )
+            if (
+                self.input_verify_files_dir.exists()
+                and self.input_verify_files_dir.is_dir()
+            ):
+                self.copy_files(self.input_verify_files_dir, self.tmp_dir)
+                logger.info(
+                    f"Copied verify files directory from {self.input_verify_files_dir} to {self.tmp_dir}"
+                )
+            else:
+                logger.warning(
+                    f"Verify files directory not found at {self.input_verify_files_dir}"
+                )
 
         self.output_agent_files_dir = None
         if self._resource_config.output_agent_files_name:
@@ -219,14 +241,16 @@ class InitFilesResource(BaseResource):
                 shutil.copy2(source, destination)
                 logger.info(f"Copied file {source} to {destination}")
             elif source.is_dir():
+                # For directories, create a subdirectory with the same name in the destination
+                target_dir = destination / source.name
                 # Exclude the .git folder
                 shutil.copytree(
                     source,
-                    destination,
+                    target_dir,
                     dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns(".git", ".git*"),
                 )
-                logger.info(f"Copied directory {source} to {destination}")
+                logger.info(f"Copied directory {source} to {target_dir}")
             else:
                 raise ValueError(f"Source {source} is neither a file nor a directory")
         except Exception as e:
@@ -270,6 +294,11 @@ class InitFilesResource(BaseResource):
                 if self.input_verify_file_name
                 else None
             ),
+            "input_verify_files_dir": (
+                str(self.input_verify_files_dir)
+                if self.input_verify_files_dir
+                else None
+            ),
             "output_agent_files_dir": (
                 str(self.output_agent_files_dir)
                 if self.output_agent_files_dir
@@ -296,6 +325,11 @@ class InitFilesResource(BaseResource):
             input_verify_file_name=(
                 Path(data["input_verify_file_name"]).name
                 if data["input_verify_file_name"]
+                else None
+            ),
+            input_verify_files_dir_name=(
+                Path(data["input_verify_files_dir"]).name
+                if data.get("input_verify_files_dir")
                 else None
             ),
             output_agent_files_dir_name=(
