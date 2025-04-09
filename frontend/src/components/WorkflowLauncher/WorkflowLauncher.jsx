@@ -115,7 +115,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       model: defaultModel ? defaultModel.name : '',
       use_helm: isHelmModel,
       use_mock_model: prev.use_mock_model, // Preserve mock model selection
-      max_output_tokens: defaultModel ? getDefaultMaxOutputTokens(defaultModel ? defaultModel.name : '', isHelmModel).toString() : '',
+      max_output_tokens: getDefaultMaxOutputTokens(defaultModel?.name, isHelmModel).toString(),
     }));
   };
 
@@ -163,7 +163,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         ...prev,
         model: defaultModel ? defaultModel.name : '',
         use_helm: isHelmModel,
-        max_output_tokens: defaultModel ? getDefaultMaxOutputTokens(defaultModel ? defaultModel.name : '', isHelmModel).toString() : ''
+        max_output_tokens: getDefaultMaxOutputTokens(defaultModel?.name, isHelmModel).toString(),
       }));
     } catch (err) {
       setLauncherState({

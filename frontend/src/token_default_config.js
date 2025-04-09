@@ -27,8 +27,8 @@ export const MODEL_DEFAULTS_NON_HELM = {
     "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": 2048, 
     "meta-llama/Meta-Llama-3-70B-Instruct-Turbo": 2048,
     // Together Models (DeepSeek)
-    "deepseek-ai/deepseek-v3": 8192, 
-    "deepseek-ai/deepseek-r1": 8192,
+    "deepseek-ai/deepseek-v3": 32768, 
+    "deepseek-ai/deepseek-r1": 32768,
     // Mistral Models
     "mistralai/mixtral-8x22b-instruct-v0.1": 4096, 
 };
@@ -59,9 +59,9 @@ export const MODEL_DEFAULTS_HELM = {
     "meta/llama-3.1-70b-instruct-turbo": 2048, 
     "meta/llama-3.1-405b-instruct-turbo": 2048, 
     // Together Models (DeepSeek)
-    "deepseek-ai/deepseek-v3": 8192, 
-    "deepseek-ai/deepseek-r1": 8192, 
-    "deepseek-ai/deepseek-r1-hide-reasoning": 8192, 
+    "deepseek-ai/deepseek-v3": 32768, 
+    "deepseek-ai/deepseek-r1": 32768, 
+    "deepseek-ai/deepseek-r1-hide-reasoning": 32768, 
     // Mistral Models
     "mistralai/mistral-large-2407": 4096, 
     "mistralai/mixtral-8x22b": 4096, 
