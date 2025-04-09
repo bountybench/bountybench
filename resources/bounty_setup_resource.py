@@ -44,6 +44,20 @@ class BountySetupResource(BaseSetupResource):
         # Run the setup process
         self.setup()
 
+    def update_work_dir(self, new_work_dir: Path) -> None:
+        """
+        Update the work directory for this resource.
+        Note:
+            This will not restart the resource. Call restart() manually if needed.
+        """
+        if not new_work_dir.exists():
+            raise FileNotFoundError(
+                f"New work directory does not exist: {new_work_dir}"
+            )
+
+        logger.info(f"Updating work_dir from {self.work_dir} to {new_work_dir}")
+        self.work_dir = new_work_dir
+
     def to_dict(self) -> dict:
         """
         Serializes the BountySetupResource state to a dictionary.
@@ -52,10 +66,12 @@ class BountySetupResource(BaseSetupResource):
         base_dict = super().to_dict()
 
         # Add bounty-specific properties
-        base_dict.update({
-            "bounty_dir": str(self.bounty_dir),
-            "bounty_number": self.bounty_number,
-        })
+        base_dict.update(
+            {
+                "bounty_dir": str(self.bounty_dir),
+                "bounty_number": self.bounty_number,
+            }
+        )
 
         return base_dict
 
@@ -74,5 +90,9 @@ class BountySetupResource(BaseSetupResource):
         instance = cls(common_attrs["resource_id"], config)
 
         instance.container_names = common_attrs["container_names"]
+
+        # Override work_dir if it exists in the data
+        if "work_dir" in data:
+            instance.work_dir = Path(data["work_dir"])
 
         return instance
