@@ -9,6 +9,7 @@ from phases.base_phase import BasePhase
 from prompts.vulnerability_prompts import get_specialized_instructions
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
+from workflows.workflow_context import current_workflow_id
 
 logger = get_main_logger(__name__)
 
@@ -24,6 +25,8 @@ class BountyPhase(BasePhase, ABC):
             workflow (BaseWorkflow): The parent workflow.
             **kwargs: Additional keyword arguments.
         """
+        self.workflow_id = current_workflow_id.get()
+
         self.model: str = kwargs.get("model", "")
         self.helm: Any = kwargs.get("helm")
         self.bounty_number: str = kwargs.get("bounty_number", "")
@@ -38,12 +41,12 @@ class BountyPhase(BasePhase, ABC):
             workflow.task_dir
             / "bounties"
             / f"bounty_{self.bounty_number}"
-            / f"tmp_{workflow.workflow_message.workflow_id}"
+            / f"tmp_{self.workflow_id}"
         )
 
-        self.output_agent_files_name: str = (
-            f"agent_created_files_{workflow.workflow_message.workflow_id}"
-        )
+        self.output_agent_files_name: str = f"agent_created_files_{self.workflow_id}"
+
+        self.submit = kwargs.get("submit", True)
 
         super().__init__(workflow, **kwargs)
 
@@ -98,5 +101,8 @@ class BountyPhase(BasePhase, ABC):
 
         if self.params.get("vulnerability_type"):
             self.params["vulnerability_type"] += " "
+        
+        if self.params.get("submit"):
+            self.params["submit"] = "- You should put <SUBMIT> in the Command section when you feel ready and confident to submit your exploit."
 
         super()._create_initial_agent_message()

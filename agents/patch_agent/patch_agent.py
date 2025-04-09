@@ -7,7 +7,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, List, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -23,6 +23,9 @@ from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_re
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
+
+
+INVARIANTS_RETRY = 3
 
 
 @dataclass
@@ -74,11 +77,15 @@ class PatchAgent(BaseAgent):
 
         atexit.register(self.cleanup)
 
-    def _log(self, message: str) -> str:
-        """Helper to append a message to log_history, log it, and return the combined log.
-        Optionally clears the history after returning the combined log."""
+    def _log(self, message: str, level: str = "info") -> str:
+        """
+        Helper to append a message to log_history, log it, and return the combined log.
+        Optionally clears the history after returning the combined log.
+        The logging level could be adjusted (default = "info") by passing in the level string.
+        """
         self.log_history.append(message)
-        logger.info(message)
+        log_method = getattr(logger, level.lower(), logger.info)
+        log_method(message)
         combined = "\n".join(self.log_history)
         return combined
 
@@ -97,7 +104,7 @@ class PatchAgent(BaseAgent):
         # Initialize message state
         prev_agent_message = messages[0]
         self.last_patch_agent_message = PatchAgentMessage(
-            agent_id=self.agent_id, message=None, prev=prev_agent_message
+            agent_id=self.agent_id, prev=prev_agent_message
         )
         self.last_action_message = None
 
@@ -130,15 +137,17 @@ class PatchAgent(BaseAgent):
                 if exit_code == 127:
                     self._log(
                         "exploit.sh not found. "
-                        "Please create this script before the patch can be applied."
+                        "Please create this script before the patch can be applied.",
+                        level="warning",
                     )
                 else:
                     self._log(
                         "Exploit fails before the patch is applied. "
                         "Please fix the exploit.sh script."
-                        f"\nOutput: {output}"
+                        f"\nOutput: {output}",
+                        level="warning",
                     )
-                self._log("Reverting all the changes to the codebase.")
+                self._log("Reverting all the changes to the codebase.", level="warning")
                 return self.update_patch_agent_message(clear=True)
         else:
             # Verify external exploit works before patching
@@ -445,7 +454,7 @@ bash /app/exploit.sh
                 )
                 self.update_patch_agent_message(verify_response)
             except Exception as e:
-                self._log(f"Error running verify.sh: {e}")
+                self._log(f"Error running verify.sh: {e}", level="error")
                 return None
 
             return_val = result.returncode
@@ -478,7 +487,7 @@ bash /app/exploit.sh
                     tmp_dir_diff, self.output_patch_subfolder
                 )
             except Exception as e:
-                self._log(f"Failed to create patch file: {str(e)}")
+                self._log(f"Failed to create patch file: {str(e)}", level="error")
                 return False
 
             if patch_file_path:
@@ -503,59 +512,37 @@ bash /app/exploit.sh
 
     def check_invariant_scores_against_thresholds(
         self,
-        repo_metadata_file: str,
-        bounty_metadata_file: str,
-        repo_invariant_scores: str,
-        bounty_invariant_scores: str,
+        repo_invariant_threshold: Dict,
+        bounty_invariant_threshold: Dict,
+        repo_invariant_scores: Dict,
+        bounty_invariant_scores: Optional[Dict] = None,
     ) -> bool:
         """
         Check invariant scores against thresholds defined in metadata files.
 
         Args:
-            repo_metadata_file: Repo metadata file
-            bounty_metadata_file: Bounty metadata file - potentially has empty scores
-            repo_invariant_scores: Repo scores file
-            bounty_invariant_scores: Bounty scores file - this file may not exist
+            repo_invariant_threshold: Repo invariant thresholds file
+            bounty_invariant_threshold: Bounty invariant thresholds - potentially empty
+            repo_invariant_scores: Repo invariant scores
+            bounty_invariant_scores: Bounty invariant scores - potentially empty
         """
         try:
-            # Load scores and metadata JSON files
-            repo_scores = {}
-            bounty_scores = {}
-            repo_metadata = {}
-            bounty_metadata = {}
-
-            if repo_invariant_scores.exists():
-                repo_scores = json.loads(repo_invariant_scores.read_text())
-                logger.info(f"Repo invariant scores: {repo_scores}")
-
-            if bounty_invariant_scores.exists():
-                bounty_scores = json.loads(bounty_invariant_scores.read_text())
-                logger.info(f"Bounty invariant scores: {bounty_scores}")
-
-            if repo_metadata_file.exists():
-                repo_metadata = json.loads(repo_metadata_file.read_text())
-
-            if bounty_metadata_file.exists():
-                bounty_metadata = json.loads(bounty_metadata_file.read_text())
-
-            if "invariant_thresholds" not in repo_metadata:
-                logger.error("Missing invariant thresholds - failing invariant check")
+            if not repo_invariant_threshold:
+                logger.error(
+                    "Missing repo invariant thresholds - failing invariant check"
+                )
                 return False
 
-            bounty_thresholds = {}
-            if bounty_metadata and "invariant_thresholds" in bounty_metadata:
-                bounty_thresholds = bounty_metadata["invariant_thresholds"]
+            thresholds = repo_invariant_threshold.copy()
+            thresholds.update(bounty_invariant_threshold)
 
-            thresholds = repo_metadata.get("invariant_thresholds", {}).copy()
-            thresholds.update(bounty_thresholds)
-
-            if "invariant_scores" not in repo_scores:
+            if not repo_invariant_scores:
                 logger.error("Missing repo invariant scores - failing invariant check")
                 return False
 
-            scores = repo_scores.get("invariant_scores", {}).copy()
-            if bounty_scores and "invariant_scores" in bounty_scores:
-                scores.update(bounty_scores.get("invariant_scores", {}))
+            scores = repo_invariant_scores.copy()
+            if bounty_invariant_scores:
+                scores.update(bounty_invariant_scores)
 
             errors = []
             for invariant_name, threshold in thresholds.items():
@@ -590,85 +577,79 @@ bash /app/exploit.sh
         """
         self._log("Running invariant tests on patched codebase")
 
-        # Try with original tests first
-        repo_scores_path, bounty_scores_path = await self._execute_invariant_tests()
+        repo_invariant_threshold = {}
+        bounty_invariant_threshold = {}
 
         # Load metadata files for threshold checking
         repo_metadata_path = self.task_dir / "metadata.json"
         bounty_metadata_path = self.bounty_dir / "bounty_metadata.json"
 
-        # Evaluate if original tests passed
-        original_passed = self.check_invariant_scores_against_thresholds(
-            repo_metadata_path,
-            bounty_metadata_path,
-            repo_scores_path,
-            bounty_scores_path,
-        )
+        if repo_metadata_path.exists():
+            repo_metadata = json.loads(repo_metadata_path.read_text())
+            repo_invariant_threshold = repo_metadata.get(
+                "invariant_thresholds", {}
+            ).copy()
 
-        # Load original scores
-        original_repo_scores = self._load_json_file(repo_scores_path).get(
-            "invariant_scores", {}
-        )
-        original_bounty_scores = self._load_json_file(bounty_scores_path).get(
-            "invariant_scores", {}
-        )
+        if bounty_metadata_path.exists():
+            bounty_metadata = json.loads(bounty_metadata_path.read_text())
+            bounty_invariant_threshold = bounty_metadata.get(
+                "invariant_thresholds", {}
+            ).copy()
 
-        # Initialize final results
-        passed = original_passed
+        any_passed = False
 
-        self.last_patch_agent_message.add_repo_invariant_score(
-            {"invariant_scores": original_repo_scores}
-        )
-        self.last_patch_agent_message.add_bounty_invariant_score(
-            {"invariant_scores": original_bounty_scores}
-        )
+        # --- Run original tests first ---
+        for attempt in range(INVARIANTS_RETRY):
+            self._log(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
 
-        # Clean up score files
-        self._cleanup_files([repo_scores_path, bounty_scores_path])
+            # Try with original tests first
+            original_repo_scores, original_bounty_scores = (
+                await self._execute_invariant_tests()
+            )
 
-        # If original tests failed, try with patched unit tests
-        if not original_passed:
-            logger.info("Original tests failed, trying with patched unit tests.")
-            if self.apply_patched_unit_tests():
-                logger.info(
-                    "Unit test patches applied successfully. Running patched invariant checks."
-                )
+            # Evaluate if original tests passed
+            original_passed = self.check_invariant_scores_against_thresholds(
+                repo_invariant_threshold,
+                bounty_invariant_threshold,
+                original_repo_scores,
+                original_bounty_scores,
+            )
+
+            # Update any_passed if this attempt succeeded
+            if original_passed:
+                any_passed = True
+
+        # --- Now run patched unit tests (if any) ---
+        if self.apply_patched_unit_tests():
+            logger.info(
+                "Unit test patches applied successfully. Running patched invariant checks."
+            )
+
+            for attempt in range(INVARIANTS_RETRY):
+                self._log(f"[Patched] Attempt {attempt + 1} of {INVARIANTS_RETRY}")
+
                 # Run with patched unit tests
-                alt_repo_scores_path, alt_bounty_scores_path = (
+                alt_repo_scores, alt_bounty_scores = (
                     await self._execute_invariant_tests()
                 )
 
                 # Evaluate if patched tests passed
                 alt_passed = self.check_invariant_scores_against_thresholds(
-                    repo_metadata_path,
-                    bounty_metadata_path,
-                    alt_repo_scores_path,
-                    alt_bounty_scores_path,
+                    repo_invariant_threshold,
+                    bounty_invariant_threshold,
+                    alt_repo_scores,
+                    alt_bounty_scores,
                 )
 
-                # Load alternative scores
-                alt_repo_scores = self._load_json_file(alt_repo_scores_path).get(
-                    "invariant_scores", {}
-                )
-                alt_bounty_scores = self._load_json_file(alt_bounty_scores_path).get(
-                    "invariant_scores", {}
-                )
+                # Update any_passed if alt tests succeeded
+                if alt_passed:
+                    any_passed = True
+        else:
+            logger.info(
+                "No unit test patches applied. Skipping patched invariant tests."
+            )
 
-                self.last_patch_agent_message.add_repo_invariant_score(
-                    {"invariant_scores": alt_repo_scores}
-                )
-                self.last_patch_agent_message.add_bounty_invariant_score(
-                    {"invariant_scores": alt_bounty_scores}
-                )
-
-                passed = alt_passed
-
-                # Clean up alternative score files
-                self._cleanup_files([alt_repo_scores_path, alt_bounty_scores_path])
-            else:
-                logger.info("No unit test patches found. Skipping.")
-
-        return passed
+        return any_passed
 
     def _truncate_script_output(
         self, stdout: str, stderr: Optional[str] = "", max_length: int = 5000
@@ -727,7 +708,7 @@ bash /app/exploit.sh
             f"{truncation_indicator}{truncated_stdout}{stderr_prefix}{truncated_stderr}"
         )
 
-    async def _execute_invariant_tests(self) -> tuple[Path, Path]:
+    async def _execute_invariant_tests(self) -> tuple[Dict, Optional[Dict]]:
         """
         Execute invariant test scripts.
         Returns paths to the generated score files.
@@ -752,6 +733,11 @@ bash /app/exploit.sh
                 work_dir=self.task_dir,
             )
 
+            repo_scores = self._load_json_file(repo_scores_path).get(
+                "invariant_scores", {}
+            )
+            self._cleanup_files([repo_scores_path])
+
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
                 message=self._truncate_script_output(
@@ -759,6 +745,7 @@ bash /app/exploit.sh
                 ),
                 command=f"./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
+                additional_metadata={"repo_invariant_scores": repo_scores},
                 prev=self.last_action_message,
             )
             self.update_patch_agent_message(repo_invariants_response)
@@ -779,6 +766,11 @@ bash /app/exploit.sh
                 work_dir=self.bounty_dir,
             )
 
+            bounty_scores = self._load_json_file(bounty_scores_path).get(
+                "invariant_scores", {}
+            )
+            self._cleanup_files([bounty_scores_path])
+
             bounty_invariants_response = ScriptActionMessage(
                 resource_id=f"bounty_invariants_subprocess",
                 message=self._truncate_script_output(
@@ -786,13 +778,14 @@ bash /app/exploit.sh
                 ),
                 command=f"./run_bounty_invariants.sh",
                 exit_code=bounty_result.returncode,
+                additional_metadata={"bounty_invariant_scores": bounty_scores},
                 prev=self.last_action_message,
             )
             self.update_patch_agent_message(bounty_invariants_response)
 
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
 
-            return repo_scores_path, bounty_scores_path
+            return repo_scores, bounty_scores
 
         except Exception as e:
             logger.error(f"Error executing invariant tests: {e}")

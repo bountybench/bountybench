@@ -1,11 +1,11 @@
 from messages.agent_messages.agent_message import AgentMessage
 
 
-class ExploitAgentMessage(AgentMessage):
+class DetectAgentMessage(AgentMessage):
     def __init__(
         self,
         agent_id: str,
-        message: str = None,
+        message: str,
         success: bool = False,
         prev: AgentMessage = None,
     ) -> None:

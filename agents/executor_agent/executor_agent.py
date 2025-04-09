@@ -2,7 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import List, Optional
 
-from agents.base_agent import AgentConfig, BaseAgent
+from agents.base_agent import AgentConfig, BaseAgent, IterationFailure
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.command_message_interface import CommandMessageInterface
@@ -62,7 +62,19 @@ class ExecutorAgent(BaseAgent):
             agent_id=self.agent_id, prev=prev_agent_message
         )
 
-        await self.execute(self.last_executor_agent_message, prev_agent_message)
+        try:
+            await self.execute(self.last_executor_agent_message, prev_agent_message)
+        except Exception as e:
+            agent_message_str = self.last_executor_agent_message.message or ""
+            self.last_executor_agent_message.set_message(
+                f"{agent_message_str}.\nExecutor agent iteration failed\n\n{str(e)}"
+            )
+
+            # Wrap and raise custom exception that carries the agent message
+            raise IterationFailure(
+                message=f"agent.execute failed: {str(e)}",
+                agent_message=self.last_executor_agent_message,
+            ) from e
 
         return self.last_executor_agent_message
 
@@ -80,6 +92,18 @@ class ExecutorAgent(BaseAgent):
 
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
+            # Note: can adjust the check condition later
+            if "submit" in model_action_message.command:
+                # Note: create an empty action message to protect the memory resource
+                empty_action_message = ActionMessage(
+                    resource_id="submission",
+                    message="",
+                    prev=model_action_message,
+                )
+                agent_message.add_child_message(empty_action_message)
+                agent_message.set_submission(value=True)
+                return
+
             kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
                 return
@@ -89,8 +113,7 @@ class ExecutorAgent(BaseAgent):
             agent_message.set_message(
                 "Model did not return a valid command. Kali Linux action skipped."
             )
-
-        return model_action_message
+            raise
 
     async def call_lm(
         self, lm_input_message: Optional[Message] = None
@@ -103,13 +126,10 @@ class ExecutorAgent(BaseAgent):
         Uses a 5-minute timeout for the LLM call.
         """
         iterations = 0
-        # 5-minute timeout in seconds
-        LLM_TIMEOUT = 300
 
         last_raw_response = None  # Store the last raw response in case parsing fails
         error_history = []  # Track error history across retries
 
-        start_progress(f"Getting response from LM")
         try:
             iterations = 0
             while iterations < MAX_RETRIES:
@@ -117,28 +137,28 @@ class ExecutorAgent(BaseAgent):
                     lm_input_message = self.resources.executor_agent_memory.get_memory(
                         lm_input_message
                     )
-                    # Add 5-minute timeout to the LLM call
-                    model_output: ActionMessage = await asyncio.wait_for(
-                        asyncio.to_thread(
-                            self.resources.model.run, input_message=lm_input_message
-                        ),
-                        timeout=LLM_TIMEOUT,
+
+                    logger.info(f"Getting response from LM")
+                    model_output: ActionMessage = await asyncio.to_thread(
+                        self.resources.model.run,
+                        input_message=lm_input_message,
                     )
+
                     last_raw_response = model_output
                     if error_history:
                         last_raw_response.add_to_additional_metadata(
                             "error_history", error_history
                         )
-                except asyncio.TimeoutError:
+                except asyncio.TimeoutError as e:
                     error_entry = {
                         "type": "TimeoutError",
-                        "message": f"LLM call timed out after {LLM_TIMEOUT} seconds",
+                        "message": f"LLM call timed out: {str(e)}",
                         "attempt": iterations + 1,
                     }
                     error_history.append(error_entry)
 
                     logger.warning(
-                        f"LLM call timed out after {LLM_TIMEOUT} seconds. Retrying {iterations + 1}/{MAX_RETRIES}"
+                        f"LLM call timed out: {str(e)}. Retrying {iterations + 1}/{MAX_RETRIES}"
                     )
                     iterations += 1
                     continue
@@ -156,16 +176,6 @@ class ExecutorAgent(BaseAgent):
                     if hasattr(e, "status_code"):
                         status_code = e.status_code
                         error_entry["status_code"] = status_code
-
-                        # Client errors (4xx) should not be retried (except invalid prompts)
-                        if (
-                            400 <= status_code < 500
-                            and "Invalid prompt" not in error_msg
-                        ):
-                            error_history.append(error_entry)
-                            raise Exception(
-                                f"Non-retryable API error (HTTP {status_code}): {error_msg}"
-                            )
 
                     # Also don't retry quota errors
                     if "No quota" in error_msg or "InsufficientQuotaError" in error_msg:
@@ -222,10 +232,7 @@ class ExecutorAgent(BaseAgent):
             )
             self.last_executor_agent_message.add_child_message(model_failure_message)
 
-            raise  # Re-raise the exception after logging it, we will save error, but end workflow
-
-        finally:
-            stop_progress()
+            raise
 
     def parse_response(self, action_message: ActionMessage) -> ActionMessage:
         """
@@ -237,8 +244,8 @@ class ExecutorAgent(BaseAgent):
             return command_message
 
         except Exception as e:
+            logger.warning(f"Could not parse response as CommandMessage. Error: {e}")
             logger.info(f"LM responded with: {action_message.message}")
-            logger.debug(f"Could not parse response as CommandMessage. Error: {e}")
             return action_message
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
@@ -248,7 +255,6 @@ class ExecutorAgent(BaseAgent):
         """
         try:
             kali_message = self.resources.kali_env.run(executor_message)
-
             return kali_message
 
         except Exception as e:
@@ -256,12 +262,14 @@ class ExecutorAgent(BaseAgent):
             logger.exception(
                 f"Failed to execute command: {executor_message.command}.\nException: {str(e)}"
             )
-            return ErrorActionMessage(
+            kali_failure_message = ErrorActionMessage(
                 resource_id=self.resources.kali_env.resource_id,
                 message=str(e),
                 error_type=exception_type,
                 prev=executor_message,
             )
+            self.last_executor_agent_message.add_child_message(kali_failure_message)
+            raise
 
     def to_dict(self) -> dict:
         """

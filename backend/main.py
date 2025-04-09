@@ -10,6 +10,8 @@ from utils.websocket_manager import WebSocketManager, websocket_manager
 from workflows.detect_patch_workflow import DetectPatchWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
+from workflows.detect_workflow import DetectWorkflow
+from workflows.exploit_workflow import ExploitWorkflow
 
 
 def create_app(
@@ -25,6 +27,8 @@ def create_app(
             "Detect Patch Workflow": DetectPatchWorkflow,
             "Exploit Patch Workflow": ExploitPatchWorkflow,
             "Patch Workflow": PatchWorkflow,
+            "Detect Workflow": DetectWorkflow,
+            "Exploit Workflow": ExploitWorkflow
         }
 
     # Determine the execution backend type

@@ -9,12 +9,13 @@ class AgentMessage(Message):
     def __init__(
         self,
         agent_id: str,
-        message: Optional[str] = "",
+        message: Optional[str] = None,
         prev: "AgentMessage" = None,
     ) -> None:
-        self._message = message
+        self._message = message or ""
         self._iteration = None
         self._iteration_time_ms = None
+        self._complete = False
         self._agent_id = agent_id
         self._action_messages = []
         self._memory = None
@@ -51,6 +52,13 @@ class AgentMessage(Message):
         for AgentMessage and its subclasses.
         """
         return "AgentMessage"
+
+    @property
+    def complete(self) -> bool:
+        return self._complete
+
+    def set_complete(self):
+        self._complete = True
 
     @property
     def agent_id(self) -> str:
@@ -112,6 +120,7 @@ class AgentMessage(Message):
                 for action_message in self.current_children
             ],
             "iteration": self.iteration,
+            "iteration_time_ms": self.iteration_time_ms,
         }
         broadcast_dict.update(base_dict)
         return broadcast_dict
@@ -129,7 +138,9 @@ class AgentMessage(Message):
                 if self.action_messages
                 else None
             ),
+            "iteration": self.iteration,
             "iteration_time_ms": self.iteration_time_ms,
+            "complete": self.complete,
         }
         log_dict.update(base_dict)
         return log_dict

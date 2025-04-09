@@ -65,6 +65,10 @@ class WorkflowMessage(Message):
         self._codebase_version = git_get_codebase_version()
         super().__init__()
 
+    def _set_parent_from_context(self):
+        # WorkflowMessage is the top-level message, so it doesn't have a parent.
+        return
+
     @property
     def success(self) -> bool:
         return self._success

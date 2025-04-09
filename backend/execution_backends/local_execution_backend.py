@@ -62,7 +62,9 @@ class LocalExecutionBackend(ExecutionBackend):
                 "status": "initializing",
             }
         except Exception as e:
-            return {"error": str(e)}
+            error_traceback = traceback.format_exc()
+            print(f"Error starting workflow: {str(e)}\n{error_traceback}")
+            return {"error": str(e), "traceback": error_traceback}
 
     async def stop_workflow(self, workflow_id: str) -> Dict[str, Any]:
         """
@@ -538,7 +540,9 @@ class LocalExecutionBackend(ExecutionBackend):
 
             return {"message": f"Configuration saved successfully to {file_path}"}
         except Exception as e:
-            return {"error": str(e)}
+            error_traceback = traceback.format_exc()
+            print(f"Error saving config file: {str(e)}\n{error_traceback}")
+            return {"error": str(e), "traceback": error_traceback}
 
     async def _run_workflow(self, workflow_id: str, websocket_manager, should_exit):
         """

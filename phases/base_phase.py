@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
-from agents.base_agent import AgentConfig, BaseAgent
+from agents.base_agent import AgentConfig, BaseAgent, IterationFailure
 from messages.agent_messages.agent_message import AgentMessage
 from messages.message import Message
 from messages.message_utils import log_message
@@ -206,14 +206,11 @@ class BasePhase(ABC):
             )
             raise
 
-    async def run(
-        self, workflow_message: WorkflowMessage, prev_phase_message: PhaseMessage
-    ) -> PhaseMessage:
+    async def run(self, prev_phase_message: PhaseMessage) -> PhaseMessage:
         """
         Execute the phase by running its iterations.
 
         Args:
-            workflow_message (WorkflowMessage): The current workflow message.
             prev_phase_message (PhaseMessage): The message from the previous phase.
 
         Returns:
@@ -233,7 +230,6 @@ class BasePhase(ABC):
                 phase_idx=self.phase_config.phase_idx,
                 prev=prev_phase_message,
             )
-            workflow_message.add_child_message(self._phase_message)
 
             self._initialize_last_agent_message(prev_phase_message)
 
@@ -286,29 +282,52 @@ class BasePhase(ABC):
                     "Interactive mode is set, but workflow doesn't have next_iteration_queue"
                 )
 
-    async def _run_iteration(self) -> Message:
+    async def _run_iteration(self) -> None:
         """Run a single iteration based on last message."""
         iteration = self.get_current_iteration()
         agent_id, agent_instance = self._get_current_agent()
         logger.info(f"Running iteration {iteration} of {self.name} with {agent_id}")
 
         start_time = time.time()
-        agent_message: AgentMessage = await self.run_one_iteration(
-            phase_message=self._phase_message,
-            agent_instance=agent_instance,
-            previous_output=self._last_agent_message,
-        )
-        iteration_time = time.time() - start_time
-        iteration_time_ms = iteration_time * 1000
-        agent_message.set_iteration(iteration)
-        agent_message.set_iteration_time_ms(iteration_time_ms)
 
-        await self.set_last_agent_message(agent_message)
-        self._phase_message.add_child_message(agent_message)
+        agent_message = None
+        try:
+            agent_message: AgentMessage = await self.run_one_iteration(
+                phase_message=self._phase_message,
+                agent_instance=agent_instance,
+                previous_output=self._last_agent_message,
+            )
+            agent_message.set_complete()
+            logger.info(
+                f"Finished iteration {iteration} of {self.name} with {agent_id}"
+            )
+        except IterationFailure as e:
+            agent_message = e.agent_message
+            logger.error(f"Iteration {iteration} failed: {str(e)}")
+            await self._pause_phase()
+        except Exception as e:
+            logger.exception("Unexpected error during iteration")
+            await self._pause_phase()
+        finally:
+            if agent_message:
+                iteration_time = time.time() - start_time
+                iteration_time_ms = iteration_time * 1000
+                agent_message.set_iteration(iteration)
+                agent_message.set_iteration_time_ms(iteration_time_ms)
 
-        logger.info(f"Finished iteration {iteration} of {self.name} with {agent_id}")
+                await self.set_last_agent_message(agent_message)
+                self._phase_message.add_child_message(agent_message)
 
-        return agent_message
+    async def _pause_phase(self) -> None:
+        """Pause the phase if an iteration fails."""
+        await self.set_interactive_mode(True)
+        # Clear any outstanding next_iteration calls
+        if hasattr(self.workflow, "next_iteration_queue"):
+            logger.info("Clearing next iteration queue")
+            while not self.workflow.next_iteration_queue.empty():
+                await self.workflow.next_iteration_queue.get()
+
+        logger.info(f"Phase {self.name} paused due to error.")
 
     def _finalize_phase(self) -> None:
         """Finalize the phase by setting the summary and deallocating resources."""

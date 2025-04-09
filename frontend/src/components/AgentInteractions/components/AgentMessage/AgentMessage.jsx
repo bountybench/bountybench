@@ -12,7 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { CopyButton } from '../buttons/CopyButton';
 
-const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion, iteration }) => {
+const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message?.message || '');
@@ -227,9 +227,9 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
           <Box className="agent-message-header">
             <Box className="agent-title">
               <Typography className="agent-name">{message.agent_id.toUpperCase()}</Typography>
-              {message.agent_id.toUpperCase() !== 'SYSTEM' && iteration && (
+              {message.agent_id.toUpperCase() !== 'SYSTEM' && Number.isInteger(message.iteration) && message.iteration >= 0 && (
                 <Typography className="message-timestamp">
-                  Iteration {iteration}  |
+                  Iteration {message.iteration}  |
                 </Typography>
               )}
               {message.timestamp && (
@@ -299,34 +299,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                   ))}
               </Box>
             )}
-            
-            {message.repo_invariant_scores?.invariant_scores && (
-              <Box className="agent-summary">
-                <Typography className="invariant-scores">
-                  Repo Invariant Scores:
-                </Typography>
-                {Object.entries(message.repo_invariant_scores.invariant_scores).map(([key, value]) => (
-                  <Typography key={key} component="div" className="invariant-scores-item">
-                    {key}: {value}
-                  </Typography>
-                ))}
-              </Box>
-            )}
 
-            {message.bounty_invariant_scores?.invariant_scores && 
-              Object.keys(message.bounty_invariant_scores.invariant_scores).length > 0 ? (
-                <Box className="agent-summary">
-                  <Typography className="invariant-scores">
-                    Bounty Invariant Scores:
-                  </Typography>
-                  {Object.entries(message.bounty_invariant_scores.invariant_scores).map(([key, value]) => (
-                    <Typography key={key} component="div" className="invariant-scores-item">
-                      {key}: {value}
-                    </Typography>
-                  ))}
-                </Box>
-              ) : null
-            }
             {getMessageButtons()} 
           </Collapse>
         </CardContent>

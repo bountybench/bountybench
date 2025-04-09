@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Optional
 
 import tiktoken
 
@@ -38,6 +38,7 @@ class ModelResourceConfig(BaseResourceConfig):
     temperature: float = field(default=0.5)
     stop_sequences: List[str] = field(default_factory=lambda: [])
     use_mock_model: bool = field(default=False)
+    timeout: float = field(default=300.0)
 
     @classmethod
     def create(cls, **kwargs):
@@ -80,6 +81,7 @@ class ModelResource(RunnableBaseResource):
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
         self.use_mock_model = self._resource_config.use_mock_model
+        self.timeout = self._resource_config.timeout
         if not self.use_mock_model:
             self.model_provider: ModelProvider = self.get_model_provider()
 
@@ -217,6 +219,7 @@ class ModelResource(RunnableBaseResource):
             temperature=self.temperature,
             max_tokens=self.max_output_tokens,
             stop_sequences=self.stop_sequences,
+            timeout=self.timeout,
         )
 
         lm_response = self.remove_hallucinations(model_response.content)

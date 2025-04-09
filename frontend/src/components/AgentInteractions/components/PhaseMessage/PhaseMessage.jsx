@@ -163,7 +163,6 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     selectedCellId={selectedCellId}
                     onCellSelect={onCellSelect}
                     onToggleVersion={onToggleVersion}
-                    iteration={index}
                   />
                 ))}
               </Box>
