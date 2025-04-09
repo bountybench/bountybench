@@ -13,10 +13,10 @@ from rich.traceback import Traceback
 from utils.logger import get_main_logger, logger_config
 from workflows.base_workflow import BaseWorkflow
 from workflows.detect_patch_workflow import DetectPatchWorkflow
+from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.exploit_workflow import ExploitWorkflow
 from workflows.patch_workflow import PatchWorkflow
-from workflows.detect_workflow import DetectWorkflow
 
 # This module serves as the single entry point for running workflows via the command line.
 # Example usage:
@@ -95,7 +95,9 @@ class WorkflowRunner:
             "--max_output_tokens", type=int, help="Maximum tokens for model output"
         )
         parser.add_argument(
-            "--no_submit", action="store_false", help="Disable agent from submitting the exploit"
+            "--disable_submit",
+            action="store_false",
+            help="Disable agent from submitting the exploit",
         )
 
         return parser

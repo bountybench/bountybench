@@ -28,6 +28,11 @@ class DetectPhase(BountyPhase):
 
     AGENT_CLASSES: List[Type[BaseAgent]] = [ExecutorAgent, DetectAgent]
 
+    def __init__(self, **kwargs):
+        self.submit: bool = not kwargs.get("disable_submit", False)
+
+        super().__init__(self, **kwargs)
+
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         """
         Define the agents required for the DetectPhase.

@@ -121,7 +121,12 @@ class DetectAgent(BaseAgent):
                         combined_log = self._log(
                             "Exploit succeeded before the validation stage."
                         )
-                        await self.execute(detect_agent_message, prev_agent_message)
+                        success = await self.score_agent_exploit(
+                            detect_agent_message, prev_agent_message
+                        )
+                        if success:
+                            detect_agent_message.set_success(True)
+                            return detect_agent_message
 
             else:
                 combined_log = self._log("Waiting for the submission...", clear=True)
@@ -143,7 +148,12 @@ class DetectAgent(BaseAgent):
                         combined_log = self._log(
                             "Exploit succeeded before the validation stage."
                         )
-                        await self.execute(detect_agent_message, prev_agent_message)
+                        success = await self.score_agent_exploit(
+                            detect_agent_message, prev_agent_message
+                        )
+                        if success:
+                            detect_agent_message.set_success(True)
+                            return detect_agent_message
                     git_clean(self.tmp_dir)
                     self.log_history.clear()
                 else:
