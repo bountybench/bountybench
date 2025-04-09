@@ -430,7 +430,7 @@ class KaliEnvResource(RunnableBaseResource):
                 stop_event.set()
                 logger.warning(f"Exec command timed out after {timeout} seconds")
                 return "", f"Timeout after {timeout} seconds"
-            time.sleep(1)
+            time.sleep(10)
 
         stop_event.set()
         stream_thread.join(timeout=5)
