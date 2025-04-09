@@ -20,6 +20,7 @@ import './WorkflowLauncher.css';
 import { SaveConfigDialog } from './SaveConfigDialog';
 import { TaskSelectionSection } from './TaskSelectionSection';
 import { ModelSelectionSection } from './ModelSelectionSection';
+import { getDefaultMaxOutputTokens } from '../../token_default_config';
 
 import { API_BASE_URL } from '../../config';
 
@@ -114,6 +115,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       model: defaultModel ? defaultModel.name : '',
       use_helm: isHelmModel,
       use_mock_model: prev.use_mock_model, // Preserve mock model selection
+      max_output_tokens: getDefaultMaxOutputTokens(defaultModel?.name, isHelmModel).toString(),
     }));
   };
 
@@ -160,7 +162,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setFormData(prev => ({
         ...prev,
         model: defaultModel ? defaultModel.name : '',
-        use_helm: isHelmModel
+        use_helm: isHelmModel,
+        max_output_tokens: getDefaultMaxOutputTokens(defaultModel?.name, isHelmModel).toString(),
       }));
     } catch (err) {
       setLauncherState({
@@ -314,6 +317,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setFormData((prev) => ({
         ...prev,
         [name]: name === 'interactive' ? checked : value,
+        ...(name === 'model' ? {max_output_tokens: getDefaultMaxOutputTokens(value, prev.use_helm).toString() }: {}),
         ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
       }));
     }
