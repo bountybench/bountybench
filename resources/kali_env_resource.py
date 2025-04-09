@@ -171,7 +171,7 @@ class KaliEnvResource(RunnableBaseResource):
         try:
             with timeout_context(timeout):
                 if not tty:
-                    return self._run_non_tty_command(command, workdir)
+                    return self._run_non_tty_command(command, timeout, workdir)
                 else:
                     return self._run_tty_command(command, workdir)
 
@@ -391,33 +391,55 @@ class KaliEnvResource(RunnableBaseResource):
         except Exception as e:
             logger.error(f"Error cleaning up tmp files: {e}")
 
-    def _run_non_tty_command(
-        self, command: str, workdir: Optional[str] = None
-    ) -> Tuple[str, str]:
+    def _run_non_tty_command(self, command: str, timeout: int, workdir: Optional[str] = None) -> Tuple[str, str]:
         exec_id = self.create_exec(command, workdir, tty=False)
         output_stream = self.client.api.exec_start(exec_id, stream=True, demux=True)
 
         stdout_chunks = []
         stderr_chunks = []
+        stop_event = threading.Event()
 
-        for stdout, stderr in output_stream:
-            if stdout:
-                text = get_stdout_text(stdout)
-                print(text, end="")
-                stdout_chunks.append(text)
-            if stderr:
-                text = get_stdout_text(stderr)
-                print(
-                    f"{YELLOW}{text}{RESET}", end="", file=sys.stderr
-                )  # colored stderr
-                stderr_chunks.append(text)
+        def stream_output():
+            try:
+                for stdout, stderr in output_stream:
+                    if stop_event.is_set():
+                        break
+                    if stdout:
+                        text = get_stdout_text(stdout)
+                        print(text, end="")
+                        stdout_chunks.append(text)
+                    if stderr:
+                        text = get_stdout_text(stderr)
+                        print(f"{YELLOW}{text}{RESET}", end="", file=sys.stderr)
+                        stderr_chunks.append(text)
+            except Exception as e:
+                logger.warning(f"Exec stream closed: {e}")
+
+        stream_thread = threading.Thread(target=stream_output, daemon=True)
+        stream_thread.start()
+
+        # Wait for the exec to finish (poll-based workaround)
+        exec_inspect = self.client.api.exec_inspect
+        start_time = time.time()
+
+        while True:
+            exec_info = exec_inspect(exec_id)
+            if not exec_info["Running"]:
+                break
+            if time.time() - start_time > timeout:  
+                stop_event.set()
+                logger.warning(f"Exec command timed out after {timeout} seconds")
+                return "", f"Timeout after {timeout} seconds"
+            time.sleep(1)
+
+        stop_event.set()
+        stream_thread.join(timeout=5)
 
         stdout_text = "".join(stdout_chunks)
         stderr_text = "".join(stderr_chunks)
 
-        logger.info(f"Command executed successfully in [line-mode].")
         return stdout_text, stderr_text
-
+    
     def _run_tty_command(self, command: str, workdir: Optional[str]) -> Tuple[str, str]:
         if not self.socket:
             self._initialize_tty_socket(workdir)
