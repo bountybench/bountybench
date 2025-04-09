@@ -438,6 +438,7 @@ class KaliEnvResource(RunnableBaseResource):
         stdout_text = "".join(stdout_chunks)
         stderr_text = "".join(stderr_chunks)
 
+        logger.info(f"Command executed successfully in [line-mode].")
         return stdout_text, stderr_text
     
     def _run_tty_command(self, command: str, workdir: Optional[str]) -> Tuple[str, str]:
