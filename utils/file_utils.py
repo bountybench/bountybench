@@ -5,7 +5,7 @@ from pathlib import Path
 
 logger = get_main_logger(__name__)
 
-def apply_exploit_patch(bounty_dir: Path, task_dir: Path) -> bool:
+def apply_patch_to_bounty(bounty_dir: Path, task_dir: Path) -> bool:
     """
     Copy patches from bounty metadata.
 
