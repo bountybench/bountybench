@@ -391,7 +391,7 @@ class KaliEnvResource(RunnableBaseResource):
         except Exception as e:
             logger.error(f"Error cleaning up tmp files: {e}")
 
-    def _run_non_tty_command(self, command: str, timeout: int = TIMEOUT_PER_COMMAND, workdir: Optional[str] = None) -> Tuple[str, str]:
+    def _run_non_tty_command(self, command: str, timeout: int, workdir: Optional[str] = None) -> Tuple[str, str]:
         exec_id = self.create_exec(command, workdir, tty=False)
         output_stream = self.client.api.exec_start(exec_id, stream=True, demux=True)
 
