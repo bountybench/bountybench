@@ -543,8 +543,6 @@ def prepare_git_directory(dest_git_path):
 
 def initialize_git_repository(destination):
     """Initialize a new Git repository at the destination."""
-    import subprocess
-
     subprocess.run(
         ["git", "init"],
         cwd=str(destination),
