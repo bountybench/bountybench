@@ -562,8 +562,6 @@ def delete_git_branches(destination, exclude_branches=None):
     Returns:
         List of successfully deleted branch names
     """
-    import subprocess
-    
     if exclude_branches is None:
         exclude_branches = []
     
@@ -618,8 +616,6 @@ def cleanup_git_branches(destination):
     Args:
         destination: Path to the Git repository
     """
-    import subprocess
-
     try:
         # Delete all branches except main
         deleted_branches = delete_git_branches(destination, exclude_branches=[])
