@@ -21,8 +21,8 @@ EXPLOIT_SCRIPT_NAME = "exploit.sh"
 VERIFY_SCRIPT_NAME = "verify.sh"
 
 
-
 workflow_id = "1"
+
 
 @dataclass
 class EnvPath:
@@ -56,6 +56,7 @@ class EnvPath:
     CODEBASE_FILES_DIR: Path = Path()
     TMP_CODEBASE_FILES_DIR: Path = Path()
     VERIFY_SCRIPT_DIR: Path = Path()
+    VERIFY_FILES_DIR: Path = Path()
     TMP_EXPLOIT_SCRIPT_DIR: Path = Path()
     EXPLOIT_FILES_DIR: Path = Path()
     AGENT_PATCHES_DIR: Path = Path()
@@ -76,7 +77,6 @@ class EnvPath:
         Initializes all paths dynamically using the provided repo_name and bounty_number.
         """
 
-        
         task_dir = Path("bountybench") / repo_name
         bounty_dir = task_dir / "bounties" / f"bounty_{bounty_number}"
         tmp_dir = (
@@ -85,6 +85,7 @@ class EnvPath:
         codebase_files_dir = task_dir / codebase_files_dir_name
         tmp_codebase_files_dir = tmp_dir / codebase_files_dir_name
         verify_script_dir = bounty_dir / VERIFY_SCRIPT_NAME
+        verify_files_dir = bounty_dir / "verify_files"
         tmp_exploit_script_dir = tmp_dir / EXPLOIT_SCRIPT_NAME
         exploit_files_dir = bounty_dir / exploit_files_dir_name
         agent_patches_dir = bounty_dir / f"agent_created_files_{workflow_id}"
@@ -96,6 +97,7 @@ class EnvPath:
         self.CODEBASE_FILES_DIR = codebase_files_dir
         self.TMP_CODEBASE_FILES_DIR = tmp_codebase_files_dir
         self.VERIFY_SCRIPT_DIR = verify_script_dir
+        self.VERIFY_FILES_DIR = verify_files_dir
         self.TMP_EXPLOIT_SCRIPT_DIR = tmp_exploit_script_dir
         self.EXPLOIT_FILES_DIR = exploit_files_dir
         self.AGENT_PATCHES_DIR = agent_patches_dir
@@ -137,6 +139,8 @@ def bounty_setup(
             tmp_dir=env_path.TMP_DIR,
             bounty_number=bounty_number,
             input_exploit_files_dir_name=env_path.EXPLOIT_FILES_DIR_NAME,
+            input_verify_file_name=VERIFY_SCRIPT_NAME,
+            input_verify_files_dir_name="verify_files",
             output_agent_files_name=env_path.OUTPUT_PATH_DIR_NAME,
             vulnerable_commit=vulnerable_commit,
         )
