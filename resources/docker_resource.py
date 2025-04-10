@@ -3,7 +3,7 @@ import json
 import time
 import uuid
 from dataclasses import dataclass
-
+import threading
 import docker
 from docker.errors import (
     APIError,
@@ -85,6 +85,7 @@ class DockerResource(RunnableBaseResource):
         work_dir: str = None,
         volumes: dict = None,
         detach: bool = False,
+        timeout: int = 120,  # timeout in seconds (default: 2 minutes)
     ) -> tuple:
         """
         Run a Docker container with the specified configuration.
@@ -96,6 +97,7 @@ class DockerResource(RunnableBaseResource):
             work_dir (Optional[str]): The working directory inside the container.
             volumes (Optional[dict]): The volumes to mount in the container.
             detach (bool): Run the container in detached mode. Defaults to False.
+            timeout (int): Time in seconds before killing the container. Defaults to 120.
 
         Returns:
             tuple: A tuple containing the logs from the container and the exit code.
@@ -105,6 +107,18 @@ class DockerResource(RunnableBaseResource):
         command_trc = (
             f"{command[:10]}...{command[-10:]}" if len(command) > 23 else command
         )
+
+        def stream_logs(container, logs, stop_event):
+            try:
+                for line in container.logs(stdout=True, stderr=True, stream=True):
+                    if stop_event.is_set():
+                        break
+                    decoded_line = line.decode().strip()
+                    print(decoded_line)
+                    logs.append(decoded_line)
+            except Exception as e:
+                logger.warning(f"Log stream ended: {e}")
+
         logger.info(f"Running command in Docker: {command_trc}")
         try:
             container = self.client.containers.run(
@@ -117,22 +131,36 @@ class DockerResource(RunnableBaseResource):
                 name=unique_name,
             )
 
-            logs = ""
-            for line in container.logs(stdout=True, stderr=True, stream=True):
-                decoded_line = line.decode().strip()
-                print(decoded_line)
-                logs += decoded_line + "\n"
+            logger.info("Container started. Streaming logs...")
 
-            # Wait for the container to finish and get the exit code
-            result = container.wait()
-            exit_code = result["StatusCode"]
+            # Thread-safe way to enable real-time logging while preventing hanging
+            logs = []
+            stop_event = threading.Event()
+            log_thread = threading.Thread(target=stream_logs, args=(container, logs, stop_event))
+            log_thread.start()
+
+            start_time = time.time()
+            while container.status != 'exited':
+                container.reload()
+                if time.time() - start_time > timeout:
+                    logger.warning(f"Container timed out after {timeout} seconds.")
+                    container.kill()
+                    logs.append(f"Timeout after {timeout} seconds.")
+                    exit_code = -1
+                    break
+                time.sleep(5)
+            else:
+                result = container.wait()
+                exit_code = result.get("StatusCode", -1)
+
+            stop_event.set()
+            log_thread.join(timeout=5)
 
             logger.info(f"Exit code: {exit_code}")
-
-            return logs, exit_code
+            return "\n".join(logs), exit_code
 
         except docker.errors.APIError as e:
-            logger.error(f"Docker API error: {str(e)}")
+            logger.error(f"Docker API error: {e}")
             return str(e), -1
         except Exception as e:
             logger.error(f"Error running Docker container: {e}")
