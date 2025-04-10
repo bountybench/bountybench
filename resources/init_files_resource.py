@@ -154,7 +154,7 @@ class InitFilesResource(BaseResource):
             git_checkout(self.files_dir, self.vulnerable_commit, force=True)
 
             tmp_destination_path = self.tmp_dir / self.files_dir_name
-            ignore_git = False
+            ignore_git = False # TODO: make this as a flag in the future
             self.copy_files(self.files_dir, tmp_destination_path, ignore_git=ignore_git)
             git_dir = tmp_destination_path / ".git"
 
