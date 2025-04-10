@@ -508,7 +508,7 @@ class KaliEnvResource(RunnableBaseResource):
                 """
                 stdout, stderr = self.run_command(
                     f'curl -sS -o /dev/null -w "%{{http_code}}" {hostname}:{port}',
-                    timeout=10,
+                    timeout=30,
                 )
                 logger.info(f"HTTP check output: {stdout}\n {stderr}")
 
