@@ -9,11 +9,13 @@ from agents.agent_manager import AgentManager
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from tests.test_utils.bounty_setup_test_util import (
-    LUNARY_BOUNTY_0_EXPLOIT_FAILING,
-    LUNARY_BOUNTY_0_EXPLOIT_VALID,
+    LUNARY_BOUNTY_0_AGENT_EXPLOIT_FAILING,
+    LUNARY_BOUNTY_0_AGENT_EXPLOIT_VALID,
     LUNARY_BOUNTY_0_PATCH_FAIL,
     LUNARY_BOUNTY_0_PATCH_RESOURCE_RESTART_FAIL,
-    LUNARY_BOUNTY_0_PATCH_VALID,
+    LUNARY_BOUNTY_0_PATCH_VALID_P1,
+    LUNARY_BOUNTY_0_PATCH_VALID_P2,
+    LUNARY_BOUNTY_0_VERIFY_PYTHON_SCRIPT,
     LUNARY_BOUNTY_0_VERIFY_VALID,
     EnvPath,
 )
@@ -93,6 +95,7 @@ async def test_patch_agent_multi_scenario_integration(bounty_setup):
         bounty_dir=env_path.BOUNTY_DIR,
         task_dir=env_path.TASK_DIR,
         use_agent_exploit=True,
+        resource_restart_retry_attempts=1,
     )
     agent = agent_manager.create_agent("test_patch_agent", PatchAgent, config)
 
@@ -127,7 +130,7 @@ async def test_patch_agent_multi_scenario_integration(bounty_setup):
     reset_environment(env_path)
     create_detect_git_diff(env_path)
 
-    create_exploit(env_path, "exploit.sh", LUNARY_BOUNTY_0_EXPLOIT_FAILING)
+    create_exploit(env_path, "exploit.sh", LUNARY_BOUNTY_0_AGENT_EXPLOIT_FAILING)
     result_2 = await agent.run([initial_msg])
     print(f"SCENARIO 2 RESULT: success={result_2.success}")
     print(f"SCENARIO 2 MESSAGE: {result_2.message}")
@@ -138,9 +141,9 @@ async def test_patch_agent_multi_scenario_integration(bounty_setup):
     # - succeeds before patch; restart resource fails with patch
     # - exploit.sh can be mocked by our own version in bountybench
     reset_environment(env_path)
-    create_detect_git_diff(env_path)
 
-    create_exploit(env_path, "exploit.sh", LUNARY_BOUNTY_0_EXPLOIT_VALID)
+    create_exploit(env_path, "exploit.sh", LUNARY_BOUNTY_0_AGENT_EXPLOIT_VALID)
+    create_exploit(env_path, "verify_state.py", LUNARY_BOUNTY_0_VERIFY_PYTHON_SCRIPT)
     create_codebase_change(
         env_path,
         "packages/backend/src/utils/db.ts",
@@ -157,9 +160,9 @@ async def test_patch_agent_multi_scenario_integration(bounty_setup):
     # Iteration 4: Agent provides exploit.sh
     # - succeeds before patch; patch applied; still succeeds after patch (patch fails)
     reset_environment(env_path)
-    create_detect_git_diff(env_path)
 
-    create_exploit(env_path, "exploit.sh", LUNARY_BOUNTY_0_EXPLOIT_VALID)
+    create_exploit(env_path, "exploit.sh", LUNARY_BOUNTY_0_AGENT_EXPLOIT_VALID)
+    create_exploit(env_path, "verify_state.py", LUNARY_BOUNTY_0_VERIFY_PYTHON_SCRIPT)
     create_codebase_change(
         env_path,
         "packages/backend/src/utils/authorization.ts",
@@ -176,17 +179,23 @@ async def test_patch_agent_multi_scenario_integration(bounty_setup):
 
     # Iteration 5: Happy path
     reset_environment(env_path)
-    create_detect_git_diff(env_path)
-    create_exploit(env_path, "exploit.sh", LUNARY_BOUNTY_0_EXPLOIT_VALID)
+    create_exploit(env_path, "exploit.sh", LUNARY_BOUNTY_0_AGENT_EXPLOIT_VALID)
+    create_exploit(env_path, "verify_state.py", LUNARY_BOUNTY_0_VERIFY_PYTHON_SCRIPT)
     create_codebase_change(
         env_path,
         "packages/backend/src/utils/authorization.ts",
-        LUNARY_BOUNTY_0_PATCH_VALID,
+        LUNARY_BOUNTY_0_PATCH_VALID_P1,
     )
+    create_codebase_change(
+        env_path,
+        "packages/backend/src/api/v1/projects/index.ts",
+        LUNARY_BOUNTY_0_PATCH_VALID_P2,
+    )
+
     result_5 = await agent.run([initial_msg])
     print(f"SCENARIO 5 RESULT: success={result_5.success}")
     print(f"SCENARIO 5 MESSAGE: {result_5.message}")
     assert result_5.success
 
     assert "successfully restarted associated resources" in result_5.message.lower()
-    assert "exploit check succeeded" in result_5.message.lower()
+    assert "exploit check passed" in result_5.message.lower()
