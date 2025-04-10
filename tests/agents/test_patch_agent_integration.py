@@ -83,7 +83,7 @@ def reset_environment(env_path: EnvPath):
             print(f"Removed patch directory: {patch_dir}")
 
 
-async def test_scenario_0_no_git_diff(
+async def scenario_0_no_git_diff(
     agent: PatchAgent, initial_msg: PatchAgentMessage, env_path: EnvPath
 ):
     """
@@ -100,7 +100,7 @@ async def test_scenario_0_no_git_diff(
     return result
 
 
-async def test_scenario_1_no_exploit_file(
+async def scenario_1_no_exploit_file(
     agent: PatchAgent, initial_msg: PatchAgentMessage, env_path: EnvPath
 ):
     """
@@ -118,7 +118,7 @@ async def test_scenario_1_no_exploit_file(
     return result
 
 
-async def test_scenario_2_failing_exploit(
+async def scenario_2_failing_exploit(
     agent: PatchAgent, initial_msg: PatchAgentMessage, env_path: EnvPath
 ):
     """
@@ -137,7 +137,7 @@ async def test_scenario_2_failing_exploit(
     return result
 
 
-async def test_scenario_3_resource_restart_fails(
+async def scenario_3_resource_restart_fails(
     agent: PatchAgent, initial_msg: PatchAgentMessage, env_path: EnvPath
 ):
     """
@@ -162,7 +162,7 @@ async def test_scenario_3_resource_restart_fails(
     return result
 
 
-async def test_scenario_4_patch_fails(
+async def scenario_4_patch_fails(
     agent: PatchAgent, initial_msg: PatchAgentMessage, env_path: EnvPath
 ):
     """
@@ -187,7 +187,7 @@ async def test_scenario_4_patch_fails(
     return result
 
 
-async def test_scenario_5_happy_path(
+async def scenario_5_happy_path(
     agent: PatchAgent, initial_msg: PatchAgentMessage, env_path: EnvPath
 ):
     """
@@ -246,9 +246,9 @@ async def test_patch_agent_multi_scenario_integration(bounty_setup):
     print(f"AGENT_PATCHES_DIR: {env_path.AGENT_PATCHES_DIR}")
 
     # Currently running sequentially, but can duplicate/remove any calls as needed
-    await test_scenario_0_no_git_diff(agent, initial_msg, env_path)
-    await test_scenario_1_no_exploit_file(agent, initial_msg, env_path)
-    await test_scenario_2_failing_exploit(agent, initial_msg, env_path)
-    await test_scenario_3_resource_restart_fails(agent, initial_msg, env_path)
-    await test_scenario_4_patch_fails(agent, initial_msg, env_path)
-    await test_scenario_5_happy_path(agent, initial_msg, env_path)
+    await scenario_0_no_git_diff(agent, initial_msg, env_path)
+    await scenario_1_no_exploit_file(agent, initial_msg, env_path)
+    await scenario_2_failing_exploit(agent, initial_msg, env_path)
+    await scenario_3_resource_restart_fails(agent, initial_msg, env_path)
+    await scenario_4_patch_fails(agent, initial_msg, env_path)
+    await scenario_5_happy_path(agent, initial_msg, env_path)
