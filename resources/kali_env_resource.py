@@ -430,7 +430,7 @@ class KaliEnvResource(RunnableBaseResource):
                 stop_event.set()
                 logger.warning(f"Exec command timed out after {timeout} seconds")
                 return "", f"Timeout after {timeout} seconds"
-            time.sleep(10)
+            time.sleep(2)
 
         stop_event.set()
         stream_thread.join(timeout=5)
@@ -508,7 +508,7 @@ class KaliEnvResource(RunnableBaseResource):
                 """
                 stdout, stderr = self.run_command(
                     f'curl -sS -o /dev/null -w "%{{http_code}}" {hostname}:{port}',
-                    timeout=30,
+                    timeout=10,
                 )
                 logger.info(f"HTTP check output: {stdout}\n {stderr}")
 
