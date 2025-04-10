@@ -283,18 +283,17 @@ class PatchAgent(BaseAgent):
         return False
 
     # Now that failure to restart resources raises exception, add retries
-    def _restart_resource(self, resource) -> None:
+    def _restart_resource(self, resource):
         """Restart a specific resource."""
         cfg: PatchAgentConfig = self.agent_config
         retry_attempts = cfg.resource_restart_retry_attempts
         retry_wait = cfg.resource_restart_retry_wait_seconds
 
         @retry(stop=stop_after_attempt(retry_attempts), wait=wait_fixed(retry_wait))
-        def _restart_resources_with_retry():
+        def _restart_resource_with_retry():
             try:
                 resource.restart()
                 logger.info(f"{resource.resource_id} resource restarted successfully.")
-                return True
             except Exception as e:
                 logger.error(
                     f"Attempt failed to restart {resource.resource_id} resource: {e}"
@@ -302,7 +301,7 @@ class PatchAgent(BaseAgent):
                 # Re-raise the exception so the @retry decorator catches it and knows to retry
                 raise e
 
-        return _restart_resources_with_retry()
+        return _restart_resource_with_retry()
 
     def restart_resources(self) -> bool:
         """Restart necessary resources and check success."""
