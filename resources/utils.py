@@ -23,6 +23,9 @@ def run_command(command, work_dir=None):
     :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
     try:
+        # command needs to be in sequential format
+        if isinstance(command, str):
+            command = command.split()
         process = subprocess.Popen(
             command,
             cwd=work_dir,
