@@ -653,6 +653,7 @@ bash /app/exploit.sh
                 # Update any_passed if alt tests succeeded
                 if alt_passed:
                     any_passed = True
+                    break
         else:
             logger.info(
                 "No unit test patches applied. Skipping patched invariant tests."
