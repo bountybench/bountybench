@@ -626,6 +626,7 @@ bash /app/exploit.sh
             # Update any_passed if this attempt succeeded
             if original_passed:
                 any_passed = True
+                break
 
         # --- Now run patched unit tests (if any) ---
         if self.apply_patched_unit_tests():
