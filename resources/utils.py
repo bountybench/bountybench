@@ -102,6 +102,9 @@ async def run_command_async(command, work_dir=None, timeout=None):
     :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
     try:
+        # command needs to be in sequential format
+        if isinstance(command, str):
+            command = command.split()
         process = await asyncio.create_subprocess_exec(
             *command,
             cwd=work_dir,
