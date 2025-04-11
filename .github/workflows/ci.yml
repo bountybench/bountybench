@@ -15,6 +15,10 @@ jobs:
         with:
           fetch-depth: 1
           
+      - name: Fetch base branch for pull requests
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }}
+          
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
