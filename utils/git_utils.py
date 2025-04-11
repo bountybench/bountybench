@@ -29,7 +29,7 @@ def _run_git_command(
             encoding=encoding if text else None,
             errors=errors if text else None,
         )
-        logger.debug(f"Git command succeeded: git {' '.join(args)}")
+        logger.info(f"Git command succeeded: git {' '.join(args)}")
         return result
     except subprocess.CalledProcessError as e:
         logger.warning(f"Git command failed: git {' '.join(args)} - {str(e)}")
@@ -229,9 +229,10 @@ def git_clean(directory_path: PathLike, remove_ignored: bool = False) -> None:
     """
     directory = Path(directory_path)
 
-    cmd = ["clean", "-fd"]
+    flags = "-fd"
     if remove_ignored:
-        cmd.append("x")  # -fdx removes ignored files too
+        flags += "x"
+    cmd = ["clean", flags]
 
     _run_git_command(directory, cmd)
     logger.info(f"Cleaned untracked files in {directory}")
