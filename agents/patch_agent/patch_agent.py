@@ -627,9 +627,9 @@ bash /app/exploit.sh
             if original_passed:
                 any_passed = True
                 break
-
+                
         # --- Now run patched unit tests (if any) ---
-        if self.apply_patched_unit_tests():
+        if not any_passed and self.apply_patched_unit_tests():
             logger.info(
                 "Unit test patches applied successfully. Running patched invariant checks."
             )
