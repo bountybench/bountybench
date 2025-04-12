@@ -19,6 +19,8 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
   const textFieldRef = useRef(null);
   
   const [originalMessageContent, setOriginalMessageContent] = useState(formatData(message?.message || ''));
+
+  const messageRef = useRef(null);
   
   const handleCancelEdit = useCallback(() => {
     setEditing(false);
@@ -70,6 +72,106 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
     }
   }, [message, onRunMessage]);
 
+  const getPrevId = () => {
+    if (!messageRef.current) return null;
+
+    const ownKey = Object.keys(messageRef.current).find(key => 
+      key.startsWith('__reactProps$')
+    );
+    const currentIndex = messageRef.current[ownKey].children._owner.index;
+
+    const parent = messageRef.current.closest('.agent-messages-container');
+    if (!parent) return null;
+
+    const propsKey = Object.keys(parent).find(key => 
+      key.startsWith('__reactProps$')
+    );
+        
+    if (currentIndex > 0) {
+      const prevElement = parent[propsKey].children[1][currentIndex - 1];
+      
+      return prevElement.key;
+    }
+    
+    return null;
+  };
+
+  const getParentId = () => {
+    if (!messageRef.current) return null;
+
+    const parent = messageRef.current.closest('.agent-message-container');
+    if (!parent) return null;
+    
+    const propsKey = Object.keys(parent).find(key => 
+      key.startsWith('__reactProps$')
+    );
+    
+    if (propsKey && parent[propsKey]) {
+      return parent[propsKey].children._owner.key;
+    }
+    
+    return null;
+  };
+
+  const getNextId = () => {
+    if (!messageRef.current) return null;
+
+    const ownKey = Object.keys(messageRef.current).find(key => 
+      key.startsWith('__reactProps$')
+    );
+    const currentIndex = messageRef.current[ownKey].children._owner.index;
+
+    const parent = messageRef.current.closest('.agent-messages-container');
+    if (!parent) return null;
+
+    const propsKey = Object.keys(parent).find(key => 
+      key.startsWith('__reactProps$')
+    );
+        
+    if (currentIndex < parent[propsKey].children[1].length - 1) {
+      const prevElement = parent[propsKey].children[1][currentIndex + 1];
+      
+      return prevElement.key;
+    }
+    
+    return null;
+  };
+
+  const handleMoveUp = useCallback(() => {
+    setTimeout(() => {
+      const prevId = getPrevId();
+      if (prevId) {
+        onCellSelect(prevId);
+      }
+    }, 0);
+  }, [onCellSelect]);
+
+  const handleMoveLeft = useCallback(() => {
+    setTimeout(() => {
+      const parentId = getParentId();
+      if (parentId) {
+        onCellSelect(parentId);
+      }
+    }, 0);
+  }, [onCellSelect]);
+
+  const handleMoveDown = useCallback(() => {
+    setTimeout(() => {
+      const nextId = getNextId();
+      if (nextId) {
+        onCellSelect(nextId);
+      }
+    }, 0);
+  }, [onCellSelect]);
+
+  const handleMoveRight = useCallback(() => {
+    setTimeout(() => {
+      if (message.current_children.length > 0) {
+        onCellSelect(message.current_children[0].current_id);
+      }
+    }, 0);
+  }, [onCellSelect]);
+
   useEffect(() => {
     setOriginalMessageContent(message?.message);
   }, [message]);
@@ -85,6 +187,17 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
       }
     }
   }, [editing, originalMessageContent]);
+
+  const navigationActions = {
+    'ArrowUp': handleMoveUp,
+    'w': handleMoveUp,
+    'ArrowLeft': handleMoveLeft,
+    'a': handleMoveLeft,
+    'ArrowDown': handleMoveDown,
+    's': handleMoveDown,
+    'ArrowRight': handleMoveRight,
+    'd': handleMoveRight,
+  };
   
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -102,6 +215,10 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
         }
         else if (event.key === 'Enter' && !event.altKey && !editing) {
           handleEditClick();
+        }
+        else if (event.key in navigationActions && !editing) {
+          event.preventDefault();
+          navigationActions[event.key]();
         }
       }
     };
@@ -221,6 +338,7 @@ const AgentMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
   return (    
     <Box className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
       onClick={handleContainerClick}
+      ref={messageRef}
     >
       <Card className="message-bubble agent-bubble">
         <CardContent>
