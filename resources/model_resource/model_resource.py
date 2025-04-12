@@ -199,10 +199,11 @@ class ModelResource(RunnableBaseResource):
         ), "Message to model.run() should contain memory."
         model_input = input_message.memory
         if self.use_mock_model:
+            metadata = {"input": model_input}
             return ActionMessage(
                 resource_id=self.resource_id,
                 message=input_message.message,
-                additional_metadata=None,
+                additional_metadata=metadata,
                 prev=prev_action_message,
             )
 

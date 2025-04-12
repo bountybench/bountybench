@@ -190,6 +190,10 @@ class ExecutorAgent(BaseAgent):
                 try:
                     logger.info(f"Parsing response from LM")
                     parsed_response = self.parse_response(model_output)
+                    if error_history:
+                        parsed_response.add_to_additional_metadata(
+                            "error_history", error_history
+                        )
                     return parsed_response
                 except Exception as e:
                     exception_type = type(e).__name__
