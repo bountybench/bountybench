@@ -90,7 +90,6 @@ class ExecutorAgent(BaseAgent):
 
         self.last_executor_agent_message.add_child_message(model_action_message)
 
-        logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             # Note: can adjust the check condition later
             if "submit" in model_action_message.command:
@@ -146,10 +145,6 @@ class ExecutorAgent(BaseAgent):
                     )
 
                     last_raw_response = model_output
-                    if error_history:
-                        last_raw_response.add_to_additional_metadata(
-                            "error_history", error_history
-                        )
                 except asyncio.TimeoutError as e:
                     error_entry = {
                         "type": "TimeoutError",
@@ -193,6 +188,7 @@ class ExecutorAgent(BaseAgent):
                     continue  # Skip to next iteration without trying to parse
 
                 try:
+                    logger.info(f"Parsing response from LM")
                     parsed_response = self.parse_response(model_output)
                     return parsed_response
                 except Exception as e:
@@ -213,6 +209,10 @@ class ExecutorAgent(BaseAgent):
 
             # If we've exhausted all retries but have a raw response, return it
             if last_raw_response:
+                if error_history:
+                    last_raw_response.add_to_additional_metadata(
+                        "error_history", error_history
+                    )
                 return last_raw_response
 
             # If we've exhausted all retries
@@ -246,8 +246,7 @@ class ExecutorAgent(BaseAgent):
 
         except Exception as e:
             logger.warning(f"Could not parse response as CommandMessage. Error: {e}")
-            logger.info(f"LM responded with: {action_message.message}")
-            return action_message
+            raise
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
         """
