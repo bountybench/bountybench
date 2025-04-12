@@ -62,7 +62,7 @@ class ExecutorAgent(BaseAgent):
         )
 
         try:
-            await self.execute(self.last_executor_agent_message, prev_agent_message)
+            await self.execute(prev_agent_message)
         except Exception as e:
             agent_message_str = self.last_executor_agent_message.message or ""
             self.last_executor_agent_message.set_message(
@@ -79,15 +79,16 @@ class ExecutorAgent(BaseAgent):
 
     async def execute(
         self,
-        agent_message: ExecutorAgentMessage,
         prev_agent_message: Optional[AgentMessage] = None,
     ) -> None:
         model_action_message = await self.call_lm(prev_agent_message)
         if not model_action_message:
-            agent_message.set_message("Model failed to produce a valid response.")
+            self.last_executor_agent_message.set_message(
+                "Model failed to produce a valid response."
+            )
             return
 
-        agent_message.add_child_message(model_action_message)
+        self.last_executor_agent_message.add_child_message(model_action_message)
 
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
@@ -99,17 +100,19 @@ class ExecutorAgent(BaseAgent):
                     message="",
                     prev=model_action_message,
                 )
-                agent_message.add_child_message(empty_action_message)
-                agent_message.set_submission(value=True)
+                self.last_executor_agent_message.add_child_message(empty_action_message)
+                self.last_executor_agent_message.set_submission(value=True)
                 return
 
             kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
-                agent_message.set_message("Kali failed to produce a valid response.")
+                self.last_executor_agent_message.set_message(
+                    "Kali failed to produce a valid response."
+                )
                 return
-            agent_message.add_child_message(kali_action_message)
+            self.last_executor_agent_message.add_child_message(kali_action_message)
         else:
-            agent_message.set_message(
+            self.last_executor_agent_message.set_message(
                 "Model did not return a valid command. Kali Linux action skipped."
             )
 
