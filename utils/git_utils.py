@@ -238,6 +238,12 @@ def git_clean(directory_path: PathLike, remove_ignored: bool = False) -> None:
     logger.info(f"Cleaned untracked files in {directory}")
 
 
+def git_restore(directory_path: PathLike) -> None:
+    directory = Path(directory_path)
+    _run_git_command(directory, ["restore"])
+    logger.info(f"Restored repository in {directory}")
+
+
 def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
     """Initialize git repository if it doesn't exist."""
     directory = Path(directory_path)
