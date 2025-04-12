@@ -171,11 +171,11 @@ echo "Line 5" >&2
 
     try:
         kali_env_resource._run_non_tty_command(
-            f"cat << 'EOF' > test_output_stream.sh\n{test_output_stream_script}\nEOF"
+            f"cat << 'EOF' > test_output_stream.sh\n{test_output_stream_script}\nEOF", timeout = 600
         )
         # Run the script, which should produce output with delay between lines
         stdout_text, stderr_text = kali_env_resource._run_non_tty_command(
-            "chmod +x test_output_stream.sh && ./test_output_stream.sh"
+            "chmod +x test_output_stream.sh && ./test_output_stream.sh", timeout = 600
         )
 
         # Restore stdout/stderr

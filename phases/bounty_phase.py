@@ -41,7 +41,7 @@ class BountyPhase(BasePhase, ABC):
             workflow.task_dir
             / "bounties"
             / f"bounty_{self.bounty_number}"
-            / f"tmp_{self.workflow_id}"
+            / f"tmp_{workflow.workflow_message.workflow_id}"
         )
 
         self.output_agent_files_name: str = f"agent_created_files_{self.workflow_id}"
