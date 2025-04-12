@@ -13,7 +13,6 @@ from messages.convert_message_utils import cast_action_to_command
 from messages.message import Message
 from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 
@@ -82,11 +81,11 @@ class ExecutorAgent(BaseAgent):
         self,
         agent_message: ExecutorAgentMessage,
         prev_agent_message: Optional[AgentMessage] = None,
-    ) -> Message:
+    ) -> None:
         model_action_message = await self.call_lm(prev_agent_message)
         if not model_action_message:
             agent_message.set_message("Model failed to produce a valid response.")
-            return agent_message
+            return
 
         agent_message.add_child_message(model_action_message)
 
@@ -106,14 +105,13 @@ class ExecutorAgent(BaseAgent):
 
             kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
+                agent_message.set_message("Kali failed to produce a valid response.")
                 return
             agent_message.add_child_message(kali_action_message)
-            return kali_action_message
         else:
             agent_message.set_message(
                 "Model did not return a valid command. Kali Linux action skipped."
             )
-            raise
 
     async def call_lm(
         self, lm_input_message: Optional[Message] = None
