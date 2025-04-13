@@ -16,8 +16,8 @@ def setup_dirs():
     tmp_dir = task_repo_dir / tmp_dir_name
     original_files_dir = task_repo_dir / "original_files"
     bounty_dir = task_repo_dir / "bounties" / "bounty_1234"
-    verify_file_path = bounty_dir / "verify.sh"
     verify_files_dir = bounty_dir / "verify_files"
+    verify_file_path = verify_files_dir / "verify.sh"
 
     if task_repo_dir.exists():
         shutil.rmtree(task_repo_dir)
@@ -45,7 +45,6 @@ def setup_dirs():
         tmp_dir=tmp_dir,
         bounty_number="1234",
         vulnerable_commit="HEAD",
-        input_verify_file_name="verify.sh",
         input_verify_files_dir_name="verify_files",
     )
 
@@ -368,11 +367,9 @@ def test_verify_files_copy(resource, setup_dirs):
     _, tmp_dir, _, bounty_dir = setup_dirs
 
     # Ensure source directories and files exist
-    source_verify_script = bounty_dir / "verify.sh"
     source_verify_files_dir = bounty_dir / "verify_files"
     source_helper_file = source_verify_files_dir / "helper.sh"
 
-    assert source_verify_script.exists(), "Source verify.sh file does not exist"
     assert (
         source_verify_files_dir.exists()
     ), "Source verify_files directory does not exist"
@@ -385,14 +382,14 @@ def test_verify_files_copy(resource, setup_dirs):
     print(f"Temp directory: {tmp_dir}")
 
     # Check that verify.sh was copied
-    verify_file_path = tmp_dir / "verify.sh"
+    verify_file_path = tmp_dir / "verify_files" / "verify.sh"
     assert verify_file_path.exists(), "verify.sh file was not copied"
     assert (
         "verify script" in verify_file_path.read_text()
     ), "verify.sh content is incorrect"
 
     # Check that verify.sh was copied
-    helper_file_path = tmp_dir / "helper.sh"
+    helper_file_path = tmp_dir / "verify_files" / "helper.sh"
     assert helper_file_path.exists(), "helper.sh file was not copied"
     assert (
         "helper script" in helper_file_path.read_text()
