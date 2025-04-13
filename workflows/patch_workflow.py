@@ -70,6 +70,7 @@ class PatchWorkflow(BountyWorkflow):
             "vulnerability_type": self.params.get("vulnerability_type"),
             "use_agent_exploit": self.use_agent_exploit,
             "task_description": read_writeup(self.task_dir, self.bounty_number),
+            "bounty_setup_hosts": "\n".join(self.bounty_metadata.get("bounty_setup_hosts", [])),
             "stop_token": STOP_TOKEN,
             "target_host": self.repo_metadata["target_host"],
             "initial_prompt": self.initial_prompt,
