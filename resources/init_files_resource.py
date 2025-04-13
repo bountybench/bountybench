@@ -1,5 +1,4 @@
 import atexit
-import os
 import shutil
 import subprocess
 import sys
@@ -11,16 +10,12 @@ from typing import Optional
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.utils import read_bounty_metadata
 from utils.git_utils import (
-    cleanup_git_branches,
-    create_git_ignore_function,
     git_checkout,
     git_checkout_main,
     git_delete_branch,
     git_init_repo,
     git_setup_dev_branch,
     git_submodule_update,
-    initialize_git_repository,
-    prepare_git_directory,
 )
 from utils.logger import get_main_logger
 
@@ -176,8 +171,7 @@ class InitFilesResource(BaseResource):
             git_checkout(self.files_dir, self.vulnerable_commit, force=True)
 
             tmp_destination_path = self.tmp_dir / self.files_dir_name
-            ignore_git = False # TODO: make this as a flag in the future
-            self.copy_files(self.files_dir, tmp_destination_path, ignore_git=ignore_git)
+            self.copy_files(self.files_dir, tmp_destination_path)
             git_dir = tmp_destination_path / ".git"
 
             if git_dir.exists():
@@ -197,8 +191,7 @@ class InitFilesResource(BaseResource):
         # Set up git repos
 
         git_setup_dev_branch(self.files_dir, self.vulnerable_commit)
-        if ignore_git:
-            git_init_repo(tmp_destination_path)
+        git_init_repo(tmp_destination_path)
 
     def stop(self) -> None:
         """
@@ -240,131 +233,24 @@ class InitFilesResource(BaseResource):
         except Exception as e:
             print(f"Warning: Failed to remove {path}: {e}")
 
-    def _copy_git_directories(self, src_git_dir, dest_git_path):
-        """Copy Git directories like objects, refs, hooks, and info."""
-        for dir_name in ["objects", "refs", "hooks", "info"]:
-            src_dir = src_git_dir / dir_name
-            dst_dir = dest_git_path / dir_name
-            if src_dir.exists():
-                if not dst_dir.exists():
-                    dst_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
-
-    def _copy_git_files(self, src_git_dir, dest_git_path):
-        """Copy important Git files like HEAD, description, and index."""
-        for file_name in ["HEAD", "description", "index"]:
-            src_file = src_git_dir / file_name
-            if src_file.exists():
-                shutil.copy2(src_file, dest_git_path / file_name)
-
-    def _create_clean_git_config(self, dest_git_path):
-        """Create a clean Git config file without worktree references."""
-        with open(dest_git_path / "config", "w") as f:
-            f.write(
-                "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n"
-            )
-
-    def _handle_git_submodule(self, git_file, source, destination):
-        """Handle Git submodule reference files."""
-        # Read the submodule reference
-        with open(git_file, "r") as f:
-            content = f.read().strip()
-
-        if not content.startswith("gitdir:"):
-            # It's a regular .git file, just copy it
-            shutil.copy2(git_file, destination / ".git")
-            logger.info(f"Copied .git file from {git_file} to {destination / '.git'}")
-            return
-
-        # Extract the actual Git directory path
-        gitdir_path = content.split("gitdir:")[1].strip()
-        if not os.path.isabs(gitdir_path):
-            gitdir_path = os.path.normpath(os.path.join(source, gitdir_path))
-
-        actual_git_dir = Path(gitdir_path)
-        if not (actual_git_dir.exists() and actual_git_dir.is_dir()):
-            logger.warning(
-                f"Referenced Git directory {actual_git_dir} does not exist or is not a directory"
-            )
-            # Fall back to copying the reference file
-            shutil.copy2(git_file, destination / ".git")
-            return
-
-        # Setup the destination Git repository
-        dest_git_path = destination / ".git"
-        prepare_git_directory(dest_git_path)
-
-        try:
-            initialize_git_repository(destination)
-            self._copy_git_directories(actual_git_dir, dest_git_path)
-            self._copy_git_files(actual_git_dir, dest_git_path)
-            self._create_clean_git_config(dest_git_path)
-            logger.info(f"Copied Git data from {actual_git_dir} to {dest_git_path}")
-
-            # Clean up branches and make detached HEAD the new main branch
-            cleanup_git_branches(destination)
-            logger.info(f"Cleaned up Git branches in {destination}")
-        except Exception as e:
-            logger.error(f"Failed to initialize Git repository: {e}")
-            # Fall back to copying the reference file
-            shutil.copy2(git_file, destination / ".git")
-
-    def _handle_git_directory(self, git_dir, destination):
-        """Handle regular Git directories."""
-        dest_git_path = destination / ".git"
-        prepare_git_directory(dest_git_path)
-
-        try:
-            initialize_git_repository(destination)
-            self._copy_git_directories(git_dir, dest_git_path)
-            self._copy_git_files(git_dir, dest_git_path)
-            self._create_clean_git_config(dest_git_path)
-            logger.info(f"Copied Git data from {git_dir} to {dest_git_path}")
-
-            # Clean up branches and make detached HEAD the new main branch
-            cleanup_git_branches(destination)
-            logger.info(f"Cleaned up Git branches in {destination}")
-        except Exception as e:
-            logger.error(f"Failed to initialize Git repository: {e}")
-
-    def copy_files(self, source: Path, destination: Path, ignore_git: bool = True):
-        """Copy files and directories from source to destination.
-
-        Args:
-            source: Source path to copy from
-            destination: Destination path to copy to
-            ignore_git: Whether to ignore .git files and directories
-        """
+    def copy_files(self, source: Path, destination: Path):
         source = source.resolve()
         destination = destination.resolve()
-
         try:
             if source.is_file():
                 shutil.copy2(source, destination)
                 logger.info(f"Copied file {source} to {destination}")
-                return
-
-            if not source.is_dir():
+            elif source.is_dir():
+                # Exclude the .git folder
+                shutil.copytree(
+                    source,
+                    destination,
+                    dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns(".git", ".git*"),
+                )
+                logger.info(f"Copied directory {source} to {destination}")
+            else:
                 raise ValueError(f"Source {source} is neither a file nor a directory")
-
-            # Copy the directory structure
-            ignore_func = create_git_ignore_function(ignore_git)
-            shutil.copytree(
-                source,
-                destination,
-                dirs_exist_ok=True,
-                ignore=ignore_func,
-            )
-
-            # Handle Git repository if needed
-            git_file = source / ".git"
-            if not ignore_git and git_file.exists():
-                if git_file.is_file():
-                    self._handle_git_submodule(git_file, source, destination)
-                elif git_file.is_dir():
-                    self._handle_git_directory(git_file, destination)
-
-            logger.info(f"Copied directory {source} to {destination}")
         except Exception as e:
             logger.error(f"An error occurred while copying files: {e}")
 
