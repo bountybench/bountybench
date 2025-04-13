@@ -162,8 +162,7 @@ class InitFilesResource(BaseResource):
             git_checkout(self.files_dir, self.vulnerable_commit, force=True)
 
             tmp_destination_path = self.tmp_dir / self.files_dir_name
-            ignore_git = False  # TODO: make this as a flag in the future
-            self.copy_files(self.files_dir, tmp_destination_path, ignore_git=ignore_git)
+            self.copy_files(self.files_dir, tmp_destination_path)
             git_dir = tmp_destination_path / ".git"
 
             if git_dir.exists():
@@ -225,7 +224,6 @@ class InitFilesResource(BaseResource):
         except Exception as e:
             print(f"Warning: Failed to remove {path}: {e}")
 
-
     def copy_files(
         self,
         source: Path,
@@ -237,7 +235,7 @@ class InitFilesResource(BaseResource):
         Args:
             source: Source path to copy from
             destination: Destination path to copy to
-            ignore_git: Whether to ignore .git files and directories
+            copy_dir: Whether to copy source_dir's name
         """
         source = source.resolve()
         destination = destination.resolve()
