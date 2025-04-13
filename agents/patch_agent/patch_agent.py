@@ -659,7 +659,7 @@ bash /app/exploit.sh
                 )
 
                 # Update any_passed if this attempt succeeded
-                if alt_passed:
+                if original_passed:
                     self._log(f"Invariant tests passed.")
                     return True
 
