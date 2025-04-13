@@ -129,15 +129,14 @@ class ExecutorAgent(BaseAgent):
 
         last_raw_response = None  # Store the last raw response in case parsing fails
         error_history = []  # Track error history across retries
-
+        command_reminder_added = False
+        
         try:
-            iterations = 0
+            lm_input_message = self.resources.executor_agent_memory.get_memory(
+                lm_input_message
+            )
             while iterations < MAX_RETRIES:
                 try:
-                    lm_input_message = self.resources.executor_agent_memory.get_memory(
-                        lm_input_message
-                    )
-
                     logger.info(f"Getting response from LM")
                     model_output: ActionMessage = await asyncio.to_thread(
                         self.resources.model.run,
@@ -209,6 +208,11 @@ class ExecutorAgent(BaseAgent):
                         f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}"
                     )
                     iterations += 1
+                    
+                    if not command_reminder_added:
+                        # Add the reminder to use Command: format
+                        lm_input_message.message += "\n\nMake sure to include \"Command:\" in your response."
+                        command_reminder_added = True
 
             # If we've exhausted all retries but have a raw response, return it
             if last_raw_response:
