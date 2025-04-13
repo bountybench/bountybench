@@ -180,12 +180,17 @@ async def test_execute_command_success(executor_agent):
     executor_agent.call_lm = AsyncMock(return_value=command_msg)
     executor_agent.resources.kali_env.run = Mock(return_value=expected_action_msg)
 
-    agent_msg = ExecutorAgentMessage(agent_id=executor_agent.agent_id, prev=None)
-    result = await executor_agent.execute(agent_msg)
+    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+        agent_id=executor_agent.agent_id, prev=None
+    )
+    await executor_agent.execute()
 
-    assert result == expected_action_msg
     executor_agent.call_lm.assert_called_once()
     executor_agent.resources.kali_env.run.assert_called_once_with(command_msg)
+    assert (
+        expected_action_msg
+        in executor_agent.last_executor_agent_message.action_messages
+    )
 
 
 @pytest.mark.asyncio
@@ -193,13 +198,15 @@ async def test_execute_non_command_message(executor_agent):
     """Test execute when call_lm does not returns None"""
     executor_agent.call_lm = AsyncMock(return_value=None)
 
-    agent_msg = ExecutorAgentMessage(agent_id=executor_agent.agent_id, prev=None)
-    result_executor_agent_message = await executor_agent.execute(agent_msg)
+    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+        agent_id=executor_agent.agent_id, prev=None
+    )
+    await executor_agent.execute()
 
     executor_agent.resources.kali_env.run.assert_not_called()
 
     assert (
-        result_executor_agent_message.message
+        executor_agent.last_executor_agent_message.message
         == "Model failed to produce a valid response."
     )
 
@@ -208,9 +215,12 @@ def test_parse_response_invalid(executor_agent):
     """Test parse_response with invalid message that can't be converted to CommandMessage"""
     action_msg = ActionMessage("test_id", "invalid command format")
 
-    result = executor_agent.parse_response(action_msg)
+    with pytest.raises(Exception) as exc_info:
+        executor_agent.parse_response(action_msg)
 
-    assert isinstance(result, ActionMessage)
+    assert "Command is missing from message, cannot be a command message." == str(
+        exc_info.value
+    )
 
 
 def test_execute_in_env_success(executor_agent):
@@ -260,25 +270,23 @@ async def test_call_lm_error_history_tracking(executor_agent):
     # Create API errors with different reasons
     api_error1 = Exception("Rate limit exceeded")
     api_error2 = Exception("Temporary server error")
-    action_msg = ActionMessage("test_id", "valid command")
-    expected_command_msg = CommandMessage("test_id", "command: ls")
+    action_msg = ActionMessage("test_id", "command: ls")
 
     executor_agent.resources.model.run = Mock(
         side_effect=[api_error1, api_error2, action_msg]
     )
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
-    executor_agent.parse_response = Mock(return_value=expected_command_msg)
 
     # Set up last_executor_agent_message
     executor_agent.last_executor_agent_message = ExecutorAgentMessage(
         agent_id=executor_agent.agent_id, prev=None
     )
 
-    result = await executor_agent.call_lm()
+    result: ActionMessage = await executor_agent.call_lm()
 
     # Check error history was added to successful response
-    assert "error_history" in action_msg.additional_metadata
-    error_history = action_msg.additional_metadata["error_history"]
+    assert "error_history" in result.additional_metadata
+    error_history = result.additional_metadata["error_history"]
     assert len(error_history) == 2
     assert error_history[0]["type"] == "Exception"
     assert "Rate limit" in error_history[0]["message"]
@@ -302,15 +310,13 @@ async def test_call_lm_invalid_prompt_error_retry(executor_agent):
         "Invalid prompt: your prompt was flagged as potentially violating our usage policy",
         400,
     )
-    success_msg = ActionMessage("test_id", "valid command")
-    expected_command_msg = CommandMessage("test_id", "command: ls")
+    success_msg = ActionMessage("test_id", "command: ls")
 
     # First call fails with invalid prompt, second succeeds
     executor_agent.resources.model.run = Mock(
         side_effect=[invalid_prompt_error, success_msg]
     )
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
-    executor_agent.parse_response = Mock(return_value=expected_command_msg)
 
     # Set up last_executor_agent_message
     executor_agent.last_executor_agent_message = ExecutorAgentMessage(
@@ -320,7 +326,7 @@ async def test_call_lm_invalid_prompt_error_retry(executor_agent):
     result = await executor_agent.call_lm()
 
     # Verify retry happened and we got a successful result
-    assert result == expected_command_msg
+    assert isinstance(result, CommandMessage)
     assert executor_agent.resources.model.run.call_count == 2
 
     # Verify error history was recorded
@@ -337,8 +343,7 @@ async def test_call_lm_timeout_error(executor_agent):
 
     # Set up timeout error
     timeout_error = asyncio.TimeoutError()
-    action_msg = ActionMessage("test_id", "valid command")
-    expected_command_msg = CommandMessage("test_id", "command: ls")
+    action_msg = ActionMessage("test_id", "command: ls")
 
     # Patch asyncio.to_thread to simulate timeout
     with patch(
@@ -348,7 +353,6 @@ async def test_call_lm_timeout_error(executor_agent):
         executor_agent.resources.executor_agent_memory.get_memory = Mock(
             return_value=None
         )
-        executor_agent.parse_response = Mock(return_value=expected_command_msg)
 
         # Set up last_executor_agent_message
         executor_agent.last_executor_agent_message = ExecutorAgentMessage(
@@ -358,8 +362,8 @@ async def test_call_lm_timeout_error(executor_agent):
         result = await executor_agent.call_lm()
 
     # Verify error history contains timeout entries
-    assert "error_history" in action_msg.additional_metadata
-    error_history = action_msg.additional_metadata["error_history"]
+    assert "error_history" in result.additional_metadata
+    error_history = result.additional_metadata["error_history"]
     assert len(error_history) == 2
     assert error_history[0]["type"] == "TimeoutError"
     assert error_history[1]["type"] == "TimeoutError"
@@ -415,11 +419,9 @@ async def test_real_world_openai_invalid_prompt_error(executor_agent):
 
     openai_error = OpenAIError(openai_error_message, 400)
     action_msg = ActionMessage("test_id", "command: ls")
-    expected_command_msg = CommandMessage("test_id", "command: ls")
 
     executor_agent.resources.model.run = Mock(side_effect=[openai_error, action_msg])
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
-    executor_agent.parse_response = Mock(return_value=expected_command_msg)
 
     # Set up last_executor_agent_message
     executor_agent.last_executor_agent_message = ExecutorAgentMessage(
@@ -429,12 +431,12 @@ async def test_real_world_openai_invalid_prompt_error(executor_agent):
     result = await executor_agent.call_lm()
 
     # Should retry on invalid prompt and succeed
-    assert result == expected_command_msg
+    assert isinstance(result, CommandMessage)
     assert executor_agent.resources.model.run.call_count == 2
 
     # Check error history
-    assert "error_history" in action_msg.additional_metadata
-    error_history = action_msg.additional_metadata["error_history"]
+    assert "error_history" in result.additional_metadata
+    error_history = result.additional_metadata["error_history"]
     assert len(error_history) == 1
     assert "Invalid prompt" in error_history[0]["message"]
     assert error_history[0]["status_code"] == 400
