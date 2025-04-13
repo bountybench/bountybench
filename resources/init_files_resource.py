@@ -32,7 +32,6 @@ class InitFilesResourceConfig(BaseResourceConfig):
     tmp_dir: Path
     bounty_number: str
     input_exploit_files_dir_name: Optional[str] = None
-    input_verify_file_name: Optional[str] = None
     input_verify_files_dir_name: Optional[str] = "verify_files"
     output_agent_files_name: Optional[str] = None
     vulnerable_commit: Optional[str] = None
@@ -80,16 +79,6 @@ class InitFilesResource(BaseResource):
             self.copy_files(self.input_exploit_files_dir, self.tmp_dir)
             self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
 
-        self.input_verify_file_name = None
-        if self._resource_config.input_verify_file_name:
-            self.input_verify_file_name = (
-                self.task_dir
-                / "bounties"
-                / f"bounty_{self._resource_config.bounty_number}"
-                / self._resource_config.input_verify_file_name
-            )
-            self.copy_files(self.input_verify_file_name, self.tmp_dir)
-
         self.input_verify_files_dir = None
         if self._resource_config.input_verify_files_dir_name:
             self.input_verify_files_dir = (
@@ -102,7 +91,9 @@ class InitFilesResource(BaseResource):
                 self.input_verify_files_dir.exists()
                 and self.input_verify_files_dir.is_dir()
             ):
-                self.copy_files(self.input_verify_files_dir, self.tmp_dir)
+                self.copy_files(
+                    self.input_verify_files_dir, self.tmp_dir, copy_dir=True
+                )
                 logger.info(
                     f"Copied verify files directory from {self.input_verify_files_dir} to {self.tmp_dir}"
                 )
@@ -171,7 +162,8 @@ class InitFilesResource(BaseResource):
             git_checkout(self.files_dir, self.vulnerable_commit, force=True)
 
             tmp_destination_path = self.tmp_dir / self.files_dir_name
-            self.copy_files(self.files_dir, tmp_destination_path)
+            ignore_git = False  # TODO: make this as a flag in the future
+            self.copy_files(self.files_dir, tmp_destination_path, ignore_git=ignore_git)
             git_dir = tmp_destination_path / ".git"
 
             if git_dir.exists():
@@ -233,7 +225,20 @@ class InitFilesResource(BaseResource):
         except Exception as e:
             print(f"Warning: Failed to remove {path}: {e}")
 
-    def copy_files(self, source: Path, destination: Path):
+
+    def copy_files(
+        self,
+        source: Path,
+        destination: Path,
+        copy_dir: bool = False,
+    ):
+        """Copy files and directories from source to destination.
+
+        Args:
+            source: Source path to copy from
+            destination: Destination path to copy to
+            ignore_git: Whether to ignore .git files and directories
+        """
         source = source.resolve()
         destination = destination.resolve()
         try:
@@ -242,6 +247,9 @@ class InitFilesResource(BaseResource):
                 logger.info(f"Copied file {source} to {destination}")
             elif source.is_dir():
                 # Exclude the .git folder
+                if copy_dir:
+                    destination = destination / source.name
+                    logger.info(f"copying full directory, new dest path: {destination}")
                 shutil.copytree(
                     source,
                     destination,
@@ -287,11 +295,6 @@ class InitFilesResource(BaseResource):
                 if self.input_exploit_files_dir
                 else None
             ),
-            "input_verify_file_name": (
-                str(self.input_verify_file_name)
-                if self.input_verify_file_name
-                else None
-            ),
             "input_verify_files_dir": (
                 str(self.input_verify_files_dir)
                 if self.input_verify_files_dir
@@ -318,11 +321,6 @@ class InitFilesResource(BaseResource):
             input_exploit_files_dir_name=(
                 Path(data["input_exploit_files_dir"]).name
                 if data["input_exploit_files_dir"]
-                else None
-            ),
-            input_verify_file_name=(
-                Path(data["input_verify_file_name"]).name
-                if data["input_verify_file_name"]
                 else None
             ),
             input_verify_files_dir_name=(
