@@ -318,13 +318,20 @@ class InitFilesResource(BaseResource):
         except Exception as e:
             logger.error(f"Failed to initialize Git repository: {e}")
 
-    def copy_files(self, source: Path, destination: Path, ignore_git: bool = True):
+    def copy_files(
+        self,
+        source: Path,
+        destination: Path,
+        ignore_git: bool = True,
+        copy_dir: bool = False
+    ):
         """Copy files and directories from source to destination.
 
         Args:
             source: Source path to copy from
             destination: Destination path to copy to
             ignore_git: Whether to ignore .git files and directories
+            copy_dir: Whether to copy source_dir's name
         """
         source = source.resolve()
         destination = destination.resolve()
@@ -338,6 +345,9 @@ class InitFilesResource(BaseResource):
             if not source.is_dir():
                 raise ValueError(f"Source {source} is neither a file nor a directory")
 
+            if copy_dir:
+                destination = destination / source.name
+                logger.info(f"copying full directory, new dest path: {destination}")
             # Copy the directory structure
             ignore_func = create_git_ignore_function(ignore_git)
             shutil.copytree(
