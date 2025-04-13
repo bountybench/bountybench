@@ -603,61 +603,67 @@ bash /app/exploit.sh
             bounty_invariant_threshold = bounty_metadata.get(
                 "invariant_thresholds", {}
             ).copy()
+        
+        bounty_unit_tests = self._get_unit_test_patch_if_exists()
+        
+        # If unit test patch exists
+        if bounty_unit_tests:
+            self._log(f"Unit test patch found. Patching unit tests and running [patched] check invariants for up to {INVARIANTS_RETRY} attempts.")
 
-        any_passed = False
+            if self.apply_patched_unit_tests(bounty_unit_tests):
+                logger.info(
+                    "Unit test patches applied successfully. Running patched invariant checks."
+                )
 
-        # --- Run original tests first ---
-        for attempt in range(INVARIANTS_RETRY):
-            self._log(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
+                for attempt in range(INVARIANTS_RETRY):
+                    self._log(f"[Patched] Attempt {attempt + 1} of {INVARIANTS_RETRY}")
 
-            # Try with original tests first
-            original_repo_scores, original_bounty_scores = (
-                await self._execute_invariant_tests()
-            )
+                    # Run with patched unit tests
+                    alt_repo_scores, alt_bounty_scores = (
+                        await self._execute_invariant_tests()
+                    )
 
-            # Evaluate if original tests passed
-            original_passed = self.check_invariant_scores_against_thresholds(
-                repo_invariant_threshold,
-                bounty_invariant_threshold,
-                original_repo_scores,
-                original_bounty_scores,
-            )
+                    # Evaluate if patched tests passed
+                    alt_passed = self.check_invariant_scores_against_thresholds(
+                        repo_invariant_threshold,
+                        bounty_invariant_threshold,
+                        alt_repo_scores,
+                        alt_bounty_scores,
+                    )
 
-            # Update any_passed if this attempt succeeded
-            if original_passed:
-                any_passed = True
-
-        # --- Now run patched unit tests (if any) ---
-        if self.apply_patched_unit_tests():
-            logger.info(
-                "Unit test patches applied successfully. Running patched invariant checks."
-            )
+                    # Update any_passed if alt tests succeeded
+                    if alt_passed:
+                        self._log(f"Invariant tests passed.")
+                        return True
+            else:
+                logger.error(
+                    "Unit test patch is not applied successfully. Patched invariant tests are not run."
+                )
+        else:
+            self._log(f"No unit test patch found. Running check invariants for up to {INVARIANTS_RETRY} attempts.")
 
             for attempt in range(INVARIANTS_RETRY):
-                self._log(f"[Patched] Attempt {attempt + 1} of {INVARIANTS_RETRY}")
+                self._log(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
 
-                # Run with patched unit tests
-                alt_repo_scores, alt_bounty_scores = (
+                # Run with original tests
+                original_repo_scores, original_bounty_scores = (
                     await self._execute_invariant_tests()
                 )
 
-                # Evaluate if patched tests passed
-                alt_passed = self.check_invariant_scores_against_thresholds(
+                # Evaluate if original tests passed
+                original_passed = self.check_invariant_scores_against_thresholds(
                     repo_invariant_threshold,
                     bounty_invariant_threshold,
-                    alt_repo_scores,
-                    alt_bounty_scores,
+                    original_repo_scores,
+                    original_bounty_scores,
                 )
 
-                # Update any_passed if alt tests succeeded
+                # Update any_passed if this attempt succeeded
                 if alt_passed:
-                    any_passed = True
-        else:
-            logger.info(
-                "No unit test patches applied. Skipping patched invariant tests."
-            )
+                    self._log(f"Invariant tests passed.")
+                    return True
 
-        return any_passed
+        return False
 
     def _truncate_script_output(
         self, stdout: str, stderr: Optional[str] = "", max_length: int = 5000
@@ -875,40 +881,53 @@ bash /app/exploit.sh
             logger.error(f"Failed to move exploits directory: {e}")
 
         return None
+    
+    def _get_unit_test_patch_if_exists(self) -> Optional[Dict]:
+        """
+        Check for and load unit test patch dictionary from bounty_metadata.json if it exists and is valid.
 
-    def apply_patched_unit_tests(self) -> bool:
+        Returns:
+            Optional[Dict]: The dictionary containing unit test patch definitions if found and valid.
+                            Returns None if the metadata file doesn't exist, cannot be parsed,
+                            or if the 'unit_test_patch' key is missing, not a dictionary,
+                            or empty.
+        """
+        logger.info("Checking if unit test patch key exists in bounty metadata...")
+        
+        bounty_metadata_file = self.bounty_dir / "bounty_metadata.json"
+        bounty_metadata = {}
+
+        # Load bounty metadata
+        if not bounty_metadata_file.exists():
+            logger.info("No bounty metadata file found.")
+            return None
+
+        try:
+            bounty_metadata = json.loads(bounty_metadata_file.read_text())
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing bounty metadata JSON: {e}")
+            return None
+
+        # Check for unit test patches
+        if "unit_test_patch" not in bounty_metadata:
+            logger.info("No unit test patch defined in metadata. Skipping.")
+            return None
+
+        bounty_unit_tests = bounty_metadata["unit_test_patch"]
+        if not isinstance(bounty_unit_tests, dict) or not bounty_unit_tests:
+            logger.info("'unit_test_patch' dictionary is missing or empty. Skipping.")
+            return None
+
+        logger.info("Found valid unit test patch key.")
+        return bounty_unit_tests
+
+    def apply_patched_unit_tests(self, bounty_unit_tests: Dict) -> bool:
         """
         Apply unit test patches from bounty metadata.
 
         Returns:
             bool: True if all patches were applied successfully, False otherwise
         """
-        logger.info("Checking for unit test patches to apply...")
-
-        bounty_metadata_file = self.bounty_dir / "bounty_metadata.json"
-        bounty_metadata = {}
-        bounty_unit_tests = {}
-
-        # Load bounty metadata
-        if not bounty_metadata_file.exists():
-            logger.info("No bounty metadata file found.")
-            return False
-
-        try:
-            bounty_metadata = json.loads(bounty_metadata_file.read_text())
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing bounty metadata JSON: {e}")
-            return False
-
-        # Check for unit test patches
-        if "unit_test_patch" not in bounty_metadata:
-            logger.info("No unit test patches defined in metadata. Skipping.")
-            return False
-
-        bounty_unit_tests = bounty_metadata["unit_test_patch"]
-        if not bounty_unit_tests:
-            logger.info("Unit test patches dictionary is empty. Skipping.")
-            return False
 
         successful_patches = 0
         failed_patches = 0
