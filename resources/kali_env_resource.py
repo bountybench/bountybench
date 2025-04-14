@@ -73,6 +73,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
     volumes: Optional[Dict[str, Dict[str, str]]] = None
     target_host: Optional[str] = None
     install_command: Optional[str] = None
+    disable_cleanup: Optional[bool] = None
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
@@ -98,6 +99,7 @@ class KaliEnvResource(RunnableBaseResource):
         self.util.validate_container_status(self.container, logger)
         self.target_host = self._resource_config.target_host
         self.install_command = self._resource_config.install_command
+        self.disable_cleanup = self._resource_config.disable_cleanup
         self.socket = None  # Socket for writing to the pseudo-terminal
         self._initialize_bounty_directory()
 
@@ -384,6 +386,8 @@ class KaliEnvResource(RunnableBaseResource):
 
     def cleanup_tmp(self):
         """Clean up temporary files"""
+        if self.disable_cleanup:
+            return
         try:
             logger.info("Cleaning up: removing tmp files.")
             cleanup_command = "rm -rf * .*"
