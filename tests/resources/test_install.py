@@ -207,6 +207,7 @@ def main():
             skipped_bounties.append(bounty_dir)
         
         current += 1
+        kali_env.stop()
         print()
 
     # Print summary
