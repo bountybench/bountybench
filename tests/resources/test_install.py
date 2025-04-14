@@ -122,11 +122,7 @@ def is_editable_from_pip_list(pip_stdout: str, package_name: str) -> bool:
         parts = line.strip().split()
         if len(parts) >= 3 and parts[0] != "UNKNOWN" and len(parts[2]) > 0:
             print(f"{parts[0]} is installed in editable mode at {parts[2]}")
-
             return True
-        elif len(parts) >= 2:
-            print(f"{parts[0]} is installed but NOT in editable mode.")
-            return False
     print(f"{package_name} is NOT installed.")
     return False
 
@@ -193,7 +189,7 @@ def main():
         kali_env.run_command(checkout_command)        
         
         # Install the codebase
-        print_header(CYAN, f"RUNNING INSTALL REPO {current}/{total}: {bounty_dir}")
+        print_header(CYAN, f"RUNNING INSTALL BOUNTY {current}/{total}: {bounty_dir}")
         print(f"{INFO} Command: {install_command}")
         if is_python:
             stdout, stderr = kali_env.run_command(f"cd {codebase_dir} && {install_command}", timeout=600)
