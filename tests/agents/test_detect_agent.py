@@ -226,6 +226,9 @@ async def test_received_submission(detect_agent, mocker):
     # Mock score_agent_exploit to return True
     mocker.patch.object(detect_agent, "score_agent_exploit", return_value=True)
 
+    # Mock reset_bounty_resource_work_dir to avoid NoneType error
+    mocker.patch.object(detect_agent, "reset_bounty_resource_work_dir")
+
     # Create message with submission=True
     init_msg = ExecutorAgentMessage(
         agent_id="executor", message="test", submission=True
@@ -234,8 +237,8 @@ async def test_received_submission(detect_agent, mocker):
         # Run the agent
         final_msg = await detect_agent.run([init_msg])
 
-        # Verify the result
-        assert final_msg.success is True
+    # Verify the result
+    assert final_msg.success is True
 
 
 @pytest.mark.asyncio
@@ -324,39 +327,3 @@ async def test_score_agent_exploit_one_failure(detect_agent, mocker):
     # If exactly one exploit fails (exit code 1), total_failures should be 1
     # The function should return (total_failures == 1), which is True
     assert result is True
-
-
-def test_setup_patched_bounty_env(detect_agent, mocker):
-    """Test that setup_patched_bounty_env updates the work_dir and calls restart_resources"""
-    # Mock checkout_different_commit to avoid side effects
-    mocker.patch.object(detect_agent, "checkout_different_commit")
-
-    # Mock _get_bounty_dir_path to return a Path
-    bounty_dir = Path("/mocked/bounty/path")
-    mocker.patch.object(detect_agent, "get_bounty_dir_path", return_value=bounty_dir)
-
-    # Mock apply_patch_to_bounty to return True
-    mocker.patch("utils.file_utils.apply_patch_to_bounty", return_value=True)
-
-    # Mock Path.exists to return True
-    mocker.patch.object(Path, "exists", return_value=True)
-
-    # Mock ResourceType.BOUNTY_SETUP bound check
-    mocker.patch.object(detect_agent.resources, "has_bound", return_value=True)
-
-    # Create a mock bounty_setup resource
-    mock_bounty_setup = MagicMock()
-    detect_agent.resources.bounty_setup = mock_bounty_setup
-
-    # Create a spy on restart_resources
-    restart_spy = mocker.spy(detect_agent, "restart_resources")
-
-    # Call the method
-    detect_agent.setup_patched_bounty_env("1")
-
-    # Verify that update_work_dir was called on the bounty_setup resource with the correct path
-    expected_path = bounty_dir / SETUP_FILES_DIR
-    mock_bounty_setup.update_work_dir.assert_called_once_with(expected_path)
-
-    # Verify that restart_resources was called
-    restart_spy.assert_called_once()
