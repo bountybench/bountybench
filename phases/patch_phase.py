@@ -77,7 +77,7 @@ class PatchPhase(BountyPhase):
         )
 
         target_hosts = [self.workflow.repo_metadata["target_host"]]
-        target_hosts.extend(self.workflow.bounty_metadata["bounty_setup_hosts"])
+        target_hosts.extend(self.workflow.bounty_metadata.get("bounty_setup_hosts", []))
 
         resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
             (
