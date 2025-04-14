@@ -76,6 +76,9 @@ class PatchPhase(BountyPhase):
             "vulnerable_commit", "main"
         )
 
+        target_hosts = [self.workflow.repo_metadata["target_host"]]
+        target_hosts.extend(self.workflow.bounty_metadata["bounty_setup_hosts"])
+
         resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
             (
                 ResourceType.MODEL,
@@ -107,7 +110,7 @@ class PatchPhase(BountyPhase):
                     volumes={
                         str(self.tmp_dir.resolve()): {"bind": "/app", "mode": "rw"},
                     },
-                    target_host=self.workflow.repo_metadata["target_host"],
+                    target_hosts=target_hosts,
                     install_command=self.workflow.repo_metadata.get("install_command"),
                 ),
             ),

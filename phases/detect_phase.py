@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
-from agents.executor_agent.executor_agent import ExecutorAgent
 from agents.detect_agent.detect_agent import DetectAgent, DetectAgentConfig
+from agents.executor_agent.executor_agent import ExecutorAgent
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.bounty_phase import BountyPhase
@@ -61,6 +61,9 @@ class DetectPhase(BountyPhase):
             "vulnerable_commit", "main"
         )
 
+        target_hosts = [self.workflow.repo_metadata["target_host"]]
+        target_hosts.extend(self.workflow.bounty_metadata["bounty_setup_hosts"])
+
         resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
             (
                 ResourceType.MODEL,
@@ -91,7 +94,7 @@ class DetectPhase(BountyPhase):
                     volumes={
                         str(self.tmp_dir.resolve()): {"bind": "/app", "mode": "rw"},
                     },
-                    target_host=self.workflow.repo_metadata["target_host"],
+                    target_hosts=target_hosts,
                     install_command=self.workflow.repo_metadata.get("install_command"),
                 ),
             ),
