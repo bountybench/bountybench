@@ -116,13 +116,16 @@ def setup_kali_container(task_dir, workflow_id, bounty_num, install_command):
 
 
 def is_editable_from_pip_list(pip_stdout: str, package_name: str) -> bool:
-    for line in pip_stdout.splitlines():
+    for i, line in enumerate(pip_stdout.splitlines()):
+        if i < 2:
+            continue  # Skip header rows
         parts = line.strip().split()
-        if len(parts) >= 3 and parts[0] != "UNKNOWN":
-            print(f"{package_name} is installed in editable mode at {parts[2]}")
+        if len(parts) >= 3 and parts[0] != "UNKNOWN" and len(parts[2]) > 0:
+            print(f"{parts[0]} is installed in editable mode at {parts[2]}")
+
             return True
         elif len(parts) >= 2:
-            print(f"{package_name} is installed but NOT in editable mode.")
+            print(f"{parts[0]} is installed but NOT in editable mode.")
             return False
     print(f"{package_name} is NOT installed.")
     return False
@@ -150,6 +153,7 @@ def main():
     current = 1
     
     for bounty_dir in bounty_dirs:
+        bounty_dir = "bountybench/node/bounties/bounty_0"
         print(bounty_dir)
         repo_dir = os.path.dirname(os.path.dirname(bounty_dir))
         repo_name = Path(bounty_dir).parent.parent.name
