@@ -51,7 +51,6 @@ class DetectWorkflow(BountyWorkflow):
 
     def _create_phases(self):
         """Define and register phases specific to DetectWorkflow."""
-        logger.info(f"DEBUG - here is task dir: {self.task_dir}")
         phase_kwargs = {
             "use_mock_model": self.params.get("use_mock_model"),
             "model": self.params.get("model"),
@@ -70,7 +69,7 @@ class DetectWorkflow(BountyWorkflow):
             "max_output_tokens": self.params.get("max_output_tokens"),
             "interactive": self.interactive,
             "max_iterations": self.params.get("phase_iterations"),
-            "disable_submit": self.params.get("disable_submit", False),
+            "submit": self.params.get("no_submit", True),
         }
 
         detect_phase = DetectPhase(workflow=self, **phase_kwargs)

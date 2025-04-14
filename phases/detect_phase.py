@@ -29,11 +29,6 @@ class DetectPhase(BountyPhase):
 
     AGENT_CLASSES: List[Type[BaseAgent]] = [ExecutorAgent, DetectAgent]
 
-    def __init__(self, workflow: "BaseWorkflow", **kwargs):
-        self.submit: bool = not kwargs.get("disable_submit", False)
-
-        super().__init__(workflow, **kwargs)
-
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         """
         Define the agents required for the DetectPhase.
@@ -90,6 +85,7 @@ class DetectPhase(BountyPhase):
                     output_agent_files_name=self.output_agent_files_name,
                     bounty_number=self.bounty_number,
                     vulnerable_commit=vulnerable_commit,
+                    input_verify_files_dir_name=None,  # Don't copy verify_files into tmp_dir
                 ),
             ),
             (

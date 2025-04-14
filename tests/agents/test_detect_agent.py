@@ -71,22 +71,27 @@ def execute_fixture(bounty_setup, detect_agent):
 async def test_run_agent_exploit(bounty_setup, detect_agent):
     env_path: EnvPath = bounty_setup
     agent = detect_agent
-    agent.last_detect_agent_message = DetectAgentMessage(
-        agent_id="test", message="init"
-    )
-    exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
 
-    # Set up mocks
-    mock_run_exploit = MagicMock()
+    # Create a message
+    detect_message = DetectAgentMessage(agent_id="test", message="test")
+
+    # Set up an async mock for run_exploit
     mock_action_message = MagicMock()
     mock_action_message.additional_metadata = {"exit_code": 1}
     mock_action_message.message = "exploit output"
-    mock_run_exploit.return_value = mock_action_message
 
+    # Need an async mock that can be awaited
+    async def mock_run_exploit():
+        return mock_action_message
+
+    # Patch the run_exploit method
     with patch.object(agent, "run_exploit", mock_run_exploit):
+        # Set up restart_resources to avoid side effects
+        mocker = MagicMock()
+        mocker.patch.object(agent, "restart_resources", return_value=True)
+
         # Test exploit failure
         mock_action_message.additional_metadata = {"exit_code": 1}
-        detect_message = DetectAgentMessage(agent_id="test", message="test")
         exit_code = await agent.run_agent_exploit(detect_message)
         assert exit_code == 1
 
@@ -96,20 +101,20 @@ async def test_run_agent_exploit(bounty_setup, detect_agent):
         assert exit_code == 0
 
 
-@pytest.mark.asyncio
-async def test_restart_resource_check(detect_agent, mocker):
+def test_restart_resource_check(detect_agent, mocker):
     """
-    If repo_resource fails to restart, error.
+    Test that restart_resources returns False when _restart_resource returns False
     """
     agent = detect_agent
 
-    with patch.object(
-        DetectAgent,
-        "_restart_resource",
-        side_effect=Exception("some resource restart failure"),
-    ):
-        success = agent.restart_resources()
-        assert not success
+    # Mock _restart_resource to return False instead of raising an exception
+    mocker.patch.object(detect_agent, "_restart_resource", return_value=False)
+
+    # Call the method
+    success = agent.restart_resources()
+
+    # Verify the result
+    assert not success
 
 
 def test_restart_resources_order(bounty_setup):
@@ -156,16 +161,16 @@ async def test_skip_no_exploit(detect_agent, mocker):
 
     # Mock that exploit.sh doesn't exist
     mocker.patch.object(Path, "exists", return_value=False)
+    with patch("agents.detect_agent.detect_agent.git_has_changes", return_value=True):
+        # Run the agent
+        init_msg = ExecutorAgentMessage(
+            agent_id="executor", message="test", submission=False
+        )
+        final_msg = await agent.run([init_msg])
 
-    # Run the agent
-    init_msg = ExecutorAgentMessage(
-        agent_id="executor", message="test", submission=False
-    )
-    final_msg = await agent.run([init_msg])
-
-    # Verify the result
-    assert "No exploit.sh found." in final_msg.message
-    assert "Skipping" in final_msg.message
+        # Verify the result
+        assert "No exploit.sh found." in final_msg.message
+        assert "Skipping" in final_msg.message
 
 
 @pytest.mark.asyncio
@@ -225,12 +230,12 @@ async def test_received_submission(detect_agent, mocker):
     init_msg = ExecutorAgentMessage(
         agent_id="executor", message="test", submission=True
     )
+    with patch("agents.detect_agent.detect_agent.git_has_changes", return_value=True):
+        # Run the agent
+        final_msg = await detect_agent.run([init_msg])
 
-    # Run the agent
-    final_msg = await detect_agent.run([init_msg])
-
-    # Verify the result
-    assert final_msg.success is True
+        # Verify the result
+        assert final_msg.success is True
 
 
 @pytest.mark.asyncio
@@ -326,7 +331,7 @@ def test_setup_patched_bounty_env(detect_agent, mocker):
     # Mock checkout_different_commit to avoid side effects
     mocker.patch.object(detect_agent, "checkout_different_commit")
 
-    # Mock get_bounty_dir_path to return a Path
+    # Mock _get_bounty_dir_path to return a Path
     bounty_dir = Path("/mocked/bounty/path")
     mocker.patch.object(detect_agent, "get_bounty_dir_path", return_value=bounty_dir)
 

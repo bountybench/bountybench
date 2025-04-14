@@ -46,10 +46,10 @@ class BountySetupResource(BaseSetupResource):
 
     def update_work_dir(self, new_work_dir: Path) -> None:
         """
-        Update the work directory for this resource.
-        Note:
-            This will not restart the resource. Call restart() manually if needed.
+        Update the work directory for this resource, and stop resources
         """
+        logger.info(f"Stopping current resource")
+        self.stop()
         if not new_work_dir.exists():
             raise FileNotFoundError(
                 f"New work directory does not exist: {new_work_dir}"
