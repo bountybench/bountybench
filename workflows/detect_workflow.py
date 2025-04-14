@@ -51,7 +51,7 @@ class DetectWorkflow(BountyWorkflow):
 
     def _create_phases(self):
         """Define and register phases specific to DetectWorkflow."""
-
+        logger.info(f"DEBUG - here is task dir: {self.task_dir}")
         phase_kwargs = {
             "use_mock_model": self.params.get("use_mock_model"),
             "model": self.params.get("model"),

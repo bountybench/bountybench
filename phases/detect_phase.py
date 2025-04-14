@@ -17,6 +17,7 @@ from resources.repo_setup_resource import RepoSetupResourceConfig
 from resources.resource_type import ResourceType
 from resources.utils import contains_setup
 from utils.logger import get_main_logger
+from workflows.base_workflow import BaseWorkflow
 
 logger = get_main_logger(__name__)
 
@@ -28,10 +29,10 @@ class DetectPhase(BountyPhase):
 
     AGENT_CLASSES: List[Type[BaseAgent]] = [ExecutorAgent, DetectAgent]
 
-    def __init__(self, **kwargs):
+    def __init__(self, workflow: "BaseWorkflow", **kwargs):
         self.submit: bool = not kwargs.get("disable_submit", False)
 
-        super().__init__(self, **kwargs)
+        super().__init__(workflow, **kwargs)
 
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         """
