@@ -310,17 +310,19 @@ def test_is_node_repo(mock_run_command, kali_env_resource):
     assert kali_env_resource._is_node_repo("/app/codebase") is False
 
 
+@patch.object(KaliEnvResource, "_map_container_path_to_host")
 @patch.object(KaliEnvResource, "_is_python_repo")
 @patch.object(KaliEnvResource, "_is_node_repo")
 @patch.object(KaliEnvResource, "run_command")
 def test_install_python_repo(
-    mock_run_command, mock_is_node, mock_is_python, kali_env_resource
+    mock_run_command, mock_is_node, mock_is_python, mock_map_path, kali_env_resource
 ):
     """Test the installation of Python repositories."""
     # Setup mocks
     mock_is_python.return_value = True
     mock_is_node.return_value = False
     mock_run_command.return_value = ("Successfully installed package", "")
+    mock_map_path.return_value = None  # This will prevent git_commit from being called
 
     # Run the method directly, not through _initialize_bounty_directory
     kali_env_resource._install_repo_in_editable_mode()

@@ -83,14 +83,24 @@ def git_commit(
     """
     directory = Path(directory_path)
 
-    # Check if valid git repo
-    if not (directory / ".git").exists():
-        logger.warning(f"No git repository exists at {directory}")
+    # Check if directory is within a git repo (either directly or as a subdirectory)
+    try:
+        # Run git status to check if we're in a git repository
+        subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=directory,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except subprocess.CalledProcessError:
+        logger.warning(f"No git repository exists at or above {directory}")
         return False
 
     try:
         # Checkout branch if specified
-        _checkout_branch(directory, branch_name)
+        if branch_name:
+            _checkout_branch(directory, branch_name)
 
         # Stage all changes
         _run_git_command(directory, ["add", "."])
