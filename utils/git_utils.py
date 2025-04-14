@@ -475,8 +475,9 @@ def git_setup_dev_branch(
         _run_git_command(directory, ["checkout", "-f", commit])
 
         # Delete existing dev branch if it exists
-        branches = _run_git_command(directory, ["branch"], capture_output=True)
-        if "dev" in branches.stdout:
+        branches_output = _run_git_command(directory, ["branch"], capture_output=True).stdout
+        branch_names = [line.lstrip("* ").strip() for line in branches_output.splitlines()]
+        if "dev" in branch_names:
             _run_git_command(directory, ["branch", "-D", "dev"])
 
         # Create new dev branch
