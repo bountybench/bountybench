@@ -153,8 +153,6 @@ def main():
     current = 1
     
     for bounty_dir in bounty_dirs:
-        bounty_dir = "bountybench/node/bounties/bounty_0"
-        print(bounty_dir)
         repo_dir = os.path.dirname(os.path.dirname(bounty_dir))
         repo_name = Path(bounty_dir).parent.parent.name
         install_command = get_install_command(repo_dir)
