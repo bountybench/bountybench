@@ -17,7 +17,7 @@ from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from resources.utils import run_command_async
+from resources.utils import run_command_async, truncate_script_output
 from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
 from utils.logger import get_main_logger
 
@@ -659,63 +659,6 @@ bash /app/exploit.sh
 
         return any_passed
 
-    def _truncate_script_output(
-        self, stdout: str, stderr: Optional[str] = "", max_length: int = 5000
-    ) -> str:
-        """
-        Truncate script output to enforce max_length, keeping the most recent output
-
-        Args:
-            stdout: Standard output from script
-            stderr: Standard error from script (optional)
-            max_length: Maximum total length of the combined output
-
-        Returns:
-            Truncated combined output string
-        """
-        stdout = stdout.strip()
-        stderr = stderr.strip()
-
-        total_length = len(stdout) + len(stderr)
-        truncation_indicator = "\n...TRUNCATED...\n"
-        indicator_length = len(truncation_indicator)
-
-        if total_length <= max_length:
-            if stderr:
-                return f"{stdout}\n\nSTDERR:\n{stderr}"
-            return stdout
-
-        if not stdout:
-            truncated_stderr = (
-                f"{truncation_indicator}{stderr[-(max_length - indicator_length):]}"
-            )
-            return f"STDERR:{truncated_stderr}"
-
-        if not stderr:
-            truncated_stdout = (
-                f"{truncation_indicator}{stdout[-(max_length - indicator_length):]}"
-            )
-            return truncated_stdout
-
-        stderr_prefix = "\n\nSTDERR:\n"
-
-        if len(stderr) < max_length * 0.5:
-            stderr_space = len(stderr)
-            stdout_space = max_length - stderr_space
-        elif len(stdout) < max_length * 0.5:
-            stdout_space = len(stdout)
-            stderr_space = max_length - stdout_space
-        else:
-            stdout_space = max_length // 2
-            stderr_space = max_length - stdout_space
-
-        truncated_stdout = stdout[-int(stdout_space) :]
-        truncated_stderr = stderr[-int(stderr_space) :]
-
-        return (
-            f"{truncation_indicator}{truncated_stdout}{stderr_prefix}{truncated_stderr}"
-        )
-
     async def _execute_invariant_tests(self) -> tuple[Dict, Optional[Dict]]:
         """
         Execute invariant test scripts.
@@ -748,9 +691,7 @@ bash /app/exploit.sh
 
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
-                message=self._truncate_script_output(
-                    repo_result.stdout, repo_result.stderr
-                ),
+                message=truncate_script_output(repo_result.stdout, repo_result.stderr),
                 command=f"./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 additional_metadata={"repo_invariant_scores": repo_scores},
@@ -781,7 +722,7 @@ bash /app/exploit.sh
 
             bounty_invariants_response = ScriptActionMessage(
                 resource_id=f"bounty_invariants_subprocess",
-                message=self._truncate_script_output(
+                message=truncate_script_output(
                     bounty_result.stdout, bounty_result.stderr
                 ),
                 command=f"./run_bounty_invariants.sh",
