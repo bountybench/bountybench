@@ -32,9 +32,8 @@ INVARIANTS_RETRY = 3
 class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
-    use_agent_exploit: bool = False
-
     submit: bool
+    use_agent_exploit: bool = False
     install_command: Optional[str] = None
 
     resource_restart_retry_attempts: int = 3
