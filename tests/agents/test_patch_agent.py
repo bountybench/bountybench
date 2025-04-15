@@ -652,7 +652,6 @@ async def test_reset_repo_on_invariant_checking_fail(patch_agent, mocker):
     mocker.patch.object(PatchAgent, "_apply_patch", return_value=(True, ""))
     mocker.patch.object(PatchAgent, "restart_resources", return_value=True)
     mocker.patch.object(PatchAgent, "run_external_exploit", return_value=0)
-    mocker.patch.object(PatchAgent, "apply_patched_unit_tests", return_value=True)
 
     git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
     await agent.run(["message"])

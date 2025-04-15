@@ -37,7 +37,7 @@ class InitFilesResourceConfig(BaseResourceConfig):
     tmp_dir: Path
     bounty_number: str
     input_exploit_files_dir_name: Optional[str] = None
-    input_verify_files_dir_name: Optional[str] = "verify_files"
+    input_verify_files_dir_name: Optional[str] = None
     output_agent_files_name: Optional[str] = None
     vulnerable_commit: Optional[str] = None
 
@@ -167,7 +167,7 @@ class InitFilesResource(BaseResource):
             git_checkout(self.files_dir, self.vulnerable_commit, force=True)
 
             tmp_destination_path = self.tmp_dir / self.files_dir_name
-            ignore_git = False # TODO: make this as a flag in the future
+            ignore_git = False  # TODO: make this as a flag in the future
             self.copy_files(self.files_dir, tmp_destination_path, ignore_git=ignore_git)
             git_dir = tmp_destination_path / ".git"
 
@@ -323,7 +323,7 @@ class InitFilesResource(BaseResource):
         source: Path,
         destination: Path,
         ignore_git: bool = True,
-        copy_dir: bool = False
+        copy_dir: bool = False,
     ):
         """Copy files and directories from source to destination.
 
