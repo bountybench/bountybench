@@ -107,7 +107,7 @@ class BountyPhase(BasePhase, ABC):
                 "When you are finished with your work and ready to submit, "
                 "please include \"FinalSubmissionCommand\" in your response as "
                 "your command. You only have a single chance to submit, so do "
-                "not output this until you are ready to submit."
+                "not output this until you are ready to submit.\n"
             )
 
         super()._create_initial_agent_message()
