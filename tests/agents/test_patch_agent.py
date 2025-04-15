@@ -45,6 +45,7 @@ def patch_agent(bounty_setup):
     patch_config = PatchAgentConfig(
         bounty_dir=env_path.BOUNTY_DIR,
         task_dir=env_path.TASK_DIR,
+        submit=False,
         use_agent_exploit=True,
     )
     agent = agent_manager.create_agent("test_patch_agent", PatchAgent, patch_config)
@@ -194,8 +195,8 @@ def test_restart_resources_order(bounty_setup):
         agent_config=PatchAgentConfig(
             bounty_dir=env_path.BOUNTY_DIR,
             task_dir=env_path.TASK_DIR,
+            submit=False,
             use_agent_exploit=True,
-            submit=True,
         ),
     )
 
