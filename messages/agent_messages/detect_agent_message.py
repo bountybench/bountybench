@@ -11,6 +11,7 @@ class DetectAgentMessage(AgentMessage):
     ) -> None:
         super().__init__(agent_id=agent_id, message=message, prev=prev)
         self._success = success
+        self.stop = False
 
     @property
     def success(self) -> bool:
@@ -18,6 +19,13 @@ class DetectAgentMessage(AgentMessage):
 
     def set_success(self, value: bool):
         self._success = value
+
+    @property
+    def submission(self) -> bool:
+        return self._submission
+
+    def set_submission(self, should_submit: bool):
+        self._submission = True
 
     def to_broadcast_dict(self) -> dict:
         base_dict = super().to_broadcast_dict()

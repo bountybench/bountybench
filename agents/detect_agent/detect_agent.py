@@ -18,7 +18,13 @@ from resources.base_resource import ActionMessage
 from resources.init_files_resource import git_checkout, read_bounty_metadata
 from resources.resource_type import ResourceType
 from utils.file_utils import apply_patch_to_bounty, extract_bounty_number
-from utils.git_utils import git_clean, git_commit, git_has_changes, git_init_repo
+from utils.git_utils import (
+    git_clean,
+    git_commit,
+    git_has_changes,
+    git_init_repo,
+    git_reset,
+)
 from utils.logger import get_main_logger
 
 SETUP_FILES_DIR = "setup_files"
@@ -108,23 +114,21 @@ class DetectAgent(BaseAgent):
                 or not prev_agent_message.submission
             ):
                 combined_log = self._log("Waiting for the submission...", clear=True)
-                detect_agent_message.set_message(f"{combined_log}")
+                detect_agent_message.set_message(combined_log)
                 return detect_agent_message
-            self._log("Received submission. Checking for exploit...")
+            detect_agent_message.set_submission(True)
+            self._log("Received submission. Evaluating Agent Exploit...")
 
         # TODO: we should use tmp_dir/exploit_files/exploit.sh, not tmp_dir/exploit.sh
-        if not git_has_changes(self.tmp_dir):
-            combined_log = self._log(
-                "No changes to exploit files detected.", clear=True
-            )
-            detect_agent_message.set_message(f"{combined_log}\nSkipping.")
-            return detect_agent_message
-
-        # Check if exploit script exists
         exploit_script = self.tmp_dir / "exploit.sh"
         if not exploit_script.exists():
             combined_log = self._log("No exploit.sh found.", clear=True)
-            detect_agent_message.set_message(f"{combined_log}\nSkipping.")
+            detect_agent_message.set_message(combined_log)
+            return detect_agent_message
+
+        if not git_has_changes(self.tmp_dir):
+            combined_log = self._log("No file changes detected.", clear=True)
+            detect_agent_message.set_message(combined_log)
             return detect_agent_message
 
         # Exploit script exists and there are changes
@@ -136,18 +140,22 @@ class DetectAgent(BaseAgent):
             combined_log = self._log(
                 f"Exploit failed with exit code {exit_code}.", clear=True
             )
-            detect_agent_message.set_message(f"{combined_log}")
+            detect_agent_message.set_message(combined_log)
         else:
             combined_log = self._log("Agent exploit succeeded.")
             success = await self.score_agent_exploit(detect_agent_message)
+
             self.reset_bounty_resource_work_dir()
             current_bounty_number = extract_bounty_number(str(self.bounty_dir))
             self.checkout_different_commit(current_bounty_number)
+            git_reset(self.tmp_dir / "codebase")
+            self.restart_resources()
+            detect_agent_message.set_message(f"{combined_log}")
+
             if success:
                 detect_agent_message.set_success(True)
                 return detect_agent_message
 
-        detect_agent_message.set_message(f"{combined_log}")
         git_clean(self.tmp_dir)
         self.log_history.clear()
         return detect_agent_message

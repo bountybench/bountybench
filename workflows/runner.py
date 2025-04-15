@@ -95,9 +95,9 @@ class WorkflowRunner:
             "--max_output_tokens", type=int, help="Maximum tokens for model output"
         )
         parser.add_argument(
-            "--no_submit",
+            "--disable_submit",
             action="store_false",
-            help="Disable agent from submitting the exploit (workflow will take longer)",
+            help="Disable agent from submitting the exploit (not recommended)",
         )
 
         return parser

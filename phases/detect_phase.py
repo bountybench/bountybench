@@ -156,7 +156,7 @@ class DetectPhase(BountyPhase):
             previous_output (Optional[Message]): The output from the previous iteration.
 
         Returns:
-            Message: The resulting message from the agent.
+            Message: The resulting message from the agent - do NOT return the phase message
         """
         input_list: List[Message] = []
         if previous_output is not None:
@@ -165,10 +165,14 @@ class DetectPhase(BountyPhase):
         message: Message = await agent_instance.run(input_list)
 
         if isinstance(agent_instance, DetectAgent):
+            if message.submission:
+                phase_message.set_complete()
             if message.success:
                 logger.status("Vulnerability detected!", True)
                 phase_message.set_summary("detect_success")
-                phase_message.set_complete()
                 phase_message.set_success()
+            else:
+                logger.status("Failed to detect vulnerability", False)
+                phase_message.set_summary("detect_failure")
 
         return message

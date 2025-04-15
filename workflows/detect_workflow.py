@@ -17,7 +17,7 @@ class DetectWorkflow(BountyWorkflow):
         "use_mock_model": False,
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
-        "disable_submit": False,
+        "disable_submit": True,
     }
 
     def validate_arguments(self, kwargs):
@@ -69,7 +69,7 @@ class DetectWorkflow(BountyWorkflow):
             "max_output_tokens": self.params.get("max_output_tokens"),
             "interactive": self.interactive,
             "max_iterations": self.params.get("phase_iterations"),
-            "submit": self.params.get("no_submit", True),
+            "submit": self.params.get("disable_submit", True),
         }
 
         detect_phase = DetectPhase(workflow=self, **phase_kwargs)

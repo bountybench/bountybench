@@ -46,16 +46,17 @@ class BountySetupResource(BaseSetupResource):
 
     def update_work_dir(self, new_work_dir: Path) -> None:
         """
-        Update the work directory for this resource, and stop resources
+        Update the work directory for this resource, and stop existing resources
+        This should be used if you want to run another bounty's setup_bounty_env.sh
         """
-        logger.info(f"Stopping current resource")
+        logger.info(f"Stopping current bounty resource in {self.work_dir}")
         self.stop()
         if not new_work_dir.exists():
             raise FileNotFoundError(
                 f"New work directory does not exist: {new_work_dir}"
             )
 
-        logger.info(f"Updating work_dir from {self.work_dir} to {new_work_dir}")
+        logger.info(f"Updated work_dir from {self.work_dir} to {new_work_dir}")
         self.work_dir = new_work_dir
 
     def to_dict(self) -> dict:

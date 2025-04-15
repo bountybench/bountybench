@@ -66,7 +66,7 @@ def apply_patch_to_bounty(bounty_dir: Path, task_dir: Path) -> bool:
 
 
 def extract_bounty_number(path: str) -> Optional[str]:
-    match = re.search(r"bounty_([0-9])", path)
+    match = re.search(r"bounty_([0-9]+)", path)
     if match:
         return match.group(1)
     return None
