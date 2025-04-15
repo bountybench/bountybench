@@ -126,7 +126,7 @@ class PatchAgent(BaseAgent):
                 or not prev_agent_message.submission
             ):
                 self._log("Waiting for submission...")
-                return self._update_patch_agent_message(clear=True)
+                return self.update_patch_agent_message(clear=True)
             else:
                 self._log("Submission received.")
                 self.last_patch_agent_message.set_submission(True)
