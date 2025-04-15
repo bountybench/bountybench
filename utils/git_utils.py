@@ -121,7 +121,7 @@ def git_commit(
         logger.info(f"Commit '{commit_message}' created successfully")
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to create commit: {e}")
+        logger.error(f"Failed to create commit: {e.stderr}")
         raise
 
 
@@ -158,7 +158,7 @@ def git_reset(
             logger.info(f"Cleaned untracked files in {directory}")
 
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to reset repository: {e}")
+        logger.error(f"Failed to reset repository: {e.stderr}")
         raise
 
 
@@ -189,7 +189,7 @@ def git_checkout(
 
         _run_git_command(directory, cmd)
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to checkout {target}: {e}")
+        logger.error(f"Failed to checkout {target}: {e.stderr}")
         raise
 
 
@@ -209,21 +209,23 @@ def git_checkout_main(
     )
 
 
-def git_has_changes(directory_path: PathLike) -> bool:
+def git_has_changes(directory_path: PathLike, check_all: bool = True) -> bool:
     """
     Check if repository has uncommitted changes.
 
     Args:
         directory_path: Path to the git repository
+        check_all: Whether to check changes in the whole git folder
 
     Returns:
         bool: True if uncommitted changes exist, False otherwise
     """
     directory = Path(directory_path)
     try:
-        result = _run_git_command(
-            directory, ["status", "--porcelain"], capture_output=True
-        )
+        arg = ["status", "--porcelain"]
+        if not check_all:
+            arg.append(".")
+        result = _run_git_command(directory, arg, capture_output=True)
         return bool(result.stdout.strip())
     except subprocess.CalledProcessError:
         logger.error("Failed to check repository status")
