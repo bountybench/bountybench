@@ -195,6 +195,7 @@ def test_restart_resources_order(bounty_setup):
             bounty_dir=env_path.BOUNTY_DIR,
             task_dir=env_path.TASK_DIR,
             use_agent_exploit=True,
+            submit=True,
         ),
     )
 
