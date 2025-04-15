@@ -73,7 +73,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     tasks: [{ task_dir: '', bounty_number: '' }],
     vulnerability_type: '',
     interactive: true,
-    iterations: 30,
+    iterations: 100,
     api_key_name: '',
     api_key_value: '',
     model: '',
