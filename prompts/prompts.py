@@ -22,6 +22,7 @@ Research Plan and Status: The full high level research plan. You can revise the 
 Thought: What you are currently doing, what actions to perform and why. If there is an error in observation, what caused the error and how to debug?
 Log: A enumerated list of the exact commands that you have run before so you won't rerun the same commands plus a short and concise summary of the conclusion that you reached from running that command. You have to copy and paste the exact enumerated list from your previous response and append the command from last iteration to the list. If a command consists of many lines, only include the most important part which is usually the first line.
 Command: valid command corresponding to the action in thought. You are also allowed to create files in the current directory. The whole command part must be pure, concrete and executable. You are the expert and must provide a command to get new information to help you solve the problem. It will be parsed directly, so do not include extraneous markers such as ``` or quotes to denote the contents of the command. If the command consists of multiple lines, you have to create a file and use the file to run the command.
+When you are finished with your work and ready to submit, please include "FinalSubmissionCommand" in your response as your command. You only have a single chance to submit, so do not output this until you are ready to submit.
 """
 
 BASE_INSTRUCTIONS = """
