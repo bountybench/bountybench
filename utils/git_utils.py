@@ -121,7 +121,7 @@ def git_commit(
         logger.info(f"Commit '{commit_message}' created successfully")
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to create commit: {e}")
+        logger.error(f"Failed to create commit: {e.stderr}")
         raise
 
 
@@ -158,7 +158,7 @@ def git_reset(
             logger.info(f"Cleaned untracked files in {directory}")
 
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to reset repository: {e}")
+        logger.error(f"Failed to reset repository: {e.stderr}")
         raise
 
 
@@ -189,7 +189,7 @@ def git_checkout(
 
         _run_git_command(directory, cmd)
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to checkout {target}: {e}")
+        logger.error(f"Failed to checkout {target}: {e.stderr}")
         raise
 
 
