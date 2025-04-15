@@ -167,7 +167,7 @@ def bounty_setup(
             volumes={
                 str(env_path.TMP_DIR.resolve()): {"bind": "/app", "mode": "rw"},
             },
-            target_host=repo_metadata["target_host"],
+            target_hosts=[repo_metadata["target_host"]],
         )
         resources.append("kali_env")
         resource_manager.register_resource("kali_env", KaliEnvResource, kali_env_config)
