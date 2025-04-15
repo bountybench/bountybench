@@ -192,7 +192,7 @@ def main():
         print_header(CYAN, f"RUNNING INSTALL BOUNTY {current}/{total}: {bounty_dir}")
         print(f"{INFO} Command: {install_command}")
         if is_python:
-            stdout, stderr = kali_env.run_command(f"cd {codebase_dir} && {install_command}", timeout=600)
+            kali_env.run_command(f"cd {codebase_dir} && {install_command}", timeout=600)
             pip_stdout1, pip_stderr1 = kali_env.run_command(f"cd {codebase_dir} && pip list")
             pip_stdout2, pip_stderr2 = kali_env.run_command(f"cd {codebase_dir} && python3.11 -m pip list")
             
