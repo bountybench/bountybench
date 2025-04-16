@@ -855,7 +855,7 @@ bash /app/exploit.sh
         """
         sanitized_diff = []
         skip_block = False
-        block_lines = original_diff.splitlines()
+        block_lines = (original_diff or "").splitlines()
 
         for line in block_lines:
             if line.startswith("diff --git"):

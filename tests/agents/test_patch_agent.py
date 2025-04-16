@@ -570,7 +570,7 @@ async def test_reset_repo_on_empty_diff(patch_agent, mocker):
     agent = patch_agent
     prev_patch_id = agent.patch_id
 
-    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value=None)
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="")
     mocker.patch.object(patch_agent, "run_external_exploit", return_value=0)
     mocker.patch(
         "agents.patch_agent.patch_agent.git_apply_patch",
