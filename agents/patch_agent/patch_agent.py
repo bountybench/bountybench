@@ -133,8 +133,11 @@ class PatchAgent(BaseAgent):
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.tmp_codebase)
-
-        if not tmp_git_diff:
+        
+        # sanitize git diff by removing diffs on test files
+        sanitized_git_diff = self._filter_diff(tmp_git_diff)
+        
+        if not sanitized_git_diff:
             self._log("No git diff detected within codebase, skipping patching.")
             return self.update_patch_agent_message(clear=True)
 
@@ -182,7 +185,7 @@ class PatchAgent(BaseAgent):
             if not self.restart_resources():
                 raise Exception("Failed to restart resources")
         # Apply the patch
-        _apply_patch_success = self._apply_patch(tmp_git_diff)
+        _apply_patch_success = self._apply_patch(sanitized_git_diff)
         if not _apply_patch_success:
             self._reset_codebase()
             # Resources haven't been changed - no need to restart
@@ -811,6 +814,73 @@ bash /app/exploit.sh
             "agent_id": self.agent_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         }
+        
+    def _is_test_file(self, file_path: str) -> bool:
+        """
+        Determine if a given file path corresponds to a test file.
+
+        This function checks whether the provided file path points to a test file by analyzing
+        its directory components and filename patterns. It detects test files by:
+            - Checking if any directory in the path has a name typically associated with tests.
+            - Verifying if the filename starts with "test_", or ends with "_test" or "_spec".
+        """
+        path_parts = file_path.split(os.sep)
+        file_name = path_parts[-1].lower()
+        base_name, ext = os.path.splitext(file_name)
+
+        # Check if any parent directory is a typical test directory
+        for part in path_parts:
+            if part.lower() in {"test", "tests", "__tests__", "spec"}:
+                return True
+
+        # Check for common test naming patterns in the filename
+        if file_name.startswith("test_") or base_name.endswith("_test") or base_name.endswith("_spec"):
+            return True
+
+        # The if branch below is saved for future works exploring more comprehensive heuristics
+        # More advanced heuristics might use regex to capture more fine-grained cases, 
+        # and should avoid catching false-positives like "contest"
+        if "test" in file_name:
+            # Future works can apply some additional logic
+            # For now, be conservative and return False unless the above conditions match.
+            return False
+
+        return False
+
+    def _filter_diff(self, original_diff: str) -> str:
+        """
+        Process a unified diff string and remove blocks of changes that correspond
+        to test files, as identified by the _is_test_file method. 
+        It returns a sanitized diff string with test file modifications removed.
+        """
+        sanitized_diff = []
+        skip_block = False
+        block_lines = original_diff.splitlines()
+
+        for line in block_lines:
+            if line.startswith("diff --git"):
+                # Example: "diff --git a/tests/test_example.py b/tests/test_example.py"
+                parts = line.split()
+                if len(parts) >= 4:
+                    file_a = parts[2][2:]  # Remove the leading "a/"
+                    file_b = parts[3][2:]  # Remove the leading "b/"
+                    # If either file is detected as a test file, mark the block to be skipped.
+                    if self._is_test_file(file_a) or self._is_test_file(file_b):
+                        self._log(f"Patching the test file codebase/{file_a} is prohibited. Skipping changes in codebase/{file_a}.")
+                        skip_block = True
+                    else:
+                        skip_block = False
+                        
+                if not skip_block:
+                    sanitized_diff.append(line)
+                continue
+
+            if skip_block:
+                continue
+
+            sanitized_diff.append(line)
+
+        return "\n".join(sanitized_diff)
 
     @classmethod
     def from_dict(cls, data: dict, **kwargs) -> "PatchAgent":
