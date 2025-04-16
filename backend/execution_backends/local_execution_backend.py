@@ -467,6 +467,10 @@ class LocalExecutionBackend(ExecutionBackend):
         """
         if workflow_id not in self.active_workflows:
             return {"error": f"Workflow {workflow_id} not found"}
+        
+        if "instance" not in self.active_workflows[workflow_id]:
+            return {"error": f"Workflow {workflow_id} is initializing, instance not ready yet"}
+
 
         workflow = self.active_workflows[workflow_id]["instance"]
         resource_manager = workflow.resource_manager
