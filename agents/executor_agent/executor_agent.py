@@ -11,6 +11,7 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.convert_message_utils import cast_action_to_command
 from messages.message import Message
+from resources.model_resource.model_resource import ModelResponseFailure
 from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
 
@@ -89,7 +90,7 @@ class ExecutorAgent(BaseAgent):
             return
 
         self.last_executor_agent_message.add_child_message(model_action_message)
-        
+
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             # Note: can adjust the check condition later
@@ -169,10 +170,22 @@ class ExecutorAgent(BaseAgent):
                         "attempt": iterations + 1,
                     }
 
-                    # Check for status code on the exception
+                    # Check for status code on the exception)
                     if hasattr(e, "status_code"):
                         status_code = e.status_code
                         error_entry["status_code"] = status_code
+                    elif isinstance(e, ModelResponseFailure) and hasattr(
+                        e.exception, "status_code"
+                    ):
+                        status_code = e.exception.status_code
+                        error_entry["status_code"] = status_code
+
+                    if (
+                        isinstance(e, ModelResponseFailure)
+                        and "invalid prompt" in error_msg.lower()
+                    ):
+                        # Log associated input with invalid prompt failures
+                        error_entry["input"] = e.input
 
                     # Also don't retry quota errors
                     if "No quota" in error_msg or "InsufficientQuotaError" in error_msg:
