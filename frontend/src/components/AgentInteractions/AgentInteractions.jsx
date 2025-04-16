@@ -132,7 +132,7 @@ const AgentInteractions = ({
               variant="contained"
               color="primary"
               onClick={() => onTriggerNextIteration(selectedIterNum, selectedIterType)}
-              startIcon={<KeyboardDoubleArrowRightIcon />}
+              startIcon={isNextDisabled ? <CircularProgress size={20} color="inherit" /> : <KeyboardDoubleArrowRightIcon />}
               disabled={isNextDisabled}
               size="small"
             >

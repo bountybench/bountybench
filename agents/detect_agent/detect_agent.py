@@ -47,7 +47,7 @@ class DetectAgent(BaseAgent):
     """
     DetectAgent is responsible for managing and executing detect scripts.
 
-    This agent checks for the presence of a detect.sh file, executes it,
+    This agent checks for the presence of an detect.sh file, executes it,
     and verifies its success. It also handles the copying of detect files,
     restarting of resources, and storing of exploit results.
     """

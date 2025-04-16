@@ -12,6 +12,7 @@
     "frontend": "npm start --prefix frontend"
   },
   "dependencies": {
+    "@mui/lab": "^7.0.0-beta.11",
     "react-toastify": "^11.0.3"
   }
 }

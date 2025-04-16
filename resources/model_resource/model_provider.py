@@ -103,7 +103,7 @@ class ModelProvider(ABC):
         done_flag = [False]  # Shared boolean to signal completion
         response_holder = [None]  # Holds the ModelResponse when done
         error_holder = [None]  # Holds exception info if something goes wrong
-
+        
         def run_request():
             try:
                 response = self.request(
