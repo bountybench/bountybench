@@ -31,6 +31,7 @@ class TokenizerMapping:
         "meta/llama-3-70b-chat": "meta/llama-3-8b",
         "meta/llama-3.1-70b-instruct-turbo": "meta/llama-3.1-8b",
         "meta/llama-3.1-405b-instruct-turbo": "meta/llama-3.1-8b",
+        "meta/llama-4-maverick-17b-128e-instruct-fp8": "meta/llama-4-scout-17b-16e-instruct",
         # Together Models (DeepSeek)
         "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
         "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
@@ -86,6 +87,7 @@ class NonHELMMapping:
         # Together Models (LLAMA)
         "meta/llama-3.1-70b-instruct-turbo": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         "meta/llama-3.1-405b-instruct-turbo": "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
+        "meta/llama-4-maverick-17b-128e-instruct-fp8": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
         # Together Models (DeepSeek)
         "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
         "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
