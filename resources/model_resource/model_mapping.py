@@ -24,12 +24,14 @@ class TokenizerMapping:
         "openai/gpt-4o-2024-11-20": "openai/o200k_base",
         "openai/gpt-3.5-turbo-0125": "openai/cl100k_base",
         "openai/gpt-4.5-preview-2025-02-27": "openai/o200k_base",
+        "openai/gpt-4.1-2025-04-14": "openai/o200k_base",
         # Together Models (LLAMA)
         "meta/llama-3-8b": "meta/llama-3-8b",
         "meta/llama-3-70b": "meta/llama-3-8b",
         "meta/llama-3-70b-chat": "meta/llama-3-8b",
         "meta/llama-3.1-70b-instruct-turbo": "meta/llama-3.1-8b",
         "meta/llama-3.1-405b-instruct-turbo": "meta/llama-3.1-8b",
+        "meta/llama-4-maverick-17b-128e-instruct-fp8": "meta/llama-4-scout-17b-16e-instruct",
         # Together Models (DeepSeek)
         "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
         "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
@@ -74,6 +76,7 @@ class NonHELMMapping:
         "openai/o3-2025-04-03-high-reasoning-effort": "o3-2025-04-03-high-reasoning-effort",
         "openai/gpt-4o-2024-11-20": "gpt-4o-2024-11-20",
         "openai/gpt-4.5-preview-2025-02-27": "gpt-4.5-preview-2025-02-27",
+        "openai/gpt-4.1-2025-04-14": "gpt-4.1-2025-04-14",
         # Anthropic Models (Claude)
         "anthropic/claude-3-5-sonnet-20241022": "claude-3-5-sonnet-20241022",
         "anthropic/claude-3-7-sonnet-20250219": "claude-3-7-sonnet-20250219",
@@ -84,6 +87,7 @@ class NonHELMMapping:
         # Together Models (LLAMA)
         "meta/llama-3.1-70b-instruct-turbo": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         "meta/llama-3.1-405b-instruct-turbo": "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
+        "meta/llama-4-maverick-17b-128e-instruct-fp8": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
         # Together Models (DeepSeek)
         "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
         "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
