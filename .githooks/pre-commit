@@ -17,9 +17,7 @@ if ! env -i git diff --staged --quiet -- . ':(exclude)*/codebase'; then
 fi
 
 env -i git fetch origin
-
-CURRENT_BRANCH=$(env -i git rev-parse --abbrev-ref HEAD)
-env -i git reset --hard origin/"$CURRENT_BRANCH"
+env -i git reset --hard origin/main
 
 cd - > /dev/null
 
