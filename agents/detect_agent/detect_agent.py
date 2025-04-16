@@ -51,8 +51,8 @@ class DetectAgentConfig(AgentConfig):
         return cls(
             bounty_dir=Path(data["bounty_dir"]),
             task_dir=Path(data["task_dir"]),
-            tmp_dir=Path(data.get("tmp_dir", "/tmp")),
-            submit=data.get("submit", False),
+            tmp_dir=Path(data["tmp_dir"]),
+            submit=data["submit"],
         )
 
 
