@@ -1,8 +1,9 @@
 name: Update Submodule
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 jobs:
   update-submodule:
     runs-on: ubuntu-latest
