@@ -13,7 +13,7 @@ from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.message import Message
 from resources.kali_env_resource import KaliEnvResource
 from resources.memory_resource.memory_resource import MemoryResource
-from resources.model_resource.model_resource import ModelResource
+from resources.model_resource.model_resource import ModelResource, ModelResponseFailure
 
 
 @pytest.fixture
@@ -310,11 +310,12 @@ async def test_call_lm_invalid_prompt_error_retry(executor_agent):
         "Invalid prompt: your prompt was flagged as potentially violating our usage policy",
         400,
     )
+    model_response_error = ModelResponseFailure(invalid_prompt_error, "test input")
     success_msg = ActionMessage("test_id", "command: ls")
 
     # First call fails with invalid prompt, second succeeds
     executor_agent.resources.model.run = Mock(
-        side_effect=[invalid_prompt_error, success_msg]
+        side_effect=[model_response_error, success_msg]
     )
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
 
@@ -333,7 +334,9 @@ async def test_call_lm_invalid_prompt_error_retry(executor_agent):
     assert "error_history" in success_msg.additional_metadata
     error_history = success_msg.additional_metadata["error_history"]
     assert len(error_history) == 1
+    print(error_history[0])
     assert error_history[0]["status_code"] == 400
+    assert error_history[0]["input"] == "test input"
     assert "Invalid prompt" in error_history[0]["message"]
 
 
