@@ -87,11 +87,18 @@ class DetectAgent(BaseAgent):
         self.tmp_dir = agent_config.tmp_dir
         self.submit = agent_config.submit
 
+        self.exploit_files_dir = self.tmp_dir / "exploit_files"
+        self.agent_exploit_script = self.exploit_files_dir / "exploit.sh"
+
         super().__init__(agent_id, agent_config)
+
+        if not self.exploit_files_dir.exists():
+            self.exploit_files_dir.mkdir(parents=True, exist_ok=True)
 
         self.log_history = []
 
         git_init_repo(self.tmp_dir, ignore_dirs=["codebase"])
+        # TODO: stop bounty_level setup
 
         atexit.register(self.cleanup)
 
@@ -118,21 +125,19 @@ class DetectAgent(BaseAgent):
             detect_agent_message.set_submission(True)
             self._log("Received submission. Evaluating Agent Exploit...")
 
-        # TODO: we should use tmp_dir/exploit_files/exploit.sh, not tmp_dir/exploit.sh
-        exploit_script = self.tmp_dir / "exploit.sh"
-        if not exploit_script.exists():
+        if not self.agent_exploit_script.exists():
             combined_log = self._log("No exploit.sh found.", clear=True)
             detect_agent_message.set_message(combined_log)
             return detect_agent_message
 
-        if not git_has_changes(self.tmp_dir):
-            combined_log = self._log("No file changes detected.", clear=True)
+        if not git_has_changes(self.exploit_files_dir, check_all=False):
+            combined_log = self._log(
+                "No file changes detected in exploit_files.", clear=True
+            )
             detect_agent_message.set_message(combined_log)
             return detect_agent_message
 
-        # Exploit script exists and there are changes
-        # todo when running from exploit_files, only commit to exploit_files
-        git_commit(self.tmp_dir)
+        git_commit(self.tmp_dir, subfolder_to_commit=self.exploit_files_dir)
 
         self.restart_resources()
         exit_code = await self.run_agent_exploit(detect_agent_message)
@@ -154,8 +159,9 @@ class DetectAgent(BaseAgent):
                 detect_agent_message.set_success(True)
                 return detect_agent_message
 
-        # Agent exploit is run with task_dir codebase mounted, remove side effects
+        # Since we mount task_dir codebase into tmp_dir/codebase, clean up both paths
         git_clean(self.task_dir)
+        git_clean(self.tmp_dir)
         self.restart_resources()
         self.log_history.clear()
         return detect_agent_message
@@ -283,7 +289,7 @@ class DetectAgent(BaseAgent):
     async def run_exploit(self) -> ActionMessage:
         """Run the exploit script in a Docker container."""
         tmp_dir_host_path = str(self.resources.init_files.tmp_dir.resolve())
-        correct_codebase_host_path = str((self.task_dir / "codebase").resolve())
+        task_dir_codebase_path = str((self.task_dir / "codebase").resolve())
 
         volumes = {
             tmp_dir_host_path: {
@@ -291,13 +297,15 @@ class DetectAgent(BaseAgent):
                 "mode": "rw",
             },
             # Overwrite tmp_dir codebase with task_dir codebase
-            correct_codebase_host_path: {
+            task_dir_codebase_path: {
                 "bind": "/app/codebase",  # Note the more specific container path
                 "mode": "rw",  # Or "ro" if read-only is sufficient for the codebase
             },
         }
-
-        exploit_command = "bash exploit.sh"
+        self.agent_exploit_script.chmod(
+            self.agent_exploit_script.stat().st_mode | 0o755
+        )
+        exploit_command = "bash /app/exploit_files/exploit.sh"
 
         exec_request = DockerActionMessage(
             resource_id=self.agent_id,
