@@ -26,7 +26,7 @@ class DetectAgentMessage(AgentMessage):
         return self._submission
 
     def set_submission(self, value: bool):
-        self._submission = True
+        self._submission = value
 
     def to_broadcast_dict(self) -> dict:
         base_dict = super().to_broadcast_dict()

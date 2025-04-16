@@ -492,8 +492,12 @@ def git_setup_dev_branch(
         _run_git_command(directory, ["checkout", "-f", commit])
 
         # Delete existing dev branch if it exists
-        branches_output = _run_git_command(directory, ["branch"], capture_output=True).stdout
-        branch_names = [line.lstrip("* ").strip() for line in branches_output.splitlines()]
+        branches_output = _run_git_command(
+            directory, ["branch"], capture_output=True
+        ).stdout
+        branch_names = [
+            line.lstrip("* ").strip() for line in branches_output.splitlines()
+        ]
         if "dev" in branch_names:
             _run_git_command(directory, ["branch", "-D", "dev"])
 
@@ -681,67 +685,3 @@ def cleanup_git_branches(destination):
 
     except subprocess.CalledProcessError as e:
         logger.error(f"Error cleaning up Git branches: {e}")
-
-
-def clone_local_repo(
-    source_repo_path: Path, destination_path: Path, recurse_submodules: bool = False
-) -> None:
-    """
-    Clones a local Git repository to a new local directory using git clone.
-
-    Args:
-        source_repo_path: Path to the existing local Git repository directory.
-        destination_path: Path where the new cloned repository should be created.
-                          The parent directory must exist, but this path itself
-                          should not exist before cloning.
-        recurse_submodules: If True, clones submodules recursively.
-    """
-    logger.info(f"Attempting to clone '{source_repo_path}' to '{destination_path}'...")
-
-    if not source_repo_path.is_dir():
-        raise FileNotFoundError(
-            f"Source repository path does not exist or is not a directory: {source_repo_path}"
-        )
-
-    source_git_dir = source_repo_path / ".git"
-    if not source_git_dir.exists():
-        # Could be a bare repo, check for common bare repo files
-        is_bare = (
-            (source_repo_path / "HEAD").is_file()
-            and (source_repo_path / "config").is_file()
-            and (source_repo_path / "objects").is_dir()
-        )
-        if not is_bare:
-            raise ValueError(
-                f"Source path does not appear to be a Git repository (missing .git directory or core bare repo files): {source_repo_path}"
-            )
-        else:
-            logger.debug(
-                f"Source path '{source_repo_path}' appears to be a bare repository."
-            )
-    else:
-        logger.debug(f"Found '.git' directory in source path '{source_repo_path}'.")
-
-    if destination_path.exists():
-        raise FileExistsError(f"Destination path already exists: {destination_path}")
-
-    destination_parent = destination_path.parent
-    if not destination_parent.is_dir():
-        raise FileNotFoundError(
-            f"Parent directory of destination path does not exist: {destination_parent}"
-        )
-
-    git_args = ["clone"]
-    if recurse_submodules:
-        git_args.append("--recurse-submodules")
-
-    # Add source and destination *name* (not the full path)
-    # Git clone runs in the parent directory and creates the destination directory
-    git_args.extend([str(source_repo_path), destination_path.name])
-
-    try:
-        _run_git_command(directory=destination_parent, args=git_args)
-        logger.info(f"Successfully cloned '{source_repo_path}' to '{destination_path}'")
-    except Exception as e:
-        logger.error(f"Failed to clone repository: {e}")
-        raise e

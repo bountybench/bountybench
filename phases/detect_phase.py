@@ -85,7 +85,6 @@ class DetectPhase(BountyPhase):
                     output_agent_files_name=self.output_agent_files_name,
                     bounty_number=self.bounty_number,
                     vulnerable_commit=vulnerable_commit,
-                    input_verify_files_dir_name=None,  # Don't copy verify_files into tmp_dir
                 ),
             ),
             (
