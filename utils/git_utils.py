@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -29,7 +30,7 @@ def _run_git_command(
             encoding=encoding if text else None,
             errors=errors if text else None,
         )
-        logger.debug(f"Git command succeeded: git {' '.join(args)}")
+        logger.info(f"Git command succeeded: git {' '.join(args)}")
         return result
     except subprocess.CalledProcessError as e:
         logger.warning(f"Git command failed: git {' '.join(args)} - {str(e)}")
@@ -82,14 +83,24 @@ def git_commit(
     """
     directory = Path(directory_path)
 
-    # Check if valid git repo
-    if not (directory / ".git").exists():
-        logger.warning(f"No git repository exists at {directory}")
+    # Check if directory is within a git repo (either directly or as a subdirectory)
+    try:
+        # Run git status to check if we're in a git repository
+        subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=directory,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except subprocess.CalledProcessError:
+        logger.warning(f"No git repository exists at or above {directory}")
         return False
 
     try:
         # Checkout branch if specified
-        _checkout_branch(directory, branch_name)
+        if branch_name:
+            _checkout_branch(directory, branch_name)
 
         # Stage all changes
         _run_git_command(directory, ["add", "."])
@@ -110,7 +121,7 @@ def git_commit(
         logger.info(f"Commit '{commit_message}' created successfully")
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to create commit: {e}")
+        logger.error(f"Failed to create commit: {e.stderr}")
         raise
 
 
@@ -147,7 +158,7 @@ def git_reset(
             logger.info(f"Cleaned untracked files in {directory}")
 
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to reset repository: {e}")
+        logger.error(f"Failed to reset repository: {e.stderr}")
         raise
 
 
@@ -178,7 +189,7 @@ def git_checkout(
 
         _run_git_command(directory, cmd)
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to checkout {target}: {e}")
+        logger.error(f"Failed to checkout {target}: {e.stderr}")
         raise
 
 
@@ -198,21 +209,23 @@ def git_checkout_main(
     )
 
 
-def git_has_changes(directory_path: PathLike) -> bool:
+def git_has_changes(directory_path: PathLike, check_all: bool = True) -> bool:
     """
     Check if repository has uncommitted changes.
 
     Args:
         directory_path: Path to the git repository
+        check_all: Whether to check changes in the whole git folder
 
     Returns:
         bool: True if uncommitted changes exist, False otherwise
     """
     directory = Path(directory_path)
     try:
-        result = _run_git_command(
-            directory, ["status", "--porcelain"], capture_output=True
-        )
+        arg = ["status", "--porcelain"]
+        if not check_all:
+            arg.append(".")
+        result = _run_git_command(directory, arg, capture_output=True)
         return bool(result.stdout.strip())
     except subprocess.CalledProcessError:
         logger.error("Failed to check repository status")
@@ -229,12 +242,19 @@ def git_clean(directory_path: PathLike, remove_ignored: bool = False) -> None:
     """
     directory = Path(directory_path)
 
-    cmd = ["clean", "-fd"]
+    flags = "-fd"
     if remove_ignored:
-        cmd.append("x")  # -fdx removes ignored files too
+        flags += "x"
+    cmd = ["clean", flags]
 
     _run_git_command(directory, cmd)
     logger.info(f"Cleaned untracked files in {directory}")
+
+
+def git_restore(directory_path: PathLike) -> None:
+    directory = Path(directory_path)
+    _run_git_command(directory, ["restore"])
+    logger.info(f"Restored repository in {directory}")
 
 
 def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
@@ -261,7 +281,6 @@ def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> No
         if not gitignore.exists():
             gitignore.write_text("*.log\n.DS_Store\n")
             gitignore.write_text("\n# Node.js dependencies\nnode_modules/\n")
-
 
         # If ignore_dirs list is provided, append each entry to .gitignore if not already present
         if ignore_dirs:
@@ -519,3 +538,140 @@ def git_get_codebase_version() -> Optional[str]:
     except subprocess.CalledProcessError as e:
         logger.error(f"Error getting git version: {e}")
         return None
+
+
+def create_git_ignore_function(ignore_git):
+    """Create a custom ignore function for shutil.copytree."""
+
+    def custom_ignore(src, names):
+        if ignore_git:
+            return [n for n in names if n == ".git" or n.startswith(".git")]
+        return []
+
+    return custom_ignore
+
+
+def prepare_git_directory(dest_git_path):
+    """Prepare the destination .git directory by removing existing one if needed."""
+    if dest_git_path.exists():
+        if dest_git_path.is_file():
+            dest_git_path.unlink()
+        else:  # is_dir
+            shutil.rmtree(dest_git_path)
+
+
+def initialize_git_repository(destination):
+    """Initialize a new Git repository at the destination."""
+    subprocess.run(
+        ["git", "init"],
+        cwd=str(destination),
+        check=True,
+        capture_output=True,
+    )
+    logger.info(f"Initialized new Git repository at {destination}")
+
+
+def delete_git_branches(destination, exclude_branches=None):
+    """Delete Git branches in the repository.
+    
+    Args:
+        destination: Path to the Git repository
+        exclude_branches: List of branch names to exclude from deletion (default: None)
+        
+    Returns:
+        List of successfully deleted branch names
+    """
+    if exclude_branches is None:
+        exclude_branches = []
+    
+    deleted_branches = []
+    
+    # Get all branches
+    result = subprocess.run(
+        ["git", "branch"],
+        cwd=str(destination),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    # Parse branch names
+    branches = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if line.startswith("*"):
+            # Skip the current HEAD which is likely (no branch)
+            continue
+        branch_name = line.strip()
+        if branch_name not in exclude_branches:
+            branches.append(branch_name)
+
+    # Delete branches
+    for branch in branches:
+        try:
+            # Force delete the branch
+            subprocess.run(
+                ["git", "branch", "-D", branch],
+                cwd=str(destination),
+                check=True,
+                capture_output=True,
+            )
+            logger.info(f"Deleted branch {branch} from repository in {destination}")
+            deleted_branches.append(branch)
+        except subprocess.CalledProcessError as e:
+            logger.warning(f"Failed to delete branch {branch}: {e}")
+            
+    return deleted_branches
+
+
+def cleanup_git_branches(destination):
+    """Clean up all branches and make the current detached HEAD the new main branch.
+
+    This function:
+    1. Identifies all existing branches
+    2. Creates a new main branch from the current HEAD
+    3. Deletes all other branches completely
+
+    Args:
+        destination: Path to the Git repository
+    """
+    try:
+        # Delete all branches except main
+        deleted_branches = delete_git_branches(destination, exclude_branches=[])
+        if deleted_branches:
+            logger.info(f"Deleted branches: {', '.join(deleted_branches)}")
+
+        # Create a new main branch from the current HEAD
+        subprocess.run(
+            ["git", "checkout", "-b", "main"],
+            cwd=str(destination),
+            check=True,
+            capture_output=True,
+        )
+        logger.info(f"Created new main branch from detached HEAD in {destination}")
+
+        # Delete all branches except main
+        deleted_branches = delete_git_branches(destination, exclude_branches=[])
+        if deleted_branches:
+            logger.info(f"Deleted branches: {', '.join(deleted_branches)}")
+
+        # Garbage collect to ensure deleted branches are completely removed
+        subprocess.run(
+            ["git", "gc", "--prune=now", "--aggressive"],
+            cwd=str(destination),
+            check=True,
+            capture_output=True,
+        )
+        logger.info(f"Completed garbage collection in {destination}")
+
+        # Final step: Explicitly checkout to the main branch to ensure we're on it
+        subprocess.run(
+            ["git", "checkout", "main"],
+            cwd=str(destination),
+            check=True,
+            capture_output=True,
+        )
+        logger.info(f"Checked out to main branch in {destination}")
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error cleaning up Git branches: {e}")

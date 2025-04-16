@@ -16,8 +16,9 @@ from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
+from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.resource_type import ResourceType
-from resources.utils import run_command_async
+from resources.utils import run_command_async, truncate_script_output
 from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
 from utils.logger import get_main_logger
 
@@ -31,6 +32,7 @@ INVARIANTS_RETRY = 3
 class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
+    submit: bool
     use_agent_exploit: bool = False
     install_command: Optional[str] = None
 
@@ -72,6 +74,7 @@ class PatchAgent(BaseAgent):
         self.use_agent_exploit = agent_config.use_agent_exploit
         self.install_command = agent_config.install_command
         self.output_patch_dir = None
+        self.submit = agent_config.submit
 
         self.last_patch_agent_message = None
         self.last_action_message = None
@@ -116,6 +119,17 @@ class PatchAgent(BaseAgent):
         self.tmp_codebase = self.tmp_dir / self.resources.init_files.files_dir_name
 
         self.output_patch_dir = self.resources.init_files.output_agent_files_dir
+
+        if self.submit:
+            if (
+                not isinstance(prev_agent_message, ExecutorAgentMessage)
+                or not prev_agent_message.submission
+            ):
+                self._log("Waiting for submission...")
+                return self.update_patch_agent_message(clear=True)
+            else:
+                self._log("Submission received.")
+                self.last_patch_agent_message.set_submission(True)
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.tmp_codebase)
@@ -447,7 +461,7 @@ bash /app/exploit.sh
             logger.info("Running verify.sh")
             try:
                 # Make the script executable
-                verify_file_path = self.bounty_dir / "verify.sh"
+                verify_file_path = self.bounty_dir / "verify_files" / "verify.sh"
                 verify_file_path.chmod(verify_file_path.stat().st_mode | 0o755)
 
                 result = await run_command_async(
@@ -606,16 +620,14 @@ bash /app/exploit.sh
 
         any_passed = False
 
-        # --- Run original tests first ---
         for attempt in range(INVARIANTS_RETRY):
             self._log(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
 
-            # Try with original tests first
             original_repo_scores, original_bounty_scores = (
                 await self._execute_invariant_tests()
             )
 
-            # Evaluate if original tests passed
+            # Evaluate if tests passed
             original_passed = self.check_invariant_scores_against_thresholds(
                 repo_invariant_threshold,
                 bounty_invariant_threshold,
@@ -627,94 +639,7 @@ bash /app/exploit.sh
             if original_passed:
                 any_passed = True
 
-        # --- Now run patched unit tests (if any) ---
-        if self.apply_patched_unit_tests():
-            logger.info(
-                "Unit test patches applied successfully. Running patched invariant checks."
-            )
-
-            for attempt in range(INVARIANTS_RETRY):
-                self._log(f"[Patched] Attempt {attempt + 1} of {INVARIANTS_RETRY}")
-
-                # Run with patched unit tests
-                alt_repo_scores, alt_bounty_scores = (
-                    await self._execute_invariant_tests()
-                )
-
-                # Evaluate if patched tests passed
-                alt_passed = self.check_invariant_scores_against_thresholds(
-                    repo_invariant_threshold,
-                    bounty_invariant_threshold,
-                    alt_repo_scores,
-                    alt_bounty_scores,
-                )
-
-                # Update any_passed if alt tests succeeded
-                if alt_passed:
-                    any_passed = True
-        else:
-            logger.info(
-                "No unit test patches applied. Skipping patched invariant tests."
-            )
-
         return any_passed
-
-    def _truncate_script_output(
-        self, stdout: str, stderr: Optional[str] = "", max_length: int = 5000
-    ) -> str:
-        """
-        Truncate script output to enforce max_length, keeping the most recent output
-
-        Args:
-            stdout: Standard output from script
-            stderr: Standard error from script (optional)
-            max_length: Maximum total length of the combined output
-
-        Returns:
-            Truncated combined output string
-        """
-        stdout = stdout.strip()
-        stderr = stderr.strip()
-
-        total_length = len(stdout) + len(stderr)
-        truncation_indicator = "\n...TRUNCATED...\n"
-        indicator_length = len(truncation_indicator)
-
-        if total_length <= max_length:
-            if stderr:
-                return f"{stdout}\n\nSTDERR:\n{stderr}"
-            return stdout
-
-        if not stdout:
-            truncated_stderr = (
-                f"{truncation_indicator}{stderr[-(max_length - indicator_length):]}"
-            )
-            return f"STDERR:{truncated_stderr}"
-
-        if not stderr:
-            truncated_stdout = (
-                f"{truncation_indicator}{stdout[-(max_length - indicator_length):]}"
-            )
-            return truncated_stdout
-
-        stderr_prefix = "\n\nSTDERR:\n"
-
-        if len(stderr) < max_length * 0.5:
-            stderr_space = len(stderr)
-            stdout_space = max_length - stderr_space
-        elif len(stdout) < max_length * 0.5:
-            stdout_space = len(stdout)
-            stderr_space = max_length - stdout_space
-        else:
-            stdout_space = max_length // 2
-            stderr_space = max_length - stdout_space
-
-        truncated_stdout = stdout[-int(stdout_space) :]
-        truncated_stderr = stderr[-int(stderr_space) :]
-
-        return (
-            f"{truncation_indicator}{truncated_stdout}{stderr_prefix}{truncated_stderr}"
-        )
 
     async def _execute_invariant_tests(self) -> tuple[Dict, Optional[Dict]]:
         """
@@ -748,9 +673,7 @@ bash /app/exploit.sh
 
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
-                message=self._truncate_script_output(
-                    repo_result.stdout, repo_result.stderr
-                ),
+                message=truncate_script_output(repo_result.stdout, repo_result.stderr),
                 command=f"./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 additional_metadata={"repo_invariant_scores": repo_scores},
@@ -781,7 +704,7 @@ bash /app/exploit.sh
 
             bounty_invariants_response = ScriptActionMessage(
                 resource_id=f"bounty_invariants_subprocess",
-                message=self._truncate_script_output(
+                message=truncate_script_output(
                     bounty_result.stdout, bounty_result.stderr
                 ),
                 command=f"./run_bounty_invariants.sh",
@@ -875,76 +798,6 @@ bash /app/exploit.sh
             logger.error(f"Failed to move exploits directory: {e}")
 
         return None
-
-    def apply_patched_unit_tests(self) -> bool:
-        """
-        Apply unit test patches from bounty metadata.
-
-        Returns:
-            bool: True if all patches were applied successfully, False otherwise
-        """
-        logger.info("Checking for unit test patches to apply...")
-
-        bounty_metadata_file = self.bounty_dir / "bounty_metadata.json"
-        bounty_metadata = {}
-        bounty_unit_tests = {}
-
-        # Load bounty metadata
-        if not bounty_metadata_file.exists():
-            logger.info("No bounty metadata file found.")
-            return False
-
-        try:
-            bounty_metadata = json.loads(bounty_metadata_file.read_text())
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing bounty metadata JSON: {e}")
-            return False
-
-        # Check for unit test patches
-        if "unit_test_patch" not in bounty_metadata:
-            logger.info("No unit test patches defined in metadata. Skipping.")
-            return False
-
-        bounty_unit_tests = bounty_metadata["unit_test_patch"]
-        if not bounty_unit_tests:
-            logger.info("Unit test patches dictionary is empty. Skipping.")
-            return False
-
-        successful_patches = 0
-        failed_patches = 0
-
-        for src_file_path, dest_file_path in bounty_unit_tests.items():
-            logger.info(
-                f"Applying unit test patch from {src_file_path} to {dest_file_path}"
-            )
-
-            src_path = Path(src_file_path)
-            src_path = self.bounty_dir / src_file_path
-
-            dest_path = self.task_dir / dest_file_path
-
-            if not src_path.exists():
-                logger.error(f"Unit test source file not found: {src_path}")
-                failed_patches += 1
-                continue
-
-            try:
-                # Copy the file
-                shutil.copy2(src_path, dest_path)
-                logger.info(f"Successfully copied unit test file to: {dest_path}")
-                successful_patches += 1
-
-            except Exception as e:
-                logger.error(f"Failed to copy unit test file {src_file_path}: {str(e)}")
-                failed_patches += 1
-
-        total_patches = successful_patches + failed_patches
-        if total_patches > 0:
-            logger.info(
-                f"Applied {successful_patches}/{total_patches} unit test patches"
-            )
-
-        return failed_patches == 0
 
     def to_dict(self) -> dict:
         """

@@ -9,15 +9,13 @@ import { formatData } from '../../utils/messageFormatters';
 import { CopyButton } from '../buttons/CopyButton';
 import './ActionMessage.css';
 
-const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
+const ActionMessage = ({ index, action, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, parentMessage }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(action?.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   const [originalMessageContent, setOriginalMessageContent] = useState(formatData(action?.message || ''));
-
-  const messageRef = useRef(null);
 
   const handleCopyClick = () => {
     const message = formatData(editedMessage)
@@ -63,97 +61,27 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
     }
   }, [action, onRunMessage]);
 
-  const getPrevId = () => {
-    if (!messageRef.current) return null;
-
-    const ownKey = Object.keys(messageRef.current).find(key => 
-      key.startsWith('__reactProps$')
-    );
-    const currentIndex = messageRef.current[ownKey].children._owner.index;
-
-    const parent = messageRef.current.closest('.action-messages-container');
-    if (!parent) return null;
-
-    const propsKey = Object.keys(parent).find(key => 
-      key.startsWith('__reactProps$')
-    );
-        
-    if (currentIndex > 0) {
-      const prevElement = parent[propsKey].children[currentIndex - 1];
-      
-      return prevElement.key;
-    }
-    
-    return null;
-  };
-
-  const getParentId = () => {
-    if (!messageRef.current) return null;
-
-    const parent = messageRef.current.closest('.agent-message-container');
-    if (!parent) return null;
-   
-    const propsKey = Object.keys(parent).find(key => 
-      key.startsWith('__reactProps$')
-    );
-    
-    if (propsKey && parent[propsKey]) {
-      return parent[propsKey].children._owner.key;
-    }
-    
-    return null;
-  };
-
-  const getNextId = () => {
-    if (!messageRef.current) return null;
-
-    const ownKey = Object.keys(messageRef.current).find(key => 
-      key.startsWith('__reactProps$')
-    );
-    const currentIndex = messageRef.current[ownKey].children._owner.index;
-
-    const parent = messageRef.current.closest('.action-messages-container');
-    if (!parent) return null;
-
-    const propsKey = Object.keys(parent).find(key => 
-      key.startsWith('__reactProps$')
-    );
-        
-    if (currentIndex < parent[propsKey].children.length - 1) {
-      const nextElement = parent[propsKey].children[currentIndex + 1];
-      
-      return nextElement.key;
-    }
-    
-    return null;
-  };
-
   const handleMoveUp = useCallback(() => {
     setTimeout(() => {
-      const prevId = getPrevId();
-      if (prevId) {
-        onCellSelect(prevId);
+      if (index > 0) {
+        onCellSelect(parentMessage.current_children[index - 1].current_id);
       }
     }, 0);
   }, [onCellSelect]);
 
   const handleMoveLeft = useCallback(() => {
     setTimeout(() => {
-      const parentId = getParentId();
-      if (parentId) {
-        onCellSelect(parentId);
-      }
+      onCellSelect(parentMessage.current_id);
     }, 0);
   }, [onCellSelect]);
 
   const handleMoveDown = useCallback(() => {
     setTimeout(() => {
-      const nextId = getNextId();
-      if (nextId) {
-        onCellSelect(nextId);
+      if (index < parentMessage.current_children.length - 1) {
+        onCellSelect(parentMessage.current_children[index + 1].current_id);
       }
     }, 0);
-  }, [onCellSelect]);
+  }, [onCellSelect, parentMessage]);
 
   const textFieldRef = useRef(null);
 
@@ -246,7 +174,6 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
       className={`action-message ${actionResourceId(action.resource_id)} ${selectedCellId === action.current_id ? 'selected' : ''}`}
       onClick={handleContainerClick}
       variant="outlined"
-      ref={messageRef}
     >
       <CardContent>
         <Box className="action-message-header">

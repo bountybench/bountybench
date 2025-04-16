@@ -139,8 +139,6 @@ def bounty_setup(
             tmp_dir=env_path.TMP_DIR,
             bounty_number=bounty_number,
             input_exploit_files_dir_name=env_path.EXPLOIT_FILES_DIR_NAME,
-            input_verify_file_name=VERIFY_SCRIPT_NAME,
-            input_verify_files_dir_name="verify_files",
             output_agent_files_name=env_path.OUTPUT_PATH_DIR_NAME,
             vulnerable_commit=vulnerable_commit,
         )
@@ -168,7 +166,7 @@ def bounty_setup(
             volumes={
                 str(env_path.TMP_DIR.resolve()): {"bind": "/app", "mode": "rw"},
             },
-            target_host=repo_metadata["target_host"],
+            target_hosts=[repo_metadata["target_host"]],
         )
         resources.append("kali_env")
         resource_manager.register_resource("kali_env", KaliEnvResource, kali_env_config)

@@ -1,9 +1,10 @@
 import atexit
 import json
+import threading
 import time
 import uuid
 from dataclasses import dataclass
-import threading
+
 import docker
 from docker.errors import (
     APIError,
@@ -17,6 +18,7 @@ from docker.errors import (
 from messages.action_messages.docker_action_message import DockerActionMessage
 from resources.base_resource import ActionMessage, BaseResourceConfig
 from resources.runnable_base_resource import RunnableBaseResource
+from resources.utils import truncate_script_output
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
 
@@ -73,7 +75,8 @@ class DockerResource(RunnableBaseResource):
             volumes=volumes,
         )
 
-        docker_message.set_message(output)
+        truncated_output = truncate_script_output(output)
+        docker_message.set_message(truncated_output)
         docker_message.set_exit_code(exit_code)
         return docker_message
 
@@ -136,11 +139,13 @@ class DockerResource(RunnableBaseResource):
             # Thread-safe way to enable real-time logging while preventing hanging
             logs = []
             stop_event = threading.Event()
-            log_thread = threading.Thread(target=stream_logs, args=(container, logs, stop_event))
+            log_thread = threading.Thread(
+                target=stream_logs, args=(container, logs, stop_event)
+            )
             log_thread.start()
 
             start_time = time.time()
-            while container.status != 'exited':
+            while container.status != "exited":
                 container.reload()
                 if time.time() - start_time > timeout:
                     logger.warning(f"Container timed out after {timeout} seconds.")

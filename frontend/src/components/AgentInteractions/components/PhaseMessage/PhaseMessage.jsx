@@ -155,6 +155,7 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                 {message.current_children.map((agentMessage, index) => (
                   <AgentMessage 
                     key={agentMessage.current_id} 
+                    index={index}
                     message={agentMessage} 
                     onUpdateMessageInput={onUpdateMessageInput}
                     onRunMessage={onRunMessage}
@@ -163,6 +164,7 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     selectedCellId={selectedCellId}
                     onCellSelect={onCellSelect}
                     onToggleVersion={onToggleVersion}
+                    parentMessage={message}
                   />
                 ))}
               </Box>

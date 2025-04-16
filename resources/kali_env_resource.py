@@ -5,7 +5,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import docker
 from docker.models.containers import Container
@@ -71,8 +71,9 @@ class KaliEnvResourceConfig(BaseResourceConfig):
     task_dir: Optional[Path] = None
     bounty_number: Optional[str] = None
     volumes: Optional[Dict[str, Dict[str, str]]] = None
-    target_host: Optional[str] = None
+    target_hosts: Optional[List[str]] = None
     install_command: Optional[str] = None
+    disable_cleanup: Optional[bool] = None
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
@@ -96,13 +97,14 @@ class KaliEnvResource(RunnableBaseResource):
         self.client = docker.from_env(timeout=DOCKER_CLIENT_INIT_TIMEOUT)
         self.container = self._start(self.resource_id, self._resource_config.volumes)
         self.util.validate_container_status(self.container, logger)
-        self.target_host = self._resource_config.target_host
+        self.target_hosts = self._resource_config.target_hosts
         self.install_command = self._resource_config.install_command
+        self.disable_cleanup = self._resource_config.disable_cleanup
         self.socket = None  # Socket for writing to the pseudo-terminal
         self._initialize_bounty_directory()
 
-        if self.target_host:
-            self.connect_to_target_hosts_check(self.target_host)
+        if self.target_hosts:
+            self.connect_to_target_hosts_check(self.target_hosts)
 
         atexit.register(self.stop)
 
@@ -356,8 +358,10 @@ class KaliEnvResource(RunnableBaseResource):
                 self.client.images.pull(DOCKER_IMAGE)
                 logger.info(f"Successfully pulled the latest image: {DOCKER_IMAGE}")
             except Exception as e:
-                logger.warning(f"Failed to pull the latest image: {e}. Will use existing image if available.")
-                
+                logger.warning(
+                    f"Failed to pull the latest image: {e}. Will use existing image if available."
+                )
+
             print(self.client.containers)
             print("in start")
             print("-" * 90)
@@ -384,6 +388,8 @@ class KaliEnvResource(RunnableBaseResource):
 
     def cleanup_tmp(self):
         """Clean up temporary files"""
+        if self.disable_cleanup:
+            return
         try:
             logger.info("Cleaning up: removing tmp files.")
             cleanup_command = "rm -rf * .*"
@@ -391,7 +397,9 @@ class KaliEnvResource(RunnableBaseResource):
         except Exception as e:
             logger.error(f"Error cleaning up tmp files: {e}")
 
-    def _run_non_tty_command(self, command: str, timeout: int, workdir: Optional[str] = None) -> Tuple[str, str]:
+    def _run_non_tty_command(
+        self, command: str, timeout: int, workdir: Optional[str] = None
+    ) -> Tuple[str, str]:
         exec_id = self.create_exec(command, workdir, tty=False)
         output_stream = self.client.api.exec_start(exec_id, stream=True, demux=True)
 
@@ -426,7 +434,7 @@ class KaliEnvResource(RunnableBaseResource):
             exec_info = exec_inspect(exec_id)
             if not exec_info["Running"]:
                 break
-            if time.time() - start_time > timeout:  
+            if time.time() - start_time > timeout:
                 stop_event.set()
                 logger.warning(f"Exec command timed out after {timeout} seconds")
                 return "", f"Timeout after {timeout} seconds"
@@ -440,7 +448,7 @@ class KaliEnvResource(RunnableBaseResource):
 
         logger.info(f"Command executed successfully in [line-mode].")
         return stdout_text, stderr_text
-    
+
     def _run_tty_command(self, command: str, workdir: Optional[str]) -> Tuple[str, str]:
         if not self.socket:
             self._initialize_tty_socket(workdir)
@@ -472,18 +480,26 @@ class KaliEnvResource(RunnableBaseResource):
         }
         return self.client.api.exec_create(**exec_params)["Id"]
 
-    def connect_to_target_hosts_check(self, target_hosts: str) -> None:
+    def connect_to_target_hosts_check(self, target_hosts: List[str]) -> None:
         """
         Checks if kali resource can connect on the specified target hosts with retries.
 
         Args:
-            target_hosts (str): A string containing space-separated target hosts in the format hostname:port.
+            target_hosts (str): A List[str] where each element contains space-separated target hosts in the format hostname:port.
         """
-        hosts = target_hosts.split()
+        all_hosts = []
+        # Note repo metadata.json uses str of space-separated hosts, bounty_metadata.json uses a list
+        # TODO: Make target host metadata format consistent
+
+        for target_host in target_hosts:
+            all_hosts += target_host.split()
+
         failed_hosts = []
 
-        for target_host in hosts:
+        for target_host in all_hosts:
             hostname, port = self.util.parse_target_host(target_host, logger)
+
+            print(f"Checking out {hostname} with {port}")
 
             def nc_check():
                 """

@@ -13,7 +13,6 @@ from messages.convert_message_utils import cast_action_to_command
 from messages.message import Message
 from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 
@@ -63,7 +62,7 @@ class ExecutorAgent(BaseAgent):
         )
 
         try:
-            await self.execute(self.last_executor_agent_message, prev_agent_message)
+            await self.execute(prev_agent_message)
         except Exception as e:
             agent_message_str = self.last_executor_agent_message.message or ""
             self.last_executor_agent_message.set_message(
@@ -80,40 +79,42 @@ class ExecutorAgent(BaseAgent):
 
     async def execute(
         self,
-        agent_message: ExecutorAgentMessage,
         prev_agent_message: Optional[AgentMessage] = None,
-    ) -> Message:
+    ) -> None:
         model_action_message = await self.call_lm(prev_agent_message)
         if not model_action_message:
-            agent_message.set_message("Model failed to produce a valid response.")
-            return agent_message
+            self.last_executor_agent_message.set_message(
+                "Model failed to produce a valid response."
+            )
+            return
 
-        agent_message.add_child_message(model_action_message)
-
+        self.last_executor_agent_message.add_child_message(model_action_message)
+        
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             # Note: can adjust the check condition later
-            if "submit" in model_action_message.command:
+            if "finalsubmissioncommand" in model_action_message.command.lower():
                 # Note: create an empty action message to protect the memory resource
                 empty_action_message = ActionMessage(
                     resource_id="submission",
                     message="",
                     prev=model_action_message,
                 )
-                agent_message.add_child_message(empty_action_message)
-                agent_message.set_submission(value=True)
+                self.last_executor_agent_message.add_child_message(empty_action_message)
+                self.last_executor_agent_message.set_submission(value=True)
                 return
 
             kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
+                self.last_executor_agent_message.set_message(
+                    "Kali failed to produce a valid response."
+                )
                 return
-            agent_message.add_child_message(kali_action_message)
-            return kali_action_message
+            self.last_executor_agent_message.add_child_message(kali_action_message)
         else:
-            agent_message.set_message(
+            self.last_executor_agent_message.set_message(
                 "Model did not return a valid command. Kali Linux action skipped."
             )
-            raise
 
     async def call_lm(
         self, lm_input_message: Optional[Message] = None
@@ -145,10 +146,6 @@ class ExecutorAgent(BaseAgent):
                     )
 
                     last_raw_response = model_output
-                    if error_history:
-                        last_raw_response.add_to_additional_metadata(
-                            "error_history", error_history
-                        )
                 except asyncio.TimeoutError as e:
                     error_entry = {
                         "type": "TimeoutError",
@@ -192,7 +189,12 @@ class ExecutorAgent(BaseAgent):
                     continue  # Skip to next iteration without trying to parse
 
                 try:
+                    logger.info(f"Parsing response from LM")
                     parsed_response = self.parse_response(model_output)
+                    if error_history:
+                        parsed_response.add_to_additional_metadata(
+                            "error_history", error_history
+                        )
                     return parsed_response
                 except Exception as e:
                     exception_type = type(e).__name__
@@ -212,6 +214,10 @@ class ExecutorAgent(BaseAgent):
 
             # If we've exhausted all retries but have a raw response, return it
             if last_raw_response:
+                if error_history:
+                    last_raw_response.add_to_additional_metadata(
+                        "error_history", error_history
+                    )
                 return last_raw_response
 
             # If we've exhausted all retries
@@ -245,8 +251,7 @@ class ExecutorAgent(BaseAgent):
 
         except Exception as e:
             logger.warning(f"Could not parse response as CommandMessage. Error: {e}")
-            logger.info(f"LM responded with: {action_message.message}")
-            return action_message
+            raise
 
     def execute_in_env(self, executor_message: CommandMessage) -> ActionMessage:
         """

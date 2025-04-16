@@ -50,6 +50,7 @@ class PatchPhase(BountyPhase):
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
             use_agent_exploit=self.use_agent_exploit,
+            submit=self.submit,
             install_command=self.workflow.repo_metadata.get("install_command"),
         )
 
@@ -75,6 +76,9 @@ class PatchPhase(BountyPhase):
         vulnerable_commit: str = self.workflow.bounty_metadata.get(
             "vulnerable_commit", "main"
         )
+
+        target_hosts = [self.workflow.repo_metadata["target_host"]]
+        target_hosts.extend(self.workflow.bounty_metadata.get("bounty_setup_hosts", []))
 
         resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
             (
@@ -107,7 +111,7 @@ class PatchPhase(BountyPhase):
                     volumes={
                         str(self.tmp_dir.resolve()): {"bind": "/app", "mode": "rw"},
                     },
-                    target_host=self.workflow.repo_metadata["target_host"],
+                    target_hosts=target_hosts,
                     install_command=self.workflow.repo_metadata.get("install_command"),
                 ),
             ),
@@ -146,6 +150,10 @@ class PatchPhase(BountyPhase):
         message: Message = await agent_instance.run(input_list)
 
         if isinstance(agent_instance, PatchAgent):
+            if message.submission:
+                logger.info("Patch submitted!")
+                phase_message.set_summary("patch_submitted")
+                phase_message.set_complete()
             if message.success:
                 logger.info("Patch Success!")
                 phase_message.set_summary("patch_success")
