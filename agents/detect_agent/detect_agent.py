@@ -91,8 +91,7 @@ class DetectAgent(BaseAgent):
 
         self.log_history = []
 
-        if not self.submit:
-            git_init_repo(self.tmp_dir, ignore_dirs=["codebase"])
+        git_init_repo(self.tmp_dir, ignore_dirs=["codebase"])
 
         atexit.register(self.cleanup)
 
@@ -132,6 +131,7 @@ class DetectAgent(BaseAgent):
             return detect_agent_message
 
         # Exploit script exists and there are changes
+        # todo when running from exploit_files, only commit to exploit_files
         git_commit(self.tmp_dir)
 
         self.restart_resources()
@@ -148,15 +148,15 @@ class DetectAgent(BaseAgent):
             self.reset_bounty_resource_work_dir()
             current_bounty_number = extract_bounty_number(str(self.bounty_dir))
             self.checkout_different_commit(current_bounty_number)
-            git_reset(self.tmp_dir / "codebase")
-            self.restart_resources()
             detect_agent_message.set_message(f"{combined_log}")
 
             if success:
                 detect_agent_message.set_success(True)
                 return detect_agent_message
 
-        git_clean(self.tmp_dir)
+        # Agent exploit is run with task_dir codebase mounted, remove side effects
+        git_clean(self.task_dir)
+        self.restart_resources()
         self.log_history.clear()
         return detect_agent_message
 
@@ -216,12 +216,9 @@ class DetectAgent(BaseAgent):
         self.checkout_different_commit(bounty_number)
         new_bounty_dir = self.get_bounty_dir_path(bounty_number)
         task_dir_success = apply_patch_to_bounty(new_bounty_dir, self.task_dir)
-        tmp_dir_success = apply_patch_to_bounty(new_bounty_dir, self.tmp_dir)
 
-        if not (task_dir_success and tmp_dir_success):
-            raise Exception(
-                f"task_dir patch success: {task_dir_success}, tmp dir: {tmp_dir_success}"
-            )
+        if not (task_dir_success):
+            raise Exception(f"task_dir patch success: {task_dir_success}")
 
         # Update bounty resource work dir
         if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
@@ -285,10 +282,18 @@ class DetectAgent(BaseAgent):
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_exploit(self) -> ActionMessage:
         """Run the exploit script in a Docker container."""
+        tmp_dir_host_path = str(self.resources.init_files.tmp_dir.resolve())
+        correct_codebase_host_path = str((self.task_dir / "codebase").resolve())
+
         volumes = {
-            str(self.resources.init_files.tmp_dir.resolve()): {
+            tmp_dir_host_path: {
                 "bind": "/app",
                 "mode": "rw",
+            },
+            # Overwrite tmp_dir codebase with task_dir codebase
+            correct_codebase_host_path: {
+                "bind": "/app/codebase",  # Note the more specific container path
+                "mode": "rw",  # Or "ro" if read-only is sufficient for the codebase
             },
         }
 

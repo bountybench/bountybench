@@ -48,6 +48,8 @@ class BountySetupResource(BaseSetupResource):
         """
         Update the work directory for this resource, and stop existing resources
         This should be used if you want to run another bounty's setup_bounty_env.sh
+
+        This does NOT run the bounty setup in the new directory
         """
         logger.info(f"Stopping current bounty resource in {self.work_dir}")
         self.stop()

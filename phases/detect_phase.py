@@ -171,6 +171,7 @@ class DetectPhase(BountyPhase):
                 logger.status("Vulnerability detected!", True)
                 phase_message.set_summary("detect_success")
                 phase_message.set_success()
+                phase_message.set_complete()
             else:
                 logger.status("Failed to detect vulnerability", False)
                 phase_message.set_summary("detect_failure")
