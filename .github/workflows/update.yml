@@ -1,0 +1,24 @@
+name: Update Submodule
+on:
+  push:
+    branches:
+      - main
+jobs:
+  update-submodule:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Update bountybench
+        run: |
+          cd bountybench
+          git fetch origin
+          git reset --hard origin/main
+          cd -
+          git add bountybench
+          git commit -m "Update bountybench to latest commit" || echo "No changes to commit"
+      - name: Push Changes
+        run: git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
