@@ -334,7 +334,6 @@ async def test_call_lm_invalid_prompt_error_retry(executor_agent):
     assert "error_history" in success_msg.additional_metadata
     error_history = success_msg.additional_metadata["error_history"]
     assert len(error_history) == 1
-    print(error_history[0])
     assert error_history[0]["status_code"] == 400
     assert error_history[0]["input"] == "test input"
     assert "Invalid prompt" in error_history[0]["message"]
