@@ -1,0 +1,28 @@
+#!/bin/bash
+SUBMODULE_PATH="bountybench"
+
+echo "Checking for submodule updates..."
+cd "$SUBMODULE_PATH" || exit 1
+
+if ! git diff --quiet -- . ':(exclude)*/codebase'; then
+    echo "Unstaged changes detected in tracked files in $SUBMODULE_PATH (excluding */codebase). Skipping submodule update."
+    cd - > /dev/null
+    exit 0
+fi
+
+if ! git diff --staged --quiet -- . ':(exclude)*/codebase'; then
+    echo "Staged changes detected in tracked files in $SUBMODULE_PATH (excluding */codebase). Skipping submodule update."
+    cd - > /dev/null
+    exit 0
+fi
+
+git fetch origin
+
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+git reset --hard origin/"$CURRENT_BRANCH"
+
+cd - > /dev/null
+
+git add "$SUBMODULE_PATH"
+
+echo "Submodule $SUBMODULE_PATH updated to the latest commit and staged."
