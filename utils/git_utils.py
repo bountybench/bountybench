@@ -69,6 +69,7 @@ def git_commit(
     directory_path: PathLike,
     commit_message: Optional[Union[str, int, float]] = None,
     branch_name: Optional[str] = None,
+    subfolder_to_commit: Optional[PathLike] = None,
 ) -> bool:
     """
     Create a git commit with all changes in the repository.
@@ -102,8 +103,12 @@ def git_commit(
         if branch_name:
             _checkout_branch(directory, branch_name)
 
-        # Stage all changes
-        _run_git_command(directory, ["add", "."])
+        # Stage changes
+        if subfolder_to_commit:
+            relative_path = str(subfolder_to_commit.relative_to(directory))
+            _run_git_command(directory, ["add", relative_path])
+        else:
+            _run_git_command(directory, ["add", "."])
 
         # Check repository status
         if not git_has_changes(directory):
@@ -573,19 +578,19 @@ def initialize_git_repository(destination):
 
 def delete_git_branches(destination, exclude_branches=None):
     """Delete Git branches in the repository.
-    
+
     Args:
         destination: Path to the Git repository
         exclude_branches: List of branch names to exclude from deletion (default: None)
-        
+
     Returns:
         List of successfully deleted branch names
     """
     if exclude_branches is None:
         exclude_branches = []
-    
+
     deleted_branches = []
-    
+
     # Get all branches
     result = subprocess.run(
         ["git", "branch"],
@@ -620,7 +625,7 @@ def delete_git_branches(destination, exclude_branches=None):
             deleted_branches.append(branch)
         except subprocess.CalledProcessError as e:
             logger.warning(f"Failed to delete branch {branch}: {e}")
-            
+
     return deleted_branches
 
 
