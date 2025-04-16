@@ -81,6 +81,7 @@ class PatchWorkflow(BountyWorkflow):
             "max_output_tokens": self.params.get("max_output_tokens"),
             "interactive": self.interactive,
             "max_iterations": self.params.get("phase_iterations"),
+            "submit": self.params.get("no_submit", True),
         }
 
         patch_phase = PatchPhase(workflow=self, **phase_kwargs)

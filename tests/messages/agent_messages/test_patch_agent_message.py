@@ -32,7 +32,7 @@ class TestPatchAgentMessage(unittest.TestCase):
         """
         prev_message = MagicMock(spec=AgentMessage)
         patch_agent_message = PatchAgentMessage(
-            "test_id", "test_msg", True, "/patch", prev_message
+            "test_id", "test_msg", True, "/patch", prev=prev_message
         )
 
         # Assertions

@@ -93,7 +93,7 @@ class ExecutorAgent(BaseAgent):
         logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             # Note: can adjust the check condition later
-            if "submit" in model_action_message.command:
+            if "finalsubmissioncommand" in model_action_message.command.lower():
                 # Note: create an empty action message to protect the memory resource
                 empty_action_message = ActionMessage(
                     resource_id="submission",

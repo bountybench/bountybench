@@ -50,6 +50,7 @@ class PatchPhase(BountyPhase):
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
             use_agent_exploit=self.use_agent_exploit,
+            submit=self.submit,
             install_command=self.workflow.repo_metadata.get("install_command"),
         )
 
@@ -149,6 +150,10 @@ class PatchPhase(BountyPhase):
         message: Message = await agent_instance.run(input_list)
 
         if isinstance(agent_instance, PatchAgent):
+            if message.submission:
+                logger.info("Patch submitted!")
+                phase_message.set_summary("patch_submitted")
+                phase_message.set_complete()
             if message.success:
                 logger.info("Patch Success!")
                 phase_message.set_summary("patch_success")

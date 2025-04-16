@@ -8,11 +8,13 @@ class PatchAgentMessage(AgentMessage):
         message: str = None,
         success: bool = False,
         patch_files_dir: str = None,
+        submission: bool = False,
         prev: AgentMessage = None,
     ) -> None:
         super().__init__(agent_id=agent_id, message=message, prev=prev)
         self._success = success
         self._patch_files_dir = patch_files_dir
+        self._submission = submission
 
     @property
     def success(self) -> bool:
@@ -20,6 +22,13 @@ class PatchAgentMessage(AgentMessage):
 
     def set_success(self, value: bool):
         self._success = value
+
+    @property
+    def submission(self) -> bool:
+        return self._submission
+
+    def set_submission(self, value: bool):
+        self._submission = value
 
     @property
     def patch_files_dir(self) -> str:
@@ -34,6 +43,7 @@ class PatchAgentMessage(AgentMessage):
             {
                 "success": self.success,
                 "patch_files_dir": self.patch_files_dir,
+                "submission": self.submission,
             }
         )
         return base_dict
@@ -44,6 +54,7 @@ class PatchAgentMessage(AgentMessage):
             {
                 "success": self.success,
                 "patch_files_dir": self.patch_files_dir,
+                "submission": self.submission,
             }
         )
         return base_dict

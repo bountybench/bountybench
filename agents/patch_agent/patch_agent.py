@@ -16,6 +16,7 @@ from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
+from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import run_command_async, truncate_script_output
 from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
@@ -31,6 +32,7 @@ INVARIANTS_RETRY = 3
 class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
+    submit: bool
     use_agent_exploit: bool = False
     install_command: Optional[str] = None
 
@@ -72,6 +74,7 @@ class PatchAgent(BaseAgent):
         self.use_agent_exploit = agent_config.use_agent_exploit
         self.install_command = agent_config.install_command
         self.output_patch_dir = None
+        self.submit = agent_config.submit
 
         self.last_patch_agent_message = None
         self.last_action_message = None
@@ -116,6 +119,17 @@ class PatchAgent(BaseAgent):
         self.tmp_codebase = self.tmp_dir / self.resources.init_files.files_dir_name
 
         self.output_patch_dir = self.resources.init_files.output_agent_files_dir
+
+        if self.submit:
+            if (
+                not isinstance(prev_agent_message, ExecutorAgentMessage)
+                or not prev_agent_message.submission
+            ):
+                self._log("Waiting for submission...")
+                return self.update_patch_agent_message(clear=True)
+            else:
+                self._log("Submission received.")
+                self.last_patch_agent_message.set_submission(True)
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.tmp_codebase)
