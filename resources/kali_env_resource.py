@@ -73,6 +73,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
     volumes: Optional[Dict[str, Dict[str, str]]] = None
     target_hosts: Optional[List[str]] = None
     install_command: Optional[str] = None
+    is_python: Optional[bool] = None
     disable_cleanup: Optional[bool] = None
 
     def validate(self) -> None:
@@ -99,6 +100,7 @@ class KaliEnvResource(RunnableBaseResource):
         self.util.validate_container_status(self.container, logger)
         self.target_hosts = self._resource_config.target_hosts
         self.install_command = self._resource_config.install_command
+        self.is_python = self._resource_config.is_python
         self.disable_cleanup = self._resource_config.disable_cleanup
         self.socket = None  # Socket for writing to the pseudo-terminal
         self._initialize_bounty_directory()
@@ -312,6 +314,8 @@ class KaliEnvResource(RunnableBaseResource):
 
     def _is_python_repo(self, codebase_path):
         """Check if the repository is a Python repository by looking for setup.py or pyproject.toml"""
+        if self.is_python is not None:
+            return self.is_python
         cmd = f"ls {codebase_path}/setup.py {codebase_path}/pyproject.toml 2>/dev/null || true"
         stdout, _ = self.run_command(cmd, TIMEOUT_PER_COMMAND)
         return "setup.py" in stdout or "pyproject.toml" in stdout
