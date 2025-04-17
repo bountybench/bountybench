@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import time
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -318,6 +319,23 @@ class InitFilesResource(BaseResource):
         except Exception as e:
             logger.error(f"Failed to initialize Git repository: {e}")
 
+    def _remove_ci_check(self, exploit_script):
+        """
+        Strip the entire  IS_CI_RUN … if … [else …] fi construct inside exploit.sh
+        and keep only the lines inside the IS_CI_RUN=true body 
+        """
+        pattern = re.compile(
+            r'''(?msx)                
+            ^IS_CI_RUN=.*?\n          
+            .*?                       
+            ^if [^\n]* IS_CI_RUN .*?true[^\n]*\n   # the if line that checks whether IS_CI_RUN=true
+            (.*?)                     # variables set inside the if true body (what is kept after processing)
+            (?:\nelse .*? )?          #  optional else branch (non‑capturing)
+            ^fi[ \t]*\n?              #  closing fi
+            ''')
+        processed = pattern.sub(r'\1', exploit_script)
+        return "\n".join(line.lstrip() for line in processed.splitlines())
+
     def copy_files(
         self,
         source: Path,
@@ -356,6 +374,17 @@ class InitFilesResource(BaseResource):
                 dirs_exist_ok=True,
                 ignore=ignore_func,
             )
+
+            # Remove CI check from exploit.sh when copying (if script present)
+            exploit_path = destination / "exploit.sh"
+            if exploit_path.exists() and exploit_path.is_file():
+                try:
+                    original = exploit_path.read_text()
+                    processed = self._remove_ci_check(original)
+                    exploit_path.write_text(processed)
+                    logger.info(f"Removed CI check from {exploit_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to process {exploit_path}: {e}")
 
             # Handle Git repository if needed
             git_file = source / ".git"
