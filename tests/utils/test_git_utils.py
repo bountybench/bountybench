@@ -78,6 +78,58 @@ def test_git_diff(tmp_git_repo):
     assert "Hello, Git!" in diff
 
 
+def test_git_diff_detects_file_move_without_content_change(tmp_git_repo):
+    """Check if git diff detects file move (no content change)."""
+    (tmp_git_repo / "src").mkdir()
+    (tmp_git_repo / "src" / "moved.txt").write_text("unchanged content")
+    subprocess.run(["git", "add", "."], cwd=tmp_git_repo, check=True)
+    git_commit(tmp_git_repo, "add moved file")
+
+    (tmp_git_repo / "dst").mkdir()
+    subprocess.run(
+        ["git", "mv", "src/moved.txt", "dst/moved.txt"],
+        cwd=tmp_git_repo,
+        check=True,
+    )
+    diff = git_diff(tmp_git_repo)
+    
+    print("*****************************")
+    print(diff)
+    print("*****************************")
+
+    assert "diff --git a/src/moved.txt b/dst/moved.txt" in diff
+    assert "rename from src/moved.txt" in diff
+    assert "rename to dst/moved.txt" in diff
+    assert "+unchanged content" not in diff
+    assert "-unchanged content" not in diff
+
+
+def test_git_diff_detects_file_move_with_content_change(tmp_git_repo):
+    """Check if git diff detects file move file move plus a content change."""
+    (tmp_git_repo / "src").mkdir()
+    (tmp_git_repo / "src" / "moved.txt").write_text("original line")
+    subprocess.run(["git", "add", "."], cwd=tmp_git_repo, check=True)
+    git_commit(tmp_git_repo, "add moved file")
+
+    (tmp_git_repo / "dst").mkdir()
+    subprocess.run(
+        ["git", "mv", "src/moved.txt", "dst/moved.txt"],
+        cwd=tmp_git_repo,
+        check=True,
+    )
+
+    (tmp_git_repo / "dst" / "moved.txt").write_text("original line\nadded line")
+    diff = git_diff(tmp_git_repo)
+
+    assert "diff --git a/dst/moved.txt b/dst/moved.txt" in diff
+    assert "new file" in diff
+    assert "added line" in diff
+
+    assert "diff --git a/src/moved.txt b/src/moved.txt" in diff
+    assert "deleted file" in diff
+    assert "original line" in diff
+
+
 def test_git_checkout(tmp_git_repo):
     """Create a branch and checkout to it."""
     (tmp_git_repo / "file.txt").write_text("Hello!")

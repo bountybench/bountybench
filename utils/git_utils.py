@@ -345,7 +345,7 @@ def git_diff(directory_path: PathLike, exclude_binary: Optional[bool] = True) ->
         _run_git_command(directory, ["add", "-A"])
 
         if exclude_binary:
-            # Get list of changed files
+            # 1) detect content‐changed files via numstat
             numstat_result = _run_git_command(
                 directory,
                 [
@@ -356,22 +356,39 @@ def git_diff(directory_path: PathLike, exclude_binary: Optional[bool] = True) ->
                 capture_output=True,
                 errors="replace",
             )
+            
+            content_changed_files = {
+                parts[2]
+                for line in numstat_result.stdout.splitlines()
+                if (parts := line.split("\t")) and parts[0] != "-" and parts[1] != "-"
+            }
+            
+            # 2) detect pure renames via name-status
+            name_status_result = _run_git_command(
+                directory, 
+                [
+                    "diff", 
+                    "--cached", 
+                    "--name-status"
+                ], 
+                capture_output=True,
+                errors="replace",
+            )
+            
+            rename_files = {
+                path
+                for line in name_status_result.stdout.splitlines()
+                if (parts := line.split("\t")) and parts[0].startswith("R") and len(parts) >= 3
+                for path in (parts[1], parts[2])
+            }
 
-            if not numstat_result:
-                return ""
+            files_to_diff = content_changed_files.union(rename_files)
 
-            # Parse numstat output to get non-binary files
-            non_binary_files = set()
-            for line in numstat_result.stdout.splitlines():
-                parts = line.split("\t")
-                if len(parts) >= 3 and parts[0] != "-" and parts[1] != "-":
-                    non_binary_files.add(parts[2])
-
-            if not non_binary_files:
+            if not files_to_diff:
                 logger.info("No non-binary files changed")
                 return ""
 
-            args = ["diff", "--cached", "--", *non_binary_files]
+            args = ["diff", "--cached", "--", *files_to_diff]
         else:
             args = ["diff", "--cached"]
 
