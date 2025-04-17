@@ -3,6 +3,21 @@ FROM cybench/kali-linux-large:latest
 COPY packages.list /tmp/packages.list
 
 # Install common tools, Python 3.9, and Docker
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    zlib1g-dev \
+    libncurses5-dev \
+    libgdbm-dev \
+    libnss3-dev \
+    libssl-dev \
+    libreadline-dev \
+    libffi-dev \
+    libsqlite3-dev \
+    libbz2-dev \
+    liblzma-dev \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN apt-get update && \
     apt-get install -f && \
     xargs -a /tmp/packages.list apt-get install -y --no-install-recommends && \
