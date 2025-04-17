@@ -151,7 +151,7 @@ class KaliEnvResource(RunnableBaseResource):
     def run(self, command_message: CommandMessage) -> ActionMessage:
         command_str = command_message.command
         stdout, stderr = self.run_command(command_str, TIMEOUT_PER_COMMAND)
-        observation_text = stdout.strip() + stderr.strip()
+        observation_text = stdout.rstrip() + stderr.strip()
         return ActionMessage(
             resource_id=self.resource_id, message=observation_text, prev=command_message
         )
