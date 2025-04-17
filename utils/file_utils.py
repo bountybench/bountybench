@@ -63,10 +63,3 @@ def apply_patch_to_bounty(bounty_dir: Path, task_dir: Path) -> bool:
         logger.info(f"Copied {successful_patches}/{total_patches} patches")
 
     return failed_patches == 0
-
-
-def extract_bounty_number(path: str) -> Optional[str]:
-    match = re.search(r"bounty_([0-9]+)", path)
-    if match:
-        return match.group(1)
-    return None

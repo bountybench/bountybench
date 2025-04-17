@@ -44,23 +44,6 @@ class BountySetupResource(BaseSetupResource):
         # Run the setup process
         self.setup()
 
-    def update_work_dir(self, new_work_dir: Path) -> None:
-        """
-        Update the work directory for this resource, and stop existing resources
-        This should be used if you want to run another bounty's setup_bounty_env.sh
-
-        This does NOT run the bounty setup in the new directory
-        """
-        logger.info(f"Stopping current bounty resource in {self.work_dir}")
-        self.stop()
-        if not new_work_dir.exists():
-            raise FileNotFoundError(
-                f"New work directory does not exist: {new_work_dir}"
-            )
-
-        logger.info(f"Updated work_dir from {self.work_dir} to {new_work_dir}")
-        self.work_dir = new_work_dir
-
     def to_dict(self) -> dict:
         """
         Serializes the BountySetupResource state to a dictionary.
@@ -93,9 +76,5 @@ class BountySetupResource(BaseSetupResource):
         instance = cls(common_attrs["resource_id"], config)
 
         instance.container_names = common_attrs["container_names"]
-
-        # Override work_dir if it exists in the data
-        if "work_dir" in data:
-            instance.work_dir = Path(data["work_dir"])
 
         return instance
