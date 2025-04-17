@@ -382,7 +382,8 @@ class InitFilesResource(BaseResource):
                     original = exploit_path.read_text()
                     processed = self._remove_ci_check(original)
                     exploit_path.write_text(processed)
-                    logger.info(f"Removed CI check from {exploit_path}")
+                    if "IS_CI_RUN" in original and "IS_CI_RUN" not in processed:
+                        logger.info(f"Removed CI check from {exploit_path}")
                 except Exception as e:
                     logger.warning(f"Failed to process {exploit_path}: {e}")
 
