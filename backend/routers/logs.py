@@ -13,7 +13,16 @@ LOG_DIR = BASE_DIR / "logs"
 def parse_log_metadata(file_path):
     try:
         with open(file_path, "r") as f:
-            data = json.load(f)
+            try:
+                data = json.load(f)
+                if not data:
+                    print(f"Empty data in {file_path}")
+                    return None
+
+            except json.JSONDecodeError as json_err:
+                print(f"JSON parsing error in {file_path}: {str(json_err)}")
+                return None
+
             metadata = data.get("workflow_metadata", {})
             workflow_summary = metadata.get("workflow_summary", {})
             if isinstance(workflow_summary, str):
@@ -26,6 +35,10 @@ def parse_log_metadata(file_path):
                             "complete": workflow_summary.split("_")[0] == "completed",
                             "success": workflow_summary.split("_")[1] == "success",
                         }
+                    else:
+                        workflow_summary = {"complete": False, "success": False}
+            elif not workflow_summary:
+                workflow_summary = {"complete": False, "success": False}
 
             task = metadata.get("task", {})
 
@@ -34,9 +47,13 @@ def parse_log_metadata(file_path):
                 "workflow_name": metadata.get("workflow_name"),
                 "complete": workflow_summary.get("complete"),
                 "success": workflow_summary.get("success"),
-                "task_dir": task.get("task_dir"),
-                "bounty_number": task.get("bounty_number"),
-                "task_id": f"{task.get('task_dir')}_{task.get('bounty_number')}",
+                "task_dir": task.get("task_dir") if task else "",
+                "bounty_number": task.get("bounty_number") if task else "",
+                "task_id": (
+                    f"{task.get('task_dir')}_{task.get('bounty_number')}"
+                    if task
+                    else ""
+                ),
             }
     except Exception as e:
         print(f"Error parsing {file_path}: {str(e)}")
