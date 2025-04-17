@@ -88,7 +88,7 @@ class DockerResource(RunnableBaseResource):
         work_dir: str = None,
         volumes: dict = None,
         detach: bool = False,
-        timeout: int = 600,  # timeout in seconds (default: 5 minutes)
+        timeout: int = 600,  # timeout in seconds (default: 10 minutes)
     ) -> tuple:
         """
         Run a Docker container with the specified configuration.
