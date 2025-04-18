@@ -1,6 +1,6 @@
 bs4==0.0.2
 colorlog==6.9.0
-crfm-helm==0.5.4
+crfm-helm==0.5.5
 docker==7.1.0
 fastapi==0.115.6
 openai==1.70

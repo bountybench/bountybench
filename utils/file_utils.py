@@ -1,9 +1,13 @@
 import json
+import re
 import shutil
-from utils.logger import get_main_logger
 from pathlib import Path
+from typing import Optional
+
+from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
+
 
 def apply_patch_to_bounty(bounty_dir: Path, task_dir: Path) -> bool:
     """

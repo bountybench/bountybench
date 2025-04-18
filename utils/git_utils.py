@@ -256,10 +256,35 @@ def git_clean(directory_path: PathLike, remove_ignored: bool = False) -> None:
     logger.info(f"Cleaned untracked files in {directory}")
 
 
-def git_restore(directory_path: PathLike) -> None:
+def git_restore(
+    directory_path: PathLike,
+    paths: Optional[list[PathLike]] = None,
+    staged: bool = True,
+    worktree: bool = True,
+) -> None:
+    """
+    Restore tracked paths to their HEAD state.
+
+    Args:
+        directory_path: Repo root.
+        paths: List of files/dirs to restore.  None ⇒ whole repo.
+        staged: Also reset the index.
+        worktree: Also reset the working tree.
+    """
     directory = Path(directory_path)
-    _run_git_command(directory, ["restore"])
-    logger.info(f"Restored repository in {directory}")
+    cmd = ["restore"]
+    if staged:
+        cmd.append("--staged")
+    if worktree:
+        cmd.append("--worktree")
+
+    if paths:
+        cmd.extend(str(Path(p).relative_to(directory)) for p in paths)
+    else:
+        cmd.append(".")           # fallback: every tracked file
+
+    _run_git_command(directory, cmd)
+    logger.info(f"Restored {paths or 'entire repo'} in {directory}")
 
 
 def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
@@ -345,7 +370,7 @@ def git_diff(directory_path: PathLike, exclude_binary: Optional[bool] = True) ->
         _run_git_command(directory, ["add", "-A"])
 
         if exclude_binary:
-            # Get list of changed files
+            # 1) detect content‐changed files via numstat
             numstat_result = _run_git_command(
                 directory,
                 [
@@ -356,22 +381,39 @@ def git_diff(directory_path: PathLike, exclude_binary: Optional[bool] = True) ->
                 capture_output=True,
                 errors="replace",
             )
+            
+            content_changed_files = {
+                parts[2]
+                for line in numstat_result.stdout.splitlines()
+                if (parts := line.split("\t")) and parts[0] != "-" and parts[1] != "-"
+            }
+            
+            # 2) detect pure renames via name-status
+            name_status_result = _run_git_command(
+                directory, 
+                [
+                    "diff", 
+                    "--cached", 
+                    "--name-status"
+                ], 
+                capture_output=True,
+                errors="replace",
+            )
+            
+            rename_files = {
+                path
+                for line in name_status_result.stdout.splitlines()
+                if (parts := line.split("\t")) and parts[0].startswith("R") and len(parts) >= 3
+                for path in (parts[1], parts[2])
+            }
 
-            if not numstat_result:
-                return ""
+            files_to_diff = content_changed_files.union(rename_files)
 
-            # Parse numstat output to get non-binary files
-            non_binary_files = set()
-            for line in numstat_result.stdout.splitlines():
-                parts = line.split("\t")
-                if len(parts) >= 3 and parts[0] != "-" and parts[1] != "-":
-                    non_binary_files.add(parts[2])
-
-            if not non_binary_files:
+            if not files_to_diff:
                 logger.info("No non-binary files changed")
                 return ""
 
-            args = ["diff", "--cached", "--", *non_binary_files]
+            args = ["diff", "--cached", "--", *files_to_diff]
         else:
             args = ["diff", "--cached"]
 
@@ -492,8 +534,12 @@ def git_setup_dev_branch(
         _run_git_command(directory, ["checkout", "-f", commit])
 
         # Delete existing dev branch if it exists
-        branches_output = _run_git_command(directory, ["branch"], capture_output=True).stdout
-        branch_names = [line.lstrip("* ").strip() for line in branches_output.splitlines()]
+        branches_output = _run_git_command(
+            directory, ["branch"], capture_output=True
+        ).stdout
+        branch_names = [
+            line.lstrip("* ").strip() for line in branches_output.splitlines()
+        ]
         if "dev" in branch_names:
             _run_git_command(directory, ["branch", "-D", "dev"])
 
