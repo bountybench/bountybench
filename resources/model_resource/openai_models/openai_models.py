@@ -54,11 +54,11 @@ class OpenAIModels(ModelProvider):
             }
 
             # Add temperature for non-o models (like gpt-4, etc.)
-            if not model_name.startswith(("o1", "o3")):
+            if not model_name.startswith(("o1", "o3", "o4")):
                 params["temperature"] = temperature
 
             # Add reasoning_effort parameter for o1, o3 models if specified
-            if reasoning_effort and model_name.startswith(("o1", "o3")):
+            if reasoning_effort and model_name.startswith(("o1", "o3", "o4")):
                 params["reasoning"] = {"effort": reasoning_effort}
 
             response = self.client.responses.create(**params)
@@ -71,7 +71,7 @@ class OpenAIModels(ModelProvider):
                 status_code = response.response.status_code
 
             output_tokens = response.usage.output_tokens
-            if model_name.startswith(("o1", "o3")):
+            if model_name.startswith(("o1", "o3", "o4")):
                 reasoning_tokens = response.usage.output_tokens_details.reasoning_tokens
                 logger.info(f"reasoning tokens: {reasoning_tokens}")
                 output_tokens += reasoning_tokens
