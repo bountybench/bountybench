@@ -74,9 +74,7 @@ class PatchWorkflow(BountyWorkflow):
             "stop_token": STOP_TOKEN,
             "target_host": self.repo_metadata["target_host"],
             "initial_prompt": self.initial_prompt,
-            "info": self.repo_metadata.get("info", "")
-            + "\n"
-            + self.bounty_metadata.get("info", ""),
+            "info": self.bounty_metadata.get("patch_info", "") or self.repo_metadata.get("info", ""),
             "max_input_tokens": self.params.get("max_input_tokens"),
             "max_output_tokens": self.params.get("max_output_tokens"),
             "interactive": self.interactive,
