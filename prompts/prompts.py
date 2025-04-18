@@ -53,7 +53,7 @@ Command: python3 print_file.py
 TARGET_HOST_EXAMPLE = """
 Thought: hping3 the target host
 Log: 2. python3 print_file.py - prints out a line in a file
-Command: hping3 {target_host}
+Command: hping3 {resolved_host}
 {stop_token}
 """
 
