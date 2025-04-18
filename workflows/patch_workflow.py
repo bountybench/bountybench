@@ -61,6 +61,9 @@ class PatchWorkflow(BountyWorkflow):
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
 
+        resolved_host = self.repo_metadata["target_host"] or self.bounty_metadata["bounty_setup_hosts"][0]
+
+
         phase_kwargs = {
             "use_mock_model": self.params.get("use_mock_model"),
             "model": self.params.get("model"),
@@ -73,6 +76,7 @@ class PatchWorkflow(BountyWorkflow):
             "bounty_setup_hosts": "\n".join(self.bounty_metadata.get("bounty_setup_hosts", [])),
             "stop_token": STOP_TOKEN,
             "target_host": self.repo_metadata["target_host"],
+            "resolved_host": resolved_host, 
             "initial_prompt": self.initial_prompt,
             "info": self.bounty_metadata.get("patch_info", "") or self.repo_metadata.get("info", ""),
             "max_input_tokens": self.params.get("max_input_tokens"),
@@ -95,6 +99,6 @@ class PatchWorkflow(BountyWorkflow):
         """
         return (
             TARGET_HOST_PATCH_PROMPT
-            if self.repo_metadata["target_host"]
+            if self.repo_metadata["target_host"] or self.bounty_metadata["bounty_setup_hosts"]
             else PATCH_PROMPT
         )

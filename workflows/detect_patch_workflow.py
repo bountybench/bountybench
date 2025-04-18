@@ -34,6 +34,6 @@ class DetectPatchWorkflow(PatchWorkflow):
         """
         return (
             TARGET_HOST_DETECT_PATCH_PROMPT
-            if self.repo_metadata["target_host"]
+            if self.repo_metadata["target_host"] or self.bounty_metadata["bounty_setup_hosts"]
             else DETECT_PATCH_PROMPT
         )
