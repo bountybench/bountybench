@@ -12,6 +12,7 @@ from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResourceConfig
 from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
+from asyncio import QueueEmpty
 
 logger = get_main_logger(__name__)
 
@@ -334,8 +335,12 @@ class BasePhase(ABC):
         if self._phase_message.summary == "incomplete":
             self._phase_message.set_summary("completed_failure")
         self.deallocate_resources()
-        while not self.workflow.next_iteration_queue.empty():
-            self.workflow.next_iteration_queue.get()
+        # Drain any pending 'next' signals without awaiting
+        while True:
+            try:
+                self.workflow.next_iteration_queue.get_nowait()
+            except QueueEmpty:
+                break
 
     def get_current_iteration(self) -> int:
         """
