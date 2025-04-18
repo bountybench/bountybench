@@ -42,8 +42,12 @@ class HelmTokenizerMapping:
             tokenizer="openai/cl100k_base"
         ),
         "openai/o4-mini-2025-04-16": HelmModelInfo(tokenizer="openai/cl100k_base"),
-        "openai/o4-mini-2025-04-16-low-reasoning-effort": HelmModelInfo(tokenizer="openai/cl100k_base"),
-        "openai/o4-mini-2025-04-16-high-reasoning-effort": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o4-mini-2025-04-16-low-reasoning-effort": HelmModelInfo(
+            tokenizer="openai/cl100k_base"
+        ),
+        "openai/o4-mini-2025-04-16-high-reasoning-effort": HelmModelInfo(
+            tokenizer="openai/cl100k_base"
+        ),
         "openai/o3-2025-04-03": HelmModelInfo(tokenizer="openai/cl100k_base"),
         "openai/o3-2025-04-03-low-reasoning-effort": HelmModelInfo(
             tokenizer="openai/cl100k_base"
@@ -52,8 +56,12 @@ class HelmTokenizerMapping:
             tokenizer="openai/cl100k_base"
         ),
         "openai/o3-2025-04-16": HelmModelInfo(tokenizer="openai/cl100k_base"),
-        "openai/o3-2025-04-16-low-reasoning-effort": HelmModelInfo(tokenizer="openai/cl100k_base"),
-        "openai/o3-2025-04-16-high-reasoning-effort": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o3-2025-04-16-low-reasoning-effort": HelmModelInfo(
+            tokenizer="openai/cl100k_base"
+        ),
+        "openai/o3-2025-04-16-high-reasoning-effort": HelmModelInfo(
+            tokenizer="openai/cl100k_base"
+        ),
         "openai/gpt-4o-2024-11-20": HelmModelInfo(tokenizer="openai/o200k_base"),
         "openai/gpt-4-0613": HelmModelInfo(
             tokenizer="openai/cl100k_base", is_legacy=True
@@ -175,9 +183,15 @@ class NonHelmTokenizerMapping:
         "openai/o3-mini-2025-01-31-high-reasoning-effort": NonHelmModelInfo(
             tokenizer="o3-mini-2025-01-31-high-reasoning-effort", provider="openai"
         ),
-        "openai/o4-mini-2025-04-16": NonHelmModelInfo(tokenizer="o4-mini-2025-04-16", provider="openai"),
-        "openai/o4-mini-2025-04-16-low-reasoning-effort": NonHelmModelInfo(tokenizer="o4-mini-2025-04-16-low-reasoning-effort", provider="openai"),
-        "openai/o4-mini-2025-04-16-high-reasoning-effort": NonHelmModelInfo(tokenizer="o4-mini-2025-04-16-high-reasoning-effort", provider="openai"),
+        "openai/o4-mini-2025-04-16": NonHelmModelInfo(
+            tokenizer="o4-mini-2025-04-16", provider="openai"
+        ),
+        "openai/o4-mini-2025-04-16-low-reasoning-effort": NonHelmModelInfo(
+            tokenizer="o4-mini-2025-04-16-low-reasoning-effort", provider="openai"
+        ),
+        "openai/o4-mini-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
+            tokenizer="o4-mini-2025-04-16-high-reasoning-effort", provider="openai"
+        ),
         "openai/o3-2025-04-03": NonHelmModelInfo(
             tokenizer="o3-2025-04-03", provider="openai"
         ),
@@ -187,9 +201,15 @@ class NonHelmTokenizerMapping:
         "openai/o3-2025-04-03-high-reasoning-effort": NonHelmModelInfo(
             tokenizer="o3-2025-04-03-high-reasoning-effort", provider="openai"
         ),
-        "openai/o3-2025-04-16": NonHelmModelInfo(tokenizer="o3-2025-04-16", provider="openai"),
-        "openai/o3-2025-04-16-low-reasoning-effort": NonHelmModelInfo(tokenizer="o3-2025-04-16-low-reasoning-effort", provider="openai"),
-        "openai/o3-2025-04-16-high-reasoning-effort": NonHelmModelInfo(tokenizer="o3-2025-04-16-high-reasoning-effort", provider="openai"),
+        "openai/o3-2025-04-16": NonHelmModelInfo(
+            tokenizer="o3-2025-04-16", provider="openai"
+        ),
+        "openai/o3-2025-04-16-low-reasoning-effort": NonHelmModelInfo(
+            tokenizer="o3-2025-04-16-low-reasoning-effort", provider="openai"
+        ),
+        "openai/o3-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
+            tokenizer="o3-2025-04-16-high-reasoning-effort", provider="openai"
+        ),
         "openai/gpt-4o-2024-11-20": NonHelmModelInfo(
             tokenizer="gpt-4o-2024-11-20", provider="openai"
         ),
