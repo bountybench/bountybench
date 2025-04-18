@@ -15,8 +15,8 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
-from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
+from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import run_command_async, truncate_script_output
 from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
@@ -521,10 +521,11 @@ bash /app/exploit.sh
                 if success:
                     return True
                 else:
+                    self._log(f"Failed to apply patch to codebase: {message}")
                     return False
 
             else:
-                self._log(f"Failed to apply patch to codebase: {message}")
+                self._log(f"No patch file path returned")
                 return False
         else:
             self._log(
