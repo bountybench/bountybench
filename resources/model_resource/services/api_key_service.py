@@ -5,6 +5,7 @@ from typing import Callable, Optional, Tuple
 import requests
 from dotenv import find_dotenv, load_dotenv, set_key
 
+REASONING_MODELS = ["o1", "o3", "o4"]
 
 def _model_provider_lookup(model_name: str, helm: bool) -> str:
     """
@@ -102,8 +103,8 @@ def _auth_openai_api_key(
 
             model_id = model_name.split("/")[-1]
 
-            # Strip -high-reasoning-effort or -low-reasoning-effort suffixes from o1, o3 models
-            if any(model_id.startswith(prefix) for prefix in ["o1", "o3"]):
+            # Strip -high-reasoning-effort or -low-reasoning-effort suffixes from openai reasoning models
+            if any(model_id.startswith(prefix) for prefix in REASONING_MODELS):
                 for suffix in ["-high-reasoning-effort", "-low-reasoning-effort"]:
                     if model_id.endswith(suffix):
                         model_id = model_id[: -len(suffix)]
