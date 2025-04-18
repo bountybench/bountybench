@@ -546,13 +546,16 @@ def git_get_codebase_version() -> Optional[str]:
         return None
 
 
-def create_git_ignore_function(ignore_git):
+def create_git_ignore_function(ignore_git, ignore_env):
     """Create a custom ignore function for shutil.copytree."""
 
     def custom_ignore(src, names):
+        ignored = []
         if ignore_git:
-            return [n for n in names if n == ".git" or n.startswith(".git")]
-        return []
+            ignored.extend(n for n in names if n == ".git" or n.startswith(".git"))
+        if ignore_env:
+            ignored.extend(n for n in names if n == ".env" or n.startswith(".env"))
+        return ignored
 
     return custom_ignore
 

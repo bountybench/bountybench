@@ -221,7 +221,7 @@ def setup_git_repos():
 def test_create_git_ignore_function():
     """Test the create_git_ignore_function utility."""
     # Test with ignore_git=True
-    ignore_func = create_git_ignore_function(True)
+    ignore_func = create_git_ignore_function(True, False)
     names = [".git", ".gitignore", "file.txt", ".gitattributes"]
     ignored = ignore_func("/some/path", names)
     assert ".git" in ignored
@@ -229,10 +229,25 @@ def test_create_git_ignore_function():
     assert "file.txt" not in ignored
 
     # Test with ignore_git=False
-    ignore_func = create_git_ignore_function(False)
+    ignore_func = create_git_ignore_function(False, False)
     ignored = ignore_func("/some/path", names)
     assert len(ignored) == 0
 
+def test_create_git_ignore_function_ignore_env():
+    """Test the create_git_ignore_function utility with ignore_env=True."""
+    # Test with ignore_env=True
+    ignore_func = create_git_ignore_function(True, True)
+    names = [".git", ".gitignore", "file.txt", ".gitattributes", ".env"]
+    ignored = ignore_func("/some/path", names)
+    assert ".git" in ignored
+    assert ".env" in ignored
+    assert ".gitattributes" in ignored
+    assert "file.txt" not in ignored
+
+    # Test with ignore_env=False
+    ignore_func = create_git_ignore_function(True, False)
+    ignored = ignore_func("/some/path", names)
+    assert ".env" not in ignored
 
 def test_prepare_git_directory(tmp_path):
     """Test the prepare_git_directory utility."""
