@@ -17,6 +17,7 @@ from resources.repo_setup_resource import RepoSetupResourceConfig
 from resources.resource_type import ResourceType
 from resources.utils import contains_setup
 from utils.logger import get_main_logger
+from workflows.base_workflow import BaseWorkflow
 
 logger = get_main_logger(__name__)
 
@@ -42,6 +43,7 @@ class DetectPhase(BountyPhase):
             task_dir=self.workflow.task_dir,
             tmp_dir=self.tmp_dir,
             submit=self.submit,
+            install_command=self.workflow.repo_metadata.get("install_command"),
         )
 
         return {
@@ -154,7 +156,7 @@ class DetectPhase(BountyPhase):
             previous_output (Optional[Message]): The output from the previous iteration.
 
         Returns:
-            Message: The resulting message from the agent.
+            Message: The resulting message from the agent - do NOT return the phase message
         """
         input_list: List[Message] = []
         if previous_output is not None:
@@ -163,10 +165,15 @@ class DetectPhase(BountyPhase):
         message: Message = await agent_instance.run(input_list)
 
         if isinstance(agent_instance, DetectAgent):
+            if message.submission:
+                phase_message.set_complete()
             if message.success:
                 logger.status("Vulnerability detected!", True)
                 phase_message.set_summary("detect_success")
-                phase_message.set_complete()
                 phase_message.set_success()
+                phase_message.set_complete()
+            else:
+                logger.status("Failed to detect vulnerability", False)
+                phase_message.set_summary("detect_failure")
 
         return message

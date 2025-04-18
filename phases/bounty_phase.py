@@ -19,8 +19,6 @@ class BountyPhase(BasePhase, ABC):
 
     def __init__(self, workflow: "BaseWorkflow", **kwargs):
         """
-        Initialize the PatchPhase.
-
         Args:
             workflow (BaseWorkflow): The parent workflow.
             **kwargs: Additional keyword arguments.

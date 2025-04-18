@@ -17,6 +17,7 @@ class DetectWorkflow(BountyWorkflow):
         "use_mock_model": False,
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
+        "disable_submit": True,
     }
 
     def validate_arguments(self, kwargs):
@@ -46,13 +47,10 @@ class DetectWorkflow(BountyWorkflow):
 
         # Fail if neither is set
         if not kwargs.get("use_mock_model", False) and "model" not in kwargs:
-            raise ValueError(
-                "'--model' argument is required when not using mock model"
-            )
+            raise ValueError("'--model' argument is required when not using mock model")
 
     def _create_phases(self):
         """Define and register phases specific to DetectWorkflow."""
-
         phase_kwargs = {
             "use_mock_model": self.params.get("use_mock_model"),
             "model": self.params.get("model"),
@@ -71,7 +69,7 @@ class DetectWorkflow(BountyWorkflow):
             "max_output_tokens": self.params.get("max_output_tokens"),
             "interactive": self.interactive,
             "max_iterations": self.params.get("phase_iterations"),
-            "submit": self.params.get("no_submit", True),
+            "submit": self.params.get("disable_submit", True),
         }
 
         detect_phase = DetectPhase(workflow=self, **phase_kwargs)
