@@ -41,9 +41,9 @@ class HelmTokenizerMapping:
         "openai/o3-mini-2025-01-31-high-reasoning-effort": HelmModelInfo(
             tokenizer="openai/cl100k_base"
         ),
-        "openai/o4-mini-2025-04-16": "openai/cl100k_base",
-        "openai/o4-mini-2025-04-16-low-reasoning-effort": "openai/cl100k_base",
-        "openai/o4-mini-2025-04-16-high-reasoning-effort": "openai/cl100k_base",
+        "openai/o4-mini-2025-04-16": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o4-mini-2025-04-16-low-reasoning-effort": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o4-mini-2025-04-16-high-reasoning-effort": HelmModelInfo(tokenizer="openai/cl100k_base"),
         "openai/o3-2025-04-03": HelmModelInfo(tokenizer="openai/cl100k_base"),
         "openai/o3-2025-04-03-low-reasoning-effort": HelmModelInfo(
             tokenizer="openai/cl100k_base"
@@ -51,9 +51,9 @@ class HelmTokenizerMapping:
         "openai/o3-2025-04-03-high-reasoning-effort": HelmModelInfo(
             tokenizer="openai/cl100k_base"
         ),
-        "openai/o3-2025-04-16": "openai/cl100k_base",
-        "openai/o3-2025-04-16-low-reasoning-effort": "openai/cl100k_base",
-        "openai/o3-2025-04-16-high-reasoning-effort": "openai/cl100k_base",
+        "openai/o3-2025-04-16": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o3-2025-04-16-low-reasoning-effort": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o3-2025-04-16-high-reasoning-effort": HelmModelInfo(tokenizer="openai/cl100k_base"),
         "openai/gpt-4o-2024-11-20": HelmModelInfo(tokenizer="openai/o200k_base"),
         "openai/gpt-4-0613": HelmModelInfo(
             tokenizer="openai/cl100k_base", is_legacy=True
@@ -175,9 +175,9 @@ class NonHelmTokenizerMapping:
         "openai/o3-mini-2025-01-31-high-reasoning-effort": NonHelmModelInfo(
             tokenizer="o3-mini-2025-01-31-high-reasoning-effort", provider="openai"
         ),
-        "openai/o4-mini-2025-04-16": "o4-mini-2025-04-16",
-        "openai/o4-mini-2025-04-16-low-reasoning-effort": "o4-mini-2025-04-16-low-reasoning-effort",
-        "openai/o4-mini-2025-04-16-high-reasoning-effort": "o4-mini-2025-04-16-high-reasoning-effort",
+        "openai/o4-mini-2025-04-16": NonHelmModelInfo(tokenizer="o4-mini-2025-04-16", provider="openai"),
+        "openai/o4-mini-2025-04-16-low-reasoning-effort": NonHelmModelInfo(tokenizer="o4-mini-2025-04-16-low-reasoning-effort", provider="openai"),
+        "openai/o4-mini-2025-04-16-high-reasoning-effort": NonHelmModelInfo(tokenizer="o4-mini-2025-04-16-high-reasoning-effort", provider="openai"),
         "openai/o3-2025-04-03": NonHelmModelInfo(
             tokenizer="o3-2025-04-03", provider="openai"
         ),
@@ -187,9 +187,9 @@ class NonHelmTokenizerMapping:
         "openai/o3-2025-04-03-high-reasoning-effort": NonHelmModelInfo(
             tokenizer="o3-2025-04-03-high-reasoning-effort", provider="openai"
         ),
-        "openai/o3-2025-04-16": "o3-2025-04-16",
-        "openai/o3-2025-04-16-low-reasoning-effort": "o3-2025-04-16-low-reasoning-effort",
-        "openai/o3-2025-04-16-high-reasoning-effort": "o3-2025-04-16-high-reasoning-effort",
+        "openai/o3-2025-04-16": NonHelmModelInfo(tokenizer="o3-2025-04-16", provider="openai"),
+        "openai/o3-2025-04-16-low-reasoning-effort": NonHelmModelInfo(tokenizer="o3-2025-04-16-low-reasoning-effort", provider="openai"),
+        "openai/o3-2025-04-16-high-reasoning-effort": NonHelmModelInfo(tokenizer="o3-2025-04-16-high-reasoning-effort", provider="openai"),
         "openai/gpt-4o-2024-11-20": NonHelmModelInfo(
             tokenizer="gpt-4o-2024-11-20", provider="openai"
         ),
@@ -203,10 +203,10 @@ class NonHelmTokenizerMapping:
         # Anthropic Models (Claude)
         # ------------------------
         "anthropic/claude-3-7-sonnet-20250219": NonHelmModelInfo(
-            tokenizer="claude-3-5-sonnet-20241022", provider="anthropic"
+            tokenizer="claude-3-7-sonnet-20241022", provider="anthropic"
         ),
         "anthropic/claude-3-5-sonnet-20241022": NonHelmModelInfo(
-            tokenizer="claude-3-7-sonnet-20250219", provider="anthropic", is_legacy=True
+            tokenizer="claude-3-5-sonnet-20250219", provider="anthropic", is_legacy=True
         ),
         "anthropic/claude-3-opus-20240229": NonHelmModelInfo(
             tokenizer="claude-3-opus-20240229", provider="anthropic", is_legacy=True
