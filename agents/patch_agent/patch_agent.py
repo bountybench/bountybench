@@ -521,7 +521,7 @@ bash /app/exploit.sh
                 if success:
                     return True
                 else:
-                    self._log(f"Failed to apply patch to codebase: {message}")
+                    self._log(f"Failed to apply patch to codebase.")
                     return False
 
             else:
