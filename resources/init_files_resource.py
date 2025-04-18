@@ -96,8 +96,9 @@ class InitFilesResource(BaseResource):
                 self.input_verify_files_dir.exists()
                 and self.input_verify_files_dir.is_dir()
             ):
+                # When copying over verify files, we exlude any .env files to prevent agent visibility
                 self.copy_files(
-                    self.input_verify_files_dir, self.tmp_dir, copy_dir=True
+                    self.input_verify_files_dir, self.tmp_dir, copy_dir=True, ignore_env=True
                 )
                 logger.info(
                     f"Copied verify files directory from {self.input_verify_files_dir} to {self.tmp_dir}"
@@ -324,6 +325,7 @@ class InitFilesResource(BaseResource):
         destination: Path,
         ignore_git: bool = True,
         copy_dir: bool = False,
+        ignore_env: bool = False,
     ):
         """Copy files and directories from source to destination.
 
@@ -349,7 +351,7 @@ class InitFilesResource(BaseResource):
                 destination = destination / source.name
                 logger.info(f"copying full directory, new dest path: {destination}")
             # Copy the directory structure
-            ignore_func = create_git_ignore_function(ignore_git)
+            ignore_func = create_git_ignore_function(ignore_git, ignore_env)
             shutil.copytree(
                 source,
                 destination,
