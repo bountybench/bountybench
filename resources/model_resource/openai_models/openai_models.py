@@ -38,7 +38,7 @@ class OpenAIModels(ModelProvider):
             reasoning_effort = None
 
             # Check for reasoning effort suffixes in o1, o3 models
-            if model_name.startswith(("o1", "o3")):
+            if model_name.startswith(("o1", "o3", "o4")):
                 if model_name.endswith("-high-reasoning-effort"):
                     reasoning_effort = "high"
                     model_name = model_name[: -len("-high-reasoning-effort")]
