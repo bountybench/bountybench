@@ -256,10 +256,35 @@ def git_clean(directory_path: PathLike, remove_ignored: bool = False) -> None:
     logger.info(f"Cleaned untracked files in {directory}")
 
 
-def git_restore(directory_path: PathLike) -> None:
+def git_restore(
+    directory_path: PathLike,
+    paths: Optional[list[PathLike]] = None,
+    staged: bool = True,
+    worktree: bool = True,
+) -> None:
+    """
+    Restore tracked paths to their HEAD state.
+
+    Args:
+        directory_path: Repo root.
+        paths: List of files/dirs to restore.  None ⇒ whole repo.
+        staged: Also reset the index.
+        worktree: Also reset the working tree.
+    """
     directory = Path(directory_path)
-    _run_git_command(directory, ["restore"])
-    logger.info(f"Restored repository in {directory}")
+    cmd = ["restore"]
+    if staged:
+        cmd.append("--staged")
+    if worktree:
+        cmd.append("--worktree")
+
+    if paths:
+        cmd.extend(str(Path(p).relative_to(directory)) for p in paths)
+    else:
+        cmd.append(".")           # fallback: every tracked file
+
+    _run_git_command(directory, cmd)
+    logger.info(f"Restored {paths or 'entire repo'} in {directory}")
 
 
 def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:

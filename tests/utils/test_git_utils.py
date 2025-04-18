@@ -18,6 +18,7 @@ from utils.git_utils import (
     git_reset,
     git_setup_dev_branch,
     git_submodule_update,
+    git_restore,
 )
 
 
@@ -332,3 +333,106 @@ def test_git_commit_invalid_branch(tmp_git_repo):
 
     with pytest.raises(subprocess.CalledProcessError):
         git_commit(tmp_git_repo, "Test commit", "non_existent_branch")
+
+
+def test_git_restore_roundtrip_with_patch(tmp_git_repo, tmp_path):
+    """
+    1. Modify a tracked file and capture the diff (git_diff).
+    2. Save that diff to a temporary *.patch* file.
+    3. git_restore to return the tree to the committed state.
+    4. git_apply_patch to re-apply the changes.
+    5. git_restore again - the file should be back to its original contents.
+    """
+    file_path = tmp_git_repo / "hello.txt"
+    file_path.write_text("original\n")
+    git_commit(tmp_git_repo, "Add original file")
+
+    # Step 1 – make a change and capture the patch
+    file_path.write_text("original\nadded-line\n")
+    patch_text = git_diff(tmp_git_repo)
+    assert "+added-line" in patch_text
+
+    # Step 2 – materialise the diff as a patch file
+    patch_file = tmp_path / "change.patch"
+    patch_file.write_text(patch_text)
+
+    # Step 3 – restore (should cut the added line)
+    git_restore(tmp_git_repo)
+    assert file_path.read_text() == "original\n"
+
+    # Step 4 – re‑apply the patch
+    applied, _ = git_apply_patch(patch_file, tmp_git_repo)
+    assert applied
+    assert "added-line" in file_path.read_text()
+
+    # Step 5 – final restore should remove the change again
+    git_restore(tmp_git_repo)
+    assert file_path.read_text() == "original\n"
+
+
+def test_git_restore_recovers_deleted_files(tmp_git_repo):
+    """
+    Delete a tracked file (unstaged) and confirm git_restore recreates it.
+    """
+    victim = tmp_git_repo / "victim.txt"
+    victim.write_text("to be deleted")
+    git_commit(tmp_git_repo, "Add victim")
+
+    # Delete and ensure it is really gone
+    os.remove(victim)
+    assert not victim.exists()
+
+    # git_restore should bring the file back
+    git_restore(tmp_git_repo)
+    assert victim.exists()
+    assert victim.read_text() == "to be deleted"
+
+
+def test_git_restore_does_not_touch_untracked_files(tmp_git_repo):
+    """
+    Create an untracked file and ensure git_restore does **not** delete it.
+    """
+    untracked = tmp_git_repo / "scratch.log"
+    untracked.write_text("scratch data")
+
+    git_restore(tmp_git_repo)
+
+    # File must still be present and contents unchanged
+    assert untracked.exists()
+    assert untracked.read_text() == "scratch data"
+    
+
+def test_git_restore_single_file_after_patch(tmp_git_repo, tmp_path):
+    """
+    Restore only one of several patched files
+    """
+    foo = tmp_git_repo / "foo.txt"
+    bar = tmp_git_repo / "bar.txt"
+    baseline = "base\n"
+
+    foo.write_text(baseline)
+    bar.write_text(baseline)
+    git_commit(tmp_git_repo, "baseline foo & bar")
+
+    # modify both files and capture patch
+    foo.write_text(baseline + "foo-extra\n")
+    bar.write_text(baseline + "bar-extra\n")
+    patch_file = tmp_path / "multi.patch"
+    patch_file.write_text(git_diff(tmp_git_repo))
+
+    # restore to baseline
+    git_restore(tmp_git_repo)
+    assert foo.read_text() == baseline and bar.read_text() == baseline
+
+    # apply patch — both files have extras
+    applied, _ = git_apply_patch(patch_file, tmp_git_repo)
+    assert applied
+    assert foo.read_text().endswith("foo-extra\n")
+    assert bar.read_text().endswith("bar-extra\n")
+
+    # restore only bar.txt
+    git_restore(tmp_git_repo, paths=[bar])
+
+    # expectations
+    assert foo.read_text().endswith("foo-extra\n")   # unchanged
+    assert bar.read_text() == baseline               # reverted
