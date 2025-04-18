@@ -11,7 +11,7 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-REASONING_MODELS = ["o1", "o3", "o4"]
+REASONING_MODELS = ("o1", "o3", "o4")
 
 class OpenAIModels(ModelProvider):
     def __init__(self):
