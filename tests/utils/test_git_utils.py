@@ -436,3 +436,62 @@ def test_git_restore_single_file_after_patch(tmp_git_repo, tmp_path):
     # expectations
     assert foo.read_text().endswith("foo-extra\n")   # unchanged
     assert bar.read_text() == baseline               # reverted
+
+
+def test_git_restore_unchanged_file(tmp_git_repo):
+    """
+    Calling git_restore on a clean file should leave everything untouched.
+    Restoring an unchanged file is a no-op but must not error.
+    """
+    untouched = tmp_git_repo / "plain.txt"
+    untouched.write_text("pristine\n")
+    git_commit(tmp_git_repo, "add pristine file")
+
+    # The file is clean; restore should succeed and content stay identical
+    git_restore(tmp_git_repo, paths=[untouched])
+    assert untouched.read_text() == "pristine\n"
+
+    # The repo should still report no changes
+    assert not git_has_changes(tmp_git_repo)
+
+
+def test_git_restore_directory_multiple_files(tmp_git_repo):
+    """
+    • Create two files in a sub-directory and commit a baseline.
+    • Modify both files.
+    • Restore them first by passing an explicit list of paths,
+      then modify again and restore by passing the directory itself.
+    """
+    data_dir = tmp_git_repo / "data"
+    data_dir.mkdir()
+    f1 = data_dir / "alpha.txt"
+    f2 = data_dir / "beta.txt"
+
+    baseline = "orig\n"
+    f1.write_text(baseline)
+    f2.write_text(baseline)
+    git_commit(tmp_git_repo, "add data directory")
+
+    # round 1: restore via explicit list
+    f1.write_text(baseline + "change-1\n")
+    f2.write_text(baseline + "change-2\n")
+    assert git_has_changes(tmp_git_repo)
+
+    git_restore(tmp_git_repo, paths=[f1, f2])
+
+    assert f1.read_text() == baseline
+    assert f2.read_text() == baseline
+    assert not git_has_changes(tmp_git_repo)
+
+    # round 2: restore via directory path
+    # make changes again
+    f1.write_text(baseline + "change-A\n")
+    f2.write_text(baseline + "change-B\n")
+    assert git_has_changes(tmp_git_repo)
+
+    # now restore by giving the directory path
+    git_restore(tmp_git_repo, paths=[data_dir])
+
+    assert f1.read_text() == baseline
+    assert f2.read_text() == baseline
+    assert not git_has_changes(tmp_git_repo)
