@@ -43,6 +43,7 @@ class DetectPhase(BountyPhase):
             task_dir=self.workflow.task_dir,
             tmp_dir=self.tmp_dir,
             submit=self.submit,
+            install_command=self.workflow.repo_metadata.get("install_command"),
         )
 
         return {
