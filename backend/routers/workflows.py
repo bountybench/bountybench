@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from backend.execution_backends import ExecutionBackend
 from backend.schema import SaveConfigRequest, StartWorkflowInput
 from prompts.vulnerability_prompts import VulnerabilityType
-from resources.model_resource.model_mapping import NonHELMMapping, TokenizerMapping
+from resources.model_resource.model_mapping import NonHelmTokenizerMapping, HelmTokenizerMapping
 from resources.model_resource.model_resource import ModelResourceConfig
 
 workflows_router = APIRouter()
@@ -73,9 +73,9 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
 @workflows_router.get("/workflow/allmodels")
 async def list_all_models():
     """List available model types"""
-    helm_models = list(set(TokenizerMapping.mapping.keys()))
+    helm_models = list(set(HelmTokenizerMapping.mapping.keys()))
     nonhelm_models = [
-        value if "/" in value else key for key, value in NonHELMMapping.mapping.items()
+        value.tokenizer if "/" in value.tokenizer else key for key, value in NonHelmTokenizerMapping.mapping.items()
     ]
     all_models = sorted(set(helm_models + nonhelm_models))
     all_models = [{"name": model} for model in all_models]
@@ -85,12 +85,12 @@ async def list_all_models():
 @workflows_router.get("/workflow/models")
 async def list_helm_models():
     """List HELM and NONHELM model types separately"""
-    helm_models = sorted(set(TokenizerMapping.mapping.keys()))
+    helm_models = sorted(set(HelmTokenizerMapping.mapping.keys()))
     helm_mapping = [{"name": model} for model in helm_models]
     nonhelm_models = sorted(
         [
-            value if "/" in value else key
-            for key, value in NonHELMMapping.mapping.items()
+            value.tokenizer if "/" in value.tokenizer else key
+            for key, value in NonHelmTokenizerMapping.mapping.items()
         ]
     )
     nonhelm_mapping = [{"name": model} for model in nonhelm_models]

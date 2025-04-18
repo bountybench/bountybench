@@ -2,108 +2,257 @@ from dataclasses import dataclass
 from typing import ClassVar, Dict
 
 
+@dataclass(frozen=True)
+class HelmModelInfo:
+    tokenizer: str
+    is_legacy: bool = False
+
+
+@dataclass(frozen=True)
+class NonHelmModelInfo:
+    tokenizer: str
+    provider: str
+    is_legacy: bool = False
+
+
 @dataclass
-class TokenizerMapping:
-    mapping: ClassVar[Dict[str, str]] = {
+class HelmTokenizerMapping:
+    mapping: ClassVar[Dict[str, HelmModelInfo]] = {
+        # ------------------------
         # OpenAI Models
-        "openai/o1-2024-12-17": "openai/cl100k_base",
-        "openai/o1-2024-12-17-low-reasoning-effort": "openai/cl100k_base",
-        "openai/o1-2024-12-17-high-reasoning-effort": "openai/cl100k_base",
-        "openai/o1-mini-2024-09-12": "openai/cl100k_base",
-        "openai/o1-preview-2024-09-12": "openai/cl100k_base",
-        "openai/o3-mini-2025-01-31": "openai/cl100k_base",
-        "openai/o3-mini-2025-01-31-low-reasoning-effort": "openai/cl100k_base",
-        "openai/o3-mini-2025-01-31-high-reasoning-effort": "openai/cl100k_base",
-        "openai/o3-mini-2025-01-31": "openai/cl100k_base",
-        "openai/o3-2025-04-03": "openai/cl100k_base",
-        "openai/o3-2025-04-03-low-reasoning-effort": "openai/cl100k_base",
-        "openai/o3-2025-04-03-high-reasoning-effort": "openai/cl100k_base",
-        "openai/gpt-4-0613": "openai/cl100k_base",
-        "openai/gpt-4-32k-0613": "openai/cl100k_base",
-        "openai/gpt-4-turbo-2024-04-09": "openai/cl100k_base",
-        "openai/gpt-4o-2024-11-20": "openai/o200k_base",
-        "openai/gpt-3.5-turbo-0125": "openai/cl100k_base",
-        "openai/gpt-4.5-preview-2025-02-27": "openai/o200k_base",
-        "openai/gpt-4.1-2025-04-14": "openai/o200k_base",
+        # ------------------------
+        "openai/gpt-4.1-2025-04-14": HelmModelInfo(tokenizer="openai/o200k_base"),
+        "openai/gpt-4.5-preview-2025-02-27": HelmModelInfo(
+            tokenizer="openai/o200k_base"
+        ),
+        "openai/o1-2024-12-17": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o1-2024-12-17-low-reasoning-effort": HelmModelInfo(
+            tokenizer="openai/cl100k_base"
+        ),
+        "openai/o1-2024-12-17-high-reasoning-effort": HelmModelInfo(
+            tokenizer="openai/cl100k_base"
+        ),
+        "openai/o1-mini-2024-09-12": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o1-preview-2024-09-12": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o3-mini-2025-01-31": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o3-mini-2025-01-31-low-reasoning-effort": HelmModelInfo(
+            tokenizer="openai/cl100k_base"
+        ),
+        "openai/o3-mini-2025-01-31-high-reasoning-effort": HelmModelInfo(
+            tokenizer="openai/cl100k_base"
+        ),
+        "openai/o3-2025-04-03": HelmModelInfo(tokenizer="openai/cl100k_base"),
+        "openai/o3-2025-04-03-low-reasoning-effort": HelmModelInfo(
+            tokenizer="openai/cl100k_base"
+        ),
+        "openai/o3-2025-04-03-high-reasoning-effort": HelmModelInfo(
+            tokenizer="openai/cl100k_base"
+        ),
+        "openai/gpt-4o-2024-11-20": HelmModelInfo(tokenizer="openai/o200k_base"),
+        "openai/gpt-4-0613": HelmModelInfo(
+            tokenizer="openai/cl100k_base", is_legacy=True
+        ),
+        "openai/gpt-4-32k-0613": HelmModelInfo(
+            tokenizer="openai/cl100k_base", is_legacy=True
+        ),
+        "openai/gpt-4-turbo-2024-04-09": HelmModelInfo(
+            tokenizer="openai/cl100k_base", is_legacy=True
+        ),
+        "openai/gpt-3.5-turbo-0125": HelmModelInfo(
+            tokenizer="openai/cl100k_base", is_legacy=True
+        ),
+        # ------------------------
         # Together Models (LLAMA)
-        "meta/llama-3-8b": "meta/llama-3-8b",
-        "meta/llama-3-70b": "meta/llama-3-8b",
-        "meta/llama-3-70b-chat": "meta/llama-3-8b",
-        "meta/llama-3.1-70b-instruct-turbo": "meta/llama-3.1-8b",
-        "meta/llama-3.1-405b-instruct-turbo": "meta/llama-3.1-8b",
-        "meta/llama-4-maverick-17b-128e-instruct-fp8": "meta/llama-4-scout-17b-16e-instruct",
+        # ------------------------
+        "meta/llama-4-maverick-17b-128e-instruct-fp8": HelmModelInfo(
+            tokenizer="meta/llama-4-scout-17b-16e-instruct"
+        ),
+        "meta/llama-3-8b": HelmModelInfo(tokenizer="meta/llama-3-8b", is_legacy=True),
+        "meta/llama-3-70b": HelmModelInfo(tokenizer="meta/llama-3-8b", is_legacy=True),
+        "meta/llama-3-70b-chat": HelmModelInfo(
+            tokenizer="meta/llama-3-8b", is_legacy=True
+        ),
+        "meta/llama-3.1-70b-instruct-turbo": HelmModelInfo(
+            tokenizer="meta/llama-3.1-8b", is_legacy=True
+        ),
+        "meta/llama-3.1-405b-instruct-turbo": HelmModelInfo(
+            tokenizer="meta/llama-3.1-8b", is_legacy=True
+        ),
+        # ------------------------
         # Together Models (DeepSeek)
-        "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
-        "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
-        "deepseek-ai/deepseek-r1-hide-reasoning": "deepseek-ai/deepseek-r1",
+        # ------------------------
+        "deepseek-ai/deepseek-v3": HelmModelInfo(tokenizer="deepseek-ai/deepseek-v3"),
+        "deepseek-ai/deepseek-r1": HelmModelInfo(tokenizer="deepseek-ai/deepseek-r1"),
+        "deepseek-ai/deepseek-r1-hide-reasoning": HelmModelInfo(
+            tokenizer="deepseek-ai/deepseek-r1"
+        ),
+        # ------------------------
         # Mistral Models
-        "mistralai/mistral-large-2407": "mistralai/Mistral-Large-Instruct-2407",
-        "mistralai/mixtral-8x22b": "mistralai/Mistral-7B-v0.1",
-        "mistralai/mixtral-8x22b-instruct-v0.1": "mistralai/Mistral-7B-v0.1",
-        # Qwen Model
-        "qwen/qwen2-72b-instruct": "qwen/qwen2-72b-instruct",
-        "qwen/qwq-32b-preview": "qwen/qwq-32b-preview",
+        # ------------------------
+        "mistralai/mistral-large-2407": HelmModelInfo(
+            tokenizer="mistralai/Mistral-Large-Instruct-2407", is_legacy=True
+        ),
+        "mistralai/mixtral-8x22b": HelmModelInfo(
+            tokenizer="mistralai/Mistral-7B-v0.1", is_legacy=True
+        ),
+        "mistralai/mixtral-8x22b-instruct-v0.1": HelmModelInfo(
+            tokenizer="mistralai/Mistral-7B-v0.1", is_legacy=True
+        ),
+        # ------------------------
+        # Qwen Models
+        # ------------------------
+        "qwen/qwen2-72b-instruct": HelmModelInfo(tokenizer="qwen/qwen2-72b-instruct"),
+        "qwen/qwq-32b-preview": HelmModelInfo(tokenizer="qwen/qwq-32b-preview"),
+        # ------------------------
         # Anthropic Models (Claude)
-        "anthropic/claude-3-haiku-20240307": "anthropic/claude",
-        "anthropic/claude-3-opus-20240229": "anthropic/claude",
-        "anthropic/claude-3-5-sonnet-20241022": "anthropic/claude",
-        "anthropic/claude-3-7-sonnet-20250219": "anthropic/claude",
+        # ------------------------
+        "anthropic/claude-3-7-sonnet-20250219": HelmModelInfo(
+            tokenizer="anthropic/claude"
+        ),
+        "anthropic/claude-3-haiku-20240307": HelmModelInfo(
+            tokenizer="anthropic/claude", is_legacy=True
+        ),
+        "anthropic/claude-3-opus-20240229": HelmModelInfo(
+            tokenizer="anthropic/claude", is_legacy=True
+        ),
+        "anthropic/claude-3-5-sonnet-20241022": HelmModelInfo(
+            tokenizer="anthropic/claude", is_legacy=True
+        ),
+        # ------------------------
         # Google Gemini Models
-        "google/gemini-1.0-pro-001": "google/gemma-2b",
-        "google/gemini-1.5-pro-001": "google/gemma-2b",
-        "google/gemini-1.5-pro-preview-0409": "google/gemma-2b",
-        "google/gemini-2.0-flash-001": "google/gemma-2b",
-        "google/gemini-2.0-flash-thinking-exp-01-21": "google/gemma-2b",
-        # Other
-        "01-ai/yi-large": "01-ai/Yi-6B",
+        # ------------------------
+        "google/gemini-1.5-pro-001": HelmModelInfo(tokenizer="google/gemma-2b"),
+        "google/gemini-2.0-flash-001": HelmModelInfo(tokenizer="google/gemma-2b"),
+        "google/gemini-2.0-flash-thinking-exp-01-21": HelmModelInfo(
+            tokenizer="google/gemma-2b"
+        ),
+        "google/gemini-1.0-pro-001": HelmModelInfo(
+            tokenizer="google/gemma-2b", is_legacy=True
+        ),
+        "google/gemini-1.5-pro-preview-0409": HelmModelInfo(
+            tokenizer="google/gemma-2b", is_legacy=True
+        ),
+        # ------------------------
+        # Other Models
+        # ------------------------
+        "01-ai/yi-large": HelmModelInfo(tokenizer="01-ai/Yi-6B", is_legacy=True),
     }
 
 
 @dataclass
-class NonHELMMapping:
-    mapping: ClassVar[Dict[str, str]] = {
+class NonHelmTokenizerMapping:
+    mapping: ClassVar[Dict[str, NonHelmModelInfo]] = {
+        # ------------------------
         # OpenAI Models
-        "openai/o1-2024-12-17": "o1-2024-12-17",
-        "openai/o1-2024-12-17-low-reasoning-effort": "o1-2024-12-17-low-reasoning-effort",
-        "openai/o1-2024-12-17-high-reasoning-effort": "o1-2024-12-17-high-reasoning-effort",
-        "openai/o1-mini-2024-09-12": "o1-mini-2024-09-12",
-        "openai/o1-preview-2024-09-12": "o1-preview-2024-09-12",
-        "openai/o3-mini-2025-01-31": "o3-mini-2025-01-31",
-        "openai/o3-mini-2025-01-31-low-reasoning-effort": "o3-mini-2025-01-31-low-reasoning-effort",
-        "openai/o3-mini-2025-01-31-high-reasoning-effort": "o3-mini-2025-01-31-high-reasoning-effort",
-        "openai/o3-2025-04-03": "o3-2025-04-03",
-        "openai/o3-2025-04-03-low-reasoning-effort": "o3-2025-04-03-low-reasoning-effort",
-        "openai/o3-2025-04-03-high-reasoning-effort": "o3-2025-04-03-high-reasoning-effort",
-        "openai/gpt-4o-2024-11-20": "gpt-4o-2024-11-20",
-        "openai/gpt-4.5-preview-2025-02-27": "gpt-4.5-preview-2025-02-27",
-        "openai/gpt-4.1-2025-04-14": "gpt-4.1-2025-04-14",
+        # ------------------------
+        "openai/o1-2024-12-17": NonHelmModelInfo(
+            tokenizer="o1-2024-12-17", provider="openai"
+        ),
+        "openai/o1-2024-12-17-low-reasoning-effort": NonHelmModelInfo(
+            tokenizer="o1-2024-12-17-low-reasoning-effort", provider="openai"
+        ),
+        "openai/o1-2024-12-17-high-reasoning-effort": NonHelmModelInfo(
+            tokenizer="o1-2024-12-17-high-reasoning-effort", provider="openai"
+        ),
+        "openai/o1-mini-2024-09-12": NonHelmModelInfo(
+            tokenizer="o1-mini-2024-09-12", provider="openai"
+        ),
+        "openai/o1-preview-2024-09-12": NonHelmModelInfo(
+            tokenizer="o1-preview-2024-09-12", provider="openai"
+        ),
+        "openai/o3-mini-2025-01-31": NonHelmModelInfo(
+            tokenizer="o3-mini-2025-01-31", provider="openai"
+        ),
+        "openai/o3-mini-2025-01-31-low-reasoning-effort": NonHelmModelInfo(
+            tokenizer="o3-mini-2025-01-31-low-reasoning-effort", provider="openai"
+        ),
+        "openai/o3-mini-2025-01-31-high-reasoning-effort": NonHelmModelInfo(
+            tokenizer="o3-mini-2025-01-31-high-reasoning-effort", provider="openai"
+        ),
+        "openai/o3-2025-04-03": NonHelmModelInfo(
+            tokenizer="o3-2025-04-03", provider="openai"
+        ),
+        "openai/o3-2025-04-03-low-reasoning-effort": NonHelmModelInfo(
+            tokenizer="o3-2025-04-03-low-reasoning-effort", provider="openai"
+        ),
+        "openai/o3-2025-04-03-high-reasoning-effort": NonHelmModelInfo(
+            tokenizer="o3-2025-04-03-high-reasoning-effort", provider="openai"
+        ),
+        "openai/gpt-4o-2024-11-20": NonHelmModelInfo(
+            tokenizer="gpt-4o-2024-11-20", provider="openai"
+        ),
+        "openai/gpt-4.5-preview-2025-02-27": NonHelmModelInfo(
+            tokenizer="gpt-4.5-preview-2025-02-27", provider="openai"
+        ),
+        "openai/gpt-4.1-2025-04-14": NonHelmModelInfo(
+            tokenizer="gpt-4.1-2025-04-14", provider="openai"
+        ),
+        # ------------------------
         # Anthropic Models (Claude)
-        "anthropic/claude-3-5-sonnet-20241022": "claude-3-5-sonnet-20241022",
-        "anthropic/claude-3-7-sonnet-20250219": "claude-3-7-sonnet-20250219",
-        "anthropic/claude-3-opus-20240229": "claude-3-opus-20240229",
+        # ------------------------
+        "anthropic/claude-3-7-sonnet-20250219": NonHelmModelInfo(
+            tokenizer="claude-3-5-sonnet-20241022", provider="anthropic"
+        ),
+        "anthropic/claude-3-5-sonnet-20241022": NonHelmModelInfo(
+            tokenizer="claude-3-7-sonnet-20250219", provider="anthropic", is_legacy=True
+        ),
+        "anthropic/claude-3-opus-20240229": NonHelmModelInfo(
+            tokenizer="claude-3-opus-20240229", provider="anthropic", is_legacy=True
+        ),
+        # ------------------------
         # Google Gemini Models
-        "google/gemini-1.5-pro-001": "gemini-1.5-pro",
-        "google/gemini-2.0-flash-001": "gemini-2.0-flash",
+        # ------------------------
+        "google/gemini-1.5-pro-001": NonHelmModelInfo(
+            tokenizer="gemini-1.5-pro", provider="google"
+        ),
+        "google/gemini-2.0-flash-001": NonHelmModelInfo(
+            tokenizer="gemini-2.0-flash", provider="google"
+        ),
+        # ------------------------
         # Together Models (LLAMA)
-        "meta/llama-3.1-70b-instruct-turbo": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-        "meta/llama-3.1-405b-instruct-turbo": "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
-        "meta/llama-4-maverick-17b-128e-instruct-fp8": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+        # ------------------------
+        "meta/llama-4-maverick-17b-128e-instruct-fp8": NonHelmModelInfo(
+            tokenizer="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+            provider="together",
+        ),
+        "meta/llama-3.1-70b-instruct-turbo": NonHelmModelInfo(
+            tokenizer="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+            provider="together",
+            is_legacy=True,
+        ),
+        "meta/llama-3.1-405b-instruct-turbo": NonHelmModelInfo(
+            tokenizer="meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
+            provider="together",
+            is_legacy=True,
+        ),
+        # ------------------------
         # Together Models (DeepSeek)
-        "deepseek-ai/deepseek-v3": "deepseek-ai/deepseek-v3",
-        "deepseek-ai/deepseek-r1": "deepseek-ai/deepseek-r1",
+        # ------------------------
+        "deepseek-ai/deepseek-v3": NonHelmModelInfo(
+            tokenizer="deepseek-ai/deepseek-v3", provider="together"
+        ),
+        "deepseek-ai/deepseek-r1": NonHelmModelInfo(
+            tokenizer="deepseek-ai/deepseek-r1", provider="together"
+        ),
+        # ------------------------
         # Mistral Models
-        "mistralai/mixtral-8x22b-instruct-v0.1": "mistralai/Mixtral-8x22B-Instruct-v0.1",
+        # ------------------------
+        "mistralai/mixtral-8x22b-instruct-v0.1": NonHelmModelInfo(
+            tokenizer="mistralai/Mixtral-8x22B-Instruct-v0.1",
+            provider="together",
+            is_legacy=True,
+        ),
     }
 
 
 @dataclass
 class ModelRegistry:
-    tokenizers: ClassVar[TokenizerMapping] = TokenizerMapping()
+    tokenizers: ClassVar[HelmTokenizerMapping] = HelmTokenizerMapping()
 
     @classmethod
     def get_tokenizer(cls, model_name: str) -> str:
         try:
-            return cls.tokenizers.mapping[model_name]
+            return cls.tokenizers.mapping[model_name].tokenizer
         except KeyError as err:
             raise ValueError(
                 f"No tokenizer found for model name: {model_name}"
