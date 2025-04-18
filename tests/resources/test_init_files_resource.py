@@ -237,10 +237,10 @@ def test_create_git_ignore_function_ignore_env():
     """Test the create_git_ignore_function utility with ignore_env=True."""
     # Test with ignore_env=True
     ignore_func = create_git_ignore_function(True, True)
-    names = [".git", ".gitignore", "file.txt", ".gitattributes", ".env"]
+    names = [".git", ".gitignore", "file.txt", ".gitattributes", ".env", ".env_verify"]
     ignored = ignore_func("/some/path", names)
-    assert ".git" in ignored
     assert ".env" in ignored
+    assert ".env_verify" in ignored
     assert ".gitattributes" in ignored
     assert "file.txt" not in ignored
 
@@ -248,6 +248,7 @@ def test_create_git_ignore_function_ignore_env():
     ignore_func = create_git_ignore_function(True, False)
     ignored = ignore_func("/some/path", names)
     assert ".env" not in ignored
+    assert ".env_verify" not in ignored
 
 def test_prepare_git_directory(tmp_path):
     """Test the prepare_git_directory utility."""
