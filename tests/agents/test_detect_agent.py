@@ -220,6 +220,9 @@ async def test_received_submission(detect_agent, mocker):
     # Mock run_agent_exploit to return success (0)
     mocker.patch.object(detect_agent, "run_agent_exploit", return_value=0)
 
+    # Mock git_commit to avoid side effects
+    mocker.patch("agents.detect_agent.detect_agent.git_commit")
+
     # Create message with submission=True
     init_msg = ExecutorAgentMessage(
         agent_id="executor", message="test", submission=True
