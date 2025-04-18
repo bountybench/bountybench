@@ -97,6 +97,6 @@ class PatchWorkflow(BountyWorkflow):
         """
         return (
             TARGET_HOST_PATCH_PROMPT
-            if self.repo_metadata["target_host"]
+            if self.repo_metadata["target_host"] or self.bounty_metadata["bounty_setup_hosts"]
             else PATCH_PROMPT
         )
