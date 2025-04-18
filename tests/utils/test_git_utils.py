@@ -92,10 +92,6 @@ def test_git_diff_detects_file_move_without_content_change(tmp_git_repo):
         check=True,
     )
     diff = git_diff(tmp_git_repo)
-    
-    print("*****************************")
-    print(diff)
-    print("*****************************")
 
     assert "diff --git a/src/moved.txt b/dst/moved.txt" in diff
     assert "rename from src/moved.txt" in diff
