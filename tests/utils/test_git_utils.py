@@ -101,6 +101,27 @@ def test_git_diff_detects_file_move_without_content_change(tmp_git_repo):
     assert "-unchanged content" not in diff
 
 
+def test_git_diff_detects_simple_rename(tmp_git_repo):
+    """Check if git diff detects simple file rename (same directory)."""
+    (tmp_git_repo / "file.txt").write_text("content")
+    subprocess.run(["git", "add", "."], cwd=tmp_git_repo, check=True)
+    git_commit(tmp_git_repo, "add file")
+
+    # rename it in place
+    subprocess.run(
+        ["git", "mv", "file.txt", "renamed.txt"],
+        cwd=tmp_git_repo,
+        check=True,
+    )
+    diff = git_diff(tmp_git_repo)
+
+    assert "diff --git a/file.txt b/renamed.txt" in diff
+    assert "rename from file.txt" in diff
+    assert "rename to renamed.txt" in diff
+    assert "+content" not in diff
+    assert "-content" not in diff
+
+
 def test_git_diff_detects_file_move_with_content_change(tmp_git_repo):
     """Check if git diff detects file move file move plus a content change."""
     (tmp_git_repo / "src").mkdir()
