@@ -8,9 +8,11 @@ import docker
 import pytest
 
 from resources.base_setup_resource import BaseSetupResource
-from resources.bounty_setup_resource import BountySetupResource, BountySetupResourceConfig
+from resources.bounty_setup_resource import (
+    BountySetupResource,
+    BountySetupResourceConfig,
+)
 from resources.repo_setup_resource import RepoSetupResource, RepoSetupResourceConfig
-
 
 
 @pytest.fixture
@@ -153,7 +155,7 @@ def test_cleanup_on_initialization_failure(temp_dir):
     """Test that cleanup happens if a runtime error occurs during initialization."""
     resource_id = "test_resource"
     test_container_name = "test_container_cleanup_test"
-    
+
     # Make sure the container is not running at the start of the test
     subprocess.run(["docker", "stop", test_container_name], capture_output=True)
     subprocess.run(["docker", "rm", test_container_name], capture_output=True)
@@ -162,21 +164,31 @@ def test_cleanup_on_initialization_failure(temp_dir):
         # Create a test directory structure for the bounty setup
         bounty_dir = Path(temp_dir) / "bounties" / "bounty_0" / "setup_files"
         bounty_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Add a test setup script that doesn't actually create a container
         # We'll mock the container creation
         setup_script = bounty_dir / "setup_bounty_env.sh"
-        setup_script.write_text(f"""
+        setup_script.write_text(
+            f"""
             echo "Container {test_container_name} Started"
             exit 0
-        """)
+        """
+        )
         setup_script.chmod(0o755)
 
-        with patch.object(BaseSetupResource, 'stop') as mock_stop:
-            with patch.object(BaseSetupResource, 'extract_container_names', return_value=[test_container_name]):
-                with patch.object(BaseSetupResource, 'wait_until_all_containers_healthy') as mock_health_check:
-                    mock_health_check.side_effect = RuntimeError("Failed to wait until all containers healthy")
-                    
+        with patch.object(BaseSetupResource, "stop") as mock_stop:
+            with patch.object(
+                BaseSetupResource,
+                "extract_container_names",
+                return_value=[test_container_name],
+            ):
+                with patch.object(
+                    BaseSetupResource, "wait_until_all_containers_healthy"
+                ) as mock_health_check:
+                    mock_health_check.side_effect = RuntimeError(
+                        "Failed to wait until all containers healthy"
+                    )
+
                     # The test should raise the expected RuntimeError
                     with pytest.raises(RuntimeError) as exc_info:
                         BountySetupResource(
@@ -187,17 +199,20 @@ def test_cleanup_on_initialization_failure(temp_dir):
                             ),
                         )
 
-                    assert "Failed to wait until all containers healthy" in str(exc_info.value)
-                    
+                    assert "Failed to wait until all containers healthy" in str(
+                        exc_info.value
+                    )
+
                     # Verify that stop was called to clean up containers
-                    assert mock_stop.called, "The stop method was not called to clean up containers"
-    
+                    assert (
+                        mock_stop.called
+                    ), "The stop method was not called to clean up containers"
+
     finally:
         # Ensure cleanup even if the test fails
         subprocess.run(["docker", "stop", test_container_name], capture_output=True)
         subprocess.run(["docker", "rm", test_container_name], capture_output=True)
 
-    
 
 def test_error_handling(temp_dir):
     """Test error scenarios for SetupResource."""
@@ -215,3 +230,34 @@ def test_error_handling(temp_dir):
 
     with pytest.raises(RuntimeError, match="Unable to successfully execute"):
         RepoSetupResource("test_invalid_script", RepoSetupResourceConfig(temp_dir))
+
+
+def test_skip_setup_on_start_method(temp_dir):
+    """Test that _start() does nothing if skip_setup=True."""
+    resource = BountySetupResource(
+        "test_skip_start",
+        BountySetupResourceConfig(temp_dir, bounty_number="0", skip_setup=True),
+    )
+    # Patch work_dir to exist to avoid FileNotFoundError
+    resource.work_dir = temp_dir
+    resource.setup_script_name = "setup_bounty_env.sh"
+    # Patch run_command to ensure it is not called
+    with patch("resources.base_setup_resource.run_command") as mock_run_command:
+        resource._start(skip_setup=True)
+        mock_run_command.assert_not_called()
+
+
+def test_skip_setup_on_restart_method(temp_dir):
+    """Test that restart() with skip_setup=True does not start the environment."""
+    resource = BountySetupResource(
+        "test_skip_restart",
+        BountySetupResourceConfig(temp_dir, bounty_number="0", skip_setup=True),
+    )
+    # Patch stop and _start to check call behavior
+    with (
+        patch.object(resource, "stop") as mock_stop,
+        patch.object(resource, "_start") as mock_start,
+    ):
+        resource.restart(skip_setup=True)
+        mock_stop.assert_called_once()
+        mock_start.assert_called_once_with(skip_setup=True)
