@@ -253,6 +253,7 @@ class ModelResource(RunnableBaseResource):
         metadata = (
             {
                 "input": model_input,
+                "raw_output": model_response.content,
                 "model": self.model,
                 "temperature": self.temperature,
                 "max_input_tokens": self.max_input_tokens,
