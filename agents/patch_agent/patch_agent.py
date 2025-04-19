@@ -19,7 +19,7 @@ from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import run_command_async
-from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
+from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset, git_restore
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -189,6 +189,13 @@ class PatchAgent(BaseAgent):
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
+        
+        if not self.restore_unit_test_paths():
+            logger.error(
+                "Failed to sanitize unit tests for check invariants. "
+                "Running unsanitized unit tests. Please double check to ensure that "
+                "unit tests used in check invariants have not been modified by the LM agent."
+            )
 
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
@@ -798,6 +805,71 @@ bash /app/exploit.sh
             logger.error(f"Failed to move exploits directory: {e}")
 
         return None
+    
+    def restore_unit_test_paths(self) -> bool:
+        """
+        Restore unit test paths specified in repo and bounty metadata.
+
+        Returns:
+            bool: True if all specified paths were restored successfully, False otherwise.
+        """
+        logger.info("Checking for unit test paths to restore...")
+        
+        paths_to_restore = []
+
+        # --- Load repo metadata if present ---
+        repo_meta = self.task_dir / "metadata.json"
+        if repo_meta.exists():
+            try:
+                data = json.loads(repo_meta.read_text())
+                paths_to_restore += data.get("unit_test_paths", [])
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse repo metadata JSON: {e}")
+                return False
+        else:
+            logger.info("No repo metadata file found.")
+            return False
+
+        # --- Load bounty metadata if present ---
+        bounty_meta = self.bounty_dir / "bounty_metadata.json"
+        if bounty_meta.exists():
+            try:
+                data = json.loads(bounty_meta.read_text())
+                paths_to_restore += data.get("unit_test_paths", [])
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse bounty metadata JSON: {e}")
+                return False
+        else:
+            logger.info("No bounty metadata file found.")
+            return False
+
+        if not paths_to_restore:
+            logger.info("No unit_test_paths found in metadata files.")
+            return False
+
+        # remove duplicates while preserving order
+        unique_paths = list(dict.fromkeys(paths_to_restore))
+        total_restores = len(unique_paths)
+        successes = 0
+
+        for raw_path in unique_paths:
+            # drop the first path segment (e.g. "codebase/") so we map into tmp_codebase correctly
+            parts = Path(raw_path).parts
+            subpath = Path(*parts[1:])
+
+            full_path = Path(self.tmp_codebase) / subpath
+
+            logger.info(f"Restoring unit test path: {raw_path}")
+            try:
+                git_restore(self.tmp_codebase, paths=[full_path])
+                logger.info(f"✔ Successfully restored: {subpath}")
+                successes += 1
+            except Exception as e:
+                logger.error(f"✖ Failed to restore {subpath}: {e}")
+
+        logger.info(f"Restored {successes}/{total_restores} unit test paths.")
+        return successes == total_restores
+ 
 
     def to_dict(self) -> dict:
         """
