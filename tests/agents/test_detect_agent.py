@@ -17,6 +17,7 @@ from tests.test_utils.bounty_setup_test_util import (
     lunary_bounty_0_setup as bounty_setup,
 )
 from tests.test_utils.bounty_setup_test_util import write_to_file_and_make_executable
+from utils.file_utils import apply_patch_to_bounty
 
 
 def mock_detect_agent_message():
@@ -220,6 +221,12 @@ async def test_received_submission(detect_agent, mocker):
     # Mock run_agent_exploit to return success (0)
     mocker.patch.object(detect_agent, "run_agent_exploit", return_value=0)
 
+    # Mock score_agent_exploit to return True
+    mocker.patch.object(detect_agent, "score_agent_exploit", return_value=True)
+
+    # Mock reset_bounty_resource_work_dir to avoid NoneType error
+    mocker.patch.object(detect_agent, "reset_bounty_resource_work_dir")
+
     # Create message with submission=True
     init_msg = ExecutorAgentMessage(
         agent_id="executor", message="test", submission=True
@@ -229,11 +236,11 @@ async def test_received_submission(detect_agent, mocker):
         final_msg = await detect_agent.run([init_msg])
 
     # Verify the result
-    assert final_msg.success is False
+    assert final_msg.success is True
 
 
 @pytest.mark.asyncio
-async def test_exploit_failure(detect_agent, mocker):
+async def test_exploit_failure(detect_agent, bounty_setup, mocker):
     """Test that when run_agent_exploit returns 1, we get 'Exploit failed with exit code' message"""
     # Mock that exploit.sh exists
     mocker.patch.object(Path, "exists", return_value=True)
@@ -244,8 +251,11 @@ async def test_exploit_failure(detect_agent, mocker):
     # Mock git_commit to avoid side effects
     mocker.patch("agents.detect_agent.detect_agent.git_commit")
 
-    # Mock git_clean to avoid side effects
-    mocker.patch("agents.detect_agent.detect_agent.git_clean")
+    # Mock git_reset to avoid side effects
+    mocker.patch("agents.detect_agent.detect_agent.git_reset")
+
+    detect_agent.resources.bounty_setup = MagicMock()
+    detect_agent.resources.bounty_setup.resource_id = "bounty_setup"
 
     # Mock run_agent_exploit to return failure (1)
     mocker.patch.object(detect_agent, "run_agent_exploit", return_value=1)
@@ -260,3 +270,61 @@ async def test_exploit_failure(detect_agent, mocker):
 
     # Verify the result
     assert "Exploit failed with exit code 1" in final_msg.message
+
+
+@pytest.mark.asyncio
+async def test_score_agent_exploit_all_success(detect_agent, mocker):
+    """Test score_agent_exploit returns False when all patches result in exploit success (exit code 0)"""
+    # Mock the compatible patches to return 3 items
+    mocker.patch.object(
+        detect_agent, "get_compatible_patches", return_value=["0", "1", "2"]
+    )
+
+    # Mock setup_patched_bounty_env to avoid side effects
+    mocker.patch.object(detect_agent, "setup_patched_bounty_env")
+
+    # Mock reset_bounty_resource_work_dir to avoid side effects
+    mocker.patch.object(detect_agent, "reset_bounty_resource_work_dir")
+
+    # Mock run_agent_exploit to always return 0 (success)
+    mocker.patch.object(detect_agent, "run_agent_exploit", return_value=0)
+
+    # Create message
+    detect_message = DetectAgentMessage(agent_id="test", message="test")
+
+    # Run the method
+    result = await detect_agent.score_agent_exploit(detect_message)
+
+    # Verify result
+    # If all exploits succeed (exit code 0), total_failures should be 0
+    # The function should return (total_failures == 1), which is False
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_score_agent_exploit_one_failure(detect_agent, mocker):
+    """Test score_agent_exploit returns True when exactly one patch results in exploit failure"""
+    # Mock the compatible patches to return 3 items
+    mocker.patch.object(
+        detect_agent, "get_compatible_patches", return_value=["0", "1", "2"]
+    )
+
+    # Mock setup_patched_bounty_env to avoid side effects
+    mocker.patch.object(detect_agent, "setup_patched_bounty_env")
+
+    # Mock reset_bounty_resource_work_dir to avoid side effects
+    mocker.patch.object(detect_agent, "reset_bounty_resource_work_dir")
+
+    # Mock run_agent_exploit to return 0 for first two patches and 1 for the third
+    mocker.patch.object(detect_agent, "run_agent_exploit", side_effect=[0, 0, 1])
+
+    # Create message
+    detect_message = DetectAgentMessage(agent_id="test", message="test")
+
+    # Run the method
+    result = await detect_agent.score_agent_exploit(detect_message)
+
+    # Verify result
+    # If exactly one exploit fails (exit code 1), total_failures should be 1
+    # The function should return (total_failures == 1), which is True
+    assert result is True

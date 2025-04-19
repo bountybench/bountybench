@@ -27,13 +27,14 @@ class BaseSetupResource(BaseResource, ABC):
         self.task_dir = None
         self.work_dir = None
         self.setup_script_name = None
+        self.skip_setup = None
         self.name = self.__class__.__name__
 
         # Subclasses will call setup() after initializing their specific properties
 
-    def setup(self, skip_setup: bool = False):
+    def setup(self):
         """Common setup method to be called by subclasses after initializing properties."""
-        if skip_setup:
+        if self.skip_setup:
             return
         try:
             self._start()
@@ -67,9 +68,9 @@ class BaseSetupResource(BaseResource, ABC):
         # Make the script executable
         script_path.chmod(0o755)
 
-    def _start(self, skip_setup: bool = False) -> None:
+    def _start(self) -> None:
         """Start the environment by running the appropriate setup script."""
-        if skip_setup:
+        if self.skip_setup:
             return
         if not self.work_dir.exists():
             raise FileNotFoundError(f"Work directory does not exist: {self.work_dir}")
@@ -152,10 +153,10 @@ class BaseSetupResource(BaseResource, ABC):
             )
             raise
 
-    def restart(self, skip_setup: bool = False) -> None:
+    def restart(self) -> None:
         """Restart the environment by stopping and then starting it again."""
         self.stop()
-        self._start(skip_setup=skip_setup)
+        self._start()
 
     def stop(self) -> None:
         """Stop the environment by using docker compose down."""

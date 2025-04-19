@@ -137,6 +137,7 @@ class DetectPhase(BountyPhase):
                     BountySetupResourceConfig(
                         task_dir=self.workflow.task_dir,
                         bounty_number=self.workflow.bounty_number,
+                        skip_setup=True,
                     ),
                 )
             )
