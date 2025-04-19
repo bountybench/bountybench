@@ -6,7 +6,7 @@ def parse_field(
     field: str,
     multiline: bool = True,
     stop_str: Optional[str] = None,
-    from_end: Optional[bool] = True,
+    from_end: Optional[bool] = False,
 ) -> Optional[str]:
     """
     Extracts a field value from the input text based on the given field name.
