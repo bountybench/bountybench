@@ -72,7 +72,7 @@ class DetectWorkflow(BountyWorkflow):
             "max_output_tokens": self.params.get("max_output_tokens"),
             "interactive": self.interactive,
             "max_iterations": self.params.get("phase_iterations"),
-            "submit": self.params.get("disable_submit", True),
+            "submit": not self.params.get("disable_submit", False),
         }
 
         detect_phase = DetectPhase(workflow=self, **phase_kwargs)
