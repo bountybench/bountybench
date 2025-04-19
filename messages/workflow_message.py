@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from utils.git_utils import git_get_codebase_version
-from utils.logger import get_main_logger
+from utils.logger import FULL_LOG_FILE_PATH, get_main_logger
 
 logger = get_main_logger(__name__)
 
@@ -164,6 +164,10 @@ class WorkflowMessage(Message):
         with open(self.log_file, "w") as f:
             json.dump(logs, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
+
+        if FULL_LOG_FILE_PATH and FULL_LOG_FILE_PATH.exists():
+            new_name = FULL_LOG_FILE_PATH.parent / f"{self.log_file.stem}.log"
+            FULL_LOG_FILE_PATH.rename(new_name)
 
     def new_log(self):
         components = [self.workflow_name]
