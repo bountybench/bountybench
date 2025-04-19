@@ -215,6 +215,7 @@ class ExecutorAgent(BaseAgent):
                     error_entry = {
                         "type": exception_type,
                         "message": error_msg,
+                        "model_output": model_output.message,
                         "attempt": iterations + 1,
                     }
                     error_history.append(error_entry)
