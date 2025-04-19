@@ -97,7 +97,10 @@ class InitFilesResource(BaseResource):
                 and self.input_verify_files_dir.is_dir()
             ):
                 self.copy_files(
-                    self.input_verify_files_dir, self.tmp_dir, copy_dir=True
+                    self.input_verify_files_dir,
+                    self.tmp_dir,
+                    copy_dir=True,
+                    skip_hidden_files=True,
                 )
                 logger.info(
                     f"Copied verify files directory from {self.input_verify_files_dir} to {self.tmp_dir}"
@@ -324,6 +327,7 @@ class InitFilesResource(BaseResource):
         destination: Path,
         ignore_git: bool = True,
         copy_dir: bool = False,
+        skip_hidden_files: bool = False,
     ):
         """Copy files and directories from source to destination.
 
@@ -332,6 +336,7 @@ class InitFilesResource(BaseResource):
             destination: Destination path to copy to
             ignore_git: Whether to ignore .git files and directories
             copy_dir: Whether to copy source_dir's name
+            skip_hidden_files: Whether to skip all .hidden_files from copy
         """
         source = source.resolve()
         destination = destination.resolve()
@@ -348,8 +353,27 @@ class InitFilesResource(BaseResource):
             if copy_dir:
                 destination = destination / source.name
                 logger.info(f"copying full directory, new dest path: {destination}")
+
+            def ignore_func(directory, contents):
+                ignored = []
+
+                # For Git files - only if not already handled by skip_hidden_files
+                if ignore_git and not skip_hidden_files:
+                    ignored.extend(
+                        [
+                            item
+                            for item in contents
+                            if item == ".git" or item.startswith(".git/")
+                        ]
+                    )
+
+                # For all dot files
+                if skip_hidden_files:
+                    ignored.extend([item for item in contents if item.startswith(".")])
+
+                return ignored
+
             # Copy the directory structure
-            ignore_func = create_git_ignore_function(ignore_git)
             shutil.copytree(
                 source,
                 destination,
