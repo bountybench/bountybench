@@ -393,7 +393,7 @@ async def test_call_lm_timeout_error(executor_agent):
         prev_agent_message = AgentMessage("prev_agent_id")
         prev_agent_message.memory = ""
 
-        await executor_agent.call_lm(prev_agent_message)
+        result = await executor_agent.call_lm(prev_agent_message)
 
     # Verify error history contains timeout entries
     assert "error_history" in action_msg.additional_metadata
