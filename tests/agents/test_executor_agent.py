@@ -84,10 +84,39 @@ async def test_call_lm_parse_errors_return_raw_response(executor_agent):
     executor_agent.resources.model.run = Mock(return_value=action_msg)
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
     executor_agent.parse_response = Mock(side_effect=Exception("Parse error"))
+    executor_agent.last_executor_agent_message = AgentMessage("agent_id")
 
     # Should return the raw response instead of raising exception
     result = await executor_agent.call_lm()
 
+    # Verify we got back the last raw response
+    assert not isinstance(result, CommandMessage)
+
+    # Verify the model.run and parse_response were called correct number of times
+    assert executor_agent.resources.model.run.call_count == 3
+    assert executor_agent.parse_response.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_call_lm_parse_errors_gets_modified_reminder_prompt(executor_agent):
+    """Test LM call succeeding but parse_response failing, returning raw response"""
+    # Mock implementations
+    action_msg = ActionMessage("test_id", "unparsable format")
+    executor_agent.resources.model.run = Mock(return_value=action_msg)
+    executor_agent.parse_response = Mock(side_effect=Exception("Parse error"))
+    executor_agent.last_executor_agent_message = AgentMessage("agent_id")
+    prev_agent_message = AgentMessage("prev_agent_id")
+    prev_agent_message.memory = "Hi"
+    executor_agent.resources.executor_agent_memory.get_memory = Mock(
+        return_value=prev_agent_message
+    )
+
+    # Should return the raw response instead of raising exception
+    result = await executor_agent.call_lm()
+
+    assert (
+        'Make sure to include "Command:" in your response.' in prev_agent_message.memory
+    )
     # Verify we got back the last raw response
     assert not isinstance(result, CommandMessage)
 
@@ -103,6 +132,7 @@ async def test_call_lm_mixed_errors_return_raw_response(executor_agent):
     api_error = Exception("API error")
     action_msg1 = ActionMessage("test_id", "first response")
     action_msg2 = ActionMessage("test_id", "second response")
+    executor_agent.last_executor_agent_message = AgentMessage("agent_id")
 
     # First call: API error, Second: success but parse error,
     # Third: success but parse error again
@@ -129,6 +159,8 @@ async def test_call_lm_mixed_errors_return_raw_response(executor_agent):
 @pytest.mark.asyncio
 async def test_call_lm_eventual_success(executor_agent):
     """Test LM call succeeding after initial failures"""
+    executor_agent.last_executor_agent_message = AgentMessage("agent_id")
+
     # Mock API responses - first fails, second succeeds
     api_error = Exception("API error")
     action_msg = ActionMessage("test_id", "valid command")
@@ -324,7 +356,10 @@ async def test_call_lm_invalid_prompt_error_retry(executor_agent):
         agent_id=executor_agent.agent_id, prev=None
     )
 
-    result = await executor_agent.call_lm()
+    prev_agent_message = AgentMessage("prev_agent_id")
+    prev_agent_message.memory = ""
+
+    result = await executor_agent.call_lm(prev_agent_message)
 
     # Verify retry happened and we got a successful result
     assert isinstance(result, CommandMessage)
@@ -361,7 +396,10 @@ async def test_call_lm_timeout_error(executor_agent):
             agent_id=executor_agent.agent_id, prev=None
         )
 
-        result = await executor_agent.call_lm()
+        prev_agent_message = AgentMessage("prev_agent_id")
+        prev_agent_message.memory = ""
+
+        result = await executor_agent.call_lm(prev_agent_message)
 
     # Verify error history contains timeout entries
     assert "error_history" in result.additional_metadata
