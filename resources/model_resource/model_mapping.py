@@ -16,7 +16,7 @@ class NonHelmModelInfo:
     is_legacy: bool = False
 
 
-class ModelProvider(Enum):
+class ServiceProvider(Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GOOGLE = "google"
@@ -171,136 +171,136 @@ class NonHelmMapping:
         # OpenAI Models
         # ------------------------
         "openai/o1-2024-12-17": NonHelmModelInfo(
-            model_name="o1-2024-12-17", provider=ModelProvider.OPENAI
+            model_name="o1-2024-12-17", provider=ServiceProvider.OPENAI
         ),
         "openai/o1-2024-12-17-low-reasoning-effort": NonHelmModelInfo(
             model_name="o1-2024-12-17-low-reasoning-effort",
-            provider=ModelProvider.OPENAI,
+            provider=ServiceProvider.OPENAI,
         ),
         "openai/o1-2024-12-17-high-reasoning-effort": NonHelmModelInfo(
             model_name="o1-2024-12-17-high-reasoning-effort",
-            provider=ModelProvider.OPENAI,
+            provider=ServiceProvider.OPENAI,
         ),
         "openai/o1-mini-2024-09-12": NonHelmModelInfo(
-            model_name="o1-mini-2024-09-12", provider=ModelProvider.OPENAI
+            model_name="o1-mini-2024-09-12", provider=ServiceProvider.OPENAI
         ),
         "openai/o1-preview-2024-09-12": NonHelmModelInfo(
-            model_name="o1-preview-2024-09-12", provider=ModelProvider.OPENAI
+            model_name="o1-preview-2024-09-12", provider=ServiceProvider.OPENAI
         ),
         "openai/o3-mini-2025-01-31": NonHelmModelInfo(
-            model_name="o3-mini-2025-01-31", provider=ModelProvider.OPENAI
+            model_name="o3-mini-2025-01-31", provider=ServiceProvider.OPENAI
         ),
         "openai/o3-mini-2025-01-31-low-reasoning-effort": NonHelmModelInfo(
             model_name="o3-mini-2025-01-31-low-reasoning-effort",
-            provider=ModelProvider.OPENAI,
+            provider=ServiceProvider.OPENAI,
         ),
         "openai/o3-mini-2025-01-31-high-reasoning-effort": NonHelmModelInfo(
             model_name="o3-mini-2025-01-31-high-reasoning-effort",
-            provider=ModelProvider.OPENAI,
+            provider=ServiceProvider.OPENAI,
         ),
         "openai/o4-mini-2025-04-16": NonHelmModelInfo(
-            model_name="o4-mini-2025-04-16", provider=ModelProvider.OPENAI
+            model_name="o4-mini-2025-04-16", provider=ServiceProvider.OPENAI
         ),
         "openai/o4-mini-2025-04-16-low-reasoning-effort": NonHelmModelInfo(
             model_name="o4-mini-2025-04-16-low-reasoning-effort",
-            provider=ModelProvider.OPENAI,
+            provider=ServiceProvider.OPENAI,
         ),
         "openai/o4-mini-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
             model_name="o4-mini-2025-04-16-high-reasoning-effort",
-            provider=ModelProvider.OPENAI,
+            provider=ServiceProvider.OPENAI,
         ),
         "openai/o3-2025-04-03": NonHelmModelInfo(
-            model_name="o3-2025-04-03", provider=ModelProvider.OPENAI
+            model_name="o3-2025-04-03", provider=ServiceProvider.OPENAI
         ),
         "openai/o3-2025-04-03-low-reasoning-effort": NonHelmModelInfo(
             model_name="o3-2025-04-03-low-reasoning-effort",
-            provider=ModelProvider.OPENAI,
+            provider=ServiceProvider.OPENAI,
         ),
         "openai/o3-2025-04-03-high-reasoning-effort": NonHelmModelInfo(
             model_name="o3-2025-04-03-high-reasoning-effort",
-            provider=ModelProvider.OPENAI,
+            provider=ServiceProvider.OPENAI,
         ),
         "openai/o3-2025-04-16": NonHelmModelInfo(
-            model_name="o3-2025-04-16", provider=ModelProvider.OPENAI
+            model_name="o3-2025-04-16", provider=ServiceProvider.OPENAI
         ),
         "openai/o3-2025-04-16-low-reasoning-effort": NonHelmModelInfo(
             model_name="o3-2025-04-16-low-reasoning-effort",
-            provider=ModelProvider.OPENAI,
+            provider=ServiceProvider.OPENAI,
         ),
         "openai/o3-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
             model_name="o3-2025-04-16-high-reasoning-effort",
-            provider=ModelProvider.OPENAI,
+            provider=ServiceProvider.OPENAI,
         ),
         "openai/gpt-4o-2024-11-20": NonHelmModelInfo(
-            model_name="gpt-4o-2024-11-20", provider=ModelProvider.OPENAI
+            model_name="gpt-4o-2024-11-20", provider=ServiceProvider.OPENAI
         ),
         "openai/gpt-4.5-preview-2025-02-27": NonHelmModelInfo(
-            model_name="gpt-4.5-preview-2025-02-27", provider=ModelProvider.OPENAI
+            model_name="gpt-4.5-preview-2025-02-27", provider=ServiceProvider.OPENAI
         ),
         "openai/gpt-4.1-2025-04-14": NonHelmModelInfo(
-            model_name="gpt-4.1-2025-04-14", provider=ModelProvider.OPENAI
+            model_name="gpt-4.1-2025-04-14", provider=ServiceProvider.OPENAI
         ),
         # ------------------------
         # Anthropic Models (Claude)
         # ------------------------
         "anthropic/claude-3-7-sonnet-20250219": NonHelmModelInfo(
-            model_name="claude-3-7-sonnet-20241022", provider=ModelProvider.ANTHROPIC
+            model_name="claude-3-7-sonnet-20241022", provider=ServiceProvider.ANTHROPIC
         ),
         "anthropic/claude-3-5-sonnet-20241022": NonHelmModelInfo(
             model_name="claude-3-5-sonnet-20250219",
-            provider=ModelProvider.ANTHROPIC,
+            provider=ServiceProvider.ANTHROPIC,
             is_legacy=True,
         ),
         "anthropic/claude-3-opus-20240229": NonHelmModelInfo(
             model_name="claude-3-opus-20240229",
-            provider=ModelProvider.ANTHROPIC,
+            provider=ServiceProvider.ANTHROPIC,
             is_legacy=True,
         ),
         # ------------------------
         # Google Gemini Models
         "google/gemini-1.5-pro-001": NonHelmModelInfo(
-            model_name="gemini-1.5-pro", provider=ModelProvider.GOOGLE
+            model_name="gemini-1.5-pro", provider=ServiceProvider.GOOGLE
         ),
         "google/gemini-2.0-flash-001": NonHelmModelInfo(
-            model_name="gemini-2.0-flash", provider=ModelProvider.GOOGLE
+            model_name="gemini-2.0-flash", provider=ServiceProvider.GOOGLE
         ),
         "google/gemini-2.5-flash-preview-04-17": NonHelmModelInfo(
-            model_name="gemini-2.5-flash-preview-04-17", provider=ModelProvider.GOOGLE
+            model_name="gemini-2.5-flash-preview-04-17", provider=ServiceProvider.GOOGLE
         ),
         "google/gemini-2.5-pro-preview-03-25": NonHelmModelInfo(
-            model_name="gemini-2.5-pro-preview-03-25", provider=ModelProvider.GOOGLE
+            model_name="gemini-2.5-pro-preview-03-25", provider=ServiceProvider.GOOGLE
         ),
         # Together Models (LLAMA)
         # ------------------------
         "meta/llama-4-maverick-17b-128e-instruct-fp8": NonHelmModelInfo(
             model_name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-            provider=ModelProvider.TOGETHER,
+            provider=ServiceProvider.TOGETHER,
         ),
         "meta/llama-3.1-70b-instruct-turbo": NonHelmModelInfo(
             model_name="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-            provider=ModelProvider.TOGETHER,
+            provider=ServiceProvider.TOGETHER,
             is_legacy=True,
         ),
         "meta/llama-3.1-405b-instruct-turbo": NonHelmModelInfo(
             model_name="meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
-            provider=ModelProvider.TOGETHER,
+            provider=ServiceProvider.TOGETHER,
             is_legacy=True,
         ),
         # ------------------------
         # Together Models (DeepSeek)
         # ------------------------
         "deepseek-ai/deepseek-v3": NonHelmModelInfo(
-            model_name="deepseek-ai/deepseek-v3", provider=ModelProvider.TOGETHER
+            model_name="deepseek-ai/deepseek-v3", provider=ServiceProvider.TOGETHER
         ),
         "deepseek-ai/deepseek-r1": NonHelmModelInfo(
-            model_name="deepseek-ai/deepseek-r1", provider=ModelProvider.TOGETHER
+            model_name="deepseek-ai/deepseek-r1", provider=ServiceProvider.TOGETHER
         ),
         # ------------------------
         # Mistral Models
         # ------------------------
         "mistralai/mixtral-8x22b-instruct-v0.1": NonHelmModelInfo(
             model_name="mistralai/Mixtral-8x22B-Instruct-v0.1",
-            provider=ModelProvider.TOGETHER,
+            provider=ServiceProvider.TOGETHER,
             is_legacy=True,
         ),
     }
