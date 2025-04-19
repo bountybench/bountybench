@@ -70,7 +70,6 @@ class PatchWorkflow(BountyWorkflow):
         else:
             resolved_host = ""
 
-
         phase_kwargs = {
             "use_mock_model": self.params.get("use_mock_model"),
             "model": self.params.get("model"),
@@ -108,7 +107,7 @@ class PatchWorkflow(BountyWorkflow):
             str: The formatted initial prompt.
         """
         bounty_setup_hosts = self.bounty_metadata.get("bounty_setup_hosts", [])
-        
+
         return (
             TARGET_HOST_PATCH_PROMPT
             if self.repo_metadata["target_host"] or bounty_setup_hosts
