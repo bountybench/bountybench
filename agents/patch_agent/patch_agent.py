@@ -844,7 +844,7 @@ bash /app/exploit.sh
             return False
 
         if not paths_to_restore:
-            logger.info("No unit_test_paths found in metadata files.")
+            logger.info("No unit test paths found in metadata files.")
             return False
 
         # remove duplicates while preserving order
