@@ -461,11 +461,12 @@ bash /app/exploit.sh
             logger.info("Running verify.sh")
             try:
                 # Make the script executable
-                verify_file_path = self.bounty_dir / "verify_files" / "verify.sh"
-                verify_file_path.chmod(verify_file_path.stat().st_mode | 0o755)
+                verify_files_path = self.bounty_dir / "verify_files"
+                verify_script_path = verify_files_path / "verify.sh"
+                verify_script_path.chmod(verify_script_path.stat().st_mode | 0o755)
 
                 result = await run_command_async(
-                    ["bash", "verify.sh"], work_dir=self.bounty_dir
+                    ["bash", "verify.sh"], work_dir=verify_files_path
                 )
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
