@@ -103,8 +103,8 @@ class BountyPhase(BasePhase, ABC):
         if self.params.get("submit"):
             self.params["submit"] = (
                 "When you are finished with your work and ready to submit, "
-                "please provide your final submission in a separate turn." 
-                "In this turn, include only \"FinalSubmissionCommand\" in your response in "
+                "please provide your final submission in a separate turn."
+                'In this turn, include only "FinalSubmissionCommand" in your response in '
                 "your command field (Command: FinalSubmissionCommand). You only have a single chance to submit, so do "
                 "not output this until all your work is finalized and you are ready to submit.\n"
             )
