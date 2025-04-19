@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from typing import ClassVar, Dict
 from enum import Enum
+from typing import ClassVar, Dict
 
 
 @dataclass(frozen=True)
@@ -171,10 +171,12 @@ class NonHelmMapping:
             model_name="o1-2024-12-17", provider=ModelProvider.OPENAI
         ),
         "openai/o1-2024-12-17-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o1-2024-12-17-low-reasoning-effort", provider=ModelProvider.OPENAI
+            model_name="o1-2024-12-17-low-reasoning-effort",
+            provider=ModelProvider.OPENAI,
         ),
         "openai/o1-2024-12-17-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o1-2024-12-17-high-reasoning-effort", provider=ModelProvider.OPENAI
+            model_name="o1-2024-12-17-high-reasoning-effort",
+            provider=ModelProvider.OPENAI,
         ),
         "openai/o1-mini-2024-09-12": NonHelmModelInfo(
             model_name="o1-mini-2024-09-12", provider=ModelProvider.OPENAI
@@ -186,37 +188,45 @@ class NonHelmMapping:
             model_name="o3-mini-2025-01-31", provider=ModelProvider.OPENAI
         ),
         "openai/o3-mini-2025-01-31-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-mini-2025-01-31-low-reasoning-effort", provider=ModelProvider.OPENAI
+            model_name="o3-mini-2025-01-31-low-reasoning-effort",
+            provider=ModelProvider.OPENAI,
         ),
         "openai/o3-mini-2025-01-31-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-mini-2025-01-31-high-reasoning-effort", provider=ModelProvider.OPENAI
+            model_name="o3-mini-2025-01-31-high-reasoning-effort",
+            provider=ModelProvider.OPENAI,
         ),
         "openai/o4-mini-2025-04-16": NonHelmModelInfo(
             model_name="o4-mini-2025-04-16", provider=ModelProvider.OPENAI
         ),
         "openai/o4-mini-2025-04-16-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o4-mini-2025-04-16-low-reasoning-effort", provider=ModelProvider.OPENAI
+            model_name="o4-mini-2025-04-16-low-reasoning-effort",
+            provider=ModelProvider.OPENAI,
         ),
         "openai/o4-mini-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o4-mini-2025-04-16-high-reasoning-effort", provider=ModelProvider.OPENAI
+            model_name="o4-mini-2025-04-16-high-reasoning-effort",
+            provider=ModelProvider.OPENAI,
         ),
         "openai/o3-2025-04-03": NonHelmModelInfo(
             model_name="o3-2025-04-03", provider=ModelProvider.OPENAI
         ),
         "openai/o3-2025-04-03-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-03-low-reasoning-effort", provider=ModelProvider.OPENAI
+            model_name="o3-2025-04-03-low-reasoning-effort",
+            provider=ModelProvider.OPENAI,
         ),
         "openai/o3-2025-04-03-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-03-high-reasoning-effort", provider=ModelProvider.OPENAI
+            model_name="o3-2025-04-03-high-reasoning-effort",
+            provider=ModelProvider.OPENAI,
         ),
         "openai/o3-2025-04-16": NonHelmModelInfo(
             model_name="o3-2025-04-16", provider=ModelProvider.OPENAI
         ),
         "openai/o3-2025-04-16-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-16-low-reasoning-effort", provider=ModelProvider.OPENAI
+            model_name="o3-2025-04-16-low-reasoning-effort",
+            provider=ModelProvider.OPENAI,
         ),
         "openai/o3-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-16-high-reasoning-effort", provider=ModelProvider.OPENAI
+            model_name="o3-2025-04-16-high-reasoning-effort",
+            provider=ModelProvider.OPENAI,
         ),
         "openai/gpt-4o-2024-11-20": NonHelmModelInfo(
             model_name="gpt-4o-2024-11-20", provider=ModelProvider.OPENAI
@@ -239,7 +249,9 @@ class NonHelmMapping:
             is_legacy=True,
         ),
         "anthropic/claude-3-opus-20240229": NonHelmModelInfo(
-            model_name="claude-3-opus-20240229", provider=ModelProvider.ANTHROPIC, is_legacy=True
+            model_name="claude-3-opus-20240229",
+            provider=ModelProvider.ANTHROPIC,
+            is_legacy=True,
         ),
         # ------------------------
         # Google Gemini Models
