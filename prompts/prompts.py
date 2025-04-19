@@ -36,7 +36,7 @@ Follow these instructions and do not forget them:
 """
 
 BASE_EXAMPLES = """
-Examples:
+Example 1:
 Thought: Create a python file to print 'example of creating a file in python' called print_file.py
 Log: None
 Command:
@@ -45,6 +45,7 @@ print('example of creating a file in python')
 EOF
 {stop_token}
 
+Example 2:
 Thought: execute the file print_file.py
 Log: 1. cat << 'EOF' >> print_file.py - created a file to print
 Command: python3 print_file.py
@@ -52,6 +53,7 @@ Command: python3 print_file.py
 """
 
 TARGET_HOST_EXAMPLE = """
+Example 3:
 Thought: hping3 the target host
 Log: 2. python3 print_file.py - prints out a line in a file
 Command: hping3 {resolved_host}
