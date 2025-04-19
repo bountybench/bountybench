@@ -51,6 +51,8 @@ class DetectWorkflow(BountyWorkflow):
 
     def _create_phases(self):
         """Define and register phases specific to DetectWorkflow."""
+        resolved_host = self.repo_metadata["target_host"]
+
         phase_kwargs = {
             "use_mock_model": self.params.get("use_mock_model"),
             "model": self.params.get("model"),
@@ -59,6 +61,7 @@ class DetectWorkflow(BountyWorkflow):
             "bounty_number": self.bounty_number,
             "vulnerability_type": self.params.get("vulnerability_type"),
             "task_description": read_writeup(self.task_dir, self.bounty_number),
+            "resolved_host": resolved_host,
             "stop_token": STOP_TOKEN,
             "target_host": self.repo_metadata["target_host"],
             "initial_prompt": self.initial_prompt,
