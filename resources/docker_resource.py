@@ -18,9 +18,7 @@ from docker.errors import (
 from messages.action_messages.docker_action_message import DockerActionMessage
 from resources.base_resource import ActionMessage, BaseResourceConfig
 from resources.runnable_base_resource import RunnableBaseResource
-from resources.utils import truncate_script_output
 from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 
@@ -75,8 +73,7 @@ class DockerResource(RunnableBaseResource):
             volumes=volumes,
         )
 
-        truncated_output = truncate_script_output(output)
-        docker_message.set_message(truncated_output)
+        docker_message.set_message(output)
         docker_message.set_exit_code(exit_code)
         return docker_message
 

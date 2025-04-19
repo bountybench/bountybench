@@ -18,7 +18,7 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from resources.utils import run_command_async, truncate_script_output
+from resources.utils import run_command_async
 from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
 from utils.logger import get_main_logger
 
@@ -675,7 +675,7 @@ bash /app/exploit.sh
 
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
-                message=truncate_script_output(repo_result.stdout, repo_result.stderr),
+                message=f"{repo_result.stdout}\n{repo_result.stderr}",
                 command=f"./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 additional_metadata={"repo_invariant_scores": repo_scores},
@@ -707,9 +707,7 @@ bash /app/exploit.sh
 
             bounty_invariants_response = ScriptActionMessage(
                 resource_id=f"bounty_invariants_subprocess",
-                message=truncate_script_output(
-                    bounty_result.stdout, bounty_result.stderr
-                ),
+                message=f"{bounty_result.stdout}\n{bounty_result.stderr}",
                 command=f"./run_bounty_invariants.sh",
                 exit_code=bounty_result.returncode,
                 additional_metadata={"bounty_invariant_scores": bounty_scores},
