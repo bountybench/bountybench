@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import ClassVar, Dict
+from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -10,13 +11,20 @@ class HelmModelInfo:
 
 @dataclass(frozen=True)
 class NonHelmModelInfo:
-    tokenizer: str
+    model_name: str
     provider: str
     is_legacy: bool = False
 
 
+class ModelProvider(Enum):
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GOOGLE = "google"
+    TOGETHER = "together"
+
+
 @dataclass
-class HelmTokenizerMapping:
+class HelmMapping:
     mapping: ClassVar[Dict[str, HelmModelInfo]] = {
         # ------------------------
         # OpenAI Models
@@ -154,124 +162,126 @@ class HelmTokenizerMapping:
 
 
 @dataclass
-class NonHelmTokenizerMapping:
+class NonHelmMapping:
     mapping: ClassVar[Dict[str, NonHelmModelInfo]] = {
         # ------------------------
         # OpenAI Models
         # ------------------------
         "openai/o1-2024-12-17": NonHelmModelInfo(
-            tokenizer="o1-2024-12-17", provider="openai"
+            model_name="o1-2024-12-17", provider=ModelProvider.OPENAI
         ),
         "openai/o1-2024-12-17-low-reasoning-effort": NonHelmModelInfo(
-            tokenizer="o1-2024-12-17-low-reasoning-effort", provider="openai"
+            model_name="o1-2024-12-17-low-reasoning-effort", provider=ModelProvider.OPENAI
         ),
         "openai/o1-2024-12-17-high-reasoning-effort": NonHelmModelInfo(
-            tokenizer="o1-2024-12-17-high-reasoning-effort", provider="openai"
+            model_name="o1-2024-12-17-high-reasoning-effort", provider=ModelProvider.OPENAI
         ),
         "openai/o1-mini-2024-09-12": NonHelmModelInfo(
-            tokenizer="o1-mini-2024-09-12", provider="openai"
+            model_name="o1-mini-2024-09-12", provider=ModelProvider.OPENAI
         ),
         "openai/o1-preview-2024-09-12": NonHelmModelInfo(
-            tokenizer="o1-preview-2024-09-12", provider="openai"
+            model_name="o1-preview-2024-09-12", provider=ModelProvider.OPENAI
         ),
         "openai/o3-mini-2025-01-31": NonHelmModelInfo(
-            tokenizer="o3-mini-2025-01-31", provider="openai"
+            model_name="o3-mini-2025-01-31", provider=ModelProvider.OPENAI
         ),
         "openai/o3-mini-2025-01-31-low-reasoning-effort": NonHelmModelInfo(
-            tokenizer="o3-mini-2025-01-31-low-reasoning-effort", provider="openai"
+            model_name="o3-mini-2025-01-31-low-reasoning-effort", provider=ModelProvider.OPENAI
         ),
         "openai/o3-mini-2025-01-31-high-reasoning-effort": NonHelmModelInfo(
-            tokenizer="o3-mini-2025-01-31-high-reasoning-effort", provider="openai"
+            model_name="o3-mini-2025-01-31-high-reasoning-effort", provider=ModelProvider.OPENAI
         ),
         "openai/o4-mini-2025-04-16": NonHelmModelInfo(
-            tokenizer="o4-mini-2025-04-16", provider="openai"
+            model_name="o4-mini-2025-04-16", provider=ModelProvider.OPENAI
         ),
         "openai/o4-mini-2025-04-16-low-reasoning-effort": NonHelmModelInfo(
-            tokenizer="o4-mini-2025-04-16-low-reasoning-effort", provider="openai"
+            model_name="o4-mini-2025-04-16-low-reasoning-effort", provider=ModelProvider.OPENAI
         ),
         "openai/o4-mini-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
-            tokenizer="o4-mini-2025-04-16-high-reasoning-effort", provider="openai"
+            model_name="o4-mini-2025-04-16-high-reasoning-effort", provider=ModelProvider.OPENAI
         ),
         "openai/o3-2025-04-03": NonHelmModelInfo(
-            tokenizer="o3-2025-04-03", provider="openai"
+            model_name="o3-2025-04-03", provider=ModelProvider.OPENAI
         ),
         "openai/o3-2025-04-03-low-reasoning-effort": NonHelmModelInfo(
-            tokenizer="o3-2025-04-03-low-reasoning-effort", provider="openai"
+            model_name="o3-2025-04-03-low-reasoning-effort", provider=ModelProvider.OPENAI
         ),
         "openai/o3-2025-04-03-high-reasoning-effort": NonHelmModelInfo(
-            tokenizer="o3-2025-04-03-high-reasoning-effort", provider="openai"
+            model_name="o3-2025-04-03-high-reasoning-effort", provider=ModelProvider.OPENAI
         ),
         "openai/o3-2025-04-16": NonHelmModelInfo(
-            tokenizer="o3-2025-04-16", provider="openai"
+            model_name="o3-2025-04-16", provider=ModelProvider.OPENAI
         ),
         "openai/o3-2025-04-16-low-reasoning-effort": NonHelmModelInfo(
-            tokenizer="o3-2025-04-16-low-reasoning-effort", provider="openai"
+            model_name="o3-2025-04-16-low-reasoning-effort", provider=ModelProvider.OPENAI
         ),
         "openai/o3-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
-            tokenizer="o3-2025-04-16-high-reasoning-effort", provider="openai"
+            model_name="o3-2025-04-16-high-reasoning-effort", provider=ModelProvider.OPENAI
         ),
         "openai/gpt-4o-2024-11-20": NonHelmModelInfo(
-            tokenizer="gpt-4o-2024-11-20", provider="openai"
+            model_name="gpt-4o-2024-11-20", provider=ModelProvider.OPENAI
         ),
         "openai/gpt-4.5-preview-2025-02-27": NonHelmModelInfo(
-            tokenizer="gpt-4.5-preview-2025-02-27", provider="openai"
+            model_name="gpt-4.5-preview-2025-02-27", provider=ModelProvider.OPENAI
         ),
         "openai/gpt-4.1-2025-04-14": NonHelmModelInfo(
-            tokenizer="gpt-4.1-2025-04-14", provider="openai"
+            model_name="gpt-4.1-2025-04-14", provider=ModelProvider.OPENAI
         ),
         # ------------------------
         # Anthropic Models (Claude)
         # ------------------------
         "anthropic/claude-3-7-sonnet-20250219": NonHelmModelInfo(
-            tokenizer="claude-3-7-sonnet-20241022", provider="anthropic"
+            model_name="claude-3-7-sonnet-20241022", provider=ModelProvider.ANTHROPIC
         ),
         "anthropic/claude-3-5-sonnet-20241022": NonHelmModelInfo(
-            tokenizer="claude-3-5-sonnet-20250219", provider="anthropic", is_legacy=True
+            model_name="claude-3-5-sonnet-20250219",
+            provider=ModelProvider.ANTHROPIC,
+            is_legacy=True,
         ),
         "anthropic/claude-3-opus-20240229": NonHelmModelInfo(
-            tokenizer="claude-3-opus-20240229", provider="anthropic", is_legacy=True
+            model_name="claude-3-opus-20240229", provider=ModelProvider.ANTHROPIC, is_legacy=True
         ),
         # ------------------------
         # Google Gemini Models
         # ------------------------
         "google/gemini-1.5-pro-001": NonHelmModelInfo(
-            tokenizer="gemini-1.5-pro", provider="google"
+            model_name="gemini-1.5-pro", provider=ModelProvider.GOOGLE
         ),
         "google/gemini-2.0-flash-001": NonHelmModelInfo(
-            tokenizer="gemini-2.0-flash", provider="google"
+            model_name="gemini-2.0-flash", provider=ModelProvider.GOOGLE
         ),
         # ------------------------
         # Together Models (LLAMA)
         # ------------------------
         "meta/llama-4-maverick-17b-128e-instruct-fp8": NonHelmModelInfo(
-            tokenizer="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-            provider="together",
+            model_name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+            provider=ModelProvider.TOGETHER,
         ),
         "meta/llama-3.1-70b-instruct-turbo": NonHelmModelInfo(
-            tokenizer="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-            provider="together",
+            model_name="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+            provider=ModelProvider.TOGETHER,
             is_legacy=True,
         ),
         "meta/llama-3.1-405b-instruct-turbo": NonHelmModelInfo(
-            tokenizer="meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
-            provider="together",
+            model_name="meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
+            provider=ModelProvider.TOGETHER,
             is_legacy=True,
         ),
         # ------------------------
         # Together Models (DeepSeek)
         # ------------------------
         "deepseek-ai/deepseek-v3": NonHelmModelInfo(
-            tokenizer="deepseek-ai/deepseek-v3", provider="together"
+            model_name="deepseek-ai/deepseek-v3", provider=ModelProvider.TOGETHER
         ),
         "deepseek-ai/deepseek-r1": NonHelmModelInfo(
-            tokenizer="deepseek-ai/deepseek-r1", provider="together"
+            model_name="deepseek-ai/deepseek-r1", provider=ModelProvider.TOGETHER
         ),
         # ------------------------
         # Mistral Models
         # ------------------------
         "mistralai/mixtral-8x22b-instruct-v0.1": NonHelmModelInfo(
-            tokenizer="mistralai/Mixtral-8x22B-Instruct-v0.1",
-            provider="together",
+            model_name="mistralai/Mixtral-8x22B-Instruct-v0.1",
+            provider=ModelProvider.TOGETHER,
             is_legacy=True,
         ),
     }
@@ -279,7 +289,7 @@ class NonHelmTokenizerMapping:
 
 @dataclass
 class ModelRegistry:
-    tokenizers: ClassVar[HelmTokenizerMapping] = HelmTokenizerMapping()
+    tokenizers: ClassVar[HelmMapping] = HelmMapping()
 
     @classmethod
     def get_tokenizer(cls, model_name: str) -> str:
