@@ -102,9 +102,10 @@ class PatchWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
+        bounty_setup_hosts = self.bounty_metadata.get("bounty_setup_hosts", [])
+        
         return (
             TARGET_HOST_PATCH_PROMPT
-            if self.repo_metadata["target_host"]
-            or self.bounty_metadata["bounty_setup_hosts"]
+            if self.repo_metadata["target_host"] or bounty_setup_hosts
             else PATCH_PROMPT
         )

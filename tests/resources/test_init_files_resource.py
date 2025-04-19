@@ -136,6 +136,11 @@ def setup_git_repos():
 
     # Initialize main repository
     subprocess.run(["git", "init"], cwd=main_repo, check=True)
+
+    # Create an .env file
+    with open(main_repo / ".env", "w") as f:
+        f.write(f"ENV_ID=11111")
+
     subprocess.run(["git", "add", "."], cwd=main_repo, check=True)
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"], cwd=main_repo, check=True
@@ -153,6 +158,7 @@ def setup_git_repos():
     # Create another branch in main repo
     subprocess.run(["git", "checkout", "-b", "feature"], cwd=main_repo, check=True)
     (main_repo / "feature_file.txt").write_text("Content in feature branch")
+
     subprocess.run(["git", "add", "."], cwd=main_repo, check=True)
     subprocess.run(
         ["git", "commit", "-m", "Commit in feature branch"], cwd=main_repo, check=True
@@ -304,6 +310,27 @@ def test_copy_files_with_git(resource, setup_git_repos):
     )
     assert "* main" in branch_result.stdout
     assert "feature" not in branch_result.stdout
+
+
+def test_copy_files_with_skip(resource, setup_git_repos):
+    """Test copying files with Git repositories."""
+    main_repo, _, destination = setup_git_repos
+    # Copy the repository with Git data
+    resource.copy_files(
+        main_repo, destination, ignore_git=False, skip_hidden_files=True
+    )
+    # Check that files were copied
+    assert not (destination / ".env").exists()
+
+
+def test_copy_files_no_skip(resource, setup_git_repos):
+    """Test copying files with Git repositories."""
+    main_repo, _, destination = setup_git_repos
+    assert (main_repo / ".env").exists()
+    # Copy the repository with Git data
+    resource.copy_files(main_repo, destination, ignore_git=False)
+    # Check that files were copied
+    assert (destination / ".env").exists()
 
 
 def test_cleanup_git_branches(setup_git_repos):
