@@ -9,9 +9,9 @@ tenacity==9.0.0
 tiktoken==0.8.0
 uvicorn[standard]==0.34.0
 pre-commit==4.1.0
-black==25.1.0
+black==24.10.0
 flake8==7.1.1
-isort==6.0.1
+isort==5.13.2
 coverage==7.6.10
 pytest==7.4.4
 pytest-asyncio==0.23.6
