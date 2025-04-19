@@ -141,6 +141,10 @@ class ModelResource(RunnableBaseResource):
                 model_provider = TogetherModels()
             elif model_prefix == "openai":
                 model_provider = OpenAIModels()
+            elif model_prefix == "xai":
+                from resources.model_resource.xai_models.xai_models import XAIModels
+
+                model_provider = XAIModels()
             else:
                 raise Exception(f"Unknown model type: {self.model}")
         return model_provider
