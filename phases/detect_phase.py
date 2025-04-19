@@ -166,14 +166,13 @@ class DetectPhase(BountyPhase):
 
         if isinstance(agent_instance, DetectAgent):
             if message.submission:
+                logger.status("Detect submitted!", message.success)
+                phase_message.set_summary("detect_submitted")
                 phase_message.set_complete()
             if message.success:
                 logger.status("Vulnerability detected!", True)
                 phase_message.set_summary("detect_success")
                 phase_message.set_success()
                 phase_message.set_complete()
-            else:
-                logger.status("Failed to detect vulnerability", False)
-                phase_message.set_summary("detect_failure")
 
         return message
