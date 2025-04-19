@@ -142,22 +142,15 @@ class HelmMapping:
         ),
         # ------------------------
         # Google Gemini Models
-        # ------------------------
-        "google/gemini-1.5-pro-001": HelmModelInfo(tokenizer="google/gemma-2b"),
-        "google/gemini-2.0-flash-001": HelmModelInfo(tokenizer="google/gemma-2b"),
-        "google/gemini-2.0-flash-thinking-exp-01-21": HelmModelInfo(
-            tokenizer="google/gemma-2b"
-        ),
-        "google/gemini-1.0-pro-001": HelmModelInfo(
-            tokenizer="google/gemma-2b", is_legacy=True
-        ),
-        "google/gemini-1.5-pro-preview-0409": HelmModelInfo(
-            tokenizer="google/gemma-2b", is_legacy=True
-        ),
-        # ------------------------
-        # Other Models
-        # ------------------------
-        "01-ai/yi-large": HelmModelInfo(tokenizer="01-ai/Yi-6B", is_legacy=True),
+        "google/gemini-1.0-pro-001": "google/gemma-2b",
+        "google/gemini-1.5-pro-001": "google/gemma-2b",
+        "google/gemini-1.5-pro-preview-0409": "google/gemma-2b",
+        "google/gemini-2.0-flash-001": "google/gemma-2b",
+        "google/gemini-2.0-flash-thinking-exp-01-21": "google/gemma-2b",
+        "google/gemini-2.5-flash-preview-04-17": "google/gemma-2b",
+        "google/gemini-2.5-pro-preview-03-25": "google/gemma-2b",
+        # Other
+        "01-ai/yi-large": "01-ai/Yi-6B",
     }
 
 
@@ -255,14 +248,10 @@ class NonHelmMapping:
         ),
         # ------------------------
         # Google Gemini Models
-        # ------------------------
-        "google/gemini-1.5-pro-001": NonHelmModelInfo(
-            model_name="gemini-1.5-pro", provider=ModelProvider.GOOGLE
-        ),
-        "google/gemini-2.0-flash-001": NonHelmModelInfo(
-            model_name="gemini-2.0-flash", provider=ModelProvider.GOOGLE
-        ),
-        # ------------------------
+        "google/gemini-1.5-pro-001": "gemini-1.5-pro",
+        "google/gemini-2.0-flash-001": "gemini-2.0-flash",
+        "google/gemini-2.5-flash-preview-04-17": "gemini-2.5-flash-preview-04-17",
+        "google/gemini-2.5-pro-preview-03-25": "gemini-2.5-pro-preview-03-25",
         # Together Models (LLAMA)
         # ------------------------
         "meta/llama-4-maverick-17b-128e-instruct-fp8": NonHelmModelInfo(
