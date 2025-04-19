@@ -104,9 +104,6 @@ class DockerResource(RunnableBaseResource):
         """
 
         unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
-        command_trc = (
-            f"{command[:10]}...{command[-10:]}" if len(command) > 23 else command
-        )
 
         def stream_logs(container, logs, stop_event):
             try:
@@ -119,7 +116,7 @@ class DockerResource(RunnableBaseResource):
             except Exception as e:
                 logger.warning(f"Log stream ended: {e}")
 
-        logger.info(f"Running command in Docker: {command_trc}")
+        logger.info(f"Running command in Docker: {command}")
         try:
             container = self.client.containers.run(
                 image=docker_image,
