@@ -96,7 +96,7 @@ class WorkflowRunner:
         )
         parser.add_argument(
             "--disable_submit",
-            action="store_false",
+            action="store_true",
             help="Disable agent from submitting the exploit (not recommended)",
         )
 
