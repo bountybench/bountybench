@@ -61,7 +61,9 @@ class PatchWorkflow(BountyWorkflow):
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
 
-        resolved_host = self.repo_metadata["target_host"] or self.bounty_metadata["bounty_setup_hosts"][0]
+        bounty_setup_hosts = self.bounty_metadata.get("bounty_setup_hosts", [])
+        bounty_setup_hosts = bounty_setup_hosts[0] if bounty_setup_hosts else None
+        resolved_host = self.repo_metadata["target_host"] or bounty_setup_hosts
 
 
         phase_kwargs = {
