@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
+from resources.resource_manager import ModelResource
 from utils.git_utils import git_get_codebase_version
 from utils.logger import get_main_logger
 
@@ -24,6 +25,7 @@ class WorkflowMessage(Message):
         task: Optional[Dict[str, Any]] = None,
         additional_metadata: Optional[Dict[str, Any]] = None,
         logs_dir: str = "logs",
+        model_name: Optional[str] = "",
     ) -> None:
         # Core
         self._success = False
@@ -31,6 +33,7 @@ class WorkflowMessage(Message):
         self._phase_messages = []
         self.agents_used = {}
         self.resources_used = {}
+        self.model_name = model_name
         self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, QUERY_TIME_TAKEN_IN_MS: 0}
 
         # Logging
@@ -47,7 +50,7 @@ class WorkflowMessage(Message):
         self._workflow_id = workflow_id if workflow_id else str(id(self))
         self.log_file = (
             self.logs_dir
-            / f"{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+            / f"{'_'.join(components)}_{self.workflow_id}_{self.model_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
         )
 
         # Metadata
@@ -128,6 +131,7 @@ class WorkflowMessage(Message):
     def add_resource(self, resource_name: str, resource) -> None:
         if resource_name not in self.resources_used and hasattr(resource, "to_dict"):
             self.resources_used[resource_name] = resource.to_dict()
+
 
     def metadata_dict(self) -> dict:
         return {

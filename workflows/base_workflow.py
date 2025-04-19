@@ -48,6 +48,7 @@ class BaseWorkflow(ABC):
             workflow_name=self.name,
             task=self.task,
             additional_metadata=self._get_metadata(),
+             model_name=self.params.get("model", ""),
         )
 
         self._check_docker_desktop_availability()
