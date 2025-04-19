@@ -46,7 +46,7 @@ class BountySetupResource(BaseSetupResource):
         self.skip_setup = self._resource_config.skip_setup
 
         # Run the setup process
-        self.setup(skip_setup=self.skip_setup)
+        self.setup()
 
     def update_work_dir(self, new_work_dir: Path) -> None:
         """

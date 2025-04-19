@@ -243,7 +243,7 @@ def test_skip_setup_on_start_method(temp_dir):
     resource.setup_script_name = "setup_bounty_env.sh"
     # Patch run_command to ensure it is not called
     with patch("resources.base_setup_resource.run_command") as mock_run_command:
-        resource._start(skip_setup=True)
+        resource._start()
         mock_run_command.assert_not_called()
 
 
@@ -258,6 +258,6 @@ def test_skip_setup_on_restart_method(temp_dir):
         patch.object(resource, "stop") as mock_stop,
         patch.object(resource, "_start") as mock_start,
     ):
-        resource.restart(skip_setup=True)
+        resource.restart()
         mock_stop.assert_called_once()
-        mock_start.assert_called_once_with(skip_setup=True)
+        mock_start.assert_called_once()

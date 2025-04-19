@@ -12,11 +12,15 @@ from agents.detect_agent.detect_agent import (
 )
 from messages.agent_messages.detect_agent_message import DetectAgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
-from tests.test_utils.bounty_setup_test_util import EnvPath
+from tests.test_utils.bounty_setup_test_util import (
+    EnvPath,
+)
 from tests.test_utils.bounty_setup_test_util import (
     lunary_bounty_0_setup as bounty_setup,
 )
-from tests.test_utils.bounty_setup_test_util import write_to_file_and_make_executable
+from tests.test_utils.bounty_setup_test_util import (
+    write_to_file_and_make_executable,
+)
 from utils.file_utils import apply_patch_to_bounty
 
 
