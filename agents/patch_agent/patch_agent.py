@@ -19,7 +19,13 @@ from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import run_command_async
-from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset, git_restore
+from utils.git_utils import (
+    git_apply_patch,
+    git_checkout_main,
+    git_diff,
+    git_reset,
+    git_restore,
+)
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -189,7 +195,7 @@ class PatchAgent(BaseAgent):
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
-        
+
         if not self.restore_unit_test_paths():
             logger.error(
                 "Failed to sanitize unit tests for check invariants. "
@@ -805,7 +811,7 @@ bash /app/exploit.sh
             logger.error(f"Failed to move exploits directory: {e}")
 
         return None
-    
+
     def restore_unit_test_paths(self) -> bool:
         """
         Restore unit test paths specified in repo and bounty metadata.
@@ -814,7 +820,7 @@ bash /app/exploit.sh
             bool: True if all specified paths were restored successfully, False otherwise.
         """
         logger.info("Checking for unit test paths to restore...")
-        
+
         paths_to_restore = []
 
         # --- Load repo metadata if present ---
@@ -869,7 +875,6 @@ bash /app/exploit.sh
 
         logger.info(f"Restored {successes}/{total_restores} unit test paths.")
         return successes == total_restores
- 
 
     def to_dict(self) -> dict:
         """
