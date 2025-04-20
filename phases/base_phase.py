@@ -134,36 +134,14 @@ class BasePhase(ABC):
         """
         Initialize and register resources and agents for the phase.
         """
-        logger.debug(f"Entering setup for {self.name}")
-
-        # 1. Define and register resources
-        resource_configs = self.define_resources()
-        resource_configs_keys = {
-            resource.key(self.workflow_id) for resource, _ in resource_configs
-        }
-        for resource, resource_config in resource_configs:
-            resource_id, resource_class = (
-                resource.key(self.workflow_id),
-                resource.get_class(),
-            )
-            if not self.resource_manager.is_resource_equivalent(
-                resource_id, resource_class, resource_config
-            ):
-                self.resource_manager.register_resource(
-                    resource_id, resource_class, resource_config
-                )
-
-        # 2. Initialize phase resources
-        self.resource_manager.initialize_phase_resources(
-            self.phase_config.phase_idx, resource_configs_keys
-        )
-        logger.info(f"Resources for phase {self.name} initialized")
-        # 3. Define and register agents
-        agent_configs = self.define_agents()
-
         try:
+            logger.debug(f"Entering setup for {self.name}")
+
             # 1. Define and register resources
             resource_configs = self.define_resources()
+            resource_configs_keys = {
+                resource.key(self.workflow_id) for resource, _ in resource_configs
+            }
             for resource, resource_config in resource_configs:
                 resource_id, resource_class = (
                     resource.key(self.workflow_id),
@@ -175,8 +153,13 @@ class BasePhase(ABC):
                     self.resource_manager.register_resource(
                         resource_id, resource_class, resource_config
                     )
-
             logger.info(f"Completed resource setup for {self.name}")
+
+            # 2. Initialize phase resources
+            self.resource_manager.initialize_phase_resources(
+                self.phase_config.phase_idx, resource_configs_keys
+            )
+            logger.info(f"Resources for phase {self.name} initialized")
 
             # 3. Define and register agents
             agent_configs = self.define_agents()
