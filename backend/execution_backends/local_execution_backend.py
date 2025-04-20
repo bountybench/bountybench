@@ -360,21 +360,7 @@ class LocalExecutionBackend(ExecutionBackend):
 
             else:
                 # If workflow doesn't exist yet, initialize it
-                print(f"Auto-starting new workflow {workflow_id}")
-                self.active_workflows[workflow_id] = {
-                    "status": "initializing",
-                }
-                task = asyncio.create_task(
-                    self._run_workflow(workflow_id, websocket_manager, should_exit)
-                )
-                self.active_workflows[workflow_id]["task"] = task
-                await websocket.send_json(
-                    {
-                        "message_type": "workflow_status",
-                        "status": "starting",
-                        "can_execute": False,
-                    }
-                )
+                raise ValueError(f"Workflow {workflow_id} doesn't exist")
 
             # Handle incoming messages
             while not should_exit:
@@ -557,16 +543,10 @@ class LocalExecutionBackend(ExecutionBackend):
             print(f"Workflow {workflow_id} not found or should exit")
             return
 
+        workflow_data = self.active_workflows[workflow_id]
+        workflow = workflow_data["instance"]
+
         try:
-            workflow_data = self.active_workflows[workflow_id]
-
-            if "instance" not in workflow_data:
-                raise KeyError(
-                    f"'instance' not found in workflow_data for {workflow_id}."
-                )
-
-            workflow = workflow_data["instance"]
-
             # Update status to running after initial start
             workflow_data["status"] = "running"
             await websocket_manager.broadcast(
@@ -594,11 +574,7 @@ class LocalExecutionBackend(ExecutionBackend):
             # Handle errors
             if not should_exit:
                 print(f"Workflow error: {e}")
-                # Safely set status if workflow_data is available
-                workflow_data = self.active_workflows.get(workflow_id)
-                if workflow_data:
-                    workflow_data["status"] = "error"
-
+                workflow_data["status"] = "error"
                 await websocket_manager.broadcast(
                     workflow_id,
                     {
