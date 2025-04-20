@@ -176,10 +176,17 @@ class WorkflowMessage(Message):
 
         # Archive the log file
         archive_path = FULL_LOG_DIR / f"{self.log_file.stem}.log"
-        with open(archive_path, "a") as archive_file:
-            with open(FULL_LOG_FILE_PATH, "r") as full_log_file:
-                archive_file.write(full_log_file.read())
-                FULL_LOG_FILE_PATH.unlink(missing_ok=True)
+        try:
+            import shutil
+
+            shutil.copyfile(FULL_LOG_FILE_PATH, archive_path)
+            FULL_LOG_FILE_PATH.unlink(missing_ok=True)
+        except FileNotFoundError:
+            logger.warning(
+                f"Log file {FULL_LOG_FILE_PATH} not found — skipping archive."
+            )
+
+        # Restart logger to attach a fresh FileHandler
         logger_config.restart()
 
     def new_log(self):
