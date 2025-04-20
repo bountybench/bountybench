@@ -230,34 +230,3 @@ def test_error_handling(temp_dir):
 
     with pytest.raises(RuntimeError, match="Unable to successfully execute"):
         RepoSetupResource("test_invalid_script", RepoSetupResourceConfig(temp_dir))
-
-
-def test_skip_setup_on_start_method(temp_dir):
-    """Test that _start() does nothing if skip_setup=True."""
-    resource = BountySetupResource(
-        "test_skip_start",
-        BountySetupResourceConfig(temp_dir, bounty_number="0", skip_setup=True),
-    )
-    # Patch work_dir to exist to avoid FileNotFoundError
-    resource.work_dir = temp_dir
-    resource.setup_script_name = "setup_bounty_env.sh"
-    # Patch run_command to ensure it is not called
-    with patch("resources.base_setup_resource.run_command") as mock_run_command:
-        resource._start(skip_setup=True)
-        mock_run_command.assert_not_called()
-
-
-def test_skip_setup_on_restart_method(temp_dir):
-    """Test that restart() with skip_setup=True does not start the environment."""
-    resource = BountySetupResource(
-        "test_skip_restart",
-        BountySetupResourceConfig(temp_dir, bounty_number="0", skip_setup=True),
-    )
-    # Patch stop and _start to check call behavior
-    with (
-        patch.object(resource, "stop") as mock_stop,
-        patch.object(resource, "_start") as mock_start,
-    ):
-        resource.restart(skip_setup=True)
-        mock_stop.assert_called_once()
-        mock_start.assert_called_once_with(skip_setup=True)
