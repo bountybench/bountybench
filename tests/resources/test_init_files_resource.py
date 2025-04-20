@@ -58,6 +58,7 @@ def setup_dirs():
     if task_repo_dir.exists():
         shutil.rmtree(task_repo_dir)
 
+
 @pytest.fixture
 def setup_dirs_with_exploit():
     task_repo_dir = Path.cwd() / "tests" / "resources" / "test_files"
@@ -120,6 +121,7 @@ python3 solver.py $HOSTNAME1 $HOSTNAME2
 
     if task_repo_dir.exists():
         shutil.rmtree(task_repo_dir)
+
 
 @pytest.fixture
 def resource(setup_dirs):
