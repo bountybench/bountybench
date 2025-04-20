@@ -29,6 +29,7 @@ class WorkflowMessage(Message):
         task: Optional[Dict[str, Any]] = None,
         additional_metadata: Optional[Dict[str, Any]] = None,
         logs_dir: str = "logs",
+        model_name: Optional[str] = "",
     ) -> None:
         # Core
         self._success = False
@@ -36,6 +37,7 @@ class WorkflowMessage(Message):
         self._phase_messages = []
         self.agents_used = {}
         self.resources_used = {}
+        self.model_name = model_name
         self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, QUERY_TIME_TAKEN_IN_MS: 0}
 
         # Logging
@@ -52,7 +54,7 @@ class WorkflowMessage(Message):
         self._workflow_id = workflow_id if workflow_id else str(id(self))
         self.log_file = (
             self.logs_dir
-            / f"{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+            / f"{self.model_name}_{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
         )
 
         # Metadata
