@@ -14,8 +14,6 @@ class BountySetupResourceConfig(BaseResourceConfig):
 
     task_dir: Path
     bounty_number: str
-    # Used in detect workflow where we skip bounty level setup
-    skip_setup: bool = False
 
     def validate(self) -> None:
         """Validate Bounty Setup configuration"""
@@ -35,7 +33,6 @@ class BountySetupResource(BaseSetupResource):
         # Set required properties
         self.task_dir = self._resource_config.task_dir
         self.bounty_number = self._resource_config.bounty_number
-        self.skip_setup = self._resource_config.skip_setup
         self.setup_script_name = "setup_bounty_env.sh"
 
         # Initialize bounty directory
@@ -43,33 +40,9 @@ class BountySetupResource(BaseSetupResource):
 
         # Set work_dir for bounty setup
         self.work_dir = self.bounty_dir / "setup_files"
-        self.skip_setup = self._resource_config.skip_setup
 
         # Run the setup process
         self.setup()
-
-    def update_work_dir(self, new_work_dir: Path) -> None:
-        """
-        Update the work directory for this resource, and stop existing resources
-        This should be used if you want to run another bounty's setup_bounty_env.sh
-
-        This does NOT run the bounty setup in the new directory
-        """
-        logger.info(f"Stopping current bounty resource in {self.work_dir}")
-        self.stop()
-        if not new_work_dir.exists():
-            raise FileNotFoundError(
-                f"New work directory does not exist: {new_work_dir}"
-            )
-
-        logger.info(f"Updated work_dir from {self.work_dir} to {new_work_dir}")
-        self.work_dir = new_work_dir
-
-    def set_skip_setup(self, value: bool) -> None:
-        logger.info(
-            f"Current value of skip_setup: {self.skip_setup}. \n Setting skip_setup to {value}"
-        )
-        self.skip_setup = value
 
     def to_dict(self) -> dict:
         """
@@ -83,7 +56,6 @@ class BountySetupResource(BaseSetupResource):
             {
                 "bounty_dir": str(self.bounty_dir),
                 "bounty_number": self.bounty_number,
-                "skip_setup": self.skip_setup,
             }
         )
 
@@ -99,7 +71,6 @@ class BountySetupResource(BaseSetupResource):
         config = BountySetupResourceConfig(
             task_dir=Path(data["task_dir"]),
             bounty_number=data["bounty_number"],
-            skip_setup=data["skip_setup"],
         )
 
         instance = cls(common_attrs["resource_id"], config)

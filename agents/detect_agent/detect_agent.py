@@ -68,11 +68,9 @@ class DetectAgent(BaseAgent):
         ResourceType.DOCKER,
     ]
     OPTIONAL_RESOURCES = [
-        ResourceType.BOUNTY_SETUP,
         ResourceType.REPO_SETUP,
     ]
     ACCESSIBLE_RESOURCES = [
-        ResourceType.BOUNTY_SETUP,
         ResourceType.REPO_SETUP,
         ResourceType.INIT_FILES,
         ResourceType.DOCKER,
@@ -84,6 +82,7 @@ class DetectAgent(BaseAgent):
         self.tmp_dir = agent_config.tmp_dir
         self.submit = agent_config.submit
         self.install_command = agent_config.install_command
+        self.task_codebase_dir = self.task_dir / "codebase"
 
         self.exploit_files_dir = self.tmp_dir / "exploit_files"
         self.agent_exploit_script = self.exploit_files_dir / "exploit.sh"
@@ -158,13 +157,10 @@ class DetectAgent(BaseAgent):
         return detect_agent_message
 
     def cleanup_side_effects(self):
-        self.reset_bounty_resource_work_dir()
         current_bounty_number = extract_bounty_number(str(self.bounty_dir))
         self.checkout_different_commit(current_bounty_number)
-        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
-            self.resources.bounty_setup.set_skip_setup(True)
         # Since we mount task_dir codebase into tmp_dir/codebase, clean up both paths
-        git_reset(self.task_dir)
+        git_reset(self.task_codebase_dir)
         git_reset(self.tmp_dir)
         if not self.restart_resources():
             raise Exception(f"Failed to restart resources")
@@ -183,15 +179,12 @@ class DetectAgent(BaseAgent):
             exit_code = 1
         finally:
             # Reset task_dir since we mount it into the docker container that runs agent exploit
-            git_reset(self.task_dir)
+            git_reset(self.task_codebase_dir)
             git_reset(self.tmp_dir)
         return exit_code
 
     # TODO: Reduce noise from bounty/repo setup
     async def score_agent_exploit(self, detect_agent_message) -> bool:
-        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
-            self.resources.bounty_setup.set_skip_setup(False)
-
         compatible_patches = self.get_compatible_patches()
         total_failures = 0
         # Used for logging purposes only
@@ -215,9 +208,6 @@ class DetectAgent(BaseAgent):
         logger.info(f"Compatible Patches: {compatible_patches}")
         logger.info(f"Agent scores: {scores}")
 
-        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
-            self.resources.bounty_setup.set_skip_setup(True)
-
         return total_failures == 1
 
     def get_bounty_dir_path(self, bounty_number: str) -> Path:
@@ -236,7 +226,6 @@ class DetectAgent(BaseAgent):
         Side effects:
         a different commit in task_dir is checked out
         a patch is applied to the task_dir
-        self.bounty_resource will have an updated work_dir
         There are existing servers for a different bounty
 
         These are cleaned up in cleanup_side_effects
@@ -249,16 +238,6 @@ class DetectAgent(BaseAgent):
 
         if not (apply_patch_to_bounty(new_bounty_dir, self.task_dir)):
             raise Exception(f"Failed to apply patch to bounty {bounty_number}")
-
-        # Update bounty resource work dir
-        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
-            patched_work_dir = new_bounty_dir / SETUP_FILES_DIR
-            try:
-                self.resources.bounty_setup.update_work_dir(patched_work_dir)
-            except Exception as e:
-                raise Exception(
-                    f"Bounty resource failure - update_work_dir for bounty {bounty_number}: {e}"
-                )
 
         if not self.restart_resources():
             raise Exception(f"Failed to restart resources for bounty {bounty_number}")
@@ -371,15 +350,13 @@ bash /app/exploit_files/exploit.sh
 
             return agent_exploit_message
 
+    # TODO: make consistent with other workflows - restart_resource fail = throw
     def restart_resources(self):
         """Restart necessary resources and check success."""
         success = True
-        # Must restart repo_setup first, then bounty_setup (same order as initialization)
+        # No bounty setup in detect
         if self.resources.has_bound(ResourceType.REPO_SETUP):
             success &= self._restart_resource(self.resources.repo_setup)
-
-        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
-            success &= self._restart_resource(self.resources.bounty_setup)
 
         if not success:
             logger.error("One or more resources failed to restart.")
@@ -404,13 +381,6 @@ bash /app/exploit_files/exploit.sh
         if clear:
             self.log_history.clear()
         return combined
-
-    def reset_bounty_resource_work_dir(self):
-        original_work_dir = self.bounty_dir / SETUP_FILES_DIR
-        try:
-            self.resources.bounty_setup.update_work_dir(original_work_dir)
-        except Exception as e:
-            raise Exception(f"Failed to update work dir to {original_work_dir}: {e}")
 
     def to_dict(self) -> dict:
         """Serializes the DetectAgent state to a dictionary."""

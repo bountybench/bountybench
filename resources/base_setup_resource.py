@@ -27,15 +27,12 @@ class BaseSetupResource(BaseResource, ABC):
         self.task_dir = None
         self.work_dir = None
         self.setup_script_name = None
-        self.skip_setup = None
         self.name = self.__class__.__name__
 
         # Subclasses will call setup() after initializing their specific properties
 
     def setup(self):
         """Common setup method to be called by subclasses after initializing properties."""
-        if self.skip_setup:
-            return
         try:
             self._start()
         except Exception as e:
@@ -70,8 +67,6 @@ class BaseSetupResource(BaseResource, ABC):
 
     def _start(self) -> None:
         """Start the environment by running the appropriate setup script."""
-        if self.skip_setup:
-            return
         if not self.work_dir.exists():
             raise FileNotFoundError(f"Work directory does not exist: {self.work_dir}")
 

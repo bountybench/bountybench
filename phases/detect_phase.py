@@ -7,7 +7,6 @@ from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.bounty_phase import BountyPhase
 from resources.base_resource import BaseResourceConfig
-from resources.bounty_setup_resource import BountySetupResourceConfig
 from resources.docker_resource import DockerResourceConfig
 from resources.init_files_resource import InitFilesResourceConfig
 from resources.kali_env_resource import KaliEnvResourceConfig
@@ -64,7 +63,6 @@ class DetectPhase(BountyPhase):
         )
 
         target_hosts = [self.workflow.repo_metadata["target_host"]]
-        target_hosts.extend(self.workflow.bounty_metadata.get("bounty_setup_hosts", []))
 
         resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
             (
@@ -123,21 +121,6 @@ class DetectPhase(BountyPhase):
                     ResourceType.REPO_SETUP,
                     RepoSetupResourceConfig(
                         task_dir=self.workflow.task_dir,
-                    ),
-                )
-            )
-
-        setup_bounty_env_script = (
-            self.bounty_dir / "setup_files" / "setup_bounty_env.sh"
-        )
-        if contains_setup(setup_bounty_env_script):
-            resource_configs.append(
-                (
-                    ResourceType.BOUNTY_SETUP,
-                    BountySetupResourceConfig(
-                        task_dir=self.workflow.task_dir,
-                        bounty_number=self.workflow.bounty_number,
-                        skip_setup=True,
                     ),
                 )
             )
