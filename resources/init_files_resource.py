@@ -83,6 +83,7 @@ class InitFilesResource(BaseResource):
                 / self._resource_config.input_exploit_files_dir_name
             )
             self.copy_files(self.input_exploit_files_dir, self.tmp_dir)
+            self._remove_ci_check_from_exploit(self.tmp_dir)
             self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
 
         self.input_verify_files_dir = None
@@ -98,7 +99,10 @@ class InitFilesResource(BaseResource):
                 and self.input_verify_files_dir.is_dir()
             ):
                 self.copy_files(
-                    self.input_verify_files_dir, self.tmp_dir, copy_dir=True
+                    self.input_verify_files_dir,
+                    self.tmp_dir,
+                    copy_dir=True,
+                    skip_hidden_files=True,
                 )
                 logger.info(
                     f"Copied verify files directory from {self.input_verify_files_dir} to {self.tmp_dir}"
@@ -170,16 +174,6 @@ class InitFilesResource(BaseResource):
             tmp_destination_path = self.tmp_dir / self.files_dir_name
             ignore_git = False  # TODO: make this as a flag in the future
             self.copy_files(self.files_dir, tmp_destination_path, ignore_git=ignore_git)
-            git_dir = tmp_destination_path / ".git"
-
-            if git_dir.exists():
-                if git_dir.is_file():
-                    git_dir.unlink()
-                    logger.info(f"Removed .git file from {tmp_destination_path}")
-                else:
-                    logger.warning(
-                        f"{git_dir} exists but is neither a directory nor a file. Skipping removal."
-                    )
 
         except subprocess.CalledProcessError as e:
             # Log error details if the script execution fails
@@ -319,22 +313,38 @@ class InitFilesResource(BaseResource):
         except Exception as e:
             logger.error(f"Failed to initialize Git repository: {e}")
 
-    def _remove_ci_check(self, exploit_script):
+    def _remove_ci_check_from_exploit(self, exploit_dir):
         """
         Strip the entire  IS_CI_RUN … if … [else …] fi construct inside exploit.sh
-        and keep only the lines inside the IS_CI_RUN=true body 
+        and keep only the lines inside the IS_CI_RUN=true body
         """
-        pattern = re.compile(
-            r'''(?msx)                
-            ^IS_CI_RUN=.*?\n          
-            .*?                       
-            ^if [^\n]* IS_CI_RUN .*?true[^\n]*\n   # the if line that checks whether IS_CI_RUN=true
-            (.*?)                     # variables set inside the if true body (what is kept after processing)
-            (?:\nelse .*? )?          #  optional else branch (non‑capturing)
-            ^fi[ \t]*\n?              #  closing fi
-            ''')
-        processed = pattern.sub(r'\1', exploit_script)
-        return "\n".join(line.lstrip() for line in processed.splitlines())
+        exploit_path = exploit_dir / "exploit.sh"
+        if exploit_path.exists() and exploit_path.is_file():
+            original_script = exploit_path.read_text()
+            pattern = re.compile(
+                r"""(?msx)                
+                ^IS_CI_RUN=.*?\n          
+                .*?                       
+                ^if [^\n]* IS_CI_RUN .*?true[^\n]*\n   # the if line that checks whether IS_CI_RUN=true
+                (.*?)                     # variables set inside the if true body (what is kept after processing)
+                (?:\nelse .*? )?          #  optional else branch (non‑capturing)
+                ^fi[ \t]*\n?              #  closing fi
+                """
+            )
+            try:
+                processed_script = pattern.sub(r"\1", original_script)
+                # Remove indentations
+                processed_script = "\n".join(
+                    line.lstrip() for line in processed_script.splitlines()
+                )
+                exploit_path.write_text(processed_script)
+                if (
+                    "IS_CI_RUN" in original_script
+                    and "IS_CI_RUN" not in processed_script
+                ):
+                    logger.info(f"Removed CI check from {exploit_path}")
+            except Exception as e:
+                logger.warning(f"Failed to process {exploit_path}: {e}")
 
     def copy_files(
         self,
@@ -342,6 +352,7 @@ class InitFilesResource(BaseResource):
         destination: Path,
         ignore_git: bool = True,
         copy_dir: bool = False,
+        skip_hidden_files: bool = False,
     ):
         """Copy files and directories from source to destination.
 
@@ -350,6 +361,7 @@ class InitFilesResource(BaseResource):
             destination: Destination path to copy to
             ignore_git: Whether to ignore .git files and directories
             copy_dir: Whether to copy source_dir's name
+            skip_hidden_files: Whether to skip all .hidden_files from copy
         """
         source = source.resolve()
         destination = destination.resolve()
@@ -366,26 +378,33 @@ class InitFilesResource(BaseResource):
             if copy_dir:
                 destination = destination / source.name
                 logger.info(f"copying full directory, new dest path: {destination}")
+
+            def ignore_func(directory, contents):
+                ignored = []
+
+                # For Git files - only if not already handled by skip_hidden_files
+                if ignore_git and not skip_hidden_files:
+                    ignored.extend(
+                        [
+                            item
+                            for item in contents
+                            if item == ".git" or item.startswith(".git/")
+                        ]
+                    )
+
+                # For all dot files
+                if skip_hidden_files:
+                    ignored.extend([item for item in contents if item.startswith(".")])
+
+                return ignored
+
             # Copy the directory structure
-            ignore_func = create_git_ignore_function(ignore_git)
             shutil.copytree(
                 source,
                 destination,
                 dirs_exist_ok=True,
                 ignore=ignore_func,
             )
-
-            # Remove CI check from exploit.sh when copying (if script present)
-            exploit_path = destination / "exploit.sh"
-            if exploit_path.exists() and exploit_path.is_file():
-                try:
-                    original = exploit_path.read_text()
-                    processed = self._remove_ci_check(original)
-                    exploit_path.write_text(processed)
-                    if "IS_CI_RUN" in original and "IS_CI_RUN" not in processed:
-                        logger.info(f"Removed CI check from {exploit_path}")
-                except Exception as e:
-                    logger.warning(f"Failed to process {exploit_path}: {e}")
 
             # Handle Git repository if needed
             git_file = source / ".git"
