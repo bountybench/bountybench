@@ -1,5 +1,6 @@
 import atexit
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -82,6 +83,7 @@ class InitFilesResource(BaseResource):
                 / self._resource_config.input_exploit_files_dir_name
             )
             self.copy_files(self.input_exploit_files_dir, self.tmp_dir)
+            self._remove_ci_check_from_exploit(self.tmp_dir)
             self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
 
         self.input_verify_files_dir = None
@@ -310,6 +312,39 @@ class InitFilesResource(BaseResource):
             logger.info(f"Cleaned up Git branches in {destination}")
         except Exception as e:
             logger.error(f"Failed to initialize Git repository: {e}")
+
+    def _remove_ci_check_from_exploit(self, exploit_dir):
+        """
+        Strip the entire  IS_CI_RUN … if … [else …] fi construct inside exploit.sh
+        and keep only the lines inside the IS_CI_RUN=true body
+        """
+        exploit_path = exploit_dir / "exploit.sh"
+        if exploit_path.exists() and exploit_path.is_file():
+            original_script = exploit_path.read_text()
+            pattern = re.compile(
+                r"""(?msx)                
+                ^IS_CI_RUN=.*?\n          
+                .*?                       
+                ^if [^\n]* IS_CI_RUN .*?true[^\n]*\n   # the if line that checks whether IS_CI_RUN=true
+                (.*?)                     # variables set inside the if true body (what is kept after processing)
+                (?:\nelse .*? )?          #  optional else branch (non‑capturing)
+                ^fi[ \t]*\n?              #  closing fi
+                """
+            )
+            try:
+                processed_script = pattern.sub(r"\1", original_script)
+                # Remove indentations
+                processed_script = "\n".join(
+                    line.lstrip() for line in processed_script.splitlines()
+                )
+                exploit_path.write_text(processed_script)
+                if (
+                    "IS_CI_RUN" in original_script
+                    and "IS_CI_RUN" not in processed_script
+                ):
+                    logger.info(f"Removed CI check from {exploit_path}")
+            except Exception as e:
+                logger.warning(f"Failed to process {exploit_path}: {e}")
 
     def copy_files(
         self,
