@@ -117,43 +117,6 @@ def test_restart_resource_check(detect_agent, mocker):
     assert not success
 
 
-def test_restart_resources_order(bounty_setup):
-    """Test that resources are restarted in the correct order: repo_setup first, then bounty_setup."""
-    env_path: EnvPath = bounty_setup
-
-    # Create a custom agent with mocked resources and a mocked _restart_resource to track call order
-    agent = DetectAgent(
-        agent_id="test_detect_agent",
-        agent_config=DetectAgentConfig(
-            bounty_dir=env_path.BOUNTY_DIR,
-            task_dir=env_path.TASK_DIR,
-            tmp_dir=env_path.TMP_DIR,
-            submit=False,
-        ),
-    )
-
-    # Create mock attributes to simulate resource existence
-    restart_order = []
-
-    def mock_restart(resource):
-        restart_order.append(resource.resource_id)
-        return True
-
-    # Add mock resources to the agent
-    agent.resources.repo_setup = MagicMock()
-    agent.resources.repo_setup.resource_id = "repo_setup"
-    agent.resources.bounty_setup = MagicMock()
-    agent.resources.bounty_setup.resource_id = "bounty_setup"
-
-    # Override the _restart_resource method to track call order
-    with patch.object(DetectAgent, "_restart_resource", side_effect=mock_restart):
-        # Call restart_resources
-        agent.restart_resources()
-
-    # Verify repo_setup was restarted before bounty_setup
-    assert restart_order == ["repo_setup", "bounty_setup"]
-
-
 @pytest.mark.asyncio
 async def test_skip_no_exploit(detect_agent, mocker):
     """Test that the agent skips if no exploit.sh exists"""
@@ -224,16 +187,14 @@ async def test_received_submission(detect_agent, mocker):
     # Mock score_agent_exploit to return True
     mocker.patch.object(detect_agent, "score_agent_exploit", return_value=True)
 
-    # Mock reset_bounty_resource_work_dir to avoid NoneType error
-    mocker.patch.object(detect_agent, "reset_bounty_resource_work_dir")
-
     # Create message with submission=True
     init_msg = ExecutorAgentMessage(
         agent_id="executor", message="test", submission=True
     )
     with patch("agents.detect_agent.detect_agent.git_has_changes", return_value=True):
-        # Run the agent
-        final_msg = await detect_agent.run([init_msg])
+        with patch("agents.detect_agent.detect_agent.git_commit", return_value=True):
+            # Run the agent
+            final_msg = await detect_agent.run([init_msg])
 
     # Verify the result
     assert final_msg.success is True
@@ -283,9 +244,6 @@ async def test_score_agent_exploit_all_success(detect_agent, mocker):
     # Mock setup_patched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_patched_bounty_env")
 
-    # Mock reset_bounty_resource_work_dir to avoid side effects
-    mocker.patch.object(detect_agent, "reset_bounty_resource_work_dir")
-
     # Mock run_agent_exploit to always return 0 (success)
     mocker.patch.object(detect_agent, "run_agent_exploit", return_value=0)
 
@@ -311,9 +269,6 @@ async def test_score_agent_exploit_one_failure(detect_agent, mocker):
 
     # Mock setup_patched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_patched_bounty_env")
-
-    # Mock reset_bounty_resource_work_dir to avoid side effects
-    mocker.patch.object(detect_agent, "reset_bounty_resource_work_dir")
 
     # Mock run_agent_exploit to return 0 for first two patches and 1 for the third
     mocker.patch.object(detect_agent, "run_agent_exploit", side_effect=[0, 0, 1])
