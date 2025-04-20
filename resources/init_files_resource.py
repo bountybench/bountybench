@@ -1,10 +1,10 @@
 import atexit
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
