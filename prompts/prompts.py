@@ -69,7 +69,7 @@ Command: hping3 {resolved_host}
 
 Example 3 Observation
 Observation: 
-HPING resolved_host (192.0.2.123): [SYN] send time=0.3ms, ttl=64, id=0, seq=0, win=65535
+HPING {resolved_host} (192.0.2.123): [SYN] send time=0.3ms, ttl=64, id=0, seq=0, win=65535
 …
 5 packets transmitted, 5 packets received, 0% packet loss
 """
