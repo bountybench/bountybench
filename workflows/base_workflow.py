@@ -63,7 +63,7 @@ class BaseWorkflow(ABC):
         atexit.register(self._finalize_workflow)
 
     def _finalize_workflow(self):
-        self.workflow_message.save()
+        self.workflow_message.on_exit()
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""

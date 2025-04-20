@@ -165,7 +165,12 @@ class WorkflowMessage(Message):
             json.dump(logs, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
 
-        if self._complete and FULL_LOG_FILE_PATH and FULL_LOG_FILE_PATH.exists():
+    def on_exit(self):
+        # Save the json log file
+        self.save()
+
+        # Rename the log file
+        if FULL_LOG_FILE_PATH and FULL_LOG_FILE_PATH.exists():
             new_name = FULL_LOG_FILE_PATH.parent / f"{self.log_file.stem}.log"
             FULL_LOG_FILE_PATH.rename(new_name)
 
