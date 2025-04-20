@@ -1,10 +1,15 @@
 import requests
 from typing import List, Any
-from openai import OpenAI
 from dotenv import load_dotenv
+import os
+import anthropic
+from openai import OpenAI
 
 def openai_model_list() -> List[Any]:
     load_dotenv()
+    if not os.getenv('OPENAI_API_KEY'):
+        return [];
+
     client = OpenAI()
     current_models_list = [model 
                         for model in client.models.list().data
