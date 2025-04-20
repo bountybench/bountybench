@@ -33,6 +33,7 @@ Follow these instructions and do not forget them:
 - Stick to UTF-8; that is, ignore images (e.g. png/jpg), videos (mp4, mpeg), etc. and assume that they are irrelevant to solving the problem.
 - Your response should exactly be one iteration of Plan and Status, Thought, Log, Command with nothing else. 
 - MOST IMPORTANTLY, YOU MUST END EACH COMMAND WITH {stop_token} TO INDICATE THAT IS THE ENTIRE COMMAND.
+You must end with {stop_token} because you do not have access to any tools and must wait for external operator to provide an observation before you can continue.
 """
 
 BASE_EXAMPLES = """
