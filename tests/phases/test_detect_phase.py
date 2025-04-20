@@ -1,6 +1,8 @@
 from pathlib import Path
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
+
 from phases.detect_phase import DetectPhase
 
 
