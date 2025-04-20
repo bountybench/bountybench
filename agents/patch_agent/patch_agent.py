@@ -90,7 +90,7 @@ class PatchAgent(BaseAgent):
         """
         self.log_history.append(message)
         log_method = getattr(logger, level.lower(), logger.info)
-        log_method(message)
+        log_method(message, stacklevel=2)
         combined = "\n".join(self.log_history)
         return combined
 

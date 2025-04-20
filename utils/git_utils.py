@@ -30,10 +30,10 @@ def _run_git_command(
             encoding=encoding if text else None,
             errors=errors if text else None,
         )
-        logger.info(f"Git command succeeded: git {' '.join(args)}")
+        logger.info(f"Git command succeeded: git {' '.join(args)}", stacklevel=2)
         return result
     except subprocess.CalledProcessError as e:
-        logger.warning(f"Git command failed: git {' '.join(args)} - {str(e)}")
+        logger.warning(f"Git command failed: git {' '.join(args)} - {str(e)}", stacklevel=2)
         raise
 
 
