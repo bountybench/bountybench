@@ -344,7 +344,7 @@ class KaliEnvResource(RunnableBaseResource):
     def _force_remove_container(self, container: Container, name: str):
         try:
             container.remove(force=True)
-            self.util.verify_container_removal(container, name, logger)
+            self.util.verify_container_removal(self.client, name, logger)
         except docker.errors.APIError as e:
             logger.error(f"Force removal failed: {e}")
             raise
