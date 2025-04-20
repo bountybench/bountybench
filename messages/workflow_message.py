@@ -166,8 +166,12 @@ class WorkflowMessage(Message):
             logger.status(f"Saved log to: {self.log_file}")
 
         if FULL_LOG_FILE_PATH and FULL_LOG_FILE_PATH.exists():
+            with open(FULL_LOG_FILE_PATH, "r") as f:
+                full_logs = f.read()
+
             new_name = FULL_LOG_FILE_PATH.parent / f"{self.log_file.stem}.log"
-            FULL_LOG_FILE_PATH.rename(new_name)
+            with open(new_name, "a") as f:
+                f.write(full_logs)
 
     def new_log(self):
         components = [self.workflow_name]
