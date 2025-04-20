@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import ClassVar, Dict
+
 from resources.model_resource.model_list import openai_model_list
 
 
