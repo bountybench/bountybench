@@ -263,7 +263,7 @@ class BaseWorkflow(ABC):
 
         if hasattr(self, "next_iteration_queue"):
             while not self.next_iteration_queue.empty():
-                self.next_iteration_queue.get()
+                await self.next_iteration_queue.get()
 
         self._finalize_workflow()
 
