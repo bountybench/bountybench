@@ -560,7 +560,9 @@ class LocalExecutionBackend(ExecutionBackend):
             workflow_data = self.active_workflows[workflow_id]
 
             if "instance" not in workflow_data:
-                raise KeyError(f"'instance' not found in workflow_data for {workflow_id}.")
+                raise KeyError(
+                    f"'instance' not found in workflow_data for {workflow_id}."
+                )
 
             workflow = workflow_data["instance"]
 
