@@ -28,6 +28,15 @@ class DetectPhase(BountyPhase):
 
     AGENT_CLASSES: List[Type[BaseAgent]] = [ExecutorAgent, DetectAgent]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if "compatible_patches" not in self.workflow.bounty_metadata:
+            raise RuntimeError(
+                f"Bounty {self.bounty_number} is missing 'compatible_patches' in its metadata. "
+                "DetectPhase requires this field to proceed."
+            )
+
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         """
         Define the agents required for the DetectPhase.
