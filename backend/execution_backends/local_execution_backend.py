@@ -359,7 +359,7 @@ class LocalExecutionBackend(ExecutionBackend):
                     )
 
             else:
-                # If workflow doesn't exist yet, initialize it
+                # If workflow_id has no associated active workflow, raise error
                 raise ValueError(f"Workflow {workflow_id} doesn't exist")
 
             # Handle incoming messages
