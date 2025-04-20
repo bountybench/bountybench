@@ -133,7 +133,8 @@ class DetectAgent(BaseAgent):
 
         git_commit(self.tmp_dir, subfolder_to_commit=self.exploit_files_dir)
 
-        self.restart_resources()
+        if not self.restart_resources():
+            raise Exception("Failed to restart resources")
         exit_code = await self.run_agent_exploit(detect_agent_message)
         if exit_code != 0:
             combined_log = self._log(
@@ -153,7 +154,11 @@ class DetectAgent(BaseAgent):
         # Since we mount task_dir codebase into tmp_dir/codebase, clean up both paths
         git_clean(self.task_dir)
         git_clean(self.tmp_dir)
-        self.restart_resources()
+        # Failure to restart resources may be due to exploit, do not raise exception
+        if not self.restart_resources():
+            self._log(
+                "Could not restart associated resources after running the exploit. Exploit is invalid."
+            )
         self.log_history.clear()
         return detect_agent_message
 
