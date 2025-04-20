@@ -172,16 +172,6 @@ class InitFilesResource(BaseResource):
             tmp_destination_path = self.tmp_dir / self.files_dir_name
             ignore_git = False  # TODO: make this as a flag in the future
             self.copy_files(self.files_dir, tmp_destination_path, ignore_git=ignore_git)
-            git_dir = tmp_destination_path / ".git"
-
-            if git_dir.exists():
-                if git_dir.is_file():
-                    git_dir.unlink()
-                    logger.info(f"Removed .git file from {tmp_destination_path}")
-                else:
-                    logger.warning(
-                        f"{git_dir} exists but is neither a directory nor a file. Skipping removal."
-                    )
 
         except subprocess.CalledProcessError as e:
             # Log error details if the script execution fails
