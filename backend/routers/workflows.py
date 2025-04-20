@@ -18,16 +18,6 @@ async def list_workflows():
     return {
         "workflows": [
             {
-                "id": "detect_patch",
-                "name": "Detect Patch Workflow",
-                "description": "Workflow for detecting and patching vulnerabilities",
-            },
-            {
-                "id": "exploit_patch",
-                "name": "Exploit Patch Workflow",
-                "description": "Workflow for exploiting and patching vulnerabilities",
-            },
-            {
                 "id": "patch",
                 "name": "Patch Workflow",
                 "description": "Workflow for patching vulnerabilities",

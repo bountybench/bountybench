@@ -14,8 +14,6 @@ class BountySetupResourceConfig(BaseResourceConfig):
 
     task_dir: Path
     bounty_number: str
-    # Used in detect workflow where we skip bounty level setup
-    skip_setup: bool = False
 
     def validate(self) -> None:
         """Validate Bounty Setup configuration"""
@@ -42,13 +40,9 @@ class BountySetupResource(BaseSetupResource):
 
         # Set work_dir for bounty setup
         self.work_dir = self.bounty_dir / "setup_files"
-        self.skip_setup = self._resource_config.skip_setup
 
         # Run the setup process
-        self.setup(skip_setup=self.skip_setup)
-
-    def set_skip_setup(self, value: bool) -> None:
-        self.skip_setup = value
+        self.setup()
 
     def to_dict(self) -> dict:
         """
