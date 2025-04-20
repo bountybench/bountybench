@@ -556,10 +556,14 @@ class LocalExecutionBackend(ExecutionBackend):
             print(f"Workflow {workflow_id} not found or should exit")
             return
 
-        workflow_data = self.active_workflows[workflow_id]
-        workflow = workflow_data["instance"]
-
         try:
+            workflow_data = self.active_workflows[workflow_id]
+
+            if "instance" not in workflow_data:
+                raise KeyError(f"'instance' not found in workflow_data for {workflow_id}.")
+
+            workflow = workflow_data["instance"]
+
             # Update status to running after initial start
             workflow_data["status"] = "running"
             await websocket_manager.broadcast(
@@ -587,7 +591,11 @@ class LocalExecutionBackend(ExecutionBackend):
             # Handle errors
             if not should_exit:
                 print(f"Workflow error: {e}")
-                workflow_data["status"] = "error"
+                # Safely set status if workflow_data is available
+                workflow_data = self.active_workflows.get(workflow_id)
+                if workflow_data:
+                    workflow_data["status"] = "error"
+
                 await websocket_manager.broadcast(
                     workflow_id,
                     {
