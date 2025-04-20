@@ -27,7 +27,7 @@ class DetectPhase(BountyPhase):
     """
 
     AGENT_CLASSES: List[Type[BaseAgent]] = [ExecutorAgent, DetectAgent]
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
