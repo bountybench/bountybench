@@ -165,13 +165,9 @@ class WorkflowMessage(Message):
             json.dump(logs, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
 
-        if FULL_LOG_FILE_PATH and FULL_LOG_FILE_PATH.exists():
-            with open(FULL_LOG_FILE_PATH, "r") as f:
-                full_logs = f.read()
-
+        if self._complete and FULL_LOG_FILE_PATH and FULL_LOG_FILE_PATH.exists():
             new_name = FULL_LOG_FILE_PATH.parent / f"{self.log_file.stem}.log"
-            with open(new_name, "a") as f:
-                f.write(full_logs)
+            FULL_LOG_FILE_PATH.rename(new_name)
 
     def new_log(self):
         components = [self.workflow_name]
