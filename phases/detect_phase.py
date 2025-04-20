@@ -96,6 +96,7 @@ class DetectPhase(BountyPhase):
                     },
                     target_hosts=target_hosts,
                     install_command=self.workflow.repo_metadata.get("install_command"),
+                    is_python=self.workflow.repo_metadata.get("is_python"),
                 ),
             ),
             (ResourceType.DOCKER, DockerResourceConfig()),
