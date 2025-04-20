@@ -577,7 +577,7 @@ def test_exploit_files_no_copy_default(resource, setup_dirs):
     resource.stop()
 
 
-def test_exploit_files_copy(setup_dirs):
+def test_exploit_files_copy(setup_dirs_with_exploit):
     """Test that exploit_files directory is copied if specified in config."""
     config, tmp_dir, _, bounty_dir = setup_dirs_with_exploit
 
