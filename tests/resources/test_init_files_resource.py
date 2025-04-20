@@ -26,7 +26,6 @@ def setup_dirs():
     exploit_files_dir = bounty_dir / "exploit_files"
     exploit_file_path = exploit_files_dir / "exploit.sh"
 
-
     if task_repo_dir.exists():
         shutil.rmtree(task_repo_dir)
 
@@ -47,14 +46,11 @@ def setup_dirs():
 IS_CI_RUN=$1
 HOSTNAME1='localhost'
 HOSTNAME2='localhost'
-
 if [ "$IS_CI_RUN" = true ]; then
     HOSTNAME1='server-name1'
     HOSTNAME2='server-name2'
 fi
-
 pip install -e ./codebase
-
 python3 solver.py $HOSTNAME1 $HOSTNAME2
 """
 
@@ -159,6 +155,11 @@ def setup_git_repos():
 
     # Initialize main repository
     subprocess.run(["git", "init"], cwd=main_repo, check=True)
+
+    # Create an .env file
+    with open(main_repo / ".env", "w") as f:
+        f.write(f"ENV_ID=11111")
+
     subprocess.run(["git", "add", "."], cwd=main_repo, check=True)
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"], cwd=main_repo, check=True
@@ -176,6 +177,7 @@ def setup_git_repos():
     # Create another branch in main repo
     subprocess.run(["git", "checkout", "-b", "feature"], cwd=main_repo, check=True)
     (main_repo / "feature_file.txt").write_text("Content in feature branch")
+
     subprocess.run(["git", "add", "."], cwd=main_repo, check=True)
     subprocess.run(
         ["git", "commit", "-m", "Commit in feature branch"], cwd=main_repo, check=True
@@ -327,6 +329,27 @@ def test_copy_files_with_git(resource, setup_git_repos):
     )
     assert "* main" in branch_result.stdout
     assert "feature" not in branch_result.stdout
+
+
+def test_copy_files_with_skip(resource, setup_git_repos):
+    """Test copying files with Git repositories."""
+    main_repo, _, destination = setup_git_repos
+    # Copy the repository with Git data
+    resource.copy_files(
+        main_repo, destination, ignore_git=False, skip_hidden_files=True
+    )
+    # Check that files were copied
+    assert not (destination / ".env").exists()
+
+
+def test_copy_files_no_skip(resource, setup_git_repos):
+    """Test copying files with Git repositories."""
+    main_repo, _, destination = setup_git_repos
+    assert (main_repo / ".env").exists()
+    # Copy the repository with Git data
+    resource.copy_files(main_repo, destination, ignore_git=False)
+    # Check that files were copied
+    assert (destination / ".env").exists()
 
 
 def test_cleanup_git_branches(setup_git_repos):
@@ -508,6 +531,7 @@ def test_exploit_files_no_copy_default(resource, setup_dirs):
     # Manually remove resource for cleanup
     resource.stop()
 
+
 def test_exploit_files_copy(setup_dirs):
     """Test that exploit_files directory is copied if specified in config."""
     config, tmp_dir, _, bounty_dir = setup_dirs
@@ -547,9 +571,7 @@ def test_exploit_files_copy(setup_dirs):
     expected_processed_script = """#!/bin/bash
 HOSTNAME1='server-name1'
 HOSTNAME2='server-name2'
-
 pip install -e ./codebase
-
 python3 solver.py $HOSTNAME1 $HOSTNAME2"""
 
     assert (
@@ -559,7 +581,4 @@ python3 solver.py $HOSTNAME1 $HOSTNAME2"""
     # Check that helper script solver.py was copied
     helper_file_path = tmp_dir / "solver.py"
     assert helper_file_path.exists(), "solver.py file was not copied"
-    assert (
-        "hello" in helper_file_path.read_text()
-    ), "solver.py content is incorrect"
-
+    assert "hello" in helper_file_path.read_text(), "solver.py content is incorrect"
