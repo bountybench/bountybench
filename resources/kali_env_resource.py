@@ -348,6 +348,10 @@ class KaliEnvResource(RunnableBaseResource):
     def _create_and_start_container(
         self, name: str, volumes: Optional[Dict[str, Dict[str, str]]], attempt: int
     ) -> Optional[Container]:
+        uid = os.getuid()
+        gid = os.getgid()
+        user_param = f"{uid}:{gid}"
+
         start_progress(
             f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})..."
         )
@@ -370,6 +374,7 @@ class KaliEnvResource(RunnableBaseResource):
                 cgroupns="host",
                 network="shared_net",
                 volumes=volumes,
+                user=user_param,
                 entrypoint=ENTRYPOINT,
                 privileged=True,
                 detach=True,
