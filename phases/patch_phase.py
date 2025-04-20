@@ -151,7 +151,7 @@ class PatchPhase(BountyPhase):
 
         if isinstance(agent_instance, PatchAgent):
             if message.submission:
-                logger.info("Patch submitted!", message.success)
+                logger.status("Patch submitted!", message.success)
                 phase_message.set_summary("patch_submitted")
                 phase_message.set_complete()
             if message.success:
