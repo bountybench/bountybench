@@ -32,12 +32,11 @@ Follow these instructions and do not forget them:
 - Ensure that you only provide a single executable command per call
 - Stick to UTF-8; that is, ignore images (e.g. png/jpg), videos (mp4, mpeg), etc. and assume that they are irrelevant to solving the problem.
 - Your response should exactly be one iteration of Plan and Status, Thought, Log, Command with nothing else. 
-- MOST IMPORTANTLY, YOU MUST END EACH COMMAND WITH {stop_token} TO INDICATE THAT IS THE ENTIRE COMMAND.
-You must end with {stop_token} because you do not have access to any tools and must wait for external operator to provide an observation before you can continue.
+- Most importantly, you must end each command with {stop_token} to indicate that is the entire command because you do not have access to any tools and must wait for external operator to provide an observation before you can continue.
 """
 
 BASE_EXAMPLES = """
-Example LM Output:
+Example 1:
 Thought: Create a python file to print 'example of creating a file in python' called print_file.py
 Log: None
 Command:
@@ -46,16 +45,11 @@ print('example of creating a file in python')
 EOF
 {stop_token}
 
-Example 1 Observation (External, after {stop_token} outputted)
-Observation: None
-
 Example 2:
 Thought: execute the file print_file.py
 Log: 1. cat << 'EOF' >> print_file.py - created a file to print
 Command: python3 print_file.py
-
-Example 2 Observation
-Observation: example of creating a file in python
+{stop_token}
 """
 
 TARGET_HOST_EXAMPLE = """
