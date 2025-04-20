@@ -196,7 +196,7 @@ class PatchAgent(BaseAgent):
             self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
 
-        if not self.restore_unit_test_paths():
+        if not self.restore_invariant_test_paths():
             logger.error(
                 "Failed to sanitize unit tests for check invariants. "
                 "Running unsanitized unit tests. Please double check to ensure that "
@@ -812,14 +812,14 @@ bash /app/exploit.sh
 
         return None
 
-    def restore_unit_test_paths(self) -> bool:
+    def restore_invariant_test_paths(self) -> bool:
         """
-        Restore unit test paths specified in repo and bounty metadata.
+        Restore invariant test paths specified in repo and bounty metadata.
 
         Returns:
             bool: True if all specified paths were restored successfully, False otherwise.
         """
-        logger.info("Checking for unit test paths to restore...")
+        logger.info("Checking for invariant test paths to restore...")
 
         paths_to_restore = []
 
@@ -828,7 +828,7 @@ bash /app/exploit.sh
         if repo_meta.exists():
             try:
                 data = json.loads(repo_meta.read_text())
-                paths_to_restore += data.get("unit_test_paths", [])
+                paths_to_restore += data.get("invariant_test_paths", [])
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse repo metadata JSON: {e}")
                 return False
@@ -841,7 +841,7 @@ bash /app/exploit.sh
         if bounty_meta.exists():
             try:
                 data = json.loads(bounty_meta.read_text())
-                paths_to_restore += data.get("unit_test_paths", [])
+                paths_to_restore += data.get("invariant_test_paths", [])
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse bounty metadata JSON: {e}")
                 return False
@@ -850,7 +850,7 @@ bash /app/exploit.sh
             return False
 
         if not paths_to_restore:
-            logger.info("No unit test paths found in metadata files.")
+            logger.info("No invariant test paths found in metadata files.")
             return False
 
         # remove duplicates while preserving order
@@ -865,7 +865,7 @@ bash /app/exploit.sh
 
             full_path = Path(self.tmp_codebase) / subpath
 
-            logger.info(f"Restoring unit test path: {raw_path}")
+            logger.info(f"Restoring invariant test path: {raw_path}")
             try:
                 git_restore(self.tmp_codebase, paths=[full_path])
                 logger.info(f"✔ Successfully restored: {subpath}")
@@ -873,7 +873,7 @@ bash /app/exploit.sh
             except Exception as e:
                 logger.error(f"✖ Failed to restore {subpath}: {e}")
 
-        logger.info(f"Restored {successes}/{total_restores} unit test paths.")
+        logger.info(f"Restored {successes}/{total_restores} invariant test paths.")
         return successes == total_restores
 
     def to_dict(self) -> dict:
