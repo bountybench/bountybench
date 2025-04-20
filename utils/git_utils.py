@@ -30,10 +30,12 @@ def _run_git_command(
             encoding=encoding if text else None,
             errors=errors if text else None,
         )
-        logger.info(f"Git command succeeded: git {' '.join(args)}")
+        logger.info(f"Git command succeeded: git {' '.join(args)}", stacklevel=2)
         return result
     except subprocess.CalledProcessError as e:
-        logger.warning(f"Git command failed: git {' '.join(args)} - {str(e)}")
+        logger.warning(
+            f"Git command failed: git {' '.join(args)} - {str(e)}", stacklevel=2
+        )
         raise
 
 
@@ -281,7 +283,7 @@ def git_restore(
     if paths:
         cmd.extend(str(Path(p).relative_to(directory)) for p in paths)
     else:
-        cmd.append(".")           # fallback: every tracked file
+        cmd.append(".")  # fallback: every tracked file
 
     _run_git_command(directory, cmd)
     logger.info(f"Restored {paths or 'entire repo'} in {directory}")
@@ -381,29 +383,27 @@ def git_diff(directory_path: PathLike, exclude_binary: Optional[bool] = True) ->
                 capture_output=True,
                 errors="replace",
             )
-            
+
             content_changed_files = {
                 parts[2]
                 for line in numstat_result.stdout.splitlines()
                 if (parts := line.split("\t")) and parts[0] != "-" and parts[1] != "-"
             }
-            
+
             # 2) detect pure renames via name-status
             name_status_result = _run_git_command(
-                directory, 
-                [
-                    "diff", 
-                    "--cached", 
-                    "--name-status"
-                ], 
+                directory,
+                ["diff", "--cached", "--name-status"],
                 capture_output=True,
                 errors="replace",
             )
-            
+
             rename_files = {
                 path
                 for line in name_status_result.stdout.splitlines()
-                if (parts := line.split("\t")) and parts[0].startswith("R") and len(parts) >= 3
+                if (parts := line.split("\t"))
+                and parts[0].startswith("R")
+                and len(parts) >= 3
                 for path in (parts[1], parts[2])
             }
 
