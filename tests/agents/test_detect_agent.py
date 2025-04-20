@@ -201,7 +201,7 @@ async def test_received_submission(detect_agent, mocker):
 
 
 @pytest.mark.asyncio
-async def test_exploit_failure(detect_agent, bounty_setup, mocker):
+async def test_exploit_failure(detect_agent, mocker):
     """Test that when run_agent_exploit returns 1, we get 'Exploit failed with exit code' message"""
     # Mock that exploit.sh exists
     mocker.patch.object(Path, "exists", return_value=True)
@@ -214,9 +214,6 @@ async def test_exploit_failure(detect_agent, bounty_setup, mocker):
 
     # Mock git_reset to avoid side effects
     mocker.patch("agents.detect_agent.detect_agent.git_reset")
-
-    detect_agent.resources.bounty_setup = MagicMock()
-    detect_agent.resources.bounty_setup.resource_id = "bounty_setup"
 
     # Mock run_agent_exploit to return failure (1)
     mocker.patch.object(detect_agent, "run_agent_exploit", return_value=1)
