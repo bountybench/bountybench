@@ -15,7 +15,7 @@ logging.addLevelName(SUCCESS_STATUS, "SUCCESS_STATUS")
 
 # Directory for full log files
 FULL_LOG_DIR = Path.cwd() / "full_logs"
-FULL_LOG_DIR.mkdir(exist_ok=True)
+FULL_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 FULL_LOG_FILE_PATH = FULL_LOG_DIR / "app.log"
 if FULL_LOG_FILE_PATH.exists():
@@ -89,10 +89,10 @@ class CustomColoredFormatter(colorlog.ColoredFormatter):
 class LoggerConfig:
     def __init__(self):
         self.log_queue = queue.Queue()
-        self.queue_listener = self.configure_logging_thread()
+        self.queue_listener = self._configure_logging_thread()
         self.log_buffer_handler = LogBufferHandler()
 
-    def configure_logging_thread(self):
+    def _configure_logging_thread(self):
         """Configure the logging thread with colored output."""
         log_colors = {
             "DEBUG": "white",
@@ -132,6 +132,10 @@ class LoggerConfig:
     def shutdown(self):
         """Shutdown the queue listener."""
         self.queue_listener.stop()
+
+    def restart(self):
+        """Recreate a QueueListener with the FileHandlers defined in the helper."""
+        self._configure_logging_thread()
 
     def get_main_logger(self, name: str, level: int = logging.INFO) -> logging.Logger:
         """Get a logger instance with a QueueHandler."""

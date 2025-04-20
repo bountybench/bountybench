@@ -6,7 +6,12 @@ from typing import Any, Dict, List, Optional
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from utils.git_utils import git_get_codebase_version
-from utils.logger import FULL_LOG_FILE_PATH, get_main_logger
+from utils.logger import (
+    FULL_LOG_DIR,
+    FULL_LOG_FILE_PATH,
+    get_main_logger,
+    logger_config,
+)
 
 logger = get_main_logger(__name__)
 
@@ -169,10 +174,13 @@ class WorkflowMessage(Message):
         # Save the json log file
         self.save()
 
-        # Rename the log file
-        if FULL_LOG_FILE_PATH and FULL_LOG_FILE_PATH.exists():
-            new_name = FULL_LOG_FILE_PATH.parent / f"{self.log_file.stem}.log"
-            FULL_LOG_FILE_PATH.rename(new_name)
+        # Archive the log file
+        archive_path = FULL_LOG_DIR / f"{self.log_file.stem}.log"
+        with open(archive_path, "a") as archive_file:
+            with open(FULL_LOG_FILE_PATH, "r") as full_log_file:
+                archive_file.write(full_log_file.read())
+                FULL_LOG_FILE_PATH.unlink(missing_ok=True)
+        logger_config.restart()
 
     def new_log(self):
         components = [self.workflow_name]
