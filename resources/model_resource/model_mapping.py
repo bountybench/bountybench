@@ -3,6 +3,7 @@ from enum import Enum
 from typing import ClassVar, Dict
 from resources.model_resource.model_list import openai_model_list
 
+
 @dataclass(frozen=True)
 class HelmModelInfo:
     tokenizer: str
@@ -237,9 +238,9 @@ class NonHelmMapping:
     for model in openai_model_list():
         path = "openai/" + model.id
         mapping[path] = NonHelmModelInfo(
-            model_name=model.id,
-            provider=ServiceProvider.OPENAI
+            model_name=model.id, provider=ServiceProvider.OPENAI
         )
+
 
 @dataclass
 class ModelRegistry:
