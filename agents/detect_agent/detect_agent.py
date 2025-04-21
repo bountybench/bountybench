@@ -302,7 +302,8 @@ echo "Not a Python project or setup file not found. Skipping pip install." > /de
 fi
 
 # Run the exploit script
-bash /app/exploit_files/exploit.sh
+cd /app/exploit_files
+bash exploit.sh
 """
 
             with open(script_path, "w") as f:
