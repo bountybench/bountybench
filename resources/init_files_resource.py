@@ -81,8 +81,16 @@ class InitFilesResource(BaseResource):
                 / f"bounty_{self._resource_config.bounty_number}"
                 / self._resource_config.input_exploit_files_dir_name
             )
-            self.copy_files(self.input_exploit_files_dir, self.tmp_dir)
-            self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
+            if (
+                self.input_exploit_files_dir.exists()
+                and self.input_exploit_files_dir.is_dir()
+            ):
+                tmp_dir_exploit_files_dir = self.tmp_dir / self._resource_config.input_exploit_files_dir_name
+                self.copy_files(self.input_exploit_files_dir, self.tmp_dir, copy_dir=True, skip_hidden_files=True)
+                self.replace_codebase_path(tmp_dir_exploit_files_dir, self.files_dir_name)
+                logger.info(f"Copied exploit files directory from {self.input_exploit_files_dir} to {tmp_dir_exploit_files_dir}")
+            else:
+                logger.warning(f"Exploit files directory not found at {self.input_exploit_files_dir}")
 
         self.input_verify_files_dir = None
         if self._resource_config.input_verify_files_dir_name:
