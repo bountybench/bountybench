@@ -10,7 +10,6 @@ from dotenv import find_dotenv, load_dotenv, set_key
 REASONING_MODELS = ["o1", "o3", "o4"]
 
 
-
 @contextmanager
 def _temporary_sigint_handler():
     """Temporarily restore default SIGINT handler so Ctrl+C interrupts input()."""
