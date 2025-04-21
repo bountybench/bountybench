@@ -17,7 +17,7 @@ class DetectWorkflow(BountyWorkflow):
         "use_mock_model": False,
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
-        "disable_submit": True,
+        "disable_submit": False,
     }
 
     def validate_arguments(self, kwargs):
