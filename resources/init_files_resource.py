@@ -88,7 +88,7 @@ class InitFilesResource(BaseResource):
                 tmp_dir_exploit_files_dir = self.tmp_dir / self._resource_config.input_exploit_files_dir_name
                 self.copy_files(self.input_exploit_files_dir, self.tmp_dir, copy_dir=True, skip_hidden_files=True)
                 self.replace_codebase_path(tmp_dir_exploit_files_dir, self.files_dir_name)
-                logger.info(f"Copied exploit files directory from {self.input_exploit_files_dir} to {tmp_dir_exploit_files_dir}")
+                logger.info(f"Copied exploit files directory from {self.input_exploit_files_dir} to {self.tmp_dir}")
             else:
                 logger.warning(f"Exploit files directory not found at {self.input_exploit_files_dir}")
 
@@ -402,7 +402,7 @@ class InitFilesResource(BaseResource):
                     # Read the file content
                     content = file_path.read_text(encoding="utf-8")
                     # Replace the target string
-                    new_content = content.replace("../../../codebase", "./codebase")
+                    new_content = content.replace("../../../codebase", "../codebase")
                     # Only write back if changes were made
                     if new_content != content:
                         file_path.write_text(new_content, encoding="utf-8")
