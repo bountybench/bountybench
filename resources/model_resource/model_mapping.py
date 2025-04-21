@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import ClassVar, Dict
 
+from resources.model_resource.model_list import openai_model_list
+
 
 @dataclass(frozen=True)
 class HelmModelInfo:
@@ -168,79 +170,6 @@ class HelmMapping:
 class NonHelmMapping:
     mapping: ClassVar[Dict[str, NonHelmModelInfo]] = {
         # ------------------------
-        # OpenAI Models
-        # ------------------------
-        "openai/o1-2024-12-17": NonHelmModelInfo(
-            model_name="o1-2024-12-17", provider=ServiceProvider.OPENAI
-        ),
-        "openai/o1-2024-12-17-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o1-2024-12-17-low-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o1-2024-12-17-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o1-2024-12-17-high-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o1-mini-2024-09-12": NonHelmModelInfo(
-            model_name="o1-mini-2024-09-12", provider=ServiceProvider.OPENAI
-        ),
-        "openai/o1-preview-2024-09-12": NonHelmModelInfo(
-            model_name="o1-preview-2024-09-12", provider=ServiceProvider.OPENAI
-        ),
-        "openai/o3-mini-2025-01-31": NonHelmModelInfo(
-            model_name="o3-mini-2025-01-31", provider=ServiceProvider.OPENAI
-        ),
-        "openai/o3-mini-2025-01-31-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-mini-2025-01-31-low-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o3-mini-2025-01-31-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-mini-2025-01-31-high-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o4-mini-2025-04-16": NonHelmModelInfo(
-            model_name="o4-mini-2025-04-16", provider=ServiceProvider.OPENAI
-        ),
-        "openai/o4-mini-2025-04-16-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o4-mini-2025-04-16-low-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o4-mini-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o4-mini-2025-04-16-high-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o3-2025-04-03": NonHelmModelInfo(
-            model_name="o3-2025-04-03", provider=ServiceProvider.OPENAI
-        ),
-        "openai/o3-2025-04-03-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-03-low-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o3-2025-04-03-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-03-high-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o3-2025-04-16": NonHelmModelInfo(
-            model_name="o3-2025-04-16", provider=ServiceProvider.OPENAI
-        ),
-        "openai/o3-2025-04-16-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-16-low-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o3-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-16-high-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/gpt-4o-2024-11-20": NonHelmModelInfo(
-            model_name="gpt-4o-2024-11-20", provider=ServiceProvider.OPENAI
-        ),
-        "openai/gpt-4.5-preview-2025-02-27": NonHelmModelInfo(
-            model_name="gpt-4.5-preview-2025-02-27", provider=ServiceProvider.OPENAI
-        ),
-        "openai/gpt-4.1-2025-04-14": NonHelmModelInfo(
-            model_name="gpt-4.1-2025-04-14", provider=ServiceProvider.OPENAI
-        ),
-        # ------------------------
         # Anthropic Models (Claude)
         # ------------------------
         "anthropic/claude-3-7-sonnet-20250219": NonHelmModelInfo(
@@ -304,6 +233,14 @@ class NonHelmMapping:
             is_legacy=True,
         ),
     }
+    # ------------------------
+    # OpenAI Models
+    # ------------------------
+    for model in openai_model_list():
+        path = "openai/" + model.id
+        mapping[path] = NonHelmModelInfo(
+            model_name=model.id, provider=ServiceProvider.OPENAI
+        )
 
 
 @dataclass
