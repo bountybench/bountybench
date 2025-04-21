@@ -245,6 +245,7 @@ class ModelResource(RunnableBaseResource):
                 exception=e,
                 input=model_input,
             ) from e
+        logger.info(f"Unparsed LM Response:\n{model_response}")
 
         lm_response = self.remove_hallucinations(model_response.content)
         lm_response = self.remove_stop_token(lm_response)
