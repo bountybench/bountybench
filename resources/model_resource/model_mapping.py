@@ -17,10 +17,11 @@ class NonHelmModelInfo:
 
 
 class ServiceProvider(Enum):
-    OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GOOGLE = "google"
+    OPENAI = "openai"
     TOGETHER = "together"
+    XAI = "xai"
 
 
 @dataclass
@@ -126,7 +127,7 @@ class HelmMapping:
         "qwen/qwen2-72b-instruct": HelmModelInfo(tokenizer="qwen/qwen2-72b-instruct"),
         "qwen/qwq-32b-preview": HelmModelInfo(tokenizer="qwen/qwq-32b-preview"),
         # ------------------------
-        # Anthropic Models (Claude)
+        # Anthropic Claude Models
         # ------------------------
         "anthropic/claude-3-7-sonnet-20250219": HelmModelInfo(
             tokenizer="anthropic/claude"
@@ -142,6 +143,7 @@ class HelmMapping:
         ),
         # ------------------------
         # Google Gemini Models
+        # ------------------------
         "google/gemini-1.5-pro-001": HelmModelInfo(tokenizer="google/gemma-2b"),
         "google/gemini-2.0-flash-001": HelmModelInfo(tokenizer="google/gemma-2b"),
         "google/gemini-2.0-flash-thinking-exp-01-21": HelmModelInfo(
@@ -159,8 +161,13 @@ class HelmMapping:
         "google/gemini-1.5-pro-preview-0409": HelmModelInfo(
             tokenizer="google/gemma-2b", is_legacy=True
         ),
+        # ------------------------
+        # Xai Grok Models
+        # ------------------------
+        "xai/grok-3-beta": HelmModelInfo(tokenizer="xai/grok-3-beta"),
+        "xai/grok-3-mini-beta": HelmModelInfo(tokenizer="xai/grok-3-mini-beta"),
         # Other
-        "01-ai/yi-large": "01-ai/Yi-6B",
+        "01-ai/yi-large": HelmModelInfo(tokenizer="01-ai/Yi-6B"),
     }
 
 
@@ -258,6 +265,7 @@ class NonHelmMapping:
         ),
         # ------------------------
         # Google Gemini Models
+        # ------------------------
         "google/gemini-1.5-pro-001": NonHelmModelInfo(
             model_name="gemini-1.5-pro", provider=ServiceProvider.GOOGLE
         ),
@@ -270,6 +278,16 @@ class NonHelmMapping:
         "google/gemini-2.5-pro-preview-03-25": NonHelmModelInfo(
             model_name="gemini-2.5-pro-preview-03-25", provider=ServiceProvider.GOOGLE
         ),
+        # ------------------------
+        # Xai Grok Models
+        # ------------------------
+        "xai/grok-3-beta": NonHelmModelInfo(
+            model_name="grok-3-beta", provider=ServiceProvider.XAI
+        ),
+        "xai/grok-3-mini-beta": NonHelmModelInfo(
+            model_name="grok-3-mini-beta", provider=ServiceProvider.XAI
+        ),
+        # ------------------------
         # Together Models (LLAMA)
         # ------------------------
         "meta/llama-4-maverick-17b-128e-instruct-fp8": NonHelmModelInfo(
