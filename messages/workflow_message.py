@@ -179,9 +179,8 @@ class WorkflowMessage(Message):
         # Archive the log file
         archive_path = FULL_LOG_DIR / f"{self.log_file.stem}.log"
         try:
-            import shutil
-
-            shutil.copyfile(FULL_LOG_FILE_PATH, archive_path)
+            with open(FULL_LOG_FILE_PATH, "r") as src, open(archive_path, "a") as dst:
+                dst.write(src.read())
             FULL_LOG_FILE_PATH.unlink(missing_ok=True)
         except FileNotFoundError:
             logger.warning(

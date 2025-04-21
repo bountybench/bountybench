@@ -130,12 +130,24 @@ class LoggerConfig:
         return queue_listener
 
     def shutdown(self):
-        """Shutdown the queue listener."""
-        self.queue_listener.stop()
+        """Shutdown the queue listener safely."""
+        try:
+            if self.queue_listener:
+                self.queue_listener.stop()
+        except Exception as e:
+            logging.info(f"Logger shutdown: {e}")
+        finally:
+            self.queue_listener = None
 
     def restart(self):
         """Recreate a QueueListener with the FileHandlers defined in the helper."""
-        self._configure_logging_thread()
+        try:
+            if self.queue_listener:
+                self.queue_listener.stop()
+        except Exception as e:
+            # Swallow shutdown errors (can happen at exit)
+            logging.info(f"Logger restart: failed to stop old listener: {e}")
+        self.queue_listener = self._configure_logging_thread()
 
     def get_main_logger(self, name: str, level: int = logging.INFO) -> logging.Logger:
         """Get a logger instance with a QueueHandler."""
