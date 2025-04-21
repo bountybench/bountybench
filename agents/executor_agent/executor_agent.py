@@ -1,7 +1,7 @@
 import asyncio
+import time
 from dataclasses import dataclass
 from typing import List, Optional
-import time
 
 from agents.base_agent import AgentConfig, BaseAgent, IterationFailure
 from messages.action_messages.action_message import ActionMessage
@@ -112,7 +112,7 @@ class ExecutorAgent(BaseAgent):
             kali_action_message = self.execute_in_env(model_action_message)
             if not kali_action_message:
                 self.last_executor_agent_message.set_message(
-                    "Kali failed to produce" " a valid response."
+                    "Kali failed to produce a valid response."
                 )
 
                 logger.info("Kali failed to produce a valid response.")
