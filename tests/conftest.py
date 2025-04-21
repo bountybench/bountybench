@@ -138,14 +138,14 @@ def pytest_ignore_collect(path, config):
     return any(ignored in str(path) for ignored in ignored_dirs)
 
 
-# ------------------------------------------------------------------------------
-# Logging cleanup
-# ------------------------------------------------------------------------------
-@pytest.fixture(scope="session", autouse=True)
-def cleanup_logging():
-    """Ensure logger queue is properly shutdown after tests complete."""
-    yield
-    # Shutdown the logger queue listener to prevent "I/O operation on closed file" errors
-    from utils.logger import logger_config
+# # ------------------------------------------------------------------------------
+# # Logging cleanup
+# # ------------------------------------------------------------------------------
+# @pytest.fixture(scope="session", autouse=True)
+# def cleanup_logging():
+#     """Ensure logger queue is properly shutdown after tests complete."""
+#     yield
+#     # Shutdown the logger queue listener to prevent "I/O operation on closed file" errors
+#     from utils.logger import logger_config
 
-    logger_config.shutdown()
+#     logger_config.shutdown()
