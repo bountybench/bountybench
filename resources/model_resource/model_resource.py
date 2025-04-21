@@ -11,7 +11,6 @@ from resources.base_resource import BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_utils import truncate_input_to_max_tokens
-from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
 from resources.runnable_base_resource import RunnableBaseResource
 from utils.logger import get_main_logger
@@ -140,7 +139,15 @@ class ModelResource(RunnableBaseResource):
 
                 model_provider = TogetherModels()
             elif model_prefix == "openai":
+                from resources.model_resource.openai_models.openai_models import (
+                    OpenAIModels,
+                )
+
                 model_provider = OpenAIModels()
+            elif model_prefix == "xai":
+                from resources.model_resource.xai_models.xai_models import XAIModels
+
+                model_provider = XAIModels()
             else:
                 raise Exception(f"Unknown model type: {self.model}")
         return model_provider

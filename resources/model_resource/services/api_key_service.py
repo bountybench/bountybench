@@ -7,6 +7,7 @@ from dotenv import find_dotenv, load_dotenv, set_key
 
 REASONING_MODELS = ["o1", "o3", "o4"]
 
+
 def _model_provider_lookup(model_name: str, helm: bool) -> str:
     """
     Given a model name, return the associated API key environment variable name.
@@ -24,6 +25,8 @@ def _model_provider_lookup(model_name: str, helm: bool) -> str:
                 return "ANTHROPIC_API_KEY"
             elif provider == "google":
                 return "GOOGLE_API_KEY"
+            elif provider == "xai":
+                return "XAI_API_KEY"
             elif provider in ["meta-llama", "mistralai", "deepseek-ai"]:
                 return "TOGETHER_API_KEY"
         raise Exception(f"Unknown model: {model_name}, cannot lookup key")
@@ -173,6 +176,33 @@ def _auth_google_gemini_api_key(
     return False, response.text
 
 
+def _auth_xai_api_key(
+    api_key: str, model_name: str = None, verify_model: bool = False
+) -> Tuple[bool, str]:
+    url = "https://api.x.ai/v1/models"
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    model_name = model_name.split("/")[-1] if model_name else None
+
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        try:
+            if not verify_model or model_name is None:
+                return True, ""
+
+            valid_models = [model["id"] for model in response.json()["data"]]
+
+            if model_name not in valid_models:
+                raise ValueError(
+                    f"Model {model_name} not found.\n\nAvailable models from X.ai: {valid_models}"
+                )
+            return True, ""
+        except Exception as e:
+            return False, str(e)
+
+    return False, response.text
+
+
 AUTH_SERVICE = {
     "HELM_API_KEY": _auth_helm_api_key,
     "OPENAI_API_KEY": _auth_openai_api_key,
@@ -181,6 +211,7 @@ AUTH_SERVICE = {
     "ANTHROPIC_API_KEY": _auth_anthropic_api_key,
     "GOOGLE_API_KEY": _auth_google_gemini_api_key,
     "TOGETHER_API_KEY": _auth_together_api_key,
+    "XAI_API_KEY": _auth_xai_api_key,
 }
 
 
