@@ -202,31 +202,7 @@ class KaliEnvResource(RunnableBaseResource):
                 / "bounties"
                 / f"bounty_{self._resource_config.bounty_number}"
             )
-
-            # Check if we're in a test environment
-            import sys
-
-            is_test = "pytest" in sys.modules
-
-            # Skip repo installation if we're in test mode (except for specific tests)
-            caller_kali_resource_test = False
-            if is_test:
-                import inspect
-
-                caller_frame = inspect.currentframe().f_back
-                while caller_frame:
-                    caller_file = caller_frame.f_code.co_filename
-                    if "test_kali_env_resource.py" in caller_file:
-                        caller_kali_resource_test = True
-                        break
-                    caller_frame = caller_frame.f_back
-
-            # Only run installation in non-test environments or in kali env specific tests
-            if not is_test or caller_kali_resource_test:
-                # Install the repo in editable mode
-                self._install_repo_in_editable_mode()
-            else:
-                logger.info("Skipping repo installation in test environment")
+            self._install_repo_in_editable_mode()
 
     def _install_repo_in_editable_mode(self):
         """
