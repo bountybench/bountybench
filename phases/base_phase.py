@@ -1,5 +1,6 @@
 import time
 from abc import ABC, abstractmethod
+from asyncio import QueueEmpty
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
@@ -12,7 +13,6 @@ from messages.workflow_message import WorkflowMessage
 from resources.base_resource import BaseResourceConfig
 from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
-from asyncio import QueueEmpty
 
 logger = get_main_logger(__name__)
 
