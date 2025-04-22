@@ -134,7 +134,7 @@ class KaliEnvResource(RunnableBaseResource):
                     self.util.safe_execute(
                         lambda: self.cleanup_tmp(), "tmp cleanup", logger
                     )
-                logger.info("Cleaning up: stopping and removing Docker container.")
+                logger.debug("Cleaning up: stopping and removing Docker container.")
 
                 self.util.safe_execute(
                     lambda: self.container.stop(timeout=1), "stopping container", logger
@@ -146,7 +146,7 @@ class KaliEnvResource(RunnableBaseResource):
                 )
 
                 self.container = None
-                logger.info("Docker container cleaned up successfully.")
+                logger.debug("Docker container cleaned up successfully.")
         except Exception as e:
             logger.error(f"Unexpected error during Docker container cleanup: {e}")
 
@@ -164,6 +164,7 @@ class KaliEnvResource(RunnableBaseResource):
         timeout: int = 120,
         workdir: Optional[str] = None,
         tty: bool = False,
+        verbose: bool = True,
     ) -> Tuple[str, str]:
         command_str = command.lstrip().lstrip("*").lstrip()
         logger.debug(
@@ -173,9 +174,9 @@ class KaliEnvResource(RunnableBaseResource):
         try:
             with timeout_context(timeout):
                 if not tty:
-                    return self._run_non_tty_command(command, timeout, workdir)
+                    return self._run_non_tty_command(command, timeout, workdir, verbose)
                 else:
-                    return self._run_tty_command(command, workdir)
+                    return self._run_tty_command(command, workdir, verbose)
 
         except TimeoutError:
             logger.warning(f"Command '{command}' timed out after {timeout} seconds.")
@@ -226,7 +227,7 @@ class KaliEnvResource(RunnableBaseResource):
         is_python = self._is_python_repo(codebase_path)
 
         if is_python:
-            logger.info(
+            logger.debug(
                 f"Detected Python repository at {codebase_path}. Installing in editable mode..."
             )
             # Use the custom install command if provided, otherwise default to editable install
@@ -235,14 +236,18 @@ class KaliEnvResource(RunnableBaseResource):
                 if self.install_command is not None
                 else "pip install -e ."
             )
+            # Omit printing
             stdout, stderr = self.run_command(
-                command=cmd, timeout=PIP_INSTALL_TIMEOUT, workdir=codebase_path
+                command=cmd,
+                timeout=PIP_INSTALL_TIMEOUT,
+                workdir=codebase_path,
+                verbose=False,
             )
-            logger.info(f"Python repo installation result: {stdout}\n{stderr}")
+            logger.debug(f"Python repo installation result: {stdout}\n{stderr}")
 
             host_path = self._map_container_path_to_host(codebase_path)
             if host_path:
-                logger.info(
+                logger.debug(
                     f"Updating git history to include changes from installation in latest commit"
                 )
                 git_commit(host_path)
@@ -254,12 +259,12 @@ class KaliEnvResource(RunnableBaseResource):
 
         # Check if Node.js repo - just log but don't install
         elif self._is_node_repo(codebase_path):
-            logger.info(
+            logger.debug(
                 f"Detected Node.js repository at {codebase_path}. Skipping installation."
             )
             return
 
-        logger.info(
+        logger.debug(
             "No recognized Python repository found in any codebase location. Skipping installation."
         )
 
@@ -307,11 +312,11 @@ class KaliEnvResource(RunnableBaseResource):
             print("in remove")
             print("-" * 90)
             container = self.client.containers.get(name)
-            logger.info(f"Container '{name}' already exists. Forcefully removing it.")
+            logger.debug(f"Container '{name}' already exists. Forcefully removing it.")
             start_progress(f"Removing existing container '{name}'...")
             self._force_remove_container(container, name)
         except docker.errors.NotFound:
-            logger.info(f"No existing container named '{name}'.")
+            logger.debug(f"No existing container named '{name}'.")
         finally:
             stop_progress()
 
@@ -331,10 +336,10 @@ class KaliEnvResource(RunnableBaseResource):
         )
         try:
             # Pull the latest image before starting the container
-            logger.info(f"Pulling the latest Docker image: {DOCKER_IMAGE}")
+            logger.debug(f"Pulling the latest Docker image: {DOCKER_IMAGE}")
             try:
                 self.client.images.pull(DOCKER_IMAGE)
-                logger.info(f"Successfully pulled the latest image: {DOCKER_IMAGE}")
+                logger.debug(f"Successfully pulled the latest image: {DOCKER_IMAGE}")
             except Exception as e:
                 logger.warning(
                     f"Failed to pull the latest image: {e}. Will use existing image if available."
@@ -359,7 +364,7 @@ class KaliEnvResource(RunnableBaseResource):
             )
             if not self.util.wait_for_container(container):
                 self.util.handle_container_start_failure(container, logger)
-            logger.info("Container started successfully.")
+            logger.debug("Container started successfully.")
             return container
         finally:
             stop_progress()
@@ -369,14 +374,18 @@ class KaliEnvResource(RunnableBaseResource):
         if self.disable_cleanup:
             return
         try:
-            logger.info("Cleaning up: removing tmp files.")
+            logger.debug("Cleaning up: removing tmp files.")
             cleanup_command = "rm -rf * .*"
             return self.run_command(cleanup_command, workdir="/app")
         except Exception as e:
             logger.error(f"Error cleaning up tmp files: {e}")
 
     def _run_non_tty_command(
-        self, command: str, timeout: int, workdir: Optional[str] = None
+        self,
+        command: str,
+        timeout: int,
+        workdir: Optional[str] = None,
+        verbose: bool = True,
     ) -> Tuple[str, str]:
         exec_id = self.create_exec(command, workdir, tty=False)
         output_stream = self.client.api.exec_start(exec_id, stream=True, demux=True)
@@ -392,11 +401,13 @@ class KaliEnvResource(RunnableBaseResource):
                         break
                     if stdout:
                         text = get_stdout_text(stdout)
-                        print(text, end="")
+                        if verbose:
+                            print(text, end="")
                         stdout_chunks.append(text)
                     if stderr:
                         text = get_stdout_text(stderr)
-                        print(f"{YELLOW}{text}{RESET}", end="", file=sys.stderr)
+                        if verbose:
+                            print(f"{YELLOW}{text}{RESET}", end="", file=sys.stderr)
                         stderr_chunks.append(text)
             except Exception as e:
                 logger.warning(f"Exec stream closed: {e}")
@@ -404,7 +415,6 @@ class KaliEnvResource(RunnableBaseResource):
         stream_thread = threading.Thread(target=stream_output, daemon=True)
         stream_thread.start()
 
-        # Wait for the exec to finish (poll-based workaround)
         exec_inspect = self.client.api.exec_inspect
         start_time = time.time()
 
@@ -427,16 +437,18 @@ class KaliEnvResource(RunnableBaseResource):
         logger.info(f"Command executed successfully in [line-mode].")
         return stdout_text, stderr_text
 
-    def _run_tty_command(self, command: str, workdir: Optional[str]) -> Tuple[str, str]:
+    def _run_tty_command(
+        self, command: str, workdir: Optional[str], verbose: bool = True
+    ) -> Tuple[str, str]:
         if not self.socket:
             self._initialize_tty_socket(workdir)
 
         self.util.prepare_tty_command(self.socket, logger, command)
         output = self.util.read_tty_output(self.socket)
         stdout_text = self.util.process_tty_output(output, command)
-        logger.info(
-            f"Command executed successfully in [pty-mode].\nstdout: {stdout_text}\n"
-        )
+        logger.info(f"Command executed successfully in [pty-mode].\n")
+        if verbose:
+            logger.info(f"stdout: {stdout_text}\n")
         return stdout_text, ""
 
     def _initialize_tty_socket(self, workdir: Optional[str]):
@@ -489,7 +501,7 @@ class KaliEnvResource(RunnableBaseResource):
                 stdout, stderr = self.run_command(
                     f"nc -zv -w 5 {hostname} {port}", timeout=10
                 )
-                logger.info(f"Netcat check output: {stdout}\n {stderr}")
+                logger.debug(f"Netcat check output: {stdout}\n {stderr}")
                 # Check both stdout and stderr for "open" as different nc versions output to different streams
                 return "open" in stdout or "open" in stderr
 
@@ -504,7 +516,7 @@ class KaliEnvResource(RunnableBaseResource):
                     f'curl -sS -o /dev/null -w "%{{http_code}}" {hostname}:{port}',
                     timeout=10,
                 )
-                logger.info(f"HTTP check output: {stdout}\n {stderr}")
+                logger.debug(f"HTTP check output: {stdout}\n {stderr}")
 
                 try:
                     status_code = int(stdout.strip())
@@ -519,7 +531,7 @@ class KaliEnvResource(RunnableBaseResource):
 
             for attempt in range(MAX_RETRIES):
                 if http_check() or nc_check():
-                    logger.info(
+                    logger.debug(
                         f"Can connect to {hostname}:{port} on attempt {attempt + 1}."
                     )
                     break
@@ -538,7 +550,7 @@ class KaliEnvResource(RunnableBaseResource):
             )
             raise RuntimeError("Failure to connect for one or more target hosts.")
         else:
-            logger.info("All target hosts can be connected to.")
+            logger.debug("All target hosts can be connected to.")
 
     def to_dict(self) -> dict:
         """

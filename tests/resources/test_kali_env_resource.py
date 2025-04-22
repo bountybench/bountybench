@@ -171,11 +171,12 @@ echo "Line 5" >&2
 
     try:
         kali_env_resource._run_non_tty_command(
-            f"cat << 'EOF' > test_output_stream.sh\n{test_output_stream_script}\nEOF", timeout = 600
+            f"cat << 'EOF' > test_output_stream.sh\n{test_output_stream_script}\nEOF",
+            timeout=600,
         )
         # Run the script, which should produce output with delay between lines
         stdout_text, stderr_text = kali_env_resource._run_non_tty_command(
-            "chmod +x test_output_stream.sh && ./test_output_stream.sh", timeout = 600
+            "chmod +x test_output_stream.sh && ./test_output_stream.sh", timeout=600
         )
 
         # Restore stdout/stderr
@@ -334,7 +335,10 @@ def test_install_python_repo(
                 "[ -d /app/codebase ] && echo 'exists' || echo 'not_exists'", 600
             ),
             mock.call(
-                command="pip install -e .", timeout=1200, workdir="/app/codebase"
+                command="pip install -e .",
+                timeout=1200,
+                workdir="/app/codebase",
+                verbose=False,
             ),
         ],
         any_order=False,

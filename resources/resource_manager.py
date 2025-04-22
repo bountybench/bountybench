@@ -61,7 +61,7 @@ class ResourceManager:
             self._resource_registration["model"] = (resource_class, resource_config)
             resource = resource_class("model", resource_config)
             self._resources.set(self.workflow_id, "model", resource)
-            logger.info(f"New model specifics: {resource}")
+            logger.debug(f"New model specifics: {resource}")
 
     def update_mock_model(self, use_mock_model: bool):
         """
@@ -87,7 +87,7 @@ class ResourceManager:
             self._resource_registration["model"] = (resource_class, resource_config)
             resource = resource_class("model", resource_config)
             self._resources.set(self.workflow_id, "model", resource)
-            logger.info(f"Updated ModelResource to use_mock_model={use_mock_model}")
+            logger.debug(f"Updated ModelResource to use_mock_model={use_mock_model}")
 
     def compute_schedule(self, phases: List["BasePhase"]):
         """
@@ -213,28 +213,25 @@ class ResourceManager:
         if kali_resource_id:
             self._initialize_single_resource(kali_resource_id, phase_index)
 
-        logger.debug(f"Resource lifecycle state: {self._resource_lifecycle}")
-        logger.debug(f"Exiting initialize_phase_resources for phase {phase_index}")
-
     def _initialize_single_resource(self, resource_id: str, phase_index: int):
         """Initialize a single resource."""
         if resource_id in self._resources.id_to_resource.get(self.workflow_id, {}):
-            logger.info(f"Resource '{resource_id}' already initialized. Skipping.")
+            logger.debug(f"Resource '{resource_id}' already initialized. Skipping.")
             return
 
-        logger.info(f"Attempting to initialize resource '{resource_id}'")
+        logger.debug(f"Attempting to initialize resource '{resource_id}'")
         if resource_id not in self._resource_registration:
-            logger.info(f"Resource '{resource_id}' not registered. Skipping.")
+            logger.debug(f"Resource '{resource_id}' not registered. Skipping.")
             return
 
         resource_class, resource_config = self._resource_registration[resource_id]
-        logger.info(
+        logger.debug(
             f"resource_class, resource_config: {resource_class}, {resource_config}"
         )
         try:
             resource = resource_class(resource_id, resource_config)
             self._resources.set(self.workflow_id, resource_id, resource)
-            logger.info(f"Successfully initialized resource '{resource_id}'")
+            logger.debug(f"Successfully initialized resource '{resource_id}'")
         except Exception as e:
             logger.error(f"Failed to initialize resource '{resource_id}': {str(e)}")
             raise
@@ -277,7 +274,7 @@ class ResourceManager:
                 logger.debug(f"Stopping resource '{resource_id}'")
                 resource.stop()
                 self._resources.delete_items(self.workflow_id, resource_id)
-                logger.info(f"Deallocated resource '{resource_id}'")
+                logger.debug(f"Deallocated resource '{resource_id}'")
             except Exception as e:
                 logger.error(f"Failed to deallocate resource '{resource_id}': {str(e)}")
                 raise
@@ -289,14 +286,14 @@ class ResourceManager:
                 logger.debug(f"Stopping InitFilesResource '{resource_id}'")
                 resource.stop()
                 self._resources.delete_items(self.workflow_id, resource_id)
-                logger.info(f"Deallocated InitFilesResource '{resource_id}'")
+                logger.debug(f"Deallocated InitFilesResource '{resource_id}'")
             except Exception as e:
                 logger.error(
                     f"Failed to deallocate InitFilesResource '{resource_id}': {str(e)}"
                 )
                 raise
 
-        logger.info(f"Completed resource deallocation for phase {phase_index}")
+        logger.debug(f"Completed resource deallocation for phase {phase_index}")
 
     def get_resource(self, resource_id: str) -> BaseResource:
         """Retrieve an initialized resource by its ID."""
