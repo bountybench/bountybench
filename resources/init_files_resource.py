@@ -95,7 +95,7 @@ class InitFilesResource(BaseResource):
                     copy_dir=True,
                     skip_hidden_files=True,
                 )
-                self._remove_ci_check_from_exploit(self.tmp_dir)
+                self._remove_ci_check_from_exploit(tmp_dir_exploit_files_dir)
                 self.replace_codebase_path(
                     tmp_dir_exploit_files_dir, self.files_dir_name
                 )
