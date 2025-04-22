@@ -13,6 +13,10 @@ SUCCESS_STATUS = 26  # just above STATUS
 logging.addLevelName(STATUS, "STATUS")
 logging.addLevelName(SUCCESS_STATUS, "SUCCESS_STATUS")
 
+# Also add these custom level to the logging module for the workflow runner to work correctly
+logging.STATUS = STATUS
+logging.SUCCESS_STATUS = SUCCESS_STATUS
+
 # Directory for full log files
 FULL_LOG_DIR = Path.cwd() / "full_logs"
 FULL_LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -148,6 +152,16 @@ class LoggerConfig:
             # Swallow shutdown errors (can happen at exit)
             logging.info(f"Logger restart: failed to stop old listener: {e}")
         self.queue_listener = self._configure_logging_thread()
+
+    def set_global_log_level(self, level: int):
+        """Update the logging level of all loggers created via get_main_logger."""
+        # Update root logger
+        logging.getLogger().setLevel(level)
+
+        # Update all known loggers in the registry
+        for _, logger in logging.root.manager.loggerDict.items():
+            if isinstance(logger, logging.Logger):
+                logger.setLevel(level)
 
     def get_main_logger(self, name: str, level: int = logging.DEBUG) -> logging.Logger:
         """Get a logger instance with a QueueHandler."""
