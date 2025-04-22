@@ -23,6 +23,8 @@ def setup_dirs():
     bounty_dir = task_repo_dir / "bounties" / "bounty_1234"
     verify_files_dir = bounty_dir / "verify_files"
     verify_file_path = verify_files_dir / "verify.sh"
+    exploit_files_dir = bounty_dir / "exploit_files"
+    exploit_file_path = exploit_files_dir / "exploit.sh"
 
     if task_repo_dir.exists():
         shutil.rmtree(task_repo_dir)
@@ -31,6 +33,7 @@ def setup_dirs():
     original_files_dir.mkdir(parents=True, exist_ok=True)
     bounty_dir.mkdir(parents=True, exist_ok=True)
     verify_files_dir.mkdir(parents=True, exist_ok=True)
+    exploit_files_dir.mkdir(parents=True, exist_ok=True)
 
     # Create test files
     (original_files_dir / "test_file.txt").write_text("This is a test.")
@@ -39,11 +42,30 @@ def setup_dirs():
         "#!/bin/bash\necho 'helper script'\nexit 0"
     )
 
+    exploit_script = """#!/bin/bash
+IS_CI_RUN=$1
+HOSTNAME1='localhost'
+HOSTNAME2='localhost'
+
+if [ "$IS_CI_RUN" = true ]; then
+    HOSTNAME1='server-name1'
+    HOSTNAME2='server-name2'
+fi
+
+pip install -e ./codebase
+
+python3 solver.py $HOSTNAME1 $HOSTNAME2
+"""
+
+    exploit_file_path.write_text(exploit_script)
+    (exploit_files_dir / "solver.py").write_text("print('hello')")
+
     subprocess.run(["git", "init"], cwd=original_files_dir)
     subprocess.run(["git", "add", "."], cwd=original_files_dir)
     subprocess.run(["git", "commit", "-m", "initial commit"], cwd=original_files_dir)
     subprocess.run(["git", "branch", "-m", "main"], cwd=original_files_dir)
 
+    # Default to no exploit_files copying
     config = InitFilesResourceConfig(
         task_dir=task_repo_dir,
         files_dir_name="original_files",
@@ -452,7 +474,7 @@ def test_verify_files_copy(resource, setup_dirs):
         "verify script" in verify_file_path.read_text()
     ), "verify.sh content is incorrect"
 
-    # Check that verify.sh was copied
+    # Check that helper.sh was copied
     helper_file_path = tmp_dir / "verify_files" / "helper.sh"
     assert helper_file_path.exists(), "helper.sh file was not copied"
     assert (
@@ -492,3 +514,76 @@ def test_verify_files_not_copied_by_default(setup_dirs):
 
     # Manually remove resource for cleanup
     resource.stop()
+
+
+def test_exploit_files_no_copy_default(resource, setup_dirs):
+    """Test that exploit_files directory is not copied if not specified in config."""
+    _, tmp_dir, _, _ = setup_dirs
+
+    # Verify that exploit_files is None in the resource
+    assert (
+        resource.input_exploit_files_dir is None
+    ), "input_exploit_files_dir should be None when not specified"
+
+    # Check that exploit.sh file is not copied
+    exploit_script_in_tmp = tmp_dir / "exploit.sh"
+    assert (
+        not exploit_script_in_tmp.exists()
+    ), "exploit.sh should not be copied when not specified in config"
+
+    # Manually remove resource for cleanup
+    resource.stop()
+
+
+def test_exploit_files_copy(setup_dirs):
+    """Test that exploit_files directory is copied if specified in config."""
+    config, tmp_dir, _, bounty_dir = setup_dirs
+
+    # Create a modified config with exploit_files_dir_name
+    config_with_exploit = InitFilesResourceConfig(
+        task_dir=config.task_dir,
+        files_dir_name=config.files_dir_name,
+        tmp_dir=config.tmp_dir,
+        bounty_number=config.bounty_number,
+        vulnerable_commit=config.vulnerable_commit,
+        input_exploit_files_dir_name="exploit_files",
+    )
+
+    # Create a new resource with the modified config
+    resource = InitFilesResource(
+        resource_id="test_resource_with_exploit", config=config_with_exploit
+    )
+
+    # Ensure source directories and files exist
+    source_exploit_files_dir = bounty_dir / "exploit_files"
+    source_helper_file = source_exploit_files_dir / "solver.py"
+
+    assert (
+        source_exploit_files_dir.exists()
+    ), "Source exploit_files directory does not exist"
+    assert source_helper_file.exists(), "Source solver.py file does not exist"
+
+    # Get the actual input_exploit_files_dir path from the resource
+    resource_input_exploit_files_dir = resource.input_exploit_files_dir
+    print(f"Source exploit_files directory: {source_exploit_files_dir}")
+    print(f"Resource input_exploit_files_dir: {resource_input_exploit_files_dir}")
+    # Check that exploit.sh was copied
+    exploit_file_path = tmp_dir / "exploit.sh"
+    assert exploit_file_path.exists(), "exploit.sh file was not copied"
+    processed_exploit_script = exploit_file_path.read_text()
+    expected_processed_script = """#!/bin/bash
+HOSTNAME1='server-name1'
+HOSTNAME2='server-name2'
+
+pip install -e ./codebase
+
+python3 solver.py $HOSTNAME1 $HOSTNAME2"""
+
+    assert (
+        processed_exploit_script == expected_processed_script
+    ), "exploit.sh processed script mismatch"
+
+    # Check that helper script solver.py was copied
+    helper_file_path = tmp_dir / "solver.py"
+    assert helper_file_path.exists(), "solver.py file was not copied"
+    assert "hello" in helper_file_path.read_text(), "solver.py content is incorrect"
