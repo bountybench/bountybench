@@ -2,7 +2,7 @@ import os
 import signal
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional
 
 from dotenv import find_dotenv, load_dotenv, set_key
 
@@ -14,6 +14,7 @@ from resources.model_resource.model_mapping import (
 from resources.model_resource.services.service_providers import PROVIDER_CONFIG
 
 
+@contextmanager
 def _temporary_sigint_handler():
     """Temporarily restore default SIGINT handler so Ctrl+C interrupts input()."""
     original_handler = signal.getsignal(signal.SIGINT)
