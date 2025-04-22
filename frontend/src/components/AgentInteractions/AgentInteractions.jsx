@@ -129,7 +129,7 @@ const AgentInteractions = ({
   }, [phaseMessages]);
 
   const handleStopClick = async () => {
-    setIsStopping(true);
+    setIsStopping(true); // Hide buttons immediately    
     await onStopWorkflow();
     setStopped(true);
   };
@@ -192,12 +192,31 @@ const AgentInteractions = ({
           <>
             {!isStopping && !stopped ? (
               <>
+                <TextField
+                  type="number"
+                  label="Run X"
+                  color="primary"
+                  value={selectedIterNum}
+                  onChange={handleInputChange}
+                />
+                <FormControl>
+                  <InputLabel id="select-label">Iteration</InputLabel>
+                  <Select
+                    labelId="select-label"
+                    label="Iteration"
+                    value={selectedIterType}
+                    onChange={(e) => setSelectedIterType(e.target.value)}
+                  >
+                    <MenuItem value="agent">Agent</MenuItem>
+                    <MenuItem value="phase">Phase</MenuItem>
+                  </Select>
+                </FormControl>
                 <Button
                   variant="contained"
                   color="primary"
-                  onClick={onTriggerNextIteration}
+                  onClick={handleContinueClick}
                   startIcon={<KeyboardDoubleArrowRightIcon />}
-                  disabled={isNextDisabled}
+                  disabled={isDisabled}
                   size="small"
                 >
                   Continue
