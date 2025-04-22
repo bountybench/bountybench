@@ -166,9 +166,7 @@ class KaliEnvResource(RunnableBaseResource):
         tty: bool = False,
     ) -> Tuple[str, str]:
         command_str = command.lstrip().lstrip("*").lstrip()
-        if len(command) > 33:
-            command_str = command_str[:30] + "..."
-        logger.info(
+        logger.debug(
             f"Running command in Docker container (workdir: {workdir}): {command_str}"
         )
 
