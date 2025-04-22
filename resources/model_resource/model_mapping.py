@@ -2,10 +2,13 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import ClassVar, Dict
 
+from resources.model_resource.services.service_providers import ServiceProvider
+
 
 @dataclass(frozen=True)
 class HelmModelInfo:
     tokenizer: str
+    provider: str = ServiceProvider.HELM
     is_legacy: bool = False
 
 
@@ -14,14 +17,6 @@ class NonHelmModelInfo:
     model_name: str
     provider: str
     is_legacy: bool = False
-
-
-class ServiceProvider(Enum):
-    ANTHROPIC = "anthropic"
-    GOOGLE = "google"
-    OPENAI = "openai"
-    TOGETHER = "together"
-    XAI = "xai"
 
 
 @dataclass
@@ -347,3 +342,23 @@ class ModelRegistry:
             return model_name
         else:
             raise ValueError(f"No model found for model name: {model_name}")
+
+
+def get_model_info(model_name: str, helm: bool) -> HelmModelInfo | NonHelmModelInfo:
+    """
+    Return the ModelInfo object for the given model name.
+    """
+    if helm:
+        try:
+            return HelmMapping.mapping[model_name]
+        except KeyError as err:
+            raise ValueError(
+                f"No HELM model info found for model name: {model_name}"
+            ) from err
+    else:
+        try:
+            return NonHelmMapping.mapping[model_name]
+        except KeyError as err:
+            raise ValueError(
+                f"No non-HELM model info found for model name: {model_name}"
+            ) from err

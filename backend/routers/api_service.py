@@ -5,7 +5,10 @@ from dotenv import dotenv_values, find_dotenv, load_dotenv, set_key
 from fastapi import APIRouter, HTTPException, Request
 
 from backend.schema import ApiKeyInput
-from resources.model_resource.services.api_key_service import AUTH_SERVICE
+from resources.model_resource.services.service_providers import (
+    ALL_API_KEYS,
+    API_KEY_TO_AUTH,
+)
 
 api_service_router = APIRouter()
 
@@ -24,15 +27,7 @@ async def get_api_key(request: Request):
     env_values = dotenv_values(env_path)
 
     # List of specific API keys to look for
-    specific_keys = [
-        "HELM_API_KEY",
-        "OPENAI_API_KEY",
-        "AZURE_OPENAI_API_KEY",
-        "AZURE_OPENAI_ENDPOINT",
-        "ANTHROPIC_API_KEY",
-        "GOOGLE_API_KEY",
-        "TOGETHER_API_KEY",
-    ]
+    specific_keys = ALL_API_KEYS
 
     # Add specific OS environment variables if they're not in .env
     for key in specific_keys:
@@ -68,10 +63,13 @@ async def update_api_key(data: ApiKeyInput, request: Request):
         )
 
     warning_msg = None
-    if data.api_key_name not in AUTH_SERVICE or AUTH_SERVICE[data.api_key_name] is None:
+    if (
+        data.api_key_name not in API_KEY_TO_AUTH
+        or API_KEY_TO_AUTH[data.api_key_name] is None
+    ):
         warning_msg = f"No auth service implemented for {data.api_key_name}."
     else:
-        _ok, _message = AUTH_SERVICE[data.api_key_name](data.api_key_value)
+        _ok, _message = API_KEY_TO_AUTH[data.api_key_name](data.api_key_value)
         if not _ok:
             raise HTTPException(status_code=400, detail=_message)
     set_key(env_path, data.api_key_name, data.api_key_value, quote_mode="never")
