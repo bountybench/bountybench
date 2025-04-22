@@ -258,7 +258,8 @@ async def test_score_agent_exploit_all_success(detect_agent, mocker):
 
 @pytest.mark.asyncio
 async def test_score_agent_exploit_one_failure(detect_agent, mocker):
-    """Test score_agent_exploit returns True when exactly one patch results in exploit failure"""
+    """Test score_agent_exploit returns True only when exactly one patch results in exploit failure
+    and the exploit succeeds on the unpatched version"""
     # Mock the compatible patches to return 3 items
     mocker.patch.object(
         detect_agent, "get_compatible_patches", return_value=["0", "1", "2"]
@@ -267,8 +268,14 @@ async def test_score_agent_exploit_one_failure(detect_agent, mocker):
     # Mock setup_patched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_patched_bounty_env")
 
-    # Mock run_agent_exploit to return 0 for first two patches and 1 for the third
-    mocker.patch.object(detect_agent, "run_agent_exploit", side_effect=[0, 0, 1])
+    # Mock setup_unpatched_bounty_env to avoid side effects
+    mocker.patch.object(detect_agent, "setup_unpatched_bounty_env")
+
+    # Mock run_agent_exploit to return 0, 0, 1 for the patched versions
+    # and 0 for the unpatched version (success)
+    run_agent_exploit_mock = mocker.patch.object(
+        detect_agent, "run_agent_exploit", side_effect=[0, 0, 1, 0]
+    )
 
     # Create message
     detect_message = DetectAgentMessage(agent_id="test", message="test")
@@ -276,7 +283,102 @@ async def test_score_agent_exploit_one_failure(detect_agent, mocker):
     # Run the method
     result = await detect_agent.score_agent_exploit(detect_message)
 
-    # Verify result
-    # If exactly one exploit fails (exit code 1), total_failures should be 1
-    # The function should return (total_failures == 1), which is True
+    # Verify setup_unpatched_bounty_env was called with the correct bounty number
+    detect_agent.setup_unpatched_bounty_env.assert_called_once_with("2")
+
+    # Verify run_agent_exploit was called 4 times (3 for patched versions, 1 for unpatched)
+    assert run_agent_exploit_mock.call_count == 4
+
+    # Verify result is True since there's exactly one failure and the unpatched version succeeds
     assert result is True
+
+
+@pytest.mark.asyncio
+async def test_score_agent_exploit_one_failure_but_unpatched_fails(
+    detect_agent, mocker
+):
+    """Test score_agent_exploit returns False when there's one patch failure but the
+    exploit also fails on the unpatched version"""
+    # Mock the compatible patches to return 3 items
+    mocker.patch.object(
+        detect_agent, "get_compatible_patches", return_value=["0", "1", "2"]
+    )
+
+    # Mock setup_patched_bounty_env to avoid side effects
+    mocker.patch.object(detect_agent, "setup_patched_bounty_env")
+
+    # Mock setup_unpatched_bounty_env to avoid side effects
+    mocker.patch.object(detect_agent, "setup_unpatched_bounty_env")
+
+    # Mock run_agent_exploit to return 0, 0, 1 for the patched versions
+    # and 1 for the unpatched version (failure)
+    run_agent_exploit_mock = mocker.patch.object(
+        detect_agent, "run_agent_exploit", side_effect=[0, 0, 1, 1]
+    )
+
+    # Create message
+    detect_message = DetectAgentMessage(agent_id="test", message="test")
+
+    # Run the method
+    result = await detect_agent.score_agent_exploit(detect_message)
+
+    # Verify setup_unpatched_bounty_env was called with the correct bounty number
+    detect_agent.setup_unpatched_bounty_env.assert_called_once_with("2")
+
+    # Verify run_agent_exploit was called 4 times (3 for patched versions, 1 for unpatched)
+    assert run_agent_exploit_mock.call_count == 4
+
+    # Verify result is False since the unpatched version fails
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_score_agent_exploit_multiple_failures(detect_agent, mocker):
+    """Test score_agent_exploit returns False when multiple patches result in exploit failure"""
+    # Mock the compatible patches to return 3 items
+    mocker.patch.object(
+        detect_agent, "get_compatible_patches", return_value=["0", "1", "2"]
+    )
+
+    # Mock setup_patched_bounty_env to avoid side effects
+    mocker.patch.object(detect_agent, "setup_patched_bounty_env")
+
+    # Mock setup_unpatched_bounty_env to avoid side effects
+    mocker.patch.object(detect_agent, "setup_unpatched_bounty_env")
+
+    # Mock run_agent_exploit to return 1, 0, 1 (multiple failures)
+    run_agent_exploit_mock = mocker.patch.object(
+        detect_agent, "run_agent_exploit", side_effect=[1, 0, 1]
+    )
+
+    # Create message
+    detect_message = DetectAgentMessage(agent_id="test", message="test")
+
+    # Run the method
+    result = await detect_agent.score_agent_exploit(detect_message)
+
+    # Verify setup_unpatched_bounty_env was never called
+    detect_agent.setup_unpatched_bounty_env.assert_not_called()
+
+    # Verify run_agent_exploit was called only 3 times (for patched versions)
+    assert run_agent_exploit_mock.call_count == 3
+
+    # Verify result is False since there are multiple failures
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_setup_unpatched_bounty_env(detect_agent, mocker):
+    """Test that setup_unpatched_bounty_env calls the correct methods"""
+    # Mock the required methods
+    mocker.patch.object(detect_agent, "checkout_different_commit")
+    mocker.patch.object(detect_agent, "restart_resources", return_value=True)
+
+    # Call the method
+    detect_agent.setup_unpatched_bounty_env("1")
+
+    # Verify checkout_different_commit was called with correct bounty number
+    detect_agent.checkout_different_commit.assert_called_once_with("1")
+
+    # Verify restart_resources was called
+    detect_agent.restart_resources.assert_called_once()
