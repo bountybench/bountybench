@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, CircularProgress, Button } from '@mui/material';
+import { Box, CircularProgress, Button, TextField, FormControl, Select, MenuItem, InputLabel } from '@mui/material';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import StopIcon from '@mui/icons-material/Stop';
 import PhaseMessage from './components/PhaseMessage/PhaseMessage';
@@ -26,20 +26,28 @@ const AgentInteractions = ({
   const [selectedCellId, setSelectedCellId] = useState(null);
   const containerRef = useRef(null);
   const messageVersionMap = useRef(new Map());
-  const [isTogglingVersion, setIsTogglingVersion] = useState(false);
+  const [isTogglingVersion, setIsTogglingVersion] = useState(false);  
+  const [selectedIterNum, setSelectedIterNum] = useState(1);
+  const [selectedIterType, setSelectedIterType] = useState('agent');
+  const [responding, setResponding] = useState(false);
   const registerMessageRef = useCallback(() => { }, []);
 
   const registerToggleOperation = useCallback((currentId, targetId, direction) => {
     console.log(`Registering toggle operation: ${currentId} -> ${targetId} (${direction})`);
     messageVersionMap.current.set(currentId, { targetId, direction });
   }, []);
+  
+  const handleInputChange = (event) => {
+    const value = parseInt(event.target.value, 10);
+    setSelectedIterNum(isNaN(value) || value < 0 ? 0 : value);
+  };
 
   const handleKeyDown = useCallback((event) => {
     if (event.key === 'Enter' && event.altKey) {
-      event.preventDefault();
-      onTriggerNextIteration();
+      event.preventDefault(); // Prevent the default action
+      onTriggerNextIteration(selectedIterNum, selectedIterType);
     }
-  }, [onTriggerNextIteration]);
+  }, [selectedIterNum, selectedIterType, onTriggerNextIteration]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -133,6 +141,7 @@ const AgentInteractions = ({
 
   useEffect(() => {
     console.log('Phase Messages updated:', phaseMessages);
+    setResponding(false);
   }, [phaseMessages]);
 
   const handleStopClick = async () => {
@@ -140,6 +149,12 @@ const AgentInteractions = ({
     await onStopWorkflow();
     setStopped(true);
   };
+
+  const handleContinueClick = () => {
+    setResponding(true);  // Disable the button immediately
+    onTriggerNextIteration(selectedIterNum, selectedIterType);  // Trigger the next iteration
+  };
+
 
   const handleRestart = async () => {
     await onRestart();
@@ -164,6 +179,8 @@ const AgentInteractions = ({
       </Box>
     );
   }
+
+  const isDisabled = isNextDisabled || responding;
 
   return (
     <Box className="interactions-container">
@@ -190,40 +207,59 @@ const AgentInteractions = ({
       <Box className="input-and-buttons-container" display="flex" justifyContent="center" gap={1}>
         {interactiveMode && (
           <>
-            {!isStopping && !stopped ? (
-              <>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={onTriggerNextIteration}
-                  startIcon={<KeyboardDoubleArrowRightIcon />}
-                  disabled={isNextDisabled}
-                  size="small"
-                >
-                  Continue
-                </Button>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  onClick={handleStopClick}
-                  startIcon={<StopIcon />}
-                  size="small"
-                >
-                  Stop
-                </Button>
-              </>
-            ) : null}
-            {isStopping && stopped && (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleRestart}
-                startIcon={<RestoreIcon />}
-                size="small"
-              >
-                Resume
-              </Button>
-            )}
+{!isStopping && !stopped ? (
+  <>
+    <TextField
+      type="number"
+      label="Run X"
+      color="primary"
+      value={selectedIterNum}
+      onChange={handleInputChange}
+    />
+    <FormControl>
+      <InputLabel id="select-label">Iteration</InputLabel>
+      <Select
+        labelId="select-label"
+        label="Iteration"
+        value={selectedIterType}
+        onChange={(e) => setSelectedIterType(e.target.value)}
+      >
+        <MenuItem value="agent">Agent</MenuItem>
+        <MenuItem value="phase">Phase</MenuItem>
+      </Select>
+    </FormControl>
+    <Button
+      variant="contained"
+      color="primary"
+      onClick={() => onTriggerNextIteration(selectedIterNum, selectedIterType)}
+      startIcon={<KeyboardDoubleArrowRightIcon />}
+      disabled={isNextDisabled}
+      size="small"
+    >
+      Continue
+    </Button>
+    <Button
+      variant="contained"
+      color="secondary"
+      onClick={handleStopClick}
+      startIcon={<StopIcon />}
+      size="small"
+    >
+      Stop
+    </Button>
+  </>
+) : null}
+{isStopping && stopped && (
+  <Button
+    variant="contained"
+    color="primary"
+    onClick={handleRestart}
+    startIcon={<RestoreIcon />}
+    size="small"
+  >
+    Resume
+  </Button>
+)}
           </>
         )}
         {isStopping && stopped && !interactiveMode && (

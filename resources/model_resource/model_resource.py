@@ -1,5 +1,6 @@
+import re
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Optional
 
 import tiktoken
 
@@ -10,7 +11,6 @@ from resources.base_resource import BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_utils import truncate_input_to_max_tokens
-from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
 from resources.runnable_base_resource import RunnableBaseResource
 from utils.logger import get_main_logger
@@ -33,15 +33,28 @@ class ModelResourceConfig(BaseResourceConfig):
     model: str
     max_output_tokens: int = field(default=4096)
     max_input_tokens: int = field(default=8192)
-    max_iterations_stored_in_memory: int = field(default=3)
     use_helm: bool = field(default=False)
     temperature: float = field(default=0.5)
-    stop_sequences: List[str] = field(default_factory=lambda: [STOP_TOKEN])
+    stop_sequences: List[str] = field(default_factory=lambda: [])
     use_mock_model: bool = field(default=False)
+    timeout: float = field(default=300.0)
 
     @classmethod
     def create(cls, **kwargs):
+        # If using a mock model but no model name provided, use a default name
+        if kwargs.get("use_mock_model", False) and (
+            "model" not in kwargs or kwargs.get("model") is None
+        ):
+            kwargs["model"] = "mock-model"
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
+
+    def copy_with_changes(self, **kwargs):
+        """
+        Returns a *new* ModelResourceConfig instance with only the specified fields modified.
+        """
+        config_dict = self.__dict__.copy()
+        config_dict.update({k: v for k, v in kwargs.items() if v is not None})
+        return self.__class__(**config_dict)
 
     def validate(self) -> None:
         """Validate LLMResource configuration"""
@@ -55,6 +68,23 @@ class ModelResourceConfig(BaseResourceConfig):
             verify_and_auth_api_key(self.model, self.use_helm)
 
 
+class ModelResponseFailure(Exception):
+    """
+    Custom exception raised when a model response fails.
+    Carries the original exception and the input associated with the failure.
+    """
+
+    def __init__(self, exception=None, input=None):
+        self.exception = exception
+        self.input = input
+
+        # Create a message that includes information about the original exception
+        exception_msg = str(self.exception) if self.exception else "Unknown error"
+        self.message = f"Model response failed: {exception_msg}"
+
+        super().__init__(self.message)
+
+
 class ModelResource(RunnableBaseResource):
     """ModelResource"""
 
@@ -63,14 +93,13 @@ class ModelResource(RunnableBaseResource):
         self.model = self._resource_config.model
         self.max_output_tokens = self._resource_config.max_output_tokens
         self.max_input_tokens = self._resource_config.max_input_tokens
-        self.max_iterations_stored_in_memory = (
-            self._resource_config.max_iterations_stored_in_memory
-        )
         self.helm = self._resource_config.use_helm
         self.temperature = self._resource_config.temperature
         self.stop_sequences = self._resource_config.stop_sequences
         self.use_mock_model = self._resource_config.use_mock_model
-        self.model_provider: ModelProvider = self.get_model_provider()
+        self.timeout = self._resource_config.timeout
+        if not self.use_mock_model:
+            self.model_provider: ModelProvider = self.get_model_provider()
 
     def get_model_provider(self) -> ModelProvider:
         """
@@ -99,9 +128,10 @@ class ModelResource(RunnableBaseResource):
 
                 model_provider = GoogleModels()
             elif (
-                model_prefix == "meta"
+                # TODO: Remove this once we have a better way to handle model prefixes for Together models
+                model_prefix == "meta-llama"
                 or model_prefix == "mistralai"
-                or model_prefix == "together"
+                or model_prefix == "deepseek-ai"
             ):
                 from resources.model_resource.together_models.together_models import (
                     TogetherModels,
@@ -109,7 +139,15 @@ class ModelResource(RunnableBaseResource):
 
                 model_provider = TogetherModels()
             elif model_prefix == "openai":
+                from resources.model_resource.openai_models.openai_models import (
+                    OpenAIModels,
+                )
+
                 model_provider = OpenAIModels()
+            elif model_prefix == "xai":
+                from resources.model_resource.xai_models.xai_models import XAIModels
+
+                model_provider = XAIModels()
             else:
                 raise Exception(f"Unknown model type: {self.model}")
         return model_provider
@@ -121,6 +159,24 @@ class ModelResource(RunnableBaseResource):
             if hallucination_index != -1:
                 response = response[:hallucination_index]
         return response.strip()
+
+    def remove_stop_token(self, response: str):
+        response = response.replace(STOP_TOKEN, "")
+        return response.strip()
+
+    def remove_deepseek_r1_thinking(self, response: str) -> str:
+        if "<think>" not in response:
+            return response
+
+        if "</think>\n\n" in response:
+            # The think block is usually followed by two newlines
+            return re.sub("<think>.*</think>\n\n", "", response, flags=re.DOTALL)
+        elif "</think>" in response:
+            return re.sub("<think>.*</think>", "", response, flags=re.DOTALL)
+        else:
+            # Unclosed think block
+            logger.info("The model response contains an unclosed <think> block.")
+            return ""
 
     def tokenize(self, message: str) -> List[int]:
         """
@@ -181,19 +237,31 @@ class ModelResource(RunnableBaseResource):
             use_helm=self.helm,
         )
 
-        model_response = self.model_provider.make_request(
-            model=self.model,
-            message=model_input,
-            temperature=self.temperature,
-            max_tokens=self.max_output_tokens,
-            stop_sequences=self.stop_sequences,
-        )
+        try:
+            model_response = self.model_provider.make_request(
+                model=self.model,
+                message=model_input,
+                temperature=self.temperature,
+                max_tokens=self.max_output_tokens,
+                stop_sequences=self.stop_sequences,
+                timeout=self.timeout,
+            )
+        except Exception as e:
+            # Wrap and raise custom exception that carries the input and error
+            raise ModelResponseFailure(
+                exception=e,
+                input=model_input,
+            ) from e
+        logger.info(f"Unparsed LM Response:\n{model_response}")
 
         lm_response = self.remove_hallucinations(model_response.content)
+        lm_response = self.remove_stop_token(lm_response)
+        lm_response = self.remove_deepseek_r1_thinking(lm_response)
         lm_response = lm_response + f"\n{STOP_TOKEN}"
         metadata = (
             {
                 "input": model_input,
+                "raw_output": model_response.content,
                 "model": self.model,
                 "temperature": self.temperature,
                 "max_input_tokens": self.max_input_tokens,
@@ -233,7 +301,6 @@ class ModelResource(RunnableBaseResource):
                 "model": self.model,
                 "max_output_tokens": self.max_output_tokens,
                 "max_input_tokens": self.max_input_tokens,
-                "max_iterations_stored_in_memory": self.max_iterations_stored_in_memory,
                 "helm": self.helm,
                 "temperature": self.temperature,
                 "stop_sequences": self.stop_sequences,

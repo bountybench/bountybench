@@ -7,104 +7,121 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  lint:
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
-      - name: Pre-configure Git
-        run: |
-          git config --global credential.helper store
-          git config --global url."https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/".insteadOf "https://github.com/"
-          git config --global --add safe.directory '*'
-          
-          # Create auth file
-          echo "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
-          chmod 600 ~/.git-credentials
-          
-          # Enable verbose Git output
-          export GIT_TRACE=2
-          export GIT_CURL_VERBOSE=2
-          export GIT_TRACE_PACKET=2
-
-      - name: Checkout main repository
+      - name: Checkout repository for linting
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          submodules: false
-          token: ${{ secrets.GH_TOKEN }}
-
-      - name: Manual submodule checkout
-        run: |
-          echo "Initializing submodules..."
-          git submodule update --init bountybench
-
-      - name: Check System Architecture
-        run: uname -m
-
-      - name: Cleanup Unused Tools
-        run: |
-          echo "Removing unnecessary pre-installed tools..."
-          df -h
-          sudo apt-get clean
-          sudo apt-get autoremove -y
-          sudo rm -rf /var/lib/apt/lists/*
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /usr/local/lib/android/sdk
-          sudo rm -rf /opt/ghc
-          find /opt/hostedtoolcache/Python -mindepth 1 -maxdepth 1 ! -name "3.11.*" -exec sudo rm -rf {} \; || true
-          df -h
+          fetch-depth: 1
+          
+      - name: Fetch base branch for pull requests
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-
-      - name: Cache Python dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
+          
+      - name: Lint modified Python files
         run: |
           python -m pip install --upgrade pip
-          pip install --cache-dir ~/.cache/pip -r requirements.txt
+          pip install "black==24.10.0" "isort==5.13.2"
+          # Simplified grep pattern to avoid parsing issues
+          MODIFIED_PY_FILES=$(git diff --name-only --diff-filter=d origin/main HEAD | grep ".py$" | grep -v "^bountybench/" || echo "")
+          if [ -n "$MODIFIED_PY_FILES" ]; then
+            echo "Running black on modified files..."
+            echo "$MODIFIED_PY_FILES" | xargs black --check
+            echo "Running isort on modified files..."
+            echo "$MODIFIED_PY_FILES" | xargs isort --check --profile black
+          else
+            echo "No modified Python files to lint"
+          fi
 
-      - name: Set up Git user information
+  frontend-tests:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Free disk space
         run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
+          # Extreme disk space cleanup
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker system prune -af || true
+          df -h
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '14'
-
-      - name: Cache Node.js modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: "14"
 
       - name: Install frontend dependencies
         working-directory: ./frontend
         run: npm install
 
-      - name: Build React app
-        working-directory: ./frontend
-        run: |
-          CI=true npm run build
-        env:
-          CI: true
-
       - name: Run frontend tests
         working-directory: ./frontend
-        run: npm test -- --watchAll=false
-  
+        run: |
+          CI=true npm test -- --watchAll=false
+
+  backend-tests:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Free disk space
+        run: |
+          # Extreme disk space cleanup before starting
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /var/lib/apt/lists/*
+          find /opt/hostedtoolcache -mindepth 1 -maxdepth 1 -type d -not -path "*/Python/3.11*" -exec sudo rm -rf {} \;
+          docker system prune -af || true
+          df -h
+
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: false
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Set up Git
+        run: |
+          git config --global credential.helper store
+          git config --global url."https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global --add safe.directory '*'
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+
+          # Create auth file
+          echo "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
+          chmod 600 ~/.git-credentials
+
+      - name: Manually check out submodule
+        run: |
+          echo "Initializing only required submodules..."
+          git submodule update --init bountybench
+
+      - name: Check Disk Space
+        run: df -h
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
       - name: Set up QEMU
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
@@ -126,20 +143,6 @@ jobs:
 
       - name: Create Docker Network
         run: docker network create shared_net || true
-
-      - name: Lint modified Python files
-        run: |
-          pip install black isort
-          # Simplified grep pattern to avoid parsing issues
-          MODIFIED_PY_FILES=$(git diff --name-only --diff-filter=d origin/main HEAD | grep ".py$" | grep -v "^bountybench/" || echo "")
-          if [ -n "$MODIFIED_PY_FILES" ]; then
-            echo "Running black on modified files..."
-            echo "$MODIFIED_PY_FILES" | xargs black --check
-            echo "Running isort on modified files..."
-            echo "$MODIFIED_PY_FILES" | xargs isort --check --profile black
-          else
-            echo "No modified Python files to lint"
-          fi
 
       - name: Run backend tests with coverage
         run: |

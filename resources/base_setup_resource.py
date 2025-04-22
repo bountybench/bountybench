@@ -1,7 +1,7 @@
 import atexit
 import re
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
 from queue import Queue
 from typing import List, Optional
@@ -9,7 +9,6 @@ from typing import List, Optional
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.utils import run_command
 from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 
@@ -72,7 +71,7 @@ class BaseSetupResource(BaseResource, ABC):
             raise FileNotFoundError(f"Work directory does not exist: {self.work_dir}")
 
         try:
-            start_progress(f"Executing {self.setup_script_name} in {self.work_dir}")
+            logger.info(f"Executing {self.setup_script_name} in {self.work_dir}")
             result = None  # Initialize result variable
 
             try:
@@ -115,7 +114,8 @@ class BaseSetupResource(BaseResource, ABC):
                     f"Unable to successfully execute {self.setup_script_name} at {self.resource_id}: {e}"
                 )
             finally:
-                stop_progress()
+                logger.info("Pruning dangling docker images...")
+                run_command(command=["docker", "image", "prune", "-f"])
 
             if (
                 result and result.stdout
@@ -136,8 +136,8 @@ class BaseSetupResource(BaseResource, ABC):
                             f"Failed to wait until all containers healthy: {e}"
                         )
             logger.info(
-                    f"{self.name} environment setup complete for {self.resource_id}"
-                )
+                f"{self.name} environment setup complete for {self.resource_id}"
+            )
 
         except FileNotFoundError as e:
             logger.error(str(e))
@@ -194,7 +194,7 @@ class BaseSetupResource(BaseResource, ABC):
 
         start_time = time.time()
 
-        start_progress("Checking container health")
+        logger.info("Checking container health")
 
         try:
             while not container_queue.empty():
@@ -229,8 +229,6 @@ class BaseSetupResource(BaseResource, ABC):
             return True
         except Exception as e:
             raise
-        finally:
-            stop_progress()
 
     def extract_container_names(
         self, stdout: Optional[str] = None, stderr: Optional[str] = None

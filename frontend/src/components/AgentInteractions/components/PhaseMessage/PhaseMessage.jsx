@@ -1,8 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AgentMessage from '../AgentMessage/AgentMessage';
+import { formatTimeElapsed } from '../../utils/messageFormatters';
 import './PhaseMessage.css'
 
 const PhaseMessage = ({
@@ -20,9 +22,57 @@ const PhaseMessage = ({
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
   const messageContainerRef = useRef(null);
+  const [commandsExpanded, setCommandsExpanded] = useState(false);
+
 
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
+  const handleToggleCommands = () => setCommandsExpanded(!commandsExpanded);
+
+  const iterationCount = useCallback(() => {
+    if (!message?.current_children || !Array.isArray(message.current_children)) {
+      return 0;
+    }
+    
+    let iterations = message.current_children.length;
+    
+    if (iterations > 0 && message.current_children[0].agent_id === 'system') {
+      iterations = iterations - 1;
+    }
+    
+    return iterations;
+  }, [message?.current_children]);
+
+  const iterations = iterationCount();
+
+  const processLMCalls = () => {
+    let totalCalls = 0;
+    let commands = [];
+    
+    if (!message.current_children || message.current_children.length === 0) {
+      return { totalCalls, commands };
+    }
+    
+    message.current_children.forEach(agentMessage => {
+      if (agentMessage.action_messages && Array.isArray(agentMessage.action_messages)) {
+        const modelActions = agentMessage.action_messages.filter(
+          action => action.resource_id === "model"
+        );
+        
+        totalCalls += modelActions.length;
+        
+        modelActions.forEach(action => {
+          if (action.command) {
+            commands.push(action.command);
+          }
+        });
+      }
+    });
+    
+    return { totalCalls, commands };
+  };
+
+  const { totalCalls: lmCalls, commands } = processLMCalls();
 
   useEffect(() => {
     if (messageContainerRef.current && message.current_id) {
@@ -52,8 +102,75 @@ const PhaseMessage = ({
           </Box>
           <Collapse in={contentExpanded}>
             <Typography className="phase-summary">
-              Summary: {message.phase_summary || '(no summary)'}
+              Summary: {message.phase_summary || '-'}
             </Typography>
+            
+            {(iterations !== null && iterations !== undefined) && (
+              <Typography className="phase-summary">
+                Iterations: {iterations || '-'} | Iteration time: {formatTimeElapsed(message.phase_usage?.total_iteration_time_ms) || '-'}
+              </Typography>
+            )}
+
+            {message.current_children?.length > 0 && (
+              <>
+                {(lmCalls !== null && iterations !== undefined) && (
+                  <Typography className="phase-summary" sx={{ marginTop: 1 }}>
+                    LM Calls: {lmCalls || '-'} | Input tokens: {message.phase_usage?.input_token || '-'} | Output tokens: {message.phase_usage?.output_token || '-'}
+                  </Typography>
+                )}
+
+                {commands.length > 0 && (
+                  <Box className="command-summary-container" sx={{ width: '100%' }}>
+                    <Box 
+                      className="command-summary-header" 
+                      onClick={handleToggleCommands}
+                      sx={{ 
+                        alignItems: 'center', 
+                        cursor: 'pointer',
+                        marginTop: 1,
+                      }}
+                    >
+                      <Typography className="phase-summary" sx={{width: '100%'}}>
+                        Command Log
+                        <IconButton 
+                          size="smaller" 
+                          className="command-toggle-button"
+                          aria-label="toggle commands"
+                          sx={{ color: 'black', ml: 5 }}
+                        >
+                          {commandsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </IconButton>
+                      </Typography>
+                    </Box>
+                    
+                    <Collapse in={commandsExpanded}>
+                      <Box 
+                        className="commands-list"
+                        sx={{ 
+                          backgroundColor: '#f5f5f5',
+                          padding: 1.5,
+                          borderRadius: 1,
+                          marginBottom: 1.5
+                        }}
+                      >
+                        {commands.map((command, index) => (
+                          <Typography 
+                            key={index} 
+                            className="command-item"
+                            sx={{ 
+                              fontSize: '0.8rem',
+                              marginBottom: index < commands.length - 1 ? 1 : 0
+                            }}
+                          >
+                            {index + 1}. {command}
+                          </Typography>
+                        ))}
+                      </Box>
+                    </Collapse>
+                  </Box>
+                )}
+              </>
+            )}
 
             {message.current_children?.length > 0 && (
               <Box className="agent-messages-container">

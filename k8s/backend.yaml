@@ -21,7 +21,7 @@ spec:
         effect: "NoSchedule"
       containers:
       - name: backend
-        image: us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:v1
+        image: us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:ui
         ports:
         - containerPort: 7999
         securityContext:
@@ -36,11 +36,9 @@ spec:
             name: app-secrets
       volumes:
       - name: dind-storage
-        persistentVolumeClaim:
-          claimName: dind-data
+        emptyDir: {}
       - name: logs
-        persistentVolumeClaim:
-          claimName: logs-data
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

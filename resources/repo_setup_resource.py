@@ -1,14 +1,9 @@
-import atexit
-import re
-import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from resources.base_resource import BaseResourceConfig
 from resources.base_setup_resource import BaseSetupResource
-from resources.utils import run_command
 from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 

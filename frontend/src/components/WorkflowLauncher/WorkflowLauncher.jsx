@@ -20,6 +20,7 @@ import './WorkflowLauncher.css';
 import { SaveConfigDialog } from './SaveConfigDialog';
 import { TaskSelectionSection } from './TaskSelectionSection';
 import { ModelSelectionSection } from './ModelSelectionSection';
+import { getDefaultMaxOutputTokens } from '../../token_default_config';
 
 import { API_BASE_URL } from '../../config';
 
@@ -31,8 +32,8 @@ const LauncherState = {
   CREATING_WORKFLOW: 'CREATING_WORKFLOW',
 };
 
-const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-31';
-const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
+const DEFAULT_NON_HELM_MODEL = 'openai/o3-2025-04-03-high-reasoning-effort';
+const DEFAULT_HELM_MODEL = 'anthropic/claude-3-7-sonnet-20250219';
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode, useMockModel, setUseMockModel}) => {
   const navigate = useNavigate();
@@ -72,7 +73,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     tasks: [{ task_dir: '', bounty_number: '' }],
     vulnerability_type: '',
     interactive: true,
-    iterations: 30,
+    iterations: 100,
     api_key_name: '',
     api_key_value: '',
     model: '',
@@ -114,6 +115,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       model: defaultModel ? defaultModel.name : '',
       use_helm: isHelmModel,
       use_mock_model: prev.use_mock_model, // Preserve mock model selection
+      max_output_tokens: getDefaultMaxOutputTokens(defaultModel?.name, isHelmModel).toString(),
     }));
   };
 
@@ -160,7 +162,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setFormData(prev => ({
         ...prev,
         model: defaultModel ? defaultModel.name : '',
-        use_helm: isHelmModel
+        use_helm: isHelmModel,
+        max_output_tokens: getDefaultMaxOutputTokens(defaultModel?.name, isHelmModel).toString(),
       }));
     } catch (err) {
       setLauncherState({
@@ -314,6 +317,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setFormData((prev) => ({
         ...prev,
         [name]: name === 'interactive' ? checked : value,
+        ...(name === 'model' ? {max_output_tokens: getDefaultMaxOutputTokens(value, prev.use_helm).toString() }: {}),
         ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
       }));
     }
@@ -553,7 +557,15 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
                 control={
                   <Switch
                     checked={useMockModel} 
-                    onChange={(e) => setUseMockModel(e.target.checked)} 
+                    onChange={(e) => {
+                      setUseMockModel(e.target.checked);
+                      setFormData(prev => ({
+                        ...prev,
+                        model: e.target.checked 
+                          ? '' 
+                          : (formData.use_helm ? DEFAULT_HELM_MODEL : DEFAULT_NON_HELM_MODEL)
+                      }));
+                    }} 
                     name="use_mock_model"
                     color="primary"
                   />

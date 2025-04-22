@@ -6,21 +6,21 @@ import { ThemeProvider } from "@mui/material/styles";
 import { darkTheme } from "../../../../theme";
 
 test("renders agent type and message", () => {
-  const message = {
-    agent_id: "executor_agent",
-    message: "custom message",
-    current_children: [],
-  };
-  render(
-    <ThemeProvider theme={darkTheme}>
+	const message = {
+		agent_id: "executor_agent",
+		message: "custom message",
+		current_children: [],
+	};
+	render(
+		<ThemeProvider theme={darkTheme}>
       <AgentMessage
         message={message}
         registerToggleOperation={() => { }}
       />
-    </ThemeProvider>
-  );
-  expect(screen.getByText(/Agent: executor_agent/i)).toBeInTheDocument();
-  expect(screen.getByText(/custom message/i)).toBeInTheDocument();
+		</ThemeProvider>
+	);
+	expect(screen.getByText(/EXECUTOR_AGENT/i)).toBeInTheDocument();
+	expect(screen.getByText(/custom message/i)).toBeInTheDocument();
 });
 
 test("checks multiple version", () => {

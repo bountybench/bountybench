@@ -12,22 +12,30 @@ from phases.base_phase import BasePhase
 from resources.resource_manager import ResourceManager
 from utils.logger import get_main_logger
 from workflows.interactive_controller import InteractiveController
+from workflows.workflow_context import WorkflowContext
 
 logger = get_main_logger(__name__)
 
 
 class BaseWorkflow(ABC):
+    """
+    Base class for workflows responsible for parsing and validating arguments
+    self.params will store variables needed for configuring phases
+    Any workflow specific setup should be done by overriding _initalize()
+    """
 
     def __init__(self, **kwargs):
+        # Validate arguments first
         logger.info(f"Initializing workflow {self.name}")
-        self.params = kwargs
-        self.interactive = kwargs.get("interactive", False)
-        if kwargs.get("phase_iterations"):
-            self.phase_iterations = kwargs.get("phase_iterations")
+        self.validate_arguments(kwargs)
 
-        self.max_iterations = 25
+        # Apply defaults for optional arguments
+        kwargs = self.apply_default_values(kwargs)
+
+        self.params = kwargs
+        # Required for interactive controller
+        self.interactive = kwargs.get("interactive", False)
         self._current_phase_idx = 0
-        self._workflow_iteration_count = 0
         self._phase_graph = {}  # Stores phase relationships
         self._root_phase = None
         self._current_phase = None
@@ -40,6 +48,7 @@ class BaseWorkflow(ABC):
             workflow_name=self.name,
             task=self.task,
             additional_metadata=self._get_metadata(),
+            model_name=self.params.get("model", "").replace("/", "-"),
         )
 
         self._check_docker_desktop_availability()
@@ -50,12 +59,12 @@ class BaseWorkflow(ABC):
         self._compute_resource_schedule()
         logger.info(f"Finished initializing workflow {self.name}")
 
-        self.next_iteration_event = asyncio.Event()
+        self.next_iteration_queue = asyncio.Queue()
 
         atexit.register(self._finalize_workflow)
 
     def _finalize_workflow(self):
-        self.workflow_message.save()
+        self.workflow_message.on_exit()
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
@@ -81,7 +90,7 @@ class BaseWorkflow(ABC):
     @property
     def current_phase(self):
         return self._current_phase
-    
+
     @property
     def phase_graph(self):
         return self._phase_graph
@@ -152,8 +161,9 @@ class BaseWorkflow(ABC):
     async def run(self) -> None:
         """Execute the entire workflow by running all phases in sequence."""
         logger.info(f"Running workflow {self.name}")
-        async for _ in self._run_phases():
-            continue
+        with WorkflowContext(self.workflow_message.workflow_id):
+            async for _ in self._run_phases():
+                continue
 
     async def _run_phases(self):
         prev_phase_message = None
@@ -163,15 +173,17 @@ class BaseWorkflow(ABC):
 
             self._current_phase = self._root_phase
 
+            # Run all phases one at a time
             while self._current_phase:
                 logger.info(f"Running {self._current_phase.name}")
                 phase_message = await self._run_single_phase(
                     self._current_phase, prev_phase_message
                 )
+                # Note: this phase message is unused as a return value
                 yield phase_message
 
                 prev_phase_message = phase_message
-                if not phase_message.success or self._max_iterations_reached():
+                if not phase_message.success:
                     break
 
                 next_phases = self._phase_graph.get(self._current_phase, [])
@@ -189,7 +201,12 @@ class BaseWorkflow(ABC):
     async def _run_single_phase(
         self, phase: BasePhase, prev_phase_message: PhaseMessage
     ) -> PhaseMessage:
-        phase_instance = self._setup_phase(phase)
+        try:
+            phase_instance = await asyncio.to_thread(self._setup_phase, phase)
+        except Exception as e:
+            logger.error(f"Error in phase setup: {str(e)}")
+            raise
+
         for agent_name, agent in phase_instance.agents:
             self.workflow_message.add_agent(agent_name, agent)
 
@@ -201,21 +218,14 @@ class BaseWorkflow(ABC):
         ).items():
             self.workflow_message.add_resource(resource_id, resource)
 
-        phase_message = await phase_instance.run(
-            self.workflow_message, prev_phase_message
-        )
+        phase_message = await phase_instance.run(prev_phase_message)
 
         logger.status(
             f"Phase {phase.phase_config.phase_idx} completed: {phase.__class__.__name__} with success={phase_message.success}",
             phase_message.success,
         )
 
-        self._workflow_iteration_count += 1
-
         return phase_message
-
-    def _max_iterations_reached(self) -> bool:
-        return self._workflow_iteration_count >= self.max_iterations
 
     def _handle_workflow_exception(self, exception: Exception):
         raise exception
@@ -235,7 +245,7 @@ class BaseWorkflow(ABC):
         """
         phases = self._phase_graph.keys()
         self.resource_manager.compute_schedule(phases)
-        logger.debug("Computed resource schedule for all phases based on agents.")
+        logger.info("Computed resource schedule for all phases based on agents.")
 
     def register_phase(self, phase: BasePhase):
         if phase not in self._phase_graph:
@@ -251,12 +261,13 @@ class BaseWorkflow(ABC):
         self.agent_manager.deallocate_all_agents()
         self.resource_manager.deallocate_all_resources()
 
-        if hasattr(self, "next_iteration_event"):
-            self.next_iteration_event.clear()
+        if hasattr(self, "next_iteration_queue"):
+            while not self.next_iteration_queue.empty():
+                self.next_iteration_queue.get()
 
         self._finalize_workflow()
 
-    async def restart(self): 
+    async def restart(self):
         self._initialize()
 
         self._setup_resource_manager()
@@ -264,25 +275,28 @@ class BaseWorkflow(ABC):
         self._setup_interactive_controller()
         self._compute_resource_schedule()
 
-        self.next_iteration_event = asyncio.Event()
+        self.next_iteration_queue = asyncio.Queue()
         self.workflow_message.new_log()
         logger.info(f"Restarted workflow {self.name}")
-        
-    async def run_restart(self): 
+
+    async def run_restart(self):
         logger.info(f"Running restarted workflow {self.name}")
         # pick up running from current phase
         self._current_phase.setup()
-        agent_configs =  self._current_phase.define_agents()
+        agent_configs = self._current_phase.define_agents()
         self.agent_manager.initialize_phase_agents(agent_configs)
-        
-        phase_message = await self._current_phase.run(self.workflow_message, None)
 
-        logger.status(f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}", phase_message.success)
+        with WorkflowContext(self.workflow_message.workflow_id):
+            phase_message = await self._current_phase.run(None)
 
-        self._workflow_iteration_count += 1
+        logger.status(
+            f"Phase {self._current_phase.phase_config.phase_idx} completed: {self._current_phase.__class__.__name__} with success={phase_message.success}",
+            phase_message.success,
+        )
+
         next_phases = self._phase_graph.get(self._current_phase, [])
         self._current_phase = next_phases[0] if next_phases else None
-        
+
         # Continue running the remaining phases (if any)
         if self._current_phase:
             try:
@@ -295,3 +309,37 @@ class BaseWorkflow(ABC):
     @property
     def name(self):
         return self.__class__.__name__
+
+    def apply_default_values(self, kwargs):
+        """
+        Apply default values for optional arguments that weren't provided.
+
+        Args:
+            kwargs: Dictionary of arguments passed to the workflow
+
+        Returns:
+            Dictionary with default values applied for missing optional arguments
+        """
+        updated_kwargs = kwargs.copy()
+        if hasattr(self, "default_values"):
+            for arg, default_value in self.default_values.items():
+                if arg not in updated_kwargs:
+                    updated_kwargs[arg] = default_value
+                    logger.info(f"Using default value for {arg}: {default_value}")
+        else:
+            logger.info(f"No default values found for {self.name}")
+
+        return updated_kwargs
+
+    def validate_arguments(self, kwargs):
+        """
+        Validate arguments for the workflow. This method should be overridden by each workflow
+        subclass to implement specific validation logic appropriate for that workflow's needs.
+
+        Args:
+            kwargs: Dictionary of arguments passed to the workflow
+
+        Raises:
+            ValueError: If validation fails
+        """
+        pass

@@ -43,15 +43,34 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   // Fetch active workflows to check if given workflowId exists
   useEffect(() => {
     const checkIfWorkflowExists = async () => {
-      const response = await fetch(`${API_BASE_URL}/workflow/active`);
-      const data = await response.json();
-
-      if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
-        showInvalidWorkflowToast();
+      try {
+        const response = await fetch(`${API_BASE_URL}/workflow/active`);
+        
+        if (!response.ok) {
+          console.error(`HTTP error! Status: ${response.status}`);
+          navigate(`/`);
+        }
+        
+        const data = await response.json();
+        
+        // Check if data has the expected structure
+        if (data && data.active_workflows) {
+          if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
+            showInvalidWorkflowToast();
+            navigate(`/`);
+          }
+        } else {
+          // Handle unexpected data structure
+          console.error("Unexpected API response format:", data);
+          navigate(`/`);
+        }
+      } catch (error) {
+        // Handle network errors or other exceptions
+        console.error("Error checking workflow:", error);
         navigate(`/`);
       }
     };
-
+  
     if (!hasCheckedValidity) { // Check if validity has already been checked
       checkIfWorkflowExists();
       setHasCheckedValidity(true);
@@ -73,11 +92,16 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     error,
     phaseMessagesCount: phaseMessages?.length
   });
-
   const getTailMessageId = async () => {
-    if (phaseMessages?.length > 0 && phaseMessages[phaseMessages.length - 1].current_children?.length > 0) {
-      const lastMessage = phaseMessages[phaseMessages.length - 1].current_children[phaseMessages[phaseMessages.length - 1].current_children.length - 1];
-      return lastMessage.current_id;
+    if (phaseMessages?.length > 0){
+      if (phaseMessages[phaseMessages.length - 1].current_children?.length > 0) {
+        const lastMessage = phaseMessages[phaseMessages.length - 1].current_children[phaseMessages[phaseMessages.length - 1].current_children.length - 1];
+        return lastMessage.current_id;
+      }
+      else if (phaseMessages.length > 1 && phaseMessages[phaseMessages.length - 2].current_children?.length > 0) {
+        const lastMessage = phaseMessages[phaseMessages.length - 2].current_children[phaseMessages[phaseMessages.length - 2].current_children.length - 1];
+        return lastMessage.current_id;
+      }
     }
     return null;
   };
@@ -178,7 +202,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     setIsResourcePanelOpen(!isResourcePanelOpen);
   };
 
-  const triggerNextIteration = async () => {
+  const triggerNextIteration = async (iterNum, iterType) => {
     if (workflowStatus === "stopped") {
       console.error("Cannot trigger next iteration: Workflow is stopped.");
       return;
@@ -187,13 +211,13 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
       setIsNextDisabled(true);
       try {
         const currentMessageId = await getTailMessageId();
-        console.log(`Tail message id is ${currentMessageId}`)
+        console.log(`Tail message id is ${currentMessageId}, proceed to next ${iterNum} ${iterType} iteration(s)`)
         const response = await fetch(`${API_BASE_URL}/workflow/${workflowId}/run-message`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ message_id: currentMessageId }),
+          body: JSON.stringify({ message_id: currentMessageId, num_iter: iterNum, type_iter: iterType }),
         });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

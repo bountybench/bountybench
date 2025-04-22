@@ -8,9 +8,11 @@ import docker
 import pytest
 
 from resources.base_setup_resource import BaseSetupResource
-from resources.bounty_setup_resource import BountySetupResource, BountySetupResourceConfig
+from resources.bounty_setup_resource import (
+    BountySetupResource,
+    BountySetupResourceConfig,
+)
 from resources.repo_setup_resource import RepoSetupResource, RepoSetupResourceConfig
-
 
 
 @pytest.fixture
@@ -153,7 +155,7 @@ def test_cleanup_on_initialization_failure(temp_dir):
     """Test that cleanup happens if a runtime error occurs during initialization."""
     resource_id = "test_resource"
     test_container_name = "test_container_cleanup_test"
-    
+
     # Make sure the container is not running at the start of the test
     subprocess.run(["docker", "stop", test_container_name], capture_output=True)
     subprocess.run(["docker", "rm", test_container_name], capture_output=True)
@@ -162,21 +164,31 @@ def test_cleanup_on_initialization_failure(temp_dir):
         # Create a test directory structure for the bounty setup
         bounty_dir = Path(temp_dir) / "bounties" / "bounty_0" / "setup_files"
         bounty_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Add a test setup script that doesn't actually create a container
         # We'll mock the container creation
         setup_script = bounty_dir / "setup_bounty_env.sh"
-        setup_script.write_text(f"""
+        setup_script.write_text(
+            f"""
             echo "Container {test_container_name} Started"
             exit 0
-        """)
+        """
+        )
         setup_script.chmod(0o755)
 
-        with patch.object(BaseSetupResource, 'stop') as mock_stop:
-            with patch.object(BaseSetupResource, 'extract_container_names', return_value=[test_container_name]):
-                with patch.object(BaseSetupResource, 'wait_until_all_containers_healthy') as mock_health_check:
-                    mock_health_check.side_effect = RuntimeError("Failed to wait until all containers healthy")
-                    
+        with patch.object(BaseSetupResource, "stop") as mock_stop:
+            with patch.object(
+                BaseSetupResource,
+                "extract_container_names",
+                return_value=[test_container_name],
+            ):
+                with patch.object(
+                    BaseSetupResource, "wait_until_all_containers_healthy"
+                ) as mock_health_check:
+                    mock_health_check.side_effect = RuntimeError(
+                        "Failed to wait until all containers healthy"
+                    )
+
                     # The test should raise the expected RuntimeError
                     with pytest.raises(RuntimeError) as exc_info:
                         BountySetupResource(
@@ -187,17 +199,20 @@ def test_cleanup_on_initialization_failure(temp_dir):
                             ),
                         )
 
-                    assert "Failed to wait until all containers healthy" in str(exc_info.value)
-                    
+                    assert "Failed to wait until all containers healthy" in str(
+                        exc_info.value
+                    )
+
                     # Verify that stop was called to clean up containers
-                    assert mock_stop.called, "The stop method was not called to clean up containers"
-    
+                    assert (
+                        mock_stop.called
+                    ), "The stop method was not called to clean up containers"
+
     finally:
         # Ensure cleanup even if the test fails
         subprocess.run(["docker", "stop", test_container_name], capture_output=True)
         subprocess.run(["docker", "rm", test_container_name], capture_output=True)
 
-    
 
 def test_error_handling(temp_dir):
     """Test error scenarios for SetupResource."""

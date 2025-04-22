@@ -1,8 +1,9 @@
 import traceback
+
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 
-from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeInput
 from backend.execution_backends import ExecutionBackend
+from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeInput
 
 workflow_service_router = APIRouter()
 
@@ -35,8 +36,8 @@ async def restart_workflow(workflow_id: str, request: Request):
 async def run_message(workflow_id: str, data: MessageData, request: Request):
     execution_backend: ExecutionBackend = request.app.state.execution_backend
     result = await execution_backend.run_message(workflow_id, data)
-    if "error" in result: # Do not raise an exception
-        print(f"Error running message: {result['error']}") 
+    if "error" in result:  # Do not raise an exception
+        print(f"Error running message: {result['error']}")
     return result
 
 
@@ -70,7 +71,7 @@ async def update_interactive_mode(
 async def last_message(workflow_id: str, request: Request):
     execution_backend: ExecutionBackend = request.app.state.execution_backend
     result = await execution_backend.get_last_message(workflow_id)
-    if "error" in result: # Do not raise an exception
+    if "error" in result:  # Do not raise an exception
         print(f"Error getting last message: {result['error']}")
     return result
 
@@ -79,7 +80,7 @@ async def last_message(workflow_id: str, request: Request):
 async def websocket_endpoint(websocket: WebSocket, workflow_id: str):
     request = websocket.scope["app"]
     execution_backend: ExecutionBackend = request.state.execution_backend
-    
+
     try:
         await execution_backend.handle_websocket_connection(workflow_id, websocket)
     except WebSocketDisconnect:
@@ -102,7 +103,7 @@ async def toggle_version(workflow_id: str, data: dict, request: Request):
     execution_backend: ExecutionBackend = request.app.state.execution_backend
     message_id = data.get("message_id")
     direction = data.get("direction")  # "prev" or "next"
-    
+
     result = await execution_backend.toggle_version(workflow_id, message_id, direction)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -121,23 +122,29 @@ async def get_workflow_resources(workflow_id: str, request: Request):
 @workflow_service_router.post("/workflow/{workflow_id}/mock-model")
 async def update_mock_model_mode(workflow_id: str, request: Request):
     """
-    Toggles the `use_mock_model` setting using InteractiveController.
+    Toggles the use_mock_model setting using InteractiveController.
     """
     execution_backend: ExecutionBackend = request.app.state.execution_backend
-    
+
     try:
         data = await request.json()
         new_mock_model_state = data.get("use_mock_model", None)
 
         if new_mock_model_state is None:
-            raise HTTPException(status_code=400, detail="use_mock_model value is required")
-        
-        result = await execution_backend.update_mock_model_mode(workflow_id, new_mock_model_state)
+            raise HTTPException(
+                status_code=400, detail="use_mock_model value is required"
+            )
+
+        result = await execution_backend.update_mock_model_mode(
+            workflow_id, new_mock_model_state
+        )
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return result
 
     except Exception as e:
         error_traceback = traceback.format_exc()
-        print(f"Error updating mock model for workflow {workflow_id}: {str(e)}\n{error_traceback}")
+        print(
+            f"Error updating mock model for workflow {workflow_id}: {str(e)}\n{error_traceback}"
+        )
         raise HTTPException(status_code=500, detail=str(e))

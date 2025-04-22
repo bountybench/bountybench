@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from workflows.interactive_controller import IterationType
+
 
 class StartWorkflowInput(BaseModel):
     workflow_name: str = Field(..., description="Name of the workflow to start")
@@ -33,6 +35,8 @@ class MessageInputData(BaseModel):
 
 class MessageData(BaseModel):
     message_id: str
+    num_iter: Optional[int] = 1
+    type_iter: Optional[IterationType] = IterationType.AGENT
 
 
 class UpdateInteractiveModeInput(BaseModel):

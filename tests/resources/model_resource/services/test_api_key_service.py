@@ -109,6 +109,33 @@ class TestApiKeyService(unittest.TestCase):
         Test the complete validation flow with a valid key and saving to .env
         """
 
+        # Custom version of load_dotenv that doesn't add OPENAI_API_KEY
+        def custom_load_dotenv(
+            dotenv_path=None, stream=None, verbose=False, override=False, **kwargs
+        ):
+            # Real load_dotenv adds keys to os.environ, but we'll prevent OPENAI_API_KEY
+
+            # Import a clean version of dotenv without our patches
+            import importlib
+
+            importlib.reload(dotenv)
+
+            # First clear any existing key
+            if "OPENAI_API_KEY" in os.environ:
+                del os.environ["OPENAI_API_KEY"]
+
+            print(f"os environ before load dotenv: {os.environ}")
+
+            # Actually load the dotenv file
+            dotenv.load_dotenv(dotenv_path, stream, verbose, override, **kwargs)
+
+            # Now remove the OPENAI_API_KEY if it was added
+            if "OPENAI_API_KEY" in os.environ:
+                del os.environ["OPENAI_API_KEY"]
+
+            print(f"os environ after custom load dotenv: {os.environ}")
+            return True
+
         def input_args():
             yield "sk-test-valid123"
             yield "y"
@@ -119,7 +146,8 @@ class TestApiKeyService(unittest.TestCase):
             patch("builtins.input", side_effect=input_args()),
             patch("dotenv.find_dotenv", return_value=TEMP_ENV_FILE.name),
             patch("pathlib.Path.is_file", return_value=True),
-            patch("dotenv.load_dotenv", return_value=True),
+            # Use our custom load_dotenv function
+            patch("dotenv.load_dotenv", custom_load_dotenv),
             patch(
                 "resources.model_resource.services.api_key_service.set_key",
                 mock_set_key,
@@ -129,9 +157,8 @@ class TestApiKeyService(unittest.TestCase):
                 "openai/test_model", False, auth_service=self.mock_auth_service
             )
 
+            # Should be called once (just as in GitHub CI)
             mock_set_key.assert_called_once()
-            # Only check that set_key was called, don't verify exact parameters
-            # since they may vary in different environments
 
     def test_verify_model_flag_behavior(self):
         """
@@ -185,6 +212,61 @@ class TestApiKeyService(unittest.TestCase):
             "sk-test-valid123", "test/valid-model", verify_model=True
         )
         self.assertTrue(_ok)
+
+    def test_openai_reasoning_suffix_stripping(self):
+        """
+        Test that the reasoning effort suffixes are properly stripped from OpenAI model names
+        during verification.
+        """
+        from resources.model_resource.services.api_key_service import (
+            _auth_openai_api_key,
+        )
+
+        # Create a mock response object for the OpenAI API
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [
+                {"id": "o1-preview-2024-09-12"},
+                {"id": "o3-mini-2025-01-31"},
+                {"id": "gpt-4o-2024-11-20"},
+            ]
+        }
+
+        # Test cases for different model names with reasoning suffixes
+        test_cases = [
+            # Model with high reasoning suffix
+            ("openai/o1-preview-2024-09-12-high-reasoning-effort", True),
+            # Model with low reasoning suffix
+            ("openai/o1-preview-2024-09-12-low-reasoning-effort", True),
+            # Model with high reasoning suffix for o3
+            ("openai/o3-mini-2025-01-31-high-reasoning-effort", True),
+            # Non-o model with suffix (should fail since we don't strip for non-o models)
+            ("openai/gpt-4o-2024-11-20-high-reasoning-effort", False),
+            # Base model names should pass
+            ("openai/o1-preview-2024-09-12", True),
+            ("openai/o3-mini-2025-01-31", True),
+        ]
+
+        # Test each case
+        with patch("requests.get", return_value=mock_response):
+            for model_name, expected_success in test_cases:
+                _ok, _message = _auth_openai_api_key(
+                    "sk-test-key", model_name, verify_model=True
+                )
+                self.assertEqual(
+                    _ok,
+                    expected_success,
+                    f"Model {model_name} expected {'success' if expected_success else 'failure'} but got {'success' if _ok else 'failure'}",
+                )
+
+                # If expected to succeed, verify the message is empty
+                if expected_success:
+                    self.assertEqual(
+                        _message,
+                        "",
+                        f"Expected empty message for {model_name}, got: {_message}",
+                    )
 
 
 if __name__ == "__main__":

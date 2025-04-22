@@ -6,7 +6,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ActionMessage from '../ActionMessage/ActionMessage';
-import { formatData } from '../../utils/messageFormatters';
+import { formatData, formatTimeElapsed } from '../../utils/messageFormatters';
 import './AgentMessage.css';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -146,6 +146,102 @@ const AgentMessage = ({
     onCellSelect(message.current_id);
   };
 
+  const getMessageButtons = () => {
+    if (editing) {
+      return (
+        <Box className="message-buttons">
+          <CopyButton onClick={handleCopyClick} />
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={handleCancelEdit}
+            size="small"
+            aria-label="cancel"
+            className="cancel-button"
+          >
+            <CloseIcon />
+          </Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={handleSaveClick}
+            size="small"
+            aria-label="save"
+            className="save-button"
+            sx={{ mr: 1 }}
+          >
+            <KeyboardArrowRightIcon />
+          </Button>
+        </Box>
+      );
+    } else {
+      return (
+        <Box className="message-buttons">
+          <>
+            {(!message.current_children || message.current_children.length === 0) && (
+              <>
+                <CopyButton onClick={handleCopyClick} />
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleEditClick}
+                  size="small"
+                  aria-label="edit"
+                  className="edit-button"
+                >
+                  <EditIcon />
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleRunClick}
+                  size="small"
+                  aria-label="run"
+                  className="run-button"
+                >
+                  <KeyboardArrowRightIcon />
+                </Button>
+              </>
+            )}
+          </>
+          <>
+            <Typography variant="caption" sx={{ mx: 1 }} />
+            {(message?.version_next || message?.version_prev) && message.versions && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                {/* Arrow Buttons */}
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <IconButton
+                    aria-label="arrow back"
+                    disabled={!message?.version_prev}
+                    sx={{ color: 'black' }}
+                    size="small"
+                    onClick={handlePrevVersion}
+                  >
+                    <ArrowBackIcon />
+                  </IconButton>
+                  {/* Version Number */}
+                  {message.versions && (
+                    <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
+                      {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
+                    </Typography>
+                  )}
+                  <IconButton
+                    aria-label="arrow forward"
+                    disabled={!message?.version_next}
+                    sx={{ color: 'black' }}
+                    size="small"
+                    onClick={handleNextVersion}
+                  >
+                    <ArrowForwardIcon />
+                  </IconButton>
+                </Box>
+              </Box>
+            )}
+          </>
+        </Box>
+      );
+    }
+  }
 
   return (
     <Box
@@ -157,11 +253,21 @@ const AgentMessage = ({
       <Card className="message-bubble agent-bubble">
         <CardContent>
           <Box className="agent-message-header">
-            <Box>
-              <Typography className="agent-name">Agent: {message.agent_id}</Typography>
+            <Box className="agent-title">
+              <Typography className="agent-name">{message.agent_id.toUpperCase()}</Typography>
+              {message.agent_id.toUpperCase() !== 'SYSTEM' && Number.isInteger(message.iteration) && message.iteration >= 0 && (
+                <Typography className="message-timestamp">
+                  Iteration {message.iteration}  |
+                </Typography>
+              )}
               {message.timestamp && (
                 <Typography className="message-timestamp">
                   {new Date(message.timestamp).toLocaleTimeString()}
+                </Typography>
+              )}
+              {message.iteration_time_ms && (
+                <Typography className="message-timestamp">
+                  | {formatTimeElapsed(message.iteration_time_ms) || '-'} elapsed
                 </Typography>
               )}
             </Box>
@@ -175,7 +281,7 @@ const AgentMessage = ({
           </Box>
 
           <Collapse in={agentMessageExpanded}>
-            {!message.current_children || message.current_children.length === 0 ? (
+            {(originalMessageContent && originalMessageContent.trim() !== '') && (
               <Box className="agent-message-content">
                 {editing ? (
                   <Box className="edit-mode-container">
@@ -187,30 +293,6 @@ const AgentMessage = ({
                       value={editedMessage}
                       onChange={(e) => setEditedMessage(e.target.value)}
                     />
-                    <Box className="message-buttons">
-                      <CopyButton onClick={handleCopyClick} />
-                      <Button
-                        variant="outlined"
-                        color="secondary"
-                        onClick={handleCancelEdit}
-                        size="small"
-                        aria-label="cancel"
-                        className="cancel-button"
-                      >
-                        <CloseIcon />
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        onClick={handleSaveClick}
-                        size="small"
-                        aria-label="save"
-                        className="save-button"
-                        sx={{ mr: 1 }}
-                      >
-                        <KeyboardArrowRightIcon />
-                      </Button>
-                    </Box>
                   </Box>
                 ) : (
                   <Box className="display-mode-container">
@@ -222,122 +304,32 @@ const AgentMessage = ({
                         {originalMessageContent}
                       </Typography>
                     </Card>
-                    <Box className="message-buttons">
-                      <CopyButton onClick={handleCopyClick} />
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        onClick={handleEditClick}
-                        size="small"
-                        aria-label="edit"
-                        className="edit-button"
-                      >
-                        <EditIcon />
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="secondary"
-                        onClick={handleRunClick}
-                        size="small"
-                        aria-label="run"
-                        className="run-button"
-                      >
-                        <KeyboardArrowRightIcon />
-                      </Button>
-
-                      <>
-                        <Typography variant="caption" sx={{ mx: 1 }}>
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          {/* Arrow Buttons */}
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            <IconButton
-                              aria-label="arrow back"
-                              disabled={!message?.version_prev}
-                              sx={{ color: 'black' }}
-                              size="small"
-                              onClick={handlePrevVersion}
-                            >
-                              <ArrowBackIcon />
-                            </IconButton>
-                            <IconButton
-                              aria-label="arrow forward"
-                              disabled={!message?.version_next}
-                              sx={{ color: 'black' }}
-                              size="small"
-                              onClick={handleNextVersion}
-                            >
-                              <ArrowForwardIcon />
-                            </IconButton>
-                          </Box>
-
-                          {/* Version Number */}
-                          {(message?.version_next || message?.version_prev) && (
-                            <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
-                              {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
-                            </Typography>
-                          )}
-                        </Box>
-                      </>
-                    </Box>
                   </Box>
                 )}
               </Box>
-            ) : (
-              <Box>
-                <Box className="action-messages-container">
-                  {message.current_children.map((actionMessage, index) => (
-                    <ActionMessage
-                      key={actionMessage.current_id}
-                      index={index}
-                      action={actionMessage}
-                      onUpdateMessageInput={onUpdateMessageInput}
-                      onRunMessage={onRunMessage}
-                      onEditingChange={onEditingChange}
-                      isEditing={isEditing}
-                      selectedCellId={selectedCellId}
-                      onCellSelect={onCellSelect}
-                      registerMessageRef={registerMessageRef}
-                    />
-                  ))}
-                </Box>
+            )}
 
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                  <Typography variant="caption" sx={{ mx: 1 }}>
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    {/* Modified Arrow Buttons */}
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <IconButton
-                        aria-label="arrow back"
-                        disabled={!message?.version_prev}
-                        sx={{ color: 'black' }}
-                        size="small"
-                        onClick={handlePrevVersion}
-                      >
-                        <ArrowBackIcon />
-                      </IconButton>
-                      <IconButton
-                        aria-label="arrow forward"
-                        disabled={!message?.version_next}
-                        sx={{ color: 'black' }}
-                        size="small"
-                        onClick={handleNextVersion}
-                      >
-                        <ArrowForwardIcon />
-                      </IconButton>
-                    </Box>
-
-                    {/* Version Number */}
-                    {(message?.version_next || message?.version_prev) && (
-                      <Typography variant="caption" sx={{ mt: 0.5, fontWeight: 'bold', color: 'black' }}>
-                        {message.versions.indexOf(message.current_id) + 1}/{message.versions.length}
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
+            {message.current_children && message.current_children.length > 0 && (
+              <Box className="action-messages-container">
+                {message.current_children.map((actionMessage, index) => (
+                  <ActionMessage
+                    key={actionMessage.current_id}
+                    index={index}
+                    action={actionMessage}
+                    onUpdateMessageInput={onUpdateMessageInput}
+                    onRunMessage={onRunMessage}
+                    onEditingChange={onEditingChange}
+                    isEditing={isEditing}                    
+                    selectedCellId={selectedCellId}
+                    onCellSelect={onCellSelect}
+                    registerMessageRef={registerMessageRef}
+                    registerToggleOperation={registerToggleOperation}
+                  />
+                ))}
               </Box>
             )}
+
+            {getMessageButtons()}
           </Collapse>
         </CardContent>
       </Card>

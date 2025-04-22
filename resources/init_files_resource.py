@@ -1,4 +1,5 @@
 import atexit
+import os
 import shutil
 import subprocess
 import sys
@@ -10,12 +11,16 @@ from typing import Optional
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.utils import read_bounty_metadata
 from utils.git_utils import (
+    cleanup_git_branches,
+    create_git_ignore_function,
     git_checkout,
     git_checkout_main,
     git_delete_branch,
     git_init_repo,
     git_setup_dev_branch,
     git_submodule_update,
+    initialize_git_repository,
+    prepare_git_directory,
 )
 from utils.logger import get_main_logger
 
@@ -31,7 +36,9 @@ class InitFilesResourceConfig(BaseResourceConfig):
     files_dir_name: str
     tmp_dir: Path
     bounty_number: str
-    exploit_files_dir_name: Optional[str] = None
+    input_exploit_files_dir_name: Optional[str] = None
+    input_verify_files_dir_name: Optional[str] = None
+    output_agent_files_name: Optional[str] = None
     vulnerable_commit: Optional[str] = None
 
     def validate(self) -> None:
@@ -66,16 +73,76 @@ class InitFilesResource(BaseResource):
         logger.info(f"Created {self.tmp_dir}")
 
         # Handle exploit files if specified
-        self.exploit_files_dir = self.tmp_dir
-        if self._resource_config.exploit_files_dir_name:
-            self.exploit_files_dir = (
+        self.input_exploit_files_dir = None
+        if self._resource_config.input_exploit_files_dir_name:
+            self.input_exploit_files_dir = (
                 self.task_dir
                 / "bounties"
                 / f"bounty_{self._resource_config.bounty_number}"
-                / self._resource_config.exploit_files_dir_name
+                / self._resource_config.input_exploit_files_dir_name
             )
-            self.copy_files(self.exploit_files_dir, self.tmp_dir)
-            self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
+            if (
+                self.input_exploit_files_dir.exists()
+                and self.input_exploit_files_dir.is_dir()
+            ):
+                tmp_dir_exploit_files_dir = (
+                    self.tmp_dir / self._resource_config.input_exploit_files_dir_name
+                )
+                self.copy_files(
+                    self.input_exploit_files_dir,
+                    self.tmp_dir,
+                    copy_dir=True,
+                    skip_hidden_files=True,
+                )
+                self.replace_codebase_path(
+                    tmp_dir_exploit_files_dir, self.files_dir_name
+                )
+                logger.info(
+                    f"Copied exploit files directory from {self.input_exploit_files_dir} to {self.tmp_dir}"
+                )
+            else:
+                logger.warning(
+                    f"Exploit files directory not found at {self.input_exploit_files_dir}"
+                )
+
+        self.input_verify_files_dir = None
+        if self._resource_config.input_verify_files_dir_name:
+            self.input_verify_files_dir = (
+                self.task_dir
+                / "bounties"
+                / f"bounty_{self._resource_config.bounty_number}"
+                / self._resource_config.input_verify_files_dir_name
+            )
+            if (
+                self.input_verify_files_dir.exists()
+                and self.input_verify_files_dir.is_dir()
+            ):
+                self.copy_files(
+                    self.input_verify_files_dir,
+                    self.tmp_dir,
+                    copy_dir=True,
+                    skip_hidden_files=True,
+                )
+                logger.info(
+                    f"Copied verify files directory from {self.input_verify_files_dir} to {self.tmp_dir}"
+                )
+            else:
+                logger.warning(
+                    f"Verify files directory not found at {self.input_verify_files_dir}"
+                )
+
+        self.output_agent_files_dir = None
+        if self._resource_config.output_agent_files_name:
+            self.output_agent_files_dir = (
+                self.task_dir
+                / "bounties"
+                / f"bounty_{self._resource_config.bounty_number}"
+                / self._resource_config.output_agent_files_name
+            )
+            self.output_agent_files_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(
+                f"Created output exploit files directory: {self.output_agent_files_dir}"
+            )
 
         if self._resource_config.vulnerable_commit:
             self.vulnerable_commit = self._resource_config.vulnerable_commit
@@ -124,17 +191,8 @@ class InitFilesResource(BaseResource):
             git_checkout(self.files_dir, self.vulnerable_commit, force=True)
 
             tmp_destination_path = self.tmp_dir / self.files_dir_name
-            self.copy_files(self.files_dir, tmp_destination_path)
-            git_dir = tmp_destination_path / ".git"
-
-            if git_dir.exists():
-                if git_dir.is_file():
-                    git_dir.unlink()
-                    logger.info(f"Removed .git file from {tmp_destination_path}")
-                else:
-                    logger.warning(
-                        f"{git_dir} exists but is neither a directory nor a file. Skipping removal."
-                    )
+            ignore_git = False  # TODO: make this as a flag in the future
+            self.copy_files(self.files_dir, tmp_destination_path, ignore_git=ignore_git)
 
         except subprocess.CalledProcessError as e:
             # Log error details if the script execution fails
@@ -144,7 +202,8 @@ class InitFilesResource(BaseResource):
         # Set up git repos
 
         git_setup_dev_branch(self.files_dir, self.vulnerable_commit)
-        git_init_repo(tmp_destination_path)
+        if ignore_git:
+            git_init_repo(tmp_destination_path)
 
     def stop(self) -> None:
         """
@@ -186,24 +245,162 @@ class InitFilesResource(BaseResource):
         except Exception as e:
             print(f"Warning: Failed to remove {path}: {e}")
 
-    def copy_files(self, source: Path, destination: Path):
+    def _copy_git_directories(self, src_git_dir, dest_git_path):
+        """Copy Git directories like objects, refs, hooks, and info."""
+        for dir_name in ["objects", "refs", "hooks", "info"]:
+            src_dir = src_git_dir / dir_name
+            dst_dir = dest_git_path / dir_name
+            if src_dir.exists():
+                if not dst_dir.exists():
+                    dst_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
+
+    def _copy_git_files(self, src_git_dir, dest_git_path):
+        """Copy important Git files like HEAD, description, and index."""
+        for file_name in ["HEAD", "description", "index"]:
+            src_file = src_git_dir / file_name
+            if src_file.exists():
+                shutil.copy2(src_file, dest_git_path / file_name)
+
+    def _create_clean_git_config(self, dest_git_path):
+        """Create a clean Git config file without worktree references."""
+        with open(dest_git_path / "config", "w") as f:
+            f.write(
+                "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n"
+            )
+
+    def _handle_git_submodule(self, git_file, source, destination):
+        """Handle Git submodule reference files."""
+        # Read the submodule reference
+        with open(git_file, "r") as f:
+            content = f.read().strip()
+
+        if not content.startswith("gitdir:"):
+            # It's a regular .git file, just copy it
+            shutil.copy2(git_file, destination / ".git")
+            logger.info(f"Copied .git file from {git_file} to {destination / '.git'}")
+            return
+
+        # Extract the actual Git directory path
+        gitdir_path = content.split("gitdir:")[1].strip()
+        if not os.path.isabs(gitdir_path):
+            gitdir_path = os.path.normpath(os.path.join(source, gitdir_path))
+
+        actual_git_dir = Path(gitdir_path)
+        if not (actual_git_dir.exists() and actual_git_dir.is_dir()):
+            logger.warning(
+                f"Referenced Git directory {actual_git_dir} does not exist or is not a directory"
+            )
+            # Fall back to copying the reference file
+            shutil.copy2(git_file, destination / ".git")
+            return
+
+        # Setup the destination Git repository
+        dest_git_path = destination / ".git"
+        prepare_git_directory(dest_git_path)
+
+        try:
+            initialize_git_repository(destination)
+            self._copy_git_directories(actual_git_dir, dest_git_path)
+            self._copy_git_files(actual_git_dir, dest_git_path)
+            self._create_clean_git_config(dest_git_path)
+            logger.info(f"Copied Git data from {actual_git_dir} to {dest_git_path}")
+
+            # Clean up branches and make detached HEAD the new main branch
+            cleanup_git_branches(destination)
+            logger.info(f"Cleaned up Git branches in {destination}")
+        except Exception as e:
+            logger.error(f"Failed to initialize Git repository: {e}")
+            # Fall back to copying the reference file
+            shutil.copy2(git_file, destination / ".git")
+
+    def _handle_git_directory(self, git_dir, destination):
+        """Handle regular Git directories."""
+        dest_git_path = destination / ".git"
+        prepare_git_directory(dest_git_path)
+
+        try:
+            initialize_git_repository(destination)
+            self._copy_git_directories(git_dir, dest_git_path)
+            self._copy_git_files(git_dir, dest_git_path)
+            self._create_clean_git_config(dest_git_path)
+            logger.info(f"Copied Git data from {git_dir} to {dest_git_path}")
+
+            # Clean up branches and make detached HEAD the new main branch
+            cleanup_git_branches(destination)
+            logger.info(f"Cleaned up Git branches in {destination}")
+        except Exception as e:
+            logger.error(f"Failed to initialize Git repository: {e}")
+
+    def copy_files(
+        self,
+        source: Path,
+        destination: Path,
+        ignore_git: bool = True,
+        copy_dir: bool = False,
+        skip_hidden_files: bool = False,
+    ):
+        """Copy files and directories from source to destination.
+
+        Args:
+            source: Source path to copy from
+            destination: Destination path to copy to
+            ignore_git: Whether to ignore .git files and directories
+            copy_dir: Whether to copy source_dir's name
+            skip_hidden_files: Whether to skip all .hidden_files from copy
+        """
         source = source.resolve()
         destination = destination.resolve()
+
         try:
             if source.is_file():
                 shutil.copy2(source, destination)
                 logger.info(f"Copied file {source} to {destination}")
-            elif source.is_dir():
-                # Exclude the .git folder
-                shutil.copytree(
-                    source,
-                    destination,
-                    dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns(".git", ".git*"),
-                )
-                logger.info(f"Copied directory {source} to {destination}")
-            else:
+                return
+
+            if not source.is_dir():
                 raise ValueError(f"Source {source} is neither a file nor a directory")
+
+            if copy_dir:
+                destination = destination / source.name
+                logger.info(f"copying full directory, new dest path: {destination}")
+
+            def ignore_func(directory, contents):
+                ignored = []
+
+                # For Git files - only if not already handled by skip_hidden_files
+                if ignore_git and not skip_hidden_files:
+                    ignored.extend(
+                        [
+                            item
+                            for item in contents
+                            if item == ".git" or item.startswith(".git/")
+                        ]
+                    )
+
+                # For all dot files
+                if skip_hidden_files:
+                    ignored.extend([item for item in contents if item.startswith(".")])
+
+                return ignored
+
+            # Copy the directory structure
+            shutil.copytree(
+                source,
+                destination,
+                dirs_exist_ok=True,
+                ignore=ignore_func,
+            )
+
+            # Handle Git repository if needed
+            git_file = source / ".git"
+            if not ignore_git and git_file.exists():
+                if git_file.is_file():
+                    self._handle_git_submodule(git_file, source, destination)
+                elif git_file.is_dir():
+                    self._handle_git_directory(git_file, destination)
+
+            logger.info(f"Copied directory {source} to {destination}")
         except Exception as e:
             logger.error(f"An error occurred while copying files: {e}")
 
@@ -218,7 +415,7 @@ class InitFilesResource(BaseResource):
                     # Read the file content
                     content = file_path.read_text(encoding="utf-8")
                     # Replace the target string
-                    new_content = content.replace("../../../codebase", "./codebase")
+                    new_content = content.replace("../../../codebase", "../codebase")
                     # Only write back if changes were made
                     if new_content != content:
                         file_path.write_text(new_content, encoding="utf-8")
@@ -235,7 +432,21 @@ class InitFilesResource(BaseResource):
             "task_dir": str(self.task_dir),
             "files_dir": str(self.files_dir),
             "tmp_dir": str(self.tmp_dir),
-            "exploit_files_dir": str(self.exploit_files_dir),
+            "input_exploit_files_dir": (
+                str(self.input_exploit_files_dir)
+                if self.input_exploit_files_dir
+                else None
+            ),
+            "input_verify_files_dir": (
+                str(self.input_verify_files_dir)
+                if self.input_verify_files_dir
+                else None
+            ),
+            "output_agent_files_dir": (
+                str(self.output_agent_files_dir)
+                if self.output_agent_files_dir
+                else None
+            ),
             "vulnerable_commit": self.vulnerable_commit,
             "resource_id": self.resource_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -249,9 +460,19 @@ class InitFilesResource(BaseResource):
         return cls(
             task_dir=Path(data["task_dir"]),
             files_dir_name=Path(data["files_dir"]).name,
-            exploit_files_dir_name=(
-                Path(data["exploit_files_dir"]).name
-                if data["exploit_files_dir"]
+            input_exploit_files_dir_name=(
+                Path(data["input_exploit_files_dir"]).name
+                if data["input_exploit_files_dir"]
+                else None
+            ),
+            input_verify_files_dir_name=(
+                Path(data["input_verify_files_dir"]).name
+                if data.get("input_verify_files_dir")
+                else None
+            ),
+            output_agent_files_dir_name=(
+                Path(data["output_agent_files_dir"]).name
+                if data["output_agent_files_dir"]
                 else None
             ),
             vulnerable_commit=data["vulnerable_commit"],

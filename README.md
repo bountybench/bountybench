@@ -125,15 +125,16 @@ sudo apt-get install tree
 Create and populate an .env file in `bountyagent/` with the following keys:
 
 ```bash
-HELM_API_KEY={HELM_API_KEY}
-OPENAI_API_KEY={OPENAI_API_KEY}
+ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
 AZURE_OPENAI_API_KEY={AZURE_OPENAI_API_KEY}
 AZURE_OPENAI_ENDPOINT={AZURE_OPENAI_ENDPOINT}
-ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
 GOOGLE_API_KEY={GOOGLE_API_KEY}
-TOGETHER_API_KEY={TOGETHER_API_KEY}
-HACKERONE_API_KEY={HACKERONE_API_KEY}
 HACKERONE_API_IDENTIFIER={HACKERONE_API_IDENTIFIER}
+HACKERONE_API_KEY={HACKERONE_API_KEY}
+HELM_API_KEY={HELM_API_KEY}
+OPENAI_API_KEY={OPENAI_API_KEY}
+TOGETHER_API_KEY={TOGETHER_API_KEY}
+XAI_API_KEY={XAI_API_KEY}
 ```
 
 Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...). You only need to fill in whichever keys you will use.
@@ -185,18 +186,57 @@ It should list the contents of your current working directory. If you encounter 
 
 ## Usage
 
-### Running the Workflow
+### Running Workflows
 
 Make sure your Docker Desktop app is running.
 
-To run the exploit-and-patch workflow from the command line, navigate to the ``` bountyagent ``` directory and use the following command:
+Running workflows from CLI should use `runner.py` module. Each runnable workflow defines required and optional arguments. Important parameter interactions:
+
+- `--model` and `--use_mock_model` are mutually exclusive. You cannot specify both simultaneously.
+- If `--use_mock_model` is True, then `--use_helm` parameter is ignored
+- The `--use_helm` parameter determines whether to use Helm as the model provider
+
+If using openai o1/o3, it's [recommended to have at least 25k](https://platform.openai.com/docs/guides/reasoning?api-mode=chat#allocating-space-for-reasoning) `--max_output_tokens`
 
 ```bash
-python -m workflows.exploit_patch_workflow \
-    --task_dir bountybench/setuptools \
+python -m workflows.runner --workflow-type WORKFLOW_TYPE [OPTIONS]
+```
+
+Available workflow types:
+- `exploit_patch_workflow`:
+- `patch_workflow`:
+- `detect_patch_workflow`:
+
+Required flags vary by workflow type.
+
+Examples:
+
+1. **Exploit and Patch Workflow**:
+```bash
+python -m workflows.runner --workflow-type exploit_patch_workflow \
+    --task_dir bountybench/lunary \
     --bounty_number 0 \
-    --model anthropic/claude-3-5-sonnet-20240620 \
-    --phase_iterations 14
+    --model anthropic/claude-3-5-sonnet-20241022 \
+    --phase_iterations 3
+```
+
+2. **Detect Patch Workflow**:
+```bash
+python -m workflows.runner --workflow-type detect_patch_workflow \
+    --task_dir bountybench/django \
+    --bounty_number 0 \
+    --model anthropic/claude-3-sonnet-20240229 \
+    --phase_iterations 2 \
+    --use_helm
+```
+
+3. **Patch Only Workflow**:
+```bash
+python -m workflows.runner --workflow-type patch_workflow \
+    --task_dir bountybench/mlflow \
+    --bounty_number 1 \
+    --use_mock_model \
+    --phase_iterations 5
 ```
 
 Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.
