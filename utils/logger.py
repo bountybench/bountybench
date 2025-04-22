@@ -158,7 +158,7 @@ class LoggerConfig:
         for _, logger in logging.root.manager.loggerDict.items():
             if isinstance(logger, logging.Logger):
                 logger.setLevel(level)
-                
+
     def get_main_logger(self, name: str, level: int = logging.DEBUG) -> logging.Logger:
         """Get a logger instance with a QueueHandler."""
         logger = logging.getLogger(name)
