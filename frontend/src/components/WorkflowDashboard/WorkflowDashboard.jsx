@@ -45,14 +45,14 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     const checkIfWorkflowExists = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/workflow/active`);
-        
+
         if (!response.ok) {
           console.error(`HTTP error! Status: ${response.status}`);
           navigate(`/`);
         }
-        
+
         const data = await response.json();
-        
+
         // Check if data has the expected structure
         if (data && data.active_workflows) {
           if (!data.active_workflows.some(workflow => workflow.id === workflowId)) {
@@ -70,7 +70,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
         navigate(`/`);
       }
     };
-  
+
     if (!hasCheckedValidity) { // Check if validity has already been checked
       checkIfWorkflowExists();
       setHasCheckedValidity(true);
@@ -93,7 +93,7 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
     phaseMessagesCount: phaseMessages?.length
   });
   const getTailMessageId = async () => {
-    if (phaseMessages?.length > 0){
+    if (phaseMessages?.length > 0) {
       if (phaseMessages[phaseMessages.length - 1].current_children?.length > 0) {
         const lastMessage = phaseMessages[phaseMessages.length - 1].current_children[phaseMessages[phaseMessages.length - 1].current_children.length - 1];
         return lastMessage.current_id;
@@ -313,7 +313,6 @@ export const WorkflowDashboard = ({ interactiveMode, onWorkflowStateUpdate, show
   };
 
   const handleToggleVersion = useCallback(async (messageId, direction) => {
-    // Set which message was toggled so we can scroll to it
     setLastToggledMessageId(messageId);
 
     try {

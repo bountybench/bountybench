@@ -8,7 +8,7 @@ import RestoreIcon from '@mui/icons-material/Restore';
 
 const AgentInteractions = ({
   interactiveMode,
-  workflowStatus,
+  workflowStatus, // Pass workflowStatus from parent
   isNextDisabled,
   phaseMessages = [],
   onUpdateMessageInput,
@@ -27,13 +27,13 @@ const AgentInteractions = ({
   const containerRef = useRef(null);
   const messageVersionMap = useRef(new Map());
   const [isTogglingVersion, setIsTogglingVersion] = useState(false);
+  const lastAttemptedScrollId = useRef(null);
   const [selectedIterNum, setSelectedIterNum] = useState(1);
   const [selectedIterType, setSelectedIterType] = useState('agent');
   const [responding, setResponding] = useState(false);
   const registerMessageRef = useCallback(() => { }, []);
 
   const registerToggleOperation = useCallback((currentId, targetId, direction) => {
-    console.log(`Registering toggle operation: ${currentId} -> ${targetId} (${direction})`);
     messageVersionMap.current.set(currentId, { targetId, direction });
   }, []);
 
@@ -56,8 +56,6 @@ const AgentInteractions = ({
     };
   }, [isEditing, handleKeyDown, onTriggerNextIteration]);
 
-  const lastAttemptedScrollId = useRef(null);
-
   useEffect(() => {
     if (lastToggledMessageId) {
       setIsTogglingVersion(true);
@@ -71,60 +69,46 @@ const AgentInteractions = ({
   }, [lastToggledMessageId]);
 
   useEffect(() => {
-    if (!lastToggledMessageId || lastToggledMessageId === lastAttemptedScrollId.current) {
-      return;
-    }
+    if (!lastToggledMessageId || lastToggledMessageId === lastAttemptedScrollId.current) return;
 
     lastAttemptedScrollId.current = lastToggledMessageId;
-
     const toggleInfo = messageVersionMap.current.get(lastToggledMessageId);
-    if (!toggleInfo) {
-      console.error("No toggle info found for message:", lastToggledMessageId);
-      return;
-    }
+    if (!toggleInfo) return;
 
     const targetId = toggleInfo.targetId;
 
-    const findAndScrollToTarget = () => {
-      let targetElement = document.querySelector(`#message-${targetId}`);
-      if (!targetElement) {
-        targetElement = document.querySelector(`[data-message-id="${targetId}"]`);
-      }
-
-      if (targetElement) {
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const elementRect = targetElement.getBoundingClientRect();
-
-        const padding = 30;
-        const desiredScrollTop = containerRef.current.scrollTop +
-          (elementRect.top - containerRect.top) -
-          padding;
-
-        containerRef.current.scrollTo({
-          top: desiredScrollTop,
-          behavior: 'smooth'
-        });
-      } else {
-        console.error(`Target message element not found: ${targetId}`);
-      }
-
-      messageVersionMap.current.delete(lastToggledMessageId);
-    };
-
-    const firstAttemptTimeout = setTimeout(findAndScrollToTarget, 300);
-
-    const secondAttemptTimeout = setTimeout(() => {
+    const scrollToTargetWhenAvailable = (retryCount = 0, maxRetries = 5) => {
       const targetElement = document.querySelector(`#message-${targetId}`) ||
         document.querySelector(`[data-message-id="${targetId}"]`);
 
-      if (!targetElement) {
-        findAndScrollToTarget();
+      if (targetElement && containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const elementRect = targetElement.getBoundingClientRect();
+        const padding = 30;
+
+        containerRef.current.scrollTo({
+          top: containerRef.current.scrollTop + (elementRect.top - containerRect.top) - padding,
+          behavior: 'smooth'
+        });
+
+        messageVersionMap.current.delete(lastToggledMessageId);
+        return;
       }
-    }, 800);
+
+      if (retryCount < maxRetries) {
+        const delay = 200 * (retryCount + 1);
+        const timeoutId = setTimeout(() => {
+          scrollToTargetWhenAvailable(retryCount + 1, maxRetries);
+        }, delay);
+
+        return () => clearTimeout(timeoutId);
+      } else {
+        messageVersionMap.current.delete(lastToggledMessageId);
+      }
+    };
 
     return () => {
-      clearTimeout(firstAttemptTimeout);
-      clearTimeout(secondAttemptTimeout);
+      scrollToTargetWhenAvailable();
     };
   }, [lastToggledMessageId]);
 
@@ -154,7 +138,6 @@ const AgentInteractions = ({
     setResponding(true);  // Disable the button immediately
     onTriggerNextIteration(selectedIterNum, selectedIterType);  // Trigger the next iteration
   };
-
 
   const handleRestart = async () => {
     await onRestart();
@@ -209,29 +192,10 @@ const AgentInteractions = ({
           <>
             {!isStopping && !stopped ? (
               <>
-                <TextField
-                  type="number"
-                  label="Run X"
-                  color="primary"
-                  value={selectedIterNum}
-                  onChange={handleInputChange}
-                />
-                <FormControl>
-                  <InputLabel id="select-label">Iteration</InputLabel>
-                  <Select
-                    labelId="select-label"
-                    label="Iteration"
-                    value={selectedIterType}
-                    onChange={(e) => setSelectedIterType(e.target.value)}
-                  >
-                    <MenuItem value="agent">Agent</MenuItem>
-                    <MenuItem value="phase">Phase</MenuItem>
-                  </Select>
-                </FormControl>
                 <Button
                   variant="contained"
                   color="primary"
-                  onClick={() => onTriggerNextIteration(selectedIterNum, selectedIterType)}
+                  onClick={onTriggerNextIteration}
                   startIcon={<KeyboardDoubleArrowRightIcon />}
                   disabled={isNextDisabled}
                   size="small"
@@ -257,21 +221,10 @@ const AgentInteractions = ({
                 startIcon={<RestoreIcon />}
                 size="small"
               >
-                Resume
+                Restart Resources
               </Button>
             )}
           </>
-        )}
-        {isStopping && stopped && !interactiveMode && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleRestart}
-            startIcon={<RestoreIcon />}
-            size="small"
-          >
-            Restart Resources
-          </Button>
         )}
       </Box>
     </Box>

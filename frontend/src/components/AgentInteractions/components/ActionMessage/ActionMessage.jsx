@@ -19,7 +19,6 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
   const [originalMessageContent, setOriginalMessageContent] = useState(formatData(action?.message || ''));
 
   useEffect(() => {
-    // Register this action's ref for scrolling
     if (actionRef.current && action?.current_id && registerMessageRef) {
       registerMessageRef(action.current_id, actionRef.current);
     }
@@ -132,7 +131,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
 
   const actionResourceId = (action_resource_id) => {
     if (!action_resource_id) return '';
-    
+
     const resourceIdUpperCase = action_resource_id.toUpperCase();
 
     if (resourceIdUpperCase.startsWith('KALI_ENV')) {
@@ -143,7 +142,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
   };
 
   return (
-    <Card 
+    <Card
       className={`action-message ${actionResourceId(action.resource_id)} ${selectedCellId === action.current_id ? 'selected' : ''}`}
       onClick={handleContainerClick}
       variant="outlined"
