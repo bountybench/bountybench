@@ -518,7 +518,7 @@ def test_verify_files_not_copied_by_default(setup_dirs):
 
 def test_exploit_files_no_copy_default(resource, setup_dirs):
     """Test that exploit_files directory is not copied if not specified in config."""
-    _, tmp_dir, _, _ = setup_dirs
+    config, tmp_dir, _, _ = setup_dirs
 
     # Verify that exploit_files is None in the resource
     assert (
@@ -526,9 +526,7 @@ def test_exploit_files_no_copy_default(resource, setup_dirs):
     ), "input_exploit_files_dir should be None when not specified"
 
     # Check that exploit.sh file is not copied
-    tmp_dir_exploit_files_dir = (
-        self.tmp_dir / self._resource_config.input_exploit_files_dir_name
-    )
+    tmp_dir_exploit_files_dir = tmp_dir / "exploit_files"
     exploit_script_in_tmp = tmp_dir_exploit_files_dir / "exploit.sh"
     assert (
         not exploit_script_in_tmp.exists()
@@ -572,7 +570,7 @@ def test_exploit_files_copy(setup_dirs):
     print(f"Resource input_exploit_files_dir: {resource_input_exploit_files_dir}")
     # Check that exploit.sh was copied
     tmp_dir_exploit_files_dir = (
-        self.tmp_dir / self._resource_config.input_exploit_files_dir_name
+        tmp_dir / config_with_exploit.input_exploit_files_dir_name
     )
     exploit_file_path = tmp_dir_exploit_files_dir / "exploit.sh"
     assert exploit_file_path.exists(), "exploit.sh file was not copied"
@@ -584,12 +582,13 @@ HOSTNAME2='server-name2'
 pip install -e ./codebase
 
 python3 solver.py $HOSTNAME1 $HOSTNAME2"""
-
+    print(processed_exploit_script)
+    print(expected_processed_script)
     assert (
         processed_exploit_script == expected_processed_script
     ), "exploit.sh processed script mismatch"
 
     # Check that helper script solver.py was copied
-    helper_file_path = tmp_dir / "solver.py"
+    helper_file_path = tmp_dir_exploit_files_dir / "solver.py"
     assert helper_file_path.exists(), "solver.py file was not copied"
     assert "hello" in helper_file_path.read_text(), "solver.py content is incorrect"
