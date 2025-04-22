@@ -14,12 +14,13 @@ from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 
-def run_command(command, work_dir=None):
+def run_command(command, work_dir=None, verbose=True):
     """
     Runs a shell command while capturing output in real-time.
 
     :param command: List of command arguments.
     :param work_dir: Working directory to execute the command in.
+    :param verbose: If True, prints stdout/stderr in real time.
     :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
     try:
@@ -37,29 +38,34 @@ def run_command(command, work_dir=None):
         stderr_lines = []
 
         fds = [process.stdout, process.stderr]
-        while process.poll() is None:  # While process is still running
+        while process.poll() is None:
             readable, _, _ = select.select(fds, [], [], 0.1)
             for fd in readable:
                 line = fd.readline()
                 if line:
                     if fd == process.stdout:
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
+                        if verbose:
+                            sys.stdout.write(line)
+                            sys.stdout.flush()
                         stdout_lines.append(line)
                     else:
-                        sys.stderr.write(line)
-                        sys.stderr.flush()
+                        if verbose:
+                            sys.stderr.write(line)
+                            sys.stderr.flush()
                         stderr_lines.append(line)
 
+        # Flush remaining lines after process ends
         for fd in fds:
             for line in fd:
                 if fd == process.stdout:
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
+                    if verbose:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
                     stdout_lines.append(line)
                 else:
-                    sys.stderr.write(line)
-                    sys.stderr.flush()
+                    if verbose:
+                        sys.stderr.write(line)
+                        sys.stderr.flush()
                     stderr_lines.append(line)
 
         process.stdout.close()
@@ -75,30 +81,33 @@ def run_command(command, work_dir=None):
 
     except PermissionError as e:
         logger.error(
-            f"Command '{''.join(command)}' failed with PermissionError {str(e)}"
+            f"Command '{' '.join(command)}' failed with PermissionError {str(e)}"
         )
-        sys.stderr.write(f"Error executing command: {''.join(command)}\n")
-        sys.stderr.flush()
+        if verbose:
+            sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+            sys.stderr.flush()
         raise
 
     except Exception as e:
-        logger.error(
-            f"Command '{''.join(command)}' failed with return code {e.returncode}"
-        )
-        logger.error(f"stdout: {e.stdout}")
-        logger.error(f"stderr: {e.stderr}")
-        sys.stderr.write(f"Error executing command: {''.join(command)}\n")
-        sys.stderr.flush()
+        logger.error(f"Command '{' '.join(command)}' failed with exception: {e}")
+        if hasattr(e, "stdout"):
+            logger.error(f"stdout: {e.stdout}")
+        if hasattr(e, "stderr"):
+            logger.error(f"stderr: {e.stderr}")
+        if verbose:
+            sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+            sys.stderr.flush()
         raise
 
 
-async def run_command_async(command, work_dir=None, timeout=None):
+async def run_command_async(command, work_dir=None, timeout=None, verbose=True):
     """
     Runs a shell command asynchronously while capturing output in real-time.
 
     :param command: List of command arguments.
     :param work_dir: Working directory to execute the command in.
-    :param timeout: Optional timeout in seconds for the command to complete. If not set, no timeout is applied.
+    :param timeout: Optional timeout in seconds for the command to complete.
+    :param verbose: If True, prints stdout/stderr in real time.
     :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
     try:
@@ -122,8 +131,9 @@ async def run_command_async(command, work_dir=None, timeout=None):
                 if not line:
                     break
                 line_str = line.decode("utf-8")
-                sys.stdout.write(line_str)
-                sys.stdout.flush()
+                if verbose:
+                    sys.stdout.write(line_str)
+                    sys.stdout.flush()
                 stdout_lines.append(line_str)
 
         # Define task to read from stderr
@@ -133,8 +143,9 @@ async def run_command_async(command, work_dir=None, timeout=None):
                 if not line:
                     break
                 line_str = line.decode("utf-8")
-                sys.stderr.write(line_str)
-                sys.stderr.flush()
+                if verbose:
+                    sys.stderr.write(line_str)
+                    sys.stderr.flush()
                 stderr_lines.append(line_str)
 
         stdout_task = asyncio.create_task(read_stdout())
@@ -157,7 +168,7 @@ async def run_command_async(command, work_dir=None, timeout=None):
                 stdout="".join(stdout_lines),
                 stderr="".join(stderr_lines),
             )
-        except TimeoutError:
+        except asyncio.TimeoutError:
             process.kill()
             stdout_task.cancel()
             stderr_task.cancel()
@@ -179,11 +190,10 @@ async def run_command_async(command, work_dir=None, timeout=None):
                     pass
 
     except PermissionError as e:
-        logger.error(
-            f"Command '{''.join(command)}' failed with PermissionError {str(e)}"
-        )
-        sys.stderr.write(f"Error executing command: {''.join(command)}\n")
-        sys.stderr.flush()
+        logger.error(f"Command '{' '.join(command)}' failed with PermissionError {e}")
+        if verbose:
+            sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+            sys.stderr.flush()
         raise
 
     except Exception as e:
@@ -201,7 +211,7 @@ def docker_network_exists(network_name):
     """
     Checks if a Docker network exists.
     """
-    logger.info(f"Checking if Docker network '{network_name}' exists.")
+    logger.debug(f"Checking if Docker network '{network_name}' exists.")
     result = subprocess.run(
         [
             "docker",
@@ -218,9 +228,9 @@ def docker_network_exists(network_name):
     )
     exists = network_name in result.stdout.splitlines()
     if exists:
-        logger.info(f"Docker network '{network_name}' already exists.")
+        logger.debug(f"Docker network '{network_name}' already exists.")
     else:
-        logger.info(f"Docker network '{network_name}' does not exist.")
+        logger.debug(f"Docker network '{network_name}' does not exist.")
     return exists
 
 

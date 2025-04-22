@@ -1,4 +1,5 @@
 import asyncio
+import time
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -82,7 +83,10 @@ class ExecutorAgent(BaseAgent):
         self,
         prev_agent_message: Optional[AgentMessage] = None,
     ) -> None:
+        start_time = time.monotonic()
         model_action_message = await self.call_lm(prev_agent_message)
+        elapsed = time.monotonic() - start_time
+        logger.info(f"LM Response completed in {elapsed:.2f} seconds")
         if not model_action_message:
             self.last_executor_agent_message.set_message(
                 "Model failed to produce a valid response."
@@ -108,10 +112,16 @@ class ExecutorAgent(BaseAgent):
                 self.last_executor_agent_message.set_message(
                     "Kali failed to produce a valid response."
                 )
+
+                logger.info("Kali failed to produce a valid response.")
                 return
             self.last_executor_agent_message.add_child_message(kali_action_message)
+            logger.info(f"Kali Env Response:\n{kali_action_message.message}")
         else:
             self.last_executor_agent_message.set_message(
+                "Model did not return a valid command. Kali Linux action skipped."
+            )
+            logger.info(
                 "Model did not return a valid command. Kali Linux action skipped."
             )
 
@@ -199,7 +209,7 @@ class ExecutorAgent(BaseAgent):
                     continue  # Skip to next iteration without trying to parse
 
                 try:
-                    logger.info(f"Parsing response from LM")
+                    logger.debug(f"Parsing response from LM")
                     parsed_response = self.parse_response(model_output)
                     if error_history:
                         parsed_response.add_to_additional_metadata(

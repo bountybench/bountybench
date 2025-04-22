@@ -25,7 +25,7 @@ class InteractiveController:
 
     def _setup_message_handler(self):
         self.message_handler = MessageHandler(self.agent_manager, self.resource_manager)
-        logger.info("Setup message handler")
+        logger.debug("Setup message handler")
 
     def get_num_iteration(self, num_iter, type_iter) -> int:
         num_iteration = num_iter
@@ -111,7 +111,7 @@ class InteractiveController:
     async def set_interactive_mode(self, interactive: bool):
         if self.workflow.interactive != interactive:
             self.workflow.interactive = interactive
-            logger.info(f"Workflow interactive mode set to {interactive}")
+            logger.debug(f"Workflow interactive mode set to {interactive}")
 
             # Update the interactive mode for the current phase
             if self.workflow.current_phase:
