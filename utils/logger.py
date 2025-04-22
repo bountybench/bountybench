@@ -149,7 +149,7 @@ class LoggerConfig:
             logging.info(f"Logger restart: failed to stop old listener: {e}")
         self.queue_listener = self._configure_logging_thread()
 
-    def get_main_logger(self, name: str, level: int = logging.INFO) -> logging.Logger:
+    def get_main_logger(self, name: str, level: int = logging.DEBUG) -> logging.Logger:
         """Get a logger instance with a QueueHandler."""
         logger = logging.getLogger(name)
         logger.setLevel(level)
