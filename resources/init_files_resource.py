@@ -107,7 +107,6 @@ class InitFilesResource(BaseResource):
                     f"Exploit files directory not found at {self.input_exploit_files_dir}"
                 )
 
-
         self.input_verify_files_dir = None
         if self._resource_config.input_verify_files_dir_name:
             self.input_verify_files_dir = (
@@ -400,7 +399,6 @@ class InitFilesResource(BaseResource):
             if copy_dir:
                 destination = destination / source.name
                 logger.debug(f"copying full directory, new dest path: {destination}")
-
 
             def ignore_func(directory, contents):
                 ignored = []
