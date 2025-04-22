@@ -526,7 +526,10 @@ def test_exploit_files_no_copy_default(resource, setup_dirs):
     ), "input_exploit_files_dir should be None when not specified"
 
     # Check that exploit.sh file is not copied
-    exploit_script_in_tmp = tmp_dir / "exploit.sh"
+    tmp_dir_exploit_files_dir = (
+        self.tmp_dir / self._resource_config.input_exploit_files_dir_name
+    )
+    exploit_script_in_tmp = tmp_dir_exploit_files_dir / "exploit.sh"
     assert (
         not exploit_script_in_tmp.exists()
     ), "exploit.sh should not be copied when not specified in config"
@@ -568,7 +571,10 @@ def test_exploit_files_copy(setup_dirs):
     print(f"Source exploit_files directory: {source_exploit_files_dir}")
     print(f"Resource input_exploit_files_dir: {resource_input_exploit_files_dir}")
     # Check that exploit.sh was copied
-    exploit_file_path = tmp_dir / "exploit.sh"
+    tmp_dir_exploit_files_dir = (
+        self.tmp_dir / self._resource_config.input_exploit_files_dir_name
+    )
+    exploit_file_path = tmp_dir_exploit_files_dir / "exploit.sh"
     assert exploit_file_path.exists(), "exploit.sh file was not copied"
     processed_exploit_script = exploit_file_path.read_text()
     expected_processed_script = """#!/bin/bash
