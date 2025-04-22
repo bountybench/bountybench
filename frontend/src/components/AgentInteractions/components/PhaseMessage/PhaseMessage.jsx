@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -24,7 +23,6 @@ const PhaseMessage = ({
   const messageContainerRef = useRef(null);
   const [commandsExpanded, setCommandsExpanded] = useState(false);
 
-
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
   const handleToggleMetadata = () => setMetadataExpanded(!metadataExpanded);
   const handleToggleCommands = () => setCommandsExpanded(!commandsExpanded);
@@ -33,13 +31,13 @@ const PhaseMessage = ({
     if (!message?.current_children || !Array.isArray(message.current_children)) {
       return 0;
     }
-    
+
     let iterations = message.current_children.length;
-    
+
     if (iterations > 0 && message.current_children[0].agent_id === 'system') {
       iterations = iterations - 1;
     }
-    
+
     return iterations;
   }, [message?.current_children]);
 
@@ -48,19 +46,19 @@ const PhaseMessage = ({
   const processLMCalls = () => {
     let totalCalls = 0;
     let commands = [];
-    
+
     if (!message.current_children || message.current_children.length === 0) {
       return { totalCalls, commands };
     }
-    
+
     message.current_children.forEach(agentMessage => {
       if (agentMessage.action_messages && Array.isArray(agentMessage.action_messages)) {
         const modelActions = agentMessage.action_messages.filter(
           action => action.resource_id === "model"
         );
-        
+
         totalCalls += modelActions.length;
-        
+
         modelActions.forEach(action => {
           if (action.command) {
             commands.push(action.command);
@@ -68,7 +66,7 @@ const PhaseMessage = ({
         });
       }
     });
-    
+
     return { totalCalls, commands };
   };
 
@@ -104,7 +102,7 @@ const PhaseMessage = ({
             <Typography className="phase-summary">
               Summary: {message.phase_summary || '-'}
             </Typography>
-            
+
             {(iterations !== null && iterations !== undefined) && (
               <Typography className="phase-summary">
                 Iterations: {iterations || '-'} | Iteration time: {formatTimeElapsed(message.phase_usage?.total_iteration_time_ms) || '-'}
@@ -121,19 +119,19 @@ const PhaseMessage = ({
 
                 {commands.length > 0 && (
                   <Box className="command-summary-container" sx={{ width: '100%' }}>
-                    <Box 
-                      className="command-summary-header" 
+                    <Box
+                      className="command-summary-header"
                       onClick={handleToggleCommands}
-                      sx={{ 
-                        alignItems: 'center', 
+                      sx={{
+                        alignItems: 'center',
                         cursor: 'pointer',
                         marginTop: 1,
                       }}
                     >
-                      <Typography className="phase-summary" sx={{width: '100%'}}>
+                      <Typography className="phase-summary" sx={{ width: '100%' }}>
                         Command Log
-                        <IconButton 
-                          size="smaller" 
+                        <IconButton
+                          size="smaller"
                           className="command-toggle-button"
                           aria-label="toggle commands"
                           sx={{ color: 'black', ml: 5 }}
@@ -142,11 +140,11 @@ const PhaseMessage = ({
                         </IconButton>
                       </Typography>
                     </Box>
-                    
+
                     <Collapse in={commandsExpanded}>
-                      <Box 
+                      <Box
                         className="commands-list"
-                        sx={{ 
+                        sx={{
                           backgroundColor: '#f5f5f5',
                           padding: 1.5,
                           borderRadius: 1,
@@ -154,10 +152,10 @@ const PhaseMessage = ({
                         }}
                       >
                         {commands.map((command, index) => (
-                          <Typography 
-                            key={index} 
+                          <Typography
+                            key={index}
                             className="command-item"
-                            sx={{ 
+                            sx={{
                               fontSize: '0.8rem',
                               marginBottom: index < commands.length - 1 ? 1 : 0
                             }}
