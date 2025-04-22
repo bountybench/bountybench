@@ -129,7 +129,7 @@ const AgentInteractions = ({
   }, [phaseMessages]);
 
   const handleStopClick = async () => {
-    setIsStopping(true); // Hide buttons immediately    
+    setIsStopping(true); // Hide buttons immediately
     await onStopWorkflow();
     setStopped(true);
   };
@@ -168,7 +168,6 @@ const AgentInteractions = ({
   return (
     <Box className="interactions-container">
       <Box className="messages-container" ref={containerRef}>
-
         {phaseMessages.map((phaseMessage, index) => (
           <PhaseMessage
             key={phaseMessage.current_id}
