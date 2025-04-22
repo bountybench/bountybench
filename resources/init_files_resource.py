@@ -65,12 +65,12 @@ class InitFilesResource(BaseResource):
         self.tmp_dir = self._resource_config.tmp_dir
 
         if self.tmp_dir.exists():  # clean
-            logger.info(f"Removing existing {self.tmp_dir}")
+            logger.debug(f"Removing existing {self.tmp_dir}")
             self.remove_tmp()
 
         # Create necessary directories
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created {self.tmp_dir}")
+        logger.debug(f"Created {self.tmp_dir}")
 
         # Handle exploit files if specified
         self.input_exploit_files_dir = None
@@ -81,8 +81,29 @@ class InitFilesResource(BaseResource):
                 / f"bounty_{self._resource_config.bounty_number}"
                 / self._resource_config.input_exploit_files_dir_name
             )
-            self.copy_files(self.input_exploit_files_dir, self.tmp_dir)
-            self.replace_codebase_path(self.tmp_dir, self.files_dir_name)
+            if (
+                self.input_exploit_files_dir.exists()
+                and self.input_exploit_files_dir.is_dir()
+            ):
+                tmp_dir_exploit_files_dir = (
+                    self.tmp_dir / self._resource_config.input_exploit_files_dir_name
+                )
+                self.copy_files(
+                    self.input_exploit_files_dir,
+                    self.tmp_dir,
+                    copy_dir=True,
+                    skip_hidden_files=True,
+                )
+                self.replace_codebase_path(
+                    tmp_dir_exploit_files_dir, self.files_dir_name
+                )
+                logger.debug(
+                    f"Copied exploit files directory from {self.input_exploit_files_dir} to {self.tmp_dir}"
+                )
+            else:
+                logger.warning(
+                    f"Exploit files directory not found at {self.input_exploit_files_dir}"
+                )
 
         self.input_verify_files_dir = None
         if self._resource_config.input_verify_files_dir_name:
@@ -102,7 +123,7 @@ class InitFilesResource(BaseResource):
                     copy_dir=True,
                     skip_hidden_files=True,
                 )
-                logger.info(
+                logger.debug(
                     f"Copied verify files directory from {self.input_verify_files_dir} to {self.tmp_dir}"
                 )
             else:
@@ -119,7 +140,7 @@ class InitFilesResource(BaseResource):
                 / self._resource_config.output_agent_files_name
             )
             self.output_agent_files_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(
+            logger.debug(
                 f"Created output exploit files directory: {self.output_agent_files_dir}"
             )
 
@@ -140,11 +161,11 @@ class InitFilesResource(BaseResource):
         """
         try:
             if not any(self.files_dir.iterdir()):  # If the directory is empty
-                logger.info("Codebase is empty. Initializing Git submodules.")
+                logger.debug("Codebase is empty. Initializing Git submodules.")
                 git_submodule_update(str(self.files_dir))
 
             bountyagent_dir = Path.cwd()
-            logger.info("Cleaning up the working directory before checkout.")
+            logger.debug("Cleaning up the working directory before checkout.")
             if (bountyagent_dir / ".git").exists():
                 subprocess.run(
                     [
@@ -193,7 +214,7 @@ class InitFilesResource(BaseResource):
             if self.tmp_dir.exists():
                 try:
                     self.remove_tmp()
-                    logger.info(f"Removed temporary directory: {self.tmp_dir}")
+                    logger.debug(f"Removed temporary directory: {self.tmp_dir}")
                 except Exception as e:
                     logger.error(f"Failed to remove temporary directory: {str(e)}")
 
@@ -257,7 +278,7 @@ class InitFilesResource(BaseResource):
         if not content.startswith("gitdir:"):
             # It's a regular .git file, just copy it
             shutil.copy2(git_file, destination / ".git")
-            logger.info(f"Copied .git file from {git_file} to {destination / '.git'}")
+            logger.debug(f"Copied .git file from {git_file} to {destination / '.git'}")
             return
 
         # Extract the actual Git directory path
@@ -283,11 +304,11 @@ class InitFilesResource(BaseResource):
             self._copy_git_directories(actual_git_dir, dest_git_path)
             self._copy_git_files(actual_git_dir, dest_git_path)
             self._create_clean_git_config(dest_git_path)
-            logger.info(f"Copied Git data from {actual_git_dir} to {dest_git_path}")
+            logger.debug(f"Copied Git data from {actual_git_dir} to {dest_git_path}")
 
             # Clean up branches and make detached HEAD the new main branch
             cleanup_git_branches(destination)
-            logger.info(f"Cleaned up Git branches in {destination}")
+            logger.debug(f"Cleaned up Git branches in {destination}")
         except Exception as e:
             logger.error(f"Failed to initialize Git repository: {e}")
             # Fall back to copying the reference file
@@ -303,11 +324,11 @@ class InitFilesResource(BaseResource):
             self._copy_git_directories(git_dir, dest_git_path)
             self._copy_git_files(git_dir, dest_git_path)
             self._create_clean_git_config(dest_git_path)
-            logger.info(f"Copied Git data from {git_dir} to {dest_git_path}")
+            logger.debug(f"Copied Git data from {git_dir} to {dest_git_path}")
 
             # Clean up branches and make detached HEAD the new main branch
             cleanup_git_branches(destination)
-            logger.info(f"Cleaned up Git branches in {destination}")
+            logger.debug(f"Cleaned up Git branches in {destination}")
         except Exception as e:
             logger.error(f"Failed to initialize Git repository: {e}")
 
@@ -334,7 +355,7 @@ class InitFilesResource(BaseResource):
         try:
             if source.is_file():
                 shutil.copy2(source, destination)
-                logger.info(f"Copied file {source} to {destination}")
+                logger.debug(f"Copied file {source} to {destination}")
                 return
 
             if not source.is_dir():
@@ -342,7 +363,7 @@ class InitFilesResource(BaseResource):
 
             if copy_dir:
                 destination = destination / source.name
-                logger.info(f"copying full directory, new dest path: {destination}")
+                logger.debug(f"copying full directory, new dest path: {destination}")
 
             def ignore_func(directory, contents):
                 ignored = []
@@ -379,7 +400,7 @@ class InitFilesResource(BaseResource):
                 elif git_file.is_dir():
                     self._handle_git_directory(git_file, destination)
 
-            logger.info(f"Copied directory {source} to {destination}")
+            logger.debug(f"Copied directory {source} to {destination}")
         except Exception as e:
             logger.error(f"An error occurred while copying files: {e}")
 
@@ -394,7 +415,7 @@ class InitFilesResource(BaseResource):
                     # Read the file content
                     content = file_path.read_text(encoding="utf-8")
                     # Replace the target string
-                    new_content = content.replace("../../../codebase", "./codebase")
+                    new_content = content.replace("../../../codebase", "../codebase")
                     # Only write back if changes were made
                     if new_content != content:
                         file_path.write_text(new_content, encoding="utf-8")
