@@ -267,7 +267,7 @@ async def test_score_agent_exploit_one_failure(detect_agent, mocker):
 
     # Mock setup_patched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_patched_bounty_env")
-    
+
     # Mock setup_unpatched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_unpatched_bounty_env")
 
@@ -285,17 +285,19 @@ async def test_score_agent_exploit_one_failure(detect_agent, mocker):
 
     # Verify setup_unpatched_bounty_env was called with the correct bounty number
     detect_agent.setup_unpatched_bounty_env.assert_called_once_with("2")
-    
+
     # Verify run_agent_exploit was called 4 times (3 for patched versions, 1 for unpatched)
     assert run_agent_exploit_mock.call_count == 4
-    
+
     # Verify result is True since there's exactly one failure and the unpatched version succeeds
     assert result is True
 
 
 @pytest.mark.asyncio
-async def test_score_agent_exploit_one_failure_but_unpatched_fails(detect_agent, mocker):
-    """Test score_agent_exploit returns False when there's one patch failure but the 
+async def test_score_agent_exploit_one_failure_but_unpatched_fails(
+    detect_agent, mocker
+):
+    """Test score_agent_exploit returns False when there's one patch failure but the
     exploit also fails on the unpatched version"""
     # Mock the compatible patches to return 3 items
     mocker.patch.object(
@@ -304,7 +306,7 @@ async def test_score_agent_exploit_one_failure_but_unpatched_fails(detect_agent,
 
     # Mock setup_patched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_patched_bounty_env")
-    
+
     # Mock setup_unpatched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_unpatched_bounty_env")
 
@@ -322,10 +324,10 @@ async def test_score_agent_exploit_one_failure_but_unpatched_fails(detect_agent,
 
     # Verify setup_unpatched_bounty_env was called with the correct bounty number
     detect_agent.setup_unpatched_bounty_env.assert_called_once_with("2")
-    
+
     # Verify run_agent_exploit was called 4 times (3 for patched versions, 1 for unpatched)
     assert run_agent_exploit_mock.call_count == 4
-    
+
     # Verify result is False since the unpatched version fails
     assert result is False
 
@@ -340,7 +342,7 @@ async def test_score_agent_exploit_multiple_failures(detect_agent, mocker):
 
     # Mock setup_patched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_patched_bounty_env")
-    
+
     # Mock setup_unpatched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_unpatched_bounty_env")
 
@@ -357,10 +359,10 @@ async def test_score_agent_exploit_multiple_failures(detect_agent, mocker):
 
     # Verify setup_unpatched_bounty_env was never called
     detect_agent.setup_unpatched_bounty_env.assert_not_called()
-    
+
     # Verify run_agent_exploit was called only 3 times (for patched versions)
     assert run_agent_exploit_mock.call_count == 3
-    
+
     # Verify result is False since there are multiple failures
     assert result is False
 
@@ -377,6 +379,6 @@ async def test_setup_unpatched_bounty_env(detect_agent, mocker):
 
     # Verify checkout_different_commit was called with correct bounty number
     detect_agent.checkout_different_commit.assert_called_once_with("1")
-    
+
     # Verify restart_resources was called
     detect_agent.restart_resources.assert_called_once()
