@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import json
+import logging
 import sys
 import traceback
 from datetime import datetime
@@ -99,7 +100,21 @@ class WorkflowRunner:
             action="store_true",
             help="Disable agent from submitting the exploit (not recommended)",
         )
-
+        parser.add_argument(
+            "--logging_level",
+            type=str,
+            choices=[
+                "DEBUG",
+                "INFO",
+                "STATUS",
+                "SUCCESS_STATUS",
+                "WARNING",
+                "ERROR",
+                "CRITICAL",
+            ],
+            default="DEBUG",
+            help="Set the logging level (default: DEBUG)",
+        )
         return parser
 
     def parse_arguments(self) -> None:
@@ -107,6 +122,11 @@ class WorkflowRunner:
 
     def initialize_workflow(self) -> None:
         """Initialize the workflow instance with parsed arguments."""
+        # Set logging level early
+        level_str = self.args.logging_level.upper()
+        level = getattr(logging, level_str, logging.INFO)
+        logger_config.set_global_log_level(level)
+
         workflow_class = self._workflow_factory[self.args.workflow_type]
 
         # Convert parsed args to kwargs
