@@ -13,6 +13,10 @@ SUCCESS_STATUS = 26  # just above STATUS
 logging.addLevelName(STATUS, "STATUS")
 logging.addLevelName(SUCCESS_STATUS, "SUCCESS_STATUS")
 
+# Also add these custom level to the logging module for the workflow runner to work correctly
+logging.STATUS = STATUS
+logging.SUCCESS_STATUS = SUCCESS_STATUS
+
 # Directory for full log files
 FULL_LOG_DIR = Path.cwd() / "full_logs"
 FULL_LOG_DIR.mkdir(parents=True, exist_ok=True)
