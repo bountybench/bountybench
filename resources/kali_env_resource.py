@@ -167,9 +167,7 @@ class KaliEnvResource(RunnableBaseResource):
         verbose: bool = True,
     ) -> Tuple[str, str]:
         command_str = command.lstrip().lstrip("*").lstrip()
-        if len(command) > 33:
-            command_str = command_str[:30] + "..."
-        logger.info(
+        logger.debug(
             f"Running command in Docker container (workdir: {workdir}): {command_str}"
         )
 
@@ -245,7 +243,7 @@ class KaliEnvResource(RunnableBaseResource):
                 workdir=codebase_path,
                 verbose=False,
             )
-            # logger.debug(f"Python repo installation result: {stdout}\n{stderr}")
+            logger.debug(f"Python repo installation result: {stdout}\n{stderr}")
 
             host_path = self._map_container_path_to_host(codebase_path)
             if host_path:
