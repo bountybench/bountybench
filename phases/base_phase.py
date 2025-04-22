@@ -1,5 +1,6 @@
 import time
 from abc import ABC, abstractmethod
+from asyncio import QueueEmpty
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Type
 
@@ -157,7 +158,7 @@ class BasePhase(ABC):
         self.resource_manager.initialize_phase_resources(
             self.phase_config.phase_idx, resource_configs_keys
         )
-        logger.info(f"Resources for phase {self.name} initialized")
+        logger.debug(f"Resources for phase {self.name} initialized")
         # 3. Define and register agents
         agent_configs = self.define_agents()
 
@@ -176,15 +177,15 @@ class BasePhase(ABC):
                         resource_id, resource_class, resource_config
                     )
 
-            logger.info(f"Completed resource setup for {self.name}")
+            logger.debug(f"Completed resource setup for {self.name}")
 
             # 3. Define and register agents
             agent_configs = self.define_agents()
             self.agent_manager.initialize_phase_agents(agent_configs)
-            logger.info(f"Agents for phase {self.name} initialized")
+            logger.debug(f"Agents for phase {self.name} initialized")
             self.agents = list(self.agent_manager._phase_agents.items())
 
-            logger.info(f"Completed agent setup for {self.name}")
+            logger.debug(f"Completed agent setup for {self.name}")
         except Exception as e:
             logger.error(f"Error during setup for phase {self.name}: {e}")
             raise
@@ -197,7 +198,7 @@ class BasePhase(ABC):
             self.resource_manager.deallocate_phase_resources(
                 self.phase_config.phase_idx
             )
-            logger.info(
+            logger.debug(
                 f"Phase {self.phase_config.phase_idx} ({self.phase_config.phase_name}) resources deallocated."
             )
         except Exception as e:
@@ -259,7 +260,7 @@ class BasePhase(ABC):
         if prev_phase_message and len(prev_phase_message.agent_messages) > 0:
             self._last_agent_message = prev_phase_message.agent_messages[-1]
         else:
-            logger.info(f"Adding initial prompt to phase")
+            logger.debug(f"Adding initial prompt to phase")
             self._create_initial_agent_message()
 
     def _create_initial_agent_message(self) -> None:
@@ -323,7 +324,7 @@ class BasePhase(ABC):
         await self.set_interactive_mode(True)
         # Clear any outstanding next_iteration calls
         if hasattr(self.workflow, "next_iteration_queue"):
-            logger.info("Clearing next iteration queue")
+            logger.debug("Clearing next iteration queue")
             while not self.workflow.next_iteration_queue.empty():
                 await self.workflow.next_iteration_queue.get()
 
@@ -334,8 +335,12 @@ class BasePhase(ABC):
         if self._phase_message.summary == "incomplete":
             self._phase_message.set_summary("completed_failure")
         self.deallocate_resources()
-        while not self.workflow.next_iteration_queue.empty():
-            self.workflow.next_iteration_queue.get()
+        # Drain any pending 'next' signals without awaiting
+        while True:
+            try:
+                self.workflow.next_iteration_queue.get_nowait()
+            except QueueEmpty:
+                break
 
     def get_current_iteration(self) -> int:
         """

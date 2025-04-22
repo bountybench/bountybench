@@ -18,6 +18,7 @@ from utils.git_utils import (
     git_reset,
     git_setup_dev_branch,
     git_submodule_update,
+    git_restore,
 )
 
 
@@ -76,6 +77,75 @@ def test_git_diff(tmp_git_repo):
     (tmp_git_repo / "file1.txt").write_text("Hello, Git!")
     diff = git_diff(tmp_git_repo)
     assert "Hello, Git!" in diff
+
+
+def test_git_diff_detects_file_move_without_content_change(tmp_git_repo):
+    """Check if git diff detects file move (no content change)."""
+    (tmp_git_repo / "src").mkdir()
+    (tmp_git_repo / "src" / "moved.txt").write_text("unchanged content")
+    subprocess.run(["git", "add", "."], cwd=tmp_git_repo, check=True)
+    git_commit(tmp_git_repo, "add moved file")
+
+    (tmp_git_repo / "dst").mkdir()
+    subprocess.run(
+        ["git", "mv", "src/moved.txt", "dst/moved.txt"],
+        cwd=tmp_git_repo,
+        check=True,
+    )
+    diff = git_diff(tmp_git_repo)
+
+    assert "diff --git a/src/moved.txt b/dst/moved.txt" in diff
+    assert "rename from src/moved.txt" in diff
+    assert "rename to dst/moved.txt" in diff
+    assert "+unchanged content" not in diff
+    assert "-unchanged content" not in diff
+
+
+def test_git_diff_detects_simple_rename(tmp_git_repo):
+    """Check if git diff detects simple file rename (same directory)."""
+    (tmp_git_repo / "file.txt").write_text("content")
+    subprocess.run(["git", "add", "."], cwd=tmp_git_repo, check=True)
+    git_commit(tmp_git_repo, "add file")
+
+    # rename it in place
+    subprocess.run(
+        ["git", "mv", "file.txt", "renamed.txt"],
+        cwd=tmp_git_repo,
+        check=True,
+    )
+    diff = git_diff(tmp_git_repo)
+
+    assert "diff --git a/file.txt b/renamed.txt" in diff
+    assert "rename from file.txt" in diff
+    assert "rename to renamed.txt" in diff
+    assert "+content" not in diff
+    assert "-content" not in diff
+
+
+def test_git_diff_detects_file_move_with_content_change(tmp_git_repo):
+    """Check if git diff detects file move file move plus a content change."""
+    (tmp_git_repo / "src").mkdir()
+    (tmp_git_repo / "src" / "moved.txt").write_text("original line")
+    subprocess.run(["git", "add", "."], cwd=tmp_git_repo, check=True)
+    git_commit(tmp_git_repo, "add moved file")
+
+    (tmp_git_repo / "dst").mkdir()
+    subprocess.run(
+        ["git", "mv", "src/moved.txt", "dst/moved.txt"],
+        cwd=tmp_git_repo,
+        check=True,
+    )
+
+    (tmp_git_repo / "dst" / "moved.txt").write_text("original line\nadded line")
+    diff = git_diff(tmp_git_repo)
+
+    assert "diff --git a/dst/moved.txt b/dst/moved.txt" in diff
+    assert "new file" in diff
+    assert "added line" in diff
+
+    assert "diff --git a/src/moved.txt b/src/moved.txt" in diff
+    assert "deleted file" in diff
+    assert "original line" in diff
 
 
 def test_git_checkout(tmp_git_repo):
@@ -284,3 +354,165 @@ def test_git_commit_invalid_branch(tmp_git_repo):
 
     with pytest.raises(subprocess.CalledProcessError):
         git_commit(tmp_git_repo, "Test commit", "non_existent_branch")
+
+
+def test_git_restore_roundtrip_with_patch(tmp_git_repo, tmp_path):
+    """
+    1. Modify a tracked file and capture the diff (git_diff).
+    2. Save that diff to a temporary *.patch* file.
+    3. git_restore to return the tree to the committed state.
+    4. git_apply_patch to re-apply the changes.
+    5. git_restore again - the file should be back to its original contents.
+    """
+    file_path = tmp_git_repo / "hello.txt"
+    file_path.write_text("original\n")
+    git_commit(tmp_git_repo, "Add original file")
+
+    # Step 1 – make a change and capture the patch
+    file_path.write_text("original\nadded-line\n")
+    patch_text = git_diff(tmp_git_repo)
+    assert "+added-line" in patch_text
+
+    # Step 2 – materialise the diff as a patch file
+    patch_file = tmp_path / "change.patch"
+    patch_file.write_text(patch_text)
+
+    # Step 3 – restore (should cut the added line)
+    git_restore(tmp_git_repo)
+    assert file_path.read_text() == "original\n"
+
+    # Step 4 – re‑apply the patch
+    applied, _ = git_apply_patch(patch_file, tmp_git_repo)
+    assert applied
+    assert "added-line" in file_path.read_text()
+
+    # Step 5 – final restore should remove the change again
+    git_restore(tmp_git_repo)
+    assert file_path.read_text() == "original\n"
+
+
+def test_git_restore_recovers_deleted_files(tmp_git_repo):
+    """
+    Delete a tracked file (unstaged) and confirm git_restore recreates it.
+    """
+    victim = tmp_git_repo / "victim.txt"
+    victim.write_text("to be deleted")
+    git_commit(tmp_git_repo, "Add victim")
+
+    # Delete and ensure it is really gone
+    os.remove(victim)
+    assert not victim.exists()
+
+    # git_restore should bring the file back
+    git_restore(tmp_git_repo)
+    assert victim.exists()
+    assert victim.read_text() == "to be deleted"
+
+
+def test_git_restore_does_not_touch_untracked_files(tmp_git_repo):
+    """
+    Create an untracked file and ensure git_restore does **not** delete it.
+    """
+    untracked = tmp_git_repo / "scratch.log"
+    untracked.write_text("scratch data")
+
+    git_restore(tmp_git_repo)
+
+    # File must still be present and contents unchanged
+    assert untracked.exists()
+    assert untracked.read_text() == "scratch data"
+    
+
+def test_git_restore_single_file_after_patch(tmp_git_repo, tmp_path):
+    """
+    Restore only one of several patched files
+    """
+    foo = tmp_git_repo / "foo.txt"
+    bar = tmp_git_repo / "bar.txt"
+    baseline = "base\n"
+
+    foo.write_text(baseline)
+    bar.write_text(baseline)
+    git_commit(tmp_git_repo, "baseline foo & bar")
+
+    # modify both files and capture patch
+    foo.write_text(baseline + "foo-extra\n")
+    bar.write_text(baseline + "bar-extra\n")
+    patch_file = tmp_path / "multi.patch"
+    patch_file.write_text(git_diff(tmp_git_repo))
+
+    # restore to baseline
+    git_restore(tmp_git_repo)
+    assert foo.read_text() == baseline and bar.read_text() == baseline
+
+    # apply patch — both files have extras
+    applied, _ = git_apply_patch(patch_file, tmp_git_repo)
+    assert applied
+    assert foo.read_text().endswith("foo-extra\n")
+    assert bar.read_text().endswith("bar-extra\n")
+
+    # restore only bar.txt
+    git_restore(tmp_git_repo, paths=[bar])
+
+    # expectations
+    assert foo.read_text().endswith("foo-extra\n")   # unchanged
+    assert bar.read_text() == baseline               # reverted
+
+
+def test_git_restore_unchanged_file(tmp_git_repo):
+    """
+    Calling git_restore on a clean file should leave everything untouched.
+    Restoring an unchanged file is a no-op but must not error.
+    """
+    untouched = tmp_git_repo / "plain.txt"
+    untouched.write_text("pristine\n")
+    git_commit(tmp_git_repo, "add pristine file")
+
+    # The file is clean; restore should succeed and content stay identical
+    git_restore(tmp_git_repo, paths=[untouched])
+    assert untouched.read_text() == "pristine\n"
+
+    # The repo should still report no changes
+    assert not git_has_changes(tmp_git_repo)
+
+
+def test_git_restore_directory_multiple_files(tmp_git_repo):
+    """
+    • Create two files in a sub-directory and commit a baseline.
+    • Modify both files.
+    • Restore them first by passing an explicit list of paths,
+      then modify again and restore by passing the directory itself.
+    """
+    data_dir = tmp_git_repo / "data"
+    data_dir.mkdir()
+    f1 = data_dir / "alpha.txt"
+    f2 = data_dir / "beta.txt"
+
+    baseline = "orig\n"
+    f1.write_text(baseline)
+    f2.write_text(baseline)
+    git_commit(tmp_git_repo, "add data directory")
+
+    # round 1: restore via explicit list
+    f1.write_text(baseline + "change-1\n")
+    f2.write_text(baseline + "change-2\n")
+    assert git_has_changes(tmp_git_repo)
+
+    git_restore(tmp_git_repo, paths=[f1, f2])
+
+    assert f1.read_text() == baseline
+    assert f2.read_text() == baseline
+    assert not git_has_changes(tmp_git_repo)
+
+    # round 2: restore via directory path
+    # make changes again
+    f1.write_text(baseline + "change-A\n")
+    f2.write_text(baseline + "change-B\n")
+    assert git_has_changes(tmp_git_repo)
+
+    # now restore by giving the directory path
+    git_restore(tmp_git_repo, paths=[data_dir])
+
+    assert f1.read_text() == baseline
+    assert f2.read_text() == baseline
+    assert not git_has_changes(tmp_git_repo)

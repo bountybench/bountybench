@@ -25,6 +25,7 @@ const AgentInteractions = ({
   const [selectedCellId, setSelectedCellId] = useState(null);
   const [selectedIterNum, setSelectedIterNum] = useState(1);
   const [selectedIterType, setSelectedIterType] = useState('agent');
+  const [responding, setResponding] = useState(false);
 
   const handleInputChange = (event) => {
     const value = parseInt(event.target.value, 10);
@@ -52,6 +53,7 @@ const AgentInteractions = ({
 
   useEffect(() => {
     console.log('Phase Messages updated:', phaseMessages);
+    setResponding(false);
   }, [phaseMessages]);
 
   const handleStopClick = async () => {
@@ -59,6 +61,12 @@ const AgentInteractions = ({
     await onStopWorkflow();
     setStopped(true);
   };
+
+  const handleContinueClick = () => {
+    setResponding(true);  // Disable the button immediately
+    onTriggerNextIteration(selectedIterNum, selectedIterType);  // Trigger the next iteration
+  };
+
 
   const handleRestart = async () => {
     await onRestart();
@@ -84,6 +92,8 @@ const AgentInteractions = ({
       </Box>
     );
   }
+
+  const isDisabled = isNextDisabled || responding;
 
   return (
     <Box className="interactions-container">
@@ -131,9 +141,9 @@ const AgentInteractions = ({
             <Button
               variant="contained"
               color="primary"
-              onClick={() => onTriggerNextIteration(selectedIterNum, selectedIterType)}
+              onClick={handleContinueClick}
               startIcon={<KeyboardDoubleArrowRightIcon />}
-              disabled={isNextDisabled}
+              disabled={isDisabled}
               size="small"
             >
               Continue

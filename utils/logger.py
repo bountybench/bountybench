@@ -13,9 +13,19 @@ SUCCESS_STATUS = 26  # just above STATUS
 logging.addLevelName(STATUS, "STATUS")
 logging.addLevelName(SUCCESS_STATUS, "SUCCESS_STATUS")
 
+# Directory for full log files
+FULL_LOG_DIR = Path.cwd() / "full_logs"
+FULL_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+FULL_LOG_FILE_PATH = FULL_LOG_DIR / "app.log"
+if FULL_LOG_FILE_PATH.exists():
+    FULL_LOG_FILE_PATH.unlink()  # Remove the existing log file if it exists
+
+
 # Define LogBufferHandler
 class LogBufferHandler(logging.Handler):
     """Custom logging handler that stores logs in a buffer."""
+
     def __init__(self, capacity=1000):
         super().__init__()
         self.log_buffer = deque(maxlen=capacity)
@@ -79,10 +89,10 @@ class CustomColoredFormatter(colorlog.ColoredFormatter):
 class LoggerConfig:
     def __init__(self):
         self.log_queue = queue.Queue()
-        self.queue_listener = self.configure_logging_thread()
+        self.queue_listener = self._configure_logging_thread()
         self.log_buffer_handler = LogBufferHandler()
 
-    def configure_logging_thread(self):
+    def _configure_logging_thread(self):
         """Configure the logging thread with colored output."""
         log_colors = {
             "DEBUG": "white",
@@ -94,7 +104,7 @@ class LoggerConfig:
             "CRITICAL": "bold_red",
         }
 
-        formatter = CustomColoredFormatter(
+        console_formatter = CustomColoredFormatter(
             "\r%(log_color)s%(asctime)s %(levelname)-8s [%(relative_path)s:%(lineno)d]%(reset)s\n%(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
             log_colors=log_colors,
@@ -102,20 +112,44 @@ class LoggerConfig:
             style="%",
         )
 
-        handler = logging.StreamHandler()
-        handler.setFormatter(formatter)
+        file_formatter = logging.Formatter(
+            "%(asctime)s %(levelname)-8s [%(relative_path)s:%(lineno)d] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(console_formatter)
+
+        file_handler = logging.FileHandler(FULL_LOG_FILE_PATH, mode="a")
+        file_handler.setFormatter(file_formatter)
 
         queue_listener = QueueListener(
-            self.log_queue, handler, respect_handler_level=True
+            self.log_queue, console_handler, file_handler, respect_handler_level=True
         )
         queue_listener.start()
         return queue_listener
 
     def shutdown(self):
-        """Shutdown the queue listener."""
-        self.queue_listener.stop()
+        """Shutdown the queue listener safely."""
+        try:
+            if self.queue_listener:
+                self.queue_listener.stop()
+        except Exception as e:
+            logging.info(f"Logger shutdown: {e}")
+        finally:
+            self.queue_listener = None
 
-    def get_main_logger(self, name: str, level: int = logging.INFO) -> logging.Logger:
+    def restart(self):
+        """Recreate a QueueListener with the FileHandlers defined in the helper."""
+        try:
+            if self.queue_listener:
+                self.queue_listener.stop()
+        except Exception as e:
+            # Swallow shutdown errors (can happen at exit)
+            logging.info(f"Logger restart: failed to stop old listener: {e}")
+        self.queue_listener = self._configure_logging_thread()
+
+    def get_main_logger(self, name: str, level: int = logging.DEBUG) -> logging.Logger:
         """Get a logger instance with a QueueHandler."""
         logger = logging.getLogger(name)
         logger.setLevel(level)

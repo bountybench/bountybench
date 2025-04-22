@@ -1,4 +1,5 @@
 import asyncio
+import time
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -82,7 +83,10 @@ class ExecutorAgent(BaseAgent):
         self,
         prev_agent_message: Optional[AgentMessage] = None,
     ) -> None:
+        start_time = time.monotonic()
         model_action_message = await self.call_lm(prev_agent_message)
+        elapsed = time.monotonic() - start_time
+        logger.info(f"LM Response completed in {elapsed:.2f} seconds")
         if not model_action_message:
             self.last_executor_agent_message.set_message(
                 "Model failed to produce a valid response."
@@ -90,8 +94,6 @@ class ExecutorAgent(BaseAgent):
             return
 
         self.last_executor_agent_message.add_child_message(model_action_message)
-
-        logger.info(f"LM Response:\n{model_action_message.message}")
         if issubclass(model_action_message.__class__, CommandMessageInterface):
             # Note: can adjust the check condition later
             if "finalsubmissioncommand" in model_action_message.command.lower():
@@ -110,10 +112,16 @@ class ExecutorAgent(BaseAgent):
                 self.last_executor_agent_message.set_message(
                     "Kali failed to produce a valid response."
                 )
+
+                logger.info("Kali failed to produce a valid response.")
                 return
             self.last_executor_agent_message.add_child_message(kali_action_message)
+            logger.info(f"Kali Env Response:\n{kali_action_message.message}")
         else:
             self.last_executor_agent_message.set_message(
+                "Model did not return a valid command. Kali Linux action skipped."
+            )
+            logger.info(
                 "Model did not return a valid command. Kali Linux action skipped."
             )
 
@@ -131,15 +139,14 @@ class ExecutorAgent(BaseAgent):
 
         last_raw_response = None  # Store the last raw response in case parsing fails
         error_history = []  # Track error history across retries
+        command_reminder_added = False
 
         try:
-            iterations = 0
+            lm_input_message = self.resources.executor_agent_memory.get_memory(
+                lm_input_message
+            )
             while iterations < MAX_RETRIES:
                 try:
-                    lm_input_message = self.resources.executor_agent_memory.get_memory(
-                        lm_input_message
-                    )
-
                     logger.info(f"Getting response from LM")
                     model_output: ActionMessage = await asyncio.to_thread(
                         self.resources.model.run,
@@ -202,7 +209,7 @@ class ExecutorAgent(BaseAgent):
                     continue  # Skip to next iteration without trying to parse
 
                 try:
-                    logger.info(f"Parsing response from LM")
+                    logger.debug(f"Parsing response from LM")
                     parsed_response = self.parse_response(model_output)
                     if error_history:
                         parsed_response.add_to_additional_metadata(
@@ -216,6 +223,7 @@ class ExecutorAgent(BaseAgent):
                     error_entry = {
                         "type": exception_type,
                         "message": error_msg,
+                        "model_output": model_output.message,
                         "attempt": iterations + 1,
                     }
                     error_history.append(error_entry)
@@ -224,6 +232,14 @@ class ExecutorAgent(BaseAgent):
                         f"Retrying {iterations + 1}/{MAX_RETRIES} after parse error: {e}"
                     )
                     iterations += 1
+
+                    if not command_reminder_added and lm_input_message:
+                        # Add the reminder to use Command: format
+                        lm_input_message.memory = lm_input_message.memory or ""
+                        lm_input_message.memory += (
+                            '\n\nMake sure to include "Command:" in your response.'
+                        )
+                        command_reminder_added = True
 
             # If we've exhausted all retries but have a raw response, return it
             if last_raw_response:

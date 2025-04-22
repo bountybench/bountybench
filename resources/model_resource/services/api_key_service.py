@@ -1,9 +1,32 @@
 import os
+import signal
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 
 import requests
 from dotenv import find_dotenv, load_dotenv, set_key
+
+REASONING_MODELS = ["o1", "o3", "o4"]
+
+
+@contextmanager
+def _temporary_sigint_handler():
+    """Temporarily restore default SIGINT handler so Ctrl+C interrupts input()."""
+    original_handler = signal.getsignal(signal.SIGINT)
+    try:
+        signal.signal(signal.SIGINT, signal.default_int_handler)
+        yield
+    finally:
+        signal.signal(signal.SIGINT, original_handler)
+
+
+def _prompt_input(prompt_text: str) -> str:
+    with _temporary_sigint_handler():
+        try:
+            return input(prompt_text).strip()
+        except KeyboardInterrupt:
+            raise RuntimeError("API Key input interrupted by user.")
 
 
 def _model_provider_lookup(model_name: str, helm: bool) -> str:
@@ -23,6 +46,8 @@ def _model_provider_lookup(model_name: str, helm: bool) -> str:
                 return "ANTHROPIC_API_KEY"
             elif provider == "google":
                 return "GOOGLE_API_KEY"
+            elif provider == "xai":
+                return "XAI_API_KEY"
             elif provider in ["meta-llama", "mistralai", "deepseek-ai"]:
                 return "TOGETHER_API_KEY"
         raise Exception(f"Unknown model: {model_name}, cannot lookup key")
@@ -102,8 +127,8 @@ def _auth_openai_api_key(
 
             model_id = model_name.split("/")[-1]
 
-            # Strip -high-reasoning-effort or -low-reasoning-effort suffixes from o1, o3 models
-            if any(model_id.startswith(prefix) for prefix in ["o1", "o3"]):
+            # Strip -high-reasoning-effort or -low-reasoning-effort suffixes from openai reasoning models
+            if any(model_id.startswith(prefix) for prefix in REASONING_MODELS):
                 for suffix in ["-high-reasoning-effort", "-low-reasoning-effort"]:
                     if model_id.endswith(suffix):
                         model_id = model_id[: -len(suffix)]
@@ -172,6 +197,33 @@ def _auth_google_gemini_api_key(
     return False, response.text
 
 
+def _auth_xai_api_key(
+    api_key: str, model_name: str = None, verify_model: bool = False
+) -> Tuple[bool, str]:
+    url = "https://api.x.ai/v1/models"
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    model_name = model_name.split("/")[-1] if model_name else None
+
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        try:
+            if not verify_model or model_name is None:
+                return True, ""
+
+            valid_models = [model["id"] for model in response.json()["data"]]
+
+            if model_name not in valid_models:
+                raise ValueError(
+                    f"Model {model_name} not found.\n\nAvailable models from X.ai: {valid_models}"
+                )
+            return True, ""
+        except Exception as e:
+            return False, str(e)
+
+    return False, response.text
+
+
 AUTH_SERVICE = {
     "HELM_API_KEY": _auth_helm_api_key,
     "OPENAI_API_KEY": _auth_openai_api_key,
@@ -180,6 +232,7 @@ AUTH_SERVICE = {
     "ANTHROPIC_API_KEY": _auth_anthropic_api_key,
     "GOOGLE_API_KEY": _auth_google_gemini_api_key,
     "TOGETHER_API_KEY": _auth_together_api_key,
+    "XAI_API_KEY": _auth_xai_api_key,
 }
 
 
@@ -200,7 +253,7 @@ def verify_and_auth_api_key(
     # Prompt user for API key if not found in environment variables
     if requested_api_key not in os.environ:
         print(f"[API Service] {requested_api_key} not registered.")
-        requested_api_value = input(
+        requested_api_value = _prompt_input(
             f"[API Service] Please Enter your {requested_api_key}: "
         )
         _new_key_requested = True
@@ -219,7 +272,7 @@ def verify_and_auth_api_key(
         print(
             f"[API Service] API key authentication failed. Please double-check: {_message}"
         )
-        requested_api_value = input(
+        requested_api_value = _prompt_input(
             f"[API Service] Please enter your {requested_api_key}: "
         )
         print("[API Service] Received new API key.")
@@ -230,12 +283,11 @@ def verify_and_auth_api_key(
     print("[API Service] API key authentication successful.")
     # Ask user if they want to save the API key to the .env file
     if _new_key_requested:
-        _save_ok = (
-            input(
-                f"Do you want to save your {requested_api_key} to .env file? (y/n): "
-            ).lower()
-            == "y"
-        )
+        save_response = _prompt_input(
+            f"Do you want to save your {requested_api_key} to .env file? (y/n): "
+        ).lower()
+        _save_ok = save_response == "y"
+
         if _save_ok:
             print("[API Service] Saving API key to .env file.")
             set_key(

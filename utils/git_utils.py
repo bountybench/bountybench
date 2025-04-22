@@ -30,10 +30,12 @@ def _run_git_command(
             encoding=encoding if text else None,
             errors=errors if text else None,
         )
-        logger.info(f"Git command succeeded: git {' '.join(args)}")
+        logger.debug(f"Git command succeeded: git {' '.join(args)}", stacklevel=2)
         return result
     except subprocess.CalledProcessError as e:
-        logger.warning(f"Git command failed: git {' '.join(args)} - {str(e)}")
+        logger.warning(
+            f"Git command failed: git {' '.join(args)} - {str(e)}", stacklevel=2
+        )
         raise
 
 
@@ -41,7 +43,7 @@ def _checkout_branch(directory: Path, branch_name: Optional[str]) -> None:
     """Helper function to checkout a branch if specified."""
     if branch_name:
         _run_git_command(directory, ["checkout", branch_name])
-        logger.info(f"Checked out to branch '{branch_name}'.")
+        logger.debug(f"Checked out to branch '{branch_name}'.")
 
 
 def _get_main_branch(directory_path: PathLike) -> str:
@@ -112,7 +114,7 @@ def git_commit(
 
         # Check repository status
         if not git_has_changes(directory):
-            logger.info(f"No changes to commit in {directory}")
+            logger.debug(f"No changes to commit in {directory}")
             return False
 
         # Use timestamp if no message provided
@@ -123,7 +125,7 @@ def git_commit(
 
         # Create the commit
         _run_git_command(directory, ["commit", "-m", commit_message])
-        logger.info(f"Commit '{commit_message}' created successfully")
+        logger.debug(f"Commit '{commit_message}' created successfully")
         return True
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to create commit: {e.stderr}")
@@ -155,12 +157,12 @@ def git_reset(
 
         # Reset to the specified reference
         _run_git_command(directory, ["reset", "--hard", ref])
-        logger.info(f"Reset to {ref} in {directory}")
+        logger.debug(f"Reset to {ref} in {directory}")
 
         # Clean untracked files if requested
         if clean:
             _run_git_command(directory, ["clean", "-fd"])
-            logger.info(f"Cleaned untracked files in {directory}")
+            logger.debug(f"Cleaned untracked files in {directory}")
 
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to reset repository: {e.stderr}")
@@ -180,7 +182,7 @@ def git_checkout(
         clean: Whether to clean untracked files before checkout
     """
     directory = Path(directory_path)
-    logger.info(f"Checking out {target}")
+    logger.debug(f"Checking out {target}")
 
     cmd = ["checkout"]
     if force:
@@ -253,13 +255,38 @@ def git_clean(directory_path: PathLike, remove_ignored: bool = False) -> None:
     cmd = ["clean", flags]
 
     _run_git_command(directory, cmd)
-    logger.info(f"Cleaned untracked files in {directory}")
+    logger.debug(f"Cleaned untracked files in {directory}")
 
 
-def git_restore(directory_path: PathLike) -> None:
+def git_restore(
+    directory_path: PathLike,
+    paths: Optional[list[PathLike]] = None,
+    staged: bool = True,
+    worktree: bool = True,
+) -> None:
+    """
+    Restore tracked paths to their HEAD state.
+
+    Args:
+        directory_path: Repo root.
+        paths: List of files/dirs to restore.  None ⇒ whole repo.
+        staged: Also reset the index.
+        worktree: Also reset the working tree.
+    """
     directory = Path(directory_path)
-    _run_git_command(directory, ["restore"])
-    logger.info(f"Restored repository in {directory}")
+    cmd = ["restore"]
+    if staged:
+        cmd.append("--staged")
+    if worktree:
+        cmd.append("--worktree")
+
+    if paths:
+        cmd.extend(str(Path(p).relative_to(directory)) for p in paths)
+    else:
+        cmd.append(".")  # fallback: every tracked file
+
+    _run_git_command(directory, cmd)
+    logger.debug(f"Restored {paths or 'entire repo'} in {directory}")
 
 
 def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
@@ -298,7 +325,7 @@ def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> No
         # Initial commit
         _run_git_command(directory, ["add", "."])
         _run_git_command(directory, ["commit", "-q", "-m", "Initial commit"])
-        logger.info(f"Initialized repository in {directory}")
+        logger.debug(f"Initialized repository in {directory}")
     except subprocess.CalledProcessError as e:
         logger.critical(f"Failed to initialize repository: {e}")
         raise
@@ -308,7 +335,7 @@ def git_submodule_update(directory_path: PathLike) -> None:
     """Update git submodules."""
     directory = Path(directory_path)
     _run_git_command(directory, ["submodule", "update", "--init", "."])
-    logger.info(f"Updated submodules in {directory}")
+    logger.debug(f"Updated submodules in {directory}")
 
 
 def git_delete_branch(directory_path: PathLike, branch_name: str) -> None:
@@ -323,9 +350,9 @@ def git_delete_branch(directory_path: PathLike, branch_name: str) -> None:
     # Only attempt deletion if branch exists
     if branch_name in result.stdout.strip():
         _run_git_command(directory, ["branch", "-D", branch_name])
-        logger.info(f"Deleted branch {branch_name} in {directory}")
+        logger.debug(f"Deleted branch {branch_name} in {directory}")
     else:
-        logger.info(
+        logger.debug(
             f"Branch {branch_name} does not exist in {directory}, skipping deletion."
         )
 
@@ -334,7 +361,7 @@ def git_diff(directory_path: PathLike, exclude_binary: Optional[bool] = True) ->
     """Get git diff of the repository"""
     try:
         directory = Path(directory_path)
-        logger.info(f"Checking for git diff in directory: {directory}")
+        logger.debug(f"Checking for git diff in directory: {directory}")
 
         # Validate git repository
         if not (directory / ".git").is_dir():
@@ -345,7 +372,7 @@ def git_diff(directory_path: PathLike, exclude_binary: Optional[bool] = True) ->
         _run_git_command(directory, ["add", "-A"])
 
         if exclude_binary:
-            # Get list of changed files
+            # 1) detect content‐changed files via numstat
             numstat_result = _run_git_command(
                 directory,
                 [
@@ -357,21 +384,36 @@ def git_diff(directory_path: PathLike, exclude_binary: Optional[bool] = True) ->
                 errors="replace",
             )
 
-            if not numstat_result:
+            content_changed_files = {
+                parts[2]
+                for line in numstat_result.stdout.splitlines()
+                if (parts := line.split("\t")) and parts[0] != "-" and parts[1] != "-"
+            }
+
+            # 2) detect pure renames via name-status
+            name_status_result = _run_git_command(
+                directory,
+                ["diff", "--cached", "--name-status"],
+                capture_output=True,
+                errors="replace",
+            )
+
+            rename_files = {
+                path
+                for line in name_status_result.stdout.splitlines()
+                if (parts := line.split("\t"))
+                and parts[0].startswith("R")
+                and len(parts) >= 3
+                for path in (parts[1], parts[2])
+            }
+
+            files_to_diff = content_changed_files.union(rename_files)
+
+            if not files_to_diff:
+                logger.debug("No non-binary files changed")
                 return ""
 
-            # Parse numstat output to get non-binary files
-            non_binary_files = set()
-            for line in numstat_result.stdout.splitlines():
-                parts = line.split("\t")
-                if len(parts) >= 3 and parts[0] != "-" and parts[1] != "-":
-                    non_binary_files.add(parts[2])
-
-            if not non_binary_files:
-                logger.info("No non-binary files changed")
-                return ""
-
-            args = ["diff", "--cached", "--", *non_binary_files]
+            args = ["diff", "--cached", "--", *files_to_diff]
         else:
             args = ["diff", "--cached"]
 
@@ -442,10 +484,10 @@ def git_apply_patch(
         try:
             _run_git_command(directory, args)
             msg = f"Applied patch successfully with {method_name}."
-            logger.info(msg)
+            logger.debug(msg)
             return True, msg
         except subprocess.CalledProcessError:
-            logger.info(
+            logger.debug(
                 f"{method_name} failed for {patch_path.name}, trying next method..."
             )
 
@@ -460,11 +502,11 @@ def git_apply_patch(
                 text=True,
             )
             msg = "Applied patch successfully with Unix patch command."
-            logger.info(msg)
+            logger.debug(msg)
             return True, msg
         except subprocess.CalledProcessError as e:
             # Unix method failed
-            logger.info(f"Unix patch method failed: {e}")
+            logger.debug(f"Unix patch method failed: {e}")
 
     # All methods failed
     msg = "Failed to apply patch."
@@ -492,14 +534,18 @@ def git_setup_dev_branch(
         _run_git_command(directory, ["checkout", "-f", commit])
 
         # Delete existing dev branch if it exists
-        branches_output = _run_git_command(directory, ["branch"], capture_output=True).stdout
-        branch_names = [line.lstrip("* ").strip() for line in branches_output.splitlines()]
+        branches_output = _run_git_command(
+            directory, ["branch"], capture_output=True
+        ).stdout
+        branch_names = [
+            line.lstrip("* ").strip() for line in branches_output.splitlines()
+        ]
         if "dev" in branch_names:
             _run_git_command(directory, ["branch", "-D", "dev"])
 
         # Create new dev branch
         _run_git_command(directory, ["checkout", "-b", "dev"])
-        logger.info(f"Created dev branch in {directory} from {commit}")
+        logger.debug(f"Created dev branch in {directory} from {commit}")
 
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to setup dev branch: {e}")
@@ -574,7 +620,7 @@ def initialize_git_repository(destination):
         check=True,
         capture_output=True,
     )
-    logger.info(f"Initialized new Git repository at {destination}")
+    logger.debug(f"Initialized new Git repository at {destination}")
 
 
 def delete_git_branches(destination, exclude_branches=None):
@@ -622,7 +668,7 @@ def delete_git_branches(destination, exclude_branches=None):
                 check=True,
                 capture_output=True,
             )
-            logger.info(f"Deleted branch {branch} from repository in {destination}")
+            logger.debug(f"Deleted branch {branch} from repository in {destination}")
             deleted_branches.append(branch)
         except subprocess.CalledProcessError as e:
             logger.warning(f"Failed to delete branch {branch}: {e}")
@@ -645,7 +691,7 @@ def cleanup_git_branches(destination):
         # Delete all branches except main
         deleted_branches = delete_git_branches(destination, exclude_branches=[])
         if deleted_branches:
-            logger.info(f"Deleted branches: {', '.join(deleted_branches)}")
+            logger.debug(f"Deleted branches: {', '.join(deleted_branches)}")
 
         # Create a new main branch from the current HEAD
         subprocess.run(
@@ -654,12 +700,12 @@ def cleanup_git_branches(destination):
             check=True,
             capture_output=True,
         )
-        logger.info(f"Created new main branch from detached HEAD in {destination}")
+        logger.debug(f"Created new main branch from detached HEAD in {destination}")
 
         # Delete all branches except main
         deleted_branches = delete_git_branches(destination, exclude_branches=[])
         if deleted_branches:
-            logger.info(f"Deleted branches: {', '.join(deleted_branches)}")
+            logger.debug(f"Deleted branches: {', '.join(deleted_branches)}")
 
         # Garbage collect to ensure deleted branches are completely removed
         subprocess.run(
@@ -668,7 +714,7 @@ def cleanup_git_branches(destination):
             check=True,
             capture_output=True,
         )
-        logger.info(f"Completed garbage collection in {destination}")
+        logger.debug(f"Completed garbage collection in {destination}")
 
         # Final step: Explicitly checkout to the main branch to ensure we're on it
         subprocess.run(
@@ -677,7 +723,7 @@ def cleanup_git_branches(destination):
             check=True,
             capture_output=True,
         )
-        logger.info(f"Checked out to main branch in {destination}")
+        logger.debug(f"Checked out to main branch in {destination}")
 
     except subprocess.CalledProcessError as e:
         logger.error(f"Error cleaning up Git branches: {e}")

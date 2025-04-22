@@ -18,9 +18,7 @@ from docker.errors import (
 from messages.action_messages.docker_action_message import DockerActionMessage
 from resources.base_resource import ActionMessage, BaseResourceConfig
 from resources.runnable_base_resource import RunnableBaseResource
-from resources.utils import truncate_script_output
 from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 
@@ -75,8 +73,7 @@ class DockerResource(RunnableBaseResource):
             volumes=volumes,
         )
 
-        truncated_output = truncate_script_output(output)
-        docker_message.set_message(truncated_output)
+        docker_message.set_message(output)
         docker_message.set_exit_code(exit_code)
         return docker_message
 
@@ -88,7 +85,7 @@ class DockerResource(RunnableBaseResource):
         work_dir: str = None,
         volumes: dict = None,
         detach: bool = False,
-        timeout: int = 300,  # timeout in seconds (default: 5 minutes)
+        timeout: int = 600,  # timeout in seconds (default: 10 minutes)
     ) -> tuple:
         """
         Run a Docker container with the specified configuration.
@@ -100,16 +97,13 @@ class DockerResource(RunnableBaseResource):
             work_dir (Optional[str]): The working directory inside the container.
             volumes (Optional[dict]): The volumes to mount in the container.
             detach (bool): Run the container in detached mode. Defaults to False.
-            timeout (int): Time in seconds before killing the container. Defaults to 300.
+            timeout (int): Time in seconds before killing the container. Defaults to 600.
 
         Returns:
             tuple: A tuple containing the logs from the container and the exit code.
         """
 
         unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
-        command_trc = (
-            f"{command[:10]}...{command[-10:]}" if len(command) > 23 else command
-        )
 
         def stream_logs(container, logs, stop_event):
             try:
@@ -122,7 +116,7 @@ class DockerResource(RunnableBaseResource):
             except Exception as e:
                 logger.warning(f"Log stream ended: {e}")
 
-        logger.info(f"Running command in Docker: {command_trc}")
+        logger.info(f"Running command in Docker: {command}")
         try:
             container = self.client.containers.run(
                 image=docker_image,

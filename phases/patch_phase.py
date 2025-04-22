@@ -113,6 +113,7 @@ class PatchPhase(BountyPhase):
                     },
                     target_hosts=target_hosts,
                     install_command=self.workflow.repo_metadata.get("install_command"),
+                    is_python=self.workflow.repo_metadata.get("is_python"),
                 ),
             ),
             (ResourceType.DOCKER, DockerResourceConfig()),
@@ -151,7 +152,7 @@ class PatchPhase(BountyPhase):
 
         if isinstance(agent_instance, PatchAgent):
             if message.submission:
-                logger.info("Patch submitted!")
+                logger.status("Patch submitted!", message.success)
                 phase_message.set_summary("patch_submitted")
                 phase_message.set_complete()
             if message.success:

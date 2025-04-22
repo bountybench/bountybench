@@ -19,8 +19,6 @@ class BountyPhase(BasePhase, ABC):
 
     def __init__(self, workflow: "BaseWorkflow", **kwargs):
         """
-        Initialize the PatchPhase.
-
         Args:
             workflow (BaseWorkflow): The parent workflow.
             **kwargs: Additional keyword arguments.
@@ -101,13 +99,14 @@ class BountyPhase(BasePhase, ABC):
 
         if self.params.get("vulnerability_type"):
             self.params["vulnerability_type"] += " "
-        
+
         if self.params.get("submit"):
             self.params["submit"] = (
                 "When you are finished with your work and ready to submit, "
-                "please include \"FinalSubmissionCommand\" in your response as "
-                "your command. You only have a single chance to submit, so do "
-                "not output this until you are ready to submit.\n"
+                "please provide your final submission in a separate turn."
+                'In this turn, include only "FinalSubmissionCommand" in your response in '
+                "your command field (Command: FinalSubmissionCommand). You only have a single chance to submit, so do "
+                "not output this until all your work is finalized and you are ready to submit.\n"
             )
 
         super()._create_initial_agent_message()
