@@ -57,6 +57,7 @@ class BasePhase(ABC):
         self._done: bool = False
         self.iteration_count: int = 0
         self._last_agent_message: Optional[Message] = None
+        logger.debug(f"Created {self.name} phase with config: {self.phase_config}")
 
     @abstractmethod
     def define_resources(
