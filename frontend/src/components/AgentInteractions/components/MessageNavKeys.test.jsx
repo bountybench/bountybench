@@ -8,18 +8,6 @@ import { darkTheme } from "../../../theme";
 // Mock setTimeout to execute immediately
 jest.useFakeTimers();
 
-// Add mock for scrollIntoView
-beforeAll(() => {
-  // Create a mock implementation for scrollIntoView
-  window.HTMLElement.prototype.scrollIntoView = jest.fn();
-});
-
-// Clean up after tests
-afterAll(() => {
-  // Remove the mock
-  delete window.HTMLElement.prototype.scrollIntoView;
-});
-
 describe("AgentMessage navigation functionality", () => {
   // Mock data setup
   const parentMessage = {
@@ -47,11 +35,6 @@ describe("AgentMessage navigation functionality", () => {
     mockOnEditingChange.mockClear();
     mockOnUpdateMessageInput.mockClear();
     jest.clearAllTimers();
-    
-    // Clear the scrollIntoView mock for each test
-    if (window.HTMLElement.prototype.scrollIntoView.mockClear) {
-      window.HTMLElement.prototype.scrollIntoView.mockClear();
-    }
   });
 
   test("handleMoveUp navigates to previous sibling", () => {
@@ -77,7 +60,6 @@ describe("AgentMessage navigation functionality", () => {
     expect(mockOnCellSelect).toHaveBeenCalledWith("child1");
   });
 
-  // [Rest of the test code remains unchanged]
   test("handleMoveDown navigates to next sibling", () => {
     render(
       <ThemeProvider theme={darkTheme}>

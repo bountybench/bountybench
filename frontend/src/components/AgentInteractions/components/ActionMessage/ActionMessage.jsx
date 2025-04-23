@@ -143,7 +143,8 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRunMessage, onEd
   }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, handleMoveUp, handleMoveLeft, handleMoveDown, selectedCellId]);
 
   useEffect(() => {
-    if (selectedCellId === action.current_id && messageRef.current) {
+    if (selectedCellId === action.current_id && messageRef.current && 
+      typeof messageRef.current.scrollIntoView === 'function') {
       messageRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'nearest',

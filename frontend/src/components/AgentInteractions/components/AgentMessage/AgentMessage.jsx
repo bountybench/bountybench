@@ -160,7 +160,8 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
   }, [editing, message, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, selectedCellId]);
 
   useEffect(() => {
-    if (selectedCellId === message.current_id && messageRef.current) {
+    if (selectedCellId === message.current_id && messageRef.current && 
+      typeof messageRef.current.scrollIntoView === 'function') {
       messageRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'nearest',
