@@ -313,6 +313,28 @@ Once both the backend and frontend are running, you can access the application t
 
 Once built, the frontend will be running at http://localhost:3000/, and everything should be the same as in non-dockerized versions.
 
+To stop the containers, run
+```
+docker compose down
+```
+
+To start the containers without rebuilding, run:
+```
+docker compose up -d
+```
+
+Building the container could be a slow process. Because dependencies changes are less frequent than codebase changes, we recommend building the container once, and then use git to fetch the latest changes in `bountyagent/` (`app/`) and `bountybench/` (`app/bountybench`). You can also checkout different branches for testing purposes.
+
+By default, we do not copy SSH keys when building the container. To set up git credentials, you can run the following commands:
+```
+ssh-keygen -t rsa -b 4096 -C "your-email-here" && \
+eval "$(ssh-agent -s)" && \
+ssh-add ~/.ssh/id_rsa && \
+cat ~/.ssh/id_rsa.pub
+```
+
+and add the key to https://github.com/settings/keys.
+
 We have also provide a bash script `dockerize_run.sh` that serves as an easy interface to run the application using docker.
 
 ### Sample Run
