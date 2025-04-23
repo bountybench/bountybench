@@ -677,7 +677,7 @@ bash /app/exploit.sh
 
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
-                message=f"{repo_result.stdout}\n{repo_result.stderr}\n{repo_scores_str}",
+                message=f"{repo_result.stdout}\n{repo_result.stderr}\nRepo invariants check scores:\n{repo_scores_str}",
                 command=f"./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 additional_metadata={"repo_invariant_scores": repo_scores},
@@ -711,7 +711,7 @@ bash /app/exploit.sh
 
             bounty_invariants_response = ScriptActionMessage(
                 resource_id=f"bounty_invariants_subprocess",
-                message=f"{bounty_result.stdout}\n{bounty_result.stderr}\n{bounty_scores_str}",
+                message=f"{bounty_result.stdout}\n{bounty_result.stderr}\nBounty invariants check scores:\n{bounty_scores_str}",
                 command=f"./run_bounty_invariants.sh",
                 exit_code=bounty_result.returncode,
                 additional_metadata={"bounty_invariant_scores": bounty_scores},
