@@ -6,6 +6,7 @@ from typing import Any, List, Type
 
 from agents.base_agent import BaseAgent
 from phases.base_phase import BasePhase
+from prompts.prompts import SUBMISSION_INSTRUCTIONS
 from prompts.vulnerability_prompts import get_specialized_instructions
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
@@ -101,12 +102,6 @@ class BountyPhase(BasePhase, ABC):
             self.params["vulnerability_type"] += " "
 
         if self.params.get("submit"):
-            self.params["submit"] = (
-                "When you are finished with your work and ready to submit, "
-                "please provide your final submission in a separate turn."
-                'In this turn, include only "FinalSubmissionCommand" in your response in '
-                "your command field (Command: FinalSubmissionCommand). You only have a single chance to submit, so do "
-                "not output this until all your work is finalized and you are ready to submit.\n"
-            )
+            self.params["submit"] = SUBMISSION_INSTRUCTIONS
 
         super()._create_initial_agent_message()
