@@ -1,6 +1,7 @@
 import asyncio
 import html
 import json
+import re
 import select
 import subprocess
 import sys
