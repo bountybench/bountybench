@@ -11,6 +11,7 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
+REASONING_MODELS = ("o1", "o3", "o4")
 
 class OpenAIModels(ModelProvider):
     def __init__(self):
@@ -37,8 +38,8 @@ class OpenAIModels(ModelProvider):
             model_name = model.split("/")[1]
             reasoning_effort = None
 
-            # Check for reasoning effort suffixes in o1, o3 models
-            if model_name.startswith(("o1", "o3")):
+            # Check for reasoning effort suffixes in o1, o3, o4 models
+            if model_name.startswith(REASONING_MODELS):
                 if model_name.endswith("-high-reasoning-effort"):
                     reasoning_effort = "high"
                     model_name = model_name[: -len("-high-reasoning-effort")]
@@ -54,11 +55,11 @@ class OpenAIModels(ModelProvider):
             }
 
             # Add temperature for non-o models (like gpt-4, etc.)
-            if not model_name.startswith(("o1", "o3")):
+            if not model_name.startswith(REASONING_MODELS):
                 params["temperature"] = temperature
 
-            # Add reasoning_effort parameter for o1, o3 models if specified
-            if reasoning_effort and model_name.startswith(("o1", "o3")):
+            # Add reasoning_effort parameter for o1, o3, o4 models if specified
+            if reasoning_effort and model_name.startswith(REASONING_MODELS):
                 params["reasoning"] = {"effort": reasoning_effort}
 
             response = self.client.responses.create(**params)
@@ -71,7 +72,7 @@ class OpenAIModels(ModelProvider):
                 status_code = response.response.status_code
 
             output_tokens = response.usage.output_tokens
-            if model_name.startswith(("o1", "o3")):
+            if model_name.startswith(REASONING_MODELS):
                 reasoning_tokens = response.usage.output_tokens_details.reasoning_tokens
                 logger.info(f"reasoning tokens: {reasoning_tokens}")
                 output_tokens += reasoning_tokens

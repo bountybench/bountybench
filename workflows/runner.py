@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import json
+import logging
 import sys
 import traceback
 from datetime import datetime
@@ -13,10 +14,10 @@ from rich.traceback import Traceback
 from utils.logger import get_main_logger, logger_config
 from workflows.base_workflow import BaseWorkflow
 from workflows.detect_patch_workflow import DetectPatchWorkflow
+from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.exploit_workflow import ExploitWorkflow
 from workflows.patch_workflow import PatchWorkflow
-from workflows.detect_workflow import DetectWorkflow
 
 # This module serves as the single entry point for running workflows via the command line.
 # Example usage:
@@ -95,9 +96,25 @@ class WorkflowRunner:
             "--max_output_tokens", type=int, help="Maximum tokens for model output"
         )
         parser.add_argument(
-            "--no_submit", action="store_false", help="Disable agent from submitting the exploit"
+            "--disable_submit",
+            action="store_true",
+            help="Disable agent from submitting the exploit (not recommended)",
         )
-
+        parser.add_argument(
+            "--logging_level",
+            type=str,
+            choices=[
+                "DEBUG",
+                "INFO",
+                "STATUS",
+                "SUCCESS_STATUS",
+                "WARNING",
+                "ERROR",
+                "CRITICAL",
+            ],
+            default="DEBUG",
+            help="Set the logging level (default: DEBUG)",
+        )
         return parser
 
     def parse_arguments(self) -> None:
@@ -105,6 +122,11 @@ class WorkflowRunner:
 
     def initialize_workflow(self) -> None:
         """Initialize the workflow instance with parsed arguments."""
+        # Set logging level early
+        level_str = self.args.logging_level.upper()
+        level = getattr(logging, level_str, logging.INFO)
+        logger_config.set_global_log_level(level)
+
         workflow_class = self._workflow_factory[self.args.workflow_type]
 
         # Convert parsed args to kwargs

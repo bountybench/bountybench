@@ -15,10 +15,10 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
-from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
+from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from resources.utils import run_command_async, truncate_script_output
+from resources.utils import run_command_async
 from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
 from utils.logger import get_main_logger
 
@@ -90,7 +90,7 @@ class PatchAgent(BaseAgent):
         """
         self.log_history.append(message)
         log_method = getattr(logger, level.lower(), logger.info)
-        log_method(message)
+        log_method(message, stacklevel=2)
         combined = "\n".join(self.log_history)
         return combined
 
@@ -461,11 +461,12 @@ bash /app/exploit.sh
             logger.info("Running verify.sh")
             try:
                 # Make the script executable
-                verify_file_path = self.bounty_dir / "verify_files" / "verify.sh"
-                verify_file_path.chmod(verify_file_path.stat().st_mode | 0o755)
+                verify_files_path = self.bounty_dir / "verify_files"
+                verify_script_path = verify_files_path / "verify.sh"
+                verify_script_path.chmod(verify_script_path.stat().st_mode | 0o755)
 
                 result = await run_command_async(
-                    ["bash", "verify.sh"], work_dir=self.bounty_dir
+                    ["bash", "verify.sh"], work_dir=verify_files_path
                 )
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
@@ -521,10 +522,11 @@ bash /app/exploit.sh
                 if success:
                     return True
                 else:
+                    self._log(f"Failed to apply patch to codebase.")
                     return False
 
             else:
-                self._log(f"Failed to apply patch to codebase: {message}")
+                self._log(f"No patch file path returned")
                 return False
         else:
             self._log(
@@ -641,7 +643,7 @@ bash /app/exploit.sh
 
         return any_passed
 
-    async def _execute_invariant_tests(self) -> tuple[Dict, Optional[Dict]]:
+    async def _execute_invariant_tests(self) -> tuple[Dict]:
         """
         Execute invariant test scripts.
         Returns paths to the generated score files.
@@ -673,7 +675,7 @@ bash /app/exploit.sh
 
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
-                message=truncate_script_output(repo_result.stdout, repo_result.stderr),
+                message=f"{repo_result.stdout}\n{repo_result.stderr}",
                 command=f"./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 additional_metadata={"repo_invariant_scores": repo_scores},
@@ -682,7 +684,8 @@ bash /app/exploit.sh
             self.update_patch_agent_message(repo_invariants_response)
 
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
-            logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
+            if repo_result.stderr:
+                logger.info(f"Repo invariants script stderr:\n{repo_result.stderr}")
 
             # Make the script executable
             bounty_invariants_file_path = self.bounty_dir / "run_bounty_invariants.sh"
@@ -704,9 +707,7 @@ bash /app/exploit.sh
 
             bounty_invariants_response = ScriptActionMessage(
                 resource_id=f"bounty_invariants_subprocess",
-                message=truncate_script_output(
-                    bounty_result.stdout, bounty_result.stderr
-                ),
+                message=f"{bounty_result.stdout}\n{bounty_result.stderr}",
                 command=f"./run_bounty_invariants.sh",
                 exit_code=bounty_result.returncode,
                 additional_metadata={"bounty_invariant_scores": bounty_scores},
@@ -715,16 +716,15 @@ bash /app/exploit.sh
             self.update_patch_agent_message(bounty_invariants_response)
 
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
+            if bounty_result.stderr:
+                logger.info(f"Bounty invariants script stderr:\n{bounty_result.stderr}")
 
             return repo_scores, bounty_scores
 
         except Exception as e:
             logger.error(f"Error executing invariant tests: {e}")
-            # Return empty paths in case of error
-            return (
-                self.task_dir / "empty_repo_scores.json",
-                self.bounty_dir / "empty_bounty_scores.json",
-            )
+            # Return empty dicts in case of error
+            return {}, {}
 
     def _load_json_file(self, file_path: Path) -> dict:
         """Load a JSON file or return an empty dict if it doesn't exist."""

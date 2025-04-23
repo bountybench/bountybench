@@ -6,7 +6,12 @@ from typing import Any, Dict, List, Optional
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from utils.git_utils import git_get_codebase_version
-from utils.logger import get_main_logger
+from utils.logger import (
+    FULL_LOG_DIR,
+    FULL_LOG_FILE_PATH,
+    get_main_logger,
+    logger_config,
+)
 
 logger = get_main_logger(__name__)
 
@@ -24,6 +29,7 @@ class WorkflowMessage(Message):
         task: Optional[Dict[str, Any]] = None,
         additional_metadata: Optional[Dict[str, Any]] = None,
         logs_dir: str = "logs",
+        model_name: Optional[str] = "",
     ) -> None:
         # Core
         self._success = False
@@ -31,6 +37,7 @@ class WorkflowMessage(Message):
         self._phase_messages = []
         self.agents_used = {}
         self.resources_used = {}
+        self.model_name = model_name
         self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, QUERY_TIME_TAKEN_IN_MS: 0}
 
         # Logging
@@ -47,7 +54,7 @@ class WorkflowMessage(Message):
         self._workflow_id = workflow_id if workflow_id else str(id(self))
         self.log_file = (
             self.logs_dir
-            / f"{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+            / f"{self.model_name}_{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
         )
 
         # Metadata
@@ -164,6 +171,24 @@ class WorkflowMessage(Message):
         with open(self.log_file, "w") as f:
             json.dump(logs, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
+
+    def on_exit(self):
+        # Save the json log file
+        self.save()
+
+        # Archive the log file
+        archive_path = FULL_LOG_DIR / f"{self.log_file.stem}.log"
+        try:
+            with open(FULL_LOG_FILE_PATH, "r") as src, open(archive_path, "a") as dst:
+                dst.write(src.read())
+            FULL_LOG_FILE_PATH.unlink(missing_ok=True)
+        except FileNotFoundError:
+            logger.warning(
+                f"Log file {FULL_LOG_FILE_PATH} not found — skipping archive."
+            )
+
+        # Restart logger to attach a fresh FileHandler
+        logger_config.restart()
 
     def new_log(self):
         components = [self.workflow_name]

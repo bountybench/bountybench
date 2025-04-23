@@ -52,10 +52,12 @@ class BountySetupResource(BaseSetupResource):
         base_dict = super().to_dict()
 
         # Add bounty-specific properties
-        base_dict.update({
-            "bounty_dir": str(self.bounty_dir),
-            "bounty_number": self.bounty_number,
-        })
+        base_dict.update(
+            {
+                "bounty_dir": str(self.bounty_dir),
+                "bounty_number": self.bounty_number,
+            }
+        )
 
         return base_dict
 

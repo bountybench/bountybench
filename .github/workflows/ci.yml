@@ -8,6 +8,7 @@ on:
 
 jobs:
   lint:
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository for linting
@@ -15,6 +16,10 @@ jobs:
         with:
           fetch-depth: 1
           
+      - name: Fetch base branch for pull requests
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }}
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -23,7 +28,7 @@ jobs:
       - name: Lint modified Python files
         run: |
           python -m pip install --upgrade pip
-          pip install black isort
+          pip install "black==24.10.0" "isort==5.13.2"
           # Simplified grep pattern to avoid parsing issues
           MODIFIED_PY_FILES=$(git diff --name-only --diff-filter=d origin/main HEAD | grep ".py$" | grep -v "^bountybench/" || echo "")
           if [ -n "$MODIFIED_PY_FILES" ]; then
@@ -36,6 +41,7 @@ jobs:
           fi
 
   frontend-tests:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     needs: lint
     steps:
@@ -45,27 +51,28 @@ jobs:
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
           docker system prune -af || true
           df -h
-          
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '14'
-      
+          node-version: "14"
+
       - name: Install frontend dependencies
         working-directory: ./frontend
         run: npm install
-      
+
       - name: Run frontend tests
         working-directory: ./frontend
         run: |
           CI=true npm test -- --watchAll=false
 
   backend-tests:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     needs: lint
     steps:
@@ -77,7 +84,7 @@ jobs:
           find /opt/hostedtoolcache -mindepth 1 -maxdepth 1 -type d -not -path "*/Python/3.11*" -exec sudo rm -rf {} \;
           docker system prune -af || true
           df -h
-          
+
       - name: Checkout repository with submodules
         uses: actions/checkout@v4
         with:
@@ -92,7 +99,7 @@ jobs:
           git config --global --add safe.directory '*'
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-          
+
           # Create auth file
           echo "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
           chmod 600 ~/.git-credentials
@@ -101,23 +108,23 @@ jobs:
         run: |
           echo "Initializing only required submodules..."
           git submodule update --init bountybench
-      
+
       - name: Check Disk Space
         run: df -h
-          
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-      
+          python-version: "3.11"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
+
       - name: Set up QEMU
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-        
+
       - name: Docker Cleanup before pulling new image
         run: |
           docker system prune -af
@@ -130,16 +137,16 @@ jobs:
         run: |
           docker pull --quiet cybench/bountyagent:latest
           docker manifest inspect cybench/bountyagent:latest
-  
+
       - name: Display disk space after pulling image
         run: df -H
-  
+
       - name: Create Docker Network
         run: docker network create shared_net || true
-      
+
       - name: Run backend tests with coverage
         run: |
           coverage run --rcfile=.coveragerc -m pytest -s tests/
-      
+
       - name: Generate Coverage Report
         run: coverage report

@@ -11,7 +11,6 @@ from resources.base_resource import BaseResourceConfig
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_utils import truncate_input_to_max_tokens
-from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.model_resource.services.api_key_service import verify_and_auth_api_key
 from resources.runnable_base_resource import RunnableBaseResource
 from utils.logger import get_main_logger
@@ -69,6 +68,23 @@ class ModelResourceConfig(BaseResourceConfig):
             verify_and_auth_api_key(self.model, self.use_helm)
 
 
+class ModelResponseFailure(Exception):
+    """
+    Custom exception raised when a model response fails.
+    Carries the original exception and the input associated with the failure.
+    """
+
+    def __init__(self, exception=None, input=None):
+        self.exception = exception
+        self.input = input
+
+        # Create a message that includes information about the original exception
+        exception_msg = str(self.exception) if self.exception else "Unknown error"
+        self.message = f"Model response failed: {exception_msg}"
+
+        super().__init__(self.message)
+
+
 class ModelResource(RunnableBaseResource):
     """ModelResource"""
 
@@ -123,7 +139,15 @@ class ModelResource(RunnableBaseResource):
 
                 model_provider = TogetherModels()
             elif model_prefix == "openai":
+                from resources.model_resource.openai_models.openai_models import (
+                    OpenAIModels,
+                )
+
                 model_provider = OpenAIModels()
+            elif model_prefix == "xai":
+                from resources.model_resource.xai_models.xai_models import XAIModels
+
+                model_provider = XAIModels()
             else:
                 raise Exception(f"Unknown model type: {self.model}")
         return model_provider
@@ -213,14 +237,22 @@ class ModelResource(RunnableBaseResource):
             use_helm=self.helm,
         )
 
-        model_response = self.model_provider.make_request(
-            model=self.model,
-            message=model_input,
-            temperature=self.temperature,
-            max_tokens=self.max_output_tokens,
-            stop_sequences=self.stop_sequences,
-            timeout=self.timeout,
-        )
+        try:
+            model_response = self.model_provider.make_request(
+                model=self.model,
+                message=model_input,
+                temperature=self.temperature,
+                max_tokens=self.max_output_tokens,
+                stop_sequences=self.stop_sequences,
+                timeout=self.timeout,
+            )
+        except Exception as e:
+            # Wrap and raise custom exception that carries the input and error
+            raise ModelResponseFailure(
+                exception=e,
+                input=model_input,
+            ) from e
+        logger.info(f"Unparsed LM Response:\n{model_response}")
 
         lm_response = self.remove_hallucinations(model_response.content)
         lm_response = self.remove_stop_token(lm_response)
@@ -229,6 +261,7 @@ class ModelResource(RunnableBaseResource):
         metadata = (
             {
                 "input": model_input,
+                "raw_output": model_response.content,
                 "model": self.model,
                 "temperature": self.temperature,
                 "max_input_tokens": self.max_input_tokens,

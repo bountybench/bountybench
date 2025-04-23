@@ -7,10 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import dotenv
 
-from resources.model_resource.services.api_key_service import (
-    AUTH_SERVICE,
-    verify_and_auth_api_key,
-)
+from resources.model_resource.model_mapping import HelmModelInfo, NonHelmModelInfo
+from resources.model_resource.services.api_key_service import verify_and_auth_api_key
+from resources.model_resource.services.service_providers import ServiceProvider
 
 # Create a temporary .env file for testing
 TEMP_ENV_FILE = tempfile.NamedTemporaryFile(delete=False)
@@ -38,6 +37,27 @@ class TestApiKeyService(unittest.TestCase):
             os.unlink(TEMP_ENV_FILE.name)
         except:
             pass
+
+    @staticmethod
+    def create_mock_get_model_info():
+        """
+        Create a mock function to simulate getting model information
+        """
+
+        def mock_get_model_info(
+            model_name: str, helm: bool
+        ) -> HelmModelInfo | NonHelmModelInfo:
+            if not helm:
+                return NonHelmModelInfo(
+                    model_name=model_name, provider=ServiceProvider.OPENAI
+                )
+            else:
+                return HelmModelInfo(
+                    model_name=model_name,
+                    tokenizer="test_tokenizer",
+                )
+
+        return mock_get_model_info
 
     @staticmethod
     def create_mock_auth_service():
@@ -74,6 +94,10 @@ class TestApiKeyService(unittest.TestCase):
             patch("dotenv.find_dotenv", return_value=TEMP_ENV_FILE.name),
             patch("pathlib.Path.is_file", return_value=True),
             patch("dotenv.load_dotenv", return_value=True),
+            patch(
+                "resources.model_resource.services.api_key_service.get_model_info",
+                self.create_mock_get_model_info(),
+            ),
         ):
             verify_and_auth_api_key(
                 "openai/test_model", False, auth_service=self.mock_auth_service
@@ -97,6 +121,10 @@ class TestApiKeyService(unittest.TestCase):
             patch("dotenv.find_dotenv", return_value=TEMP_ENV_FILE.name),
             patch("pathlib.Path.is_file", return_value=True),
             patch("dotenv.load_dotenv", return_value=True),
+            patch(
+                "resources.model_resource.services.api_key_service.get_model_info",
+                self.create_mock_get_model_info(),
+            ),
         ):
             verify_and_auth_api_key(
                 "openai/test_model", False, auth_service=self.mock_auth_service
@@ -151,6 +179,10 @@ class TestApiKeyService(unittest.TestCase):
             patch(
                 "resources.model_resource.services.api_key_service.set_key",
                 mock_set_key,
+            ),
+            patch(
+                "resources.model_resource.services.api_key_service.get_model_info",
+                self.create_mock_get_model_info(),
             ),
         ):
             verify_and_auth_api_key(
@@ -218,9 +250,7 @@ class TestApiKeyService(unittest.TestCase):
         Test that the reasoning effort suffixes are properly stripped from OpenAI model names
         during verification.
         """
-        from resources.model_resource.services.api_key_service import (
-            _auth_openai_api_key,
-        )
+        from resources.model_resource.services.auth_helpers import _auth_openai_api_key
 
         # Create a mock response object for the OpenAI API
         mock_response = MagicMock()

@@ -359,22 +359,8 @@ class LocalExecutionBackend(ExecutionBackend):
                     )
 
             else:
-                # If workflow doesn't exist yet, initialize it
-                print(f"Auto-starting new workflow {workflow_id}")
-                self.active_workflows[workflow_id] = {
-                    "status": "initializing",
-                }
-                task = asyncio.create_task(
-                    self._run_workflow(workflow_id, websocket_manager, should_exit)
-                )
-                self.active_workflows[workflow_id]["task"] = task
-                await websocket.send_json(
-                    {
-                        "message_type": "workflow_status",
-                        "status": "starting",
-                        "can_execute": False,
-                    }
-                )
+                # If workflow_id has no associated active workflow, raise error
+                raise ValueError(f"Workflow {workflow_id} doesn't exist")
 
             # Handle incoming messages
             while not should_exit:
@@ -467,6 +453,11 @@ class LocalExecutionBackend(ExecutionBackend):
         """
         if workflow_id not in self.active_workflows:
             return {"error": f"Workflow {workflow_id} not found"}
+
+        if "instance" not in self.active_workflows[workflow_id]:
+            return {
+                "error": f"Workflow {workflow_id} is initializing, instance not ready yet"
+            }
 
         workflow = self.active_workflows[workflow_id]["instance"]
         resource_manager = workflow.resource_manager

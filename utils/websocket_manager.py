@@ -6,7 +6,9 @@ from typing import Dict, List, Set
 from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
-logger = logging.getLogger(__name__)
+from utils.logger import get_main_logger
+
+logger = get_main_logger(__name__)
 
 
 class WebSocketManager:
@@ -29,7 +31,7 @@ class WebSocketManager:
             self.connection_status: Dict[str, Dict[WebSocket, bool]] = {}
             self.lock = asyncio.Lock()
             WebSocketManager._initialized = True
-            logger.info("WebSocket Manager initialized")
+            logger.debug("WebSocket Manager initialized")
 
     async def connect(self, workflow_id: str, websocket: WebSocket):
         """Connect a new WebSocket client with heartbeat monitoring"""
@@ -53,7 +55,7 @@ class WebSocketManager:
             heartbeat_task.add_done_callback(self.heartbeat_tasks.discard)
             self.heartbeat_tasks.add(heartbeat_task)
 
-            logger.info(f"WebSocket connected to workflow {workflow_id}")
+            logger.debug(f"WebSocket connected to workflow {workflow_id}")
 
         except Exception as e:
             logger.error(f"Error during WebSocket connection: {e}")
@@ -87,7 +89,7 @@ class WebSocketManager:
                         del self.last_heartbeat[workflow_id]
                         del self.connection_status[workflow_id]
 
-                    logger.info(f"WebSocket disconnected from workflow {workflow_id}")
+                    logger.debug(f"WebSocket disconnected from workflow {workflow_id}")
 
     async def broadcast(self, workflow_id: str, message: dict):
         """Broadcast a message to all connected clients with retry mechanism"""
@@ -144,7 +146,7 @@ class WebSocketManager:
                     return
 
         except asyncio.CancelledError as e:
-            logger.info(f"Heartbeat monitor cancelled for workflow {workflow_id}")
+            logger.debug(f"Heartbeat monitor cancelled for workflow {workflow_id}")
             raise e
         except Exception as e:
             logger.error(f"Error in heartbeat monitor: {e}")
@@ -173,7 +175,7 @@ class WebSocketManager:
 
     async def close_all_connections(self):
         """Close all active WebSocket connections and cleanup"""
-        logger.info("Closing all WebSocket connections")
+        logger.debug("Closing all WebSocket connections")
 
         # Close all connections
         for workflow_id in list(self.active_connections.keys()):
@@ -211,12 +213,12 @@ class WebSocketManager:
         if workflow_id not in self.active_connections:
             return
 
-        print(f"Disconnecting all WebSockets for workflow {workflow_id}")
+        logger.debug(f"Disconnecting all WebSockets for workflow {workflow_id}")
 
         for connection in list(self.active_connections[workflow_id]):  # Iterate safely
             await self.disconnect(workflow_id, connection)
 
-        print(f"All WebSockets disconnected for workflow {workflow_id}")
+        logger.info(f"All WebSockets disconnected for workflow {workflow_id}")
 
 
 websocket_manager = WebSocketManager()

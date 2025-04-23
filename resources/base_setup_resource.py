@@ -88,6 +88,7 @@ class BaseSetupResource(BaseResource, ABC):
                     result = run_command(
                         command=[f"./{self.setup_script_name}"],
                         work_dir=str(self.work_dir),
+                        verbose=False,
                     )
                 except OSError as e:
                     if e.errno == 8:  # Exec format error
@@ -97,6 +98,7 @@ class BaseSetupResource(BaseResource, ABC):
                         result = run_command(
                             command=["bash", f"./{self.setup_script_name}"],
                             work_dir=str(self.work_dir),
+                            verbose=False,
                         )
                     else:
                         raise  # Re-raise if it's not an exec format error
@@ -114,7 +116,7 @@ class BaseSetupResource(BaseResource, ABC):
                     f"Unable to successfully execute {self.setup_script_name} at {self.resource_id}: {e}"
                 )
             finally:
-                logger.info("Pruning dangling docker images...")
+                logger.debug("Pruning dangling docker images...")
                 run_command(command=["docker", "image", "prune", "-f"])
 
             if (
@@ -162,7 +164,7 @@ class BaseSetupResource(BaseResource, ABC):
         docker_compose_file = self.work_dir / "docker-compose.yml"
 
         if docker_compose_file.exists():
-            logger.info(f"Stopping docker in {self.work_dir}")
+            logger.debug(f"Stopping docker in {self.work_dir}")
             try:
                 run_command(
                     command=["docker", "compose", "down", "-v"],
@@ -194,7 +196,7 @@ class BaseSetupResource(BaseResource, ABC):
 
         start_time = time.time()
 
-        logger.info("Checking container health")
+        logger.debug("Checking container health")
 
         try:
             while not container_queue.empty():
@@ -211,7 +213,7 @@ class BaseSetupResource(BaseResource, ABC):
                 health_status = inspect_result.stdout.strip().strip("'\"")
 
                 if health_status == "healthy":
-                    logger.info(f"Container '{container}' is healthy.")
+                    logger.debug(f"Container '{container}' is healthy.")
                     container_queue.get()
                 elif health_status != "starting":
                     raise RuntimeError(
@@ -225,7 +227,7 @@ class BaseSetupResource(BaseResource, ABC):
 
                 time.sleep(check_interval)
 
-            logger.info("All containers are healthy.")
+            logger.debug("All containers are healthy.")
             return True
         except Exception as e:
             raise
@@ -248,7 +250,7 @@ class BaseSetupResource(BaseResource, ABC):
 
         if matches:
             container_names = list({match[0] for match in matches})
-            logger.info(f"Container names extracted: {container_names}")
+            logger.debug(f"Container names extracted: {container_names}")
             return container_names
         else:
             return []

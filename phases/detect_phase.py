@@ -7,7 +7,6 @@ from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.bounty_phase import BountyPhase
 from resources.base_resource import BaseResourceConfig
-from resources.bounty_setup_resource import BountySetupResourceConfig
 from resources.docker_resource import DockerResourceConfig
 from resources.init_files_resource import InitFilesResourceConfig
 from resources.kali_env_resource import KaliEnvResourceConfig
@@ -17,6 +16,7 @@ from resources.repo_setup_resource import RepoSetupResourceConfig
 from resources.resource_type import ResourceType
 from resources.utils import contains_setup
 from utils.logger import get_main_logger
+from workflows.base_workflow import BaseWorkflow
 
 logger = get_main_logger(__name__)
 
@@ -27,6 +27,15 @@ class DetectPhase(BountyPhase):
     """
 
     AGENT_CLASSES: List[Type[BaseAgent]] = [ExecutorAgent, DetectAgent]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if "compatible_patches" not in self.workflow.bounty_metadata:
+            raise RuntimeError(
+                f"Bounty {self.bounty_number} is missing 'compatible_patches' in its metadata. "
+                "DetectPhase requires this field to proceed."
+            )
 
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         """
@@ -42,6 +51,7 @@ class DetectPhase(BountyPhase):
             task_dir=self.workflow.task_dir,
             tmp_dir=self.tmp_dir,
             submit=self.submit,
+            install_command=self.workflow.repo_metadata.get("install_command"),
         )
 
         return {
@@ -62,7 +72,6 @@ class DetectPhase(BountyPhase):
         )
 
         target_hosts = [self.workflow.repo_metadata["target_host"]]
-        target_hosts.extend(self.workflow.bounty_metadata.get("bounty_setup_hosts", []))
 
         resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
             (
@@ -96,6 +105,7 @@ class DetectPhase(BountyPhase):
                     },
                     target_hosts=target_hosts,
                     install_command=self.workflow.repo_metadata.get("install_command"),
+                    is_python=self.workflow.repo_metadata.get("is_python"),
                 ),
             ),
             (ResourceType.DOCKER, DockerResourceConfig()),
@@ -125,20 +135,6 @@ class DetectPhase(BountyPhase):
                 )
             )
 
-        setup_bounty_env_script = (
-            self.bounty_dir / "setup_files" / "setup_bounty_env.sh"
-        )
-        if contains_setup(setup_bounty_env_script):
-            resource_configs.append(
-                (
-                    ResourceType.BOUNTY_SETUP,
-                    BountySetupResourceConfig(
-                        task_dir=self.workflow.task_dir,
-                        bounty_number=self.workflow.bounty_number,
-                    ),
-                )
-            )
-
     async def run_one_iteration(
         self,
         phase_message: PhaseMessage,
@@ -154,7 +150,7 @@ class DetectPhase(BountyPhase):
             previous_output (Optional[Message]): The output from the previous iteration.
 
         Returns:
-            Message: The resulting message from the agent.
+            Message: The resulting message from the agent - do NOT return the phase message
         """
         input_list: List[Message] = []
         if previous_output is not None:
@@ -163,10 +159,14 @@ class DetectPhase(BountyPhase):
         message: Message = await agent_instance.run(input_list)
 
         if isinstance(agent_instance, DetectAgent):
+            if message.submission:
+                logger.status("Detect submitted!", message.success)
+                phase_message.set_summary("detect_submitted")
+                phase_message.set_complete()
             if message.success:
                 logger.status("Vulnerability detected!", True)
                 phase_message.set_summary("detect_success")
-                phase_message.set_complete()
                 phase_message.set_success()
+                phase_message.set_complete()
 
         return message

@@ -48,6 +48,7 @@ class BaseWorkflow(ABC):
             workflow_name=self.name,
             task=self.task,
             additional_metadata=self._get_metadata(),
+            model_name=self.params.get("model", "").replace("/", "-"),
         )
 
         self._check_docker_desktop_availability()
@@ -63,19 +64,13 @@ class BaseWorkflow(ABC):
         atexit.register(self._finalize_workflow)
 
     def _finalize_workflow(self):
-        self.workflow_message.save()
+        self.workflow_message.on_exit()
 
     def _register_root_phase(self, phase: BasePhase):
         """Register the starting phase of the workflow."""
         self._root_phase = phase
         self.register_phase(phase)
         logger.info(f"Registered root phase {phase.name}")
-
-    def register_phase(self, phase: BasePhase):
-        """Register a phase and its dependencies."""
-        if phase not in self._phase_graph:
-            self._phase_graph[phase] = []
-            logger.debug(f"Registered phase: {phase.__class__.__name__}")
 
     @abstractmethod
     def _create_phases(self):
@@ -125,17 +120,17 @@ class BaseWorkflow(ABC):
 
     def _setup_agent_manager(self):
         self.agent_manager = AgentManager(workflow_id=self.workflow_message.workflow_id)
-        logger.info("Setup agent manager")
+        logger.debug("Setup agent manager")
 
     def _setup_resource_manager(self):
         self.resource_manager = ResourceManager(
             workflow_id=self.workflow_message.workflow_id
         )
-        logger.info("Setup resource manager")
+        logger.debug("Setup resource manager")
 
     def _setup_interactive_controller(self):
         self.interactive_controller = InteractiveController(self)
-        logger.info("Setup interactive controller")
+        logger.debug("Setup interactive controller")
 
     def _get_task(self) -> Dict[str, Any]:
         return {}
@@ -231,7 +226,7 @@ class BaseWorkflow(ABC):
 
     def _setup_phase(self, phase: BasePhase) -> BasePhase:
         try:
-            logger.info(f"Setting up phase {phase.__class__.__name__}")
+            logger.debug(f"Setting up phase {phase.__class__.__name__}")
             phase.setup()
             return phase
         except Exception as e:
@@ -244,7 +239,7 @@ class BaseWorkflow(ABC):
         """
         phases = self._phase_graph.keys()
         self.resource_manager.compute_schedule(phases)
-        logger.info("Computed resource schedule for all phases based on agents.")
+        logger.debug("Computed resource schedule for all phases based on agents.")
 
     def register_phase(self, phase: BasePhase):
         if phase not in self._phase_graph:
@@ -253,7 +248,6 @@ class BaseWorkflow(ABC):
             logger.debug(
                 f"Registered phase { phase.phase_config.phase_idx}: {phase.__class__.__name__}"
             )
-            logger.info(f"{phase.phase_config.phase_name} registered")
 
     async def stop(self):
         # Deallocate agents and resources
@@ -324,9 +318,9 @@ class BaseWorkflow(ABC):
             for arg, default_value in self.default_values.items():
                 if arg not in updated_kwargs:
                     updated_kwargs[arg] = default_value
-                    logger.info(f"Using default value for {arg}: {default_value}")
+                    logger.debug(f"Using default value for {arg}: {default_value}")
         else:
-            logger.info(f"No default values found for {self.name}")
+            logger.debug(f"No default values found for {self.name}")
 
         return updated_kwargs
 

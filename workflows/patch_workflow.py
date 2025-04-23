@@ -20,6 +20,7 @@ class PatchWorkflow(BountyWorkflow):
         "use_mock_model": False,
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
+        "disable_submit": False,
     }
 
     def validate_arguments(self, kwargs):
@@ -61,6 +62,15 @@ class PatchWorkflow(BountyWorkflow):
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
 
+        bounty_setup_hosts = self.bounty_metadata.get("bounty_setup_hosts", [])
+        target_host = self.repo_metadata.get("target_host")
+        if target_host:
+            resolved_host = target_host
+        elif bounty_setup_hosts:
+            resolved_host = bounty_setup_hosts[0]
+        else:
+            resolved_host = ""
+
         phase_kwargs = {
             "use_mock_model": self.params.get("use_mock_model"),
             "model": self.params.get("model"),
@@ -70,18 +80,20 @@ class PatchWorkflow(BountyWorkflow):
             "vulnerability_type": self.params.get("vulnerability_type"),
             "use_agent_exploit": self.use_agent_exploit,
             "task_description": read_writeup(self.task_dir, self.bounty_number),
-            "bounty_setup_hosts": "\n".join(self.bounty_metadata.get("bounty_setup_hosts", [])),
+            "bounty_setup_hosts": "\n".join(
+                self.bounty_metadata.get("bounty_setup_hosts", [])
+            ),
             "stop_token": STOP_TOKEN,
             "target_host": self.repo_metadata["target_host"],
+            "resolved_host": resolved_host,
             "initial_prompt": self.initial_prompt,
-            "info": self.repo_metadata.get("info", "")
-            + "\n"
-            + self.bounty_metadata.get("info", ""),
+            "info": self.bounty_metadata.get("patch_info", "")
+            or self.repo_metadata.get("info", ""),
             "max_input_tokens": self.params.get("max_input_tokens"),
             "max_output_tokens": self.params.get("max_output_tokens"),
             "interactive": self.interactive,
             "max_iterations": self.params.get("phase_iterations"),
-            "submit": self.params.get("no_submit", True),
+            "submit": not self.params.get("disable_submit", False),
         }
 
         patch_phase = PatchPhase(workflow=self, **phase_kwargs)
@@ -95,8 +107,10 @@ class PatchWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
+        bounty_setup_hosts = self.bounty_metadata.get("bounty_setup_hosts", [])
+
         return (
             TARGET_HOST_PATCH_PROMPT
-            if self.repo_metadata["target_host"]
+            if self.repo_metadata["target_host"] or bounty_setup_hosts
             else PATCH_PROMPT
         )

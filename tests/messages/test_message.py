@@ -101,11 +101,11 @@ grep -R 'file=' codebase/gradio
 <END>" \
 """
     # Last instance of field
-    command = parse_field(message, "Command:", stop_str="<END>")
+    command = parse_field(message, "Command:", stop_str="<END>", from_end=True)
     assert command == "grep -R 'file=' codebase/gradio"
 
     # First instance of field
-    command = parse_field(message, "Command:", stop_str="<END>", from_end=False)
+    command = parse_field(message, "Command:", stop_str="<END>")
     assert (
         command
         == """grep -R 'redirect(' codebase/gradio - identified potential redirect in oauth.py, but not directly handling the vulnerability.
