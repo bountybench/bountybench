@@ -447,11 +447,13 @@ def format_hackerone_writeup(writeup: str) -> str:
         )
         for code in code_blocks:
             formatted_content.append("\nCode:")
-            code_lines = []
-            for line in code.stripped_strings:
-                if not line.isdigit():  # Skip line numbers
-                    code_lines.append(line)
-            formatted_content.append("\n".join(code_lines))
+            raw = code.get_text(separator="\n")
+            code_lines = raw.splitlines()
+            code_lines = [
+                ln for ln in code_lines if not re.fullmatch(r"\s*\d+\s*", ln)
+            ]  # drop entire*lines that are just digits
+            code_lines = [ln for ln in code_lines if ln.strip() != ""]
+            formatted_content.append("\n".join(code_lines).rstrip())
             formatted_content.append("")
 
     # Get Impact section if it exists
