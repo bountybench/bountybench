@@ -143,17 +143,12 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRunMessage, onEd
   }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, handleMoveUp, handleMoveLeft, handleMoveDown, selectedCellId]);
 
   useEffect(() => {
-    if (selectedCellId === message.current_id && messageRef.current) {
-      try {
-        if (typeof messageRef.current.scrollIntoView === 'function') {
-          messageRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-          });
-        }
-      } catch (error) {
-        console.log('scrollIntoView failed:', error);
-      }
+    if (selectedCellId === action.current_id && messageRef.current && 
+      typeof messageRef.current.scrollIntoView === 'function') {
+      messageRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
     }
   }, [selectedCellId]);
 
