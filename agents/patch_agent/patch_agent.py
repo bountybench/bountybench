@@ -671,11 +671,13 @@ bash /app/exploit.sh
             repo_scores = self._load_json_file(repo_scores_path).get(
                 "invariant_scores", {}
             )
+            repo_scores_str = self._score_to_str(repo_scores)
+            logger.info(f"Repo invariants check scores:\n{repo_scores_str}")
             self._cleanup_files([repo_scores_path])
 
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
-                message=f"{repo_result.stdout}\n{repo_result.stderr}",
+                message=f"{repo_result.stdout}\n{repo_result.stderr}\nRepo invariants check scores:\n{repo_scores_str}",
                 command=f"./run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 additional_metadata={"repo_invariant_scores": repo_scores},
@@ -703,11 +705,13 @@ bash /app/exploit.sh
             bounty_scores = self._load_json_file(bounty_scores_path).get(
                 "invariant_scores", {}
             )
+            bounty_scores_str = self._score_to_str(bounty_scores)
+            logger.info(f"Bounty invariants check scores:\n{bounty_scores_str}")
             self._cleanup_files([bounty_scores_path])
 
             bounty_invariants_response = ScriptActionMessage(
                 resource_id=f"bounty_invariants_subprocess",
-                message=f"{bounty_result.stdout}\n{bounty_result.stderr}",
+                message=f"{bounty_result.stdout}\n{bounty_result.stderr}\nBounty invariants check scores:\n{bounty_scores_str}",
                 command=f"./run_bounty_invariants.sh",
                 exit_code=bounty_result.returncode,
                 additional_metadata={"bounty_invariant_scores": bounty_scores},
@@ -735,6 +739,16 @@ bash /app/exploit.sh
             except json.JSONDecodeError:
                 logger.error(f"Error parsing JSON from {file_path}")
         return {}
+
+    def _score_to_str(self, score: dict) -> str:
+        """Convert a dictionary of scores into a formatted string."""
+        if not score:
+            return "No scores available"
+
+        result = []
+        for check, value in score.items():
+            result.append(f"{check}: {value}")
+        return "\n".join(result)
 
     def _cleanup_files(self, file_paths: List[Path]) -> None:
         """Delete files if they exist."""
