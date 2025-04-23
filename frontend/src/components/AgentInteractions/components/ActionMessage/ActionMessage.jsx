@@ -17,6 +17,8 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRunMessage, onEd
 
   const [originalMessageContent, setOriginalMessageContent] = useState(formatData(action?.message || ''));
 
+  const messageRef = useRef(null);
+
   const handleCopyClick = () => {
     const message = formatData(editedMessage)
 		navigator.clipboard.writeText(message);
@@ -140,6 +142,15 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRunMessage, onEd
     };
   }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, handleMoveUp, handleMoveLeft, handleMoveDown, selectedCellId]);
 
+  useEffect(() => {
+    if (selectedCellId === action.current_id && messageRef.current) {
+      messageRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [selectedCellId]);
+
   if (!action) return null;
   
   const handleToggleMetadata = (event) => {
@@ -174,6 +185,7 @@ const ActionMessage = ({ index, action, onUpdateMessageInput, onRunMessage, onEd
       className={`action-message ${actionResourceId(action.resource_id)} ${selectedCellId === action.current_id ? 'selected' : ''}`}
       onClick={handleContainerClick}
       variant="outlined"
+      ref={messageRef}
     >
       <CardContent>
         <Box className="action-message-header">

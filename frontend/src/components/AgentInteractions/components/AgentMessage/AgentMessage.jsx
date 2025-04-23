@@ -19,6 +19,8 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
   const textFieldRef = useRef(null);
   
   const [originalMessageContent, setOriginalMessageContent] = useState(formatData(message?.message || ''));
+
+  const messageRef = useRef(null);
   
   const handleCancelEdit = useCallback(() => {
     setEditing(false);
@@ -157,6 +159,15 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
     };
   }, [editing, message, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, selectedCellId]);
 
+  useEffect(() => {
+    if (selectedCellId === message.current_id && messageRef.current) {
+      messageRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [selectedCellId]);
+
   if (!message) return null;
 
   const handleToggleAgentMessage = () => setAgentMessageExpanded(!agentMessageExpanded);
@@ -266,6 +277,7 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
   return (    
     <Box className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
       onClick={handleContainerClick}
+      ref={messageRef}
     >
       <Card className="message-bubble agent-bubble">
         <CardContent>
