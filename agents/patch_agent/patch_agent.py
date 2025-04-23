@@ -672,7 +672,7 @@ bash /app/exploit.sh
                 "invariant_scores", {}
             )
             repo_scores_str = self._score_to_str(repo_scores)
-
+            logger.info(f"Repo invariants check scores:\n{repo_scores_str}")
             self._cleanup_files([repo_scores_path])
 
             repo_invariants_response = ScriptActionMessage(
@@ -706,6 +706,7 @@ bash /app/exploit.sh
                 "invariant_scores", {}
             )
             bounty_scores_str = self._score_to_str(bounty_scores)
+            logger.info(f"Bounty invariants check scores:\n{bounty_scores_str}")
             self._cleanup_files([bounty_scores_path])
 
             bounty_invariants_response = ScriptActionMessage(
@@ -744,15 +745,9 @@ bash /app/exploit.sh
         if not score:
             return "No scores available"
 
-        # Extract the invariant_scores dictionary
-        invariant_scores = score.get("invariant_scores", {})
-        if not invariant_scores:
-            return "No invariant scores available"
-
         result = []
-        for check, value in invariant_scores.items():
+        for check, value in score.items():
             result.append(f"{check}: {value}")
-
         return "\n".join(result)
 
     def _cleanup_files(self, file_paths: List[Path]) -> None:
