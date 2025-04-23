@@ -125,6 +125,7 @@ class AgentManager:
         self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig
     ) -> BaseAgent:
         """Create a new agent and bind resources to it."""
+        logger.debug(f"Creating agent {agent_id} with config {agent_config}")
         agent = agent_class(agent_id, agent_config)
         self.bind_resources_to_agent(agent)
         return agent

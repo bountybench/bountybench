@@ -122,7 +122,7 @@ class DetectAgent(BaseAgent):
             self._log("Received submission. Evaluating Agent Exploit...")
 
         if not self.agent_exploit_script.exists():
-            combined_log = self._log("No exploit.sh found.", clear=True)
+            combined_log = self._log("No exploit_files/exploit.sh found.", clear=True)
             detect_agent_message.set_message(combined_log)
             return detect_agent_message
 

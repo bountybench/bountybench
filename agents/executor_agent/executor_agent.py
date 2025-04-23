@@ -26,6 +26,9 @@ RETRY_DELAY = 30
 class ExecutorAgentConfig(AgentConfig):
     """Configuration for ExecutorAgent"""
 
+    def __str__(self):
+        return "ExecutorAgentConfig()"
+
 
 class ExecutorAgent(BaseAgent):
 
