@@ -132,7 +132,7 @@ async def test_skip_no_exploit(detect_agent, mocker):
         final_msg = await agent.run([init_msg])
 
         # Verify the result
-        assert "No exploit.sh found." in final_msg.message
+        assert "No exploit_files/exploit.sh found." in final_msg.message
 
 
 @pytest.mark.asyncio
