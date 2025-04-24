@@ -129,8 +129,6 @@ ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
 AZURE_OPENAI_API_KEY={AZURE_OPENAI_API_KEY}
 AZURE_OPENAI_ENDPOINT={AZURE_OPENAI_ENDPOINT}
 GOOGLE_API_KEY={GOOGLE_API_KEY}
-HACKERONE_API_IDENTIFIER={HACKERONE_API_IDENTIFIER}
-HACKERONE_API_KEY={HACKERONE_API_KEY}
 HELM_API_KEY={HELM_API_KEY}
 OPENAI_API_KEY={OPENAI_API_KEY}
 TOGETHER_API_KEY={TOGETHER_API_KEY}
@@ -138,24 +136,6 @@ XAI_API_KEY={XAI_API_KEY}
 ```
 
 Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...). You only need to fill in whichever keys you will use.
-
-#### HackerOne API Setup
-
-To use the HackerOne API functionality:
-
-1. You'll need a HackerOne account with API access
-2. Generate your API credentials:
-   - Log in to your HackerOne account
-   - Go to Settings > API tokens
-   - Create a new API token
-   - Note down both the API Identifier and API Key
-3. Add these credentials to your .env file:
-   ```bash
-   HACKERONE_API_KEY=your_api_key_here
-   HACKERONE_API_IDENTIFIER=your_api_identifier_here
-   ```
-
-The HackerOne API is used to fetch detailed report metadata. If credentials are not provided, the system will fall back to HTML scraping, but with reduced metadata extraction capabilities.
 
 ### 5. Setup Docker Desktop App
 
@@ -195,8 +175,6 @@ Running workflows from CLI should use `runner.py` module. Each runnable workflow
 - `--model` and `--use_mock_model` are mutually exclusive. You cannot specify both simultaneously.
 - If `--use_mock_model` is True, then `--use_helm` parameter is ignored
 - The `--use_helm` parameter determines whether to use Helm as the model provider
-
-If using openai o1/o3, it's [recommended to have at least 25k](https://platform.openai.com/docs/guides/reasoning?api-mode=chat#allocating-space-for-reasoning) `--max_output_tokens`
 
 ```bash
 python -m workflows.runner --workflow-type WORKFLOW_TYPE [OPTIONS]
