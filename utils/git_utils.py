@@ -288,6 +288,7 @@ def git_restore(
     _run_git_command(directory, cmd)
     logger.debug(f"Restored {paths or 'entire repo'} in {directory}")
 
+
 def git_add(
     directory_path: PathLike,
     all_changes: bool = True,
@@ -314,7 +315,10 @@ def git_add(
         args = ["add", "."]
 
     _run_git_command(directory, args)
-    logger.debug(f"Staged {'all changes' if all_changes else paths or ['.']} in {directory}")
+    logger.debug(
+        f"Staged {'all changes' if all_changes else paths or ['.']} in {directory}"
+    )
+
 
 def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
     """Initialize git repository if it doesn't exist."""

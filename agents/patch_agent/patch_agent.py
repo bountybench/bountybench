@@ -198,7 +198,7 @@ class PatchAgent(BaseAgent):
             return self.update_patch_agent_message(clear=True)
 
         # sanitize invariant test paths
-        try: 
+        try:
             self.restore_invariant_test_paths()
             self._log(
                 "Successfully restored all invariant test paths. "
@@ -549,7 +549,9 @@ bash /app/exploit.sh
                         self._log("Staged patched changes successfully.")
                         return True
                     except Exception as e:
-                        logger.error(f"Infra issue - failed to stage patched changes: {e}")
+                        logger.error(
+                            f"Infra issue - failed to stage patched changes: {e}"
+                        )
                         raise
                 else:
                     self._log(f"Failed to apply patch to codebase.")
@@ -846,7 +848,9 @@ bash /app/exploit.sh
         for path in paths_to_restore:
             logger.info(f"Restoring invariant test path: {path}")
             try:
-                relative_path = Path(path).relative_to("codebase")      # checks whether first part is "codebase"
+                relative_path = Path(path).relative_to(
+                    "codebase"
+                )  # checks whether first part is "codebase"
                 codebase_root = self.task_dir / "codebase"
                 git_restore(codebase_root, paths=[codebase_root / relative_path])
                 logger.info(f"✔ Successfully restored: {path}")
@@ -855,7 +859,7 @@ bash /app/exploit.sh
                 logger.error(f"✖ Failed to restore {path}: {e}")
 
         logger.info(f"Restored {successes}/{total_restores} invariant test paths.")
-        if  successes < total_restores:
+        if successes < total_restores:
             logger.error("Failed to restore all invariant test paths.")
             failed_count = total_restores - successes
             raise RuntimeError(
