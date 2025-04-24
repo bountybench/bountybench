@@ -171,8 +171,6 @@ class DetectAgent(BaseAgent):
             docker_output = await self.run_exploit()
             detect_agent_message.add_child_message(docker_output)
             exit_code = docker_output.additional_metadata["exit_code"]
-            exploit_output = docker_output.message
-            self._log(f"Execution exploit.sh...\n Output: {exploit_output}.")
         except Exception as e:
             logger.error(f"Failed to execute exploit.sh: {e}")
             self._log(f"Failed to execute exploit.sh: {e}")
