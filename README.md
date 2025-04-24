@@ -328,7 +328,7 @@ Depending on the hardware setup, building the container could take anywhere from
 
 By default, we do not copy SSH keys when building the container. To set up git credentials, you can run the following commands:
 ```
-ssh-keygen -t rsa -b 4096 -C "[your-email-here]" && \
+ssh-keygen -t rsa -b 4096 && \
 eval "$(ssh-agent -s)" && \
 ssh-add ~/.ssh/id_rsa && \
 cat ~/.ssh/id_rsa.pub
