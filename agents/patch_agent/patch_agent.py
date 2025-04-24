@@ -18,14 +18,14 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from resources.utils import run_command_async, read_repo_metadata
+from resources.utils import read_repo_metadata, run_command_async
 from utils.git_utils import (
+    git_add,
     git_apply_patch,
     git_checkout_main,
     git_diff,
     git_reset,
     git_restore,
-    git_add,
 )
 from utils.logger import get_main_logger
 
