@@ -52,13 +52,6 @@ class HelmMapping:
         "openai/o4-mini-2025-04-16-high-reasoning-effort": HelmModelInfo(
             tokenizer="openai/cl100k_base"
         ),
-        "openai/o3-2025-04-03": HelmModelInfo(tokenizer="openai/cl100k_base"),
-        "openai/o3-2025-04-03-low-reasoning-effort": HelmModelInfo(
-            tokenizer="openai/cl100k_base"
-        ),
-        "openai/o3-2025-04-03-high-reasoning-effort": HelmModelInfo(
-            tokenizer="openai/cl100k_base"
-        ),
         "openai/o3-2025-04-16": HelmModelInfo(tokenizer="openai/cl100k_base"),
         "openai/o3-2025-04-16-low-reasoning-effort": HelmModelInfo(
             tokenizer="openai/cl100k_base"
@@ -209,17 +202,6 @@ class NonHelmMapping:
         ),
         "openai/o4-mini-2025-04-16-high-reasoning-effort": NonHelmModelInfo(
             model_name="o4-mini-2025-04-16-high-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o3-2025-04-03": NonHelmModelInfo(
-            model_name="o3-2025-04-03", provider=ServiceProvider.OPENAI
-        ),
-        "openai/o3-2025-04-03-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-03-low-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o3-2025-04-03-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-03-high-reasoning-effort",
             provider=ServiceProvider.OPENAI,
         ),
         "openai/o3-2025-04-16": NonHelmModelInfo(
