@@ -648,6 +648,7 @@ async def test_reset_repo_on_invariant_checking_fail(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(False, "Patch failed"),
     )
+    mocker.patch("agents.patch_agent.patch_agent.read_repo_metadata", return_value={})
 
     mocker.patch.object(PatchAgent, "_apply_patch", return_value=(True, ""))
     mocker.patch.object(PatchAgent, "restart_resources", return_value=True)
@@ -677,7 +678,9 @@ async def test_full_workflow_exploit_failure(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(True, "Patch applied successfully"),
     )
+    mocker.patch("agents.patch_agent.patch_agent.read_repo_metadata", return_value={})
     mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    mocker.patch("agents.patch_agent.patch_agent.git_add")
     git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
 
     agent.last_patch_agent_message = PatchAgentMessage(
@@ -710,7 +713,9 @@ async def test_full_workflow_success(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(True, "Patch applied successfully"),
     )
+    mocker.patch("agents.patch_agent.patch_agent.read_repo_metadata", return_value={})
     mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    mocker.patch("agents.patch_agent.patch_agent.git_add")
 
     agent.last_patch_agent_message = PatchAgentMessage(
         agent_id="patch_agent", message=None
