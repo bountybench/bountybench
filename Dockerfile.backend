@@ -26,6 +26,10 @@ RUN apt-get update && \
     netcat-openbsd \
     tree \
     jq \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    liblzma-dev \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
     && echo \
@@ -41,6 +45,17 @@ RUN apt-get update && \
     docker-compose-plugin \
     nodejs \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Python 3.9 from source
+ENV PYTHON3_9_VERSION=3.9.18
+RUN wget https://www.python.org/ftp/python/${PYTHON3_9_VERSION}/Python-${PYTHON3_9_VERSION}.tgz \
+    && tar xzf Python-${PYTHON3_9_VERSION}.tgz \
+    && cd Python-${PYTHON3_9_VERSION} \
+    && ./configure --enable-optimizations \
+    && make -j$(nproc) \
+    && make altinstall \
+    && cd .. \
+    && rm -rf Python-${PYTHON3_9_VERSION}.tgz Python-${PYTHON3_9_VERSION}
 
 # Configures git; Necessary for git commands to work in the container
 RUN git config --global user.email "temp@example.com" \
