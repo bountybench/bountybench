@@ -172,10 +172,6 @@ class WorkflowMessage(Message):
             json.dump(logs, f, indent=4, default=self._json_serializable)
             logger.status(f"Saved log to: {self.log_file}")
 
-    def on_exit(self):
-        # Save the json log file
-        self.save()
-
         # Archive the log file
         archive_path = FULL_LOG_DIR / f"{self.log_file.stem}.log"
         try:
@@ -189,6 +185,10 @@ class WorkflowMessage(Message):
 
         # Restart logger to attach a fresh FileHandler
         logger_config.restart()
+
+    def on_exit(self):
+        # Save the json log file
+        self.save()
 
     def new_log(self):
         components = [self.workflow_name]
