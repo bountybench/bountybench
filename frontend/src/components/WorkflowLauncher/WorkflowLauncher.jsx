@@ -32,7 +32,7 @@ const LauncherState = {
   CREATING_WORKFLOW: 'CREATING_WORKFLOW',
 };
 
-const DEFAULT_NON_HELM_MODEL = 'openai/o3-2025-04-03-high-reasoning-effort';
+const DEFAULT_NON_HELM_MODEL = 'openai/o3-2025-04-16-high-reasoning-effort';
 const DEFAULT_HELM_MODEL = 'anthropic/claude-3-7-sonnet-20250219';
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode, useMockModel, setUseMockModel}) => {
