@@ -288,6 +288,33 @@ def git_restore(
     _run_git_command(directory, cmd)
     logger.debug(f"Restored {paths or 'entire repo'} in {directory}")
 
+def git_add(
+    directory_path: PathLike,
+    all_changes: bool = True,
+    paths: Optional[list[PathLike]] = None,
+) -> None:
+    """
+    Stage changes in the repo.
+
+    Args:
+        directory_path: Path to the git repository.
+        all_changes: If True, runs `git add -A` (new, modified, and deleted files).
+        paths: If all_changes is False, a list of specific files or dirs to stage.
+    """
+    directory = Path(directory_path)
+
+    if all_changes:
+        args = ["add", "-A"]
+    elif paths:
+        # make paths relative to the repo root
+        rels = [str(Path(p).relative_to(directory)) for p in paths]
+        args = ["add", *rels]
+    else:
+        # default to staging everything in the CWD
+        args = ["add", "."]
+
+    _run_git_command(directory, args)
+    logger.debug(f"Staged {'all changes' if all_changes else paths or ['.']} in {directory}")
 
 def git_init_repo(directory_path: PathLike, ignore_dirs: list[str] = None) -> None:
     """Initialize git repository if it doesn't exist."""

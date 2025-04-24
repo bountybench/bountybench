@@ -18,13 +18,14 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from resources.utils import run_command_async
+from resources.utils import run_command_async, read_repo_metadata
 from utils.git_utils import (
     git_apply_patch,
     git_checkout_main,
     git_diff,
     git_reset,
     git_restore,
+    git_add,
 )
 from utils.logger import get_main_logger
 
@@ -196,12 +197,20 @@ class PatchAgent(BaseAgent):
             self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
 
-        if not self.restore_invariant_test_paths():
-            logger.error(
-                "Failed to sanitize unit tests for check invariants. "
-                "Running unsanitized unit tests. Please double check to ensure that "
-                "unit tests used in check invariants have not been modified by the LM agent."
+        # sanitize invariant test paths
+        try: 
+            self.restore_invariant_test_paths()
+            self._log(
+                "Successfully restored all invariant test paths. "
+                "Associated test files have been sanitized for check invariants."
             )
+        except Exception as e:
+            logger.error(
+                "Failed to restore invariant test paths — this indicates an infrastructure issue. "
+                "Sanitized test files are required for invariant checks; unsanitized files are not allowed. "
+                f"Error: {e}"
+            )
+            raise
 
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
@@ -533,7 +542,15 @@ bash /app/exploit.sh
                 )
                 self._log(message)
                 if success:
-                    return True
+                    # If we reach here, patch applied successfully – now stage the changes
+                    # so that we can restore invariant test paths even for untracked files
+                    try:
+                        git_add(self.task_dir / "codebase")  # runs `git add -A`
+                        self._log("Staged patched changes successfully.")
+                        return True
+                    except Exception as e:
+                        logger.error(f"Infra issue - failed to stage patched changes: {e}")
+                        raise
                 else:
                     self._log(f"Failed to apply patch to codebase.")
                     return False
@@ -812,69 +829,39 @@ bash /app/exploit.sh
 
         return None
 
-    def restore_invariant_test_paths(self) -> bool:
-        """
-        Restore invariant test paths specified in repo and bounty metadata.
-
-        Returns:
-            bool: True if all specified paths were restored successfully, False otherwise.
-        """
+    def restore_invariant_test_paths(self) -> None:
+        """Restore invariant test paths specified in repo and bounty metadata."""
         logger.info("Checking for invariant test paths to restore...")
 
-        paths_to_restore = []
-
-        # --- Load repo metadata if present ---
-        repo_meta = self.task_dir / "metadata.json"
-        if repo_meta.exists():
-            try:
-                data = json.loads(repo_meta.read_text())
-                paths_to_restore += data.get("invariant_test_paths", [])
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse repo metadata JSON: {e}")
-                return False
-        else:
-            logger.info("No repo metadata file found.")
-            return False
-
-        # --- Load bounty metadata if present ---
-        bounty_meta = self.bounty_dir / "bounty_metadata.json"
-        if bounty_meta.exists():
-            try:
-                data = json.loads(bounty_meta.read_text())
-                paths_to_restore += data.get("invariant_test_paths", [])
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse bounty metadata JSON: {e}")
-                return False
-        else:
-            logger.info("No bounty metadata file found.")
-            return False
+        repo_meta = read_repo_metadata(self.task_dir)
+        paths_to_restore = repo_meta.get("invariant_test_paths", [])
 
         if not paths_to_restore:
-            logger.info("No invariant test paths found in metadata files.")
-            return False
+            logger.info("No invariant test paths found in repo metadata.")
+            return
 
-        # remove duplicates while preserving order
-        unique_paths = list(dict.fromkeys(paths_to_restore))
-        total_restores = len(unique_paths)
+        total_restores = len(paths_to_restore)
         successes = 0
 
-        for raw_path in unique_paths:
-            # drop the first path segment (e.g. "codebase/") so we map into tmp_codebase correctly
-            parts = Path(raw_path).parts
-            subpath = Path(*parts[1:])
-
-            full_path = Path(self.tmp_codebase) / subpath
-
-            logger.info(f"Restoring invariant test path: {raw_path}")
+        for path in paths_to_restore:
+            logger.info(f"Restoring invariant test path: {path}")
             try:
-                git_restore(self.tmp_codebase, paths=[full_path])
-                logger.info(f"✔ Successfully restored: {subpath}")
+                relative_path = Path(path).relative_to("codebase")      # checks whether first part is "codebase"
+                codebase_root = self.task_dir / "codebase"
+                git_restore(codebase_root, paths=[codebase_root / relative_path])
+                logger.info(f"✔ Successfully restored: {path}")
                 successes += 1
             except Exception as e:
-                logger.error(f"✖ Failed to restore {subpath}: {e}")
+                logger.error(f"✖ Failed to restore {path}: {e}")
 
         logger.info(f"Restored {successes}/{total_restores} invariant test paths.")
-        return successes == total_restores
+        if  successes < total_restores:
+            logger.error("Failed to restore all invariant test paths.")
+            failed_count = total_restores - successes
+            raise RuntimeError(
+                f"Only {successes}/{total_restores} invariant test paths were restored "
+                f"({failed_count} failed); see log entries for details."
+            )
 
     def to_dict(self) -> dict:
         """
