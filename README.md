@@ -326,7 +326,7 @@ If docker still attempts to rebuild, try cancelling the build using `control+c` 
 
 Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountyagent/` (`app/`) and `bountybench/` (`app/bountybench`). You can also checkout different branches for testing purposes.
 
-By default, we do not copy SSH keys when building the container. To set up git credentials, you can run the following commands:
+By default, we do not copy SSH keys to the container. To set up git credentials, you can run the following commands inside the `backend-service` container:
 ```
 ssh-keygen -t rsa -b 4096 && \
 eval "$(ssh-agent -s)" && \
