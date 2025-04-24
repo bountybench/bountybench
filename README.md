@@ -119,6 +119,14 @@ or Debian/Ubuntu (using APT):
 ```bash
 sudo apt-get install tree
 ```
+### 3.5 (Optional) Set Up the Pre-Commit Hook
+The pre-commit hook fetches the latest commits from bountybench's remote, resets bountybench to the latest commit on origin/main, and stages the updated gitlink in bountyagent. This ensures bountyagent always has the latest reference to bountybench. If changes in bountybench are detected, it skips the update to avoid overwriting modifications.
+
+To enable, run the following:
+```
+chmod +x .githooks/pre-commit
+git config core.hooksPath .githooks
+```
 
 ### 4. Configure the .env File
 

@@ -1,0 +1,26 @@
+#!/bin/bash
+SUBMODULE_PATH="bountybench"
+
+echo "Checking for submodule updates..."
+cd "$SUBMODULE_PATH" || exit 1
+
+if ! env -i git diff --quiet -- . ':(exclude)*/codebase'; then
+    echo "Unstaged changes detected in tracked files in $SUBMODULE_PATH (excluding */codebase). Skipping submodule update."
+    cd - > /dev/null
+    exit 0
+fi
+
+if ! env -i git diff --staged --quiet -- . ':(exclude)*/codebase'; then
+    echo "Staged changes detected in tracked files in $SUBMODULE_PATH (excluding */codebase). Skipping submodule update."
+    cd - > /dev/null
+    exit 0
+fi
+
+env -i git fetch origin
+env -i git reset --hard origin/main
+
+cd - > /dev/null
+
+git add "$SUBMODULE_PATH"
+
+echo "Submodule $SUBMODULE_PATH updated to the latest commit and staged."
