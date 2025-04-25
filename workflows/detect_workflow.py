@@ -78,6 +78,7 @@ class DetectWorkflow(BountyWorkflow):
             "max_input_tokens": self.params.get("max_input_tokens"),
             "max_output_tokens": self.params.get("max_output_tokens"),
             "interactive": self.interactive,
+            "command_line": self.command_line,
             "max_iterations": self.params.get("phase_iterations"),
             "submit": not self.params.get("disable_submit", False),
         }

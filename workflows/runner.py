@@ -144,6 +144,8 @@ class WorkflowRunner:
         # Remove None values from kwargs
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
+        kwargs["command_line"] = True
+
         # Handle path conversions
         for arg in ["task_dir", "log_dir"]:
             if arg in kwargs and kwargs[arg] is not None:
