@@ -324,17 +324,25 @@ docker compose up -d
 ```
 If docker still attempts to rebuild, try cancelling the build using `control+c` and adding the `--no-build` flag (assuming no images are missing).
 
-Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountyagent/` (`app/`) and `bountybench/` (`app/bountybench`). You can also checkout different branches for testing purposes.
+### Using Git Inside Containers
+Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountyagent/` (`app/`) and `bountybench/` (`app/bountybench`) repos. Inside the container, you could also `git checkout` different branches for testing. SSH keys are needed for `git pull` and `git fetch` to work. Before running `docker compose up --build -d`, please the follow these steps to set up the keys correctly:
 
-By default, we do not copy SSH keys to the container. To set up git credentials, you can run the following commands inside the `backend-service` container:
+To create a new pair of ssh keys and make them available to the container, run
+
 ```
-ssh-keygen -t rsa -b 4096 && \
-eval "$(ssh-agent -s)" && \
-ssh-add ~/.ssh/id_rsa && \
-cat ~/.ssh/id_rsa.pub
+chmod +x tools/ssh_key_gen.sh && \
+tools/ssh_key_gen.sh
 ```
 
-and add the key to https://github.com/settings/keys.
+and copy the public key (i.e. the output) to [GitHub/settings/keys](https://github.com/settings/keys). 
+
+You could also change these two lines in `docker-compose.yml` to use any paths or keys of your choice:
+```
+  - ${HOME}/.ssh/id_rsa_backend-service:/root/.ssh/id_rsa:ro
+  - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
+```
+
+If you do not wish to use git, you can safely delete these two lines.
 
 We have also provide a bash script `dockerize_run.sh` that serves as an easy interface to run the application using docker.
 
