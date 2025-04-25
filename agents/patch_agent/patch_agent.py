@@ -546,7 +546,8 @@ bash /app/exploit.sh
                     # so that we can restore invariant test paths even for untracked files
                     try:
                         git_add(
-                            self.task_dir / "codebase", all_changes=True
+                            self.task_dir / "codebase",
+                            all_changes=True,
                         )  # runs `git add -A`
                         self._log("Staged patched changes successfully.")
                         return True
