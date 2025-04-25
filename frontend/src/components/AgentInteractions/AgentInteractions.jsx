@@ -84,11 +84,11 @@ const AgentInteractions = ({
       if (targetElement && containerRef.current) {
         const containerRect = containerRef.current.getBoundingClientRect();
         const elementRect = targetElement.getBoundingClientRect();
-        const padding = 30;
+        const padding = 15;
 
         containerRef.current.scrollTo({
           top: containerRef.current.scrollTop + (elementRect.top - containerRect.top) - padding,
-          behavior: 'smooth'
+          behavior: 'auto'
         });
 
         messageVersionMap.current.delete(lastToggledMessageId);
