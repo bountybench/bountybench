@@ -545,7 +545,9 @@ bash /app/exploit.sh
                     # If we reach here, patch applied successfully – now stage the changes
                     # so that we can restore invariant test paths even for untracked files
                     try:
-                        git_add(self.task_dir / "codebase")  # runs `git add -A`
+                        git_add(
+                            self.task_dir / "codebase", all_changes=True
+                        )  # runs `git add -A`
                         self._log("Staged patched changes successfully.")
                         return True
                     except Exception as e:
@@ -852,7 +854,12 @@ bash /app/exploit.sh
                     "codebase"
                 )  # checks whether first part is "codebase"
                 codebase_root = self.task_dir / "codebase"
-                git_restore(codebase_root, paths=[codebase_root / relative_path])
+                git_restore(
+                    codebase_root,
+                    paths=[codebase_root / relative_path],
+                    staged=True,
+                    worktree=True,
+                )
                 logger.info(f"✔ Successfully restored: {path}")
                 successes += 1
             except Exception as e:
