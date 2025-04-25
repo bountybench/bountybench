@@ -2,7 +2,7 @@ import json
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -645,18 +645,30 @@ async def test_reset_repo_on_invariant_checking_fail(patch_agent, mocker):
 
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
     mocker.patch(
-        "agents.patch_agent.patch_agent.git_apply_patch",
-        return_value=(False, "Patch failed"),
+        "agents.patch_agent.patch_agent.read_repo_metadata",
+        return_value={"invariant_test_paths": ["codebase/tests", "codebase/test.py"]},
     )
-    mocker.patch("agents.patch_agent.patch_agent.read_repo_metadata", return_value={})
 
-    mocker.patch.object(PatchAgent, "_apply_patch", return_value=(True, ""))
+    mocker.patch.object(PatchAgent, "_apply_patch", return_value=True)
     mocker.patch.object(PatchAgent, "restart_resources", return_value=True)
     mocker.patch.object(PatchAgent, "run_external_exploit", return_value=0)
 
     git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_restore_mock = mocker.patch("agents.patch_agent.patch_agent.git_restore")
     await agent.run(["message"])
 
+    # we expected two restores, for "codebase/tests" and "codebase/test.py"
+    codebase_root = agent.task_dir / "codebase"
+    expected_calls = [
+        call(
+            codebase_root, paths=[codebase_root / "tests"], staged=True, worktree=True
+        ),
+        call(
+            codebase_root, paths=[codebase_root / "test.py"], staged=True, worktree=True
+        ),
+    ]
+
+    git_restore_mock.assert_has_calls(expected_calls, any_order=False)
     assert git_reset_mock.call_count == 2
     assert agent.patch_id == prev_patch_id + 1
 
@@ -678,10 +690,14 @@ async def test_full_workflow_exploit_failure(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(True, "Patch applied successfully"),
     )
-    mocker.patch("agents.patch_agent.patch_agent.read_repo_metadata", return_value={})
+    mocker.patch(
+        "agents.patch_agent.patch_agent.read_repo_metadata",
+        return_value={"invariant_test_paths": ["codebase/tests", "codebase/test.py"]},
+    )
     mocker.patch("agents.patch_agent.patch_agent.git_reset")
     mocker.patch("agents.patch_agent.patch_agent.git_add")
     git_reset_mock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
+    git_restore_mock = mocker.patch("agents.patch_agent.patch_agent.git_restore")
 
     agent.last_patch_agent_message = PatchAgentMessage(
         agent_id="patch_agent", message=None
@@ -690,6 +706,19 @@ async def test_full_workflow_exploit_failure(patch_agent, mocker):
     mocker.patch.object(PatchAgent, "run_external_exploit", return_value=0)
 
     await agent.run(["message"])
+
+    # we expected two restores, for "codebase/tests" and "codebase/test.py"
+    codebase_root = agent.task_dir / "codebase"
+    expected_calls = [
+        call(
+            codebase_root, paths=[codebase_root / "tests"], staged=True, worktree=True
+        ),
+        call(
+            codebase_root, paths=[codebase_root / "test.py"], staged=True, worktree=True
+        ),
+    ]
+
+    git_restore_mock.assert_has_calls(expected_calls, any_order=False)
 
     assert agent.last_patch_agent_message.success is False
     assert "check failed" in agent.last_patch_agent_message.message
@@ -713,9 +742,14 @@ async def test_full_workflow_success(patch_agent, mocker):
         "agents.patch_agent.patch_agent.git_apply_patch",
         return_value=(True, "Patch applied successfully"),
     )
-    mocker.patch("agents.patch_agent.patch_agent.read_repo_metadata", return_value={})
+    mocker.patch(
+        "agents.patch_agent.patch_agent.read_repo_metadata",
+        return_value={"invariant_test_paths": ["codebase/tests", "codebase/test.py"]},
+    )
     mocker.patch("agents.patch_agent.patch_agent.git_reset")
     mocker.patch("agents.patch_agent.patch_agent.git_add")
+
+    git_restore_mock = mocker.patch("agents.patch_agent.patch_agent.git_restore")
 
     agent.last_patch_agent_message = PatchAgentMessage(
         agent_id="patch_agent", message=None
@@ -729,6 +763,19 @@ async def test_full_workflow_success(patch_agent, mocker):
     mocker.patch.object(patch_agent, "check_invariants", return_value=True)
 
     await agent.run(["message"])
+
+    # we expected two restores, for "codebase/tests" and "codebase/test.py"
+    codebase_root = agent.task_dir / "codebase"
+    expected_calls = [
+        call(
+            codebase_root, paths=[codebase_root / "tests"], staged=True, worktree=True
+        ),
+        call(
+            codebase_root, paths=[codebase_root / "test.py"], staged=True, worktree=True
+        ),
+    ]
+
+    git_restore_mock.assert_has_calls(expected_calls, any_order=False)
 
     assert agent.last_patch_agent_message.success is True
     assert "Congratulations" in agent.last_patch_agent_message.message
