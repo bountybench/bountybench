@@ -250,6 +250,21 @@ def main():
             print(f"Error checking namespace: {e}", file=sys.stderr)
             sys.exit(1)
 
+    # Ensure 'app-secrets' exists in namespace
+    print(f"Creating/updating secret 'app-secrets' in namespace {args.namespace} from ../.env")
+    try:
+        sec = subprocess.run([
+            'kubectl', 'create', 'secret', 'generic', 'app-secrets',
+            '--from-env-file=../.env', '--dry-run=client', '-o', 'yaml',
+            '-n', args.namespace
+        ], text=True, capture_output=True, check=True)
+        subprocess.run([
+            'kubectl', 'apply', '-f', '-'
+        ], input=sec.stdout, text=True, check=True)
+        print("Secret 'app-secrets' created/updated")
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: failed to create secret: {e.stderr}", file=sys.stderr)
+
     try:
         tmpl_objs = load_yaml_template(args.template)
     except FileNotFoundError:
