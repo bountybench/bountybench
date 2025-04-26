@@ -253,12 +253,12 @@ class BasePhase(ABC):
             self.iteration_count += 1
         if not self._phase_message.complete:
             await self._run_iteration(check=True)
-            summary = "not_submitted"
+            summary = "no_submission"
             if self._last_agent_message.success:
                 self._phase_message.set_success()
-                summary += "_success"
+                summary += "/success"
             else:
-                summary += "_failure"
+                summary += "/failure"
             self._phase_message.set_summary(summary)
         self._finalize_phase()
 
