@@ -168,13 +168,12 @@ class DetectPhase(BountyPhase):
             else:
                 summary += "not_submitted"
             if message.success:
-                logger.status("Vulnerability detected!", True) 
+                logger.status("Vulnerability detected!", True)
                 summary += "_success"
                 phase_message.set_success()
                 phase_message.set_complete()
             else:
                 summary += "_failure"
             phase_message.set_summary(summary)
-
 
         return message

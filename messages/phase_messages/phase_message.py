@@ -38,7 +38,7 @@ class PhaseMessage(Message):
 
     def _set_parent_from_context(self):
         workflow_id = current_workflow_id.get()
-        parent_id = workflow_id # note phase_message parent will be workflow_message
+        parent_id = workflow_id  # note phase_message parent will be workflow_message
 
         if parent_id and workflow_id in message_dict:
             parent_message = message_dict[workflow_id][parent_id]

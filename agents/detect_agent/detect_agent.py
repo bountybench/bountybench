@@ -113,7 +113,9 @@ class DetectAgent(BaseAgent):
         if self.submit:
             if isinstance(prev_agent_message, ExecutorAgentMessage):
                 if not prev_agent_message.submission:
-                    combined_log = self._log("Waiting for the submission...", clear=True)
+                    combined_log = self._log(
+                        "Waiting for the submission...", clear=True
+                    )
                     detect_agent_message.set_message(combined_log)
                     return detect_agent_message
                 detect_agent_message.set_submission(True)
