@@ -93,7 +93,6 @@ class HelmMapping:
         # Together Models (DeepSeek)
         # ------------------------
         "deepseek-ai/deepseek-v3": HelmModelInfo(tokenizer="deepseek-ai/deepseek-v3"),
-        # "deepseek-ai/deepseek-r1": HelmModelInfo(tokenizer="deepseek-ai/deepseek-r1"),
         "deepseek-ai/deepseek-r1-hide-reasoning": HelmModelInfo(
             tokenizer="deepseek-ai/deepseek-r1"
         ),
