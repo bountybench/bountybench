@@ -214,7 +214,7 @@ class WorkflowMessage(Message):
         self.save()
 
     def new_log(self):
-        components = [self.workflow_name]
+        components = []
         if self.task:
             for _, value in self.task.items():
                 if value:
