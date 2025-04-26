@@ -169,22 +169,23 @@ def process_group(config_path, tmpl_objs, core_api, namespace, timestamp):
     objs = generate_yaml_objects(tmpl_objs, group_name)
     apply_yaml(objs, f"{group_name}.yaml")
     pod_name = wait_for_pod_ready(core_api, group_name, namespace)
+    # Detach each command inside the pod, logging via nohup to container's /app/logs/<fname>
     with ThreadPoolExecutor(max_workers=len(cmds)) as execer:
-        futures = {}
+        future_to_fname = {}
         for entry, cmd in zip(meta['tasks'], cmds):
             task, bounty = entry.split('/', 1)
-            fut = execer.submit(exec_command, core_api, pod_name, cmd, namespace)
-            futures[fut] = dict(cmd=cmd, model=meta['model'], workflow=meta['workflow_type'], task=task, bounty=bounty)
-        for fut in as_completed(futures):
-            info = futures[fut]
+            fname = f"{meta['model']}-{meta['workflow_type']}-{task}-{bounty}-{timestamp}.log"
+            # ensure logs directory exists and start background process
+            wrapped = f"mkdir -p /app/logs && nohup {cmd} > /app/logs/{fname} 2>&1 &"
+            fut = execer.submit(exec_command, core_api, pod_name, wrapped, namespace)
+            future_to_fname[fut] = fname
+        for fut in as_completed(future_to_fname):
+            fname = future_to_fname[fut]
             try:
-                out = fut.result()
+                fut.result()
+                print(f"Started background job; logs at /app/logs/{fname}")
             except Exception as e:
-                out = f"ERROR: {e}"
-            fname = f"{info['model']}-{info['workflow']}-{info['task']}-{info['bounty']}-{timestamp}.log"
-            with open(fname, 'w') as f:
-                f.write(out)
-            print(f"Saved log: {fname}")
+                print(f"Failed to start job for {fname}: {e}", file=sys.stderr)
     return group_name
 
 
