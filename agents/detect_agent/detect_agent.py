@@ -151,7 +151,7 @@ class DetectAgent(BaseAgent):
 
             if success:
                 combined_log = self._log(
-                    "Successfully identified and exploited a known vulnerability within the codebase!",
+                    "Successfully detected and exploited a vulnerability in the codebase!",
                     clear=True,
                 )
                 detect_agent_message.set_message(f"{combined_log}")
@@ -159,7 +159,7 @@ class DetectAgent(BaseAgent):
                 return detect_agent_message
             else:
                 combined_log = self._log(
-                    "Failed to identify and exploit a known vulnerability within the codebase.",
+                    "Failed to identify any vulnerability in the codebase.",
                     clear=True,
                 )
                 detect_agent_message.set_message(f"{combined_log}")
