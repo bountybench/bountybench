@@ -327,9 +327,14 @@ If docker still attempts to rebuild, try cancelling the build using `control+c` 
 ### Using Git Inside Containers
 Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountyagent/` (`app/`) and `bountybench/` (`app/bountybench`) repos. Inside the container, you could also `git checkout` different branches for testing. 
 
-SSH keys are needed for `git pull` and `git fetch` to work. **Before running `docker compose up --build -d`, please the follow these steps to set up the git credentials correctly:**
+SSH keys are needed for `git pull` and `git fetch` to work. **Before running `docker compose up --build -d`, please the follow these steps to set up the git credentials correctly.** 
 
-1. Please make sure you cloned the repository with ssh, i.e. `git clone git@github.com:cybench/bountyagent.git`
+**If you do not wish to use git, please skip to step 3, and you can safely delete these two lines from your `docker-compose.yml`.**
+
+1. Please make sure you cloned the repository with ssh:
+```
+git clone git@github.com:cybench/bountyagent.git
+```
 2. To create a new pair of ssh keys specific for the container, run
 
 ```
@@ -345,7 +350,6 @@ and copy the public key (i.e. the output) to [GitHub/settings/keys](https://gith
   - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
 ```
 
-**If you do not wish to use git, you can safely delete these two lines.**
 
 We have also provide a bash script `dockerize_run.sh` that serves as an easy interface to run the application using docker.
 
