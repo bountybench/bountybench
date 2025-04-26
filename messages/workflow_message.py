@@ -40,23 +40,6 @@ class WorkflowMessage(Message):
         self.model_name = model_name
         self.usage = {INPUT_TOKEN: 0, OUTPUT_TOKEN: 0, QUERY_TIME_TAKEN_IN_MS: 0}
 
-        # Logging
-        self.logs_dir = Path(logs_dir)
-        self.logs_dir.mkdir(exist_ok=True)
-
-        components = [workflow_name]
-        if task:
-            for _, value in task.items():
-                if value:
-                    components.append(
-                        str(value.name if isinstance(value, Path) else value)
-                    )
-        self._workflow_id = workflow_id if workflow_id else str(id(self))
-        self.log_file = (
-            self.logs_dir
-            / f"{self.model_name}_{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
-        )
-
         # Metadata
         self.workflow_name = workflow_name
         self.task = task
@@ -64,12 +47,36 @@ class WorkflowMessage(Message):
         self._start_time = datetime.now().isoformat()
         self._end_time = None
         self._phase_status = {}
+        self._workflow_id = workflow_id if workflow_id else str(id(self))
         from messages.message_utils import message_dict
 
         message_dict[self.workflow_id] = {}
         message_dict[self.workflow_id][self.workflow_id] = self
 
         self._codebase_version = git_get_codebase_version()
+        logger.warning(self.task)
+
+        # Logging
+        self.logs_dir = Path(logs_dir)
+        self.logs_dir.mkdir(exist_ok=True)
+
+        components = []
+        if task:
+            for _, value in task.items():
+                if value:
+                    components.append(
+                        str(value.name if isinstance(value, Path) else value)
+                    )
+        self._task_components = "_".join(components)  # e.g. lunary_0
+
+        self.set_full_log_dir_path()
+        logger.debug(f"Creating new log file in directory: {self._full_log_dir_path}")
+
+        self.log_file = (
+            self._full_log_dir_path
+            / f"{self.model_name}_{self.workflow_name}_{self._task_components}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        )
+
         super().__init__()
 
     def _set_parent_from_context(self):
@@ -101,6 +108,16 @@ class WorkflowMessage(Message):
 
     def set_complete(self):
         self._complete = True
+
+    def set_full_log_dir_path(self) -> Path:
+        self._full_log_dir_path = (
+            self.logs_dir
+            / Path(datetime.now().strftime("%Y-%m-%d"))
+            / Path(self.workflow_name)
+            / Path(self._task_components)
+            / Path(self.model_name)
+        )
+        self._full_log_dir_path.mkdir(parents=True, exist_ok=True)
 
     def get_total_usage(self) -> Dict[str, int]:
         total_input_tokens = sum(
@@ -173,7 +190,14 @@ class WorkflowMessage(Message):
             logger.status(f"Saved log to: {self.log_file}")
 
         # Archive the log file
-        archive_path = FULL_LOG_DIR / f"{self.log_file.stem}.log"
+        archive_path = (
+            FULL_LOG_DIR
+            / self.log_file.parent.relative_to(self.logs_dir)
+            / f"{self.log_file.stem}.log"
+        )
+        archive_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Archiving log to: {archive_path}")
+
         try:
             with open(FULL_LOG_FILE_PATH, "r") as src, open(archive_path, "a") as dst:
                 dst.write(src.read())
@@ -198,9 +222,14 @@ class WorkflowMessage(Message):
                     components.append(
                         str(value.name if isinstance(value, Path) else value)
                     )
+        self._task_components = "_".join(components)  # e.g. lunary_0
+
+        self.set_full_log_dir_path()
+        logger.debug(f"Creating new log file in directory: {self._full_log_dir_path}")
+
         self.log_file = (
-            self.logs_dir
-            / f"{'_'.join(components)}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+            self._full_log_dir_path
+            / f"{self.model_name}_{self.workflow_name}_{self._task_components}_{self.workflow_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
         )
         logger.status(f"Creating new log file at: {self.log_file}")
         self.save()
