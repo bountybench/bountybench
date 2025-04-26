@@ -137,7 +137,9 @@ class InitFilesResource(BaseResource):
                 if verify_script.exists():
                     # give the owner execute permission
                     current_mode = verify_script.stat().st_mode
-                    verify_script.chmod(current_mode | stat.S_IXUSR)
+                    # owner, group, and other execute bits:
+                    exec_bits = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+                    verify_script.chmod(current_mode | exec_bits)
                     logger.debug(f"Set execute bit on {verify_script}")
                 else:
                     logger.warning(f"verify.sh not found at {verify_script}")
