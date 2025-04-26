@@ -291,6 +291,49 @@ Once both the backend and frontend are running, you can access the application t
 
 Once built, the frontend will be running at http://localhost:3000/, and everything should be the same as in non-dockerized versions.
 
+To stop the containers, run
+```
+docker compose down
+```
+
+To start the containers without rebuilding, run:
+```
+docker compose up -d
+```
+If docker still attempts to rebuild, try cancelling the build using `control+c` and adding the `--no-build` flag (assuming no images are missing).
+
+### Using Git Inside Containers
+Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountyagent/` (`app/`) and `bountybench/` (`app/bountybench`) repos. Inside the container, you could also `git checkout` different branches for testing. 
+
+SSH keys are needed for `git pull` and `git fetch` to work. **Before running `docker compose up --build -d`, please the follow these steps to set up the git credentials correctly.** 
+
+**If you do not wish to use git, please skip to step 3, and you can safely delete these two lines from your `docker-compose.yml`.**
+
+1. Please make sure you cloned the repository with ssh:
+```
+git clone git@github.com:cybench/bountyagent.git
+```
+2. To create a new pair of ssh keys specific for the container, run:
+
+```
+chmod +x tools/ssh_key_gen.sh && \
+tools/ssh_key_gen.sh
+```
+
+and copy the public key (i.e. the output) to [GitHub/settings/keys](https://github.com/settings/keys). 
+
+3. You could also change these two lines in `docker-compose.yml` to use any paths or keys of your choice:
+```
+  - ${HOME}/.ssh/id_rsa_backend-service:/root/.ssh/id_rsa:ro
+  - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
+```
+4. (Optional) If you want to fetch the latest version of bountybench, run:
+```
+cd bountybench
+git checkout main
+git pull
+```
+
 We have also provide a bash script `dockerize_run.sh` that serves as an easy interface to run the application using docker.
 
 ### Sample Run
