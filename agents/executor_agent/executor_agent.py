@@ -18,8 +18,11 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-MAX_RETRIES = 3
+# Constants for retry exponential backoff in self.call_lm
+MAX_RETRIES = 30  # Waits at most an 1 hour for issue resolution
 RETRY_DELAY = 30
+MAX_RETRY_DELAY = 120
+BACKOFF_FACTOR = 2
 
 
 @dataclass
@@ -169,7 +172,14 @@ class ExecutorAgent(BaseAgent):
                         f"LLM call timed out: {str(e)}. Retrying {iterations + 1}/{MAX_RETRIES}"
                     )
                     iterations += 1
-                    continue
+
+                    delay = min(
+                        RETRY_DELAY * (BACKOFF_FACTOR**iterations), MAX_RETRY_DELAY
+                    )
+                    logger.info(
+                        f"Backing off for {delay:.2f} seconds before retry {iterations + 1}/{MAX_RETRIES}"
+                    )
+                    await asyncio.sleep(delay)
                 except Exception as e:
                     error_msg = str(e)
                     exception_type = type(e).__name__
