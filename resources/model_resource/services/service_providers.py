@@ -4,7 +4,7 @@ from typing import Callable
 
 from resources.model_resource.services.auth_helpers import (
     _auth_anthropic_api_key,
-    _auth_google_gemini_api_key,
+    _auth_google_api_key,
     _auth_helm_api_key,
     _auth_openai_api_key,
     _auth_together_api_key,
@@ -41,8 +41,8 @@ PROVIDER_CONFIG: dict[ServiceProvider, ServiceProviderConfig] = {
     ),
     ServiceProvider.GOOGLE: ServiceProviderConfig(
         name="google",
-        api_key_name="GOOGLE_GEMINI_API_KEY",
-        auth_function=_auth_google_gemini_api_key,
+        api_key_name="GOOGLE_API_KEY",
+        auth_function=_auth_google_api_key,
     ),
     ServiceProvider.TOGETHER: ServiceProviderConfig(
         name="together",
