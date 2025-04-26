@@ -23,6 +23,7 @@ class PhaseMessage(Message):
         self._max_iterations = max_iterations
         self._phase_idx = phase_idx
         self._success = False
+        self._submit = False
         self._complete = False
         self._summary = "incomplete"
         self._agent_messages = []
@@ -66,6 +67,10 @@ class PhaseMessage(Message):
         return self._success
 
     @property
+    def submit(self) -> bool:
+        return self._submit
+
+    @property
     def complete(self) -> bool:
         return self._complete
 
@@ -106,6 +111,9 @@ class PhaseMessage(Message):
 
     def set_success(self):
         self._success = True
+
+    def set_submit(self):
+        self._submit = True
 
     def set_complete(self):
         self._complete = True
@@ -179,6 +187,7 @@ class PhaseMessage(Message):
             "phase_summary": self.summary,
             "phase_usage": usage,
             "success": self.success,
+            "submit": self.submit,
             "max_iterations": self.max_iterations,
             "agent_messages": (
                 [agent_message.to_log_dict() for agent_message in self.agent_messages]
