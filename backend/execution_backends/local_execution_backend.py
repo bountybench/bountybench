@@ -168,6 +168,20 @@ class LocalExecutionBackend(ExecutionBackend):
         status = self.active_workflows[workflow_id]["status"]
         return {"workflow_id": workflow_id, "status": status}
 
+    async def get_workflow_appheader(self, workflow_id: str) -> Dict[str, Any]:
+        """
+        Get the workflow metadata for AppHeader.
+        """
+        if workflow_id not in self.active_workflows:
+            return {"error": f"Workflow {workflow_id} not found"}
+
+        workflow = self.active_workflows[workflow_id]["instance"]
+
+        model = workflow.params.get("model", "")
+        interactive = workflow.interactive
+        mock = workflow.interactive_controller
+
+
     async def list_active_workflows(self) -> List[Dict[str, Any]]:
         """
         List all active workflows.
@@ -185,6 +199,11 @@ class LocalExecutionBackend(ExecutionBackend):
                     ),
                     "task": (
                         workflow_data.get("instance").task
+                        if "instance" in workflow_data
+                        else None
+                    ),
+                    "model": (
+                        workflow_data.get("instance").params.get("model", "")
                         if "instance" in workflow_data
                         else None
                     ),

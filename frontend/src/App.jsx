@@ -4,7 +4,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { Routes, Route, Navigate } from 'react-router';
+import { Routes, Route, Navigate, useLocation } from 'react-router';
 import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
 import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
 import { AppHeader } from './components/AppHeader/AppHeader';
@@ -22,6 +22,22 @@ function App() {
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
   const toastIdRef = useRef({});
+
+  const location = useLocation();
+
+  useEffect(() => {
+    const match = location.pathname.match(/^\/workflow\/(\d+)/);
+    if (match) {
+      const wfId = match[1];
+
+      // if (!selectedWorkflow || selectedWorkflow.id !== wfId) {
+      //   syncWorkflowFromBackend(wfId);
+      // }
+    } else {
+      setSelectedWorkflow(null);
+    }
+  // }, [location.pathname, selectedWorkflow, syncWorkflowFromBackend]);
+  }, [location.pathname]);
 
   const handleWorkflowStart = (workflowId, model, isInteractive) => {
     setSelectedWorkflow({ id: workflowId, model: model });
@@ -183,7 +199,7 @@ function App() {
         />
         <Box flexGrow={1} overflow='auto'>
           <Routes>
-            <Route path='/' element={<HomePage/>} />
+            <Route path='/' element={<HomePage setSelectedWorkflow={setSelectedWorkflow} />} />
             <Route path='/create-workflow' element={<WorkflowLauncher onWorkflowStart={handleWorkflowStart} interactiveMode={interactiveMode} setInteractiveMode={setInteractiveMode} useMockModel={useMockModel} setUseMockModel={setUseMockModel}  />} />
             <Route path='/workflow' element={<Navigate to="/" />} />
             <Route path='/workflow/:workflowId' 
