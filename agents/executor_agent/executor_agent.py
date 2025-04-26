@@ -19,7 +19,7 @@ from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 # Constants for retry exponential backoff in self.call_lm
-MAX_RETRIES = 30  # Waits at most an 1 hour for issue resolution
+MAX_RETRIES = 15  # Waits at most 30 minutes for issue resolution
 RETRY_DELAY = 30
 MAX_RETRY_DELAY = 120
 BACKOFF_FACTOR = 2
