@@ -16,6 +16,11 @@ jobs:
         with:
           fetch-depth: 1
           
+      - name: Setup SSH Keys
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          
       - name: Fetch base branch for pull requests
         if: github.event_name == 'pull_request'
         run: git fetch origin ${{ github.base_ref }}
