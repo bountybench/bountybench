@@ -4,7 +4,13 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import pytest
 
 from agents.base_agent import IterationFailure
-from agents.executor_agent.executor_agent import ExecutorAgent, ExecutorAgentConfig
+from agents.executor_agent.executor_agent import (
+    MAX_RETRIES,
+    MAX_RETRY_DELAY,
+    RETRY_DELAY,
+    ExecutorAgent,
+    ExecutorAgentConfig,
+)
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.error_action_message import ErrorActionMessage
@@ -72,7 +78,9 @@ async def test_call_lm_failure(executor_agent):
         str(exc_info.value)
         == "call_lm error: Max retries reached without valid response."
     )
-    assert executor_agent.resources.model.run.call_count == 3  # MAX_RETRIES
+    assert (
+        executor_agent.resources.model.run.call_count == MAX_RETRIES
+    )  # call_lm MAX_RETRIES
     assert executor_agent.parse_response.call_count == 0
 
 
@@ -93,8 +101,8 @@ async def test_call_lm_parse_errors_return_raw_response(executor_agent):
     assert not isinstance(result, CommandMessage)
 
     # Verify the model.run and parse_response were called correct number of times
-    assert executor_agent.resources.model.run.call_count == 3
-    assert executor_agent.parse_response.call_count == 3
+    assert executor_agent.resources.model.run.call_count == MAX_RETRIES
+    assert executor_agent.parse_response.call_count == MAX_RETRIES
 
 
 @pytest.mark.asyncio
@@ -121,8 +129,8 @@ async def test_call_lm_parse_errors_gets_modified_reminder_prompt(executor_agent
     assert not isinstance(result, CommandMessage)
 
     # Verify the model.run and parse_response were called correct number of times
-    assert executor_agent.resources.model.run.call_count == 3
-    assert executor_agent.parse_response.call_count == 3
+    assert executor_agent.resources.model.run.call_count == MAX_RETRIES
+    assert executor_agent.parse_response.call_count == MAX_RETRIES
 
 
 @pytest.mark.asyncio
@@ -141,19 +149,20 @@ async def test_call_lm_mixed_errors_return_raw_response(executor_agent):
     )
     executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
     executor_agent.parse_response = Mock(side_effect=Exception("Parse error"))
+    executor_agent._backoff_delay = AsyncMock()
+    with patch("agents.executor_agent.executor_agent.MAX_RETRIES", new=3):
+        # Should return the last raw response
+        result = await executor_agent.call_lm()
 
-    # Should return the last raw response
-    result = await executor_agent.call_lm()
+        # Verify we got back the last raw response (action_msg2)
+        assert result is action_msg2
+        assert "second response" in result.message
 
-    # Verify we got back the last raw response (action_msg2)
-    assert result is action_msg2
-    assert "second response" in result.message
-
-    # Verify correct call counts
-    assert executor_agent.resources.model.run.call_count == 3
-    assert (
-        executor_agent.parse_response.call_count == 2
-    )  # Only called when API succeeds
+        # Verify correct call counts
+        assert executor_agent.resources.model.run.call_count == 3
+        assert (
+            executor_agent.parse_response.call_count == 2
+        )  # Only called when API succeeds
 
 
 @pytest.mark.asyncio
@@ -200,7 +209,7 @@ async def test_invalid_prompt_error(executor_agent):
     with pytest.raises(Exception) as exc_info:
         await executor_agent.call_lm()
 
-    assert executor_agent.resources.model.run.call_count == 3  # should retry
+    assert executor_agent.resources.model.run.call_count == MAX_RETRIES  # should retry
 
 
 @pytest.mark.asyncio
@@ -395,6 +404,7 @@ async def test_call_lm_timeout_error(executor_agent):
         executor_agent.last_executor_agent_message = ExecutorAgentMessage(
             agent_id=executor_agent.agent_id, prev=None
         )
+        executor_agent._backoff_delay = AsyncMock()
 
         prev_agent_message = AgentMessage("prev_agent_id")
         prev_agent_message.memory = ""
@@ -411,7 +421,7 @@ async def test_call_lm_timeout_error(executor_agent):
 
 @pytest.mark.asyncio
 async def test_call_lm_quota_error(executor_agent):
-    """Test LM call with quota/rate limit errors that shouldn't be retried"""
+    """Test LM call with quota/rate limit errors"""
 
     quota_error = Exception("No quota remaining for GPT-4")
 
@@ -596,7 +606,78 @@ async def test_call_lm_timeout_retries(executor_agent):
     executor_agent.resources.model.run = MagicMock(
         side_effect=TimeoutError("Test timeout")
     )
+    executor_agent._backoff_delay = AsyncMock()
 
     # Run call_lm and assert it raises after retries
     with pytest.raises(Exception, match="Max retries reached"):
         await executor_agent.call_lm()
+
+
+@pytest.mark.asyncio
+@patch("asyncio.sleep", new_callable=AsyncMock)
+async def test_exponential_backoff_calculation(mock_sleep, executor_agent):
+    """Test the exponential backoff calculation logic in _backoff_delay."""
+    test_cases = [
+        (0, RETRY_DELAY),  # iter 0 -> 30 * 2^0 = 30
+        (1, RETRY_DELAY * 2),  # iter 1 -> 30 * 2^1 = 60
+        (2, RETRY_DELAY * 4),  # iter 2 -> 30 * 2^2 = 120 (capped at MAX_RETRY_DELAY)
+        (3, MAX_RETRY_DELAY),  # iter 3-> 30 * 2^3 = 240, capped at 120
+    ]
+
+    for iterations, expected_delay in test_cases:
+        result = await executor_agent._backoff_delay(iterations)
+        assert (
+            result == expected_delay
+        ), f"Expected delay {expected_delay} for iterations={iterations}, got {result}"
+        mock_sleep.assert_awaited_with(expected_delay)
+
+    assert mock_sleep.call_count == len(test_cases)
+
+
+@pytest.mark.asyncio
+async def test_call_lm_rate_limit_error(executor_agent):
+    """Test LM call with rate limit error (429)"""
+
+    class ApiError(Exception):
+        def __init__(self, message, status_code):
+            super().__init__(message)
+            self.status_code = status_code
+
+    invalid_prompt_error = ApiError(
+        "Rate limit exceeded",
+        429,
+    )
+    model_response_error = ModelResponseFailure(invalid_prompt_error, "test input")
+    success_msg = ActionMessage("test_id", "command: ls")
+
+    # First and second call fails with rate limit error, third succeeds
+    executor_agent.resources.model.run = Mock(
+        side_effect=[model_response_error, model_response_error, success_msg]
+    )
+    executor_agent.resources.executor_agent_memory.get_memory = Mock(return_value=None)
+
+    # Set up last_executor_agent_message
+    executor_agent.last_executor_agent_message = ExecutorAgentMessage(
+        agent_id=executor_agent.agent_id, prev=None
+    )
+    executor_agent._backoff_delay = AsyncMock()
+
+    prev_agent_message = AgentMessage("prev_agent_id")
+    prev_agent_message.memory = ""
+
+    result = await executor_agent.call_lm(prev_agent_message)
+
+    # Verify retry happened and we got a successful result
+    assert isinstance(result, CommandMessage)
+    assert executor_agent.resources.model.run.call_count == 3
+
+    # Verify error history was recorded
+    assert "error_history" in success_msg.additional_metadata
+    error_history = success_msg.additional_metadata["error_history"]
+    assert len(error_history) == 2
+
+    assert error_history[0]["status_code"] == 429
+    assert error_history[1]["status_code"] == 429
+
+    assert "Rate limit" in error_history[0]["message"]
+    assert "Rate limit" in error_history[1]["message"]

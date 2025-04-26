@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Box, Typography, Card, CardContent, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -6,9 +6,21 @@ import AgentMessage from '../AgentMessage/AgentMessage';
 import { formatTimeElapsed } from '../../utils/messageFormatters';
 import './PhaseMessage.css'
 
-const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion }) => {
+const PhaseMessage = ({
+  message,
+  onUpdateMessageInput,
+  onRunMessage,
+  onEditingChange,
+  isEditing,
+  selectedCellId,
+  onCellSelect,
+  onToggleVersion,
+  registerMessageRef,
+  registerToggleOperation
+}) => {
   const [contentExpanded, setContentExpanded] = useState(true);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+  const messageContainerRef = useRef(null);
   const [commandsExpanded, setCommandsExpanded] = useState(false);
 
   const handleToggleContent = () => setContentExpanded(!contentExpanded);
@@ -19,13 +31,13 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
     if (!message?.current_children || !Array.isArray(message.current_children)) {
       return 0;
     }
-    
+
     let iterations = message.current_children.length;
-    
+
     if (iterations > 0 && message.current_children[0].agent_id === 'system') {
       iterations = iterations - 1;
     }
-    
+
     return iterations;
   }, [message?.current_children]);
 
@@ -34,19 +46,19 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
   const processLMCalls = () => {
     let totalCalls = 0;
     let commands = [];
-    
+
     if (!message.current_children || message.current_children.length === 0) {
       return { totalCalls, commands };
     }
-    
+
     message.current_children.forEach(agentMessage => {
       if (agentMessage.action_messages && Array.isArray(agentMessage.action_messages)) {
         const modelActions = agentMessage.action_messages.filter(
           action => action.resource_id === "model"
         );
-        
+
         totalCalls += modelActions.length;
-        
+
         modelActions.forEach(action => {
           if (action.command) {
             commands.push(action.command);
@@ -54,23 +66,32 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
         });
       }
     });
-    
+
     return { totalCalls, commands };
   };
 
   const { totalCalls: lmCalls, commands } = processLMCalls();
 
+  useEffect(() => {
+    if (messageContainerRef.current && message.current_id) {
+      registerMessageRef(message.current_id, messageContainerRef.current);
+    }
+  }, [message.current_id, registerMessageRef]);
+
   return (
-    <Box className="message-container phase">
+    <Box
+      className="message-container phase"
+      ref={messageContainerRef}
+    >
       <Card className="message-bubble phase-bubble">
         <CardContent>
           <Box className="phase-header">
             <Typography className="phase-title">
               Phase: {message.phase_name}
             </Typography>
-            <IconButton 
-              size="small" 
-              onClick={handleToggleContent} 
+            <IconButton
+              size="small"
+              onClick={handleToggleContent}
               className="phase-toggle-button"
               aria-label="toggle phase content"
             >
@@ -81,7 +102,7 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
             <Typography className="phase-summary">
               Summary: {message.phase_summary || '-'}
             </Typography>
-            
+
             {(iterations !== null && iterations !== undefined) && (
               <Typography className="phase-summary">
                 Iterations: {iterations || '-'} | Iteration time: {formatTimeElapsed(message.phase_usage?.total_iteration_time_ms) || '-'}
@@ -98,19 +119,19 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
 
                 {commands.length > 0 && (
                   <Box className="command-summary-container" sx={{ width: '100%' }}>
-                    <Box 
-                      className="command-summary-header" 
+                    <Box
+                      className="command-summary-header"
                       onClick={handleToggleCommands}
-                      sx={{ 
-                        alignItems: 'center', 
+                      sx={{
+                        alignItems: 'center',
                         cursor: 'pointer',
                         marginTop: 1,
                       }}
                     >
-                      <Typography className="phase-summary" sx={{width: '100%'}}>
+                      <Typography className="phase-summary" sx={{ width: '100%' }}>
                         Command Log
-                        <IconButton 
-                          size="smaller" 
+                        <IconButton
+                          size="smaller"
                           className="command-toggle-button"
                           aria-label="toggle commands"
                           sx={{ color: 'black', ml: 5 }}
@@ -119,11 +140,11 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                         </IconButton>
                       </Typography>
                     </Box>
-                    
+
                     <Collapse in={commandsExpanded}>
-                      <Box 
+                      <Box
                         className="commands-list"
-                        sx={{ 
+                        sx={{
                           backgroundColor: '#f5f5f5',
                           padding: 1.5,
                           borderRadius: 1,
@@ -131,10 +152,10 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                         }}
                       >
                         {commands.map((command, index) => (
-                          <Typography 
-                            key={index} 
+                          <Typography
+                            key={index}
                             className="command-item"
-                            sx={{ 
+                            sx={{
                               fontSize: '0.8rem',
                               marginBottom: index < commands.length - 1 ? 1 : 0
                             }}
@@ -153,24 +174,26 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
               <Box className="agent-messages-container">
                 <Typography className="agent-messages-title">Agent Messages:</Typography>
                 {message.current_children.map((agentMessage, index) => (
-                  <AgentMessage 
-                    key={agentMessage.current_id} 
-                    message={agentMessage} 
+                  <AgentMessage
+                    key={agentMessage.current_id}
+                    message={agentMessage}
                     onUpdateMessageInput={onUpdateMessageInput}
                     onRunMessage={onRunMessage}
                     onEditingChange={onEditingChange}
-                    isEditing={isEditing}                      
+                    isEditing={isEditing}
                     selectedCellId={selectedCellId}
                     onCellSelect={onCellSelect}
                     onToggleVersion={onToggleVersion}
+                    registerMessageRef={registerMessageRef}
+                    registerToggleOperation={registerToggleOperation}
                   />
                 ))}
               </Box>
             )}
-  
+
             {message.additional_metadata && (
               <Box>
-                <Box 
+                <Box
                   className="metadata-toggle"
                   onClick={handleToggleMetadata}
                 >
@@ -181,7 +204,7 @@ const PhaseMessage = ({ message, onUpdateMessageInput, onRunMessage, onEditingCh
                     </IconButton>
                   </Typography>
                 </Box>
-                
+
                 <Collapse in={metadataExpanded}>
                   <Box className="metadata-content">
                     <Typography
