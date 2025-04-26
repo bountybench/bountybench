@@ -68,10 +68,6 @@ class PatchPhase(BountyPhase):
         """
         logger.debug("Entering define_resources for PatchPhase")
 
-        input_exploit_files_dir_name = (
-            None if self.use_agent_exploit else "exploit_files"
-        )
-
         files_dir_name: str = self.workflow.bounty_metadata.get("files_dir", "codebase")
         vulnerable_commit: str = self.workflow.bounty_metadata.get(
             "vulnerable_commit", "main"
@@ -98,7 +94,6 @@ class PatchPhase(BountyPhase):
                     files_dir_name=files_dir_name,
                     tmp_dir=self.tmp_dir,
                     bounty_number=self.bounty_number,
-                    input_exploit_files_dir_name=input_exploit_files_dir_name,
                     output_agent_files_name=self.output_agent_files_name,
                     vulnerable_commit=vulnerable_commit,
                 ),
