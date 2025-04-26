@@ -180,7 +180,12 @@ class LocalExecutionBackend(ExecutionBackend):
         model = workflow.params.get("model", "")
         interactive = workflow.interactive
         use_mock = workflow.params.get("use_mock_model", False)
-        return {"workflow_id": workflow_id, "model": model, "interactive": interactive, "use_mock": use_mock}
+        return {
+            "workflow_id": workflow_id,
+            "model": model,
+            "interactive": interactive,
+            "use_mock": use_mock,
+        }
 
     async def list_active_workflows(self) -> List[Dict[str, Any]]:
         """
