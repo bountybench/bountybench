@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Callable, List
+from typing import Any, Callable, Dict, List
 
 from backend.schema import (
-    StartWorkflowInput,
     MessageData,
     MessageInputData,
+    StartWorkflowInput,
     UpdateInteractiveModeInput,
 )
 
