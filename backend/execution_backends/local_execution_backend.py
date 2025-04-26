@@ -179,8 +179,8 @@ class LocalExecutionBackend(ExecutionBackend):
 
         model = workflow.params.get("model", "")
         interactive = workflow.interactive
-        mock = workflow.interactive_controller
-
+        use_mock = workflow.params.get("use_mock_model", False)
+        return {"workflow_id": workflow_id, "model": model, "interactive": interactive, "use_mock": use_mock}
 
     async def list_active_workflows(self) -> List[Dict[str, Any]]:
         """
@@ -199,11 +199,6 @@ class LocalExecutionBackend(ExecutionBackend):
                     ),
                     "task": (
                         workflow_data.get("instance").task
-                        if "instance" in workflow_data
-                        else None
-                    ),
-                    "model": (
-                        workflow_data.get("instance").params.get("model", "")
                         if "instance" in workflow_data
                         else None
                     ),

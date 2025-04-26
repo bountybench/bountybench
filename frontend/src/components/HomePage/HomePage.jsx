@@ -6,7 +6,7 @@ import './HomePage.css';
 
 import { API_BASE_URL } from '../../config';
 
-const HomePage = ({ setSelectedWorkflow }) => {
+const HomePage = () => {
   const navigate = useNavigate();
   const [activeWorkflows, setActiveWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,9 +31,8 @@ const HomePage = ({ setSelectedWorkflow }) => {
     navigate('/create-workflow');
   };
 
-  const handleWorkflowClick = (workflow) => {
-    setSelectedWorkflow({ id: workflow.id, model: workflow.model })
-    navigate(`/workflow/${workflow.id}`);
+  const handleWorkflowClick = (workflowId) => {
+    navigate(`/workflow/${workflowId}`);
   };
 
   const handleViewHistoryLogs = () => {
@@ -60,7 +59,7 @@ const HomePage = ({ setSelectedWorkflow }) => {
         key={workflow.id}
         variant="outlined"
         color={buttonColor} // Set the color dynamically based on the status
-        onClick={() => handleWorkflowClick(workflow)}
+        onClick={() => handleWorkflowClick(workflow.id)}
         style={{ 
           margin: '5px', 
           width: '100%',   

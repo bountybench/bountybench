@@ -53,6 +53,16 @@ class ExecutionBackend(ABC):
             Dict[str, Any]: A dictionary containing workflow ID and its current status.
         """
         pass
+
+    @abstractmethod
+    async def get_workflow_appheader(self, workflow_id: str) -> Dict[str, Any]:
+        """
+        Get the workflow metadata for AppHeader.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing workflow ID and its model,
+            interactive mode, and use mock model status.
+        """
     
     @abstractmethod
     async def list_active_workflows(self) -> List[Dict[str, Any]]:

@@ -8,7 +8,7 @@ from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeI
 workflow_service_router = APIRouter()
 
 
-@workflow_service_router.get("/workflow/{workflow_id}/current")
+@workflow_service_router.get("/workflow/{workflow_id}/appheader")
 async def get_workflow_appheader(workflow_id: str, request: Request):
     """
     Get the workflow metadata for AppHeader.

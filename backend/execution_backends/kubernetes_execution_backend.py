@@ -31,6 +31,10 @@ class KubernetesExecutionBackend(ExecutionBackend):
         """Get the current status of a workflow."""
         raise NotImplementedError
 
+    async def get_workflow_appheader(self, workflow_id: str) -> Dict[str, Any]:
+        """Get the workflow metadata for AppHeader."""
+        raise NotImplementedError
+
     async def list_active_workflows(self) -> List[Dict[str, Any]]:
         """List all active workflows."""
         raise NotImplementedError
