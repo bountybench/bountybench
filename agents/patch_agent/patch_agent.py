@@ -200,7 +200,7 @@ class PatchAgent(BaseAgent):
         # sanitize invariant test paths
         try:
             self.restore_invariant_test_paths()
-            self._log("Successfully restored/sanitized all hidden tests.")
+            self._log("Successfully restored/sanitized all hidden tests in codebase.")
         except Exception as e:
             logger.error(
                 "Failed to restore invariant test paths — this indicates an infrastructure issue. "
