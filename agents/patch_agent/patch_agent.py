@@ -200,10 +200,7 @@ class PatchAgent(BaseAgent):
         # sanitize invariant test paths
         try:
             self.restore_invariant_test_paths()
-            self._log(
-                "Successfully restored all invariant test paths. "
-                "Associated test files have been sanitized for check invariants."
-            )
+            self._log("Successfully restored/sanitized all hidden tests.")
         except Exception as e:
             logger.error(
                 "Failed to restore invariant test paths — this indicates an infrastructure issue. "
@@ -850,8 +847,6 @@ bash /app/exploit.sh
 
     def restore_invariant_test_paths(self) -> None:
         """Restore invariant test paths specified in repo and bounty metadata."""
-        logger.info("Checking for invariant test paths to restore...")
-
         repo_meta = read_repo_metadata(self.task_dir)
         paths_to_restore = repo_meta.get("invariant_test_paths", [])
 
