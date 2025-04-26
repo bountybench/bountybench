@@ -12,12 +12,14 @@ import copy
 from pathlib import Path
 import subprocess
 import datetime
+import re
 
 import yaml
 from kubernetes import client, config
 from kubernetes.stream import stream
 from kubernetes.client.rest import ApiException
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from kubernetes.client import V1Namespace, V1ObjectMeta
 
 
 def parse_config(config_path):
@@ -107,19 +109,29 @@ def generate_yaml_objects(template_objs, name):
     return new_objs
 
 
-def apply_yaml(objs, output_file=None):
+def apply_yaml(objs, output_file=None, namespace="default"):
     yaml_str = yaml.safe_dump_all(objs)
     if output_file:
         with open(output_file, 'w') as f:
             f.write(yaml_str)
         print(f"Generated YAML file: {output_file}")
     result = subprocess.run([
-        'kubectl', 'apply', '-f', '-'
+        'kubectl', 'apply', '-n', namespace, '-f', '-'
     ], input=yaml_str, text=True, capture_output=True)
     if result.returncode != 0:
         print(f"Failed to apply Kubernetes resources: {result.stderr}", file=sys.stderr)
         sys.exit(1)
     print(result.stdout)
+
+
+def sanitize_name(raw: str) -> str:
+    """Convert raw string to RFC 1123-compliant name."""
+    name = raw.lower()
+    # replace invalid chars with hyphens
+    name = re.sub(r'[^a-z0-9-]+', '-', name)
+    # strip leading/trailing hyphens
+    name = re.sub(r'(^-+|-+$)', '', name)
+    return name
 
 
 def wait_for_pod_ready(api, label, namespace='default', timeout=600):
@@ -163,18 +175,22 @@ def exec_command(api, pod_name, command, namespace='default'):
 
 def process_group(config_path, tmpl_objs, core_api, namespace, timestamp):
     """Deploy one experiment group and run its commands in parallel."""
-    group_name = Path(config_path).stem
+    raw_name = Path(config_path).stem
+    group_name = sanitize_name(raw_name)
     print(f"\n=== Group: {group_name} ===")
     cmds, meta = parse_config(config_path)
     objs = generate_yaml_objects(tmpl_objs, group_name)
-    apply_yaml(objs, f"{group_name}.yaml")
+    apply_yaml(objs, f"{group_name}.yaml", namespace)
     pod_name = wait_for_pod_ready(core_api, group_name, namespace)
     # Detach each command inside the pod, logging via nohup to container's /app/logs/<fname>
     with ThreadPoolExecutor(max_workers=len(cmds)) as execer:
         future_to_fname = {}
         for entry, cmd in zip(meta['tasks'], cmds):
             task, bounty = entry.split('/', 1)
-            fname = f"{meta['model']}-{meta['workflow_type']}-{task}-{bounty}-{timestamp}.log"
+            # build a safe filename: sanitize each component
+            parts = [meta['model'], meta['workflow_type'], task, bounty]
+            safe_parts = [sanitize_name(p) for p in parts]
+            fname = '-'.join(safe_parts + [timestamp]) + '.log'
             # ensure logs directory exists and start background process
             wrapped = f"mkdir -p /app/logs && nohup {cmd} > /app/logs/{fname} 2>&1 &"
             fut = execer.submit(exec_command, core_api, pod_name, wrapped, namespace)
@@ -223,6 +239,17 @@ def main():
         sys.exit(1)
 
     core_api = client.CoreV1Api()
+    try:
+        core_api.read_namespace(name=args.namespace)
+    except ApiException as e:
+        if e.status == 404:
+            ns = V1Namespace(metadata=V1ObjectMeta(name=args.namespace))
+            core_api.create_namespace(body=ns)
+            print(f"Created namespace '{args.namespace}'")
+        else:
+            print(f"Error checking namespace: {e}", file=sys.stderr)
+            sys.exit(1)
+
     try:
         tmpl_objs = load_yaml_template(args.template)
     except FileNotFoundError:
