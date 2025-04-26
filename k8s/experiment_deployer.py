@@ -182,6 +182,11 @@ def process_group(config_path, tmpl_objs, core_api, namespace, timestamp):
     objs = generate_yaml_objects(tmpl_objs, group_name)
     apply_yaml(objs, f"{group_name}.yaml", namespace)
     pod_name = wait_for_pod_ready(core_api, group_name, namespace)
+    # Pull latest Docker image in the pod before running tasks
+    print(f"Pulling 'cybench/bountyagent:latest' in pod {pod_name}...")
+    pull_cmd = "docker pull --quiet cybench/bountyagent:latest"
+    pull_resp = exec_command(core_api, pod_name, pull_cmd, namespace)
+    print(f"Image pull output: {pull_resp}")
     # Detach each command inside the pod, logging via nohup to container's /app/logs/<fname>
     with ThreadPoolExecutor(max_workers=len(cmds)) as execer:
         future_to_fname = {}
