@@ -97,6 +97,7 @@ class HelmMapping:
         "deepseek-ai/deepseek-r1-hide-reasoning": HelmModelInfo(
             tokenizer="deepseek-ai/deepseek-r1"
         ),
+        "deepseek-ai/deepseek-r1": HelmModelInfo(tokenizer="deepseek-ai/deepseek-r1"),
         # ------------------------
         # Mistral Models
         # ------------------------
