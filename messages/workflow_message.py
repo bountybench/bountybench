@@ -54,7 +54,6 @@ class WorkflowMessage(Message):
         message_dict[self.workflow_id][self.workflow_id] = self
 
         self._codebase_version = git_get_codebase_version()
-        logger.warning(self.task)
 
         # Logging
         self.logs_dir = Path(logs_dir)
