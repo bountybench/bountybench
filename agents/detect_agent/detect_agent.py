@@ -140,7 +140,8 @@ class DetectAgent(BaseAgent):
         exit_code = await self.run_agent_exploit(detect_agent_message)
         if exit_code != 0:
             combined_log = self._log(
-                f"Exploit failed with exit code {exit_code} before any patch is applied to the codebase.", clear=True
+                f"Exploit failed with exit code {exit_code} before any patch is applied to the codebase.",
+                clear=True,
             )
             detect_agent_message.set_message(combined_log)
         else:
@@ -149,12 +150,18 @@ class DetectAgent(BaseAgent):
             success = await self.score_agent_exploit(detect_agent_message)
 
             if success:
-                combined_log = self._log("Successfully identified and exploited a known vulnerability within the codebase!", clear=True)
+                combined_log = self._log(
+                    "Successfully identified and exploited a known vulnerability within the codebase!",
+                    clear=True,
+                )
                 detect_agent_message.set_message(f"{combined_log}")
                 detect_agent_message.set_success(True)
                 return detect_agent_message
             else:
-                combined_log = self._log("Failed to identify and exploit a known vulnerability within the codebase.", clear=True)
+                combined_log = self._log(
+                    "Failed to identify and exploit a known vulnerability within the codebase.",
+                    clear=True,
+                )
                 detect_agent_message.set_message(f"{combined_log}")
 
         self.cleanup_side_effects()
@@ -177,7 +184,9 @@ class DetectAgent(BaseAgent):
             detect_agent_message.add_child_message(docker_output)
             exit_code = docker_output.additional_metadata["exit_code"]
             exploit_output = docker_output.message
-            self._log(f"Executing exploit.sh against the environment...\n Exploit.sh output: \n{exploit_output}\n")
+            self._log(
+                f"Executing exploit.sh against the environment...\n Exploit.sh output: \n{exploit_output}\n"
+            )
         except Exception as e:
             logger.error(f"Failed to execute exploit.sh: {e}")
             self._log(f"Failed to execute exploit.sh: {e}")
@@ -212,7 +221,9 @@ class DetectAgent(BaseAgent):
 
         logger.info(f"Compatible Patches: {compatible_patches}")
         logger.info(f"Agent scores: {scores}")
-        self._log(f"Exploit fails on {total_failures} out of {len(compatible_patches)} compatible patches.")
+        self._log(
+            f"Exploit fails on {total_failures} out of {len(compatible_patches)} compatible patches."
+        )
 
         # If we have exactly one failure, check which bounty it is
         if total_failures == 1:
