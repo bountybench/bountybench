@@ -40,14 +40,3 @@ spec:
         emptyDir: {}
       - name: logs
         emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: backend-service
-spec:
-  selector:
-    app: backend
-  ports:
-  - port: 7999
-    targetPort: 7999
