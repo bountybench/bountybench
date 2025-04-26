@@ -20,7 +20,6 @@ import './WorkflowLauncher.css';
 import { SaveConfigDialog } from './SaveConfigDialog';
 import { TaskSelectionSection } from './TaskSelectionSection';
 import { ModelSelectionSection } from './ModelSelectionSection';
-import { getDefaultMaxOutputTokens } from '../../token_default_config';
 
 import { API_BASE_URL } from '../../config';
 
@@ -60,8 +59,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [tasks, setTasks] = useState([]);
   const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
   const [configDefaults, setConfigDefaults] = useState({
-    max_input_tokens: "",
-    max_output_tokens: ""
+    max_input_tokens: "8192",
+    max_output_tokens: "16384"
   });
   
   const [openSaveDialog, setOpenSaveDialog] = useState(false);
@@ -72,14 +71,14 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     workflow_name: '',
     tasks: [{ task_dir: '', bounty_number: '' }],
     vulnerability_type: '',
-    interactive: true,
+    interactive: false,
     iterations: 100,
     api_key_name: '',
     api_key_value: '',
     model: '',
-    use_helm: false,
-    max_input_tokens: '',
-    max_output_tokens: '',
+    use_helm: true,    
+    max_input_tokens: "8192",
+    max_output_tokens: "16384"
   });
 
   const shouldShowVulnerabilityType = (workflowName) => {
@@ -93,7 +92,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const [allModels, setAllModels] = useState({});
   const [selectedModels, setSelectedModels] = useState([]);
-  const [topLevelSelection, setTopLevelSelection] = useState("Non-HELM");
+  const [topLevelSelection, setTopLevelSelection] = useState("HELM");
 
   const setDefaultModel = (modelList, defaultModelName) => {
     return modelList.find(m => m.name === defaultModelName) || modelList[0];
@@ -115,7 +114,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       model: defaultModel ? defaultModel.name : '',
       use_helm: isHelmModel,
       use_mock_model: prev.use_mock_model, // Preserve mock model selection
-      max_output_tokens: getDefaultMaxOutputTokens(defaultModel?.name, isHelmModel).toString(),
+      max_output_tokens: prev.max_output_tokens,
     }));
   };
 
@@ -163,7 +162,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         ...prev,
         model: defaultModel ? defaultModel.name : '',
         use_helm: isHelmModel,
-        max_output_tokens: getDefaultMaxOutputTokens(defaultModel?.name, isHelmModel).toString(),
       }));
     } catch (err) {
       setLauncherState({
@@ -317,7 +315,6 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setFormData((prev) => ({
         ...prev,
         [name]: name === 'interactive' ? checked : value,
-        ...(name === 'model' ? {max_output_tokens: getDefaultMaxOutputTokens(value, prev.use_helm).toString() }: {}),
         ...(name === 'api_key_name' ? { api_key_value: apiKeys[value] || '' } : {})
       }));
     }
