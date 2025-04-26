@@ -335,7 +335,7 @@ SSH keys are needed for `git pull` and `git fetch` to work. **Before running `do
 ```
 git clone git@github.com:cybench/bountyagent.git
 ```
-2. To create a new pair of ssh keys specific for the container, run
+2. To create a new pair of ssh keys specific for the container, run:
 
 ```
 chmod +x tools/ssh_key_gen.sh && \
@@ -349,7 +349,12 @@ and copy the public key (i.e. the output) to [GitHub/settings/keys](https://gith
   - ${HOME}/.ssh/id_rsa_backend-service:/root/.ssh/id_rsa:ro
   - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
 ```
-
+4. (Optional) If you want to fetch the latest version of bountybench, run:
+```
+cd bountybench
+git checkout main
+git pull
+```
 
 We have also provide a bash script `dockerize_run.sh` that serves as an easy interface to run the application using docker.
 
