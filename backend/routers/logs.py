@@ -92,6 +92,9 @@ async def get_log(filename: str):
         / model
         / filename
     )
+    alt_file_path = LOG_DIR / filename
+    if alt_file_path.exists():
+        file_path = alt_file_path
     if not file_path.exists() or not file_path.suffix == ".json":
         raise HTTPException(status_code=404, detail="Log file not found")
     try:
