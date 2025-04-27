@@ -83,7 +83,15 @@ async def get_log(filename: str):
     """
     Retrieve the content of a specific JSON log file.
     """
-    file_path = LOG_DIR / filename
+    model, workflow_name, task_dir, bounty_number, _, date, _ = filename.split("_")
+    file_path = (
+        LOG_DIR
+        / date
+        / workflow_name
+        / Path(task_dir + "_" + bounty_number)
+        / model
+        / filename
+    )
     if not file_path.exists() or not file_path.suffix == ".json":
         raise HTTPException(status_code=404, detail="Log file not found")
     try:
