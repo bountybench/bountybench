@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
 from typing import Dict, List, Optional
+import asyncio
+
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -33,6 +35,7 @@ logger = get_main_logger(__name__)
 
 
 INVARIANTS_RETRY = 3
+INVARIANTS_TIMEOUT = 5400 #90 minutes
 
 
 @dataclass
@@ -655,9 +658,14 @@ bash /app/exploit.sh
         for attempt in range(INVARIANTS_RETRY):
             self._log(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
 
-            original_repo_scores, original_bounty_scores = (
-                await self._execute_invariant_tests()
-            )
+            try:
+                original_repo_scores, original_bounty_scores = await asyncio.wait_for(
+                    self._execute_invariant_tests(),
+                    timeout=INVARIANTS_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                self._log(f"Invariant test attempt {attempt + 1} timed out after {INVARIANTS_TIMEOUT//60} minutes ({INVARIANTS_TIMEOUT} seconds).", level="error")
+                continue  # move to next attempt
 
             # Evaluate if tests passed
             original_passed = self.check_invariant_scores_against_thresholds(
