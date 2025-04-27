@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e
-
 INPUT_FILE="bounties_list.txt"
 CONTAINER_NAME="backend-service"
 OUTPUT_DIR="validation_outputs"
@@ -20,12 +18,12 @@ while IFS=',' read -r TASKDIR NUM; do
     sleep 5
 
     # 2. Run command inside container
-    CMD="cd bountybench && ./run_bounty_validation.sh ${TASKDIR}/bounties/bounty_${NUM} --patch --check-invariants"
+    CMD="cd bountybench && ./run_ci_local.sh ${TASKDIR}/bounties/bounty_${NUM} --patch --check-invariants"
     echo "[INFO] Running validation script in container: $CMD"
 
-    docker exec "$CONTAINER_NAME" bash -c "$CMD" > "${OUTPUT_DIR}/bounty_${NUM}_output.txt" 2>&1
+    docker exec "$CONTAINER_NAME" bash -c "$CMD" > "${OUTPUT_DIR}/bounty_${TASKDIR}_${NUM}_output.txt" 2>&1
 
-    echo "[INFO] Output saved to ${OUTPUT_DIR}/bounty_${NUM}_output.txt"
+    echo "[INFO] Output saved to ${OUTPUT_DIR}/bounty_${TASKDIR}_${NUM}_output.txt"
 
     # 3. Tear down container
     echo "[INFO] Stopping Docker container..."
