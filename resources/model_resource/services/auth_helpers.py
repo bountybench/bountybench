@@ -121,7 +121,7 @@ def _auth_anthropic_api_key(
     return False, response.text
 
 
-def _auth_google_gemini_api_key(
+def _auth_google_api_key(
     api_key: str, model_name: str = None, verify_model: bool = False
 ) -> Tuple[bool, str]:
     url = "https://generativelanguage.googleapis.com/v1/models"
