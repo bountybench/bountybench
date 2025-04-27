@@ -208,18 +208,21 @@ def run_tasks_ephemeral(api, pod_name, namespace, info):
         # container name <=63 chars
         short = hashlib.sha1(log_name.encode()).hexdigest()[:8]
         epi_name = f"run-{short}"
-        # run task directly against host Docker socket
-        cmd_line = f"mkdir -p /app/logs && {cmd} > /app/logs/{log_name}.log 2>&1"
+
+        # Command for the actual task, logging its output
+        task_cmd_log = f"mkdir -p /app/logs && {cmd} > /app/logs/{log_name}.log 2>&1"
+
         spec = {
             "name": epi_name,
             "image": "us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:exp",
             "envFrom": [{"secretRef": {"name": "app-secrets"}}],
-            # start dockerd via entrypoint, then run the task
-            "command": ["/usr/local/bin/dockerd-entrypoint.sh"],
-            "args": ["sh", "-c", cmd_line],
-            "securityContext": {"privileged": True},
+            # Command is just the task now, using shared Docker socket
+            "command": ["sh", "-c", task_cmd_log],
+            # No longer needs privileged context just to run docker client
+            # "securityContext": {"privileged": True},
             "volumeMounts": [
-                {"name": "dind-storage", "mountPath": "/var/lib/docker"},
+                # Mount the shared Docker socket volume
+                {"name": "docker-sock-volume", "mountPath": "/var/run"},
                 {"name": "logs", "mountPath": "/app/logs"}
             ]
         }
