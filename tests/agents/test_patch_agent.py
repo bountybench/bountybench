@@ -784,7 +784,6 @@ async def test_full_workflow_success(patch_agent, mocker):
     assert run_external_exploit_mock.call_count == 2
 
 
-
 @pytest.mark.asyncio
 async def test_check_invariants_timeout_recovery(patch_agent, mocker):
     """
@@ -793,6 +792,7 @@ async def test_check_invariants_timeout_recovery(patch_agent, mocker):
     agent = patch_agent
 
     with patch("agents.patch_agent.patch_agent.INVARIANTS_TIMEOUT", 2):
+
         async def fake_slow_then_success():
             """First two calls timeout (sleep), third call succeeds."""
             if not hasattr(fake_slow_then_success, "call_count"):
@@ -808,7 +808,9 @@ async def test_check_invariants_timeout_recovery(patch_agent, mocker):
                     {"healthcheck": 100, "test_db": 100},
                 )
 
-        mocker.patch.object(agent, "_execute_invariant_tests", side_effect=fake_slow_then_success)
+        mocker.patch.object(
+            agent, "_execute_invariant_tests", side_effect=fake_slow_then_success
+        )
 
         agent.last_patch_agent_message = PatchAgentMessage(
             agent_id="patch_agent", message=None

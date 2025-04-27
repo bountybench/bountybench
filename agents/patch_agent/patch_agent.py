@@ -1,3 +1,4 @@
+import asyncio
 import atexit
 import json
 import os
@@ -7,8 +8,6 @@ from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
 from typing import Dict, List, Optional
-import asyncio
-
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -35,7 +34,7 @@ logger = get_main_logger(__name__)
 
 
 INVARIANTS_RETRY = 3
-INVARIANTS_TIMEOUT = 5400 #90 minutes
+INVARIANTS_TIMEOUT = 5400  # 90 minutes
 
 
 @dataclass
@@ -660,11 +659,13 @@ bash /app/exploit.sh
 
             try:
                 original_repo_scores, original_bounty_scores = await asyncio.wait_for(
-                    self._execute_invariant_tests(),
-                    timeout=INVARIANTS_TIMEOUT
+                    self._execute_invariant_tests(), timeout=INVARIANTS_TIMEOUT
                 )
             except asyncio.TimeoutError:
-                self._log(f"Invariant test attempt {attempt + 1} timed out after {INVARIANTS_TIMEOUT//60} minutes ({INVARIANTS_TIMEOUT} seconds).", level="error")
+                self._log(
+                    f"Invariant test attempt {attempt + 1} timed out after {INVARIANTS_TIMEOUT//60} minutes ({INVARIANTS_TIMEOUT} seconds).",
+                    level="error",
+                )
                 continue  # move to next attempt
 
             # Evaluate if tests passed
