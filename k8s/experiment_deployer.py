@@ -13,13 +13,13 @@ from pathlib import Path
 import subprocess
 import datetime
 import re
-
+import hashlib
 import yaml
 from kubernetes import client, config
 from kubernetes.stream import stream
 from kubernetes.client.rest import ApiException
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from kubernetes.client import V1Namespace, V1ObjectMeta
+from kubernetes.client import V1Namespace, V1ObjectMeta, V1EphemeralContainer, V1VolumeMount, V1SecurityContext, V1Pod, V1PodSpec
 
 
 def parse_config(config_path):
@@ -177,18 +177,6 @@ def exec_command(api, pod_name, command, namespace='default'):
         return ''
 
 
-# Phase helpers for two-phase deployment
-def deploy_and_wait(config_path, tmpl_objs, api, namespace, timestamp):
-    raw_name = Path(config_path).stem
-    group_name = sanitize_name(raw_name)
-    print(f"\n=== Group: {group_name} ===")
-    cmds, meta = parse_config(config_path)
-    objs = generate_yaml_objects(tmpl_objs, group_name)
-    apply_yaml(objs, f"{group_name}.yaml", namespace)
-    pod_name = wait_for_pod_ready(api, group_name, namespace)
-    return {'group_name': group_name, 'pod_name': pod_name, 'cmds': cmds, 'meta': meta, 'timestamp': timestamp}
-
-
 def pull_image(api, pod_name, namespace):
     deadline = time.time() + 300
     print(f"Pulling image in pod {pod_name} (waiting for Docker)...")
@@ -204,7 +192,57 @@ def pull_image(api, pod_name, namespace):
         time.sleep(5)
     else:
         raise RuntimeError(f"Docker daemon not ready in pod {pod_name} after timeout")
-    return exec_command(api, pod_name, "docker pull --quiet cybench/bountyagent:latest", namespace)
+    return exec_command(api, pod_name, "docker pull --quiet cybench/bountyagent:latest && docker network create shared_net", namespace)
+
+
+def run_tasks_ephemeral(api, pod_name, namespace, info):
+    """
+    Spawn ephemeral containers via kubectl patch subresource, one per task.
+    """
+    patch_items = []
+    for entry, cmd in zip(info['meta']['tasks'], info['cmds']):
+        task, bounty = entry.split('/', 1)
+        parts = [info['meta']['model'], info['meta']['workflow_type'], task, bounty]
+        safe = sanitize_name('-'.join(parts))
+        log_name = f"{safe}-{info['timestamp']}"
+        # container name <=63 chars
+        short = hashlib.sha1(log_name.encode()).hexdigest()[:8]
+        epi_name = f"run-{short}"
+        # run task directly against host Docker socket
+        cmd_line = f"mkdir -p /app/logs && {cmd} > /app/logs/{log_name}.log 2>&1"
+        spec = {
+            "name": epi_name,
+            "image": "us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:exp",
+            "envFrom": [{"secretRef": {"name": "app-secrets"}}],
+            # start dockerd via entrypoint, then run the task
+            "command": ["/usr/local/bin/dockerd-entrypoint.sh"],
+            "args": ["sh", "-c", cmd_line],
+            "securityContext": {"privileged": True},
+            "volumeMounts": [
+                {"name": "dind-storage", "mountPath": "/var/lib/docker"},
+                {"name": "logs", "mountPath": "/app/logs"}
+            ]
+        }
+        patch_items.append(spec)
+    # merge-patch the ephemeralContainers subresource
+    patch_body = {"spec": {"ephemeralContainers": patch_items}}
+    subprocess.run([
+        'kubectl', 'patch', 'pod', pod_name, '-n', namespace,
+        '--subresource=ephemeralcontainers',
+        '-p', json.dumps(patch_body)
+    ], check=True)
+    print(f"Spawned {len(patch_items)} ephemeral container(s) in pod {pod_name}")
+
+
+def deploy_and_wait(config_path, tmpl_objs, api, namespace, timestamp):
+    raw_name = Path(config_path).stem
+    group_name = sanitize_name(raw_name)
+    print(f"\n=== Group: {group_name} ===")
+    cmds, meta = parse_config(config_path)
+    objs = generate_yaml_objects(tmpl_objs, group_name)
+    apply_yaml(objs, f"{group_name}.yaml", namespace)
+    pod_name = wait_for_pod_ready(api, group_name, namespace)
+    return {'group_name': group_name, 'pod_name': pod_name, 'cmds': cmds, 'meta': meta, 'timestamp': timestamp}
 
 
 def main():
@@ -303,26 +341,20 @@ def main():
                 print(f"Failed pulling image in {info['pod_name']}: {e}", file=sys.stderr)
                 sys.exit(1)
 
-    # Phase 3: run tasks in parallel
-    task_futures = {}
-    total_tasks = sum(len(info['cmds']) for info in deploy_infos)
-    with ThreadPoolExecutor(max_workers=total_tasks) as task_executor:
-        for info in deploy_infos:
-            for entry, cmd in zip(info['meta']['tasks'], info['cmds']):
-                task, bounty = entry.split('/', 1)
-                parts = [info['meta']['model'], info['meta']['workflow_type'], task, bounty]
-                safe_parts = [sanitize_name(p) for p in parts]
-                fname = '-'.join(safe_parts + [info['timestamp']]) + '.log'
-                wrapped = f"mkdir -p /app/logs && nohup {cmd} > /app/logs/{fname} 2>&1 &"
-                fut = task_executor.submit(exec_command, core_api, info['pod_name'], wrapped, args.namespace)
-                task_futures[fut] = fname
-        for fut in as_completed(task_futures):
-            fname = task_futures[fut]
+    # Phase 3: spawn ephemeral containers for tasks
+    def _spawn(info):
+        run_tasks_ephemeral(core_api, info['pod_name'], args.namespace, info)
+
+    with ThreadPoolExecutor(max_workers=len(deploy_infos)) as eph_executor:
+        futures = {eph_executor.submit(_spawn, info): info for info in deploy_infos}
+        for fut in as_completed(futures):
+            info = futures[fut]
             try:
                 fut.result()
-                print(f"Started background job; logs at /app/logs/{fname}")
+                print(f"Tasks started as ephemeral containers in pod {info['pod_name']}")
             except Exception as e:
-                print(f"Failed to start job for {fname}: {e}", file=sys.stderr)
+                print(f"Failed spawning ephemeral containers in pod {info['pod_name']}: {e}", file=sys.stderr)
+                sys.exit(1)
 
     print("\nAll experiment groups deployed and tasks executed.")
 
