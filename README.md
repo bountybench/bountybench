@@ -102,6 +102,7 @@ Initialize submodules (may take a few minutes to complete):
 
 ```bash
 git submodule update --init
+git submodule update --remote
 cd bountybench
 git submodule update --init
 ```
