@@ -69,7 +69,7 @@ async def list_logs():
         if not LOG_DIR.exists():
             raise HTTPException(status_code=404, detail="Log directory not found")
 
-        files = LOG_DIR.glob("*.json")
+        files = LOG_DIR.rglob("*.json")
         logs_data = [parse_log_metadata(f) for f in files if f.is_file()]
         logs_data = [log for log in logs_data if log is not None]
 
