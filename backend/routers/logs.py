@@ -69,7 +69,7 @@ async def list_logs():
         if not LOG_DIR.exists():
             raise HTTPException(status_code=404, detail="Log directory not found")
 
-        files = LOG_DIR.glob("*.json")
+        files = LOG_DIR.rglob("*.json")
         logs_data = [parse_log_metadata(f) for f in files if f.is_file()]
         logs_data = [log for log in logs_data if log is not None]
 
@@ -83,7 +83,18 @@ async def get_log(filename: str):
     """
     Retrieve the content of a specific JSON log file.
     """
-    file_path = LOG_DIR / filename
+    model, workflow_name, task_dir, bounty_number, _, date, _ = filename.split("_")
+    file_path = (
+        LOG_DIR
+        / date
+        / workflow_name
+        / Path(task_dir + "_" + bounty_number)
+        / model
+        / filename
+    )
+    alt_file_path = LOG_DIR / filename
+    if alt_file_path.exists():
+        file_path = alt_file_path
     if not file_path.exists() or not file_path.suffix == ".json":
         raise HTTPException(status_code=404, detail="Log file not found")
     try:
