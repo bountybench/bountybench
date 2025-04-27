@@ -179,7 +179,6 @@ class DetectAgent(BaseAgent):
 
     async def run_agent_exploit(self, detect_agent_message: DetectAgentMessage):
         try:
-            logger.info("Executing exploit.sh against the environment.")
             docker_output = await self.run_exploit()
             detect_agent_message.add_child_message(docker_output)
             exit_code = docker_output.additional_metadata["exit_code"]
@@ -187,6 +186,7 @@ class DetectAgent(BaseAgent):
             self._log(
                 f"Executing exploit.sh against the environment...\n Exploit.sh output: \n{exploit_output}\n"
             )
+
         except Exception as e:
             logger.error(f"Failed to execute exploit.sh: {e}")
             self._log(f"Failed to execute exploit.sh: {e}")
