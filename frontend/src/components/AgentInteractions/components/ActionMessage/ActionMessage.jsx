@@ -9,7 +9,7 @@ import { formatData } from '../../utils/messageFormatters';
 import { CopyButton } from '../buttons/CopyButton';
 import './ActionMessage.css';
 
-const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, registerMessageRef }) => {
+const ActionMessage = ({ index, action, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, registerMessageRef, parentMessage }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(action?.message || '');
@@ -68,6 +68,28 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
     }
   }, [action, onRunMessage]);
 
+  const handleMoveUp = useCallback(() => {
+    setTimeout(() => {
+      if (index > 0) {
+        onCellSelect(parentMessage.current_children[index - 1].current_id);
+      }
+    }, 0);
+  }, [onCellSelect]);
+
+  const handleMoveLeft = useCallback(() => {
+    setTimeout(() => {
+      onCellSelect(parentMessage.current_id);
+    }, 0);
+  }, [onCellSelect]);
+
+  const handleMoveDown = useCallback(() => {
+    setTimeout(() => {
+      if (index < parentMessage.current_children.length - 1) {
+        onCellSelect(parentMessage.current_children[index + 1].current_id);
+      }
+    }, 0);
+  }, [onCellSelect, parentMessage]);
+
   const textFieldRef = useRef(null);
 
   useEffect(() => {
@@ -86,6 +108,15 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
     }
   }, [editing, originalMessageContent]);
 
+  const navigationActions = {
+    'ArrowUp': handleMoveUp,
+    'w': handleMoveUp,
+    'ArrowLeft': handleMoveLeft,
+    'a': handleMoveLeft,
+    'ArrowDown': handleMoveDown,
+    's': handleMoveDown,
+  };
+
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (selectedCellId === action.current_id) {
@@ -103,6 +134,10 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
         else if (event.key === 'Enter' && !event.altKey && !editing) {
           handleEditClick();
         }
+        else if (event.key in navigationActions && !editing) {
+          event.preventDefault();
+          navigationActions[event.key]();
+        }
       }
     };
 
@@ -110,7 +145,17 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, selectedCellId]);
+  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, handleMoveUp, handleMoveLeft, handleMoveDown, selectedCellId]);
+
+  useEffect(() => {
+    if (selectedCellId === action.current_id && actionRef.current && 
+      typeof actionRef.current.scrollIntoView === 'function') {
+        actionRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [selectedCellId]);
 
   if (!action) return null;
 
