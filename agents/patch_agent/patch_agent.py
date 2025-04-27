@@ -19,6 +19,7 @@ from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import read_repo_metadata, run_command_async
+from utils.file_utils import print_files_recursive, print_tree
 from utils.git_utils import (
     git_add,
     git_apply_patch,
@@ -470,9 +471,16 @@ bash /app/exploit.sh
                 volumes=volumes,
                 prev=self.last_action_message,
             )
+            # get state of tmp_dir before and after exploit is run
+            print_tree(self.tmp_dir)
+            print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
             exploit_execution = await self.resources.docker.run(exploit_execution)
             self.update_patch_agent_message(exploit_execution)
+
+            logger.debug(f"Printing tmp_dir after exploit")
+            print_tree(self.tmp_dir)
+            print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
             # Run the verify script
             logger.info("Running verify.sh")
