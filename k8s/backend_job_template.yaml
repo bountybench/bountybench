@@ -24,20 +24,25 @@ spec:
       - name: task-runner
         image: us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:exp
         imagePullPolicy: Always
-        # --- CHANGE HERE: Use the entrypoint script as the command ---
-        # Revert command/args to be patched by deployer script
         command: ["/bin/sh", "-c"]
         # The args will be patched by experiment_job_deployer.py
         args: ["echo 'Placeholder command - to be replaced by deployer script'"]
-        # --- END CHANGE ---
+        volumeMounts:
+        - name: dind-storage # Mount storage for inner docker
+          mountPath: /var/lib/docker
+        # --- Mount specific directories from the PVC using subPath ---
+        - name: job-output-volume # References the PVC volume below
+          mountPath: /app/logs      # Target path in the container
+          subPath: logs             # Directory *within* the PVC
+        - name: job-output-volume # References the PVC volume below
+          mountPath: /app/full_logs # Target path in the container
+          subPath: full_logs        # Directory *within* the PVC
+        # --- End subPath Mounts ---
         envFrom:
         - secretRef:
             name: app-secrets
         securityContext:
           privileged: true # REQUIRED for Docker-in-Docker
-        volumeMounts:
-        - name: dind-storage # Mount storage for inner docker
-          mountPath: /var/lib/docker
         # Optional: If your entrypoint expects /var/run for the socket
         # - name: docker-sock-volume
         #   mountPath: /var/run
@@ -52,6 +57,9 @@ spec:
       volumes:
       - name: dind-storage # Volume for inner docker's data
         emptyDir: {}
+      - name: job-output-volume # Define the volume based on the PVC
+        persistentVolumeClaim:
+          claimName: job-output-pvc # Name of the PVC created earlier
       # Optional: If mounting /var/run explicitly
       # - name: docker-sock-volume
       #   emptyDir: {}

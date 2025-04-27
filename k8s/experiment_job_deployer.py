@@ -16,6 +16,7 @@ import re
 import hashlib
 import yaml
 from kubernetes import client, config
+from kubernetes.client import CoreV1Api
 from kubernetes.client.rest import ApiException
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import shlex
@@ -280,6 +281,41 @@ exec {raw_task_command_for_exec}
             print(f"Raw error body: {e.body}", file=sys.stderr)
         return None # Indicate failure
 
+# --- PVC Configuration ---
+JOB_OUTPUT_PVC_NAME = "job-output-pvc"
+JOB_OUTPUT_MOUNT_PATH = "/output"
+
+def ensure_pvc_exists(core_api: CoreV1Api, namespace: str, pvc_name: str):
+    """Checks if a PVC exists, creates it if not."""
+    pvc_manifest = {
+        "apiVersion": "v1",
+        "kind": "PersistentVolumeClaim",
+        "metadata": {"name": pvc_name},
+        "spec": {
+            "accessModes": ["ReadWriteOnce"],
+            "resources": {"requests": {"storage": "4Gi"}}, # Min size for hyperdisk-balanced
+            # Add storageClassName here if needed for your cluster
+            "storageClassName": "standard-arm", 
+        },
+    }
+    try:
+        core_api.read_namespaced_persistent_volume_claim(name=pvc_name, namespace=namespace)
+        print(f"PersistentVolumeClaim '{pvc_name}' already exists in namespace '{namespace}'.")
+    except ApiException as e:
+        if e.status == 404:
+            print(f"PersistentVolumeClaim '{pvc_name}' not found in namespace '{namespace}'. Creating...")
+            try:
+                core_api.create_namespaced_persistent_volume_claim(namespace=namespace, body=pvc_manifest)
+                print(f"PersistentVolumeClaim '{pvc_name}' created successfully.")
+                # Add a small delay to allow PVC to bind potentially?
+                time.sleep(5) 
+            except ApiException as create_e:
+                print(f"Error creating PersistentVolumeClaim '{pvc_name}': {create_e}", file=sys.stderr)
+                raise # Re-raise the creation error
+        else:
+            print(f"Error checking PersistentVolumeClaim '{pvc_name}': {e}", file=sys.stderr)
+            raise # Re-raise other API errors
+
 # --- Main Execution Logic ---
 def main():
     parser = argparse.ArgumentParser(
@@ -352,6 +388,15 @@ def main():
          print(f"Failed during namespace/secret preparation: {e}", file=sys.stderr)
          sys.exit(1) # Exit if basic setup fails
 
+    # Ensure the output PVC exists
+    try:
+        ensure_pvc_exists(core_api, args.namespace, JOB_OUTPUT_PVC_NAME)
+    except ApiException:
+        print(f"Failed to ensure PVC '{JOB_OUTPUT_PVC_NAME}' exists. Exiting.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"An unexpected error occurred during PVC check/creation: {e}", file=sys.stderr)
+        sys.exit(1)
 
     # --- Load Job Template ---
     job_template = load_yaml_template(args.template)

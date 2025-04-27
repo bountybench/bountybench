@@ -1,0 +1,10 @@
+# k8s/arm-compatible-sc.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard-arm # Name for our custom StorageClass
+provisioner: pd.csi.storage.gke.io # Use the GKE CSI provisioner
+parameters:
+  type: hyperdisk-balanced # <<< CHANGE HERE: Use Hyperdisk Balanced compatible with C4A ARM nodes
+volumeBindingMode: WaitForFirstConsumer # Delays binding until a pod needs it
+allowVolumeExpansion: true # Optional: Allow volume resizing later
