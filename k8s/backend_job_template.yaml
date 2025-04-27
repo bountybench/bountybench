@@ -1,0 +1,60 @@
+# backend_job_template.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Name will be dynamically generated, e.g., {group-name}-{task-hash}-{timestamp}
+  name: placeholder-job-name
+  labels:
+    app: bounty-task
+    # Add labels for experiment group, etc., if needed for tracking
+    experiment-group: placeholder-group
+    task-id: placeholder-task-id
+spec:
+  # Controls how long finished jobs (Completed or Failed) are kept before cleanup
+  # Adjust as needed, e.g., "3600" for 1 hour
+  ttlSecondsAfterFinished: 86400 # Keep for 1 day
+  template: # Pod template
+    spec:
+      tolerations:
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        value: "arm64"
+        effect: "NoSchedule"
+      containers:
+      - name: task-runner
+        image: us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:exp
+        imagePullPolicy: Always
+        # --- CHANGE HERE: Use the entrypoint script as the command ---
+        # Revert command/args to be patched by deployer script
+        command: ["/bin/sh", "-c"]
+        # The args will be patched by experiment_job_deployer.py
+        args: ["echo 'Placeholder command - to be replaced by deployer script'"]
+        # --- END CHANGE ---
+        envFrom:
+        - secretRef:
+            name: app-secrets
+        securityContext:
+          privileged: true # REQUIRED for Docker-in-Docker
+        volumeMounts:
+        - name: dind-storage # Mount storage for inner docker
+          mountPath: /var/lib/docker
+        # Optional: If your entrypoint expects /var/run for the socket
+        # - name: docker-sock-volume
+        #   mountPath: /var/run
+        # Add resource requests/limits if needed
+        # resources:
+        #   requests:
+        #     cpu: "500m"
+        #     memory: "512Mi"
+        #   limits:
+        #     cpu: "1"
+        #     memory: "1Gi"
+      volumes:
+      - name: dind-storage # Volume for inner docker's data
+        emptyDir: {}
+      # Optional: If mounting /var/run explicitly
+      # - name: docker-sock-volume
+      #   emptyDir: {}
+      restartPolicy: Never
+  # Optional: limit retries on failure
+  backoffLimit: 1
