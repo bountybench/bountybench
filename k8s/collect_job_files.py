@@ -1,242 +1,216 @@
 #!/usr/bin/env python3
 """
-collect_job_files.py: Copy generated files from completed Kubernetes Job Pods.
+collect_job_files.py: Copy files from job output PVC via a temporary pod.
 """
 
 import argparse
-import subprocess
-import time
-from pathlib import Path
 import os
 import shutil
-import json # Added for parsing error details
-from kubernetes import client, config
-from kubernetes.client.rest import ApiException
+import subprocess
+import sys
+import time
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from kubernetes import client, config, watch
+from kubernetes.client import CoreV1Api
+from kubernetes.client.rest import ApiException
 
-def list_pods(api: client.CoreV1Api, namespace: str, label_selector: str):
-    """Lists pods matching the label selector in the given namespace."""
+# --- Configuration ---
+JOB_OUTPUT_PVC_NAME = "job-output-pvc"
+COLLECTOR_POD_MOUNT_PATH = "/collected_data"
+COLLECTOR_POD_BASENAME = "job-file-collector"
+
+def wait_for_pod_running(core_api: CoreV1Api, namespace: str, pod_name: str, timeout_seconds: int = 120):
+    """Waits for a pod to reach the Running state."""
+    start_time = time.time()
+    w = watch.Watch()
     try:
-        print(f"Listing pods in namespace '{namespace}' with selector '{label_selector}'...")
-        resp = api.list_namespaced_pod(namespace=namespace, label_selector=label_selector)
-        print(f"Found {len(resp.items)} pods.")
-        return resp.items
+        for event in w.stream(core_api.list_namespaced_pod,
+                              namespace=namespace,
+                              field_selector=f"metadata.name={pod_name}",
+                              timeout_seconds=timeout_seconds):
+            pod = event['object']
+            status = pod.status.phase
+            print(f"  Collector pod '{pod_name}' status: {status}")
+            if status == 'Running':
+                w.stop()
+                print(f"  Collector pod '{pod_name}' is Running.")
+                return True
+            elif status in ['Failed', 'Succeeded', 'Unknown']:
+                w.stop()
+                print(f"  Collector pod '{pod_name}' entered terminal state {status} unexpectedly.", file=sys.stderr)
+                # Attempt to get logs
+                try:
+                    logs = core_api.read_namespaced_pod_log(name=pod_name, namespace=namespace)
+                    print(f"  Collector pod logs:\n{logs}", file=sys.stderr)
+                except ApiException as log_e:
+                    print(f"  Could not retrieve logs for pod {pod_name}: {log_e}", file=sys.stderr)
+                return False
+
+            # Check timeout inside loop
+            if time.time() - start_time > timeout_seconds:
+                w.stop()
+                print(f"  Timeout waiting for pod '{pod_name}' to become Running.", file=sys.stderr)
+                return False
     except ApiException as e:
-        print(f"Error listing pods: {e.status} - {e.reason}", file=sys.stderr)
-        try:
-            # Attempt to parse and print the error body for more details
-            error_body = json.loads(e.body)
-            print(f"Error details: {json.dumps(error_body, indent=2)}", file=sys.stderr)
-        except: # noqa (fallback for non-JSON bodies)
-            print(f"Raw error body: {e.body}", file=sys.stderr)
-        return []
-    except Exception as e:
-        print(f"An unexpected error occurred while listing pods: {e}", file=sys.stderr)
-        return []
-
-def copy_files_from_pod(namespace: str, pod_name: str, container_name: str,
-                        source_paths: list[str], local_dest_base_dir: Path, pod_labels: dict):
-    """
-    Uses 'kubectl cp' to copy files/directories from a pod.
-    Structures the output based on pod labels (group, task).
-    Returns True on success, False on failure for any source path.
-    """
-    all_success = True
-
-    # Determine local directory structure based on labels
-    group_name = pod_labels.get('experiment-group', 'unknown-group')
-    task_id = pod_labels.get('task-id', 'unknown-task')
-    # Sanitize labels just in case they have problematic characters for filenames
-    safe_group_name = "".join(c if c.isalnum() or c in ('-', '_') else '_' for c in group_name)
-    safe_task_id = "".join(c if c.isalnum() or c in ('-', '_') else '_' for c in task_id)
-
-    # Create a specific directory for this pod's files
-    # e.g., <output_dir>/<group_name>/<task_id>/ 
-    pod_local_dest = local_dest_base_dir / safe_group_name / safe_task_id
-    pod_local_dest.mkdir(parents=True, exist_ok=True)
-
-    print(f"Attempting copy from pod '{pod_name}' (Group: {group_name}, Task: {task_id}) to '{pod_local_dest}'...")
-
-    for source_path in source_paths:
-        # Construct the source specification for kubectl cp
-        kube_source = f"{namespace}/{pod_name}:{source_path}"
-        # Destination is the specific directory for this pod
-        local_dest = pod_local_dest
-
-        # Prepare kubectl command
-        # Use -c if a specific container name is known and necessary
-        cmd = [
-            'kubectl', 'cp',
-            # If container name is known/needed, add: '-c', container_name,
-            kube_source,
-            str(local_dest) # Copy *into* the pod-specific directory
-        ]
-        print(f"  Executing: {' '.join(cmd)}")
-
-        try:
-            # Run kubectl cp
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=300, encoding='utf-8')
-            print(f"    Success copying '{source_path}'.")
-        except subprocess.CalledProcessError as e:
-            all_success = False
-            print(f"    ERROR copying '{source_path}' from pod '{pod_name}'.", file=sys.stderr)
-            print(f"    Return Code: {e.returncode}", file=sys.stderr)
-            stderr_lines = e.stderr.strip().splitlines() if e.stderr else []
-            if stderr_lines:
-                 print(f"    Stderr: {stderr_lines[0]}{'...' if len(stderr_lines) > 1 else ''}", file=sys.stderr)
-                 # Check for common "No such file or directory" error
-                 if "No such file or directory" in e.stderr:
-                      print(f"    Hint: The path '{source_path}' might not exist in pod '{pod_name}'.", file=sys.stderr)
-            else:
-                 print(f"    Stderr: (empty)", file=sys.stderr)
-        except subprocess.TimeoutExpired:
-             all_success = False
-             print(f"    ERROR: Timeout expired copying '{source_path}' from pod '{pod_name}'.", file=sys.stderr)
-        except Exception as e:
-            all_success = False
-            print(f"    ERROR: Unexpected exception during copy from pod '{pod_name}': {e}", file=sys.stderr)
-
-    return all_success
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Copy files from completed Kubernetes Job Pods."
-    )
-    parser.add_argument(
-        '--namespace', '-n', default='bounty-experiments',
-        help='Kubernetes namespace where jobs ran (default: bounty-experiments)'
-    )
-    parser.add_argument(
-        '--label-selector', '-l', default='app=bounty-task',
-        help='Label selector to identify job pods (default: app=bounty-task)'
-    )
-    parser.add_argument(
-        '--pod-status', default='Succeeded', choices=['Succeeded', 'Failed', 'All'],
-        help='Copy files only from pods with this status (default: Succeeded)'
-    )
-    parser.add_argument(
-        '--source-paths', nargs='+', default=['/app/logs', '/app/full_logs'],
-        help='List of container paths to copy (default: /app/logs /app/full_logs)'
-    )
-    parser.add_argument(
-        '--output-dir', '-o', default='./collected_job_files',
-        help='Local directory to save the copied files (default: ./collected_job_files)'
-    )
-    parser.add_argument(
-        '--max-workers', type=int, default=5,
-        help='Max concurrent kubectl cp operations (default: 5)'
-    )
-    parser.add_argument(
-        '--cleanup', action='store_true',
-        help='Attempt to delete pods after successfully copying files.'
-    )
-
-    args = parser.parse_args()
-
-    output_base_dir = Path(args.output_dir)
-    output_base_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Output directory: {output_base_dir.resolve()}")
-
-    # --- Load Kubeconfig ---
-    try:
-        print("Loading Kubernetes configuration...")
-        config.load_kube_config()
-        core_api = client.CoreV1Api()
-        print("Kubernetes configuration loaded successfully.")
-    except Exception as e:
-        print(f"Error: Could not load Kubernetes config: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    # --- List Pods ---
-    pods_to_process = []
-    all_pods = list_pods(core_api, args.namespace, args.label_selector)
-
-    if not all_pods:
-        print("No pods found matching the selector. Exiting.")
-        sys.exit(0)
-
-    print(f"Filtering pods by status: '{args.pod_status}'...")
-    for pod in all_pods:
-        status = pod.status.phase
-        pod_name = pod.metadata.name
-        labels = pod.metadata.labels or {}
-
-        if args.pod_status == 'All' or status == args.pod_status:
-            # Get the primary container name if possible (often needed by kubectl cp)
-            container_name = pod.spec.containers[0].name if pod.spec.containers else None
-            if not container_name:
-                 print(f"Warning: Could not determine container name for pod '{pod_name}'. Skipping copy.", file=sys.stderr)
-                 continue
-            pods_to_process.append((pod_name, container_name, labels))
-            print(f"  Selected pod: {pod_name} (Status: {status})")
+        # Handle potential watch errors (e.g., timeout on the watch itself)
+        if e.status == 404 and 'too old resource version' in str(e.body).lower():
+             print(f"  Watch error (resource version too old), retrying check for pod {pod_name}...", file=sys.stderr)
+             # Fallback to direct read check after watch error
+             try:
+                 pod_info = core_api.read_namespaced_pod_status(name=pod_name, namespace=namespace)
+                 if pod_info.status.phase == 'Running': return True
+             except ApiException as read_e:
+                  print(f"  Error reading pod status after watch failed: {read_e}", file=sys.stderr)
         else:
-            print(f"  Skipping pod: {pod_name} (Status: {status})")
+             print(f"  Error watching pod '{pod_name}': {e}", file=sys.stderr)
+        return False # Treat watch errors/timeout as failure
+    except Exception as e:
+        print(f"  Unexpected error watching pod '{pod_name}': {e}", file=sys.stderr)
+        return False
 
+    # If loop finishes without success or explicit failure (e.g. watch timeout)
+    print(f"  Watch ended for pod '{pod_name}' without reaching Running state within timeout.", file=sys.stderr)
+    return False
 
-    if not pods_to_process:
-        print(f"No pods found with status '{args.pod_status}'. Exiting.")
-        sys.exit(0)
+def copy_files_via_collector(core_api: CoreV1Api, namespace: str, output_dir: Path):
+    """Creates a temp pod, copies specific dirs from its PVC mount, then deletes it."""
+    pod_name = f"{COLLECTOR_POD_BASENAME}-{int(time.time())}"
+    collector_pod_manifest = {
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {"name": pod_name, "labels": {"app": COLLECTOR_POD_BASENAME}},
+        "spec": {
+            "containers": [{
+                "name": "collector",
+                "image": "arm64v8/alpine",  # Use ARM64 Alpine image
+                "command": ["/bin/sh", "-c", "sleep 3600"], # Keepalive
+                "volumeMounts": [{
+                    "name": "job-output-volume",
+                    "mountPath": COLLECTOR_POD_MOUNT_PATH,
+                }]
+            }],
+            "volumes": [{
+                "name": "job-output-volume",
+                "persistentVolumeClaim": {"claimName": JOB_OUTPUT_PVC_NAME}
+            }],
+            "restartPolicy": "Never",
+            "tolerations": [
+                {
+                    "key": "kubernetes.io/arch",
+                    "operator": "Equal",
+                    "value": "arm64",
+                    "effect": "NoSchedule",
+                }
+            ],
+        }
+    }
 
-    print(f"\nStarting file copy process for {len(pods_to_process)} pods using up to {args.max_workers} workers...")
+    pod_created = False
+    try:
+        print(f"Creating collector pod '{pod_name}' in namespace '{namespace}'...")
+        core_api.create_namespaced_pod(namespace=namespace, body=collector_pod_manifest)
+        pod_created = True
+        print(f"Waiting for collector pod '{pod_name}' to start...")
+        if not wait_for_pod_running(core_api, namespace, pod_name):
+            print(f"Collector pod '{pod_name}' did not reach Running state.", file=sys.stderr)
+            return False # Indicate failure
 
-    # --- Copy Files in Parallel ---
-    copy_success_pods = []
-    copy_failed_pods = []
-    with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
-        future_to_pod = {
-            executor.submit(copy_files_from_pod, args.namespace, pod_name, container_name, args.source_paths, output_base_dir, labels): pod_name
-            for pod_name, container_name, labels in pods_to_process
+        # --- Copying --- 
+        output_dir.mkdir(parents=True, exist_ok=True)
+        success = True # Assume success initially
+        
+        # Define source paths within the pod
+        source_paths_in_pod = {
+            "logs": f"{namespace}/{pod_name}:{COLLECTOR_POD_MOUNT_PATH}/logs/",
+            "full_logs": f"{namespace}/{pod_name}:{COLLECTOR_POD_MOUNT_PATH}/full_logs/"
         }
 
-        processed_count = 0
-        total_count = len(future_to_pod)
-        for future in as_completed(future_to_pod):
-            processed_count += 1
-            pod_name = future_to_pod[future]
+        for key, source_spec in source_paths_in_pod.items():
+            dest_local = output_dir / key # Create subdirectory locally (e.g., ./collected_job_files/logs)
+            dest_local.mkdir(exist_ok=True)
+            
+            # Ensure trailing slash for directory contents copy
+            copy_cmd = ["kubectl", "cp", source_spec, str(dest_local)] 
+            print(f"Executing copy command: {' '.join(copy_cmd)}")
             try:
-                success = future.result()
-                if success:
-                    copy_success_pods.append(pod_name)
-                    print(f"  [{processed_count}/{total_count}] Completed copy for pod: {pod_name}")
+                result = subprocess.run(copy_cmd, capture_output=True, text=True, check=True, timeout=600) # 10 min timeout
+                print(f"  Copy successful for '{key}'.")
+                if result.stdout:
+                    print(f"  Stdout:\n{result.stdout}")
+                if result.stderr:
+                    print(f"  Stderr:\n{result.stderr}", file=sys.stderr) # Log stderr even on success
+            except subprocess.CalledProcessError as e:
+                # Check if the error is 'No such file or directory'
+                if "no such file or directory" in e.stderr.lower():
+                     print(f"  Warning: Source path '{source_spec}' not found in pod '{pod_name}'. Skipping copy for '{key}'.")
+                     # Optionally, you might want to treat this as non-fatal
+                     # success = False # Uncomment if missing path should be a failure
                 else:
-                    copy_failed_pods.append(pod_name)
-                    print(f"  [{processed_count}/{total_count}] FAILED copy for pod: {pod_name}", file=sys.stderr)
+                    print(f"  ERROR copying '{key}' from collector pod '{pod_name}'.", file=sys.stderr)
+                    print(f"    Return Code: {e.returncode}", file=sys.stderr)
+                    print(f"    Command: {' '.join(e.cmd)}", file=sys.stderr)
+                    print(f"    Stderr: {e.stderr}", file=sys.stderr)
+                    print(f"    Stdout: {e.stdout}", file=sys.stderr)
+                    success = False # Mark overall operation as failed
+            except subprocess.TimeoutExpired as e:
+                print(f"  ERROR: Timeout expired copying '{key}' from collector pod '{pod_name}'.", file=sys.stderr)
+                print(f"    Command: {' '.join(e.cmd)}", file=sys.stderr)
+                success = False
             except Exception as e:
-                copy_failed_pods.append(pod_name)
-                print(f"  [{processed_count}/{total_count}] EXCEPTION during copy for pod {pod_name}: {e}", file=sys.stderr)
+                 print(f"  ERROR: Unexpected error copying '{key}': {e}", file=sys.stderr)
+                 success = False
 
-    # --- Summary ---
-    print("\n--- File Copy Summary ---")
-    print(f"Total Pods attempted: {len(pods_to_process)}")
-    print(f"Successful copies:    {len(copy_success_pods)}")
-    print(f"Failed copies:        {len(copy_failed_pods)}")
-    if copy_failed_pods:
-        print("  Failed pods:", ', '.join(copy_failed_pods))
-        print("Check logs above for specific errors (e.g., path not found, permissions).")
+        return success # Return overall success status
 
+    except ApiException as e:
+        print(f"Kubernetes API error during collector pod management: {e}", file=sys.stderr)
+        return False
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        return False
+    finally:
+        # --- Cleanup --- 
+        if pod_created:
+            try:
+                print(f"Deleting collector pod '{pod_name}'...")
+                core_api.delete_namespaced_pod(name=pod_name, namespace=namespace, body=client.V1DeleteOptions())
+                print(f"Collector pod '{pod_name}' deleted.")
+            except ApiException as e:
+                # Log cleanup error but don't necessarily fail the whole script based on this
+                print(f"Warning: Failed to delete collector pod '{pod_name}'. Please delete manually. Error: {e}", file=sys.stderr)
 
-    # --- Optional Cleanup ---
-    if args.cleanup and copy_success_pods:
-        print("\n--- Optional Cleanup ---")
-        print(f"Attempting to delete {len(copy_success_pods)} pods where copy succeeded...")
-        deleted_count = 0
-        failed_delete_count = 0
-        for pod_name in copy_success_pods:
-             try:
-                  print(f"  Deleting pod {pod_name}...")
-                  core_api.delete_namespaced_pod(name=pod_name, namespace=args.namespace, body=client.V1DeleteOptions())
-                  deleted_count += 1
-                  time.sleep(0.1) # Small delay
-             except ApiException as e:
-                  failed_delete_count += 1
-                  print(f"    Failed to delete pod {pod_name}: {e.status} - {e.reason}", file=sys.stderr)
-             except Exception as e:
-                  failed_delete_count += 1
-                  print(f"    Unexpected error deleting pod {pod_name}: {e}", file=sys.stderr)
-        print(f"Cleanup summary: Deleted {deleted_count}, Failed {failed_delete_count}")
-    elif args.cleanup:
-        print("\nCleanup requested, but no pods had successful copies. No pods deleted.")
+# --- Main Execution Logic --- 
+def main():
+    parser = argparse.ArgumentParser(description="Copy files from job output PVC via a temporary pod.")
+    parser.add_argument("--namespace", "-n", default="bounty-experiments",
+                        help="Kubernetes namespace where the PVC exists (default: bounty-experiments)")
+    parser.add_argument("--output-dir", "-o", default="./collected_job_files",
+                        help="Local directory to save the copied files (default: ./collected_job_files)")
+    args = parser.parse_args()
 
+    output_directory = Path(args.output_dir).resolve()
+    print(f"Output directory: {output_directory}")
 
-if __name__ == '__main__':
+    print("Loading Kubernetes configuration...")
+    try:
+        config.load_kube_config()
+        core_v1 = client.CoreV1Api()
+        print("Kubernetes configuration loaded successfully.")
+    except Exception as e:
+        print(f"Error loading Kubernetes configuration: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Execute the collection process
+    overall_success = copy_files_via_collector(core_v1, args.namespace, output_directory)
+
+    if overall_success:
+        print("\n--- File Collection Summary ---")
+        print(f"Successfully copied files from PVC '{JOB_OUTPUT_PVC_NAME}' in namespace '{args.namespace}' to '{output_directory}'")
+    else:
+        print("\n--- File Collection Summary ---")
+        print(f"FAILED to copy one or more directories (logs, full_logs) from PVC '{JOB_OUTPUT_PVC_NAME}' in namespace '{args.namespace}'. Check errors above.")
+        sys.exit(1)
+
+if __name__ == "__main__":
     main()
