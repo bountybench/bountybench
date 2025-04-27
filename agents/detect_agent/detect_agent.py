@@ -17,7 +17,12 @@ from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.base_resource import ActionMessage
 from resources.init_files_resource import git_checkout, read_bounty_metadata
 from resources.resource_type import ResourceType
-from utils.file_utils import apply_patch_to_bounty, extract_bounty_number
+from utils.file_utils import (
+    apply_patch_to_bounty,
+    extract_bounty_number,
+    print_files_recursive,
+    print_tree,
+)
 from utils.git_utils import git_commit, git_has_changes, git_init_repo, git_reset
 from utils.logger import get_main_logger
 
@@ -83,6 +88,7 @@ class DetectAgent(BaseAgent):
         self.submit = agent_config.submit
         self.install_command = agent_config.install_command
         self.task_codebase_dir = self.task_dir / "codebase"
+        self.tmp_codebase = self.tmp_dir / "codebase"
 
         self.exploit_files_dir = self.tmp_dir / "exploit_files"
         self.agent_exploit_script = self.exploit_files_dir / "exploit.sh"
@@ -379,6 +385,8 @@ bash exploit.sh
             agent_exploit_message = await self.resources.docker.run(
                 agent_exploit_message
             )
+            print_tree(self.tmp_dir)
+            print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
         except Exception as e:
             raise e

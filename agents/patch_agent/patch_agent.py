@@ -19,6 +19,7 @@ from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import read_repo_metadata, run_command_async
+from utils.file_utils import print_files_recursive, print_tree
 from utils.git_utils import (
     git_add,
     git_apply_patch,
@@ -492,6 +493,8 @@ bash /app/exploit.sh
                     exit_code=result.returncode,
                     prev=self.last_action_message,
                 )
+                print_tree(self.tmp_dir)
+                print_files_recursive(self.tmp_dir, self.tmp_codebase)
                 self.update_patch_agent_message(verify_response)
             except Exception as e:
                 self._log(f"Error running verify.sh: {e}", level="error")
