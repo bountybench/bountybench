@@ -177,59 +177,34 @@ def exec_command(api, pod_name, command, namespace='default'):
         return ''
 
 
-def process_group(config_path, tmpl_objs, core_api, namespace, timestamp):
-    """Deploy one experiment group and run its commands in parallel."""
+# Phase helpers for two-phase deployment
+def deploy_and_wait(config_path, tmpl_objs, api, namespace, timestamp):
     raw_name = Path(config_path).stem
     group_name = sanitize_name(raw_name)
     print(f"\n=== Group: {group_name} ===")
     cmds, meta = parse_config(config_path)
     objs = generate_yaml_objects(tmpl_objs, group_name)
     apply_yaml(objs, f"{group_name}.yaml", namespace)
-    pod_name = wait_for_pod_ready(core_api, group_name, namespace)
-    # Wait for Docker daemon to be ready (timeout 300s)
-    print(f"Waiting up to 300s for Docker daemon in pod {pod_name}...")
+    pod_name = wait_for_pod_ready(api, group_name, namespace)
+    return {'group_name': group_name, 'pod_name': pod_name, 'cmds': cmds, 'meta': meta, 'timestamp': timestamp}
+
+
+def pull_image(api, pod_name, namespace):
     deadline = time.time() + 300
+    print(f"Pulling image in pod {pod_name} (waiting for Docker)...")
     while time.time() < deadline:
         try:
-            info = exec_command(core_api, pod_name, "docker info", namespace)
+            info = exec_command(api, pod_name, "docker info", namespace)
         except Exception as e:
-            print(f"Exec error fetching Docker info: {e}, retrying in 5s...", file=sys.stderr)
+            print(f"Error checking Docker in {pod_name}: {e}, retrying...", file=sys.stderr)
             time.sleep(5)
             continue
         if "Server Version:" in info:
-            print("Docker daemon is ready")
             break
-        print("Docker not ready yet, retrying in 5s...")
         time.sleep(5)
     else:
-        print(f"Error: Docker daemon not ready after 300s", file=sys.stderr)
-        sys.exit(1)
-    # Pull latest Docker image in the pod before running tasks
-    print(f"Pulling 'cybench/bountyagent:latest' in pod {pod_name}...")
-    pull_cmd = "docker pull --quiet cybench/bountyagent:latest"
-    pull_resp = exec_command(core_api, pod_name, pull_cmd, namespace)
-    print(f"Image pull output: {pull_resp}")
-    # Detach each command inside the pod, logging via nohup to container's /app/logs/<fname>
-    with ThreadPoolExecutor(max_workers=len(cmds)) as execer:
-        future_to_fname = {}
-        for entry, cmd in zip(meta['tasks'], cmds):
-            task, bounty = entry.split('/', 1)
-            # build a safe filename: sanitize each component
-            parts = [meta['model'], meta['workflow_type'], task, bounty]
-            safe_parts = [sanitize_name(p) for p in parts]
-            fname = '-'.join(safe_parts + [timestamp]) + '.log'
-            # ensure logs directory exists and start background process
-            wrapped = f"mkdir -p /app/logs && nohup {cmd} > /app/logs/{fname} 2>&1 &"
-            fut = execer.submit(exec_command, core_api, pod_name, wrapped, namespace)
-            future_to_fname[fut] = fname
-        for fut in as_completed(future_to_fname):
-            fname = future_to_fname[fut]
-            try:
-                fut.result()
-                print(f"Started background job; logs at /app/logs/{fname}")
-            except Exception as e:
-                print(f"Failed to start job for {fname}: {e}", file=sys.stderr)
-    return group_name
+        raise RuntimeError(f"Docker daemon not ready in pod {pod_name} after timeout")
+    return exec_command(api, pod_name, "docker pull --quiet cybench/bountyagent:latest", namespace)
 
 
 def main():
@@ -256,6 +231,8 @@ def main():
     if args.all:
         base = Path(__file__).parent / 'experiment-config'
         configs = sorted(glob.glob(str(base / 'experiment_config_*.json')))
+        # exclude placeholder template files
+        configs = [c for c in configs if 'template' not in Path(c).stem]
     else:
         configs = args.configs
 
@@ -300,16 +277,52 @@ def main():
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    # Process all configuration groups in parallel
-    with ThreadPoolExecutor(max_workers=len(configs)) as group_executor:
-        future_map = {group_executor.submit(process_group, cfg, tmpl_objs, core_api, args.namespace, timestamp): cfg for cfg in configs}
-        for fut in as_completed(future_map):
-            cfg = future_map[fut]
+    # Phase 1: deploy groups and wait for pods
+    deploy_infos = []
+    with ThreadPoolExecutor(max_workers=len(configs)) as deploy_executor:
+        futures = {deploy_executor.submit(deploy_and_wait, cfg, tmpl_objs, core_api, args.namespace, timestamp): cfg for cfg in configs}
+        for fut in as_completed(futures):
+            cfg = futures[fut]
             try:
-                grp = fut.result()
-                print(f"Group '{grp}' completed")
+                info = fut.result()
+                deploy_infos.append(info)
+                print(f"Group '{info['group_name']}' deployed and pod ready")
             except Exception as e:
-                print(f"Group '{Path(cfg).stem}' failed: {e}", file=sys.stderr)
+                print(f"Group '{Path(cfg).stem}' failed in deploy phase: {e}", file=sys.stderr)
+                sys.exit(1)
+
+    # Phase 2: pull images in parallel
+    with ThreadPoolExecutor(max_workers=len(deploy_infos)) as pull_executor:
+        pull_futs = {pull_executor.submit(pull_image, core_api, info['pod_name'], args.namespace): info for info in deploy_infos}
+        for fut in as_completed(pull_futs):
+            info = pull_futs[fut]
+            try:
+                fut.result()
+                print(f"Pulled image in pod {info['pod_name']}")
+            except Exception as e:
+                print(f"Failed pulling image in {info['pod_name']}: {e}", file=sys.stderr)
+                sys.exit(1)
+
+    # Phase 3: run tasks in parallel
+    task_futures = {}
+    total_tasks = sum(len(info['cmds']) for info in deploy_infos)
+    with ThreadPoolExecutor(max_workers=total_tasks) as task_executor:
+        for info in deploy_infos:
+            for entry, cmd in zip(info['meta']['tasks'], info['cmds']):
+                task, bounty = entry.split('/', 1)
+                parts = [info['meta']['model'], info['meta']['workflow_type'], task, bounty]
+                safe_parts = [sanitize_name(p) for p in parts]
+                fname = '-'.join(safe_parts + [info['timestamp']]) + '.log'
+                wrapped = f"mkdir -p /app/logs && nohup {cmd} > /app/logs/{fname} 2>&1 &"
+                fut = task_executor.submit(exec_command, core_api, info['pod_name'], wrapped, args.namespace)
+                task_futures[fut] = fname
+        for fut in as_completed(task_futures):
+            fname = task_futures[fut]
+            try:
+                fut.result()
+                print(f"Started background job; logs at /app/logs/{fname}")
+            except Exception as e:
+                print(f"Failed to start job for {fname}: {e}", file=sys.stderr)
 
     print("\nAll experiment groups deployed and tasks executed.")
 
