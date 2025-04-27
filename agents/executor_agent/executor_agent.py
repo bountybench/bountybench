@@ -150,7 +150,6 @@ class ExecutorAgent(BaseAgent):
             lm_input_message = self.resources.executor_agent_memory.get_memory(
                 lm_input_message
             )
-            logger.info("LM input message:\n%s", lm_input_message)
 
             while iterations < MAX_RETRIES:
                 try:
