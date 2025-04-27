@@ -135,22 +135,26 @@ def sanitize_name(raw: str) -> str:
 
 
 def wait_for_pod_ready(api, label, namespace='default', timeout=600):
-    selector = f"app={label}"
+    """
+    Wait for the specific StatefulSet pod '<label>-0' to be running and ready.
+    """
+    pod_name = f"{label}-0"
     deadline = time.time() + timeout
-    print(f"Waiting for pod with label '{selector}'...")
+    print(f"Waiting for pod named '{pod_name}' in namespace '{namespace}'...")
     while time.time() < deadline:
-        pods = api.list_namespaced_pod(
-            namespace=namespace, label_selector=selector
-        ).items
-        if pods:
-            pod = pods[0]
-            if pod.status.phase == 'Running':
-                statuses = pod.status.container_statuses or []
-                if all(s.ready for s in statuses):
-                    print(f"Pod {pod.metadata.name} is ready")
-                    return pod.metadata.name
+        try:
+            pod = api.read_namespaced_pod(name=pod_name, namespace=namespace)
+        except ApiException:
+            # Pod not yet created or not found
+            time.sleep(5)
+            continue
+        if pod.status.phase == 'Running':
+            statuses = pod.status.container_statuses or []
+            if all(s.ready for s in statuses):
+                print(f"Pod {pod.metadata.name} is ready")
+                return pod.metadata.name
         time.sleep(5)
-    print(f"Timeout waiting for pod ready for '{label}'", file=sys.stderr)
+    print(f"Timeout waiting for pod {pod_name}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -186,7 +190,12 @@ def process_group(config_path, tmpl_objs, core_api, namespace, timestamp):
     print(f"Waiting up to 300s for Docker daemon in pod {pod_name}...")
     deadline = time.time() + 300
     while time.time() < deadline:
-        info = exec_command(core_api, pod_name, "docker info", namespace)
+        try:
+            info = exec_command(core_api, pod_name, "docker info", namespace)
+        except Exception as e:
+            print(f"Exec error fetching Docker info: {e}, retrying in 5s...", file=sys.stderr)
+            time.sleep(5)
+            continue
         if "Server Version:" in info:
             print("Docker daemon is ready")
             break
