@@ -12,22 +12,35 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { CopyButton } from '../buttons/CopyButton';
 
-const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, onToggleVersion, parentMessage }) => {
+const AgentMessage = ({
+  index,
+  message,
+  onUpdateMessageInput,
+  onRunMessage,
+  onEditingChange,
+  isEditing,
+  selectedCellId,
+  onCellSelect,
+  onToggleVersion,
+  registerMessageRef,
+  registerToggleOperation,
+  parentMessage
+}) => {
   const [agentMessageExpanded, setAgentMessageExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message?.message || '');
   const textFieldRef = useRef(null);
-  
+
   const [originalMessageContent, setOriginalMessageContent] = useState(formatData(message?.message || ''));
 
   const messageRef = useRef(null);
-  
+
   const handleCancelEdit = useCallback(() => {
     setEditing(false);
     onEditingChange(false);
     setEditedMessage(originalMessageContent);
   }, [originalMessageContent, onEditingChange]);
-  
+
   const handleEditClick = useCallback(() => {
     if (!message?.current_children || message?.current_children.length === 0) {
       setEditing(true);
@@ -136,7 +149,7 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
           handleCancelEdit();
         }
         else if (event.shiftKey && event.key === 'Enter') {
-          event.preventDefault(); // Prevent the default action 
+          event.preventDefault();
           if (editing) {
             handleSaveClick();      // Call the save function
           } else {
@@ -168,6 +181,20 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
       });
     }
   }, [selectedCellId]);
+
+  const handlePrevVersion = () => {
+    if (message?.version_prev) {
+      registerToggleOperation(message.current_id, message.version_prev, 'prev');
+      onToggleVersion(message.current_id, 'prev');
+    }
+  };
+
+  const handleNextVersion = () => {
+    if (message?.version_next) {
+      registerToggleOperation(message.current_id, message.version_next, 'next');
+      onToggleVersion(message.current_id, 'next');
+    }
+  };
 
   if (!message) return null;
 
@@ -247,7 +274,7 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
                     disabled={!message?.version_prev}
                     sx={{ color: 'black' }}
                     size="small"
-                    onClick={() => onToggleVersion(message.current_id, 'prev')}
+                    onClick={handlePrevVersion}
                   >
                     <ArrowBackIcon />
                   </IconButton>
@@ -262,7 +289,7 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
                     disabled={!message?.version_next}
                     sx={{ color: 'black' }}
                     size="small"
-                    onClick={() => onToggleVersion(message.current_id, 'next')}
+                    onClick={handleNextVersion}
                   >
                     <ArrowForwardIcon />
                   </IconButton>
@@ -275,10 +302,13 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
     }
   }
 
-  return (    
-    <Box className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
+  return (
+    <Box
+      className={`agent-message-container ${selectedCellId === message.current_id ? 'selected' : ''}`}
       onClick={handleContainerClick}
       ref={messageRef}
+      id={`message-${message.current_id}`}
+      data-message-id={message.current_id}
     >
       <Card className="message-bubble agent-bubble">
         <CardContent>
@@ -301,9 +331,9 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
                 </Typography>
               )}
             </Box>
-            <IconButton 
-              size="small" 
-              onClick={handleToggleAgentMessage} 
+            <IconButton
+              size="small"
+              onClick={handleToggleAgentMessage}
               className="agent-toggle-button"
             >
               {agentMessageExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
@@ -312,7 +342,6 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
 
           <Collapse in={agentMessageExpanded}>
             {(originalMessageContent && originalMessageContent.trim() !== '') && (
-
               <Box className="agent-message-content">
                 {editing ? (
                   <Box className="edit-mode-container">
@@ -342,24 +371,26 @@ const AgentMessage = ({ index, message, onUpdateMessageInput, onRunMessage, onEd
 
             {message.current_children && message.current_children.length > 0 && (
               <Box className="action-messages-container">
-                  {message.current_children.map((actionMessage, index) => (
-                    <ActionMessage
-                      key={actionMessage.current_id}
-                      index={index}
-                      action={actionMessage}
-                      onUpdateMessageInput={onUpdateMessageInput}
-                      onRunMessage={onRunMessage}
-                      onEditingChange={onEditingChange}
-                      isEditing={isEditing}                    
-                      selectedCellId={selectedCellId}
-                      onCellSelect={onCellSelect}
-                      parentMessage={message}
-                    />
-                  ))}
+                {message.current_children.map((actionMessage, index) => (
+                  <ActionMessage
+                    key={actionMessage.current_id}
+                    index={index}
+                    action={actionMessage}
+                    onUpdateMessageInput={onUpdateMessageInput}
+                    onRunMessage={onRunMessage}
+                    onEditingChange={onEditingChange}
+                    isEditing={isEditing}
+                    selectedCellId={selectedCellId}
+                    onCellSelect={onCellSelect}
+                    registerMessageRef={registerMessageRef}
+                    registerToggleOperation={registerToggleOperation}
+                    parentMessage={message}
+                  />
+                ))}
               </Box>
             )}
 
-            {getMessageButtons()} 
+            {getMessageButtons()}
           </Collapse>
         </CardContent>
       </Card>

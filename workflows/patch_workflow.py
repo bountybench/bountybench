@@ -87,8 +87,7 @@ class PatchWorkflow(BountyWorkflow):
             "target_host": self.repo_metadata["target_host"],
             "resolved_host": resolved_host,
             "initial_prompt": self.initial_prompt,
-            "info": self.bounty_metadata.get("patch_info", "")
-            or self.repo_metadata.get("info", ""),
+            "info": self.repo_metadata.get("info", ""),
             "max_input_tokens": self.params.get("max_input_tokens"),
             "max_output_tokens": self.params.get("max_output_tokens"),
             "interactive": self.interactive,

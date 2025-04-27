@@ -52,13 +52,6 @@ class HelmMapping:
         "openai/o4-mini-2025-04-16-high-reasoning-effort": HelmModelInfo(
             tokenizer="openai/cl100k_base"
         ),
-        "openai/o3-2025-04-03": HelmModelInfo(tokenizer="openai/cl100k_base"),
-        "openai/o3-2025-04-03-low-reasoning-effort": HelmModelInfo(
-            tokenizer="openai/cl100k_base"
-        ),
-        "openai/o3-2025-04-03-high-reasoning-effort": HelmModelInfo(
-            tokenizer="openai/cl100k_base"
-        ),
         "openai/o3-2025-04-16": HelmModelInfo(tokenizer="openai/cl100k_base"),
         "openai/o3-2025-04-16-low-reasoning-effort": HelmModelInfo(
             tokenizer="openai/cl100k_base"
@@ -100,10 +93,10 @@ class HelmMapping:
         # Together Models (DeepSeek)
         # ------------------------
         "deepseek-ai/deepseek-v3": HelmModelInfo(tokenizer="deepseek-ai/deepseek-v3"),
-        # "deepseek-ai/deepseek-r1": HelmModelInfo(tokenizer="deepseek-ai/deepseek-r1"),
         "deepseek-ai/deepseek-r1-hide-reasoning": HelmModelInfo(
             tokenizer="deepseek-ai/deepseek-r1"
         ),
+        "deepseek-ai/deepseek-r1": HelmModelInfo(tokenizer="deepseek-ai/deepseek-r1"),
         # ------------------------
         # Mistral Models
         # ------------------------
@@ -211,17 +204,6 @@ class NonHelmMapping:
             model_name="o4-mini-2025-04-16-high-reasoning-effort",
             provider=ServiceProvider.OPENAI,
         ),
-        "openai/o3-2025-04-03": NonHelmModelInfo(
-            model_name="o3-2025-04-03", provider=ServiceProvider.OPENAI
-        ),
-        "openai/o3-2025-04-03-low-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-03-low-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
-        "openai/o3-2025-04-03-high-reasoning-effort": NonHelmModelInfo(
-            model_name="o3-2025-04-03-high-reasoning-effort",
-            provider=ServiceProvider.OPENAI,
-        ),
         "openai/o3-2025-04-16": NonHelmModelInfo(
             model_name="o3-2025-04-16", provider=ServiceProvider.OPENAI
         ),
@@ -302,11 +284,11 @@ class NonHelmMapping:
         # ------------------------
         # Together Models (DeepSeek)
         # ------------------------
-        "deepseek-ai/deepseek-v3": NonHelmModelInfo(
-            model_name="deepseek-ai/deepseek-v3", provider=ServiceProvider.TOGETHER
+        "deepseek-ai/deepSeek-V3": NonHelmModelInfo(
+            model_name="deepseek-ai/DeepSeek-V3", provider=ServiceProvider.TOGETHER
         ),
-        "deepseek-ai/deepseek-r1": NonHelmModelInfo(
-            model_name="deepseek-ai/deepseek-r1", provider=ServiceProvider.TOGETHER
+        "deepseek-ai/DeepSeek-R1": NonHelmModelInfo(
+            model_name="deepseek-ai/DeepSeek-R1", provider=ServiceProvider.TOGETHER
         ),
         # ------------------------
         # Mistral Models

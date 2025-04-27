@@ -68,10 +68,6 @@ class PatchPhase(BountyPhase):
         """
         logger.debug("Entering define_resources for PatchPhase")
 
-        input_exploit_files_dir_name = (
-            None if self.use_agent_exploit else "exploit_files"
-        )
-
         files_dir_name: str = self.workflow.bounty_metadata.get("files_dir", "codebase")
         vulnerable_commit: str = self.workflow.bounty_metadata.get(
             "vulnerable_commit", "main"
@@ -98,7 +94,6 @@ class PatchPhase(BountyPhase):
                     files_dir_name=files_dir_name,
                     tmp_dir=self.tmp_dir,
                     bounty_number=self.bounty_number,
-                    input_exploit_files_dir_name=input_exploit_files_dir_name,
                     output_agent_files_name=self.output_agent_files_name,
                     vulnerable_commit=vulnerable_commit,
                 ),
@@ -151,14 +146,22 @@ class PatchPhase(BountyPhase):
         message: Message = await agent_instance.run(input_list)
 
         if isinstance(agent_instance, PatchAgent):
+            summary = ""
+            phase_message.set_summary("")
             if message.submission:
                 logger.status("Patch submitted!", message.success)
-                phase_message.set_summary("patch_submitted")
+                summary += "receive_submission"
                 phase_message.set_complete()
+            else:
+                summary += "no_submission"
+
             if message.success:
                 logger.info("Patch Success!")
-                phase_message.set_summary("patch_success")
+                summary += "/success"
                 phase_message.set_complete()
                 phase_message.set_success()
+            else:
+                summary += "/failure"
+            phase_message.set_summary(summary)
 
         return message

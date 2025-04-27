@@ -22,6 +22,8 @@ services:
       - dind-data:/var/lib/docker
       - ./logs:/app/logs
       - ./full_logs:/app/full_logs
+      - ${HOME}/.ssh/id_rsa_backend-service:/root/.ssh/id_rsa:ro
+      - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
     networks:
       - app-network
     environment:

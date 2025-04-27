@@ -159,8 +159,8 @@ describe('WorkflowLauncher Component', () => {
     const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     const tasks = { tasks: [{ task_dir: 'test-dir', bounty_nums: ['123'] }] };
     const models = { 
-      helmModels: [{ name: 'model1', description: 'Description 1' }, { name: 'model3', description: 'Description 3' }],
-      nonHelmModels: [{ name: 'model2', description: 'Description 2' }]
+      nonHelmModels: [{ name: 'model1', description: 'Description 1' }, { name: 'model3', description: 'Description 3' }],
+      helmModels: [{ name: 'model2', description: 'Description 2' }]
     };
     
     global.fetch = jest.fn()
@@ -205,7 +205,7 @@ describe('WorkflowLauncher Component', () => {
   
     const modelTypeSelect = screen.getByRole('combobox', { name: /Model Type/i });
     fireEvent.mouseDown(modelTypeSelect);
-    fireEvent.click(screen.getByText('HELM'));
+    fireEvent.click(screen.getByText('Non-HELM'));
   
     const modelNameSelect = screen.getByRole('combobox', { name: /Model Name/i });
     fireEvent.mouseDown(modelNameSelect);
@@ -229,8 +229,8 @@ describe('WorkflowLauncher Component', () => {
     const apiKeys = { HELM_API_KEY: 'mock-api-key' };
     const tasks = { tasks: [{ task_dir: 'test-dir', bounty_nums: ['123'] }] };
     const models = { 
-      helmModels: [{ name: 'model1', description: 'Description 1' }, { name: 'model3', description: 'Description 3' }],
-      nonHelmModels: [{ name: 'model2', description: 'Description 2' }]
+      nonHelmModels: [{ name: 'model1', description: 'Description 1' }, { name: 'model3', description: 'Description 3' }],
+      helmModels: [{ name: 'model2', description: 'Description 2' }]
     };
     
     global.fetch = jest.fn()
@@ -275,7 +275,7 @@ describe('WorkflowLauncher Component', () => {
   
     const modelTypeSelect = screen.getByRole('combobox', { name: /Model Type/i });
     fireEvent.mouseDown(modelTypeSelect);
-    fireEvent.click(screen.getByText('HELM'));
+    fireEvent.click(screen.getByText('Non-HELM'));
   
     const modelNameSelect = screen.getByRole('combobox', { name: /Model Name/i });
     fireEvent.mouseDown(modelNameSelect);
