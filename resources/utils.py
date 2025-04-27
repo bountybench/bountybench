@@ -1,6 +1,7 @@
 import asyncio
 import html
 import json
+import re
 import select
 import subprocess
 import sys
@@ -433,52 +434,37 @@ def format_hackerone_writeup(writeup: str) -> str:
     # Get vulnerability information
     vuln_info = soup.find("div", class_="spec-vulnerability-information")
     if vuln_info:
-        formatted_content.append("Vulnerability Information:")
-        # Extract paragraphs from vulnerability info
-        paragraphs = vuln_info.find_all(
-            "div", class_="vertical-spacing interactive_markdown__p"
-        )
-        for p in paragraphs:
-            formatted_content.append(html.unescape(p.text.strip()))
+        for wrapper in vuln_info.find_all("div", class_="interactive-markdown"):
+            for child in wrapper.find_all(recursive=False):
+                cls = child.get("class", [])
+                ids = child.get("id", [])
+                if "interactive_markdown__p" in cls:
+                    text = html.unescape(child.get_text())
+                    formatted_content.append(text)
 
-        # Extract code blocks
-        code_blocks = vuln_info.find_all(
-            "div", class_="interactive-markdown__code__content"
-        )
-        for code in code_blocks:
-            formatted_content.append("\nCode:")
-            code_lines = []
-            for line in code.stripped_strings:
-                if not line.isdigit():  # Skip line numbers
-                    code_lines.append(line)
-            formatted_content.append("\n".join(code_lines))
-            formatted_content.append("")
+                elif "interactive-markdown__code" in cls:
+                    code_div = child.find(
+                        "div", class_="interactive-markdown__code__content"
+                    )
+                    if not code_div:
+                        continue
 
-    # Get Impact section if it exists
-    impact_heading = (
-        vuln_info.find("h2", id="user-content-impact") if vuln_info else None
-    )
-    if impact_heading:
-        formatted_content.append("Impact:")
-        next_element = impact_heading.find_next(
-            "div", class_="vertical-spacing interactive_markdown__p"
-        )
-        if next_element:
-            formatted_content.append(html.unescape(next_element.text.strip()))
+                    # Remove line numbers
+                    for num in code_div.find_all(
+                        "span", class_=re.compile(r"(linenumber|line-number)")
+                    ):
+                        num.decompose()
 
-    # Get bounty information
-    bounty_element = soup.find("div", class_="spec-bounty-amount-meta-item")
-    if bounty_element:
-        bounty_value = bounty_element.find("span", class_="spec-amount-in-currency")
-        if bounty_value:
-            formatted_content.append(f"\nBounty: {bounty_value.text.strip()}")
+                    # Get the code text (separator="" works best here)
+                    code_text = code_div.get_text(separator="").strip()
+                    formatted_content.append("Code:\n" + code_text + "\n")
 
-    # Get CVE ID if exists
-    cve_element = soup.find("div", class_="spec-cve-id-meta-item")
-    if cve_element:
-        cve_link = cve_element.find("a")
-        if cve_link:
-            formatted_content.append(f"CVE ID: {cve_link.text.strip()}")
+                # Handle the impact section header
+                elif "user-content-impact" in ids:
+                    formatted_content.append(child.get_text(strip=True) + ":")
+
+                elif "user-content-steps-to-reproduce" in ids:
+                    formatted_content.append(child.get_text(strip=True))
 
     formatted_content.append("======================")
     writeup = "\n".join(formatted_content)

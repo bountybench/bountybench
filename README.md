@@ -129,8 +129,6 @@ ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
 AZURE_OPENAI_API_KEY={AZURE_OPENAI_API_KEY}
 AZURE_OPENAI_ENDPOINT={AZURE_OPENAI_ENDPOINT}
 GOOGLE_API_KEY={GOOGLE_API_KEY}
-HACKERONE_API_IDENTIFIER={HACKERONE_API_IDENTIFIER}
-HACKERONE_API_KEY={HACKERONE_API_KEY}
 HELM_API_KEY={HELM_API_KEY}
 OPENAI_API_KEY={OPENAI_API_KEY}
 TOGETHER_API_KEY={TOGETHER_API_KEY}
@@ -138,24 +136,6 @@ XAI_API_KEY={XAI_API_KEY}
 ```
 
 Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...). You only need to fill in whichever keys you will use.
-
-#### HackerOne API Setup
-
-To use the HackerOne API functionality:
-
-1. You'll need a HackerOne account with API access
-2. Generate your API credentials:
-   - Log in to your HackerOne account
-   - Go to Settings > API tokens
-   - Create a new API token
-   - Note down both the API Identifier and API Key
-3. Add these credentials to your .env file:
-   ```bash
-   HACKERONE_API_KEY=your_api_key_here
-   HACKERONE_API_IDENTIFIER=your_api_identifier_here
-   ```
-
-The HackerOne API is used to fetch detailed report metadata. If credentials are not provided, the system will fall back to HTML scraping, but with reduced metadata extraction capabilities.
 
 ### 5. Setup Docker Desktop App
 
@@ -195,8 +175,6 @@ Running workflows from CLI should use `runner.py` module. Each runnable workflow
 - `--model` and `--use_mock_model` are mutually exclusive. You cannot specify both simultaneously.
 - If `--use_mock_model` is True, then `--use_helm` parameter is ignored
 - The `--use_helm` parameter determines whether to use Helm as the model provider
-
-If using openai o1/o3, it's [recommended to have at least 25k](https://platform.openai.com/docs/guides/reasoning?api-mode=chat#allocating-space-for-reasoning) `--max_output_tokens`
 
 ```bash
 python -m workflows.runner --workflow-type WORKFLOW_TYPE [OPTIONS]
@@ -312,6 +290,49 @@ Once both the backend and frontend are running, you can access the application t
    ```
 
 Once built, the frontend will be running at http://localhost:3000/, and everything should be the same as in non-dockerized versions.
+
+To stop the containers, run
+```
+docker compose down
+```
+
+To start the containers without rebuilding, run:
+```
+docker compose up -d
+```
+If docker still attempts to rebuild, try cancelling the build using `control+c` and adding the `--no-build` flag (assuming no images are missing).
+
+### Using Git Inside Containers
+Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountyagent/` (`app/`) and `bountybench/` (`app/bountybench`) repos. Inside the container, you could also `git checkout` different branches for testing. 
+
+SSH keys are needed for `git pull` and `git fetch` to work. **Before running `docker compose up --build -d`, please the follow these steps to set up the git credentials correctly.** 
+
+**If you do not wish to use git, please skip to step 3, and you can safely delete these two lines from your `docker-compose.yml`.**
+
+1. Please make sure you cloned the repository with ssh:
+```
+git clone git@github.com:cybench/bountyagent.git
+```
+2. To create a new pair of ssh keys specific for the container, run:
+
+```
+chmod +x tools/ssh_key_gen.sh && \
+tools/ssh_key_gen.sh
+```
+
+and copy the public key (i.e. the output) to [GitHub/settings/keys](https://github.com/settings/keys). 
+
+3. You could also change these two lines in `docker-compose.yml` to use any paths or keys of your choice:
+```
+  - ${HOME}/.ssh/id_rsa_backend-service:/root/.ssh/id_rsa:ro
+  - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
+```
+4. (Optional) If you want to fetch the latest version of bountybench, run:
+```
+cd bountybench
+git checkout main
+git pull
+```
 
 We have also provide a bash script `dockerize_run.sh` that serves as an easy interface to run the application using docker.
 

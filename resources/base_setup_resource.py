@@ -104,6 +104,9 @@ class BaseSetupResource(BaseResource, ABC):
                         raise  # Re-raise if it's not an exec format error
 
                 if result.returncode != 0:
+                    logger.error(
+                        f"{self.name} setup script failed. Stdout: {result.stdout}, Stderr: {result.stderr}"
+                    )
                     raise RuntimeError(
                         f"{self.name} setup script failed with return code {result.returncode}"
                     )

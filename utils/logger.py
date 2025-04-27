@@ -139,7 +139,7 @@ class LoggerConfig:
             if self.queue_listener:
                 self.queue_listener.stop()
         except Exception as e:
-            logging.info(f"Logger shutdown: {e}")
+            logging.error(f"Logger shutdown: {e}")
         finally:
             self.queue_listener = None
 
@@ -150,7 +150,7 @@ class LoggerConfig:
                 self.queue_listener.stop()
         except Exception as e:
             # Swallow shutdown errors (can happen at exit)
-            logging.info(f"Logger restart: failed to stop old listener: {e}")
+            logging.error(f"Logger restart: failed to stop old listener: {e}")
         self.queue_listener = self._configure_logging_thread()
 
     def set_global_log_level(self, level: int):

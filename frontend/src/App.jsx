@@ -17,7 +17,7 @@ import { API_BASE_URL } from './config';
 
 function App() {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
-  const [interactiveMode, setInteractiveMode] = useState(true);
+  const [interactiveMode, setInteractiveMode] = useState(false);
   const [useMockModel, setUseMockModel] = useState(false); 
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);

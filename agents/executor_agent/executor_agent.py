@@ -18,8 +18,11 @@ from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
 
-MAX_RETRIES = 3
+# Constants for retry exponential backoff in self.call_lm
+MAX_RETRIES = 15  # Waits at most 30 minutes for issue resolution
 RETRY_DELAY = 30
+MAX_RETRY_DELAY = 120
+BACKOFF_FACTOR = 2
 
 
 @dataclass
@@ -31,7 +34,6 @@ class ExecutorAgentConfig(AgentConfig):
 
 
 class ExecutorAgent(BaseAgent):
-
     REQUIRED_RESOURCES = [
         ResourceType.INIT_FILES,
         ResourceType.KALI_ENV,
@@ -169,10 +171,13 @@ class ExecutorAgent(BaseAgent):
                         f"LLM call timed out: {str(e)}. Retrying {iterations + 1}/{MAX_RETRIES}"
                     )
                     iterations += 1
+
+                    await self._backoff_delay(iterations)
                     continue
                 except Exception as e:
                     error_msg = str(e)
                     exception_type = type(e).__name__
+                    status_code = None
 
                     error_entry = {
                         "type": exception_type,
@@ -203,6 +208,16 @@ class ExecutorAgent(BaseAgent):
                         raise Exception(
                             f"API quota exceeded. Please check your model quota/limits"
                         )
+
+                    # # Wait if receieved a rate limit error
+                    if status_code and status_code == 429:
+                        await self._backoff_delay(iterations)
+                        error_history.append(error_entry)
+                        logger.warning(
+                            f"Retrying {iterations + 1}/{MAX_RETRIES} after rate limit exceeded: {e}"
+                        )
+                        iterations += 1
+                        continue
 
                     error_history.append(error_entry)
                     logger.warning(
@@ -307,6 +322,18 @@ class ExecutorAgent(BaseAgent):
             )
             self.last_executor_agent_message.add_child_message(kali_failure_message)
             raise
+
+    async def _backoff_delay(self, iterations: int) -> float:
+        """
+        Given number of iterations, call asyncio.sleep with an exponential backoff delay.
+        """
+        logger.info(f"Entering _backoff_delay with iterations={iterations}")
+        delay = min(RETRY_DELAY * (BACKOFF_FACTOR**iterations), MAX_RETRY_DELAY)
+        logger.info(
+            f"Backing off for {delay:.2f} seconds before retry {iterations + 1}/{MAX_RETRIES}"
+        )
+        await asyncio.sleep(delay)
+        return delay
 
     def to_dict(self) -> dict:
         """

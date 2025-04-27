@@ -18,8 +18,15 @@ from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
-from resources.utils import run_command_async
-from utils.git_utils import git_apply_patch, git_checkout_main, git_diff, git_reset
+from resources.utils import read_repo_metadata, run_command_async
+from utils.git_utils import (
+    git_add,
+    git_apply_patch,
+    git_checkout_main,
+    git_diff,
+    git_reset,
+    git_restore,
+)
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
@@ -121,15 +128,13 @@ class PatchAgent(BaseAgent):
         self.output_patch_dir = self.resources.init_files.output_agent_files_dir
 
         if self.submit:
-            if (
-                not isinstance(prev_agent_message, ExecutorAgentMessage)
-                or not prev_agent_message.submission
-            ):
-                self._log("Waiting for submission...")
-                return self.update_patch_agent_message(clear=True)
-            else:
-                self._log("Submission received.")
-                self.last_patch_agent_message.set_submission(True)
+            if isinstance(prev_agent_message, ExecutorAgentMessage):
+                if not prev_agent_message.submission:
+                    self._log("Waiting for submission...")
+                    return self.update_patch_agent_message(clear=True)
+                else:
+                    self._log("Submission received.")
+                    self.last_patch_agent_message.set_submission(True)
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.tmp_codebase)
@@ -189,6 +194,18 @@ class PatchAgent(BaseAgent):
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
             return self.update_patch_agent_message(clear=True)
+
+        # sanitize invariant test paths
+        try:
+            self.restore_invariant_test_paths()
+            self._log("Successfully restored/sanitized all hidden tests in codebase.")
+        except Exception as e:
+            logger.error(
+                "Failed to restore invariant test paths — this indicates an infrastructure issue. "
+                "Sanitized test files are required for invariant checks; unsanitized files are not allowed. "
+                f"Error: {e}"
+            )
+            raise
 
         # Verify patch against agent exploit if needed
         if self.use_agent_exploit:
@@ -520,7 +537,20 @@ bash /app/exploit.sh
                 )
                 self._log(message)
                 if success:
-                    return True
+                    # If we reach here, patch applied successfully – now stage the changes
+                    # so that we can restore invariant test paths even for untracked files
+                    try:
+                        git_add(
+                            self.task_dir / "codebase",
+                            all_changes=True,
+                        )  # runs `git add -A`
+                        self._log("Staged patched changes successfully.")
+                        return True
+                    except Exception as e:
+                        logger.error(
+                            f"Infra issue - failed to stage patched changes: {e}"
+                        )
+                        raise
                 else:
                     self._log(f"Failed to apply patch to codebase.")
                     return False
@@ -812,6 +842,45 @@ bash /app/exploit.sh
             logger.error(f"Failed to move exploits directory: {e}")
 
         return None
+
+    def restore_invariant_test_paths(self) -> None:
+        """Restore invariant test paths specified in repo and bounty metadata."""
+        repo_meta = read_repo_metadata(self.task_dir)
+        paths_to_restore = repo_meta.get("invariant_test_paths", [])
+
+        if not paths_to_restore:
+            logger.info("No invariant test paths found in repo metadata.")
+            return
+
+        total_restores = len(paths_to_restore)
+        successes = 0
+
+        for path in paths_to_restore:
+            logger.info(f"Restoring invariant test path: {path}")
+            try:
+                relative_path = Path(path).relative_to(
+                    "codebase"
+                )  # checks whether first part is "codebase"
+                codebase_root = self.task_dir / "codebase"
+                git_restore(
+                    codebase_root,
+                    paths=[codebase_root / relative_path],
+                    staged=True,
+                    worktree=True,
+                )
+                logger.info(f"✔ Successfully restored: {path}")
+                successes += 1
+            except Exception as e:
+                logger.error(f"✖ Failed to restore {path}: {e}")
+
+        logger.info(f"Restored {successes}/{total_restores} invariant test paths.")
+        if successes < total_restores:
+            logger.error("Failed to restore all invariant test paths.")
+            failed_count = total_restores - successes
+            raise RuntimeError(
+                f"Only {successes}/{total_restores} invariant test paths were restored "
+                f"({failed_count} failed); see log entries for details."
+            )
 
     def to_dict(self) -> dict:
         """

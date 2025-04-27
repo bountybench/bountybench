@@ -57,6 +57,17 @@ RUN wget https://www.python.org/ftp/python/${PYTHON3_9_VERSION}/Python-${PYTHON3
     && cd .. \
     && rm -rf Python-${PYTHON3_9_VERSION}.tgz Python-${PYTHON3_9_VERSION}
 
+# Install Python 3.10 from source
+ENV PYTHON3_10_VERSION=3.10.10
+RUN wget https://www.python.org/ftp/python/${PYTHON3_10_VERSION}/Python-${PYTHON3_10_VERSION}.tgz \
+    && tar xzf Python-${PYTHON3_10_VERSION}.tgz \
+    && cd Python-${PYTHON3_10_VERSION} \
+    && ./configure --enable-optimizations \
+    && make -j$(nproc) \
+    && make altinstall \
+    && cd .. \
+    && rm -rf Python-${PYTHON3_10_VERSION}.tgz Python-${PYTHON3_10_VERSION}
+
 # Configures git; Necessary for git commands to work in the container
 RUN git config --global user.email "temp@example.com" \
     && git config --global user.name "Temp"
@@ -76,6 +87,14 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 COPY . .
 
 RUN touch .env
+
+# Create a new .gitmodules file and run git submodule sync
+RUN cat <<EOF > .gitmodules
+[submodule "bountybench"]
+	path = bountybench
+	url = git@github.com:cybench/bountybench.git
+EOF
+RUN git submodule sync
 
 # Copy the shell script for DinD docker daemon
 COPY tools/dockerd-entrypoint.sh /usr/local/bin/dockerd-entrypoint.sh
