@@ -14,7 +14,7 @@ while IFS=',' read -r TASKDIR NUM; do
     # 1. Start container
     echo "[INFO] Starting Docker container..."
     # (only need to create backend)
-    docker compose up -d backend-service
+    docker compose up -d backend
 
     echo "[INFO] Waiting 5s for container to be ready..." 
     sleep 5
