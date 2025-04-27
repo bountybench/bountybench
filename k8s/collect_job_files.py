@@ -9,8 +9,9 @@ import shutil
 import subprocess
 import sys
 import time
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
 from kubernetes import client, config, watch
 from kubernetes.client import CoreV1Api
 from kubernetes.client.rest import ApiException
