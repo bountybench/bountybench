@@ -73,6 +73,10 @@ To initialize all submodules, run:
 source venv/bin/activate
 ```
 
+### Alternative Manual Setup
+
+If you prefer to set up the environment manually, follow these steps:
+
 ### 1. Ensure Python 3.11 is Installed
 
 Verify that Python 3.11 is available on your system:
