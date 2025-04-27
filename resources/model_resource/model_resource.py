@@ -236,6 +236,7 @@ class ModelResource(RunnableBaseResource):
             model=self.model,
             use_helm=self.helm,
         )
+        logger.info(f"Model input (truncated if over max tokens):\n{model_input}")
 
         try:
             model_response = self.model_provider.make_request(
