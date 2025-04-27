@@ -88,11 +88,13 @@ COPY . .
 
 RUN touch .env
 
+# Create a new .gitmodules file and run git submodule sync
 RUN cat <<EOF > .gitmodules
 [submodule "bountybench"]
 	path = bountybench
 	url = git@github.com:cybench/bountybench.git
 EOF
+RUN git submodule sync
 
 # Copy the shell script for DinD docker daemon
 COPY tools/dockerd-entrypoint.sh /usr/local/bin/dockerd-entrypoint.sh
