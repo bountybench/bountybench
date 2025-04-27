@@ -471,9 +471,16 @@ bash /app/exploit.sh
                 volumes=volumes,
                 prev=self.last_action_message,
             )
+            # get state of tmp_dir before and after exploit is run
+            print_tree(self.tmp_dir)
+            print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
             exploit_execution = await self.resources.docker.run(exploit_execution)
             self.update_patch_agent_message(exploit_execution)
+
+            logger.debug(f"Printing tmp_dir after exploit")
+            print_tree(self.tmp_dir)
+            print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
             # Run the verify script
             logger.info("Running verify.sh")
@@ -493,8 +500,6 @@ bash /app/exploit.sh
                     exit_code=result.returncode,
                     prev=self.last_action_message,
                 )
-                print_tree(self.tmp_dir)
-                print_files_recursive(self.tmp_dir, self.tmp_codebase)
                 self.update_patch_agent_message(verify_response)
             except Exception as e:
                 self._log(f"Error running verify.sh: {e}", level="error")

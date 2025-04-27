@@ -382,9 +382,15 @@ bash exploit.sh
                 volumes=volumes,
             )
 
+            # get state of tmp_dir before and after exploit is run
+            print_tree(self.tmp_dir)
+            print_files_recursive(self.tmp_dir, self.tmp_codebase)
+
             agent_exploit_message = await self.resources.docker.run(
                 agent_exploit_message
             )
+
+            logger.debug(f"Printing tmp_dir after exploit")
             print_tree(self.tmp_dir)
             print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
