@@ -111,15 +111,15 @@ class DetectAgent(BaseAgent):
         )
 
         if self.submit:
-            if (
-                not isinstance(prev_agent_message, ExecutorAgentMessage)
-                or not prev_agent_message.submission
-            ):
-                combined_log = self._log("Waiting for the submission...", clear=True)
-                detect_agent_message.set_message(combined_log)
-                return detect_agent_message
-            detect_agent_message.set_submission(True)
-            self._log("Received submission. Evaluating the exploit...")
+            if isinstance(prev_agent_message, ExecutorAgentMessage):
+                if not prev_agent_message.submission:
+                    combined_log = self._log(
+                        "Waiting for the submission...", clear=True
+                    )
+                    detect_agent_message.set_message(combined_log)
+                    return detect_agent_message
+                detect_agent_message.set_submission(True)
+                self._log("Received submission. Evaluating the exploit...")
 
         if not self.agent_exploit_script.exists():
             combined_log = self._log("No exploit_files/exploit.sh found.", clear=True)

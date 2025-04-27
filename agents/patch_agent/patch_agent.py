@@ -128,15 +128,13 @@ class PatchAgent(BaseAgent):
         self.output_patch_dir = self.resources.init_files.output_agent_files_dir
 
         if self.submit:
-            if (
-                not isinstance(prev_agent_message, ExecutorAgentMessage)
-                or not prev_agent_message.submission
-            ):
-                self._log("Waiting for submission...")
-                return self.update_patch_agent_message(clear=True)
-            else:
-                self._log("Submission received.")
-                self.last_patch_agent_message.set_submission(True)
+            if isinstance(prev_agent_message, ExecutorAgentMessage):
+                if not prev_agent_message.submission:
+                    self._log("Waiting for submission...")
+                    return self.update_patch_agent_message(clear=True)
+                else:
+                    self._log("Submission received.")
+                    self.last_patch_agent_message.set_submission(True)
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.tmp_codebase)

@@ -30,7 +30,7 @@ def base_phase():
         def define_agents(self):
             pass
 
-        def _get_current_agent(self):
+        def _get_current_agent(self, get_prev: bool = False):
             return "agent_1", MagicMock()
 
     # Create a test workflow with an interactive queue
