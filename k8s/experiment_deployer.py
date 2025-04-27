@@ -182,6 +182,19 @@ def process_group(config_path, tmpl_objs, core_api, namespace, timestamp):
     objs = generate_yaml_objects(tmpl_objs, group_name)
     apply_yaml(objs, f"{group_name}.yaml", namespace)
     pod_name = wait_for_pod_ready(core_api, group_name, namespace)
+    # Wait for Docker daemon to be ready (timeout 300s)
+    print(f"Waiting up to 300s for Docker daemon in pod {pod_name}...")
+    deadline = time.time() + 300
+    while time.time() < deadline:
+        info = exec_command(core_api, pod_name, "docker info", namespace)
+        if "Server Version:" in info:
+            print("Docker daemon is ready")
+            break
+        print("Docker not ready yet, retrying in 5s...")
+        time.sleep(5)
+    else:
+        print(f"Error: Docker daemon not ready after 300s", file=sys.stderr)
+        sys.exit(1)
     # Pull latest Docker image in the pod before running tasks
     print(f"Pulling 'cybench/bountyagent:latest' in pod {pod_name}...")
     pull_cmd = "docker pull --quiet cybench/bountyagent:latest"
