@@ -72,7 +72,7 @@ class WorkflowMessage(Message):
         if task:
             task_dir = task.get("task_dir")
             if task_dir:
-                task_dir_root = task_dir.split("/")[0]
+                task_dir_root = str(task_dir).split("/")[0]
                 task_codebase = Path(task_dir_root)
                 self._task_codebase_version = git_get_codebase_version(task_codebase)
 
