@@ -54,6 +54,7 @@ class WorkflowMessage(Message):
         message_dict[self.workflow_id][self.workflow_id] = self
 
         self._codebase_version = git_get_codebase_version()
+        self._task_codebase_version = None
 
         # Logging
         self.logs_dir = Path(logs_dir)
@@ -67,6 +68,13 @@ class WorkflowMessage(Message):
                         str(value.name if isinstance(value, Path) else value)
                     )
         self._task_components = "_".join(components)  # e.g. lunary_0
+
+        if task:
+            task_dir = task.get("task_dir")
+            if task_dir:
+                task_dir_root = str(task_dir).split("/")[0]
+                task_codebase = Path(task_dir_root)
+                self._task_codebase_version = git_get_codebase_version(task_codebase)
 
         self.set_full_log_dir_path()
         logger.debug(f"Creating new log file in directory: {self._full_log_dir_path}")
@@ -101,6 +109,16 @@ class WorkflowMessage(Message):
     @property
     def codebase_version(self) -> str:
         return self._codebase_version
+
+    @property
+    def task_codebase_version(self) -> str:
+        return self._task_codebase_version
+
+    @property
+    def iterations_taken(self) -> int:
+        return sum(
+            [phase_message.iterations_taken for phase_message in self.phase_messages]
+        )
 
     def set_success(self):
         self._success = True
@@ -176,6 +194,7 @@ class WorkflowMessage(Message):
             "workflow_id": self.workflow_id,
             "additional_metadata": self.additional_metadata,
             "codebase_version": self.codebase_version,
+            "task_codebase_version": self.task_codebase_version,
         }
 
     def save(self):
