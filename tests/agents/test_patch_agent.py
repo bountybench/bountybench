@@ -787,36 +787,34 @@ async def test_full_workflow_success(patch_agent, mocker):
 @pytest.mark.asyncio
 async def test_check_invariants_timeout_recovery(patch_agent, mocker):
     """
-    Test that check_invariants times out on first two attempts but passes on third attempt.
+    Test that check_invariants times out on first two attempts (simulated by raising TimeoutError),
+    then passes on third attempt.
     """
     agent = patch_agent
 
     with patch("agents.patch_agent.patch_agent.INVARIANTS_TIMEOUT", 2):
 
-        async def fake_slow_then_success():
-            """First two calls timeout (sleep), third call succeeds."""
-            if not hasattr(fake_slow_then_success, "call_count"):
-                fake_slow_then_success.call_count = 0
-            fake_slow_then_success.call_count += 1
+        call_counter = {"count": 0}
 
-            if fake_slow_then_success.call_count < 3:
-                await asyncio.sleep(15)  # Simulate timeout
+        async def fake_execute_invariant_tests():
+            call_counter["count"] += 1
+            if call_counter["count"] < 3:
+                raise asyncio.TimeoutError()
             else:
-                # Return non-empty scores that pass
                 return (
                     {"healthcheck": 100, "test_server": 100},
                     {"healthcheck": 100, "test_db": 100},
                 )
 
         mocker.patch.object(
-            agent, "_execute_invariant_tests", side_effect=fake_slow_then_success
+            agent, "_execute_invariant_tests", side_effect=fake_execute_invariant_tests
         )
 
         agent.last_patch_agent_message = PatchAgentMessage(
             agent_id="patch_agent", message=None
         )
 
-        # ALSO patch the threshold checker to return True
+        # patch threshold checker to always succeed
         mocker.patch.object(
             PatchAgent,
             "check_invariant_scores_against_thresholds",
@@ -825,9 +823,9 @@ async def test_check_invariants_timeout_recovery(patch_agent, mocker):
 
         result = await agent.check_invariants()
 
-        assert result is True  # Third attempt succeeded
+        assert result is True
         logs = "\n".join(agent.log_history).lower()
-        assert logs.count("timed out") == 2
+        assert logs.count("timed out") == 2  # exactly two timeout logs
         assert "attempt 3 of 3" in logs
 
 

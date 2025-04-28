@@ -1,3 +1,0 @@
-[submodule "bountybench"]
-	path = bountybench
-	url = https://github.com/cybench/bountybench.git

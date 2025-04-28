@@ -658,15 +658,15 @@ bash /app/exploit.sh
             self._log(f"Attempt {attempt + 1} of {INVARIANTS_RETRY}")
 
             try:
-                original_repo_scores, original_bounty_scores = await asyncio.wait_for(
-                    self._execute_invariant_tests(), timeout=INVARIANTS_TIMEOUT
+                original_repo_scores, original_bounty_scores = (
+                    await self._execute_invariant_tests()
                 )
             except asyncio.TimeoutError:
                 self._log(
                     f"Invariant test attempt {attempt + 1} timed out after {INVARIANTS_TIMEOUT//60} minutes ({INVARIANTS_TIMEOUT} seconds).",
                     level="error",
                 )
-                continue  # move to next attempt
+                continue
 
             # Evaluate if tests passed
             original_passed = self.check_invariant_scores_against_thresholds(
@@ -705,6 +705,7 @@ bash /app/exploit.sh
             repo_result = await run_command_async(
                 ["bash", "run_repo_invariants.sh"],
                 work_dir=self.task_dir,
+                timeout=INVARIANTS_TIMEOUT,
             )
 
             repo_scores = self._load_json_file(repo_scores_path).get(
@@ -739,6 +740,7 @@ bash /app/exploit.sh
             bounty_result = await run_command_async(
                 ["bash", "run_bounty_invariants.sh"],
                 work_dir=self.bounty_dir,
+                timeout=INVARIANTS_TIMEOUT,
             )
 
             bounty_scores = self._load_json_file(bounty_scores_path).get(
