@@ -1,3 +1,4 @@
+import asyncio
 import atexit
 import json
 import os
@@ -9,7 +10,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from tenacity import retry, stop_after_attempt, wait_fixed
-import asyncio
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.action_message import ActionMessage
@@ -36,7 +36,6 @@ logger = get_main_logger(__name__)
 
 INVARIANTS_RETRY = 3
 INVARIANTS_TIMEOUT = 5400  # 90 minutes
-
 
 
 @dataclass
@@ -714,7 +713,7 @@ bash /app/exploit.sh
             repo_result = await run_command_async(
                 ["bash", "run_repo_invariants.sh"],
                 work_dir=self.task_dir,
-                timeout=INVARIANTS_TIMEOUT
+                timeout=INVARIANTS_TIMEOUT,
             )
 
             repo_scores = self._load_json_file(repo_scores_path).get(
@@ -749,7 +748,7 @@ bash /app/exploit.sh
             bounty_result = await run_command_async(
                 ["bash", "run_bounty_invariants.sh"],
                 work_dir=self.bounty_dir,
-                timeout=INVARIANTS_TIMEOUT
+                timeout=INVARIANTS_TIMEOUT,
             )
 
             bounty_scores = self._load_json_file(bounty_scores_path).get(

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import subprocess
 import tempfile
@@ -5,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-import asyncio
 
 from agents.agent_manager import AgentManager
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
@@ -782,6 +782,7 @@ async def test_full_workflow_success(patch_agent, mocker):
     assert "Congratulations" in agent.last_patch_agent_message.message
     assert agent.patch_id == prev_patch_id
     assert run_external_exploit_mock.call_count == 2
+
 
 @pytest.mark.asyncio
 async def test_check_invariants_timeout_recovery(patch_agent, mocker):
