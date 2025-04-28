@@ -295,6 +295,7 @@ class ExecutorAgent(BaseAgent):
         try:
             # Convert ActionMessage to CommandMessage
             command_message = cast_action_to_command(action_message)
+            logger.info(f"LM Command extracted:\n{command_message.command}")
             return command_message
 
         except Exception as e:
