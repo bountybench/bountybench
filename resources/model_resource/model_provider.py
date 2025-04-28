@@ -89,7 +89,7 @@ class ModelProvider(ABC):
         temperature: float,
         max_tokens: int,
         stop_sequences: List[str],
-        logging_interval: float = 5.0,
+        logging_interval: float = 10.0,
         timeout: float = 300.0,
     ) -> ModelResponse:
         """
@@ -125,7 +125,7 @@ class ModelProvider(ABC):
             if elapsed > timeout:
                 logger.warning(f"Timeout of {timeout}s reached. Cancelling request.")
                 raise TimeoutError(f"Model request timed out after {timeout} seconds")
-            logger.info(
+            logger.debug(
                 f"{elapsed:.1f}s has passed. Still waiting for LLM provider to respond..."
             )
             sleep(logging_interval)

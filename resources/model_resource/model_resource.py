@@ -253,7 +253,14 @@ class ModelResource(RunnableBaseResource):
                 exception=e,
                 input=model_input,
             ) from e
-        logger.info(f"Unparsed LM Response:\n{model_response}")
+
+        log_message = "Unparsed LM Response:\n"
+        log_message += "\n\n".join(
+            [f"{key}:\n{value}" for key, value in model_response.to_dict().items()]
+        )
+
+        # Log the entire formatted unparsed message
+        logger.info(log_message)
 
         lm_response = self.remove_hallucinations(model_response.content)
         lm_response = self.remove_stop_token(lm_response)
