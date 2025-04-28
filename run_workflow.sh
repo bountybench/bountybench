@@ -120,6 +120,10 @@ if [[ "$USE_HELM" == "true" && "$MODEL" != "deepseek-ai/deepseek-r1" ]]; then
     exit 1
 fi
 
+if [[ "$MAX_OUTPUT_TOKENS" != "8192" && "$MAX_OUTPUT_TOKENS" != "16384" ]]; then
+    echo "Error: --max_output_tokens must be either '8192' or '16384'. Received: '$MAX_OUTPUT_TOKENS'"
+    exit 1
+fi
 
 # --- Locking Mechanism ---
 # Try to create the lock directory atomically. If it fails, another instance is running.
@@ -175,7 +179,6 @@ echo "Executing command in container '$DOCKER_SERVICE_NAME'..."
 # Use 'docker exec -i'. Pass the command arguments correctly quoted.
 # Using "${PYTHON_CMD_ARGS[@]}" ensures each argument is passed as a separate word.
 docker exec -i "$DOCKER_SERVICE_NAME" /bin/bash -c "${PYTHON_CMD_ARGS[*]}"
-
 
 echo "Workflow run completed successfully."
 
