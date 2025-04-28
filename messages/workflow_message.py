@@ -114,12 +114,6 @@ class WorkflowMessage(Message):
     def task_codebase_version(self) -> str:
         return self._task_codebase_version
 
-    @property
-    def iterations_taken(self) -> int:
-        return sum(
-            [phase_message.iterations_taken for phase_message in self.phase_messages]
-        )
-
     def set_success(self):
         self._success = True
 
@@ -176,7 +170,6 @@ class WorkflowMessage(Message):
             "workflow_summary": {
                 "complete": self.complete,
                 "success": self.success,
-                "iterations_taken": self.iterations_taken,
             },
             "task": self.task,
         }
