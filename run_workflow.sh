@@ -13,7 +13,7 @@ set -o pipefail
 WORKFLOW=""
 TASK_DIR=""
 BOUNTY_NUM=""
-MODEL=""
+MODEL="" # Store the final model name (potentially adjusted for DeepSeek casing)
 # MAX_OUTPUT_TOKENS is now determined automatically
 USE_HELM="false" # Default to false
 
@@ -23,15 +23,14 @@ DOCKER_SERVICE_NAME="backend-service" # Name of the service in docker-compose.ym
 
 # --- Helper Functions ---
 usage() {
-  # Removed --max_output_tokens from usage
   echo "Usage: $0 --workflow <type> --task_dir <dir> --bounty_number <num> --model <model_name> [--use_helm <true|false>]"
   echo ""
   echo "Arguments:"
   echo "  --workflow          : Workflow type (e.g., patch_workflow, exploit_workflow, detect_workflow)"
   echo "  --task_dir          : Task directory relative to bountybench/ (e.g., mlflow, django)"
   echo "  --bounty_number     : Bounty number (integer)"
-  echo "  --model             : Model identifier (e.g., openai/gpt-4.1-2025-04-14, deepseek)"
-  echo "                      : (Note: 'deepseek' will be resolved to specific name based on --use_helm)"
+  echo "  --model             : Full model identifier (e.g., openai/gpt-4.1-2025-04-14, deepseek-ai/DeepSeek-R1)."
+  echo "                      : (Note: Casing for deepseek-ai/deepseek-r1 will be adjusted based on --use_helm)"
   echo "  --use_helm          : Set to 'true' to enable Helm, 'false' otherwise (default: false)"
   echo ""
   echo "Example:"
@@ -45,6 +44,8 @@ cleanup() {
   if [ -d "$LOCK_DIR" ]; then
       rmdir "$LOCK_DIR" || echo "Warning: Could not remove lock directory '$LOCK_DIR'. It might have been removed already or another process holds it."
   fi
+  # Ensure containers are stopped on exit/error
+  echo "Stopping Docker containers (cleanup)..."
   docker compose down
 }
 
@@ -92,7 +93,6 @@ done
 set -u
 
 # --- Input Validation ---
-# Check if required arguments were successfully parsed (excluding MAX_OUTPUT_TOKENS)
 if [ -z "$WORKFLOW" ] || [ -z "$TASK_DIR" ] || [ -z "$BOUNTY_NUM" ] || [ -z "$MODEL" ]; then
   echo "Error: Missing one or more required arguments."
   [ -z "$WORKFLOW" ] && echo "  --workflow is missing"
@@ -102,21 +102,20 @@ if [ -z "$WORKFLOW" ] || [ -z "$TASK_DIR" ] || [ -z "$BOUNTY_NUM" ] || [ -z "$MO
   usage # Exit using the usage function
 fi
 
-# --- Model Name and Token Logic ---
-ORIGINAL_MODEL_INPUT=$MODEL # Keep track of original input if needed
+# --- Model Name Adjustment and Token Logic ---
+MODEL_INPUT_LOWER=$(echo "$MODEL" | tr '[:upper:]' '[:lower:]')
 
-# Handle DeepSeek model name variations
-if [[ "$MODEL" == *"deepseek"* ]]; then # Check if 'deepseek' is part of the model name
+# Handle DeepSeek model name casing *only* if input matches exactly (case-insensitive)
+if [[ "$MODEL_INPUT_LOWER" == "deepseek-ai/deepseek-r1" ]]; then
     if [[ "$USE_HELM" == "true" ]]; then
-        MODEL="deepseek-ai/deepseek-r1"
-        echo "Info: Detected 'deepseek' model with --use_helm=true. Setting model to $MODEL"
+        MODEL="deepseek-ai/deepseek-r1" # Lowercase for Helm
+        echo "Info: Input matches 'deepseek-ai/deepseek-r1' and --use_helm=true. Using model name: $MODEL"
     else
-        MODEL="deepseek-ai/DeepSeek-R1"
-        echo "Info: Detected 'deepseek' model with --use_helm=false. Setting model to $MODEL"
+        MODEL="deepseek-ai/DeepSeek-R1" # non-Helm
+        echo "Info: Input matches 'deepseek-ai/deepseek-r1' and --use_helm=false. Using model name: $MODEL"
     fi
 fi
 
-# Determine MAX_OUTPUT_TOKENS based on the (potentially updated) MODEL
 case "$MODEL" in
     "anthropic/claude-3-7-sonnet-20250219" | "openai/gpt-4.1-2025-04-14")
         MAX_OUTPUT_TOKENS="8192"
@@ -125,7 +124,7 @@ case "$MODEL" in
         MAX_OUTPUT_TOKENS="16384"
         ;;
     *)
-        echo "Error: Unknown model '$MODEL'. Cannot determine max_output_tokens."
+        echo "Error: Unknown or unsupported model '$MODEL' provided. Cannot determine max_output_tokens."
         echo "Supported models for automatic token setting: anthropic/claude-3-7-sonnet-20250219, openai/gpt-4.1-2025-04-14, openai/o3-2025-04-16-high-reasoning-effort, google/gemini-2.5-pro-preview-03-25, deepseek-ai/DeepSeek-R1, deepseek-ai/deepseek-r1"
         exit 1
         ;;
@@ -133,7 +132,15 @@ esac
 echo "Info: Automatically set max_output_tokens to $MAX_OUTPUT_TOKENS for model $MODEL"
 
 
-# Changed from error to warning for o3 + helm
+# --- Specific Model/Helm Validations & Warnings ---
+
+# Check for Anthropic + Helm incompatibility
+if [[ "$MODEL" == "anthropic/"* && "$USE_HELM" == "true" ]]; then
+    echo "Error: Anthropic models (like '$MODEL') cannot be run with --use_helm=true."
+    exit 1
+fi
+
+# Warning for o3 + helm
 if [[ "$MODEL" == "openai/o3-2025-04-16-high-reasoning-effort" && "$USE_HELM" == "true" ]]; then
     echo "Warning: Running model '$MODEL' with --use_helm=true. Reasoning token usage will not be shown."
 fi
@@ -152,8 +159,8 @@ echo "Starting workflow run..."
 echo "  Workflow: $WORKFLOW"
 echo "  Task Dir: $TASK_DIR"
 echo "  Bounty #: $BOUNTY_NUM"
-echo "  Model:    $MODEL"
-echo "  Max Out:  $MAX_OUTPUT_TOKENS"
+echo "  Model:    $MODEL"        # Use the potentially adjusted model name
+echo "  Max Out:  $MAX_OUTPUT_TOKENS" # Use the determined token count
 echo "  Use Helm: $USE_HELM"
 
 # 1. Stop existing containers
@@ -173,7 +180,7 @@ PYTHON_CMD_ARGS=(
     --workflow-type "$WORKFLOW"
     --task_dir "bountybench/$TASK_DIR"
     --bounty_number "$BOUNTY_NUM"
-    --model "$MODEL" # Use the potentially updated model name
+    --model "$MODEL"
     --phase_iterations 100
     --max_input_tokens 8192
     --max_output_tokens "$MAX_OUTPUT_TOKENS" # Use the determined token count
