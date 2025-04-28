@@ -14,7 +14,7 @@ WORKFLOW=""
 TASK_DIR=""
 BOUNTY_NUM=""
 MODEL=""
-MAX_OUTPUT_TOKENS=""
+# MAX_OUTPUT_TOKENS is now determined automatically
 USE_HELM="false" # Default to false
 
 # --- Script Configuration ---
@@ -23,18 +23,19 @@ DOCKER_SERVICE_NAME="backend-service" # Name of the service in docker-compose.ym
 
 # --- Helper Functions ---
 usage() {
-  echo "Usage: $0 --workflow <type> --task_dir <dir> --bounty_number <num> --model <model_name> --max_output_tokens <tokens> [--use_helm <true|false>]"
+  # Removed --max_output_tokens from usage
+  echo "Usage: $0 --workflow <type> --task_dir <dir> --bounty_number <num> --model <model_name> [--use_helm <true|false>]"
   echo ""
   echo "Arguments:"
   echo "  --workflow          : Workflow type (e.g., patch_workflow, exploit_workflow, detect_workflow)"
   echo "  --task_dir          : Task directory relative to bountybench/ (e.g., mlflow, django)"
   echo "  --bounty_number     : Bounty number (integer)"
-  echo "  --model             : Model identifier (e.g., openai/gpt-4.1-2025-04-14)"
-  echo "  --max_output_tokens : Maximum output tokens (integer)"
+  echo "  --model             : Model identifier (e.g., openai/gpt-4.1-2025-04-14, deepseek)"
+  echo "                      : (Note: 'deepseek' will be resolved to specific name based on --use_helm)"
   echo "  --use_helm          : Set to 'true' to enable Helm, 'false' otherwise (default: false)"
   echo ""
   echo "Example:"
-  echo "  $0 --workflow patch_workflow --task_dir mlflow --bounty_number 0 --model openai/o3-2025-04-16-high-reasoning-effort --max_output_tokens 16384 --use_helm false"
+  echo "  $0 --workflow patch_workflow --task_dir mlflow --bounty_number 0 --model openai/o3-2025-04-16-high-reasoning-effort --use_helm false"
   exit 1
 }
 
@@ -53,43 +54,31 @@ while [[ $# -gt 0 ]]; do
     --workflow)
       if [[ -z "$2" || "$2" == --* ]]; then echo "Error: Argument for $1 is missing" >&2; usage; fi
       WORKFLOW="$2"
-      shift # past argument
-      shift # past value
+      shift 2
       ;;
     --task_dir)
       if [[ -z "$2" || "$2" == --* ]]; then echo "Error: Argument for $1 is missing" >&2; usage; fi
       TASK_DIR="$2"
-      shift # past argument
-      shift # past value
+      shift 2
       ;;
     --bounty_number)
       if [[ -z "$2" || "$2" == --* ]]; then echo "Error: Argument for $1 is missing" >&2; usage; fi
       BOUNTY_NUM="$2"
-      shift # past argument
-      shift # past value
+      shift 2
       ;;
     --model)
       if [[ -z "$2" || "$2" == --* ]]; then echo "Error: Argument for $1 is missing" >&2; usage; fi
       MODEL="$2"
-      shift # past argument
-      shift # past value
-      ;;
-    --max_output_tokens)
-      if [[ -z "$2" || "$2" == --* ]]; then echo "Error: Argument for $1 is missing" >&2; usage; fi
-      MAX_OUTPUT_TOKENS="$2"
-      shift # past argument
-      shift # past value
+      shift 2
       ;;
     --use_helm)
       if [[ -z "$2" || "$2" == --* ]]; then echo "Error: Argument for $1 is missing" >&2; usage; fi
       USE_HELM=$(echo "$2" | tr '[:upper:]' '[:lower:]')
-      # Validate the value immediately
       if [[ "$USE_HELM" != "true" && "$USE_HELM" != "false" ]]; then
           echo "Error: --use_helm must be 'true' or 'false', received '$2'."
           usage
       fi
-      shift # past argument
-      shift # past value
+      shift 2
       ;;
     *)    # unknown option
       echo "Error: Unknown option: $1"
@@ -102,38 +91,59 @@ done
 set -u
 
 # --- Input Validation ---
-# Check if required arguments were successfully parsed
-if [ -z "$WORKFLOW" ] || [ -z "$TASK_DIR" ] || [ -z "$BOUNTY_NUM" ] || [ -z "$MODEL" ] || [ -z "$MAX_OUTPUT_TOKENS" ]; then
+# Check if required arguments were successfully parsed (excluding MAX_OUTPUT_TOKENS)
+if [ -z "$WORKFLOW" ] || [ -z "$TASK_DIR" ] || [ -z "$BOUNTY_NUM" ] || [ -z "$MODEL" ]; then
   echo "Error: Missing one or more required arguments."
-  # Be more specific about which arguments are missing
   [ -z "$WORKFLOW" ] && echo "  --workflow is missing"
   [ -z "$TASK_DIR" ] && echo "  --task_dir is missing"
   [ -z "$BOUNTY_NUM" ] && echo "  --bounty_number is missing"
   [ -z "$MODEL" ] && echo "  --model is missing"
-  [ -z "$MAX_OUTPUT_TOKENS" ] && echo "  --max_output_tokens is missing"
   usage # Exit using the usage function
 fi
 
-# Model/Helm specific validation (ensure USE_HELM is checked after it's potentially set)
-if [[ "$USE_HELM" == "true" && "$MODEL" != "deepseek-ai/deepseek-r1" ]]; then
-    echo "Error: When --use_helm is true, --model must be 'deepseek-ai/deepseek-r1'."
-    exit 1
+# --- Model Name and Token Logic ---
+ORIGINAL_MODEL_INPUT=$MODEL # Keep track of original input if needed
+
+# Handle DeepSeek model name variations
+if [[ "$MODEL" == *"deepseek"* ]]; then # Check if 'deepseek' is part of the model name
+    if [[ "$USE_HELM" == "true" ]]; then
+        MODEL="deepseek-ai/deepseek-r1"
+        echo "Info: Detected 'deepseek' model with --use_helm=true. Setting model to $MODEL"
+    else
+        MODEL="deepseek-ai/DeepSeek-R1"
+        echo "Info: Detected 'deepseek' model with --use_helm=false. Setting model to $MODEL"
+    fi
 fi
 
-if [[ "$MAX_OUTPUT_TOKENS" != "8192" && "$MAX_OUTPUT_TOKENS" != "16384" ]]; then
-    echo "Error: --max_output_tokens must be either '8192' or '16384'. Received: '$MAX_OUTPUT_TOKENS'"
-    exit 1
+# Determine MAX_OUTPUT_TOKENS based on the (potentially updated) MODEL
+case "$MODEL" in
+    "anthropic/claude-3-7-sonnet-20250219" | "openai/gpt-4.1-2025-04-14")
+        MAX_OUTPUT_TOKENS="8192"
+        ;;
+    "openai/o3-2025-04-16-high-reasoning-effort" | "google/gemini-2.5-pro-preview-03-25" | "deepseek-ai/deepseek-r1" | "deepseek-ai/DeepSeek-R1")
+        MAX_OUTPUT_TOKENS="16384"
+        ;;
+    *)
+        echo "Error: Unknown model '$MODEL'. Cannot determine max_output_tokens."
+        echo "Supported models for automatic token setting: anthropic/claude-3-7-sonnet-20250219, openai/gpt-4.1-2025-04-14, openai/o3-2025-04-16-high-reasoning-effort, google/gemini-2.5-pro-preview-03-25, deepseek-ai/DeepSeek-R1, deepseek-ai/deepseek-r1"
+        exit 1
+        ;;
+esac
+echo "Info: Automatically set max_output_tokens to $MAX_OUTPUT_TOKENS for model $MODEL"
+
+
+# Changed from error to warning for o3 + helm
+if [[ "$MODEL" == "openai/o3-2025-04-16-high-reasoning-effort" && "$USE_HELM" == "true" ]]; then
+    echo "Warning: Running model '$MODEL' with --use_helm=true. Reasoning token usage will not be shown."
 fi
+
 
 # --- Locking Mechanism ---
-# Try to create the lock directory atomically. If it fails, another instance is running.
 if ! mkdir "$LOCK_DIR"; then
   echo "Error: Another instance of the script is already running (Lock directory '$LOCK_DIR' exists)."
-  # Attempt cleanup in case the lock dir was stale, but still exit
   cleanup
   exit 1
 fi
-# Ensure cleanup runs on script exit (normal or error)
 trap cleanup EXIT SIGINT SIGTERM
 
 # --- Main Execution ---
@@ -155,33 +165,28 @@ docker compose up -d
 
 # 3. Build the python command
 echo "Building Python execution command..."
-# Use an array for the command to handle spaces and quotes robustly
 PYTHON_CMD_ARGS=(
     python -m workflows.runner
     --workflow-type "$WORKFLOW"
     --task_dir "bountybench/$TASK_DIR"
     --bounty_number "$BOUNTY_NUM"
-    --model "$MODEL"
+    --model "$MODEL" # Use the potentially updated model name
     --phase_iterations 100
     --max_input_tokens 8192
-    --max_output_tokens "$MAX_OUTPUT_TOKENS"
+    --max_output_tokens "$MAX_OUTPUT_TOKENS" # Use the determined token count
     --logging_level DEBUG
 )
 
 # Conditionally add the --use_helm flag
 if [[ "$USE_HELM" == "true" ]]; then
-  PYTHON_CMD_ARGS+=(--use_helm) # Add flag as a separate element
+  PYTHON_CMD_ARGS+=(--use_helm)
   echo "  (Helm flag added)"
 fi
 
 # 4. Execute the command inside the container
 echo "Executing command in container '$DOCKER_SERVICE_NAME'..."
-# Use 'docker exec -i'. Pass the command arguments correctly quoted.
-# Using "${PYTHON_CMD_ARGS[@]}" ensures each argument is passed as a separate word.
 docker exec -i "$DOCKER_SERVICE_NAME" /bin/bash -c "${PYTHON_CMD_ARGS[*]}"
 
 echo "Workflow run completed successfully."
-
-# The 'trap cleanup EXIT' will automatically remove the lock directory now
 
 exit 0
