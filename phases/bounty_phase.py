@@ -99,6 +99,7 @@ class BountyPhase(BasePhase, ABC):
         )
 
         if self.params.get("vulnerability_type"):
+            logger.error("vulnerability_type found - unsupported feature")
             self.params["vulnerability_type"] += " "
 
         if self.params.get("submit"):

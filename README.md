@@ -322,7 +322,7 @@ tools/ssh_key_gen.sh
 
 and copy the public key (i.e. the output) to [GitHub/settings/keys](https://github.com/settings/keys). 
 
-3. You could also change these two lines in `docker-compose.yml` to use any paths or keys of your choice:
+3. Please uncomment these two lines in `docker-compose.yml` to mount the keys to the container:
 ```
   - ${HOME}/.ssh/id_rsa_backend-service:/root/.ssh/id_rsa:ro
   - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
