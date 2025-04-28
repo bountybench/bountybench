@@ -45,9 +45,10 @@ cleanup() {
   if [ -d "$LOCK_DIR" ]; then
       rmdir "$LOCK_DIR" || echo "Warning: Could not remove lock directory '$LOCK_DIR'. It might have been removed already or another process holds it."
   fi
+  docker compose down
 }
 
-# --- Argument Parsing (Revised) ---
+# --- Argument Parsing ---
 while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
@@ -161,6 +162,8 @@ docker compose down
 
 # 2. Start containers in detached mode
 echo "Starting Docker containers..."
+# docker volume create is idempotent
+docker volume create dind-data
 docker compose up -d
 
 # 3. Build the python command
