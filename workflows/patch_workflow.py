@@ -77,7 +77,6 @@ class PatchWorkflow(BountyWorkflow):
             "helm": self.params.get("use_helm"),
             "task_dir": self.task_dir,
             "bounty_number": self.bounty_number,
-            "vulnerability_type": self.params.get("vulnerability_type"),
             "use_agent_exploit": self.use_agent_exploit,
             "task_description": read_writeup(self.task_dir, self.bounty_number),
             "bounty_setup_hosts": "\n".join(
