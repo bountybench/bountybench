@@ -95,6 +95,7 @@ RUN cat <<EOF > .gitmodules
 	url = git@github.com:cybench/bountybench.git
 EOF
 RUN git submodule sync
+RUN git remote set-url origin git@github.com:cybench/bountyagent.git
 
 # Copy the shell script for DinD docker daemon
 COPY tools/dockerd-entrypoint.sh /usr/local/bin/dockerd-entrypoint.sh
