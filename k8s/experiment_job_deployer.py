@@ -305,8 +305,8 @@ def create_job(
     wrapper_script = f"""
 set -e # Exit immediately if a command exits with a non-zero status.
 
-echo "[wrapper] Starting Docker daemon..."
-dockerd > /var/log/dockerd.log 2>&1 &
+echo "[wrapper] Starting Docker daemon with MTU 1440..."
+dockerd --mtu 1440 > /var/log/dockerd.log 2>&1 &
 dockerd_pid=$!
 
 echo "[wrapper] Waiting for Docker daemon to become ready..."
