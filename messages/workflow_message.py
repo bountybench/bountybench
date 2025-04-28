@@ -164,7 +164,6 @@ class WorkflowMessage(Message):
             "workflow_summary": {
                 "complete": self.complete,
                 "success": self.success,
-                "iterations_taken": self.iterations_taken,
             },
             "task": self.task,
         }
