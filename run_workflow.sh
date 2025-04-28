@@ -120,11 +120,6 @@ if [[ "$USE_HELM" == "true" && "$MODEL" != "deepseek-ai/deepseek-r1" ]]; then
     exit 1
 fi
 
-if [[ "$MODEL" == "openai/o3-2025-04-16-high-reasoning-effort" && "$USE_HELM" == "true" ]]; then
-    echo "Error: Model 'openai/o3-2025-04-16-high-reasoning-effort' must be run with --use_helm false."
-    exit 1
-fi
-
 
 # --- Locking Mechanism ---
 # Try to create the lock directory atomically. If it fails, another instance is running.
