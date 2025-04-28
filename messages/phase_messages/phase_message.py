@@ -109,10 +109,6 @@ class PhaseMessage(Message):
 
         return current_agents
 
-    @property
-    def iterations_taken(self) -> int:
-        return len(self.agent_messages) if self.agent_messages else 0
-
     def set_success(self):
         self._success = True
 
