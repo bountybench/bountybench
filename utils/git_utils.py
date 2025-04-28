@@ -603,9 +603,10 @@ def git_get_current_commit(directory_path: PathLike) -> Optional[str]:
         return None
 
 
-def git_get_codebase_version() -> Optional[str]:
+def git_get_codebase_version(directory: Optional[Path] = None) -> Optional[str]:
     """Get the current git commit short hash as a version identifier."""
-    directory = Path.cwd()
+    if not directory:
+        directory = Path.cwd()
 
     # Validate git repository
     if not (directory / ".git").exists():
