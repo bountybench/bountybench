@@ -255,9 +255,11 @@ class ModelResource(RunnableBaseResource):
             ) from e
 
         log_message = "Unparsed LM Response:\n"
-        log_message += "\n\n".join([f"{key}:\n{value}" for key, value in model_response.to_dict().items()])
+        log_message += "\n\n".join(
+            [f"{key}:\n{value}" for key, value in model_response.to_dict().items()]
+        )
 
-        # Log the entire formatted unparsed message 
+        # Log the entire formatted unparsed message
         logger.info(log_message)
 
         lm_response = self.remove_hallucinations(model_response.content)
