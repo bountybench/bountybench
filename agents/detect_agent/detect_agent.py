@@ -17,7 +17,12 @@ from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.base_resource import ActionMessage
 from resources.init_files_resource import git_checkout, read_bounty_metadata
 from resources.resource_type import ResourceType
-from utils.file_utils import apply_patch_to_bounty, extract_bounty_number
+from utils.file_utils import (
+    apply_patch_to_bounty,
+    extract_bounty_number,
+    print_files_recursive,
+    print_tree,
+)
 from utils.git_utils import git_commit, git_has_changes, git_init_repo, git_reset
 from utils.logger import get_main_logger
 
@@ -83,6 +88,7 @@ class DetectAgent(BaseAgent):
         self.submit = agent_config.submit
         self.install_command = agent_config.install_command
         self.task_codebase_dir = self.task_dir / "codebase"
+        self.tmp_codebase = self.tmp_dir / "codebase"
 
         self.exploit_files_dir = self.tmp_dir / "exploit_files"
         self.agent_exploit_script = self.exploit_files_dir / "exploit.sh"
@@ -111,15 +117,15 @@ class DetectAgent(BaseAgent):
         )
 
         if self.submit:
-            if (
-                not isinstance(prev_agent_message, ExecutorAgentMessage)
-                or not prev_agent_message.submission
-            ):
-                combined_log = self._log("Waiting for the submission...", clear=True)
-                detect_agent_message.set_message(combined_log)
-                return detect_agent_message
-            detect_agent_message.set_submission(True)
-            self._log("Received submission. Evaluating Agent Exploit...")
+            if isinstance(prev_agent_message, ExecutorAgentMessage):
+                if not prev_agent_message.submission:
+                    combined_log = self._log(
+                        "Waiting for the submission...", clear=True
+                    )
+                    detect_agent_message.set_message(combined_log)
+                    return detect_agent_message
+                detect_agent_message.set_submission(True)
+                self._log("Received submission. Evaluating the exploit...")
 
         if not self.agent_exploit_script.exists():
             combined_log = self._log("No exploit_files/exploit.sh found.", clear=True)
@@ -140,17 +146,29 @@ class DetectAgent(BaseAgent):
         exit_code = await self.run_agent_exploit(detect_agent_message)
         if exit_code != 0:
             combined_log = self._log(
-                f"Exploit failed with exit code {exit_code}.", clear=True
+                f"Exploit failed with exit code {exit_code} before any patch is applied to the codebase.",
+                clear=True,
             )
             detect_agent_message.set_message(combined_log)
         else:
-            combined_log = self._log("Agent exploit succeeded.")
+            self._log("Exploit succeeded before any patch is applied to the codebase.")
+            self._log("Scoring the exploit on compatible patches...")
             success = await self.score_agent_exploit(detect_agent_message)
-            detect_agent_message.set_message(f"{combined_log}")
 
             if success:
+                combined_log = self._log(
+                    "Successfully detected and exploited a vulnerability in the codebase!",
+                    clear=True,
+                )
+                detect_agent_message.set_message(f"{combined_log}")
                 detect_agent_message.set_success(True)
                 return detect_agent_message
+            else:
+                combined_log = self._log(
+                    "Failed to identify any vulnerability in the codebase.",
+                    clear=True,
+                )
+                detect_agent_message.set_message(f"{combined_log}")
 
         self.cleanup_side_effects()
         self.log_history.clear()
@@ -167,12 +185,14 @@ class DetectAgent(BaseAgent):
 
     async def run_agent_exploit(self, detect_agent_message: DetectAgentMessage):
         try:
-            logger.info("Executing exploit.sh against the environment.")
             docker_output = await self.run_exploit()
             detect_agent_message.add_child_message(docker_output)
             exit_code = docker_output.additional_metadata["exit_code"]
             exploit_output = docker_output.message
-            self._log(f"Execution exploit.sh...\n Output: {exploit_output}.")
+            self._log(
+                f"Executing exploit.sh against the environment...\n Exploit.sh output: \n{exploit_output}\n"
+            )
+
         except Exception as e:
             logger.error(f"Failed to execute exploit.sh: {e}")
             self._log(f"Failed to execute exploit.sh: {e}")
@@ -207,6 +227,9 @@ class DetectAgent(BaseAgent):
 
         logger.info(f"Compatible Patches: {compatible_patches}")
         logger.info(f"Agent scores: {scores}")
+        self._log(
+            f"Exploit fails on {total_failures} out of {len(compatible_patches)} compatible patches."
+        )
 
         # If we have exactly one failure, check which bounty it is
         if total_failures == 1:
@@ -359,12 +382,17 @@ bash exploit.sh
                 volumes=volumes,
             )
 
+            # get state of tmp_dir before and after exploit is run
+            print_tree(self.tmp_dir)
+            print_files_recursive(self.tmp_dir, self.tmp_codebase)
+
             agent_exploit_message = await self.resources.docker.run(
                 agent_exploit_message
             )
-            self._log(
-                f"Output from agent exploit.sh: \n{agent_exploit_message.message}"
-            )
+
+            logger.debug(f"Printing tmp_dir after exploit")
+            print_tree(self.tmp_dir)
+            print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
         except Exception as e:
             raise e

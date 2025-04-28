@@ -19,6 +19,7 @@ from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import read_repo_metadata, run_command_async
+from utils.file_utils import print_files_recursive, print_tree
 from utils.git_utils import (
     git_add,
     git_apply_patch,
@@ -128,15 +129,13 @@ class PatchAgent(BaseAgent):
         self.output_patch_dir = self.resources.init_files.output_agent_files_dir
 
         if self.submit:
-            if (
-                not isinstance(prev_agent_message, ExecutorAgentMessage)
-                or not prev_agent_message.submission
-            ):
-                self._log("Waiting for submission...")
-                return self.update_patch_agent_message(clear=True)
-            else:
-                self._log("Submission received.")
-                self.last_patch_agent_message.set_submission(True)
+            if isinstance(prev_agent_message, ExecutorAgentMessage):
+                if not prev_agent_message.submission:
+                    self._log("Waiting for submission...")
+                    return self.update_patch_agent_message(clear=True)
+                else:
+                    self._log("Submission received.")
+                    self.last_patch_agent_message.set_submission(True)
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.tmp_codebase)
@@ -200,10 +199,7 @@ class PatchAgent(BaseAgent):
         # sanitize invariant test paths
         try:
             self.restore_invariant_test_paths()
-            self._log(
-                "Successfully restored all invariant test paths. "
-                "Associated test files have been sanitized for check invariants."
-            )
+            self._log("Successfully restored/sanitized all hidden tests in codebase.")
         except Exception as e:
             logger.error(
                 "Failed to restore invariant test paths — this indicates an infrastructure issue. "
@@ -475,9 +471,16 @@ bash /app/exploit.sh
                 volumes=volumes,
                 prev=self.last_action_message,
             )
+            # get state of tmp_dir before and after exploit is run
+            print_tree(self.tmp_dir)
+            print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
             exploit_execution = await self.resources.docker.run(exploit_execution)
             self.update_patch_agent_message(exploit_execution)
+
+            logger.debug(f"Printing tmp_dir after exploit")
+            print_tree(self.tmp_dir)
+            print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
             # Run the verify script
             logger.info("Running verify.sh")
@@ -850,8 +853,6 @@ bash /app/exploit.sh
 
     def restore_invariant_test_paths(self) -> None:
         """Restore invariant test paths specified in repo and bounty metadata."""
-        logger.info("Checking for invariant test paths to restore...")
-
         repo_meta = read_repo_metadata(self.task_dir)
         paths_to_restore = repo_meta.get("invariant_test_paths", [])
 

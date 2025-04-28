@@ -247,10 +247,19 @@ class BasePhase(ABC):
             await self._run_iteration()
 
             if self._phase_message.complete:
+                self._phase_message.set_submit()
                 break
 
             self.iteration_count += 1
-
+        if not self._phase_message.complete:
+            await self._run_iteration(check=True)
+            summary = "no_submission"
+            if self._last_agent_message.success:
+                self._phase_message.set_success()
+                summary += "/success"
+            else:
+                summary += "/failure"
+            self._phase_message.set_summary(summary)
         self._finalize_phase()
 
         log_message(self._phase_message)
@@ -284,10 +293,10 @@ class BasePhase(ABC):
                     "Interactive mode is set, but workflow doesn't have next_iteration_queue"
                 )
 
-    async def _run_iteration(self) -> None:
+    async def _run_iteration(self, check: bool = False) -> None:
         """Run a single iteration based on last message."""
         iteration = self.get_current_iteration()
-        agent_id, agent_instance = self._get_current_agent()
+        agent_id, agent_instance = self._get_current_agent(get_prev=check)
         logger.info(f"Running iteration {iteration} of {self.name} with {agent_id}")
 
         start_time = time.time()
@@ -374,14 +383,20 @@ class BasePhase(ABC):
         agent = self.agents[iteration % len(self.agents)]
         return agent
 
-    def _get_current_agent(self) -> Tuple[str, BaseAgent]:
+    def _get_current_agent(self, get_prev: bool = False) -> Tuple[str, BaseAgent]:
         """
-        Retrieve the next agent in a round-robin fashion.
+        Retrieve the agent in a round-robin fashion.
+
+        Args:
+            get_prev (bool): Whether to get the previous agent instead of the next one.
 
         Returns:
             Tuple[str, BaseAgent]: A tuple containing the agent ID and the agent instance.
         """
         iteration = self.get_current_iteration()
+        if get_prev:
+            iteration -= 1
+            iteration = max(0, iteration)
         agent = self.agents[iteration % len(self.agents)]
         return agent
 

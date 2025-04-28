@@ -23,6 +23,7 @@ class PhaseMessage(Message):
         self._max_iterations = max_iterations
         self._phase_idx = phase_idx
         self._success = False
+        self._submit = False
         self._complete = False
         self._summary = "incomplete"
         self._agent_messages = []
@@ -37,7 +38,7 @@ class PhaseMessage(Message):
 
     def _set_parent_from_context(self):
         workflow_id = current_workflow_id.get()
-        parent_id = workflow_id # note phase_message parent will be workflow_message
+        parent_id = workflow_id  # note phase_message parent will be workflow_message
 
         if parent_id and workflow_id in message_dict:
             parent_message = message_dict[workflow_id][parent_id]
@@ -64,6 +65,10 @@ class PhaseMessage(Message):
     @property
     def success(self) -> bool:
         return self._success
+
+    @property
+    def submit(self) -> bool:
+        return self._submit
 
     @property
     def complete(self) -> bool:
@@ -104,8 +109,15 @@ class PhaseMessage(Message):
 
         return current_agents
 
+    @property
+    def iterations_taken(self) -> int:
+        return len(self.agent_messages) if self.agent_messages else 0
+
     def set_success(self):
         self._success = True
+
+    def set_submit(self):
+        self._submit = True
 
     def set_complete(self):
         self._complete = True
@@ -179,7 +191,9 @@ class PhaseMessage(Message):
             "phase_summary": self.summary,
             "phase_usage": usage,
             "success": self.success,
+            "submit": self.submit,
             "max_iterations": self.max_iterations,
+            "iterations_taken": self.iterations_taken,
             "agent_messages": (
                 [agent_message.to_log_dict() for agent_message in self.agent_messages]
                 if self.agent_messages
