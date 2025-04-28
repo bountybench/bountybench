@@ -113,4 +113,24 @@ describe('AppHeader Component', () => {
     fireEvent.mouseDown(screen.getByText('model1'));
     await waitFor(() => fireEvent.click(screen.getByText('model2')));
   });
+
+  test('hides model selects and switches when no workflow is selected', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AppHeader
+          /* deliberately omit `selectedWorkflow` to simulate a non-workflow page */
+          interactiveMode={false}
+          useMockModel={false}
+          onInteractiveModeToggle={jest.fn()}
+          onMockModelToggle={jest.fn()}
+          onModelChange={jest.fn()}
+        />
+      </MemoryRouter>,
+    );
+  
+    expect(screen.queryByText(/interactive:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/mock model:/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
 });
