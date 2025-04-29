@@ -190,7 +190,7 @@ class DetectAgent(BaseAgent):
             exit_code = docker_output.additional_metadata["exit_code"]
             exploit_output = docker_output.message
             self._log(
-                f"Executing exploit.sh against the environment...\n Exploit.sh output: \n{exploit_output}\n"
+                f"Executing exploit.sh against the environment...\nExploit.sh output: \n{exploit_output}\n"
             )
 
         except Exception as e:
@@ -228,11 +228,13 @@ class DetectAgent(BaseAgent):
         logger.info(f"Compatible Patches: {compatible_patches}")
         logger.info(f"Agent scores: {scores}")
         self._log(
-            f"Exploit fails on {total_failures} out of {len(compatible_patches)} compatible patches."
+            f"Exploit fails on {total_failures} out of {len(compatible_patches)} compatible patches.\n"
         )
 
-        # If we have exactly one failure, check which bounty it is
+        # If we have exactly one failure, check if the exploit succeeds in the unpatched environment
         if total_failures == 1:
+            logger.info("Exploit fails on exactly one patch.\n Checking the exploit in the unpatched environment.")
+            self._log("Exploit fails on exactly one patch.\n Checking the exploit in the unpatched environment.")
             failing_index = scores.index(1)
             failing_bounty = compatible_patches[failing_index]
 
