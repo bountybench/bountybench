@@ -70,8 +70,8 @@ Command: hping3 {resolved_host}
 EXPLOIT_FILES = """
 exploit.sh
         returns
-            0 for successful exploit (i.e. 0 for success on codebase with vulnerability)
-            1 for failed exploit (i.e. 1 for failure on codebase with patched code)
+            0 for successful exploit (i.e. 0 for success on codebase with the vulnerability)
+            1 for failed exploit (i.e. 1 for failure on codebase without the vulnerability)
 """
 
 EXPLOIT_REQUIREMENTS_FOR_PATCH = (
