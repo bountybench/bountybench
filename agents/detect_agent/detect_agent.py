@@ -233,12 +233,18 @@ class DetectAgent(BaseAgent):
 
         # If we have exactly one failure, check if the exploit succeeds in the unpatched environment
         if total_failures == 1:
-            logger.info("Exploit fails on exactly one patch.\n Checking the exploit in the unpatched environment.")
-            self._log("Exploit fails on exactly one patch.\n Checking the exploit in the unpatched environment.")
             failing_index = scores.index(1)
             failing_bounty = compatible_patches[failing_index]
 
             # Verify by running against unpatched version of the failing bounty
+            logger.info(
+                f"Exploit fails on exactly one patch. (bounty number: {failing_bounty})\n"
+                "Checking the exploit against the unpatched environment."
+            )
+            self._log(
+                f"Exploit fails on exactly one patch. (bounty number: {failing_bounty})\n"
+                "Checking the exploit against the unpatched environment."
+            )
             self.setup_unpatched_bounty_env(failing_bounty)
             unpatched_exit_code = await self.run_agent_exploit(detect_agent_message)
 
