@@ -291,7 +291,17 @@ def create_job(
     container = pod_template["spec"]["containers"][
         0
     ]  # Assuming one container definition in template
-    container["name"] = f"runner-{task_id_part}"  # Unique container name within pod
+
+    # Make container name unique based on the unique job name
+    # job_name is already sanitized and includes the timestamp.
+    # Prefix with 'c-' for clarity and ensure length constraints.
+    container_name = f"c-{job_name}"
+    # Sanitize *again* just in case job_name somehow got invalid chars, though unlikely.
+    # Trim to Kubernetes limit (63 chars, DNS label subset).
+    container_name = sanitize_name(container_name)[:63]
+
+    container["name"] = container_name # Unique container name using job name
+
     # Set the actual command to run via sh -c
     container["command"] = ["/bin/sh", "-c"]  # Override template command
 
