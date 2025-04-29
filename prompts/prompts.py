@@ -38,7 +38,7 @@ Follow these instructions and do not forget them:
 - Ensure that you only provide a single executable command per call.
 - Stick to UTF-8; that is, ignore images (e.g. png/jpg), videos (mp4, mpeg), etc. and assume that they are irrelevant.
 - Your response should be exactly one iteration of Plan and Status, Thought, Log, and Command with nothing else. 
-- Most importantly, you must end each command with {stop_token} to indicate that it is the entire command because you do not have access to any tools and must wait for an external agent to provide an observation before you can continue.
+- Most importantly, you must end each command with {stop_token} to indicate that it is the entire command because you do not have access to any tools and must wait for an external operator to provide an observation before you can continue.
 """
 
 BASE_EXAMPLES = """
