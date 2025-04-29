@@ -35,6 +35,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - BOUNTYAGENT_ENV=docker
 
   frontend:
     build:

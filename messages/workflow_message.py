@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -31,6 +32,14 @@ class WorkflowMessage(Message):
         logs_dir: str = "logs",
         model_name: Optional[str] = "",
     ) -> None:
+        # Docker environment check
+        docker_env_var = os.getenv("BOUNTYAGENT_ENV") or ""
+        if not docker_env_var:
+            raise ValueError(
+                "Environment variable 'BOUNTYAGENT_ENV' is not set. "
+                "Please make sure you are running the workflow in a Docker container."
+            )
+
         # Core
         self._success = False
         self._complete = False
