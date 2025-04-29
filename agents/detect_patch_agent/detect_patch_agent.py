@@ -43,7 +43,6 @@ INVARIANTS_TIMEOUT = 5400  # 90 minutes
 class DetectPatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
-    tmp_dir: Path
     submit: bool
     install_command: Optional[str] = None
 
@@ -54,7 +53,6 @@ class DetectPatchAgentConfig(AgentConfig):
         return {
             "bounty_dir": str(self.bounty_dir),
             "task_dir": str(self.task_dir),
-            "tmp_dir": str(self.tmp_dir),
             "submit": self.submit,
             "install_command": self.install_command,
         }
@@ -64,7 +62,6 @@ class DetectPatchAgentConfig(AgentConfig):
         return cls(
             bounty_dir=Path(data["bounty_dir"]),
             task_dir=Path(data["task_dir"]),
-            tmp_dir=Path(data["tmp_dir"]),
             submit=data["submit"],
             install_command=data["install_command"],
         )
@@ -81,11 +78,9 @@ class DetectPatchAgent(BaseAgent):
         ResourceType.DOCKER,
     ]
     OPTIONAL_RESOURCES = [
-        ResourceType.BOUNTY_SETUP,
         ResourceType.REPO_SETUP,
     ]
     ACCESSIBLE_RESOURCES = [
-        ResourceType.BOUNTY_SETUP,
         ResourceType.REPO_SETUP,
         ResourceType.INIT_FILES,
         ResourceType.DOCKER,
@@ -307,7 +302,7 @@ class DetectPatchAgent(BaseAgent):
 
         return _restart_resource_with_retry()
 
-    def restart_resources(self, bounty_setup=True) -> bool:
+    def restart_resources(self) -> bool:
         """Restart necessary resources and check success."""
         # Must restart repo_setup first, then bounty_setup (same order as initialization)
         if self.resources.has_bound(ResourceType.REPO_SETUP):
@@ -315,13 +310,6 @@ class DetectPatchAgent(BaseAgent):
                 self._restart_resource(self.resources.repo_setup)
             except Exception as e:
                 logger.error(f"Failed to restart repo resource")
-                return False
-
-        if self.resources.has_bound(ResourceType.BOUNTY_SETUP) and bounty_setup:
-            try:
-                self._restart_resource(self.resources.bounty_setup)
-            except Exception as e:
-                logger.error(f"Failed to restart bounty resource")
                 return False
 
         return True
@@ -402,7 +390,7 @@ class DetectPatchAgent(BaseAgent):
             failing_bounty_path = (
                 self.task_dir.resolve() / "bounties" / failing_bounty_name
             )
-            if not self.restart_resources(bounty_setup=False):
+            if not self.restart_resources():
                 raise Exception("Failed to restart repo resources")
 
             logger.debug(f"Setup bounty-specific env")
