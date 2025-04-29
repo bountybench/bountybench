@@ -1,5 +1,6 @@
 import os
 import shutil
+import stat
 import subprocess
 from pathlib import Path
 
@@ -38,6 +39,12 @@ def setup_dirs():
     # Create test files
     (original_files_dir / "test_file.txt").write_text("This is a test.")
     verify_file_path.write_text("#!/bin/bash\necho 'verify script'\nexit 0")
+
+    source_mode = verify_file_path.stat().st_mode
+    assert not (
+        source_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    ), "Sanity check: source verify.sh should start non-executable"
+
     (verify_files_dir / "helper.sh").write_text(
         "#!/bin/bash\necho 'helper script'\nexit 0"
     )
@@ -473,6 +480,11 @@ def test_verify_files_copy(resource, setup_dirs):
     assert (
         "verify script" in verify_file_path.read_text()
     ), "verify.sh content is incorrect"
+
+    mode = verify_file_path.stat().st_mode
+    assert mode & stat.S_IXUSR, "owner execute bit not set on verify.sh"
+    assert mode & stat.S_IXGRP, "group execute bit not set on verify.sh"
+    assert mode & stat.S_IXOTH, "other execute bit not set on verify.sh"
 
     # Check that helper.sh was copied
     helper_file_path = tmp_dir / "verify_files" / "helper.sh"
