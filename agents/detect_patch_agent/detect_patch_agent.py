@@ -78,9 +78,11 @@ class DetectPatchAgent(BaseAgent):
         ResourceType.DOCKER,
     ]
     OPTIONAL_RESOURCES = [
+        ResourceType.BOUNTY_SETUP,
         ResourceType.REPO_SETUP,
     ]
     ACCESSIBLE_RESOURCES = [
+        ResourceType.BOUNTY_SETUP,
         ResourceType.REPO_SETUP,
         ResourceType.INIT_FILES,
         ResourceType.DOCKER,
@@ -176,7 +178,7 @@ class DetectPatchAgent(BaseAgent):
         # Exploit / verify have side effects - restart resources
         # no codebase changes yet, so failures are infra problems
         if not self.restart_resources():
-            raise Exception("Failed to restart resources")
+            raise Exception("Failed to restart resources for invariant tests")
         # Apply the patch
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
@@ -243,7 +245,8 @@ class DetectPatchAgent(BaseAgent):
         """Verify patch effectiveness."""
 
         # Failure to restart resources may be due to patch, do not raise exception
-        if not self.restart_resources():
+        # Setup with bounty setup too for invariant tests
+        if not self.restart_resources(bounty_setup=True):
             self._log(
                 "Could not restart associated resources after applying the patch. Patch is invalid."
             )
@@ -302,7 +305,7 @@ class DetectPatchAgent(BaseAgent):
 
         return _restart_resource_with_retry()
 
-    def restart_resources(self) -> bool:
+    def restart_resources(self, bounty_setup=False) -> bool:
         """Restart necessary resources and check success."""
         # Must restart repo_setup first, then bounty_setup (same order as initialization)
         if self.resources.has_bound(ResourceType.REPO_SETUP):
@@ -310,6 +313,13 @@ class DetectPatchAgent(BaseAgent):
                 self._restart_resource(self.resources.repo_setup)
             except Exception as e:
                 logger.error(f"Failed to restart repo resource")
+                return False
+
+        if self.resources.has_bound(ResourceType.BOUNTY_SETUP) and bounty_setup:
+            try:
+                self._restart_resource(self.resources.bounty_setup)
+            except Exception as e:
+                logger.error(f"Failed to restart bounty resource")
                 return False
 
         return True
@@ -344,7 +354,7 @@ class DetectPatchAgent(BaseAgent):
 
                 # Restarts just the repo setup
                 logger.debug(f"Restarting repo env...")
-                if not self.restart_resources(bounty_setup=False):
+                if not self.restart_resources():
                     raise Exception("Failed to restart repo resources")
 
                 # Setup bounty setup at the given bounty number
