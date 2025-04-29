@@ -2,6 +2,7 @@ import atexit
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -128,6 +129,20 @@ class InitFilesResource(BaseResource):
                 logger.debug(
                     f"Copied verify files directory from {self.input_verify_files_dir} to {self.tmp_dir}"
                 )
+
+                tmp_verify = (
+                    self.tmp_dir / self._resource_config.input_verify_files_dir_name
+                )
+                verify_script = tmp_verify / "verify.sh"
+                if verify_script.exists():
+                    # give the owner execute permission
+                    current_mode = verify_script.stat().st_mode
+                    # owner, group, and other execute bits:
+                    exec_bits = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+                    verify_script.chmod(current_mode | exec_bits)
+                    logger.debug(f"Set execute bit on {verify_script}")
+                else:
+                    logger.warning(f"verify.sh not found at {verify_script}")
             else:
                 logger.warning(
                     f"Verify files directory not found at {self.input_verify_files_dir}"
