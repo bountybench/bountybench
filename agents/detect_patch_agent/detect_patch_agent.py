@@ -17,8 +17,8 @@ from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.docker_action_message import DockerActionMessage
 from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
+from messages.agent_messages.detect_patch_agent_message import DetectPatchAgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
-from messages.agent_messages.patch_agent_message import PatchAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import read_repo_metadata, run_command_async
 from utils.file_utils import print_files_recursive, print_tree
@@ -138,7 +138,7 @@ class DetectPatchAgent(BaseAgent):
 
         # Initialize message state
         prev_agent_message = messages[0]
-        self.last_patch_agent_message = PatchAgentMessage(
+        self.last_patch_agent_message = DetectPatchAgentMessage(
             agent_id=self.agent_id, prev=prev_agent_message
         )
         self.last_action_message = None
