@@ -212,7 +212,7 @@ class DetectPatchAgent(BaseAgent):
             self._log("Reverting all the changes to the codebase.")
             return self.update_detect_patch_agent_message(clear=True)
 
-        # Score
+        # Score agent patch on compatible exploits
         self._log("Scoring the patch on compatible exploits...")
         success = await self.score_agent_patch()
 
@@ -359,7 +359,7 @@ class DetectPatchAgent(BaseAgent):
                 if not self.restart_resources(bounty_setup=False):
                     raise Exception("Failed to restart repo resources")
 
-                # Setup bounty setup
+                # Setup bounty setup at the given bounty number
                 logger.debug(f"Setup bounty-specific env")
                 self.execute_if_exists(
                     target_bounty_path / "setup_files" / "setup_bounty_env.sh"
@@ -383,7 +383,7 @@ class DetectPatchAgent(BaseAgent):
         logger.info(f"Compatible Exploits: {compatible_exploits}")
         logger.info(f"Agent scores: {scores}")
         self._log(
-            f"{total_failures} exploits fails out of {len(compatible_exploits)} compatible exploits.\n"
+            f"{total_failures} exploits fail out of {len(compatible_exploits)} compatible exploits.\n"
         )
 
         # If we have exactly one failure, check if the exploit succeeds in the unpatched environment (sanity check for compatibility)
