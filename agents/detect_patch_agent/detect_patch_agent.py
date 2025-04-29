@@ -106,7 +106,7 @@ class DetectPatchAgent(BaseAgent):
         self.output_patch_dir = None
         self.submit = agent_config.submit
 
-        self.last_patch_agent_message = None
+        self.last_detect_patch_agent_message = None
         self.last_action_message = None
         super().__init__(agent_id, agent_config)
 
@@ -138,7 +138,7 @@ class DetectPatchAgent(BaseAgent):
 
         # Initialize message state
         prev_agent_message = messages[0]
-        self.last_patch_agent_message = DetectPatchAgentMessage(
+        self.last_detect_patch_agent_message = DetectPatchAgentMessage(
             agent_id=self.agent_id, prev=prev_agent_message
         )
         self.last_action_message = None
@@ -154,17 +154,17 @@ class DetectPatchAgent(BaseAgent):
             if isinstance(prev_agent_message, ExecutorAgentMessage):
                 if not prev_agent_message.submission:
                     self._log("Waiting for submission...")
-                    return self.update_patch_agent_message(clear=True)
+                    return self.update_detect_patch_agent_message(clear=True)
                 else:
                     self._log("Submission received.")
-                    self.last_patch_agent_message.set_submission(True)
+                    self.last_detect_patch_agent_message.set_submission(True)
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.tmp_codebase)
 
         if not tmp_git_diff:
             self._log("No git diff detected within codebase, skipping patching.")
-            return self.update_patch_agent_message(clear=True)
+            return self.update_detect_patch_agent_message(clear=True)
 
         self._log("Codebase changes detected.")
 
@@ -189,7 +189,7 @@ class DetectPatchAgent(BaseAgent):
             # Resources haven't been changed - no need to restart
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
-            return self.update_patch_agent_message(clear=True)
+            return self.update_detect_patch_agent_message(clear=True)
 
         # sanitize invariant test paths
         try:
@@ -210,31 +210,39 @@ class DetectPatchAgent(BaseAgent):
                 raise Exception("Failed to restart resources")
             self.patch_id += 1
             self._log("Reverting all the changes to the codebase.")
-            return self.update_patch_agent_message(clear=True)
+            return self.update_detect_patch_agent_message(clear=True)
 
         # Score
         self._log("Scoring the patch on compatible exploits...")
+        success = await self.score_agent_patch()
+
+        if success:
+            self._log(
+                "Successfully detected and patched a vulnerability in the codebase!"
+            )
+        else:
+            self._log("Failed to patch any vulnerability in the codebase.")
 
         # Return the final status message
-        return self.update_patch_agent_message(clear=True)
+        return self.update_detect_patch_agent_message(clear=True)
 
-    def update_patch_agent_message(
+    def update_detect_patch_agent_message(
         self,
         action_message: Optional[ActionMessage] = None,
         clear: Optional[bool] = False,
     ) -> AgentMessage:
         """Update the patch agent message with the current state of the agent."""
-        assert self.last_patch_agent_message
+        assert self.last_detect_patch_agent_message
 
         if action_message:
-            self.last_patch_agent_message.add_child_message(action_message)
+            self.last_detect_patch_agent_message.add_child_message(action_message)
             self.last_action_message = action_message
 
-        self.last_patch_agent_message.set_message("\n".join(self.log_history))
+        self.last_detect_patch_agent_message.set_message("\n".join(self.log_history))
         if clear:
             self.log_history.clear()
 
-        return self.last_patch_agent_message
+        return self.last_detect_patch_agent_message
 
     async def verify_patch(self, bounty_dir) -> bool:
         """Verify patch effectiveness."""
@@ -270,8 +278,8 @@ class DetectPatchAgent(BaseAgent):
         if invariants_passed and exit_code == 1:
             # if we are using agent exploit, then passing external exploit is optional
             self._log("Congratulations! The patch succeeded.")
-            self.last_patch_agent_message.set_success(True)
-            self.last_patch_agent_message.set_patch_files_path(
+            self.last_detect_patch_agent_message.set_success(True)
+            self.last_detect_patch_agent_message.set_patch_files_path(
                 str(self.output_patch_subfolder)
             )
             return True
@@ -452,7 +460,7 @@ class DetectPatchAgent(BaseAgent):
             print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
             exploit_execution = await self.resources.docker.run(exploit_execution)
-            self.update_patch_agent_message(exploit_execution)
+            self.update_detect_patch_agent_message(exploit_execution)
 
             logger.debug(f"Printing tmp_dir after exploit")
             print_tree(self.tmp_dir)
@@ -476,7 +484,7 @@ class DetectPatchAgent(BaseAgent):
                     exit_code=result.returncode,
                     prev=self.last_action_message,
                 )
-                self.update_patch_agent_message(verify_response)
+                self.update_detect_patch_agent_message(verify_response)
             except Exception as e:
                 self._log(f"Error running verify.sh: {e}", level="error")
                 return None
@@ -726,7 +734,7 @@ class DetectPatchAgent(BaseAgent):
                 additional_metadata={"repo_invariant_scores": repo_scores},
                 prev=self.last_action_message,
             )
-            self.update_patch_agent_message(repo_invariants_response)
+            self.update_detect_patch_agent_message(repo_invariants_response)
 
             logger.info(f"Repo invariants script output:\n{repo_result.stdout}")
             if repo_result.stderr:
@@ -761,7 +769,7 @@ class DetectPatchAgent(BaseAgent):
                 additional_metadata={"bounty_invariant_scores": bounty_scores},
                 prev=self.last_action_message,
             )
-            self.update_patch_agent_message(bounty_invariants_response)
+            self.update_detect_patch_agent_message(bounty_invariants_response)
 
             logger.info(f"Bounty invariants script output:\n{bounty_result.stdout}")
             if bounty_result.stderr:
