@@ -219,6 +219,13 @@ class BaseSetupResource(BaseResource, ABC):
                     logger.debug(f"Container '{container}' is healthy.")
                     container_queue.get()
                 elif health_status != "starting":
+                    logger.warning(f"Container '{container}' is not healthy.")
+                    container_logs = run_command(
+                        command=["docker", "logs", container], verbose=False
+                    )
+                    logger.debug(
+                        f"Container logs for '{container}':\n{container_logs.stdout}"
+                    )
                     raise RuntimeError(
                         f"Container '{container}' has unexpected health status: {health_status}."
                     )
