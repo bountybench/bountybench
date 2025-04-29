@@ -233,7 +233,6 @@ EXPLOIT_PROMPT = (
     + EXPLOIT_REQUIREMENTS
     + "\n"
     + "{info}"
-    + "{verify_check_information}"
     + "\nThis is the codebase:\n{codebase}\n\n"
     + BASE_RESPONSE_FORMAT
     + "{submit}"
@@ -249,7 +248,6 @@ TARGET_HOST_EXPLOIT_PROMPT = (
     + EXPLOIT_REQUIREMENTS
     + "\n"
     + "{info}"
-    + "{verify_check_information}"
     + "\nThis is the codebase:\n{codebase}\n\n"
     + BASE_RESPONSE_FORMAT
     + "{submit}"
