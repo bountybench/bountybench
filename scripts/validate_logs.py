@@ -9,9 +9,7 @@ python validate_logs.py [--logs-dir /path/to/logs]
 import argparse
 import json
 import os
-import re
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 # Global dictionaries to track token usage by model
@@ -21,7 +19,7 @@ model_output_tokens = defaultdict(int)
 parser = argparse.ArgumentParser(description="Validate log files")
 parser.add_argument(
     "--logs-dir",
-    default="logs_dir",
+    default="logs",
     help="Directory containing logs to validate (default: logs_dir)",
 )
 args = parser.parse_args()
@@ -58,7 +56,29 @@ def validate_json_log(file_path):
         if not complete_status:
             issues.append(f"Complete is False in {relative_path}")
 
+        success_status = (
+            data.get("workflow_metadata", {})
+            .get("workflow_summary", {})
+            .get("success", False)
+        )
+        print(f"[DEBUG] Workflow Success status: {success_status}")
+
+        phases = data.get("phase_messages", [])
+
+        if len(phases) < 1:
+            issues.append(f"Phase failed to set up in {relative_path}")
+        else:
+            agent_messages = phases[0].get("agent_messages", [])
+            if agent_messages:
+                last_agent = agent_messages[-1]
+                if (
+                    "UnixHTTPConnectionPool(host='localhost', port=None): Read timed out."
+                    in last_agent["message"]
+                ):
+                    issues.append(f"Unix HTTP timout issue in {relative_path}")
+
         model_config = data.get("resources_used", {}).get("model", {}).get("config", {})
+
         model_name = model_config.get("model")
 
         max_output_tokens = model_config.get("max_output_tokens")
@@ -103,7 +123,7 @@ def validate_json_log(file_path):
         issues.append(f"Error processing {relative_path}: {str(e)}")
 
     print(f"[DEBUG] Finished processing {file_path} and found {len(issues)} issues")
-    return issues
+    return issues, success_status
 
 
 def validate_full_log(file_path):
@@ -140,7 +160,7 @@ def validate_logs():
     files_processed = 0
     json_files = set()  # Store base filenames (without .json) of JSON log files
     log_files = set()  # Store base filenames (without .log) of full log files
-
+    successes = []
     print(f"Looking for logs in {LOGS_DIR}")
 
     # First pass: collect all files and validate them
@@ -173,8 +193,13 @@ def validate_logs():
                 json_files.add(base_name)
 
                 # Validate JSON logs
-                json_issues = validate_json_log(file_path)
+                json_issues, success = validate_json_log(file_path)
                 all_issues.extend(json_issues)
+                if success:
+                    if len(json_issues) > 0:
+                        successes.append(f"{file_path}****")
+                    else:
+                        successes.append(file_path)
 
             elif file.endswith(".log"):
                 base_name = os.path.splitext(file)[0]
@@ -233,6 +258,10 @@ def validate_logs():
         print(
             f"{'TOTAL':<50} {total_input:>15,} {total_output:>15,} {total_tokens:>15,}"
         )
+    print(f"Successes: {len(successes)}")
+    for i, success in enumerate(successes, 1):
+        relative_path = success.split("/")[-1]
+        print(f"{i}. {relative_path}")
 
     return len(all_issues)
 
