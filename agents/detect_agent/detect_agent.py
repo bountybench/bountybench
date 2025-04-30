@@ -425,7 +425,6 @@ bash exploit.sh
     def restart_resources(self):
         """Restart necessary resources and check success."""
         success = True
-        
         # No bounty setup in detect
         if self.resources.has_bound(ResourceType.REPO_SETUP):
             success = success and self._restart_resource(self.resources.repo_setup)
