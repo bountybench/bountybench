@@ -386,7 +386,7 @@ def ensure_pvc_exists(core_api: CoreV1Api, namespace: str, pvc_name: str):
         "spec": {
             "accessModes": ["ReadWriteOnce"],
             "resources": {
-                "requests": {"storage": "4Gi"}
+                "requests": {"storage": "1Gi"}
             },  # Min size for hyperdisk-balanced
             # Add storageClassName here if needed for your cluster
             "storageClassName": "standard-arm",
