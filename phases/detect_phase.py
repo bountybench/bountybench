@@ -14,7 +14,6 @@ from resources.memory_resource.memory_resource import MemoryResourceConfig
 from resources.model_resource.model_resource import ModelResourceConfig
 from resources.repo_setup_resource import RepoSetupResourceConfig
 from resources.resource_type import ResourceType
-from resources.utils import contains_setup
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
 
@@ -124,16 +123,14 @@ class DetectPhase(BountyPhase):
         Args:
             resource_configs (List[Tuple[DefaultResource, BaseResourceConfig]]): The current resource configurations.
         """
-        setup_repo_env_script = self.workflow.task_dir / "setup_repo_env.sh"
-        if contains_setup(setup_repo_env_script):
-            resource_configs.append(
-                (
-                    ResourceType.REPO_SETUP,
-                    RepoSetupResourceConfig(
-                        task_dir=self.workflow.task_dir,
-                    ),
-                )
+        resource_configs.append(
+            (
+                ResourceType.REPO_SETUP,
+                RepoSetupResourceConfig(
+                    task_dir=self.workflow.task_dir,
+                ),
             )
+        )
 
     async def run_one_iteration(
         self,
