@@ -232,7 +232,7 @@ class DetectPatchAgent(BaseAgent):
         """Verify patch effectiveness."""
 
         # Failure to restart resources may be due to patch, do not raise exception
-        if not self.restart_resources(repo_setup=True):
+        if not self.restart_resources(bounty_setup=True):
             self._log(
                 "Could not restart associated resources after applying the patch. Patch is invalid."
             )
