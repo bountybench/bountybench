@@ -124,13 +124,16 @@ class DetectAgent(BaseAgent):
                     )
                     detect_agent_message.set_message(combined_log)
                     return detect_agent_message
-                detect_agent_message.set_submission(True)
-                self._log("Received submission. Evaluating the exploit...")
 
         if not self.agent_exploit_script.exists():
-            combined_log = self._log("No exploit_files/exploit.sh found.", clear=True)
+            combined_log = self._log("No exploit script detected", clear=True)
             detect_agent_message.set_message(combined_log)
             return detect_agent_message
+
+        # Only set submision = true if exploit script exists
+        if self.submit:
+            self._log("Received submission. Evaluating the exploit...")
+            detect_agent_message.set_submission(True)
 
         if not git_has_changes(self.exploit_files_dir, check_all=False):
             combined_log = self._log(
