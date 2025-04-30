@@ -411,6 +411,8 @@ class DetectPatchAgent(BaseAgent):
     async def run_external_exploit(self, target_bounty_path) -> Optional[int]:
         """
         Run the exploit script in a Docker container.
+        Input:
+            Path: The specific bounty path (bounties/bounty_n) to use.
 
         Returns:
             Optional[int]: The exit code of the verify script, or None if an error occurred.
@@ -441,7 +443,8 @@ class DetectPatchAgent(BaseAgent):
                 volumes=volumes,
                 prev=self.last_action_message,
             )
-            # get state of tmp_dir before and after exploit is run
+
+            logger.debug(f"Printing tmp_dir before exploit")
             print_tree(self.tmp_dir)
             print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
@@ -466,7 +469,7 @@ class DetectPatchAgent(BaseAgent):
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
                     message=result.stdout,
-                    command=f"./verify.sh",
+                    command="bash verify.sh",
                     exit_code=result.returncode,
                     prev=self.last_action_message,
                 )
@@ -715,7 +718,7 @@ class DetectPatchAgent(BaseAgent):
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
                 message=f"{repo_result.stdout}\n{repo_result.stderr}\nRepo invariants check scores:\n{repo_scores_str}",
-                command=f"./run_repo_invariants.sh",
+                command="bash run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 additional_metadata={"repo_invariant_scores": repo_scores},
                 prev=self.last_action_message,
@@ -750,7 +753,7 @@ class DetectPatchAgent(BaseAgent):
             bounty_invariants_response = ScriptActionMessage(
                 resource_id=f"bounty_invariants_subprocess",
                 message=f"{bounty_result.stdout}\n{bounty_result.stderr}\nBounty invariants check scores:\n{bounty_scores_str}",
-                command=f"./run_bounty_invariants.sh",
+                command="bash run_bounty_invariants.sh",
                 exit_code=bounty_result.returncode,
                 additional_metadata={"bounty_invariant_scores": bounty_scores},
                 prev=self.last_action_message,
