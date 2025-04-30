@@ -21,7 +21,7 @@ logging.SUCCESS_STATUS = SUCCESS_STATUS
 FULL_LOG_DIR = Path.cwd() / "full_logs"
 FULL_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-FULL_LOG_FILE_PATH = FULL_LOG_DIR / "app.log"
+FULL_LOG_FILE_PATH = FULL_LOG_DIR.parent / "app.log"
 if FULL_LOG_FILE_PATH.exists():
     FULL_LOG_FILE_PATH.unlink()  # Remove the existing log file if it exists
 
