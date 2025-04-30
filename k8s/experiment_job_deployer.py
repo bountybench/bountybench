@@ -280,6 +280,79 @@ def create_job(
         "job-name"
     ] = job_name  # Link pod to job name via label
 
+    # --- Define and Create Unique PVC for this Job --- 
+    pvc_name = f"pvc-{job_name}" # Unique PVC name based on job name
+    pvc_manifest = {
+        "apiVersion": "v1",
+        "kind": "PersistentVolumeClaim",
+        "metadata": {
+            "name": pvc_name,
+            "labels": { # Add labels matching the job for easier cleanup/association
+                "app": "bounty-task", 
+                "experiment-group": group_name,
+                "task-id": task_id_part,
+                "job-name": job_name
+            }
+        },
+        "spec": {
+            "accessModes": ["ReadWriteOnce"], # Standard for most block storage
+            # Use the standard GKE storage class for ARM if needed, or default
+            # Check your cluster's available storage classes with `kubectl get sc`
+            "storageClassName": "standard-arm", 
+            "resources": {
+                "requests": {
+                    "storage": "4Gi" # Request smallest practical amount
+                }
+            }
+        }
+    }
+
+    try:
+        print(f"    Creating unique PVC: {pvc_name}...")
+        core_api.create_namespaced_persistent_volume_claim(
+            namespace=namespace, body=pvc_manifest
+        )
+        print(f"    PVC {pvc_name} created.")
+        # Short delay might help ensure PVC is ready for binding, though typically not required
+        # time.sleep(1) 
+    except ApiException as pvc_e:
+        if pvc_e.status == 409: # Conflict - PVC likely already exists from a previous failed run
+            print(f"    PVC {pvc_name} already exists.")
+        else:
+            print(
+                f"    Error creating PVC {pvc_name}: {pvc_e.status} - {pvc_e.reason}", 
+                file=sys.stderr
+            )
+            # Decide if job creation should fail if PVC fails
+            return None # Fail job creation if PVC creation fails (and isn't just 'already exists')
+
+    # --- Patch Volume Mounts in Pod Spec to use the unique PVC ---
+    volume_name = "job-output-volume" # Name used in the job template's volumes section
+    found_volume = False
+    if pod_template["spec"].get("volumes"):
+        for volume in pod_template["spec"]["volumes"]:
+            if volume.get("name") == volume_name:
+                # Update the PVC reference
+                volume["persistentVolumeClaim"] = {"claimName": pvc_name}
+                # Remove emptyDir if it exists from template (cleaning up previous attempts)
+                volume.pop("emptyDir", None)
+                found_volume = True
+                print(f"    Updated volume '{volume_name}' to use PVC '{pvc_name}'.")
+                break
+                
+    if not found_volume:
+        # If the volume didn't exist in the template, we might need to add it
+        # Or, more likely, the template *should* have a volume placeholder.
+        print(f"Error: Could not find volume named '{volume_name}' in job template to update with unique PVC. Ensure template has a volume definition for output.", file=sys.stderr)
+        # Clean up the PVC we just created if the job fails here?
+        try: 
+            print(f"    Attempting to clean up failed PVC {pvc_name}...")
+            core_api.delete_namespaced_persistent_volume_claim(pvc_name, namespace)
+        except ApiException as cleanup_e:
+            print(f"    Warning: Failed to cleanup PVC {pvc_name} after volume patching error: {cleanup_e.reason}", file=sys.stderr)
+        return None # Fail job creation
+
+
     # --- Define container command and arguments --- 
     # Base command from the template
     if not pod_template["spec"].get("containers"):
