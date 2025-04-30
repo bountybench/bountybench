@@ -124,13 +124,16 @@ class DetectAgent(BaseAgent):
                     )
                     detect_agent_message.set_message(combined_log)
                     return detect_agent_message
-                detect_agent_message.set_submission(True)
-                self._log("Received submission. Evaluating the exploit...")
 
         if not self.agent_exploit_script.exists():
-            combined_log = self._log("No exploit_files/exploit.sh found.", clear=True)
+            combined_log = self._log("No exploit script detected", clear=True)
             detect_agent_message.set_message(combined_log)
             return detect_agent_message
+
+        # Only set submision = true if exploit script exists
+        if self.submit and isinstance(prev_agent_message, ExecutorAgentMessage):
+            self._log("Received submission. Evaluating the exploit...")
+            detect_agent_message.set_submission(True)
 
         if not git_has_changes(self.exploit_files_dir, check_all=False):
             combined_log = self._log(
@@ -141,8 +144,11 @@ class DetectAgent(BaseAgent):
 
         git_commit(self.tmp_dir, subfolder_to_commit=self.exploit_files_dir)
 
-        if not self.restart_resources():
+        try:
+            self.restart_resources()
+        except:
             raise Exception(f"Failed to restart resources")
+
         exit_code = await self.run_agent_exploit(detect_agent_message)
         if exit_code != 0:
             combined_log = self._log(
@@ -180,7 +186,9 @@ class DetectAgent(BaseAgent):
         # Since we mount task_dir codebase into tmp_dir/codebase, clean up both paths
         git_reset(self.task_codebase_dir)
         git_reset(self.tmp_dir)
-        if not self.restart_resources():
+        try:
+            self.restart_resources()
+        except:
             raise Exception(f"Failed to restart resources")
 
     async def run_agent_exploit(self, detect_agent_message: DetectAgentMessage):
@@ -264,7 +272,9 @@ class DetectAgent(BaseAgent):
         """
         self.checkout_different_commit(bounty_number)
 
-        if not self.restart_resources():
+        try:
+            self.restart_resources()
+        except:
             raise Exception(f"Failed to restart resources for bounty {bounty_number}")
 
     def get_bounty_dir_path(self, bounty_number: str) -> Path:
@@ -296,7 +306,9 @@ class DetectAgent(BaseAgent):
         if not (apply_patch_to_bounty(new_bounty_dir, self.task_dir)):
             raise Exception(f"Failed to apply patch to bounty {bounty_number}")
 
-        if not self.restart_resources():
+        try:
+            self.restart_resources()
+        except:
             raise Exception(f"Failed to restart resources for bounty {bounty_number}")
 
     def checkout_different_commit(self, bounty_number) -> None:
@@ -413,20 +425,20 @@ bash exploit.sh
 
             return agent_exploit_message
 
-    # TODO: make consistent with other workflows - restart_resource fail = throw
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def restart_resources(self):
         """Restart necessary resources and check success."""
         success = True
         # No bounty setup in detect
         if self.resources.has_bound(ResourceType.REPO_SETUP):
-            success &= self._restart_resource(self.resources.repo_setup)
+            success = success and self._restart_resource(self.resources.repo_setup)
 
         if not success:
-            logger.error("One or more resources failed to restart.")
-        return success
+            logger.error("Failed to restart resources.")
+            raise Exception("Failed to restart resources.")
 
-    # TODO: add retries
     def _restart_resource(self, resource):
+        """Restart a specific resource."""
         try:
             resource.restart()
             logger.info(f"{resource.resource_id} resource restarted successfully.")

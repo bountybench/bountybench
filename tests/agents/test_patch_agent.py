@@ -44,10 +44,7 @@ def patch_agent(bounty_setup):
 
     agent_manager = AgentManager(workflow_id="1")
     patch_config = PatchAgentConfig(
-        bounty_dir=env_path.BOUNTY_DIR,
-        task_dir=env_path.TASK_DIR,
-        submit=False,
-        use_agent_exploit=True,
+        bounty_dir=env_path.BOUNTY_DIR, task_dir=env_path.TASK_DIR, submit=False
     )
     agent = agent_manager.create_agent("test_patch_agent", PatchAgent, patch_config)
 
@@ -102,34 +99,6 @@ def test_check_repo_and_bounty_are_different(patch_agent):
 
 
 @pytest.mark.asyncio
-async def test_run_agent_exploit(bounty_setup, patch_agent):
-    env_path: EnvPath = bounty_setup
-    agent = patch_agent
-    agent.last_patch_agent_message = PatchAgentMessage(agent_id="test", message="init")
-    exploit_script_dir = Path(env_path.TMP_EXPLOIT_SCRIPT_DIR)
-    write_to_file_and_make_executable(
-        script_path=exploit_script_dir,
-        exit_code=1,
-    )
-    exit_code, _ = await agent.run_agent_exploit()
-    assert exit_code == 1
-
-    write_to_file_and_make_executable(
-        script_path=exploit_script_dir,
-        exit_code=0,
-    )
-    exit_code, _ = await agent.run_agent_exploit()
-    assert exit_code == 0
-
-    write_to_file_and_make_executable(
-        script_path=exploit_script_dir,
-        exit_code=2,
-    )
-    exit_code, _ = await agent.run_agent_exploit()
-    assert exit_code == 2
-
-
-@pytest.mark.asyncio
 async def test_restart_resource_check(patch_agent, mocker):
     """
     If repo_resource fails to restart, error.
@@ -159,7 +128,6 @@ async def test_fail_if_external_exploit_fails(patch_agent, mocker):
     """
     Exploit returns 1 (failure) before patch applies - which makes the workflow run invalid
     """
-    patch_agent.use_agent_exploit = False
     mocker.patch.object(PatchAgent, "run_external_exploit", return_value=1)
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
 
@@ -173,7 +141,6 @@ async def test_restart_resource_fail_raises_exception(patch_agent, mocker):
     """
     Exploit returns 0 (success) before patch applies, restart resource fails
     """
-    patch_agent.use_agent_exploit = False
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
     mocker.patch.object(patch_agent, "run_external_exploit", return_value=0)
     mocker.patch.object(
@@ -194,10 +161,7 @@ def test_restart_resources_order(bounty_setup):
     agent = PatchAgent(
         agent_id="test_patch_agent",
         agent_config=PatchAgentConfig(
-            bounty_dir=env_path.BOUNTY_DIR,
-            task_dir=env_path.TASK_DIR,
-            submit=False,
-            use_agent_exploit=True,
+            bounty_dir=env_path.BOUNTY_DIR, task_dir=env_path.TASK_DIR, submit=False
         ),
     )
 
@@ -224,82 +188,11 @@ def test_restart_resources_order(bounty_setup):
 
 
 @pytest.mark.asyncio
-async def test_agent_exploit_0_then_0_fail(patch_agent, mocker):
-    """
-    Exploit returns 0 (ok) before patch and 0 after patch → exploit is still working,
-    patch must fail.
-    """
-    patch_agent.use_agent_exploit = True
-
-    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
-    mocker.patch(
-        "agents.patch_agent.patch_agent.git_apply_patch",
-        return_value=(True, "Patch applied successfully"),
-    )
-
-    mocker.patch.object(patch_agent, "restart_resources", return_value=True)
-
-    run_agent_exploit_mock = mocker.patch.object(
-        patch_agent,
-        "run_agent_exploit",
-        side_effect=[(0, "Exploit passed"), (0, "Exploit passed")],  # unpatched run
-    )
-
-    git_reset_mock: MagicMock = mocker.patch("agents.patch_agent.patch_agent.git_reset")
-
-    # Let invariants pass
-    mocker.patch.object(patch_agent, "check_invariants", return_value=True)
-
-    initial_msg = PatchAgentMessage(agent_id="test", message="test message")
-    final_msg = await patch_agent.run([initial_msg])
-
-    assert final_msg.success is False
-    assert (
-        "Exploit check failed - exploit still succeeds after patch."
-        in final_msg.message
-    )
-    assert run_agent_exploit_mock.call_count == 2
-    assert git_reset_mock.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_agent_exploit_1_before_patch(patch_agent, mocker):
-    """
-    Exploit returns 1 unpatched → The agent should log it as an invalid exploit.
-    No second run, no patch application.
-    """
-    patch_agent.use_agent_exploit = True
-
-    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
-
-    run_exploit_mock = mocker.patch.object(
-        patch_agent,
-        "run_agent_exploit",
-        return_value=(1, "Exploit failed"),  # unpatched run
-    )
-    # Invariants won't matter because we won't even get to patch
-    mock_invariants = mocker.patch.object(patch_agent, "check_invariants")
-
-    initial_msg = PatchAgentMessage(agent_id="test", message="test message")
-    final_msg = await patch_agent.run([initial_msg])
-
-    # The code in verify_patch sees exit_code=1 (not 0, not 127) => exploit fails before patch is applied
-    assert run_exploit_mock.call_count == 1
-    # We expect "Exploit fails before the patch is applied" in the logs
-    assert "Exploit fails before the patch is applied" in final_msg.message
-    # Also expect that no patch was applied, no second run
-    mock_invariants.assert_not_called()
-    assert final_msg.success is False
-
-
-@pytest.mark.asyncio
 async def test_external_exploit_1_success(patch_agent, mocker):
     """
     The external exploit, after patch we expect 'verify.sh' to indicate success is neutralized → return 1,
     so the final patch is considered successful.
     """
-    # Force external exploit path
-    patch_agent.use_agent_exploit = False
 
     # mock git_diff => there is a patch
     mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="FAKE_DIFF")
@@ -449,7 +342,6 @@ async def test_patch_success_requires_invariants(patch_agent):
     with patch.object(PatchAgent, "check_invariants", return_value=False):
         # Mock resource restart
         with patch.object(PatchAgent, "_restart_resource", return_value=True):
-            # Mock run_agent_exploit to return success
             with patch.object(PatchAgent, "run_external_exploit", return_value=1):
                 await agent.verify_patch()
                 agent.update_patch_agent_message()
@@ -827,6 +719,38 @@ async def test_check_invariants_timeout_recovery(patch_agent, mocker):
         logs = "\n".join(agent.log_history).lower()
         assert logs.count("timed out") == 2  # exactly two timeout logs
         assert "attempt 3 of 3" in logs
+
+
+@pytest.mark.asyncio
+async def test_reject_submission_when_no_codebase_changes(patch_agent, mocker):
+    """
+    Test that PatchAgent rejects a submission when no codebase changes are detected.
+    This should happen even when submit=True and the previous message has submission=True.
+    """
+    agent = patch_agent
+
+    # Configure the agent for submissions
+    agent.submit = True
+
+    # Create a mock executor agent message with submission=True
+    from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
+
+    executor_message = ExecutorAgentMessage(
+        agent_id="executor_agent", message="Test submission message", submission=True
+    )
+
+    # Mock git_diff to return empty diff (no changes)
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="")
+
+    # Run the agent with the submission message
+    result = await agent.run([executor_message])
+
+    # Verify the agent rejected the submission correctly
+    assert result.submission is False
+    assert "No codebase changes detected" in result.message
+
+    # Verify the submission was not processed (success should be unset or False)
+    assert result.success is not True
 
 
 # "uses" the import

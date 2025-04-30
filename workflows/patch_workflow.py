@@ -54,11 +54,6 @@ class PatchWorkflow(BountyWorkflow):
                 f"'--model' argument is required when not using mock model"
             )
 
-    @property
-    def use_agent_exploit(self):
-        # Preserving current behavior - we may want to revisit this
-        return False
-
     def _create_phases(self):
         """Define and register phases specific to PatchWorkflow."""
 
@@ -77,7 +72,6 @@ class PatchWorkflow(BountyWorkflow):
             "helm": self.params.get("use_helm"),
             "task_dir": self.task_dir,
             "bounty_number": self.bounty_number,
-            "use_agent_exploit": self.use_agent_exploit,
             "task_description": read_writeup(self.task_dir, self.bounty_number),
             "bounty_setup_hosts": "\n".join(
                 self.bounty_metadata.get("bounty_setup_hosts", [])
