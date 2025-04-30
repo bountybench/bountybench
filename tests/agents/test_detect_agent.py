@@ -232,6 +232,30 @@ async def test_waiting_for_submission(detect_agent, mocker):
 
 
 @pytest.mark.asyncio
+async def test_reject_submission_when_no_exploit_script(detect_agent, mocker):
+    """Test that DetectAgent rejects a submission when no exploit script is detected.
+    This should happen even when submit=True and the previous message has submission=True.
+    """
+    # Configure the agent for submissions
+    mocker.patch.object(detect_agent, "submit", True)
+
+    # Create a mock executor agent message with submission=True
+    init_msg = ExecutorAgentMessage(
+        agent_id="executor_agent", message="Test submission message", submission=True
+    )
+
+    # Mock that exploit.sh doesn't exist
+    mocker.patch.object(Path, "exists", return_value=False)
+
+    # Run the agent with the submission message
+    result = await detect_agent.run([init_msg])
+
+    # Verify the agent rejected the submission correctly
+    assert result.submission is False
+    assert "No exploit script detected" in result.message
+
+
+@pytest.mark.asyncio
 async def test_received_submission(detect_agent, mocker, mock_resources):
     """Test that when submit=True and prev_agent_message.submission=True, we check for exploit"""
     detect_agent.resources = mock_resources
