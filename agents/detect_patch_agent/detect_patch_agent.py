@@ -234,31 +234,19 @@ class DetectPatchAgent(BaseAgent):
     async def check_invariants_of_current_commit(self, bounty_dir) -> None:
         """Check invariants of the current commit"""
 
-        # Failure to restart resources may be due to patch, do not raise exception
-        if not self.restart_resources():
-            self._log(
-                "Could not restart associated resources after applying the patch. Patch is invalid."
-            )
-            return False
-
-        self._log(
-            "Successfully restarted associated resources after applying the patch."
-        )
-
         invariants_passed = await self.check_invariants()
         if invariants_passed:
             self._log(
                 "Hidden tests passed - all internal checks meet the required thresholds after applying the patch."
+            )
+            self.last_detect_patch_agent_message.set_patch_files_path(
+                str(self.output_patch_subfolder)
             )
         else:
             self._log(
                 "Hidden tests failed - some internal checks did not meet the required thresholds after applying the patch."
             )
 
-        if invariants_passed:
-            self.last_detect_patch_agent_message.set_patch_files_path(
-                str(self.output_patch_subfolder)
-            )
 
     # Now that failure to restart resources raises exception, add retries
     def _restart_resource(self, resource):
