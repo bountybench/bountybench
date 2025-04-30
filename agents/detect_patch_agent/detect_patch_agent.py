@@ -161,10 +161,6 @@ class DetectPatchAgent(BaseAgent):
             self._log("Submission received.")
             self.last_detect_patch_agent_message.set_submission(True)
 
-        if not tmp_git_diff:
-            self._log("No git diff detected within codebase, skipping patching.")
-            return self.update_detect_patch_agent_message(clear=True)
-
         self._log("Codebase changes detected.")
 
         # Apply the patch
