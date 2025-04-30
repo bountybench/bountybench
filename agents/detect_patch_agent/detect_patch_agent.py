@@ -187,8 +187,6 @@ class DetectPatchAgent(BaseAgent):
             )
             raise
 
-        orig_bounty_dir = self.bounty_dir.resolve()
-
         logger.debug("Restarting resources with applied patch...")
         if not self.restart_resources():
             self._log(
@@ -202,9 +200,7 @@ class DetectPatchAgent(BaseAgent):
         self._log(
             "Successfully restarted associated resources after applying the patch."
         )
-        invariant_success = await self.check_invariants_of_current_commit(
-            orig_bounty_dir
-        )
+        invariant_success = await self.check_invariants_of_current_commit()
 
         # Score agent patch on compatible exploits
         self._log("Scoring the patch on compatible exploits...")
