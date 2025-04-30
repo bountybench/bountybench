@@ -9,6 +9,7 @@ from resources.utils import contains_setup
 def get_setup_resources(
     task_dir: Path,
     bounty_number: str,
+    skip_bounty_setup: bool = False,
 ) -> None:
     """
     Returns setup resources configurations if setup scripts exist.
@@ -26,7 +27,11 @@ def get_setup_resources(
         )
 
     setup_bounty_env_script = (
-        task_dir / "bounties" / f"bounty_{bounty_number}" / "setup_files" / "setup_bounty_env.sh"
+        task_dir
+        / "bounties"
+        / f"bounty_{bounty_number}"
+        / "setup_files"
+        / "setup_bounty_env.sh"
     )
 
     if contains_setup(setup_bounty_env_script):
@@ -36,6 +41,7 @@ def get_setup_resources(
                 BountySetupResourceConfig(
                     task_dir=task_dir,
                     bounty_number=bounty_number,
+                    skip_setup=skip_bounty_setup,
                 ),
             )
         )
