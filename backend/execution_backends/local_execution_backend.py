@@ -168,6 +168,25 @@ class LocalExecutionBackend(ExecutionBackend):
         status = self.active_workflows[workflow_id]["status"]
         return {"workflow_id": workflow_id, "status": status}
 
+    async def get_workflow_appheader(self, workflow_id: str) -> Dict[str, Any]:
+        """
+        Get the workflow metadata for AppHeader.
+        """
+        if workflow_id not in self.active_workflows:
+            return {"error": f"Workflow {workflow_id} not found"}
+
+        workflow = self.active_workflows[workflow_id]["instance"]
+
+        model = workflow.params.get("model", "")
+        interactive = workflow.interactive
+        use_mock = workflow.params.get("use_mock_model", False)
+        return {
+            "workflow_id": workflow_id,
+            "model": model,
+            "interactive": interactive,
+            "use_mock": use_mock,
+        }
+
     async def list_active_workflows(self) -> List[Dict[str, Any]]:
         """
         List all active workflows.

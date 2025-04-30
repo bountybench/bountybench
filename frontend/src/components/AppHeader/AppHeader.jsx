@@ -143,29 +143,29 @@ const allModelNames = selectedModelType ? (modelMapping || [])
                 Phase: <span style={{ fontWeight: 'bold' }}>{currentPhase.phase_id || 'N/A'}</span>
               </Typography>
             )}
+        
+            <Box display="flex" alignItems="center" mr={2}>
+              <Typography variant="body2" sx={{ mr: 1 }}>Interactive:</Typography>
+              <Switch
+                checked={!!interactiveMode}
+                onChange={onInteractiveModeToggle}
+                color="primary"
+                size="small"
+                disabled={!interactiveMode}
+              />
+            </Box>
+      
+            <Box display="flex" alignItems="center" mr={2}>
+              <Typography variant="body2" sx={{ mr: 1 }}>Mock Model:</Typography>
+              <Switch
+                checked={!!useMockModel}
+                onChange={onMockModelToggle}
+                color="primary"
+                size="small"
+              />
+            </Box>
           </>
         )}
-        
-        <Box display="flex" alignItems="center" mr={2}>
-          <Typography variant="body2" sx={{ mr: 1 }}>Interactive:</Typography>
-          <Switch
-            checked={!!interactiveMode}
-            onChange={onInteractiveModeToggle}
-            color="primary"
-            size="small"
-            disabled={!interactiveMode}
-          />
-        </Box>
-  
-        <Box display="flex" alignItems="center" mr={2}>
-          <Typography variant="body2" sx={{ mr: 1 }}>Mock Model:</Typography>
-          <Switch
-            checked={!!useMockModel}
-            onChange={onMockModelToggle}
-            color="primary"
-            size="small"
-          />
-        </Box>
       </Box>
     </Box>
   );
