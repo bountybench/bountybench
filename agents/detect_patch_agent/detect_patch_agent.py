@@ -44,7 +44,6 @@ class DetectPatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
     submit: bool
-    install_command: Optional[str] = None
 
     resource_restart_retry_attempts: int = 3
     resource_restart_retry_wait_seconds: int = 2
@@ -54,7 +53,6 @@ class DetectPatchAgentConfig(AgentConfig):
             "bounty_dir": str(self.bounty_dir),
             "task_dir": str(self.task_dir),
             "submit": self.submit,
-            "install_command": self.install_command,
         }
 
     @classmethod
@@ -63,7 +61,6 @@ class DetectPatchAgentConfig(AgentConfig):
             bounty_dir=Path(data["bounty_dir"]),
             task_dir=Path(data["task_dir"]),
             submit=data["submit"],
-            install_command=data["install_command"],
         )
 
 
@@ -99,7 +96,6 @@ class DetectPatchAgent(BaseAgent):
 
         self.patch_id = 1
 
-        self.install_command = agent_config.install_command
         self.output_patch_dir = None
         self.submit = agent_config.submit
 
@@ -186,7 +182,6 @@ class DetectPatchAgent(BaseAgent):
             )
             raise
 
-
         orig_bounty_dir = self.bounty_dir.resolve()
         await self.check_invariants_of_current_commit(orig_bounty_dir)
 
@@ -201,7 +196,7 @@ class DetectPatchAgent(BaseAgent):
             )
             self.last_detect_patch_agent_message.set_message(f"{combined_log}")
             self.last_detect_patch_agent_message.set_success(True)
-            return  self.last_detect_patch_agent_message
+            return self.last_detect_patch_agent_message
         else:
             combined_log = self._log(
                 "Failed to identify any vulnerability in the codebase.",
@@ -210,8 +205,7 @@ class DetectPatchAgent(BaseAgent):
             self.last_detect_patch_agent_message.set_message(f"{combined_log}")
 
         self.log_history.clear()
-        return  self.last_detect_patch_agent_message
-
+        return self.last_detect_patch_agent_message
 
     def update_detect_patch_agent_message(
         self,
@@ -330,7 +324,9 @@ class DetectPatchAgent(BaseAgent):
 
                 # Setup bounty setup at the given bounty number
                 logger.debug(f"Setup bounty-specific env")
-                self.resources.bounty_setup.update_work_dir(target_bounty_path / "setup_files")
+                self.resources.bounty_setup.update_work_dir(
+                    target_bounty_path / "setup_files"
+                )
                 if not self.restart_resources():
                     raise Exception("Failed to restart resources")
 
@@ -360,23 +356,20 @@ class DetectPatchAgent(BaseAgent):
             return False
 
         detected_bounties = []
-        for candidate_bounty in candidate_bounties: 
+        for candidate_bounty in candidate_bounties:
             self._reset_codebase()
             self._log(
                 f"Reverting codebase to unpatched state to verify failed exploits..."
             )
 
             bounty_name = f"bounty_{candidate_bounty}"
-            bounty_path = (
-                self.task_dir.resolve() / "bounties" / bounty_name
-            )
-        
+            bounty_path = self.task_dir.resolve() / "bounties" / bounty_name
+
             try:
 
                 self.resources.bounty_setup.update_work_dir(bounty_path / "setup_files")
                 if not self.restart_resources():
                     raise Exception("Failed to restart resources")
-
 
                 unpatched_exit_code = await self.run_external_exploit(bounty_path)
 
@@ -386,16 +379,17 @@ class DetectPatchAgent(BaseAgent):
                     )
                     detected_bounties.append(candidate_bounty)
             except Exception as e:
-                logger.error(f"Error verifying unpatched exploit for bounty {candidate_bounty}: {e}")
+                logger.error(
+                    f"Error verifying unpatched exploit for bounty {candidate_bounty}: {e}"
+                )
                 raise e
             finally:
                 self.stop_docker_services(bounty_path / "setup_files")
-        
-        if detected_bounties: 
-            return True
-        
-        return False
 
+        if detected_bounties:
+            return True
+
+        return False
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_external_exploit(self, target_bounty_path) -> Optional[int]:
