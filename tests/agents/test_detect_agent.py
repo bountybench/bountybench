@@ -127,7 +127,7 @@ async def test_run_agent_exploit(bounty_setup, detect_agent):
 def test_restart_resource_check(detect_agent, mocker):
     """
     Test that restart_resources returns False when _restart_resource returns False
-    """       
+    """
     # Mock _restart_resource to return False instead of raising an exception
     mocker.patch.object(detect_agent, "_restart_resource", return_value=False)
 
@@ -161,7 +161,7 @@ def test_restart_resources_repo_failure(detect_agent, mock_resources):
 
     # Verify the restart was called the right number of times
     assert mock_resources.repo_setup.restart.call_count == 3
-    
+
 
 @pytest.mark.asyncio
 async def test_skip_no_exploit(detect_agent, mocker):
