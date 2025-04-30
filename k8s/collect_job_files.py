@@ -103,7 +103,9 @@ def wait_for_pod_running(
     return False
 
 
-def copy_files_via_collector(core_api: CoreV1Api, namespace: str, output_dir: Path):
+def copy_files_via_collector(
+    core_api: CoreV1Api, namespace: str, logs_output_dir: Path, full_logs_output_dir: Path
+):
     """Creates a temp pod, copies specific dirs from its PVC mount, then deletes it."""
     pod_name = f"{COLLECTOR_POD_BASENAME}-{int(time.time())}"
     collector_pod_manifest = {
@@ -156,21 +158,25 @@ def copy_files_via_collector(core_api: CoreV1Api, namespace: str, output_dir: Pa
             return False  # Indicate failure
 
         # --- Copying ---
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Ensure output directories exist
+        logs_output_dir.mkdir(parents=True, exist_ok=True)
+        full_logs_output_dir.mkdir(parents=True, exist_ok=True)
+
         success = True  # Assume success initially
 
-        # Define source paths within the pod
-        source_paths_in_pod = {
-            "logs": f"{namespace}/{pod_name}:{COLLECTOR_POD_MOUNT_PATH}/logs/",
-            "full_logs": f"{namespace}/{pod_name}:{COLLECTOR_POD_MOUNT_PATH}/full_logs/",
+        # Define source paths within the pod and their corresponding local destinations
+        copy_tasks = {
+            "logs": (
+                f"{namespace}/{pod_name}:{COLLECTOR_POD_MOUNT_PATH}/logs/",
+                logs_output_dir,
+            ),
+            "full_logs": (
+                f"{namespace}/{pod_name}:{COLLECTOR_POD_MOUNT_PATH}/full_logs/",
+                full_logs_output_dir,
+            ),
         }
 
-        for key, source_spec in source_paths_in_pod.items():
-            dest_local = (
-                output_dir / key
-            )  # Create subdirectory locally (e.g., ./collected_job_files/logs)
-            dest_local.mkdir(exist_ok=True)
-
+        for key, (source_spec, dest_local) in copy_tasks.items():
             # Ensure trailing slash for directory contents copy
             copy_cmd = ["kubectl", "cp", source_spec, str(dest_local)]
             print(f"Executing copy command: {' '.join(copy_cmd)}")
@@ -247,7 +253,7 @@ def copy_files_via_collector(core_api: CoreV1Api, namespace: str, output_dir: Pa
 # --- Main Execution Logic ---
 def main():
     parser = argparse.ArgumentParser(
-        description="Copy files from job output PVC via a temporary pod."
+        description="Copy logs and full_logs from job output PVC via a temporary pod."
     )
     parser.add_argument(
         "--namespace",
@@ -255,16 +261,24 @@ def main():
         default="bounty-experiments",
         help="Kubernetes namespace where the PVC exists (default: bounty-experiments)",
     )
+    # Removed --output-dir
     parser.add_argument(
-        "--output-dir",
-        "-o",
-        default="./collected_job_files",
-        help="Local directory to save the copied files (default: ./collected_job_files)",
+        "--logs-dir",
+        default="../logs",
+        help="Local directory to save the 'logs' files (default: ../logs)",
+    )
+    parser.add_argument(
+        "--full-logs-dir",
+        default="../full_logs",
+        help="Local directory to save the 'full_logs' files (default: ../full_logs)",
     )
     args = parser.parse_args()
 
-    output_directory = Path(args.output_dir).resolve()
-    print(f"Output directory: {output_directory}")
+    logs_directory = Path(args.logs_dir).resolve()
+    full_logs_directory = Path(args.full_logs_dir).resolve()
+    print(f"Namespace: {args.namespace}")
+    print(f"Logs output directory: {logs_directory}")
+    print(f"Full Logs output directory: {full_logs_directory}")
 
     print("Loading Kubernetes configuration...")
     try:
@@ -277,14 +291,16 @@ def main():
 
     # Execute the collection process
     overall_success = copy_files_via_collector(
-        core_v1, args.namespace, output_directory
+        core_v1, args.namespace, logs_directory, full_logs_directory
     )
 
     if overall_success:
         print("\n--- File Collection Summary ---")
         print(
-            f"Successfully copied files from PVC '{JOB_OUTPUT_PVC_NAME}' in namespace '{args.namespace}' to '{output_directory}'"
+            f"Successfully copied files from PVC '{JOB_OUTPUT_PVC_NAME}' in namespace '{args.namespace}'"
         )
+        print(f"  Logs copied to: '{logs_directory}'")
+        print(f"  Full logs copied to: '{full_logs_directory}'")
     else:
         print("\n--- File Collection Summary ---")
         print(
