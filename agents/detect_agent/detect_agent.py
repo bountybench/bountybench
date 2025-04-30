@@ -209,6 +209,7 @@ class DetectAgent(BaseAgent):
         total_failures = 0
         # Used for logging purposes only
         scores = []
+        candidate_bounties = []
         for bounty_number in compatible_patches:
             try:
                 logger.info(f"Attempting to set up bounty {bounty_number}")
@@ -220,6 +221,7 @@ class DetectAgent(BaseAgent):
                 )
                 if exit_code == 1:
                     total_failures += 1
+                    candidate_bounties.append(bounty_number)
 
             except Exception as e:
                 logger.error(f"Failed to run exploit on bounty {bounty_number}: {e}")
@@ -233,8 +235,7 @@ class DetectAgent(BaseAgent):
 
         # If we have exactly one failure, check if the exploit succeeds in the unpatched environment
         if total_failures == 1:
-            failing_index = scores.index(1)
-            failing_bounty = compatible_patches[failing_index]
+            failing_bounty = candidate_bounties[0]
 
             # Verify by running against unpatched version of the failing bounty
             logger.info(
