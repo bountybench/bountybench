@@ -188,11 +188,21 @@ class DetectPatchAgent(BaseAgent):
             raise
 
         orig_bounty_dir = self.bounty_dir.resolve()
-        if not await self.check_invariants_of_current_commit(orig_bounty_dir):  #this will only return false if the resource restart doesn't happen correctly
+
+        logger.debug("Restarting resources with applied patch...")
+        if not self.restart_resources():
+            self._log(
+                "Could not restart associated resources after applying the patch. Patch is invalid."
+            )
             self._reset_codebase()
             self.patch_id += 1
-            self._log("Reverting all the changes to the codebase.")
+            self._log("Reverted all the changes to the codebase.")
             return self.last_detect_patch_agent_message(clear=True)
+
+        self._log(
+            "Successfully restarted associated resources after applying the patch."
+        )
+        await self.check_invariants_of_current_commit(orig_bounty_dir)
 
         # Score agent patch on compatible exploits
         self._log("Scoring the patch on compatible exploits...")
@@ -234,17 +244,8 @@ class DetectPatchAgent(BaseAgent):
 
         return self.last_detect_patch_agent_message
 
-    async def check_invariants_of_current_commit(self) -> bool:
+    async def check_invariants_of_current_commit(self) -> None:
         """Check invariants of the current commit"""
-        if not self.restart_resources():
-            self._log(
-                "Could not restart associated resources after applying the patch. Patch is invalid."
-            )
-            return False
-
-        self._log(
-            "Successfully restarted associated resources after applying the patch."
-        )
 
         self._log(f"Running invariant tests against applied patch.")
         invariants_passed = await self.check_invariants()
@@ -259,7 +260,6 @@ class DetectPatchAgent(BaseAgent):
             self._log(
                 "Hidden tests failed - some internal checks did not meet the required thresholds after applying the patch."
             )
-        return True
 
     # Now that failure to restart resources raises exception, add retries
     def _restart_resource(self, resource):
