@@ -111,7 +111,7 @@ async def test_run_agent_exploit(bounty_setup, detect_agent):
     with patch.object(agent, "run_exploit", mock_run_exploit):
         # Set up restart_resources to avoid side effects
         mocker = MagicMock()
-        mocker.patch.object(agent, "restart_resources", return_value=True)
+        mocker.patch.object(agent, "restart_resources")
 
         # Test exploit failure
         mock_action_message.additional_metadata = {"exit_code": 1}
@@ -418,7 +418,7 @@ async def test_setup_unpatched_bounty_env(detect_agent, mocker):
     """Test that setup_unpatched_bounty_env calls the correct methods"""
     # Mock the required methods
     mocker.patch.object(detect_agent, "checkout_different_commit")
-    mocker.patch.object(detect_agent, "restart_resources", return_value=True)
+    mocker.patch.object(detect_agent, "restart_resources")
 
     # Call the method
     detect_agent.setup_unpatched_bounty_env("1")
