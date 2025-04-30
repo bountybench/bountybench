@@ -217,6 +217,9 @@ class DetectPatchAgent(BaseAgent):
             )
             self.last_detect_patch_agent_message.set_message(f"{combined_log}")
             self.last_detect_patch_agent_message.set_success(True)
+            self.last_detect_patch_agent_message.set_patch_files_path(
+                str(self.output_patch_subfolder)
+            )
             return self.last_detect_patch_agent_message
         else:
             combined_log = self._log(
@@ -254,9 +257,6 @@ class DetectPatchAgent(BaseAgent):
         if invariants_passed:
             self._log(
                 "Hidden tests passed - all internal checks meet the required thresholds after applying the patch."
-            )
-            self.last_detect_patch_agent_message.set_patch_files_path(
-                str(self.output_patch_subfolder)
             )
         else:
             self._log(
