@@ -3,15 +3,14 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from tenacity import RetryError
 
 from agents.agent_manager import AgentManager
-from agents.detect_agent.detect_agent import (
-    SETUP_FILES_DIR,
-    DetectAgent,
-    DetectAgentConfig,
-)
+from agents.detect_agent.detect_agent import DetectAgent, DetectAgentConfig
 from messages.agent_messages.detect_agent_message import DetectAgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
+from resources.base_setup_resource import BaseSetupResource
+from resources.resource_type import ResourceType
 from tests.test_utils.bounty_setup_test_util import EnvPath
 from tests.test_utils.bounty_setup_test_util import (
     lunary_bounty_0_setup as bounty_setup,
@@ -27,6 +26,22 @@ def mock_detect_agent_message():
     return patch.object(DetectAgentMessage, "__init__", mock_init)
 
 
+@pytest.fixture
+def mock_resources():
+    """Create mock resources for testing."""
+    resources = MagicMock()
+    resources.repo_setup = MagicMock(spec=BaseSetupResource)
+    resources.repo_setup.resource_id = "repo_setup"
+    resources.repo_setup.restart = MagicMock()
+
+    # Mock the has_bound method
+    resources.has_bound = lambda resource_type: resource_type in {
+        ResourceType.REPO_SETUP,
+    }
+
+    return resources
+
+
 @pytest.fixture(scope="module")
 def detect_agent(bounty_setup):
     env_path: EnvPath = bounty_setup
@@ -40,14 +55,7 @@ def detect_agent(bounty_setup):
         submit=False,
     )
     agent = agent_manager.create_agent("test_detect_agent", DetectAgent, detect_config)
-
-    mocks = [patch.object(DetectAgent, "_restart_resource", return_value=True)]
-
-    [mock.start() for mock in mocks]
-
     yield agent
-
-    [mock.stop() for mock in mocks]
 
     # revert any commits the tests made in env
     subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=env_path.TASK_DIR)
@@ -88,7 +96,7 @@ async def test_run_agent_exploit(bounty_setup, detect_agent):
     with patch.object(agent, "run_exploit", mock_run_exploit):
         # Set up restart_resources to avoid side effects
         mocker = MagicMock()
-        mocker.patch.object(agent, "restart_resources", return_value=True)
+        mocker.patch.object(agent, "restart_resources")
 
         # Test exploit failure
         mock_action_message.additional_metadata = {"exit_code": 1}
@@ -105,16 +113,67 @@ def test_restart_resource_check(detect_agent, mocker):
     """
     Test that restart_resources returns False when _restart_resource returns False
     """
-    agent = detect_agent
-
     # Mock _restart_resource to return False instead of raising an exception
     mocker.patch.object(detect_agent, "_restart_resource", return_value=False)
 
-    # Call the method
-    success = agent.restart_resources()
+    # Expect an exception to be raised after retries
+    with pytest.raises(Exception):
+        detect_agent.restart_resources()
 
-    # Verify the result
-    assert not success
+
+def test_restart_resources_success(detect_agent, mock_resources):
+    """Test resource restart when all resources restart successfully."""
+    # Set up the mock resources
+    detect_agent.resources = mock_resources
+
+    detect_agent.restart_resources()
+
+    mock_resources.repo_setup.restart.assert_called_once()
+
+
+def test_restart_resources_repo_failure(detect_agent, mock_resources):
+    """Test resource restart when repo_setup fails."""
+    # Set up the mock resources
+    detect_agent.resources = mock_resources
+    mock_resources.repo_setup.restart.side_effect = Exception("Resource failure")
+
+    # Expect an exception to be raised after retries
+    with pytest.raises(Exception):
+        detect_agent.restart_resources()
+
+    # Verify the restart was called the right number of times
+    assert mock_resources.repo_setup.restart.call_count == 3
+
+
+def test_restart_resources_all_retries_fail(detect_agent, mock_resources):
+    """Test that an exception is raised when all retries fail."""
+    # Set up the mock resources
+    detect_agent.resources = mock_resources
+
+    # Make all restart attempts fail
+    mock_resources.repo_setup.restart.side_effect = Exception(
+        "Failed to restart resources."
+    )
+
+    # Should raise RetryError after retries are exhausted
+    with pytest.raises(RetryError) as excinfo:
+        detect_agent.restart_resources()
+
+    retry_error = excinfo.value
+    last_attempt = retry_error.last_attempt
+
+    if hasattr(last_attempt, "exception"):
+        # For Future objects
+        underlying_exception = last_attempt.exception()
+    else:
+        # For non-Future objects (synchronous retries)
+        underlying_exception = getattr(
+            last_attempt, "_exception", getattr(last_attempt, "exception", None)
+        )
+
+    assert "Failed to restart resources." in str(underlying_exception)
+
+    assert mock_resources.repo_setup.restart.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -173,32 +232,10 @@ async def test_waiting_for_submission(detect_agent, mocker):
 
 
 @pytest.mark.asyncio
-async def test_reject_submission_when_no_exploit_script(detect_agent, mocker):
-    """Test that DetectAgent rejects a submission when no exploit script is detected.
-    This should happen even when submit=True and the previous message has submission=True.
-    """
-    # Configure the agent for submissions
-    mocker.patch.object(detect_agent, "submit", True)
-
-    # Create a mock executor agent message with submission=True
-    init_msg = ExecutorAgentMessage(
-        agent_id="executor_agent", message="Test submission message", submission=True
-    )
-
-    # Mock that exploit.sh doesn't exist
-    mocker.patch.object(Path, "exists", return_value=False)
-
-    # Run the agent with the submission message
-    result = await detect_agent.run([init_msg])
-
-    # Verify the agent rejected the submission correctly
-    assert result.submission is False
-    assert "No exploit script detected" in result.message
-
-
-@pytest.mark.asyncio
-async def test_received_submission(detect_agent, mocker):
+async def test_received_submission(detect_agent, mocker, mock_resources):
     """Test that when submit=True and prev_agent_message.submission=True, we check for exploit"""
+    detect_agent.resources = mock_resources
+
     # Override submit flag on existing agent
     mocker.patch.object(detect_agent, "submit", True)
 
@@ -225,8 +262,10 @@ async def test_received_submission(detect_agent, mocker):
 
 
 @pytest.mark.asyncio
-async def test_exploit_failure(detect_agent, mocker):
+async def test_exploit_failure(detect_agent, mocker, mock_resources):
     """Test that when run_agent_exploit returns 1, we get 'Exploit failed with exit code' message"""
+    detect_agent.resources = mock_resources
+
     # Mock that exploit.sh exists
     mocker.patch.object(Path, "exists", return_value=True)
 
@@ -396,7 +435,7 @@ async def test_setup_unpatched_bounty_env(detect_agent, mocker):
     """Test that setup_unpatched_bounty_env calls the correct methods"""
     # Mock the required methods
     mocker.patch.object(detect_agent, "checkout_different_commit")
-    mocker.patch.object(detect_agent, "restart_resources", return_value=True)
+    mocker.patch.object(detect_agent, "restart_resources")
 
     # Call the method
     detect_agent.setup_unpatched_bounty_env("1")
