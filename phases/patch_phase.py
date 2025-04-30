@@ -25,18 +25,6 @@ class PatchPhase(BountyPhase):
 
     AGENT_CLASSES: List[Type[BaseAgent]] = [PatchAgent, ExecutorAgent]
 
-    def __init__(self, workflow: "BaseWorkflow", **kwargs):
-        """
-        Initialize the PatchPhase.
-
-        Args:
-            workflow (BaseWorkflow): The parent workflow.
-            **kwargs: Additional keyword arguments.
-        """
-        self.use_agent_exploit: bool = kwargs.get("use_agent_exploit", False)
-
-        super().__init__(workflow, **kwargs)
-
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         """
         Define the agents required for the PatchPhase.
@@ -49,7 +37,6 @@ class PatchPhase(BountyPhase):
         patch_config = PatchAgentConfig(
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
-            use_agent_exploit=self.use_agent_exploit,
             submit=self.submit,
             install_command=self.workflow.repo_metadata.get("install_command"),
         )
