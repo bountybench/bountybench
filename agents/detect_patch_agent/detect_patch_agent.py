@@ -164,6 +164,9 @@ class DetectPatchAgent(BaseAgent):
 
         # Apply the patch
         self._log("Applying agent-created patch to codebase.")
+        # Enable bounty setup for all future resource restarts
+        self.resources.bounty_setup.set_skip_setup(False)
+        logger.debug("Bounty-level resource setup enabled.")
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
             self._reset_codebase()
