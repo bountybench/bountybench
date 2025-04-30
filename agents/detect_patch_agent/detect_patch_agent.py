@@ -287,7 +287,7 @@ class DetectPatchAgent(BaseAgent):
         return _restart_resource_with_retry()
 
     # Default resource restart without bounty setup
-    def restart_resources(self, bounty_setup=True) -> bool:
+    def restart_resources(self) -> bool:
         """Restart necessary resources and check success."""
         # Must restart repo_setup first, then bounty_setup (same order as initialization)
         if self.resources.has_bound(ResourceType.REPO_SETUP):
@@ -297,7 +297,7 @@ class DetectPatchAgent(BaseAgent):
                 logger.error(f"Failed to restart repo resource")
                 return False
 
-        if self.resources.has_bound(ResourceType.BOUNTY_SETUP) and bounty_setup:
+        if self.resources.has_bound(ResourceType.BOUNTY_SETUP):
             try:
                 self._restart_resource(self.resources.bounty_setup)
             except Exception as e:
