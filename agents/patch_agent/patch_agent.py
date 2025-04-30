@@ -144,7 +144,7 @@ class PatchAgent(BaseAgent):
             return self.update_patch_agent_message(clear=True)
 
         # Only set submision = true if codebase changes
-        if self.submit:
+        if self.submit and isinstance(prev_agent_message, ExecutorAgentMessage):
             self._log("Submission received.")
             self.last_patch_agent_message.set_submission(True)
 
