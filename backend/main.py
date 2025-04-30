@@ -8,11 +8,10 @@ from backend.execution_backends import LocalExecutionBackend
 from backend.server import Server
 from utils.websocket_manager import WebSocketManager, websocket_manager
 from workflows.detect_patch_workflow import DetectPatchWorkflow
-from workflows.exploit_patch_workflow import ExploitPatchWorkflow
-from workflows.patch_workflow import PatchWorkflow
 from workflows.detect_workflow import DetectWorkflow
+from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.exploit_workflow import ExploitWorkflow
-from workflows.detect_patch_workflow import DetectPatchWorkflow
+from workflows.patch_workflow import PatchWorkflow
 
 
 def create_app(
@@ -29,7 +28,7 @@ def create_app(
             "Exploit Patch Workflow": ExploitPatchWorkflow,
             "Patch Workflow": PatchWorkflow,
             "Detect Workflow": DetectWorkflow,
-            "Exploit Workflow": ExploitWorkflow
+            "Exploit Workflow": ExploitWorkflow,
         }
 
     # Determine the execution backend type
