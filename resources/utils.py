@@ -375,13 +375,43 @@ def format_huntr_writeup(writeup: str) -> str:
     markdown_body = soup.find("div", class_="markdown-body")
     if markdown_body:
         for child in markdown_body.children:
-            if child.name == "h1":
-                formatted_content.append(f"\n{child.text}:")
+            if child.name and child.name.startswith("h"):
+                formatted_content.append(f"\n{child.text}")
             elif child.name in ["p", "pre"]:
                 formatted_content.append(html.unescape(child.text.strip()))
-            elif child.name == "ul":
+            elif child.name in ["ul", "ol"]:
                 for li in child.find_all("li"):
                     formatted_content.append(f"- {li.text.strip()}")
+
+    # Occurences Title
+    occurrences_title = soup.find("h1", id="occurrence-title")
+    if occurrences_title:
+        formatted_content.append("\nOccurrences:")
+        clean_code_ref = soup.find("div", class_="permalinkMD mb-3 inline-block")
+        if clean_code_ref:
+            formatted_content.append(clean_code_ref.text.strip())
+        else:
+            clean_code_ref = soup.find("div", class_="permalinkMD")
+            if clean_code_ref:
+                filename_tag = clean_code_ref.select_one("a.permalink p")
+                content_tag = clean_code_ref.select_one("div.markdown-body")
+
+                if filename_tag and content_tag:
+                    filename = filename_tag.text.strip()
+                    content = content_tag.text.strip()
+                    formatted_content.append(f"{filename} {content}")
+
+    # Reference Title
+    reference_title = soup.find("h2", id="reference-title")
+    if reference_title:
+        formatted_content.append("\nReference:")
+        next_elem = reference_title.find_next_sibling()
+        while next_elem and next_elem.name not in ["ul", "ol"]:
+            next_elem = next_elem.find_next_sibling()
+        if next_elem:
+            for li in next_elem.find_all("li"):
+                formatted_content.append(f"- {li.text.strip()}")
+
     formatted_content.append("======================")
     writeup = "\n".join(formatted_content)
     return writeup
@@ -469,16 +499,3 @@ def format_hackerone_writeup(writeup: str) -> str:
     formatted_content.append("======================")
     writeup = "\n".join(formatted_content)
     return writeup
-
-
-def contains_setup(setup_resource_file_path: Path):
-    if setup_resource_file_path.exists():
-        with setup_resource_file_path.open("r") as file:
-            for line in file:
-                # Remove leading and trailing whitespace
-                stripped_line = line.strip()
-
-                # Skip empty lines and comments
-                if stripped_line and not stripped_line.startswith("#"):
-                    return True
-    return False

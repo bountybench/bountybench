@@ -28,6 +28,10 @@ class BaseSetupResource(BaseResource, ABC):
         self.work_dir = None
         self.setup_script_name = None
         self.name = self.__class__.__name__
+        # Only relevant for Detect Patch,
+        # Bounty setup is initially skipped for agent environment
+        # Scoring logic requires bounty setup
+        self.skip_setup = False
 
         # Subclasses will call setup() after initializing their specific properties
 
@@ -69,6 +73,9 @@ class BaseSetupResource(BaseResource, ABC):
         """Start the environment by running the appropriate setup script."""
         if not self.work_dir.exists():
             raise FileNotFoundError(f"Work directory does not exist: {self.work_dir}")
+        if self.skip_setup:
+            logger.debug(f"Skipping setup for {self.setup_script_name}")
+            return
 
         try:
             logger.info(f"Executing {self.setup_script_name} in {self.work_dir}")
@@ -294,6 +301,7 @@ class BaseSetupResource(BaseResource, ABC):
             "task_dir": str(self.task_dir),
             "work_dir": str(self.work_dir),
             "container_names": self.container_names,
+            "skip_setup": str(self.skip_setup),
         }
 
     @classmethod
@@ -301,4 +309,5 @@ class BaseSetupResource(BaseResource, ABC):
         return {
             "resource_id": data["resource_id"],
             "container_names": data.get("container_names", []),
+            "skip_setup": data["skip_setup"],
         }

@@ -829,6 +829,38 @@ async def test_check_invariants_timeout_recovery(patch_agent, mocker):
         assert "attempt 3 of 3" in logs
 
 
+@pytest.mark.asyncio
+async def test_reject_submission_when_no_codebase_changes(patch_agent, mocker):
+    """
+    Test that PatchAgent rejects a submission when no codebase changes are detected.
+    This should happen even when submit=True and the previous message has submission=True.
+    """
+    agent = patch_agent
+
+    # Configure the agent for submissions
+    agent.submit = True
+
+    # Create a mock executor agent message with submission=True
+    from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
+
+    executor_message = ExecutorAgentMessage(
+        agent_id="executor_agent", message="Test submission message", submission=True
+    )
+
+    # Mock git_diff to return empty diff (no changes)
+    mocker.patch("agents.patch_agent.patch_agent.git_diff", return_value="")
+
+    # Run the agent with the submission message
+    result = await agent.run([executor_message])
+
+    # Verify the agent rejected the submission correctly
+    assert result.submission is False
+    assert "No codebase changes detected" in result.message
+
+    # Verify the submission was not processed (success should be unset or False)
+    assert result.success is not True
+
+
 # "uses" the import
 if None:
     bounty_setup

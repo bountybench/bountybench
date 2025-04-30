@@ -1,18 +1,21 @@
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
-from agents.detect_agent.detect_agent import DetectAgent, DetectAgentConfig
+from agents.detect_patch_agent.detect_patch_agent import (
+    DetectPatchAgent,
+    DetectPatchAgentConfig,
+)
 from agents.executor_agent.executor_agent import ExecutorAgent
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.bounty_phase import BountyPhase
+from phases.phase_utils import get_setup_resources
 from resources.base_resource import BaseResourceConfig
 from resources.docker_resource import DockerResourceConfig
 from resources.init_files_resource import InitFilesResourceConfig
 from resources.kali_env_resource import KaliEnvResourceConfig
 from resources.memory_resource.memory_resource import MemoryResourceConfig
 from resources.model_resource.model_resource import ModelResourceConfig
-from resources.repo_setup_resource import RepoSetupResourceConfig
 from resources.resource_type import ResourceType
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
@@ -20,51 +23,56 @@ from workflows.base_workflow import BaseWorkflow
 logger = get_main_logger(__name__)
 
 
-class DetectPhase(BountyPhase):
-    """
-    DetectPhase is responsible for attempting to detect vulnerabilities in the target system.
-    """
+class DetectPatchPhase(BountyPhase):
+    """Phase responsible for patching vulnerabilities."""
 
-    AGENT_CLASSES: List[Type[BaseAgent]] = [ExecutorAgent, DetectAgent]
+    AGENT_CLASSES: List[Type[BaseAgent]] = [DetectPatchAgent, ExecutorAgent]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, workflow: "BaseWorkflow", **kwargs):
+        """
+        Initialize the DetectPatchPhase.
 
+        Args:
+            workflow (BaseWorkflow): The parent workflow.
+            **kwargs: Additional keyword arguments.
+        """
+
+        super().__init__(workflow, **kwargs)
         if "compatible_patches" not in self.workflow.bounty_metadata:
             raise RuntimeError(
                 f"Bounty {self.bounty_number} is missing 'compatible_patches' in its metadata. "
-                "DetectPhase requires this field to proceed."
+                "DetectPatchPhase requires this field to proceed."
             )
 
     def define_agents(self) -> Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]:
         """
-        Define the agents required for the DetectPhase.
+        Define the agents required for the DetectPatchPhase.
 
         Returns:
             Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]: A dictionary mapping agent names to their types and configurations.
         """
         executor_config = AgentConfig()
 
-        detect_config = DetectAgentConfig(
+        patch_config = DetectPatchAgentConfig(
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
-            tmp_dir=self.tmp_dir,
             submit=self.submit,
-            install_command=self.workflow.repo_metadata.get("install_command"),
         )
 
         return {
             "executor_agent": (ExecutorAgent, executor_config),
-            "detect_agent": (DetectAgent, detect_config),
+            "patch_agent": (DetectPatchAgent, patch_config),
         }
 
     def define_resources(self) -> List[Tuple[ResourceType, BaseResourceConfig]]:
         """
-        Define resource classes and their configurations required by the DetectPhase.
+        Define resource classes and their configurations required by the DetectPatchPhase.
 
         Returns:
             List[Tuple[DefaultResource, ResourceConfig]].
         """
+        logger.debug("Entering define_resources for DetectPatchPhase")
+
         files_dir_name: str = self.workflow.bounty_metadata.get("files_dir", "codebase")
         vulnerable_commit: str = self.workflow.bounty_metadata.get(
             "vulnerable_commit", "main"
@@ -89,8 +97,8 @@ class DetectPhase(BountyPhase):
                     task_dir=self.workflow.task_dir,
                     files_dir_name=files_dir_name,
                     tmp_dir=self.tmp_dir,
-                    output_agent_files_name=self.output_agent_files_name,
                     bounty_number=self.bounty_number,
+                    output_agent_files_name=self.output_agent_files_name,
                     vulnerable_commit=vulnerable_commit,
                 ),
             ),
@@ -111,26 +119,14 @@ class DetectPhase(BountyPhase):
             (ResourceType.MEMORY, MemoryResourceConfig()),
         ]
 
-        self._add_setup_resources(resource_configs)
-        return resource_configs
-
-    def _add_setup_resources(
-        self, resource_configs: List[Tuple[ResourceType, BaseResourceConfig]]
-    ) -> None:
-        """
-        Add setup resources to the resource configurations if setup scripts exist.
-
-        Args:
-            resource_configs (List[Tuple[DefaultResource, BaseResourceConfig]]): The current resource configurations.
-        """
-        resource_configs.append(
-            (
-                ResourceType.REPO_SETUP,
-                RepoSetupResourceConfig(
-                    task_dir=self.workflow.task_dir,
-                ),
-            )
+        resource_configs += get_setup_resources(
+            task_dir=self.workflow.task_dir,
+            bounty_number=self.bounty_number,
+            skip_bounty_setup=True,
         )
+
+        logger.debug("Exiting define_resources for DetectPatchPhase")
+        return resource_configs
 
     async def run_one_iteration(
         self,
@@ -139,7 +135,7 @@ class DetectPhase(BountyPhase):
         previous_output: Optional[Message],
     ) -> Message:
         """
-        Run a single iteration of the DetectPhase.
+        Run a single iteration of the DetectPatchPhase.
 
         Args:
             phase_message (PhaseMessage): The current phase message.
@@ -147,7 +143,7 @@ class DetectPhase(BountyPhase):
             previous_output (Optional[Message]): The output from the previous iteration.
 
         Returns:
-            Message: The resulting message from the agent - do NOT return the phase message
+            Message: The resulting message from the agent.
         """
         input_list: List[Message] = []
         if previous_output is not None:
@@ -155,20 +151,21 @@ class DetectPhase(BountyPhase):
 
         message: Message = await agent_instance.run(input_list)
 
-        if isinstance(agent_instance, DetectAgent):
+        if isinstance(agent_instance, DetectPatchAgent):
             summary = ""
             phase_message.set_summary("")
             if message.submission:
-                logger.status("Detect submitted!", message.success)
+                logger.status("Patch submitted!", message.success)
                 summary += "receive_submission"
                 phase_message.set_complete()
             else:
                 summary += "no_submission"
+
             if message.success:
-                logger.status("Vulnerability detected!", True)
+                logger.info("Patch Success!")
                 summary += "/success"
-                phase_message.set_success()
                 phase_message.set_complete()
+                phase_message.set_success()
             else:
                 summary += "/failure"
             phase_message.set_summary(summary)
