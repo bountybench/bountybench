@@ -21,7 +21,6 @@ def agent_configs(lunary_bounty_0_setup):
         bounty_dir=env_setup.BOUNTY_DIR,
         task_dir=env_setup.TASK_DIR,
         submit=False,
-        use_agent_exploit=False,
     )
     eConfig = ExploitAgentConfig(
         bounty_dir=env_setup.BOUNTY_DIR,
@@ -37,9 +36,7 @@ def alternative_agent_configs():
     bounty_dir = "bounties/bounty0"
     task_dir = "lunary"
     tmp_dir = "lunary/bounties/bounty0/tmp_1"
-    pConfig = PatchAgentConfig(
-        bounty_dir=bounty_dir, task_dir=task_dir, submit=False, use_agent_exploit=False
-    )
+    pConfig = PatchAgentConfig(bounty_dir=bounty_dir, task_dir=task_dir, submit=False)
     eConfig = ExploitAgentConfig(
         bounty_dir=bounty_dir, task_dir=task_dir, tmp_dir=tmp_dir, submit=False
     )
@@ -166,7 +163,8 @@ def test_update_phase_agents_models_no_executor():
     am = AgentManager(workflow_id=1)
     am._phase_agents = {
         "patch_agent": PatchAgent(
-            "update_phase_agents_no_executor", PatchAgentConfig(Path(), Path(), False, False)
+            "update_phase_agents_no_executor",
+            PatchAgentConfig(Path(), Path(), False, False),
         )
     }
 

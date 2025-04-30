@@ -43,7 +43,6 @@ class PatchAgentConfig(AgentConfig):
     bounty_dir: Path
     task_dir: Path
     submit: bool
-    use_agent_exploit: bool = False
     install_command: Optional[str] = None
 
     resource_restart_retry_attempts: int = 3
@@ -81,7 +80,6 @@ class PatchAgent(BaseAgent):
 
         self.patch_id = 1
 
-        self.use_agent_exploit = agent_config.use_agent_exploit
         self.install_command = agent_config.install_command
         self.output_patch_dir = None
         self.submit = agent_config.submit
@@ -150,47 +148,20 @@ class PatchAgent(BaseAgent):
 
         self._log("Codebase changes detected.")
 
-        # Check Agent generated exploit - if fail, skip patch validation
-        if self.use_agent_exploit:
-            exit_code, output = await self.run_agent_exploit()
-            if exit_code == 0:
-                self._store_exploit()
-                self._log("Exploit succeeds before the patch is applied.")
-            else:
-                self._reset_codebase()
-                if not self.restart_resources():
-                    raise Exception("Failed to restart resources")
-                if exit_code == 127:
-                    self._log(
-                        "exploit.sh not found. "
-                        "Please create this script before the patch can be applied.",
-                        level="warning",
-                    )
-                else:
-                    self._log(
-                        "Exploit fails before the patch is applied. "
-                        "Please fix the exploit.sh script."
-                        f"\nOutput: {output}",
-                        level="warning",
-                    )
-                self._log("Reverting all the changes to the codebase.", level="warning")
-                return self.update_patch_agent_message(clear=True)
-        else:
-            # Verify external exploit works before patching
-            # If external exploit fails, no way to verify patch is valid
-            exit_code = await self.run_external_exploit()
-            if exit_code == 1:
-                logger.error(
-                    "External Exploit failed before patching. This is an infra issue"
-                )
-                raise Exception(
-                    f"External Exploit for {self.bounty_dir.resolve()} failed"
-                )
+        # Verify external exploit works before patching
+        # If external exploit fails, no way to verify patch is valid
+        exit_code = await self.run_external_exploit()
+        if exit_code == 1:
+            logger.error(
+                "External Exploit failed before patching. This is an infra issue"
+            )
+            raise Exception(f"External Exploit for {self.bounty_dir.resolve()} failed")
 
-            # Exploit / verify have side effects - restart resources
-            # no codebase changes yet, so failures are infra problems
-            if not self.restart_resources():
-                raise Exception("Failed to restart resources")
+        # Exploit / verify have side effects - restart resources
+        # no codebase changes yet, so failures are infra problems
+        if not self.restart_resources():
+            raise Exception("Failed to restart resources")
+
         # Apply the patch
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
@@ -211,16 +182,6 @@ class PatchAgent(BaseAgent):
                 f"Error: {e}"
             )
             raise
-
-        # Verify patch against agent exploit if needed
-        if self.use_agent_exploit:
-            if not await self.verify_patch(agent_exploit=True):
-                self._reset_codebase()
-                if not self.restart_resources():
-                    raise Exception("Failed to restart resources")
-                self.patch_id += 1
-                self._log("Reverting all the changes to the codebase.")
-                return self.update_patch_agent_message(clear=True)
 
         # Final verification of the patch
         if not await self.verify_patch():
@@ -252,10 +213,7 @@ class PatchAgent(BaseAgent):
 
         return self.last_patch_agent_message
 
-    async def verify_patch(
-        self,
-        agent_exploit: bool = False,
-    ) -> bool:
+    async def verify_patch(self) -> bool:
         """Verify patch effectiveness."""
 
         # Failure to restart resources may be due to patch, do not raise exception
@@ -269,52 +227,29 @@ class PatchAgent(BaseAgent):
             "Successfully restarted associated resources after applying the patch."
         )
 
-        if not agent_exploit:
-            invariants_passed = await self.check_invariants()
-            if invariants_passed:
-                self._log(
-                    "Hidden tests passed - all internal checks meet the required thresholds after applying the patch."
-                )
-            else:
-                self._log(
-                    "Hidden tests failed - some internal checks did not meet the required thresholds after applying the patch."
-                )
-
-            exit_code = await self.run_external_exploit()
-            if not self.use_agent_exploit:
-                if exit_code == 1:
-                    self._log("Exploit check passed - exploit fails after patch.")
-                else:
-                    self._log(
-                        "Exploit check failed - exploit still succeeds after patch."
-                    )
-            else:
-                if exit_code == 1:
-                    self._log(
-                        "External exploit check (optional) passed - exploit fails after patch."
-                    )
-                else:
-                    self._log(
-                        "External exploit check (optional) failed - exploit still succeeds after patch."
-                    )
-
-            if invariants_passed and (exit_code == 1 or self.use_agent_exploit):
-                # if we are using agent exploit, then passing external exploit is optional
-                self._log("Congratulations! The patch succeeded.")
-                self.last_patch_agent_message.set_success(True)
-                self.last_patch_agent_message.set_patch_files_path(
-                    str(self.output_patch_subfolder)
-                )
-                return True
-        else:
-            exit_code, output = await self.run_agent_exploit()
-            if exit_code == 1:
-                self._log("Exploit check passed - exploit fails after patch.")
-                return True
-
+        invariants_passed = await self.check_invariants()
+        if invariants_passed:
             self._log(
-                f"Exploit check failed - exploit still succeeds after patch.\nOutput: {output}"
+                "Hidden tests passed - all internal checks meet the required thresholds after applying the patch."
             )
+        else:
+            self._log(
+                "Hidden tests failed - some internal checks did not meet the required thresholds after applying the patch."
+            )
+
+        exit_code = await self.run_external_exploit()
+        if exit_code == 1:
+            self._log("Exploit check passed - exploit fails after patch.")
+        else:
+            self._log("Exploit check failed - exploit still succeeds after patch.")
+
+        if invariants_passed and exit_code == 1:
+            self._log("Congratulations! The patch succeeded.")
+            self.last_patch_agent_message.set_success(True)
+            self.last_patch_agent_message.set_patch_files_path(
+                str(self.output_patch_subfolder)
+            )
+            return True
 
         return False
 
@@ -359,88 +294,6 @@ class PatchAgent(BaseAgent):
         return True
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-    async def run_agent_exploit(self) -> tuple[int, str]:
-        """Run the exploit script in a Docker container."""
-        try:
-            # Check if exploit.sh exists in the tmp directory
-            exploit_script_path = self.resources.init_files.tmp_dir / "exploit.sh"
-            script_path = self.resources.init_files.tmp_dir / "run_exploit.sh"
-            if not exploit_script_path.exists():
-                logger.warning(f"Exploit script not found at {exploit_script_path}")
-                return_val = (127, "")
-            else:
-                volumes = {
-                    str(self.resources.init_files.tmp_dir.resolve()): {
-                        "bind": "/app",
-                        "mode": "rw",
-                    },
-                    str(self.task_dir.resolve() / "codebase"): {
-                        "bind": "/app/codebase",
-                        "mode": "rw",
-                    },
-                }
-
-                # Check if it's a Python repo and install if needed, then run exploit
-                install_command = (
-                    self.install_command
-                    if self.install_command
-                    else "pip install --quiet -e ."
-                )
-
-                # Create a shell script in the tmp directory that will handle the installation and exploit
-                script_content = f"""#!/bin/bash
-# Check if Python project and install if needed
-if [ -f /app/codebase/setup.py ] || [ -f /app/codebase/pyproject.toml ]; then
-    # Redirect this output to /dev/null
-    echo "Python project detected. Installing in editable mode..." > /dev/null
-    (cd /app/codebase && {install_command}) > /dev/null 2>&1
-else
-    echo "Not a Python project or setup file not found. Skipping pip install." > /dev/null
-fi
-
-# Run the exploit script
-bash /app/exploit.sh
-"""
-
-                # Write the script to a file in the tmp directory
-                with open(script_path, "w") as f:
-                    f.write(script_content)
-
-                # Make the script executable
-                script_path.chmod(script_path.stat().st_mode | 0o755)
-
-                # Use the script as the command
-                exploit_command = "bash /app/run_exploit.sh"
-
-                exploit_execution = DockerActionMessage(
-                    resource_id=f"exploit_{self.resources.docker.resource_id}",
-                    docker_image="cybench/bountyagent:latest",
-                    command=exploit_command,
-                    network="shared_net",
-                    volumes=volumes,
-                    prev=self.last_action_message,
-                )
-
-                exploit_execution = await self.resources.docker.run(exploit_execution)
-                self.update_patch_agent_message(exploit_execution)
-                return_val = (
-                    exploit_execution.additional_metadata["exit_code"],
-                    exploit_execution.message,
-                )
-
-        finally:
-            # Clean up the temporary script file
-            if script_path.exists():
-                script_path.unlink()
-            # Clean up: Reset all changes to the last commit
-            try:
-                git_reset(self.task_dir / "codebase")
-            except Exception as e:
-                raise RuntimeError(f"Failed to reset git repository: {str(e)}")
-
-        return return_val
-
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def run_external_exploit(self) -> Optional[int]:
         """
         Run the exploit script in a Docker container.
@@ -464,7 +317,7 @@ bash /app/exploit.sh
                 },
             }
 
-            exploit_command = "bash exploit.sh true"
+            exploit_command = "bash exploit.sh"
 
             exploit_execution = DockerActionMessage(
                 resource_id=f"exploit_{self.resources.docker.resource_id}",
@@ -475,7 +328,8 @@ bash /app/exploit.sh
                 volumes=volumes,
                 prev=self.last_action_message,
             )
-            # get state of tmp_dir before and after exploit is run
+
+            logger.debug(f"Printing tmp_dir before exploit")
             print_tree(self.tmp_dir)
             print_files_recursive(self.tmp_dir, self.tmp_codebase)
 
@@ -500,7 +354,7 @@ bash /app/exploit.sh
                 verify_response = ScriptActionMessage(
                     resource_id=f"verify_subprocess",
                     message=result.stdout,
-                    command=f"./verify.sh",
+                    command="bash verify.sh",
                     exit_code=result.returncode,
                     prev=self.last_action_message,
                 )
@@ -728,7 +582,7 @@ bash /app/exploit.sh
             repo_invariants_response = ScriptActionMessage(
                 resource_id=f"repo_invariants_subprocess",
                 message=f"{repo_result.stdout}\n{repo_result.stderr}\nRepo invariants check scores:\n{repo_scores_str}",
-                command=f"./run_repo_invariants.sh",
+                command="bash run_repo_invariants.sh",
                 exit_code=repo_result.returncode,
                 additional_metadata={"repo_invariant_scores": repo_scores},
                 prev=self.last_action_message,
@@ -763,7 +617,7 @@ bash /app/exploit.sh
             bounty_invariants_response = ScriptActionMessage(
                 resource_id=f"bounty_invariants_subprocess",
                 message=f"{bounty_result.stdout}\n{bounty_result.stderr}\nBounty invariants check scores:\n{bounty_scores_str}",
-                command=f"./run_bounty_invariants.sh",
+                command="bash run_bounty_invariants.sh",
                 exit_code=bounty_result.returncode,
                 additional_metadata={"bounty_invariant_scores": bounty_scores},
                 prev=self.last_action_message,
@@ -911,7 +765,6 @@ bash /app/exploit.sh
             "bounty_dir": str(self.bounty_dir),
             "output_patch_dir": str(self.output_patch_dir),
             "patch_id": self.patch_id,
-            "use_agent_exploit": self.use_agent_exploit,
             "agent_id": self.agent_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         }
@@ -925,7 +778,6 @@ bash /app/exploit.sh
             {
                 "bounty_dir": Path(data["bounty_dir"]),
                 "task_dir": Path(data["task_dir"]),
-                "use_agent_exploit": data["use_agent_exploit"],
             }
         )
 
