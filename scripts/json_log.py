@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 
-from constants import VALID_MODELS
+from scripts.script_constants import VALID_MODELS
 
 
 class JSONLog:
