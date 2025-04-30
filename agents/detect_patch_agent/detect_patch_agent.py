@@ -21,7 +21,7 @@ from messages.agent_messages.detect_patch_agent_message import DetectPatchAgentM
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.resource_type import ResourceType
 from resources.utils import read_repo_metadata, run_command_async
-from utils.file_utils import print_files_recursive, print_tree
+from utils.file_utils import extract_bounty_number, print_files_recursive, print_tree
 from utils.git_utils import (
     git_add,
     git_apply_patch,
@@ -195,14 +195,23 @@ class DetectPatchAgent(BaseAgent):
         success = await self.score_agent_patch()
 
         if success:
-            self._log(
-                "Successfully detected and patched a vulnerability in the codebase!"
+            combined_log = self._log(
+                "Successfully detected and patched a vulnerability in the codebase!",
+                clear=True,
             )
+            self.last_detect_patch_agent_message.set_message(f"{combined_log}")
+            self.last_detect_patch_agent_message.set_success(True)
+            return  self.last_detect_patch_agent_message
         else:
-            self._log("Failed to patch any vulnerability in the codebase.")
+            combined_log = self._log(
+                "Failed to identify any vulnerability in the codebase.",
+                clear=True,
+            )
+            self.last_detect_patch_agent_message.set_message(f"{combined_log}")
 
-        # Return the final status message
-        return self.update_detect_patch_agent_message(clear=True)
+        self.log_history.clear()
+        return  self.last_detect_patch_agent_message
+
 
     def update_detect_patch_agent_message(
         self,
@@ -226,7 +235,7 @@ class DetectPatchAgent(BaseAgent):
         """Verify patch effectiveness."""
 
         # Failure to restart resources may be due to patch, do not raise exception
-        if not self.restart_resources(repo_setup=True):
+        if not self.restart_resources():
             self._log(
                 "Could not restart associated resources after applying the patch. Patch is invalid."
             )
@@ -236,8 +245,6 @@ class DetectPatchAgent(BaseAgent):
             "Successfully restarted associated resources after applying the patch."
         )
 
-        #start current bountysetup resource before checking invariants
-        self.resources.bounty_setup.setup()
         invariants_passed = await self.check_invariants()
         if invariants_passed:
             self._log(
@@ -252,7 +259,6 @@ class DetectPatchAgent(BaseAgent):
             self.last_detect_patch_agent_message.set_patch_files_path(
                 str(self.output_patch_subfolder)
             )
-        self.resources.bounty_setup.stop()
 
     # Now that failure to restart resources raises exception, add retries
     def _restart_resource(self, resource):
@@ -276,7 +282,7 @@ class DetectPatchAgent(BaseAgent):
         return _restart_resource_with_retry()
 
     # Default resource restart without bounty setup
-    def restart_resources(self, bounty_setup=False) -> bool:
+    def restart_resources(self, bounty_setup=True) -> bool:
         """Restart necessary resources and check success."""
         # Must restart repo_setup first, then bounty_setup (same order as initialization)
         if self.resources.has_bound(ResourceType.REPO_SETUP):
@@ -322,16 +328,11 @@ class DetectPatchAgent(BaseAgent):
                 bounty_name = f"bounty_{bounty_number}"
                 target_bounty_path = self.task_dir.resolve() / "bounties" / bounty_name
 
-                # Restarts just the repo setup
-                logger.debug(f"Restarting repo env...")
-                if not self.restart_resources():
-                    raise Exception("Failed to restart repo resources")
-
                 # Setup bounty setup at the given bounty number
                 logger.debug(f"Setup bounty-specific env")
-                self.execute_if_exists(
-                    target_bounty_path / "setup_files" / "setup_bounty_env.sh"
-                )
+                self.resources.bounty_setup.update_work_dir(target_bounty_path / "setup_files")
+                if not self.restart_resources():
+                    raise Exception("Failed to restart resources")
 
                 exit_code = await self.run_external_exploit(target_bounty_path)
                 scores.append(exit_code)
@@ -357,8 +358,6 @@ class DetectPatchAgent(BaseAgent):
 
         if not candidate_bounties:
             return False
-        
-
 
         detected_bounties = []
         for candidate_bounty in candidate_bounties: 
