@@ -135,16 +135,18 @@ class PatchAgent(BaseAgent):
                 if not prev_agent_message.submission:
                     self._log("Waiting for submission...")
                     return self.update_patch_agent_message(clear=True)
-                else:
-                    self._log("Submission received.")
-                    self.last_patch_agent_message.set_submission(True)
 
         # Begin patch workflow
         tmp_git_diff = git_diff(self.tmp_codebase)
 
         if not tmp_git_diff:
-            self._log("No git diff detected within codebase, skipping patching.")
+            self._log("No codebase changes detected")
             return self.update_patch_agent_message(clear=True)
+
+        # Only set submision = true if codebase changes
+        if self.submit:
+            self._log("Submission received.")
+            self.last_patch_agent_message.set_submission(True)
 
         self._log("Codebase changes detected.")
 
