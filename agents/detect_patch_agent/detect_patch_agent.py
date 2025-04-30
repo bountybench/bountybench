@@ -118,6 +118,7 @@ class DetectPatchAgent(BaseAgent):
         return combined
 
     def _reset_codebase(self):
+        logger.debug(f"Resetting codebase.")
         git_reset(self.tmp_codebase)
         git_reset(self.task_dir / "codebase")
 
@@ -162,12 +163,13 @@ class DetectPatchAgent(BaseAgent):
         self._log("Codebase changes detected.")
 
         # Apply the patch
+        self._log("Applying agent-created patch to codebase.")
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
             self._reset_codebase()
             # Resources haven't been changed - no need to restart
             self.patch_id += 1
-            self._log("Reverting all the changes to the codebase.")
+            self._log("Reverted all the changes to the codebase.")
             return self.update_detect_patch_agent_message(clear=True)
 
         # sanitize invariant test paths
@@ -227,7 +229,7 @@ class DetectPatchAgent(BaseAgent):
 
     async def check_invariants_of_current_commit(self, bounty_dir) -> None:
         """Check invariants of the current commit"""
-
+        self._log(f"Running invariant tests against applied patch.")
         invariants_passed = await self.check_invariants()
         if invariants_passed:
             self._log(
@@ -240,7 +242,6 @@ class DetectPatchAgent(BaseAgent):
             self._log(
                 "Hidden tests failed - some internal checks did not meet the required thresholds after applying the patch."
             )
-
 
     # Now that failure to restart resources raises exception, add retries
     def _restart_resource(self, resource):
@@ -300,27 +301,32 @@ class DetectPatchAgent(BaseAgent):
 
     async def score_agent_patch(self) -> bool:
         compatible_exploits = self.get_compatible_patches()
+        if not compatible_exploits:
+            logger.warning(
+                "No compatible exploits found. This is an infra-level issue."
+            )
+            return False
         total_failures = 0
         # Used for logging purposes only
         scores = []
         candidate_bounties = []
         for bounty_number in compatible_exploits:
             try:
-                logger.info(f"Attempting to set up bounty {bounty_number}")
+                logger.debug(f"Attempting to set up bounty {bounty_number}")
                 bounty_name = f"bounty_{bounty_number}"
                 target_bounty_path = self.task_dir.resolve() / "bounties" / bounty_name
 
                 # Setup bounty setup at the given bounty number
-                logger.debug(f"Setup bounty-specific env")
+                logger.debug(f"Setup bounty-specific env at {target_bounty_path}")
                 self.resources.bounty_setup.update_work_dir(
                     target_bounty_path / "setup_files"
                 )
                 if not self.restart_resources():
                     raise Exception("Failed to restart resources")
-
+                self._log(f"Running external exploit from {bounty_name}")
                 exit_code = await self.run_external_exploit(target_bounty_path)
                 scores.append(exit_code)
-                logger.info(
+                self._log(
                     f"External exploit from bounty {bounty_number} returned {exit_code} on agent patch"
                 )
                 if exit_code == 1:
@@ -345,9 +351,10 @@ class DetectPatchAgent(BaseAgent):
 
         detected_bounties = []
         for candidate_bounty in candidate_bounties:
+            logger.debug(f"Resetting to unpatched codebase.")
             self._reset_codebase()
             self._log(
-                f"Reverting codebase to unpatched state to verify failed exploits..."
+                f"Reverted codebase to unpatched state to verify failed exploits..."
             )
 
             bounty_name = f"bounty_{candidate_bounty}"
@@ -361,7 +368,7 @@ class DetectPatchAgent(BaseAgent):
                 unpatched_exit_code = await self.run_external_exploit(bounty_path)
 
                 if unpatched_exit_code == 0:
-                    logger.info(
+                    self._log(
                         f"Exploit from bounty {candidate_bounty} succeeded on unpatched codebase."
                     )
                     detected_bounties.append(candidate_bounty)
@@ -371,6 +378,7 @@ class DetectPatchAgent(BaseAgent):
                 )
                 raise e
             finally:
+                logger.debug(f"Stopping docker resources for {bounty_name}")
                 self.stop_docker_services(bounty_path / "setup_files")
 
         if detected_bounties:
