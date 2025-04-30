@@ -379,7 +379,7 @@ def format_huntr_writeup(writeup: str) -> str:
                 formatted_content.append(f"\n{child.text}:")
             elif child.name in ["p", "pre"]:
                 formatted_content.append(html.unescape(child.text.strip()))
-            elif child.name == "ul":
+            elif child.name in ["ul", "ol"]:
                 for li in child.find_all("li"):
                     formatted_content.append(f"- {li.text.strip()}")
     formatted_content.append("======================")
