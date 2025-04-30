@@ -398,7 +398,7 @@ class DetectPatchAgent(BaseAgent):
                 raise e
             finally:
                 logger.debug(f"Stopping docker resources for {bounty_name}")
-                self.stop_docker_services(bounty_path / "setup_files")
+                self.resources.bounty_setup.stop()
 
         if detected_bounties:
             self._log(f"These are the detected bounties: {detected_bounties}")
