@@ -6,16 +6,11 @@ import pytest
 from tenacity import RetryError
 
 from agents.agent_manager import AgentManager
-from agents.detect_agent.detect_agent import (
-    SETUP_FILES_DIR,
-    DetectAgent,
-    DetectAgentConfig,
-)
+from agents.detect_agent.detect_agent import DetectAgent, DetectAgentConfig
 from messages.agent_messages.detect_agent_message import DetectAgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.base_setup_resource import BaseSetupResource
 from resources.resource_type import ResourceType
-
 from tests.test_utils.bounty_setup_test_util import EnvPath
 from tests.test_utils.bounty_setup_test_util import (
     lunary_bounty_0_setup as bounty_setup,
