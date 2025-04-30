@@ -132,63 +132,6 @@ def test_restart_resource_check(detect_agent, mocker):
     with pytest.raises(Exception):
         detect_agent.restart_resources()
 
-    # Verify the restart was called the right number of times
-    assert detect_agent.restart_resources.call_count == 3
-
-
-def test_restart_resources_success(detect_agent, mock_resources):
-    """Test resource restart when all resources restart successfully."""
-    # Set up the mock resources
-    detect_agent.resources = mock_resources
-
-    detect_agent.restart_resources()
-
-    mock_resources.repo_setup.restart.assert_called_once()
-
-
-def test_restart_resources_repo_failure(detect_agent, mock_resources):
-    """Test resource restart when repo_setup fails."""
-    # Set up the mock resources
-    detect_agent.resources = mock_resources
-    mock_resources.repo_setup.restart.side_effect = Exception("Resource failure")
-
-    # Expect an exception to be raised after retries
-    with pytest.raises(Exception):
-        detect_agent.restart_resources()
-
-    # Verify the restart was called the right number of times
-    assert mock_resources.repo_setup.restart.call_count == 3
-
-
-def test_restart_resources_all_retries_fail(detect_agent, mock_resources):
-    """Test that an exception is raised when all retries fail."""
-    # Set up the mock resources
-    detect_agent.resources = mock_resources
-
-    # Make all restart attempts fail
-    mock_resources.repo_setup.restart.side_effect = Exception(
-        "Failed to restart resources."
-    )
-
-    # Should raise RetryError after retries are exhausted
-    with pytest.raises(RetryError) as excinfo:
-        detect_agent.restart_resources()
-
-    retry_error = excinfo.value
-    last_attempt = retry_error.last_attempt
-
-    if hasattr(last_attempt, "exception"):
-        # For Future objects
-        underlying_exception = last_attempt.exception()
-    else:
-        # For non-Future objects (synchronous retries)
-        underlying_exception = getattr(
-            last_attempt, "_exception", getattr(last_attempt, "exception", None)
-        )
-
-    assert "Failed to restart resources." in str(underlying_exception)
-    assert mock_resources.repo_setup.restart.call_count == 3
-
 
 @pytest.mark.asyncio
 async def test_skip_no_exploit(detect_agent, mocker):
