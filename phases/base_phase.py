@@ -315,10 +315,10 @@ class BasePhase(ABC):
         except IterationFailure as e:
             agent_message = e.agent_message
             logger.error(f"Iteration {iteration} failed: {str(e)}")
-            await self._pause_phase()
+            raise e
         except Exception as e:
             logger.exception("Unexpected error during iteration")
-            await self._pause_phase()
+            raise e
         finally:
             if agent_message:
                 iteration_time = time.time() - start_time
