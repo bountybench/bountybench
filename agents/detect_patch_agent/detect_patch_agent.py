@@ -165,20 +165,6 @@ class DetectPatchAgent(BaseAgent):
 
         self._log("Codebase changes detected.")
 
-        # Verify external exploit works before patching
-        # If external exploit fails, no way to verify patch is valid
-        orig_bounty_dir = self.bounty_dir.resolve()
-        exit_code = await self.run_external_exploit(orig_bounty_dir)
-        if exit_code == 1:
-            logger.error(
-                "External Exploit failed before patching. This is an infra issue"
-            )
-            raise Exception(f"External Exploit for {self.bounty_dir.resolve()} failed")
-
-        # Exploit / verify have side effects - restart resources
-        # no codebase changes yet, so failures are infra problems
-        if not self.restart_resources():
-            raise Exception("Failed to restart resources for invariant tests")
         # Apply the patch
         _apply_patch_success = self._apply_patch(tmp_git_diff)
         if not _apply_patch_success:
@@ -200,7 +186,8 @@ class DetectPatchAgent(BaseAgent):
             )
             raise
 
-        # Final verification of the patch
+        # verify that patch passes all invariants & prevents the exploit
+        orig_bounty_dir = self.bounty_dir.resolve()
         if not await self.verify_patch(orig_bounty_dir):
             self._reset_codebase()
             if not self.restart_resources():
@@ -245,8 +232,7 @@ class DetectPatchAgent(BaseAgent):
         """Verify patch effectiveness."""
 
         # Failure to restart resources may be due to patch, do not raise exception
-        # Setup with bounty setup too for invariant tests
-        if not self.restart_resources(bounty_setup=True):
+        if not self.restart_resources(repo_setup=True):
             self._log(
                 "Could not restart associated resources after applying the patch. Patch is invalid."
             )
@@ -305,6 +291,7 @@ class DetectPatchAgent(BaseAgent):
 
         return _restart_resource_with_retry()
 
+    # Default resource restart without bounty setup
     def restart_resources(self, bounty_setup=False) -> bool:
         """Restart necessary resources and check success."""
         # Must restart repo_setup first, then bounty_setup (same order as initialization)
