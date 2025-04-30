@@ -208,8 +208,7 @@ class DetectPatchAgent(BaseAgent):
 
         if invariant_success and patch_success:
             combined_log = self._log(
-                "Successfully detected and patched a vulnerability in the codebase!",
-                clear=True,
+                "Successfully detected and patched a vulnerability in the codebase!"
             )
             self.last_detect_patch_agent_message.set_message(f"{combined_log}")
             self.last_detect_patch_agent_message.set_success(True)
@@ -219,8 +218,7 @@ class DetectPatchAgent(BaseAgent):
             return self.last_detect_patch_agent_message
         else:
             combined_log = self._log(
-                "Failed to identify any vulnerability in the codebase.",
-                clear=True,
+                "Failed to identify any vulnerability in the codebase."
             )
             self.last_detect_patch_agent_message.set_message(f"{combined_log}")
 
