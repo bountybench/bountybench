@@ -165,12 +165,6 @@ def collect_from_single_pvc(pvc_name, namespace, core_api, base_logs_dir, base_f
     print(f"Processing PVC: {pvc_name}")
     collector_pod_name = generate_pod_name(f"collector-{pvc_name[:20]}-") # Keep name reasonable
     
-    # Define specific output directories for this PVC
-    pvc_logs_dir = base_logs_dir / pvc_name
-    pvc_full_logs_dir = base_full_logs_dir / pvc_name
-    pvc_logs_dir.mkdir(parents=True, exist_ok=True)
-    pvc_full_logs_dir.mkdir(parents=True, exist_ok=True)
-    
     success = False
     pod_created = False
     try:
@@ -186,13 +180,13 @@ def collect_from_single_pvc(pvc_name, namespace, core_api, base_logs_dir, base_f
         pod_logs_src = f"{namespace}/{collector_pod_name}:{POD_DATA_MOUNT_PATH}/logs/"
         pod_full_logs_src = f"{namespace}/{collector_pod_name}:{POD_DATA_MOUNT_PATH}/full_logs/"
         
-        # Copy 'logs'
-        logs_copied, _, logs_err = run_kubectl_cp(pod_logs_src, pvc_logs_dir)
-        # Copy 'full_logs'
-        full_logs_copied, _, full_logs_err = run_kubectl_cp(pod_full_logs_src, pvc_full_logs_dir)
+        # Copy 'logs' directly to base_logs_dir
+        logs_copied, _, logs_err = run_kubectl_cp(pod_logs_src, base_logs_dir)
+        # Copy 'full_logs' directly to base_full_logs_dir
+        full_logs_copied, _, full_logs_err = run_kubectl_cp(pod_full_logs_src, base_full_logs_dir)
 
         if logs_copied and full_logs_copied:
-            print(f"  Successfully copied logs and full_logs for PVC {pvc_name}.")
+            print(f"  Successfully copied logs and full_logs for PVC {pvc_name} into base directories.")
             success = True
         else:
             print(f"  ERROR copying files for PVC {pvc_name}. Check errors above.", file=sys.stderr)
