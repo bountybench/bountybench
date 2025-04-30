@@ -65,16 +65,18 @@ spec:
         #   mountPath: /var/run
         resources: # UNCOMMENTED and set initial values
           requests:
-            cpu: "600m"  # 1.2 CPU core
-            memory: "4Gi" # 8 GiB of memory
+            cpu: "800m"  # 1.2 CPU core
+            memory: "5Gi" # 8 GiB of memory
           # limits: # Optional: Set limits if needed, often higher than requests
           #   cpu: "2000m"
           #   memory: "4Gi"
       volumes:
       - name: dind-storage # Volume for inner docker's data
         emptyDir: {} # Docker-in-Docker storage
-      - name: job-output-volume # Keep the name for the mount
-        emptyDir: {} # Use emptyDir instead of PVC for logs
+      - name: job-output-volume # Define the volume based on the PVC
+        persistentVolumeClaim:
+          # claimName will be patched by experiment_job_deployer.py
+          claimName: placeholder-pvc-name # Needs a placeholder
       # Optional: If mounting /var/run explicitly
       # - name: docker-sock-volume
       #   emptyDir: {}
