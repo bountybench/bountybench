@@ -12,6 +12,8 @@ from agents.detect_agent.detect_agent import (
 )
 from messages.agent_messages.detect_agent_message import DetectAgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
+from resources.resource_type import ResourceType
+from resources.base_setup_resource import BaseSetupResource
 from tests.test_utils.bounty_setup_test_util import EnvPath
 from tests.test_utils.bounty_setup_test_util import (
     lunary_bounty_0_setup as bounty_setup,
@@ -51,6 +53,27 @@ def detect_agent(bounty_setup):
 
     # revert any commits the tests made in env
     subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=env_path.TASK_DIR)
+
+
+@pytest.fixture
+def mock_resources():
+    """Create mock resources for testing."""
+    resources = MagicMock()
+    resources.repo_setup = MagicMock(spec=BaseSetupResource)
+    resources.repo_setup.resource_id = "repo_setup"
+    resources.repo_setup.restart = MagicMock()
+
+    resources.bounty_setup = MagicMock(spec=BaseSetupResource)
+    resources.bounty_setup.resource_id = "bounty_setup"
+    resources.bounty_setup.restart = MagicMock()
+
+    # Mock the has_bound method
+    resources.has_bound = lambda resource_type: resource_type in {
+        ResourceType.REPO_SETUP,
+        ResourceType.BOUNTY_SETUP,
+    }
+
+    return resources
 
 
 @pytest.fixture(scope="module")
@@ -104,18 +127,41 @@ async def test_run_agent_exploit(bounty_setup, detect_agent):
 def test_restart_resource_check(detect_agent, mocker):
     """
     Test that restart_resources returns False when _restart_resource returns False
-    """
-    agent = detect_agent
-
+    """       
     # Mock _restart_resource to return False instead of raising an exception
     mocker.patch.object(detect_agent, "_restart_resource", return_value=False)
 
-    # Call the method
-    success = agent.restart_resources()
+    # Expect an exception to be raised after retries
+    with pytest.raises(Exception):
+        detect_agent.restart_resources()
 
-    # Verify the result
-    assert not success
+    # Verify the restart was called the right number of times
+    assert mock_resources.repo_setup.restart.call_count == 3
 
+
+def test_restart_resources_success(detect_agent, mock_resources):
+    """Test resource restart when all resources restart successfully."""
+    # Set up the mock resources
+    detect_agent.resources = mock_resources
+
+    detect_agent.restart_resources()
+
+    mock_resources.repo_setup.restart.assert_called_once()
+
+
+def test_restart_resources_repo_failure(detect_agent, mock_resources):
+    """Test resource restart when repo_setup fails."""
+    # Set up the mock resources
+    detect_agent.resources = mock_resources
+    mock_resources.repo_setup.restart.side_effect = Exception("Resource failure")
+
+    # Expect an exception to be raised after retries
+    with pytest.raises(Exception):
+        detect_agent.restart_resources()
+
+    # Verify the restart was called the right number of times
+    assert mock_resources.repo_setup.restart.call_count == 3
+    
 
 @pytest.mark.asyncio
 async def test_skip_no_exploit(detect_agent, mocker):
