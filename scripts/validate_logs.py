@@ -176,7 +176,10 @@ def validate_logs():
                 json_issues, success = validate_json_log(file_path)
                 all_issues.extend(json_issues)
                 if success:
-                    successes.append(file_path)
+                    if len(json_issues) > 0:
+                        successes.append(f"{file_path}****")
+                    else:
+                        successes.append(file_path)
 
             elif file.endswith(".log"):
                 base_name = os.path.splitext(file)[0]
