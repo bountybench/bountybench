@@ -131,7 +131,7 @@ class DetectAgent(BaseAgent):
             return detect_agent_message
 
         # Only set submision = true if exploit script exists
-        if self.submit:
+        if self.submit and isinstance(prev_agent_message, ExecutorAgentMessage):
             self._log("Received submission. Evaluating the exploit...")
             detect_agent_message.set_submission(True)
 
