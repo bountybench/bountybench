@@ -20,6 +20,7 @@ from pathlib import Path
 import yaml
 from kubernetes import client, config
 from kubernetes.client import CoreV1Api, BatchV1Api
+from kubernetes.client.rest import ApiException # <-- ADD THIS IMPORT
 
 
 # --- Configuration Parsing (adapted from original script) ---
