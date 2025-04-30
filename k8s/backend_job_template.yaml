@@ -14,7 +14,23 @@ spec:
   # Adjust as needed, e.g., "3600" for 1 hour
   ttlSecondsAfterFinished: 86400 # Keep for 1 day
   template: # Pod template
+    metadata: # Add metadata section for pod labels if not implicitly handled
+      labels:
+        app: bounty-task # Ensure this label exists for anti-affinity selector
+        # experiment-group and task-id are added dynamically by the script
     spec:
+      affinity: # ADDED Affinity section
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - bounty-task
+              topologyKey: "kubernetes.io/hostname"
       tolerations:
       - key: "kubernetes.io/arch"
         operator: "Equal"
@@ -46,14 +62,13 @@ spec:
         # Optional: If your entrypoint expects /var/run for the socket
         # - name: docker-sock-volume
         #   mountPath: /var/run
-        # Add resource requests/limits if needed
-        # resources:
-        #   requests:
-        #     cpu: "500m"
-        #     memory: "512Mi"
-        #   limits:
-        #     cpu: "1"
-        #     memory: "1Gi"
+        resources: # UNCOMMENTED and set initial values
+          requests:
+            cpu: "1200m"  # 1.2 CPU core
+            memory: "8Gi" # 8 GiB of memory
+          # limits: # Optional: Set limits if needed, often higher than requests
+          #   cpu: "2000m"
+          #   memory: "4Gi"
       volumes:
       - name: dind-storage # Volume for inner docker's data
         emptyDir: {}
