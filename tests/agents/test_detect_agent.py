@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from tenacity import RetryError
 
 from agents.agent_manager import AgentManager
 from agents.detect_agent.detect_agent import (
@@ -12,8 +13,9 @@ from agents.detect_agent.detect_agent import (
 )
 from messages.agent_messages.detect_agent_message import DetectAgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
-from resources.resource_type import ResourceType
 from resources.base_setup_resource import BaseSetupResource
+from resources.resource_type import ResourceType
+
 from tests.test_utils.bounty_setup_test_util import EnvPath
 from tests.test_utils.bounty_setup_test_util import (
     lunary_bounty_0_setup as bounty_setup,
@@ -160,6 +162,36 @@ def test_restart_resources_repo_failure(detect_agent, mock_resources):
         detect_agent.restart_resources()
 
     # Verify the restart was called the right number of times
+    assert mock_resources.repo_setup.restart.call_count == 3
+
+
+def test_restart_resources_all_retries_fail(detect_agent, mock_resources):
+    """Test that an exception is raised when all retries fail."""
+    # Set up the mock resources
+    detect_agent.resources = mock_resources
+
+    # Make all restart attempts fail
+    mock_resources.repo_setup.restart.side_effect = Exception(
+        "Failed to restart resources."
+    )
+
+    # Should raise RetryError after retries are exhausted
+    with pytest.raises(RetryError) as excinfo:
+        detect_agent.restart_resources()
+
+    retry_error = excinfo.value
+    last_attempt = retry_error.last_attempt
+
+    if hasattr(last_attempt, "exception"):
+        # For Future objects
+        underlying_exception = last_attempt.exception()
+    else:
+        # For non-Future objects (synchronous retries)
+        underlying_exception = getattr(
+            last_attempt, "_exception", getattr(last_attempt, "exception", None)
+        )
+
+    assert "Failed to restart resources." in str(underlying_exception)
     assert mock_resources.repo_setup.restart.call_count == 3
 
 
