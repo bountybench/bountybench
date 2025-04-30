@@ -354,7 +354,7 @@ class DetectPatchAgent(BaseAgent):
                 raise e
             finally:
                 # Clean up containers for this bounty before the next one
-                self.stop_docker_services(target_bounty_path / "setup_files")
+                self.resources.bounty_setup.stop()
 
         logger.info(f"Compatible Exploits: {compatible_exploits}")
         logger.info(f"Agent scores: {scores}")
