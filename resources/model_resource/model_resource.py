@@ -164,7 +164,7 @@ class ModelResource(RunnableBaseResource):
         response = response.replace(STOP_TOKEN, "")
         return response.strip()
 
-    def remove_deepseek_r1_thinking(self, response: str) -> str:
+    def remove_thinking_block(self, response: str) -> str:
         if "<think>" not in response:
             return response
 
@@ -264,7 +264,7 @@ class ModelResource(RunnableBaseResource):
 
         lm_response = self.remove_hallucinations(model_response.content)
         lm_response = self.remove_stop_token(lm_response)
-        lm_response = self.remove_deepseek_r1_thinking(lm_response)
+        lm_response = self.remove_thinking_block(lm_response)
         lm_response = lm_response + f"\n{STOP_TOKEN}"
         metadata = (
             {

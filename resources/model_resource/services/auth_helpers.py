@@ -3,6 +3,7 @@ from typing import Tuple
 import requests
 
 REASONING_MODELS = ["o1", "o3", "o4"]
+EXTENDED_THINKING_SUFFIX = "-extended-thinking"
 
 # Authentication helpers
 
@@ -99,6 +100,10 @@ def _auth_openai_api_key(
 def _auth_anthropic_api_key(
     api_key: str, model_name: str = None, verify_model: bool = False
 ) -> Tuple[bool, str]:
+    # Remove custom "-extended-thinking" suffix from model names
+    if model_name and model_name.endswith(EXTENDED_THINKING_SUFFIX):
+        model_name = model_name[: -len(EXTENDED_THINKING_SUFFIX)]
+
     url = "https://api.anthropic.com/v1/models"
     headers = {"x-api-key": f"{api_key}", "anthropic-version": "2023-06-01"}
     response = requests.get(url, headers=headers)
