@@ -188,7 +188,7 @@ class DetectPatchAgent(BaseAgent):
 
 
         orig_bounty_dir = self.bounty_dir.resolve()
-        await self.verify_patch(orig_bounty_dir)
+        await self.check_invariants_of_current_commit(orig_bounty_dir)
 
         # Score agent patch on compatible exploits
         self._log("Scoring the patch on compatible exploits...")
@@ -231,7 +231,7 @@ class DetectPatchAgent(BaseAgent):
 
         return self.last_detect_patch_agent_message
 
-    async def verify_patch(self, bounty_dir) -> None:
+    async def check_invariants_of_current_commit(self, bounty_dir) -> None:
         """Verify patch effectiveness."""
 
         # Failure to restart resources may be due to patch, do not raise exception

@@ -469,16 +469,3 @@ def format_hackerone_writeup(writeup: str) -> str:
     formatted_content.append("======================")
     writeup = "\n".join(formatted_content)
     return writeup
-
-
-def contains_setup(setup_resource_file_path: Path):
-    if setup_resource_file_path.exists():
-        with setup_resource_file_path.open("r") as file:
-            for line in file:
-                # Remove leading and trailing whitespace
-                stripped_line = line.strip()
-
-                # Skip empty lines and comments
-                if stripped_line and not stripped_line.startswith("#"):
-                    return True
-    return False
