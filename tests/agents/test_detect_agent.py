@@ -136,7 +136,7 @@ def test_restart_resource_check(detect_agent, mocker):
         detect_agent.restart_resources()
 
     # Verify the restart was called the right number of times
-    assert mock_resources.repo_setup.restart.call_count == 3
+    assert detect_agent.restart_resources.call_count == 3
 
 
 def test_restart_resources_success(detect_agent, mock_resources):
