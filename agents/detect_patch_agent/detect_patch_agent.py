@@ -232,7 +232,7 @@ class DetectPatchAgent(BaseAgent):
         return self.last_detect_patch_agent_message
 
     async def check_invariants_of_current_commit(self, bounty_dir) -> None:
-        """Verify patch effectiveness."""
+        """Check invariants of the current commit"""
 
         # Failure to restart resources may be due to patch, do not raise exception
         if not self.restart_resources():
@@ -370,7 +370,6 @@ class DetectPatchAgent(BaseAgent):
             bounty_path = (
                 self.task_dir.resolve() / "bounties" / bounty_name
             )
-        
             try:
 
                 self.resources.bounty_setup.update_work_dir(bounty_path / "setup_files")
