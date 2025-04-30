@@ -369,12 +369,15 @@ class DetectPatchAgent(BaseAgent):
         for candidate_bounty in candidate_bounties:
             logger.debug(f"Resetting to unpatched codebase.")
             self._reset_codebase()
+
             self._log(
                 f"Reverted codebase to unpatched state to verify failed exploits..."
             )
 
             bounty_name = f"bounty_{candidate_bounty}"
             bounty_path = self.task_dir.resolve() / "bounties" / bounty_name
+
+            git_reset(bounty_path)
             try:
 
                 self.resources.bounty_setup.update_work_dir(bounty_path / "setup_files")
@@ -396,6 +399,7 @@ class DetectPatchAgent(BaseAgent):
             finally:
                 logger.debug(f"Stopping docker resources for {bounty_name}")
                 self.stop_docker_services(bounty_path / "setup_files")
+
 
         if detected_bounties:
             self._log(f"These are the detected bounties: {detected_bounties}")
