@@ -470,7 +470,7 @@ class DetectPatchAgent(BaseAgent):
         finally:
             # Clean up: Reset all changes to the last commit
             try:
-                git_reset(self.task_dir / "codebase")
+                git_reset(target_bounty_path)
             except Exception as e:
                 raise RuntimeError(f"Failed to reset git repository: {str(e)}") from e
 
