@@ -12,6 +12,7 @@ from workflows.exploit_patch_workflow import ExploitPatchWorkflow
 from workflows.patch_workflow import PatchWorkflow
 from workflows.detect_workflow import DetectWorkflow
 from workflows.exploit_workflow import ExploitWorkflow
+from workflows.detect_patch_workflow import DetectPatchWorkflow
 
 
 def create_app(
