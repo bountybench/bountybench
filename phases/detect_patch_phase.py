@@ -121,7 +121,9 @@ class DetectPatchPhase(BountyPhase):
         ]
 
         resource_configs += get_setup_resources(
-            task_dir=self.workflow.task_dir, bounty_number=self.bounty_number
+            task_dir=self.workflow.task_dir,
+            bounty_number=self.bounty_number,
+            skip_bounty_setup=True,
         )
 
         logger.debug("Exiting define_resources for DetectPatchPhase")

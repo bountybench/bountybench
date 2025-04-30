@@ -16,6 +16,7 @@ class BountySetupResourceConfig(BaseResourceConfig):
 
     task_dir: Path
     bounty_number: str
+    skip_setup: bool = False
 
     def validate(self) -> None:
         """Validate Bounty Setup configuration"""
@@ -35,6 +36,7 @@ class BountySetupResource(BaseSetupResource):
         # Set required properties
         self.task_dir = self._resource_config.task_dir
         self.bounty_number = self._resource_config.bounty_number
+        self.skip_setup = self._resource_config.skip_setup
         self.setup_script_name = "setup_bounty_env.sh"
 
         # Initialize bounty directory
