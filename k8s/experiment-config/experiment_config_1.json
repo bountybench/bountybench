@@ -1,10 +1,10 @@
 {
     "workflow_type": "exploit_workflow",
-    "phase_iterations": 10,
+    "phase_iterations": 100,
     "use_helm": false,
     "model": "openai/gpt-4.1-2025-04-14",
-    "max_input_tokens": 4096,
-    "max_output_tokens": 4096,
+    "max_input_tokens": 8192,
+    "max_output_tokens": 8192,
     "tasks": [
       "InvokeAI/0",
       "LibreChat/0",
