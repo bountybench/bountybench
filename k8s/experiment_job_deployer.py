@@ -19,8 +19,7 @@ from pathlib import Path
 
 import yaml
 from kubernetes import client, config
-from kubernetes.client import CoreV1Api
-from kubernetes.client.rest import ApiException
+from kubernetes.client import CoreV1Api, BatchV1Api
 
 
 # --- Configuration Parsing (adapted from original script) ---
@@ -235,6 +234,7 @@ def ensure_secret(namespace: str, env_file: str = "../.env"):
 
 
 def create_job(
+    core_api: client.CoreV1Api,
     batch_api: client.BatchV1Api,
     job_template: dict,
     namespace: str,
@@ -280,7 +280,8 @@ def create_job(
         "job-name"
     ] = job_name  # Link pod to job name via label
 
-    # --- Patch Container Spec ---
+    # --- Define container command and arguments --- 
+    # Base command from the template
     if not pod_template["spec"].get("containers"):
         print(
             f"Error: Job template {job_template.get('metadata',{}).get('name','unnamed')} has no containers defined in spec.template.spec.containers",
@@ -370,59 +371,6 @@ exec {raw_task_command_for_exec}
         except:  # noqa
             print(f"Raw error body: {e.body}", file=sys.stderr)
         return None  # Indicate failure
-
-
-# --- PVC Configuration ---
-JOB_OUTPUT_PVC_NAME = "job-output-pvc"
-JOB_OUTPUT_MOUNT_PATH = "/output"
-
-
-def ensure_pvc_exists(core_api: CoreV1Api, namespace: str, pvc_name: str):
-    """Checks if a PVC exists, creates it if not."""
-    pvc_manifest = {
-        "apiVersion": "v1",
-        "kind": "PersistentVolumeClaim",
-        "metadata": {"name": pvc_name},
-        "spec": {
-            "accessModes": ["ReadWriteOnce"],
-            "resources": {
-                "requests": {"storage": "1Gi"}
-            },  # Min size for hyperdisk-balanced
-            # Add storageClassName here if needed for your cluster
-            "storageClassName": "standard-arm",
-        },
-    }
-    try:
-        core_api.read_namespaced_persistent_volume_claim(
-            name=pvc_name, namespace=namespace
-        )
-        print(
-            f"PersistentVolumeClaim '{pvc_name}' already exists in namespace '{namespace}'."
-        )
-    except ApiException as e:
-        if e.status == 404:
-            print(
-                f"PersistentVolumeClaim '{pvc_name}' not found in namespace '{namespace}'. Creating..."
-            )
-            try:
-                core_api.create_namespaced_persistent_volume_claim(
-                    namespace=namespace, body=pvc_manifest
-                )
-                print(f"PersistentVolumeClaim '{pvc_name}' created successfully.")
-                # Add a small delay to allow PVC to bind potentially?
-                time.sleep(5)
-            except ApiException as create_e:
-                print(
-                    f"Error creating PersistentVolumeClaim '{pvc_name}': {create_e}",
-                    file=sys.stderr,
-                )
-                raise  # Re-raise the creation error
-        else:
-            print(
-                f"Error checking PersistentVolumeClaim '{pvc_name}': {e}",
-                file=sys.stderr,
-            )
-            raise  # Re-raise other API errors
 
 
 # --- Main Execution Logic ---
@@ -516,22 +464,6 @@ def main():
         print(f"Failed during namespace/secret preparation: {e}", file=sys.stderr)
         sys.exit(1)  # Exit if basic setup fails
 
-    # Ensure the output PVC exists
-    try:
-        ensure_pvc_exists(core_api, args.namespace, JOB_OUTPUT_PVC_NAME)
-    except ApiException:
-        print(
-            f"Failed to ensure PVC '{JOB_OUTPUT_PVC_NAME}' exists. Exiting.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    except Exception as e:
-        print(
-            f"An unexpected error occurred during PVC check/creation: {e}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
     # --- Load Job Template ---
     job_template = load_yaml_template(args.template)
 
@@ -562,10 +494,11 @@ def main():
 
         print(f"Experiment Group: {group_name} ({len(commands)} tasks planned)")
 
-        # Create a list of tuples: (batch_api, job_template, namespace, group_name, task_detail, command, timestamp)
+        # Create a list of tuples: (core_api, batch_api, job_template, namespace, group_name, task_detail, command, timestamp)
         for task_detail, command in zip(metadata["tasks"], commands):
             job_submission_tasks.append(
                 (
+                    core_api,
                     batch_api,
                     job_template,
                     args.namespace,
@@ -603,9 +536,9 @@ def main():
             processed_count += 1
             task_args = future_to_task[future]
             group, task_detail, command = (
-                task_args[3],
                 task_args[4],
                 task_args[5],
+                task_args[6],
             )  # Extract info for logging
             try:
                 job_name = future.result()

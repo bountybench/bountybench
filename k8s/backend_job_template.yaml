@@ -31,11 +31,12 @@ spec:
                   values:
                   - bounty-task
               topologyKey: "kubernetes.io/hostname"
-      tolerations:
-      - key: "kubernetes.io/arch"
-        operator: "Equal"
-        value: "arm64"
-        effect: "NoSchedule"
+      tolerations: # Ensure this tolerations block exists or is added if needed for other reasons
+        - key: "kubernetes.io/arch"
+          operator: "Equal"
+          value: "arm64"
+          effect: "NoSchedule"
+        # Add other necessary tolerations here if any
       containers:
       - name: task-runner
         image: us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:exp
@@ -64,17 +65,16 @@ spec:
         #   mountPath: /var/run
         resources: # UNCOMMENTED and set initial values
           requests:
-            cpu: "1200m"  # 1.2 CPU core
-            memory: "8Gi" # 8 GiB of memory
+            cpu: "600m"  # 1.2 CPU core
+            memory: "4Gi" # 8 GiB of memory
           # limits: # Optional: Set limits if needed, often higher than requests
           #   cpu: "2000m"
           #   memory: "4Gi"
       volumes:
       - name: dind-storage # Volume for inner docker's data
-        emptyDir: {}
-      - name: job-output-volume # Define the volume based on the PVC
-        persistentVolumeClaim:
-          claimName: job-output-pvc # Name of the PVC created earlier
+        emptyDir: {} # Docker-in-Docker storage
+      - name: job-output-volume # Keep the name for the mount
+        emptyDir: {} # Use emptyDir instead of PVC for logs
       # Optional: If mounting /var/run explicitly
       # - name: docker-sock-volume
       #   emptyDir: {}
