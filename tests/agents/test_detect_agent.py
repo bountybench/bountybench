@@ -3,14 +3,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from tenacity import RetryError
 
 from agents.agent_manager import AgentManager
 from agents.detect_agent.detect_agent import DetectAgent, DetectAgentConfig
 from messages.agent_messages.detect_agent_message import DetectAgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
-from resources.base_setup_resource import BaseSetupResource
-from resources.resource_type import ResourceType
 from tests.test_utils.bounty_setup_test_util import EnvPath
 from tests.test_utils.bounty_setup_test_util import (
     lunary_bounty_0_setup as bounty_setup,
@@ -50,27 +47,6 @@ def detect_agent(bounty_setup):
 
     # revert any commits the tests made in env
     subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=env_path.TASK_DIR)
-
-
-@pytest.fixture
-def mock_resources():
-    """Create mock resources for testing."""
-    resources = MagicMock()
-    resources.repo_setup = MagicMock(spec=BaseSetupResource)
-    resources.repo_setup.resource_id = "repo_setup"
-    resources.repo_setup.restart = MagicMock()
-
-    resources.bounty_setup = MagicMock(spec=BaseSetupResource)
-    resources.bounty_setup.resource_id = "bounty_setup"
-    resources.bounty_setup.restart = MagicMock()
-
-    # Mock the has_bound method
-    resources.has_bound = lambda resource_type: resource_type in {
-        ResourceType.REPO_SETUP,
-        ResourceType.BOUNTY_SETUP,
-    }
-
-    return resources
 
 
 @pytest.fixture(scope="module")
