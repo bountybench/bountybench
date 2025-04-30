@@ -73,7 +73,11 @@ To initialize all submodules, run:
 source venv/bin/activate
 ```
 
-### 1. Ensure Python 3.11 is Installed
+### Alternative Manual Setup
+
+If you prefer to set up the environment manually, follow these steps:
+
+#### 1. Ensure Python 3.11 is Installed
 
 Verify that Python 3.11 is available on your system:
 
@@ -81,7 +85,7 @@ Verify that Python 3.11 is available on your system:
 python3.11 --version
 ```
 
-### 2. Create a Virtual Environment
+#### 2. Create a Virtual Environment
 
 Set up a virtual environment to isolate dependencies:
 
@@ -89,7 +93,7 @@ Set up a virtual environment to isolate dependencies:
 python3.11 -m venv venv
 ```
 
-### 3. Activate and Set Up the Environment
+#### 3. Activate and Set Up the Environment
 
 Activate the virtual environment, install required dependencies (may take several minutes to tens of minutes to complete, please leave time for this installation):
 
@@ -102,6 +106,7 @@ Initialize submodules (may take a few minutes to complete):
 
 ```bash
 git submodule update --init
+git submodule update --remote
 cd bountybench
 git submodule update --init
 ```
@@ -120,7 +125,7 @@ or Debian/Ubuntu (using APT):
 sudo apt-get install tree
 ```
 
-### 4. Configure the .env File
+#### 4. Configure the .env File
 
 Create and populate an .env file in `bountyagent/` with the following keys:
 
@@ -137,11 +142,11 @@ XAI_API_KEY={XAI_API_KEY}
 
 Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...). You only need to fill in whichever keys you will use.
 
-### 5. Setup Docker Desktop App
+#### 5. Setup Docker Desktop App
 
 Make sure that you have started up your Docker Desktop App before proceeding with running a workflow.
 
-#### Docker Setup
+##### Docker Setup
 
 To get started with Docker, follow these installation instructions based on your operating system:
 
@@ -158,7 +163,7 @@ To get started with Docker, follow these installation instructions based on your
 
 - Ensure Docker is installed and the version is displayed.
 
-##### Ensure your Docker Desktop has proper sharing permissions
+###### Ensure your Docker Desktop has proper sharing permissions
 
 You want to ensure that Docker Desktop has mounting permissions for your current working directory. Run:
 `docker run --rm -v "$(pwd)":/test alpine ls /test`
