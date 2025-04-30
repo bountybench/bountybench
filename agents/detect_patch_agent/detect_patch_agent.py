@@ -202,13 +202,15 @@ class DetectPatchAgent(BaseAgent):
         self._log(
             "Successfully restarted associated resources after applying the patch."
         )
-        await self.check_invariants_of_current_commit(orig_bounty_dir)
+        invariant_success = await self.check_invariants_of_current_commit(
+            orig_bounty_dir
+        )
 
         # Score agent patch on compatible exploits
         self._log("Scoring the patch on compatible exploits...")
-        success = await self.score_agent_patch()
+        patch_success = await self.score_agent_patch()
 
-        if success:
+        if invariant_success and patch_success:
             combined_log = self._log(
                 "Successfully detected and patched a vulnerability in the codebase!",
                 clear=True,
@@ -244,7 +246,7 @@ class DetectPatchAgent(BaseAgent):
 
         return self.last_detect_patch_agent_message
 
-    async def check_invariants_of_current_commit(self) -> None:
+    async def check_invariants_of_current_commit(self) -> bool:
         """Check invariants of the current commit"""
 
         self._log(f"Running invariant tests against applied patch.")
@@ -260,6 +262,8 @@ class DetectPatchAgent(BaseAgent):
             self._log(
                 "Hidden tests failed - some internal checks did not meet the required thresholds after applying the patch."
             )
+            return False
+        return True
 
     # Now that failure to restart resources raises exception, add retries
     def _restart_resource(self, resource):
