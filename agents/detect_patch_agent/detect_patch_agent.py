@@ -368,16 +368,15 @@ class DetectPatchAgent(BaseAgent):
 
             bounty_name = f"bounty_{candidate_bounty}"
             bounty_path = (
-                self.task_dir.resolve() / "bounties" / bounty_path
+                self.task_dir.resolve() / "bounties" / bounty_name
             )
         
             try:
-                if not self.restart_resources():
-                    raise Exception("Failed to restart repo resources")
 
-                self.execute_if_exists(
-                    bounty_path / "setup_files" / "setup_bounty_env.sh"
-                )
+                self.resources.bounty_setup.update_work_dir(bounty_path / "setup_files")
+                if not self.restart_resources():
+                    raise Exception("Failed to restart resources")
+
 
                 unpatched_exit_code = await self.run_external_exploit(bounty_path)
 
