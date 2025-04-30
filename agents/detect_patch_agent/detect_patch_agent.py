@@ -195,7 +195,7 @@ class DetectPatchAgent(BaseAgent):
             self._reset_codebase()
             self.patch_id += 1
             self._log("Reverted all the changes to the codebase.")
-            return self.last_detect_patch_agent_message(clear=True)
+            return self.update_detect_patch_agent_message(clear=True)
 
         self._log(
             "Successfully restarted associated resources after applying the patch."
