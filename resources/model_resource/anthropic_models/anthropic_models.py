@@ -8,6 +8,7 @@ from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_response import ModelResponse
 
 EXTENDED_THINKING_SUFFIX = "-extended-thinking"
+DEFAULT_THINKING_BUDGET = 1024  # Minimum budget for extended thinking in tokens
 
 
 class AnthropicModels(ModelProvider):

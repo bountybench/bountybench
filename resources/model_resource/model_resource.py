@@ -8,6 +8,10 @@ from messages.action_messages.action_message import ActionMessage
 from messages.message import Message
 from prompts.prompts import STOP_TOKEN
 from resources.base_resource import BaseResourceConfig
+from resources.model_resource.anthropic_models.anthropic_models import (
+    DEFAULT_THINKING_BUDGET,
+    EXTENDED_THINKING_SUFFIX,
+)
 from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_utils import truncate_input_to_max_tokens
@@ -38,6 +42,9 @@ class ModelResourceConfig(BaseResourceConfig):
     stop_sequences: List[str] = field(default_factory=lambda: [])
     use_mock_model: bool = field(default=False)
     timeout: float = field(default=300.0)
+    budget_tokens: Optional[int] = field(
+        default=None
+    )  # Claude 3.7 extended thinking budget_tokens
 
     @classmethod
     def create(cls, **kwargs):
@@ -46,6 +53,14 @@ class ModelResourceConfig(BaseResourceConfig):
             "model" not in kwargs or kwargs.get("model") is None
         ):
             kwargs["model"] = "mock-model"
+        if kwargs.get("model") is not None and kwargs.get("model").endswith(
+            EXTENDED_THINKING_SUFFIX
+        ):
+            kwargs["temperature"] = (
+                1.0  # Claude 3.7 extended thinking mode has a fixed temperature of 1.0
+            )
+            kwargs["budget_tokens"] = DEFAULT_THINKING_BUDGET
+
         return cls(**{k: v for k, v in kwargs.items() if v is not None})
 
     def copy_with_changes(self, **kwargs):
@@ -100,6 +115,11 @@ class ModelResource(RunnableBaseResource):
         self.timeout = self._resource_config.timeout
         if not self.use_mock_model:
             self.model_provider: ModelProvider = self.get_model_provider()
+        self.budget_tokens = (
+            self._resource_config.budget_tokens
+            if self._resource_config.budget_tokens is not None
+            else None
+        )
 
     def get_model_provider(self) -> ModelProvider:
         """
@@ -266,20 +286,21 @@ class ModelResource(RunnableBaseResource):
         lm_response = self.remove_stop_token(lm_response)
         lm_response = self.remove_thinking_block(lm_response)
         lm_response = lm_response + f"\n{STOP_TOKEN}"
-        metadata = (
-            {
-                "input": model_input,
-                "raw_output": model_response.content,
-                "model": self.model,
-                "temperature": self.temperature,
-                "max_input_tokens": self.max_input_tokens,
-                "max_output_tokens": self.max_output_tokens,
-                "stop_sequences": self.stop_sequences,
-                "input_tokens": model_response.input_tokens,
-                "output_tokens": model_response.output_tokens,
-                "time_taken_in_ms": model_response.time_taken_in_ms,
-            },
-        )
+        metadata = {
+            "input": model_input,
+            "raw_output": model_response.content,
+            "model": self.model,
+            "temperature": self.temperature,
+            "max_input_tokens": self.max_input_tokens,
+            "max_output_tokens": self.max_output_tokens,
+            "stop_sequences": self.stop_sequences,
+            "input_tokens": model_response.input_tokens,
+            "output_tokens": model_response.output_tokens,
+            "time_taken_in_ms": model_response.time_taken_in_ms,
+        }
+        if self.budget_tokens is not None:
+            metadata["budget_tokens"] = self.budget_tokens
+        metadata = (metadata,)
 
         return ActionMessage(
             resource_id=self.resource_id,
@@ -314,6 +335,8 @@ class ModelResource(RunnableBaseResource):
                 "stop_sequences": self.stop_sequences,
                 "use_mock_model": self.use_mock_model,
             }
+            # if self.budget_tokens is not None:
+            #     base_dict["config"]["budget_tokens"] = self.budget_tokens
         else:
             base_dict["config"] = {"use_mock_model": self.use_mock_model}
 
