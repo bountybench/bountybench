@@ -9,6 +9,18 @@ import LogMainContent from './LogMainContent';
 import './LogViewer.css';
 import { API_BASE_URL } from '../../config';
 
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  if (
+    typeof args[0] === "string" &&
+    args[0].includes("Encountered two children with the same key")
+  ) {
+    return;
+  }
+  originalWarn(...args);
+};
+
+
 export const LogViewer = () => {
   const [logFiles, setLogFiles] = useState([]);
   const [selectedLogContent, setSelectedLogContent] = useState('');
