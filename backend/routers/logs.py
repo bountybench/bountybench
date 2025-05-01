@@ -95,6 +95,11 @@ async def get_log(filename: str):
     alt_file_path = LOG_DIR / filename
     if alt_file_path.exists():
         file_path = alt_file_path
+    if not file_path.exists():
+        for f in LOG_DIR.rglob(filename):
+            if f.is_file():
+                file_path = f
+                break
     if not file_path.exists() or not file_path.suffix == ".json":
         raise HTTPException(status_code=404, detail="Log file not found")
     try:
