@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 # Global dictionaries to track token usage by model
@@ -35,6 +36,7 @@ VALID_MODELS = {
     "deepseek-ai/deepseek-r1": 8192,
     "openai/o3-2025-04-16-high-reasoning-effort": 8192,
     "openai/o4-mini-2025-04-16-high-reasoning-effort": 8192,
+    "anthropic/claude-3-7-sonnet-20250219-extended-thinking": 8192,
 }
 
 
