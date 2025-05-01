@@ -32,21 +32,25 @@ def format_neurips_table(csv_path, output_path=None, caption=None, label=None):
     # Format numeric columns (rounded to 0 decimals if int-like, 2 decimals otherwise)
     for col in df.select_dtypes(include=["float", "int"]).columns:
         if (df[col] == df[col].astype(int)).all():
-            df[col] = df[col].astype(int)
+            df[col] = df[col].apply(
+                lambda x: f"{x / 1000:.2f}K" if abs(x) >= 1000 else f"{x:.0f}"
+            )
         else:
-            df[col] = df[col].map(lambda x: f"{x:.2f}")
+            df[col] = df[col].apply(
+                lambda x: f"{x / 1000:.2f}K" if abs(x) >= 1000 else f"{x:.2f}"
+            )
 
     # Default output filename
     if output_path is None:
         base = os.path.splitext(os.path.basename(csv_path))[0]
         output_path = f"{base}_table.tex"
 
-    # Default caption/label
-    if caption is None:
-        caption = "Default caption"
+    # Default caption
+    caption = "Default table caption"
+    # Default label
     if label is None:
         label = (
-            f"tab:{os.path.splitext(os.path.basename(csv_path))[0].replace('-', '_')}"
+            f"table:{os.path.splitext(os.path.basename(csv_path))[0].replace('-', '_')}"
         )
 
     # Convert to LaTeX tabular using booktabs with centered columns
