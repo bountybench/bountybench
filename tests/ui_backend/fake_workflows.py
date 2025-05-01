@@ -18,6 +18,7 @@ class FakeWorkflow:
         model: str,
         use_helm: bool,
         use_mock_model,
+        use_cwe: bool,
         max_input_tokens: int = 4096,
         max_output_tokens: int = 2048,
     ):
