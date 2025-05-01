@@ -1,6 +1,7 @@
-import pandas as pd
-import sys
 import os
+import sys
+
+import pandas as pd
 
 
 def escape_latex(s):
