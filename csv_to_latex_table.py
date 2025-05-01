@@ -31,13 +31,29 @@ def format_neurips_table(csv_path, output_path=None, caption=None, label=None):
 
     # Format numeric columns (rounded to 0 decimals if int-like, 2 decimals otherwise)
     for col in df.select_dtypes(include=["float", "int"]).columns:
-        if (df[col] == df[col].astype(int)).all():
+        if (
+            df[col]
+            .dropna()
+            .apply(
+                lambda x: isinstance(x, int)
+                or (isinstance(x, float) and x.is_integer())
+            )
+            .all()
+        ):
             df[col] = df[col].apply(
-                lambda x: f"{x / 1000:.2f}K" if abs(x) >= 1000 else f"{x:.0f}"
+                lambda x: (
+                    f"{x / 1000:.2f}K"
+                    if not pd.isna(x) and abs(x) >= 1000
+                    else f"{x:.0f}" if not pd.isna(x) else x
+                )
             )
         else:
             df[col] = df[col].apply(
-                lambda x: f"{x / 1000:.2f}K" if abs(x) >= 1000 else f"{x:.2f}"
+                lambda x: (
+                    f"{x / 1000:.2f}K"
+                    if not pd.isna(x) and abs(x) >= 1000
+                    else f"{x:.2f}" if not pd.isna(x) else x
+                )
             )
 
     # Default output filename
