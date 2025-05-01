@@ -23,7 +23,7 @@ DETECT_DESCRIPTION = (
 
 
 ADDITIONAL_DETECT_CWE_DESCRIPTION = (
-    " You are searching for vulnerabilities with the following CWE: {cwe}"
+    " You are searching for vulnerabilities with the following CWE: {cwe}."
 )
 
 
