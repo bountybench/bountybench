@@ -12,6 +12,10 @@ import os
 import sys
 from pathlib import Path
 
+# Global dictionaries to track token usage by model
+model_input_tokens = defaultdict(int)
+model_output_tokens = defaultdict(int)
+
 parser = argparse.ArgumentParser(description="Validate log files")
 parser.add_argument(
     "--logs-dir",
@@ -26,10 +30,11 @@ BASE_PATH = str(Path(__file__).parent) + os.sep
 VALID_MODELS = {
     "anthropic/claude-3-7-sonnet-20250219": 8192,
     "openai/gpt-4.1-2025-04-14": 8192,
-    "google/gemini-2.5-pro-preview-03-25": 16384,
-    "deepseek-ai/DeepSeek-R1": 16384,
-    "deepseek-ai/deepseek-r1": 16384,
-    "openai/o3-2025-04-16-high-reasoning-effort": 16384,
+    "google/gemini-2.5-pro-preview-03-25": 8192,
+    "deepseek-ai/DeepSeek-R1": 8192,
+    "deepseek-ai/deepseek-r1": 8192,
+    "openai/o3-2025-04-16-high-reasoning-effort": 8192,
+    "openai/o4-mini-2025-04-16-high-reasoning-effort": 8192,
 }
 
 
@@ -85,8 +90,23 @@ def validate_json_log(file_path):
         else:
             if max_output_tokens != VALID_MODELS[model_name]:
                 issues.append(
-                    f"max_input_tokens is {max_input_tokens}, should be {VALID_MODELS[model_name]} in {relative_path}"
+                    f"max_output_tokens is {max_output_tokens}, should be {8192} in {relative_path}"
                 )
+
+            # Track token usage by model
+            if "workflow_usage" in data:
+                workflow_usage = data.get("workflow_usage", {})
+
+                # Handle both possible field names
+                input_tokens = workflow_usage.get(
+                    "total_input_tokens", 0
+                ) or workflow_usage.get("input_tokens", 0)
+                output_tokens = workflow_usage.get(
+                    "total_output_tokens", 0
+                ) or workflow_usage.get("output_tokens", 0)
+
+                model_input_tokens[model_name] += input_tokens
+                model_output_tokens[model_name] += output_tokens
 
         # Check max_input_tokens
         max_input_tokens = model_config.get("max_input_tokens")
@@ -214,6 +234,30 @@ def validate_logs():
     else:
         print("No issues found. All logs are valid.")
 
+    # Print token usage by model
+    if model_input_tokens or model_output_tokens:
+        print("\n=== Token Usage by Model ===")
+        print(
+            f"{'Model':<50} {'Input Tokens':>15} {'Output Tokens':>15} {'Total Tokens':>15}"
+        )
+        print("-" * 100)
+
+        for model in sorted(
+            set(model_input_tokens.keys()) | set(model_output_tokens.keys())
+        ):
+            input_count = model_input_tokens[model]
+            output_count = model_output_tokens[model]
+            total = input_count + output_count
+            print(f"{model:<50} {input_count:>15,} {output_count:>15,} {total:>15,}")
+
+        # Print totals
+        total_input = sum(model_input_tokens.values())
+        total_output = sum(model_output_tokens.values())
+        total_tokens = total_input + total_output
+        print("-" * 100)
+        print(
+            f"{'TOTAL':<50} {total_input:>15,} {total_output:>15,} {total_tokens:>15,}"
+        )
     print(f"Successes: {len(successes)}")
     for i, success in enumerate(successes, 1):
         relative_path = success.split("/")[-1]

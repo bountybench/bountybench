@@ -228,10 +228,14 @@ class NonHelmMapping:
         # Anthropic Models (Claude)
         # ------------------------
         "anthropic/claude-3-7-sonnet-20250219": NonHelmModelInfo(
-            model_name="claude-3-7-sonnet-20241022", provider=ServiceProvider.ANTHROPIC
+            model_name="claude-3-7-sonnet-20250219", provider=ServiceProvider.ANTHROPIC
+        ),
+        "anthropic/claude-3-7-sonnet-20250219-extended-thinking": NonHelmModelInfo(
+            model_name="claude-3-7-sonnet-20250219-extended-thinking",
+            provider=ServiceProvider.ANTHROPIC,
         ),
         "anthropic/claude-3-5-sonnet-20241022": NonHelmModelInfo(
-            model_name="claude-3-5-sonnet-20250219",
+            model_name="claude-3-5-sonnet-20241022",
             provider=ServiceProvider.ANTHROPIC,
             is_legacy=True,
         ),

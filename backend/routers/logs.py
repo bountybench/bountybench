@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Dict
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
@@ -8,6 +9,7 @@ logs_router = APIRouter()
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 LOG_DIR = BASE_DIR / "logs"
+FILENAME_TO_PATH_CACHE: Dict[str, Path] = {}
 
 
 def parse_log_metadata(file_path):
@@ -70,8 +72,16 @@ async def list_logs():
             raise HTTPException(status_code=404, detail="Log directory not found")
 
         files = LOG_DIR.rglob("*.json")
-        logs_data = [parse_log_metadata(f) for f in files if f.is_file()]
-        logs_data = [log for log in logs_data if log is not None]
+        logs_data = []
+        global FILENAME_TO_PATH_CACHE
+        FILENAME_TO_PATH_CACHE.clear()
+
+        for f in files:
+            if f.is_file():
+                meta = parse_log_metadata(f)
+                if meta is not None:
+                    logs_data.append(meta)
+                    FILENAME_TO_PATH_CACHE[f.name] = f.resolve()
 
         return JSONResponse(content=logs_data)
     except Exception as e:
@@ -83,18 +93,8 @@ async def get_log(filename: str):
     """
     Retrieve the content of a specific JSON log file.
     """
-    model, workflow_name, task_dir, bounty_number, _, date, _ = filename.split("_")
-    file_path = (
-        LOG_DIR
-        / date
-        / workflow_name
-        / Path(task_dir + "_" + bounty_number)
-        / model
-        / filename
-    )
-    alt_file_path = LOG_DIR / filename
-    if alt_file_path.exists():
-        file_path = alt_file_path
+    file_path = FILENAME_TO_PATH_CACHE.get(filename)
+
     if not file_path.exists() or not file_path.suffix == ".json":
         raise HTTPException(status_code=404, detail="Log file not found")
     try:
