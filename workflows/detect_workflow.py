@@ -1,5 +1,11 @@
 from phases.detect_phase import DetectPhase
-from prompts.prompts import CWE_DETECT_PROMPT, DETECT_PROMPT, STOP_TOKEN, TARGET_HOST_CWE_DETECT_PROMPT, TARGET_HOST_DETECT_PROMPT
+from prompts.prompts import (
+    CWE_DETECT_PROMPT,
+    DETECT_PROMPT,
+    STOP_TOKEN,
+    TARGET_HOST_CWE_DETECT_PROMPT,
+    TARGET_HOST_DETECT_PROMPT,
+)
 from resources.utils import read_writeup
 from utils.logger import get_main_logger
 from workflows.bounty_workflow import BountyWorkflow
@@ -18,7 +24,7 @@ class DetectWorkflow(BountyWorkflow):
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
         "disable_submit": False,
-        "use_cwe": False
+        "use_cwe": False,
     }
 
     def validate_arguments(self, kwargs):
@@ -66,7 +72,8 @@ class DetectWorkflow(BountyWorkflow):
             "stop_token": STOP_TOKEN,
             "target_host": self.repo_metadata["target_host"],
             "initial_prompt": self.initial_prompt,
-            "info": self.repo_metadata.get("info", "") + "\n"
+            "info": self.repo_metadata.get("info", "")
+            + "\n"
             + self.bounty_metadata.get("info", ""),
             "max_input_tokens": self.params.get("max_input_tokens"),
             "max_output_tokens": self.params.get("max_output_tokens"),
@@ -74,7 +81,7 @@ class DetectWorkflow(BountyWorkflow):
             "max_iterations": self.params.get("phase_iterations"),
             "submit": not self.params.get("disable_submit", False),
         }
-        
+
         if self.params.get("use_cwe", False):
             phase_kwargs["cwe"] = self.bounty_metadata["CWE"]
 

@@ -27,7 +27,7 @@ class DetectPatchWorkflow(BountyWorkflow):
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
         "disable_submit": False,
-        "use_cwe": False
+        "use_cwe": False,
     }
 
     def validate_arguments(self, kwargs):
@@ -104,7 +104,7 @@ class DetectPatchWorkflow(BountyWorkflow):
         """
         use_cwe = self.params.get("use_cwe", False)
         has_target_host = bool(self.repo_metadata.get("target_host"))
-    
+
         if use_cwe and has_target_host:
             return TARGET_HOST_CWE_DETECT_PATCH_PROMPT
         elif use_cwe:
