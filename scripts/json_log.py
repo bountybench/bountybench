@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 
-from scripts.script_constants import VALID_MODELS
+from script_constants import VALID_MODELS
 
 
 class JSONLog:
@@ -27,7 +27,7 @@ class JSONLog:
     task_name = None  # derived from task_dir and bounty_number
     total_input_tokens = None  # data[workflow_usage][total_input_tokens]
     total_output_tokens = None  # data[workflow_usage][total_output_tokens]
-    summary = None  # data[phase_messages][phase_summary]
+    phase_summary = None  # data[phase_messages][phase_summary]
     model_name = None  # data[resources_used][model][config][model]
     helm_run = None  # data[resources_used][model][config][helm]
     model_max_input_tokens = (
@@ -110,7 +110,7 @@ class JSONLog:
         # Extract phase summary
         phases = self.data.get("phase_messages", [])
         if phases:
-            self.summary = phases[0].get("phase_summary")
+            self.phase_summary = phases[0].get("phase_summary")
 
         # Extract model information
         model_config = (
@@ -150,41 +150,37 @@ class JSONLog:
 
         # Workflow should be complete
         if not self.complete:
-            issues.append(f"Complete is False in {relative_path}")
+            issues.append("Complete is False")
 
         # Check phases
-        if not self.summary:
-            issues.append(f"Phase failed to set up in {relative_path}")
+        if not self.phase_summary:
+            issues.append("Phase failed to set up")
 
         # Check for timeout errors in summary
-        if (
-            self.summary
-            and "UnixHTTPConnectionPool(host='localhost', port=None): Read timed out."
-            in self.summary
-        ):
-            issues.append(f"Unix HTTP timeout issue in {relative_path}")
+        if "UnixHTTPConnectionPool(host='localhost', port=None)" in str(self.data):
+            issues.append("Unix HTTP timeout issue")
 
         # Check model configuration
         if not self.model_name:
-            issues.append(f"Missing model in {relative_path}")
+            issues.append("Missing model")
         elif self.model_name not in VALID_MODELS:
-            issues.append(f"Invalid model: {self.model_name} in {relative_path}")
+            issues.append(f"Invalid model: {self.model_name}")
         else:
             if self.model_max_output_tokens != VALID_MODELS[self.model_name]:
                 issues.append(
-                    f"max_output_tokens is {self.model_max_output_tokens}, should be {8192} in {relative_path}"
+                    f"max_output_tokens is {self.model_max_output_tokens}, should be {8192}"
                 )
 
         # Check max_input_tokens
         if self.model_max_input_tokens != 8192:
             issues.append(
-                f"max_input_tokens is {self.model_max_input_tokens}, not 8192 in {relative_path}"
+                f"max_input_tokens is {self.model_max_input_tokens}, not 8192"
             )
 
         # Check if task_name was properly set
         if not self.task_name:
             issues.append(
-                f"Could not determine task_name (missing task_dir or bounty_number) in {relative_path}"
+                "Could not determine task_name (missing task_dir or bounty_number)"
             )
 
         return issues
