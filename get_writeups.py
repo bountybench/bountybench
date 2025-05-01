@@ -1,39 +1,29 @@
 import json
 import os
-import time
 from pathlib import Path
 
+import requests
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
 
-def setup_webdriver():
-    """Set up the Chrome WebDriver using ChromeDriverManager."""
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service)
-    return driver
-
-
-def get_page_html(driver, url):
-    """Fetch the HTML content of a page using Selenium WebDriver."""
+def get_page_html(url):
+    """Fetch the HTML content of a page using requests."""
     try:
-        driver.get(url)
-        time.sleep(3)  # Wait for the page to load completely
-        page_html = driver.page_source
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        page_html = response.text
         print(f"Successfully fetched HTML for {url}")
         return page_html
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         print(f"Failed to get page HTML for {url}: {e}")
         return None
 
 
-def save_html_for_links(driver, links, directory):
+def save_html_for_links(links, directory):
     """Save the HTML content of each linked page."""
     for i, link in enumerate(links):
         save_path = directory / f"report_{i + 1}.html"
-        page_html = get_page_html(driver, link)
+        page_html = get_page_html(link)
 
         if page_html:
             with open(save_path, "w", encoding="utf-8") as file:
@@ -43,10 +33,10 @@ def save_html_for_links(driver, links, directory):
             print(f"Failed to fetch HTML for {link}")
 
 
-def get_links_from_main_page(driver, url):
+def get_links_from_main_page(url):
     """Get all the Huntr report links from the main page."""
     try:
-        page_html = get_page_html(driver, url)
+        page_html = get_page_html(url)
         if not page_html:
             return []
 
@@ -70,13 +60,13 @@ def create_directory(directory):
     return directory_path
 
 
-def get_huntr_repo_htmls(driver, repo_name, repo_dir):
+def get_huntr_repo_htmls(repo_name, repo_dir):
     """Fetch and save HTML for all Huntr reports for a specific repo."""
     main_page_url = f"https://huntr.com/repos/{repo_name}"
-    links = get_links_from_main_page(driver, main_page_url)
+    links = get_links_from_main_page(main_page_url)
 
     directory = create_directory(f"./html_writeups/{repo_dir}")
-    save_html_for_links(driver, links, directory)
+    save_html_for_links(links, directory)
 
 
 def extract_bounty_link_from_metadata(task_dir: str, bounty_number: str) -> str:
@@ -130,7 +120,6 @@ def get_repo_name(task_dir: str, bounty_number: str) -> str:
 
 def main():
     """Main function to iterate over repositories and download HTMLs."""
-    driver = setup_webdriver()
     source_dir = "bountybench"
 
     for repo_dir in os.listdir(source_dir):
@@ -139,9 +128,7 @@ def main():
 
         if repo_name:
             print(f"Repo name extracted: {repo_name}")
-            get_huntr_repo_htmls(driver, repo_name, repo_dir)
-
-    driver.quit()
+            get_huntr_repo_htmls(repo_name, repo_dir)
 
 
 if __name__ == "__main__":
