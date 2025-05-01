@@ -27,6 +27,7 @@ def confirm_action(prompt):
 def process_logs(input_root, output_root):
     to_delete = []
     to_move = []
+    valid_files_data = [] # Store data for valid files to check success later
 
     if not input_root.is_dir():
         print(f"Error: Input directory '{input_root}' not found.", file=sys.stderr)
@@ -73,7 +74,9 @@ def process_logs(input_root, output_root):
         if delete_flag:
             to_delete.append({'json': json_path, 'log': log_path if log_path.exists() else None, 'reason': reason})
         else:
-            to_move.append({'json': json_path, 'log': log_path if log_path.exists() else None})
+            # Store the parsed data if available, otherwise None
+            file_data = data if 'data' in locals() and isinstance(data, dict) else None 
+            to_move.append({'json': json_path, 'log': log_path if log_path.exists() else None, 'data': file_data})
 
     print(f"Scan complete. Found {len(to_delete)} pairs/files to delete and {len(to_move)} pairs to move.")
 
@@ -109,6 +112,7 @@ def process_logs(input_root, output_root):
     # --- Move Phase ---
     if to_move:
         print(f'\n--- Moving {len(to_move)} Valid Log Pairs ---')
+        success_count = 0
         moved_json_count = 0
         moved_log_count = 0
         output_logs_base = output_root / 'logs'
@@ -132,7 +136,7 @@ def process_logs(input_root, output_root):
                     moved_json_count += 1
 
                     # Move LOG
-                    if item['log']:
+                    if item.get('log'): # Check if log path exists in the item
                         dest_log_dir = output_full_logs_base / subpath
                         dest_log_path = dest_log_dir / item['log'].name
                         dest_log_dir.mkdir(parents=True, exist_ok=True)
@@ -142,9 +146,22 @@ def process_logs(input_root, output_root):
                 else:
                      print(f'[WARN] Skipping move for {item["json"]}: Path structure too shallow ({relative_path})', file=sys.stderr)
 
+                # Check success status after successful move attempt
+                if item.get('data'): # Check if we have parsed data for this file
+                    workflow_success = item['data'].get('workflow_metadata', {}) \
+                                             .get('workflow_summary', {}) \
+                                             .get('success')
+                    if workflow_success is True:
+                        success_count += 1
+                else:
+                    # Cannot determine success if JSON wasn't parsed earlier (e.g., during initial read error check)
+                    # We could re-parse here, but let's assume it was moved successfully as a file pair.
+                    pass # Or log a warning? For now, just count files moved.
+
             except Exception as e:
                 print(f'[ERROR] Failed to move {item.get("json")} or {item.get("log")}: {e}', file=sys.stderr)
-        print(f'Moved {moved_json_count} JSON files and {moved_log_count} LOG files.')
+        print(f'\nMoved {moved_json_count} JSON files and {moved_log_count} LOG files.')
+        print(f'Out of {moved_json_count} moved JSON files, {success_count} reported successful workflows.')
     else:
         print('\nNo valid files found to move.')
 
