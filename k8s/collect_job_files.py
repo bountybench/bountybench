@@ -20,8 +20,7 @@ COLLECTOR_POD_IMAGE = "ubuntu:22.04" # A simple image with shell access
 COLLECTOR_CONTAINER_NAME = "collector-container"
 DEFAULT_NAMESPACE = "test"
 DEFAULT_LABEL_SELECTOR = "app=bounty-task" # Default label to find relevant PVCs
-DEFAULT_LOGS_DIR = "../logs" # Default base dir for logs
-DEFAULT_FULL_LOGS_DIR = "../full_logs" # Default base dir for full logs
+DEFAULT_OUTPUT_DIR = "../collected_logs" # Default base dir for collected files
 DEFAULT_MAX_WORKERS = 5 # Default concurrency
 POD_DATA_MOUNT_PATH = "/mnt/data" # Where the PVC is mounted inside the collector pod
 
@@ -160,8 +159,8 @@ def list_pvcs(core_api, namespace, label_selector):
         print(f"ERROR listing PVCs: {e.reason}", file=sys.stderr)
         return []
 
-def collect_from_single_pvc(pvc_name, namespace, core_api, base_logs_dir, base_full_logs_dir):
-    """Handles the full collection process for a single PVC."""
+def collect_from_single_pvc(pvc_name, namespace, core_api, output_dir):
+    """Handles the full collection process for a single PVC, copying contents flat."""
     print(f"Processing PVC: {pvc_name}")
     collector_pod_name = generate_pod_name(f"collector-{pvc_name[:20]}-") # Keep name reasonable
     
@@ -175,27 +174,48 @@ def collect_from_single_pvc(pvc_name, namespace, core_api, base_logs_dir, base_f
         if not wait_for_pod_ready(core_api, namespace, collector_pod_name):
             raise RuntimeError("Collector pod did not become ready")
 
-        print(f"  Attempting to copy files from collector pod '{collector_pod_name}'...")
-        # Define source paths inside the collector pod
-        pod_logs_src = f"{namespace}/{collector_pod_name}:{POD_DATA_MOUNT_PATH}/logs/"
-        pod_full_logs_src = f"{namespace}/{collector_pod_name}:{POD_DATA_MOUNT_PATH}/full_logs/"
+        print(f"  Attempting to copy files from collector pod '{collector_pod_name}' into '{output_dir}'...")
+        # Define source paths inside the collector pod - use trailing /. to copy CONTENTS
+        pod_logs_src = f"{namespace}/{collector_pod_name}:{POD_DATA_MOUNT_PATH}/logs/."
+        pod_full_logs_src = f"{namespace}/{collector_pod_name}:{POD_DATA_MOUNT_PATH}/full_logs/."
         
-        # Copy 'logs' directly to base_logs_dir
-        logs_copied, _, logs_err = run_kubectl_cp(pod_logs_src, base_logs_dir)
-        # Copy 'full_logs' directly to base_full_logs_dir
-        full_logs_copied, _, full_logs_err = run_kubectl_cp(pod_full_logs_src, base_full_logs_dir)
+        # Copy contents of 'logs' into the flat output_dir
+        # Note: Using output_dir directly. Collisions WILL overwrite files.
+        logs_copied, _, logs_err = run_kubectl_cp(pod_logs_src, output_dir)
+        # Copy contents of 'full_logs' into the flat output_dir
+        full_logs_copied, _, full_logs_err = run_kubectl_cp(pod_full_logs_src, output_dir)
 
-        if logs_copied and full_logs_copied:
-            print(f"  Successfully copied logs and full_logs for PVC {pvc_name} into base directories.")
-            success = True
+        # Consider success if at least one copy worked without critical errors.
+        # kubectl cp returns error if source dir doesn't exist, which might be okay.
+        # A more robust check might inspect the stderr for specific non-fatal errors.
+        # For now, let's require both to succeed unless the error indicates missing source.
+        
+        logs_success = logs_copied or ("no such file or directory" in logs_err.lower())
+        full_logs_success = full_logs_copied or ("no such file or directory" in full_logs_err.lower())
+
+        if logs_copied:
+            print(f"    Successfully copied contents from 'logs' for PVC {pvc_name}.")
+        elif not logs_success:
+             print(f"    ERROR copying 'logs' contents for PVC {pvc_name}: {logs_err.strip()}", file=sys.stderr)
+
+        if full_logs_copied:
+            print(f"    Successfully copied contents from 'full_logs' for PVC {pvc_name}.")
+        elif not full_logs_success:
+             print(f"    ERROR copying 'full_logs' contents for PVC {pvc_name}: {full_logs_err.strip()}", file=sys.stderr)
+        
+        # Define overall success - perhaps if at least one dir existed and copied?
+        # Or require strict success if dirs are expected?
+        # Current logic: succeeds if both copy operations either worked OR failed because the source didn't exist.
+        if logs_success and full_logs_success:
+            if logs_copied or full_logs_copied:
+                 print(f"  Successfully copied available log contents for PVC {pvc_name} into flat directory.")
+                 success = True
+            else:
+                 print(f"  Neither 'logs' nor 'full_logs' directory found or copied for PVC {pvc_name}. Treating as success (no data).")
+                 success = True # No data isn't necessarily a failure of the process
         else:
             print(f"  ERROR copying files for PVC {pvc_name}. Check errors above.", file=sys.stderr)
-            # Log specific errors if needed
-            if not logs_copied:
-                print(f"    Logs copy error: {logs_err.strip()}", file=sys.stderr)
-            if not full_logs_copied:
-                print(f"    Full logs copy error: {full_logs_err.strip()}", file=sys.stderr)
-            success = False # Explicitly mark as failed if either copy fails
+            success = False
             
     except Exception as e:
         print(f"An unexpected error occurred during collection for PVC {pvc_name}: {e}", file=sys.stderr)
@@ -212,8 +232,9 @@ def collect_from_single_pvc(pvc_name, namespace, core_api, base_logs_dir, base_f
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Copies 'logs' and 'full_logs' directories from multiple Kubernetes PVCs "
-                    "matching a label selector, using temporary collector pods."
+        description="Copies 'logs' and 'full_logs' directory contents from multiple Kubernetes PVCs "
+                    "matching a label selector into a single flat local directory, using temporary collector pods."
+                    " WARNING: Files with the same name from different sources will overwrite each other."
     )
     parser.add_argument(
         "--namespace", "-n",
@@ -226,14 +247,9 @@ def main():
         help=f"Label selector to find target PVCs (default: '{DEFAULT_LABEL_SELECTOR}')"
     )
     parser.add_argument(
-        "--logs-dir",
-        default=DEFAULT_LOGS_DIR,
-        help=f"Local base directory to save 'logs' files (default: {DEFAULT_LOGS_DIR})"
-    )
-    parser.add_argument(
-        "--full-logs-dir",
-        default=DEFAULT_FULL_LOGS_DIR,
-        help=f"Local base directory to save 'full_logs' files (default: {DEFAULT_FULL_LOGS_DIR})"
+        "--output-dir", "-o",
+        default=DEFAULT_OUTPUT_DIR,
+        help=f"Local flat directory to save all collected files (default: {DEFAULT_OUTPUT_DIR})"
     )
     parser.add_argument(
         "--max-workers", "-w",
@@ -243,17 +259,15 @@ def main():
     )
     args = parser.parse_args()
 
-    # Resolve and create base output directories
-    base_logs_dir = Path(args.logs_dir).resolve()
-    base_full_logs_dir = Path(args.full_logs_dir).resolve()
-    base_logs_dir.mkdir(parents=True, exist_ok=True)
-    base_full_logs_dir.mkdir(parents=True, exist_ok=True)
+    # Resolve and create base output directory
+    output_dir = Path(args.output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Namespace: {args.namespace}")
     print(f"PVC Label Selector: '{args.label_selector}'")
-    print(f"Base Logs Dir: {base_logs_dir}")
-    print(f"Base Full Logs Dir: {base_full_logs_dir}")
+    print(f"Output Dir: {output_dir}")
     print(f"Max Workers: {args.max_workers}")
+    print("\nWARNING: Files with the same name from different sources will overwrite each other in the flat output directory!\n")
 
     print("Loading Kubernetes configuration...")
     try:
@@ -285,8 +299,7 @@ def main():
                 pvc_name, 
                 args.namespace, 
                 core_v1_api, 
-                base_logs_dir, 
-                base_full_logs_dir
+                output_dir, # Pass the single output dir
             ): pvc_name 
             for pvc_name in target_pvc_names
         }
