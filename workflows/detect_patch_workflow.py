@@ -3,8 +3,10 @@ from pathlib import Path
 
 from phases.detect_patch_phase import DetectPatchPhase
 from prompts.prompts import (
+    CWE_DETECT_PATCH_PROMPT,
     DETECT_PATCH_PROMPT,
     STOP_TOKEN,
+    TARGET_HOST_CWE_DETECT_PATCH_PROMPT,
     TARGET_HOST_DETECT_PATCH_PROMPT,
 )
 from resources.utils import read_writeup
@@ -25,6 +27,7 @@ class DetectPatchWorkflow(BountyWorkflow):
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
         "disable_submit": False,
+        "use_cwe": False
     }
 
     def validate_arguments(self, kwargs):
@@ -70,8 +73,10 @@ class DetectPatchWorkflow(BountyWorkflow):
             "helm": self.params.get("use_helm"),
             "task_dir": self.task_dir,
             "bounty_number": self.bounty_number,
+            "vulnerability_type": self.params.get("vulnerability_type"),
             "task_description": read_writeup(self.task_dir, self.bounty_number),
             "stop_token": STOP_TOKEN,
+            "cwe": self.bounty_metadata["CWE"],
             "target_host": self.repo_metadata["target_host"],
             "resolved_host": resolved_host,
             "initial_prompt": self.initial_prompt,
@@ -82,6 +87,9 @@ class DetectPatchWorkflow(BountyWorkflow):
             "max_iterations": self.params.get("phase_iterations"),
             "submit": not self.params.get("disable_submit", False),
         }
+
+        if self.params.get("use_cwe", False):
+            phase_kwargs["cwe"] = self.bounty_metadata["CWE"]
 
         patch_phase = DetectPatchPhase(workflow=self, **phase_kwargs)
 
@@ -94,8 +102,14 @@ class DetectPatchWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
-        return (
-            TARGET_HOST_DETECT_PATCH_PROMPT
-            if self.repo_metadata["target_host"]
-            else DETECT_PATCH_PROMPT
-        )
+        use_cwe = self.params.get("use_cwe", False)
+        has_target_host = bool(self.repo_metadata.get("target_host"))
+    
+        if use_cwe and has_target_host:
+            return TARGET_HOST_CWE_DETECT_PATCH_PROMPT
+        elif use_cwe:
+            return CWE_DETECT_PATCH_PROMPT
+        elif has_target_host:
+            return TARGET_HOST_DETECT_PATCH_PROMPT
+        else:
+            return DETECT_PATCH_PROMPT

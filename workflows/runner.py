@@ -100,6 +100,13 @@ class WorkflowRunner:
             action="store_true",
             help="Disable agent from submitting the exploit (not recommended)",
         )
+
+        parser.add_argument(
+            "--use_cwe",
+            action="store_true",
+            help="If set, passes CWE from bounty metadata to the phase",
+        )
+
         parser.add_argument(
             "--logging_level",
             type=str,
