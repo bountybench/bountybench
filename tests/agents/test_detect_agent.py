@@ -53,6 +53,8 @@ def detect_agent(bounty_setup):
         task_dir=env_path.TASK_DIR,
         tmp_dir=env_path.TMP_DIR,
         submit=False,
+        include_cwe=False,
+        include_report_title_in_cwe=False
     )
     agent = agent_manager.create_agent("test_detect_agent", DetectAgent, detect_config)
     yield agent
