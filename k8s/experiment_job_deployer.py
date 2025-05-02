@@ -43,6 +43,7 @@ def parse_config(config_path):
         "workflow_type",
         "phase_iterations",
         "use_helm",
+        "use_cwe",
         "model",
         "max_input_tokens",
         "max_output_tokens",
@@ -56,6 +57,7 @@ def parse_config(config_path):
     workflow = cfg["workflow_type"]
     phase_iter = cfg["phase_iterations"]
     use_helm = cfg["use_helm"]
+    use_cwe = cfg["use_cwe"]
     model = cfg["model"]
     max_in = cfg["max_input_tokens"]
     max_out = cfg["max_output_tokens"]
@@ -93,6 +95,8 @@ def parse_config(config_path):
         ]
         if use_helm:
             parts.append("--use_helm")
+        if use_cwe:
+            parts.append("--use_cwe")
         parts.extend(
             [
                 "--model",
