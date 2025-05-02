@@ -1,9 +1,14 @@
 import json
 import os
+import re
+import time
 from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 
 def get_page_html(url):
@@ -19,18 +24,52 @@ def get_page_html(url):
         return None
 
 
-def save_html_for_links(links, directory):
+def is_valid_huntr_link(link):
+    """Check if the link is in the desired format with only one component after 'https://huntr.com/bounties/'."""
+    # Define the regular expression for a valid Huntr link format
+    pattern = r"^https://huntr\.com/bounties/([a-f0-9\-]+)$"
+
+    # Match the pattern
+    return bool(re.match(pattern, link))
+
+
+def setup_webdriver():
+    """Set up the Chrome WebDriver using ChromeDriverManager."""
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service)
+    driver.set_page_load_timeout(30)
+    return driver
+
+
+def save_html_for_links(driver, links, directory):
     """Save the HTML content of each linked page."""
     for i, link in enumerate(links):
-        save_path = directory / f"report_{i + 1}.html"
-        page_html = get_page_html(link)
+        try:
+            file_pattern = directory / f"report_{i}*"
+            if any(
+                file_path.match(file_pattern.name)
+                for file_path in directory.glob(f"report_{i}*")
+            ):
+                print(
+                    f"File starting with {file_pattern.name} already exists, skipping."
+                )
+                continue  # Skip this iteration if such a file exists
 
-        if page_html:
+            driver.get(link)
+            time.sleep(3)  # Wait for the page to load completely
+            page_html = driver.page_source
+            reported_date = extract_huntr_reported_date(page_html)
+            if reported_date:
+                save_path = directory / f"report_{i}_{reported_date}.html"
+            else:
+                save_path = directory / f"report_{i}.html"
+            # Save the page's HTML content as a .html file
             with open(save_path, "w", encoding="utf-8") as file:
                 file.write(page_html)
-            print(f"Saved {link} as {save_path}")
-        else:
-            print(f"Failed to fetch HTML for {link}")
+
+            print(f"Successfully saved HTML for {link} at {save_path}")
+        except Exception as e:
+            print(f"Failed to save page HTML for {link}: {e}")
 
 
 def get_links_from_main_page(url):
@@ -45,8 +84,10 @@ def get_links_from_main_page(url):
 
         # Construct full URLs
         report_links = ["https://huntr.com" + link["href"] for link in report_links]
-        print(report_links)
-        return report_links
+        valid_report_links = [
+            link for link in report_links if is_valid_huntr_link(link)
+        ]
+        return valid_report_links
 
     except Exception as e:
         print(f"Failed to get links from {url}: {e}")
@@ -60,13 +101,13 @@ def create_directory(directory):
     return directory_path
 
 
-def get_huntr_repo_htmls(repo_name, repo_dir):
+def get_huntr_repo_htmls(driver, repo_name, repo_dir):
     """Fetch and save HTML for all Huntr reports for a specific repo."""
     main_page_url = f"https://huntr.com/repos/{repo_name}"
     links = get_links_from_main_page(main_page_url)
-
+    print("number of reports:", len(links))
     directory = create_directory(f"./html_writeups/{repo_dir}")
-    save_html_for_links(links, directory)
+    save_html_for_links(driver, links, directory)
 
 
 def extract_bounty_link_from_metadata(task_dir: str, bounty_number: str) -> str:
@@ -99,7 +140,51 @@ def extract_huntr_repo_name(writeup: str) -> str:
     return None
 
 
-def get_repo_name(task_dir: str, bounty_number: str) -> str:
+def extract_huntr_reported_date(writeup: str) -> str:
+    """Extract the reported date from the Huntr report HTML and return it in MM_DD_YYYY format."""
+    soup = BeautifulSoup(writeup, "html.parser")
+
+    # Find the paragraph containing the "Reported on" text
+    reported_date_element = soup.find(
+        "p",
+        class_="ml-3 mt-1 self-center text-xs font-medium text-white text-opacity-60",
+    )
+
+    if reported_date_element:
+        # Example: "Reported on Sep 14th 2022"
+        reported_date = reported_date_element.get_text(strip=True)
+
+        # Extract month, day, and year
+        parts = reported_date.split(" ")
+
+        if len(parts) == 5:
+            month_str = parts[2]
+            day_str = parts[3].rstrip("thstndrd")
+            year_str = parts[4]
+
+            # Month to numeric mapping
+            month_mapping = {
+                "Jan": "01",
+                "Feb": "02",
+                "Mar": "03",
+                "Apr": "04",
+                "May": "05",
+                "Jun": "06",
+                "Jul": "07",
+                "Aug": "08",
+                "Sep": "09",
+                "Oct": "10",
+                "Nov": "11",
+                "Dec": "12",
+            }
+
+            # Return the date in MM_DD_YYYY format
+            return f"{month_mapping.get(month_str, '01')}_{day_str.zfill(2)}_{year_str}"
+
+    return None
+
+
+def read_huntr_writeup(task_dir: str, bounty_number: str) -> str:
     """Get the repository name from the metadata or the Huntr HTML content."""
     url = extract_bounty_link_from_metadata(task_dir, bounty_number)
     if not url:
@@ -114,21 +199,25 @@ def get_repo_name(task_dir: str, bounty_number: str) -> str:
     )
     if report_path.exists() and "huntr" in url:
         writeup = report_path.read_text(encoding="utf-8")
-        return extract_huntr_repo_name(writeup)
+        return writeup
     return None
 
 
 def main():
     """Main function to iterate over repositories and download HTMLs."""
+    driver = setup_webdriver()
     source_dir = "bountybench"
 
     for repo_dir in os.listdir(source_dir):
         full_repo_dir = os.path.join(source_dir, repo_dir)
-        repo_name = get_repo_name(full_repo_dir, "0")
+        writeup = read_huntr_writeup(full_repo_dir, "0")
+        repo_name = extract_huntr_repo_name(writeup)
 
         if repo_name:
             print(f"Repo name extracted: {repo_name}")
-            get_huntr_repo_htmls(repo_name, repo_dir)
+            get_huntr_repo_htmls(driver, repo_name, repo_dir)
+
+    driver.quit()
 
 
 if __name__ == "__main__":
