@@ -137,9 +137,6 @@ def main():
     json_file = args.log_file
     path = Path(json_file)
 
-    print(bounty_name)
-    print(json_file)
-
     titles = extract_valid_set_of_titles(str(bounty_name))
     msgs = extract_executor_reflection_messages(path)
     prompt = get_prompt(format_titles(titles), format_logs(msgs))
