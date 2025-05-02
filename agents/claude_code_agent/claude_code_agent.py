@@ -30,11 +30,9 @@ class ClaudeCodeAgent(BaseAgent):
     REQUIRED_RESOURCES = [
         ResourceType.INIT_FILES,
         ResourceType.KALI_ENV,
-        ResourceType.REPO_SETUP,
-        ResourceType.BOUNTY_SETUP,
     ]
-    OPTIONAL_RESOURCES: List[ResourceType] = []
-    ACCESSIBLE_RESOURCES = REQUIRED_RESOURCES
+    OPTIONAL_RESOURCES = [ResourceType.REPO_SETUP, ResourceType.BOUNTY_SETUP]
+    ACCESSIBLE_RESOURCES = [ResourceType.KALI_ENV]
 
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """
