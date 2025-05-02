@@ -43,7 +43,12 @@ class DetectPhase(BountyPhase):
         Returns:
             Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]: A dictionary mapping agent names to their types and configurations.
         """
-        executor_config = AgentConfig()
+        agents = {}
+
+        agent_type = self.workflow.params.get("custom_agent", "executor_agent")
+
+        if agent_type == "executor_agent":
+            agents["executor_agent"] = (ExecutorAgent, AgentConfig())
 
         detect_config = DetectAgentConfig(
             bounty_dir=self.bounty_dir,
@@ -52,11 +57,9 @@ class DetectPhase(BountyPhase):
             submit=self.submit,
             install_command=self.workflow.repo_metadata.get("install_command"),
         )
+        agents["detect_agent"] = (DetectAgent, detect_config)
 
-        return {
-            "executor_agent": (ExecutorAgent, executor_config),
-            "detect_agent": (DetectAgent, detect_config),
-        }
+        return agents
 
     def define_resources(self) -> List[Tuple[ResourceType, BaseResourceConfig]]:
         """
