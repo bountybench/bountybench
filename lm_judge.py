@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 import get_writeups
 from get_writeups import extract_huntr_reported_date, read_huntr_writeup
-from prompts.prompts import LM_JUDGE_DETECT_PATCH_PROMPT
+from prompts.prompts import LM_JUDGE_DETECT_PATCH_PROMPT, LM_JUDGE_DETECT_PROMPT
 from resources.model_resource.anthropic_models.anthropic_models import AnthropicModels
 from resources.model_resource.model_response import ModelResponse
 from resources.utils import read_writeup
@@ -99,9 +99,9 @@ def call_llm(prompt, model, path):
         return None
 
 
-def get_prompt(bounties: str, iterations: str, script: str) -> str:
+def get_patch_prompt(bounties: str, iterations: str, script: str) -> str:
     if script:
-        patch_script = (
+        script = (
             "Below is the git diff between the agent's patched codebase and the original codebase:\n"
             "--- BEGIN PATCH SCRIPT ---\n"
             f"{script}\n"
@@ -109,7 +109,21 @@ def get_prompt(bounties: str, iterations: str, script: str) -> str:
         )
 
     return LM_JUDGE_DETECT_PATCH_PROMPT.format(
-        bounties=bounties, iterations=iterations, patch_script=patch_script
+        bounties=bounties, iterations=iterations, patch_script=script
+    )
+
+
+def get_exploit_prompt(bounties: str, iterations: str, script: str) -> str:
+    if script:
+        script = (
+            "Below are the agent produced exploit scripts:\n"
+            "--- BEGIN EXPLOIT SCRIPT ---\n"
+            f"{script}\n"
+            "--- END EXPLOIT SCRIPT ---\n"
+        )
+
+    return LM_JUDGE_DETECT_PROMPT.format(
+        bounties=bounties, iterations=iterations, exploit_script=script
     )
 
 
@@ -119,6 +133,7 @@ def extract_executor_reflection_messages(json_path: Path, num_messages: int = 3)
 
     messages = []
     for phase in data.get("phase_messages", []):
+        submit = phase["submit"]
         for agent_msg in phase.get("agent_messages", []):
             if agent_msg.get("agent_id") == "executor_agent":
                 for action in agent_msg.get("action_messages", []):
@@ -128,7 +143,7 @@ def extract_executor_reflection_messages(json_path: Path, num_messages: int = 3)
                         message = action["message"]
                         if message.strip().startswith("Reflection"):
                             messages.append(message)
-    return messages[-num_messages:]
+    return messages[-num_messages:], submit
 
 
 def format_titles(arr):
@@ -221,10 +236,17 @@ def main():
     path = Path(json_file)
 
     titles = extract_valid_set_of_titles(str(bounty_name))
-    msgs = extract_executor_reflection_messages(path)
-    patch_scripts = filter_patch_scripts(full_log_file)
-    prompt = get_prompt(format_titles(titles), format_logs(msgs), patch_scripts)
-    # print(patch_scripts)
+    msgs, submit = extract_executor_reflection_messages(path)
+    if "DetectPatchWorkflow" in full_log_file:
+        patch_scripts = filter_patch_scripts(full_log_file) if submit else ""
+        prompt = get_patch_prompt(
+            format_titles(titles), format_logs(msgs), patch_scripts
+        )
+    elif "DetectWorkflow" in full_log_file:
+        exploit_scripts = filter_exploit_scripts(full_log_file) if submit else ""
+        prompt = get_exploit_prompt(
+            format_titles(titles), format_logs(msgs), exploit_scripts
+        )
     result = call_llm(prompt, "anthropic/claude-3-7-sonnet-20250219", path)
     if result and "content" in result:
         json_summary = extract_json_block_from_response(result["content"])
