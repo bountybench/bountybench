@@ -61,7 +61,7 @@ class ClaudeCodeAgent(BaseAgent):
             "Bash,Edit,Write,Agent,Glob,Grep,LS,Read,NotebookEdit,NotebookRead,WebFetch"
         )
         quoted_tools = shlex.quote(tools)
-        cmd_str = f"claude -p {quoted_prompt} --allowedTools {quoted_tools}"
+        cmd_str = f"claude -p {quoted_prompt} --allowedTools {quoted_tools} --output-format stream-json"
 
         cmd_msg = CommandMessage(
             resource_id=self.resources.kali_env.resource_id,
