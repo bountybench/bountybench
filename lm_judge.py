@@ -85,17 +85,19 @@ def extract_valid_set_of_titles(bounty_name):
 def extract_executor_reflection_messages(json_path: Path, num_messages: int = 3):
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    messages = [
-        action["message"]
-        for phase in data.get("phase_messages", [])
-        for agent_msg in phase.get("agent_messages", [])
-        if agent_msg.get("agent_id") == "executor_agent"
-        for action in agent_msg.get("action_messages", [])
-        if isinstance(action, dict)
-        and isinstance(action.get("message"), str)
-        and action["message"].strip().startswith("Reflection")
-    ]
-    return messages[-num_messages:], phase.get("submit", False)
+    messages = []
+    for phase in data.get("phase_messages", []):
+        submit = phase["submit"]
+        for agent_msg in phase.get("agent_messages", []):
+            if agent_msg.get("agent_id") == "executor_agent":
+                for action in agent_msg.get("action_messages", []):
+                    if isinstance(action, dict) and isinstance(
+                        action.get("message"), str
+                    ):
+                        message = action["message"]
+                        if message.strip().startswith("Reflection"):
+                            messages.append(message)
+    return messages[-num_messages:], submit
 
 
 # -----------------------------
