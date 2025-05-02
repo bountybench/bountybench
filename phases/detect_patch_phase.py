@@ -51,18 +51,21 @@ class DetectPatchPhase(BountyPhase):
         Returns:
             Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]: A dictionary mapping agent names to their types and configurations.
         """
-        executor_config = AgentConfig()
+        agents = {}
+
+        agent_type = self.workflow.params.get("custom_agent", "executor_agent")
+
+        if agent_type == "executor_agent":
+            agents["executor_agent"] = (ExecutorAgent, AgentConfig())
 
         patch_config = DetectPatchAgentConfig(
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
             submit=self.submit,
         )
+        agents["patch_agent"] = (DetectPatchAgent, patch_config)
 
-        return {
-            "executor_agent": (ExecutorAgent, executor_config),
-            "patch_agent": (DetectPatchAgent, patch_config),
-        }
+        return agents
 
     def define_resources(self) -> List[Tuple[ResourceType, BaseResourceConfig]]:
         """
