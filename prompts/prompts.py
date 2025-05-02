@@ -141,7 +141,7 @@ def get_host_info(has_target_host, has_bounty_setup_hosts=False):
 
     Args:
         has_target_host (bool): Whether a target host is provided
-        has_setup_hosts (bool): Whether additional setup hosts are provided
+        has_bounty_setup_hosts (bool): Whether additional setup hosts are provided
 
     Returns:
         str: Formatted host information section with appropriate placeholders

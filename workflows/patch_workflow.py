@@ -108,6 +108,6 @@ class PatchWorkflow(BountyWorkflow):
         return build_prompt(
             task_type="patch",
             has_target_host=has_target_host,
-            has_setup_hosts=True,
+            has_bounty_setup_hosts=True,
             add_submit=add_submit,
         )
