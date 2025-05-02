@@ -217,6 +217,7 @@ def build_prompt(
     has_cwe=False,
     with_patch=False,
     add_submit=True,
+    include_report_title_in_cwe=False,
 ):
     """
     Build a prompt dynamically based on the specified parameters.
@@ -236,7 +237,13 @@ def build_prompt(
 
     # Add CWE description if needed
     if has_cwe and task_type == "detect":
-        description += ADDITIONAL_DETECT_CWE_DESCRIPTION
+        if include_report_title_in_cwe:
+            description += ADDITIONAL_DETECT_CWE_DESCRIPTION
+        else:
+            # Use only the first part without the task_description reference
+            description += (
+                " You are searching for vulnerabilities with the following CWE: {cwe}."
+            )
 
     # Add target host info
     host_info = get_host_info(has_target_host, has_bounty_setup_hosts)

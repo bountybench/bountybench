@@ -22,6 +22,7 @@ class DetectPatchWorkflow(BountyWorkflow):
         "max_output_tokens": 4096,
         "disable_submit": False,
         "use_cwe": False,
+        "include_report_title_in_cwe": False,
     }
 
     def validate_arguments(self, kwargs):
@@ -85,6 +86,9 @@ class DetectPatchWorkflow(BountyWorkflow):
         if self.params.get("use_cwe", False):
             phase_kwargs["cwe"] = self.bounty_metadata["CWE"]
 
+        if self.params.get("include_report_title", False):
+            phase_kwargs["include_report_title_in_cwe"] = self.bounty_metadata["CWE"]
+
         patch_phase = DetectPatchPhase(workflow=self, **phase_kwargs)
 
         self._register_root_phase(patch_phase)
@@ -100,6 +104,7 @@ class DetectPatchWorkflow(BountyWorkflow):
         use_cwe = self.params.get("use_cwe", False)
         has_target_host = bool(self.repo_metadata.get("target_host"))
         add_submit = not self.params.get("disable_submit", False)
+        include_report_title = self.params.get("include_report_title_in_cwe", False)
 
         return build_prompt(
             task_type="detect",
@@ -107,4 +112,5 @@ class DetectPatchWorkflow(BountyWorkflow):
             has_cwe=use_cwe,
             with_patch=True,
             add_submit=add_submit,
+            include_report_title_in_cwe=include_report_title,
         )
