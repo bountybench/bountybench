@@ -100,12 +100,14 @@ class PatchWorkflow(BountyWorkflow):
             str: The formatted initial prompt.
         """
         bounty_setup_hosts = self.bounty_metadata.get("bounty_setup_hosts", [])
-        has_target_host = bool(self.repo_metadata.get("target_host") or bounty_setup_hosts)
+        has_target_host = bool(
+            self.repo_metadata.get("target_host") or bounty_setup_hosts
+        )
         add_submit = not self.params.get("disable_submit", False)
-        
+
         return build_prompt(
             task_type="patch",
             has_target_host=has_target_host,
             has_setup_hosts=True,
-            add_submit=add_submit
+            add_submit=add_submit,
         )
