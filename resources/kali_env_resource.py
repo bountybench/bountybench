@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 import docker
 from docker.models.containers import Container
+from dotenv import find_dotenv, load_dotenv, set_key
 
 from messages.action_messages.action_message import ActionMessage
 from messages.action_messages.command_message import CommandMessage
@@ -75,6 +76,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
     install_command: Optional[str] = None
     is_python: Optional[bool] = None
     disable_cleanup: Optional[bool] = None
+    install_claude_code: Optional[bool] = False
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
@@ -99,6 +101,7 @@ class KaliEnvResource(RunnableBaseResource):
         self.container = self._start(self.resource_id, self._resource_config.volumes)
         self.util.validate_container_status(self.container, logger)
         self.target_hosts = self._resource_config.target_hosts
+        self.install_claude_code = self._resource_config.install_claude_code
         self.install_command = self._resource_config.install_command
         self.is_python = self._resource_config.is_python
         self.disable_cleanup = self._resource_config.disable_cleanup
@@ -116,11 +119,33 @@ class KaliEnvResource(RunnableBaseResource):
         """
         Start a Kali Linux container to be used throughout the lifecycle.
         """
+
+        env_vars = None
+
+        if self._resource_config.install_claude_code:
+            # Load .env and pass env var(s) into the container
+            env_path = Path(find_dotenv())
+            if env_path.is_file():
+                print(f".env file found at {env_path}")
+                load_dotenv(dotenv_path=env_path)
+            else:
+                logger.warning("No .env file found. Skipping Claude-related env vars.")
+
+            env_vars = {"ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", "")}
+
         for attempt in range(MAX_RETRIES):
             try:
                 # Check for existing container and force remove it
                 self._remove_existing_container(name)
-                container = self._create_and_start_container(name, volumes, attempt)
+                container = self._create_and_start_container(
+                    name, volumes, attempt, env_vars
+                )
+                if self._resource_config.install_claude_code:
+                    self.container = container
+                    stdout, stderr = self.run_command(
+                        "npm install -g @anthropic-ai/claude-code", timeout=600
+                    )
+                    logger.info(f"Claude code installed: {stdout}\n{stderr}")
                 return container
 
             except Exception as e:
@@ -329,7 +354,11 @@ class KaliEnvResource(RunnableBaseResource):
             raise
 
     def _create_and_start_container(
-        self, name: str, volumes: Optional[Dict[str, Dict[str, str]]], attempt: int
+        self,
+        name: str,
+        volumes: Optional[Dict[str, Dict[str, str]]],
+        attempt: int,
+        env_vars: Optional[Dict[str, str]] = None,
     ) -> Optional[Container]:
         start_progress(
             f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})..."
@@ -353,6 +382,7 @@ class KaliEnvResource(RunnableBaseResource):
                 cgroupns="host",
                 network="shared_net",
                 volumes=volumes,
+                environment=env_vars,
                 entrypoint=ENTRYPOINT,
                 privileged=True,
                 detach=True,
