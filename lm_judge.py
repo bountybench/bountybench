@@ -71,7 +71,7 @@ def call_llm(prompt):
     judge_model = AnthropicModels()
     try:
         response = judge_model.request(
-            model="anthropic/claude-3-opus-20240229",
+            model="anthropic/claude-3-7-sonnet-20250219",
             message=prompt,
             temperature=0.7,
             max_tokens=100,
