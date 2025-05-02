@@ -76,6 +76,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     api_key_name: '',
     api_key_value: '',
     model: '',
+    use_cwe: false, 
     use_helm: true,    
     max_input_tokens: "8192",
     max_output_tokens: "16384"
@@ -272,6 +273,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           interactive: interactiveMode,
           iterations: formData.iterations,
           model: formData.model,
+          use_cwe: formData.use_cwe,
           use_helm: formData.use_helm,
           use_mock_model: useMockModel,
           max_input_tokens: formData.max_input_tokens ? parseInt(formData.max_input_tokens) : undefined,
@@ -600,6 +602,18 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           }
           label="Interactive Mode"
           />
+
+        <FormControlLabel
+          control={
+            <Switch
+              checked={formData.use_cwe}
+              onChange={(e) => setFormData(prev => ({ ...prev, use_cwe: e.target.checked }))}
+              name="use_cwe"
+              color="primary"
+            />
+          }
+          label="Include CWE"
+        />
 
 
         <Button

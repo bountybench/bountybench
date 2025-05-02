@@ -38,6 +38,7 @@ class LocalExecutionBackend(ExecutionBackend):
                 "vulnerability_type": workflow_data.vulnerability_type,
                 "interactive": workflow_data.interactive,
                 "phase_iterations": workflow_data.iterations,
+                "use_cwe": workflow_data.use_cwe,
                 "use_helm": workflow_data.use_helm,
                 "use_mock_model": workflow_data.use_mock_model,
                 "max_input_tokens": workflow_data.max_input_tokens,

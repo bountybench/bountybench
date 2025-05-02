@@ -19,6 +19,7 @@ class StartWorkflowInput(BaseModel):
     iterations: int = Field(..., gt=0, description="Number of phase iterations")
     model: str = Field(..., description="Name of the model")
     use_mock_model: bool = Field(default=False, description="Mock Model")
+    use_cwe: bool = Field(..., description="Using CWE vs. No CWE")
     use_helm: bool = Field(..., description="Using HELM vs. Non-Helm")
     max_input_tokens: Optional[int] = Field(
         None, ge=1, description="Maximum input tokens for the model"

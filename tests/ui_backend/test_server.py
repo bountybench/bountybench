@@ -58,6 +58,7 @@ def test_start_workflow_success(client):
         "model": "test/model",
         "use_helm": False,
         "use_mock_model": True,
+        "use_cwe": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
     }
@@ -83,6 +84,7 @@ def test_start_workflow_invalid_name(client):
         "iterations": 5,
         "model": "test/model",
         "use_helm": False,
+        "use_cwe": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
     }
@@ -107,6 +109,7 @@ def started_patch_workflow(client):
         "iterations": 1,
         "model": "test/model",
         "use_helm": False,
+        "use_cwe": False,
         "use_mock_model": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
@@ -157,6 +160,7 @@ def started_detect_workflow(client):
         "model": "test/model",
         "use_helm": False,
         "use_mock_model": True,
+        "use_cwe": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
     }
@@ -282,6 +286,7 @@ def test_workflow_restart_creates_new_workflow(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_cwe": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
     }
@@ -295,6 +300,7 @@ def test_workflow_restart_creates_new_workflow(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_cwe": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
     }
@@ -388,6 +394,7 @@ def test_stopping_multiple_workflows(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_cwe": True,
         "use_mock_model": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
@@ -402,6 +409,7 @@ def test_stopping_multiple_workflows(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_cwe": True,
         "use_mock_model": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
@@ -455,6 +463,7 @@ def test_restarting_workflow_with_same_bounty_number(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_cwe": True,
         "use_mock_model": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
@@ -492,6 +501,7 @@ def test_stopping_workflow_twice(client):
         "iterations": 3,
         "model": "some_model_name",
         "use_helm": False,
+        "use_cwe": True,
         "use_mock_model": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
@@ -541,6 +551,7 @@ async def test_websocket_connection_success(client):
         "model": "test/model",
         "use_helm": False,
         "use_mock_model": True,
+        "use_cwe": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
     }
@@ -567,6 +578,7 @@ async def test_websocket_receive_status_update(client):
         "model": "test/model",
         "use_helm": False,
         "use_mock_model": True,
+        "use_cwe": True,
         "max_input_tokens": 4096,
         "max_output_tokens": 2048,
     }
