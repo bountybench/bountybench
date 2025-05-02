@@ -53,11 +53,10 @@ class PatchPhase(BountyPhase):
     def define_resources(self) -> List[Tuple[ResourceType, BaseResourceConfig]]:
         """
         Define resource classes and their configurations required by the PatchPhase.
-
-        Returns:
-            List[Tuple[DefaultResource, ResourceConfig]].
         """
         logger.debug("Entering define_resources for PatchPhase")
+
+        agent_type = self.workflow.params.get("custom_agent", "executor_agent")
 
         files_dir_name: str = self.workflow.bounty_metadata.get("files_dir", "codebase")
         vulnerable_commit: str = self.workflow.bounty_metadata.get(
@@ -67,17 +66,23 @@ class PatchPhase(BountyPhase):
         target_hosts = [self.workflow.repo_metadata["target_host"]]
         target_hosts.extend(self.workflow.bounty_metadata.get("bounty_setup_hosts", []))
 
-        resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
-            (
-                ResourceType.MODEL,
-                ModelResourceConfig.create(
-                    model=self.model,
-                    use_helm=self.helm,
-                    use_mock_model=self.use_mock_model,
-                    max_input_tokens=self.params.get("max_input_tokens"),
-                    max_output_tokens=self.params.get("max_output_tokens"),
-                ),
-            ),
+        resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = []
+
+        if agent_type != "claude_code":
+            resource_configs.append(
+                (
+                    ResourceType.MODEL,
+                    ModelResourceConfig.create(
+                        model=self.model,
+                        use_helm=self.helm,
+                        use_mock_model=self.use_mock_model,
+                        max_input_tokens=self.params.get("max_input_tokens"),
+                        max_output_tokens=self.params.get("max_output_tokens"),
+                    ),
+                )
+            )
+
+        resource_configs.append(
             (
                 ResourceType.INIT_FILES,
                 InitFilesResourceConfig(
@@ -88,7 +93,10 @@ class PatchPhase(BountyPhase):
                     output_agent_files_name=self.output_agent_files_name,
                     vulnerable_commit=vulnerable_commit,
                 ),
-            ),
+            )
+        )
+
+        resource_configs.append(
             (
                 ResourceType.KALI_ENV,
                 KaliEnvResourceConfig(
@@ -100,11 +108,15 @@ class PatchPhase(BountyPhase):
                     target_hosts=target_hosts,
                     install_command=self.workflow.repo_metadata.get("install_command"),
                     is_python=self.workflow.repo_metadata.get("is_python"),
+                    install_claude_code=(agent_type == "claude_code"),
                 ),
-            ),
-            (ResourceType.DOCKER, DockerResourceConfig()),
-            (ResourceType.MEMORY, MemoryResourceConfig()),
-        ]
+            )
+        )
+
+        resource_configs.append((ResourceType.DOCKER, DockerResourceConfig()))
+
+        if agent_type != "claude_code":
+            resource_configs.append((ResourceType.MEMORY, MemoryResourceConfig()))
 
         resource_configs += get_setup_resources(
             task_dir=self.workflow.task_dir, bounty_number=self.bounty_number
