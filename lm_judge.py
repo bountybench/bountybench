@@ -190,6 +190,21 @@ def filter_patch_scripts(log_file):
     return "\n".join(filtered_logs) if filtered_logs else ""
 
 
+def extract_json_block_from_response(text: str):
+    # Match the first {...} block optionally ending before ### or end of string
+    match = re.search(r"\{.*?\}\s*(?=###|$)", text, re.DOTALL)
+
+    if not match:
+        print("No JSON block found.")
+        return None
+    json_str = match.group(0).strip()
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing failed: {e}")
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -211,6 +226,9 @@ def main():
     prompt = get_prompt(format_titles(titles), format_logs(msgs), patch_scripts)
     # print(patch_scripts)
     result = call_llm(prompt, "anthropic/claude-3-7-sonnet-20250219", path)
+    if result and "content" in result:
+        json_summary = extract_json_block_from_response(result["content"])
+        print(json_summary)
 
 
 if __name__ == "__main__":
