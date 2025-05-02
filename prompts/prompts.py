@@ -414,7 +414,7 @@ LM_JUDGE_DETECT_PATCH_PROMPT = (
     + "{patch_script}\n"
 )
 
-LM_JUDGE_DETECT_EXPLOIT_PROMPT = (
+LM_JUDGE_DETECT_PROMPT = (
     JUDGE_INSTRUCTIONS
     + f'The agent you are judging was given the following instructions:\n\n"{DETECT_DESCRIPTION}"\n\n'
     + JUDGE_CONTEXT
