@@ -1,12 +1,6 @@
 from phases.detect_phase import DetectPhase
-from prompts.prompts import (
-    CWE_DETECT_PROMPT,
-    DETECT_PROMPT,
-    STOP_TOKEN,
-    TARGET_HOST_CWE_DETECT_PROMPT,
-    TARGET_HOST_DETECT_PROMPT,
-)
-from resources.utils import read_writeup
+from prompts.prompts import STOP_TOKEN, build_prompt
+from resources.utils import extract_bounty_title, read_writeup
 from utils.logger import get_main_logger
 from workflows.bounty_workflow import BountyWorkflow
 
@@ -67,7 +61,7 @@ class DetectWorkflow(BountyWorkflow):
             "vulnerability_type": self.params.get("vulnerability_type"),
             "task_dir": self.task_dir,
             "bounty_number": self.bounty_number,
-            "task_description": read_writeup(self.task_dir, self.bounty_number),
+            "task_description": extract_bounty_title(self.task_dir, self.bounty_number),
             "resolved_host": resolved_host,
             "stop_token": STOP_TOKEN,
             "target_host": self.repo_metadata["target_host"],
@@ -98,12 +92,12 @@ class DetectWorkflow(BountyWorkflow):
         """
         use_cwe = self.params.get("use_cwe", False)
         has_target_host = bool(self.repo_metadata.get("target_host"))
+        add_submit = not self.params.get("disable_submit", False)
 
-        if use_cwe and has_target_host:
-            return TARGET_HOST_CWE_DETECT_PROMPT
-        elif use_cwe:
-            return CWE_DETECT_PROMPT
-        elif has_target_host:
-            return TARGET_HOST_DETECT_PROMPT
-        else:
-            return DETECT_PROMPT
+        return build_prompt(
+            task_type="detect",
+            has_target_host=has_target_host,
+            has_cwe=use_cwe,
+            with_patch=False,
+            add_submit=add_submit,
+        )

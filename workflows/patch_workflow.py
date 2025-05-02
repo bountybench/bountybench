@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 
 from phases.patch_phase import PatchPhase
-from prompts.prompts import PATCH_PROMPT, STOP_TOKEN, TARGET_HOST_PATCH_PROMPT
+from prompts.prompts import STOP_TOKEN, build_prompt
 from resources.utils import read_writeup
 from utils.logger import get_main_logger
 from workflows.bounty_workflow import BountyWorkflow
@@ -100,9 +100,12 @@ class PatchWorkflow(BountyWorkflow):
             str: The formatted initial prompt.
         """
         bounty_setup_hosts = self.bounty_metadata.get("bounty_setup_hosts", [])
-
-        return (
-            TARGET_HOST_PATCH_PROMPT
-            if self.repo_metadata["target_host"] or bounty_setup_hosts
-            else PATCH_PROMPT
+        has_target_host = bool(self.repo_metadata.get("target_host") or bounty_setup_hosts)
+        add_submit = not self.params.get("disable_submit", False)
+        
+        return build_prompt(
+            task_type="patch",
+            has_target_host=has_target_host,
+            has_setup_hosts=True,
+            add_submit=add_submit
         )
