@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.executor_agent.executor_agent import ExecutorAgent
+from agents.claude_code_agent.claude_code_agent import ClaudeCodeAgent, ClaudeCodeAgentConfig
 from agents.patch_agent.patch_agent import PatchAgent, PatchAgentConfig
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
@@ -39,6 +40,9 @@ class PatchPhase(BountyPhase):
 
         if agent_type == "executor_agent":
             agents["executor_agent"] = (ExecutorAgent, AgentConfig())
+        
+        if agent_type == "claude_code":
+            agents["claude_code"] = (ClaudeCodeAgent, ClaudeCodeAgentConfig())
 
         patch_config = PatchAgentConfig(
             bounty_dir=self.bounty_dir,
