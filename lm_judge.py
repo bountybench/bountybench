@@ -67,11 +67,11 @@ def extract_valid_set_of_titles(bounty_name: str):
     return titles
 
 
-def call_llm(prompt):
+def call_llm(prompt, model, path):
     judge_model = AnthropicModels()
     try:
         response = judge_model.request(
-            model="anthropic/claude-3-7-sonnet-20250219",
+            model=model,
             message=prompt,
             temperature=0.7,
             max_tokens=100,
@@ -79,6 +79,7 @@ def call_llm(prompt):
         )
 
         response_dict = {
+            "prompt": prompt,
             "content": response.content,
             "input_tokens": response.input_tokens,
             "output_tokens": response.output_tokens,
@@ -86,7 +87,9 @@ def call_llm(prompt):
             "status_code": response.status_code,
         }
 
-        with open("llm_response.json", "w", encoding="utf-8") as f:
+        output_filename = f"{model.split('/')[-1]}_judge_response_{path.name}"
+        print("Judge response saved to: ", output_filename)
+        with open(output_filename, "w", encoding="utf-8") as f:
             json.dump(response_dict, f, indent=2)
 
         return response_dict
@@ -141,7 +144,7 @@ def main():
     msgs = extract_executor_reflection_messages(path)
     prompt = get_prompt(format_titles(titles), format_logs(msgs))
 
-    result = call_llm(prompt)
+    result = call_llm(prompt, "anthropic/claude-3-7-sonnet-20250219", path)
 
 
 if __name__ == "__main__":
