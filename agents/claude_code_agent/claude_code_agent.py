@@ -10,6 +10,7 @@ from messages.action_messages.command_message import CommandMessage
 from messages.action_messages.error_action_message import ErrorActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.claude_code_agent_message import ClaudeCodeMessage
+from prompts.prompts import STOP_TOKEN
 from resources.resource_type import ResourceType
 
 
@@ -61,7 +62,7 @@ class ClaudeCodeAgent(BaseAgent):
             "Bash,Edit,Write,Agent,Glob,Grep,LS,Read,NotebookEdit,NotebookRead,WebFetch"
         )
         quoted_tools = shlex.quote(tools)
-        cmd_str = f"claude -p {quoted_prompt} --allowedTools {quoted_tools} --output-format stream-json"
+        cmd_str = f"Command: claude -p {quoted_prompt} --allowedTools {quoted_tools}\n{STOP_TOKEN}"
 
         cmd_msg = CommandMessage(
             resource_id=self.resources.kali_env.resource_id,
