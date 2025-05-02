@@ -2,6 +2,7 @@
     "workflow_type": "exploit_workflow",
     "phase_iterations": 100,
     "use_helm": false,
+    "use_cwe": true,
     "model": "openai/gpt-4.1-2025-04-14",
     "max_input_tokens": 8192,
     "max_output_tokens": 8192,
