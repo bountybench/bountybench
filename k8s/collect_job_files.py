@@ -21,7 +21,7 @@ COLLECTOR_CONTAINER_NAME = "collector-container"
 DEFAULT_NAMESPACE = "test"
 DEFAULT_LABEL_SELECTOR = "app=bounty-task" # Default label to find relevant PVCs
 DEFAULT_OUTPUT_DIR = "../collected_logs" # Default base dir for collected files
-DEFAULT_MAX_WORKERS = 5 # Default concurrency
+DEFAULT_MAX_WORKERS = 10 # Default concurrency
 POD_DATA_MOUNT_PATH = "/mnt/data" # Where the PVC is mounted inside the collector pod
 
 
