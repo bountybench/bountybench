@@ -74,7 +74,7 @@ def call_llm(prompt, model, path):
             model=model,
             message=prompt,
             temperature=0.7,
-            max_tokens=100,
+            max_tokens=4096,
             stop_sequences=[],
         )
 
@@ -99,8 +99,18 @@ def call_llm(prompt, model, path):
         return None
 
 
-def get_prompt(bounties: str, iterations: str) -> str:
-    return LM_JUDGE_DETECT_PATCH_PROMPT.format(bounties=bounties, iterations=iterations)
+def get_prompt(bounties: str, iterations: str, script: str) -> str:
+    if script:
+        patch_script = (
+            "Below is the git diff between the agent's patched codebase and the original codebase:\n"
+            "--- BEGIN PATCH SCRIPT ---\n"
+            f"{script}\n"
+            "--- END PATCH SCRIPT ---\n"
+        )
+
+    return LM_JUDGE_DETECT_PATCH_PROMPT.format(
+        bounties=bounties, iterations=iterations, patch_script=patch_script
+    )
 
 
 def extract_executor_reflection_messages(json_path: Path, num_messages: int = 3):
@@ -129,21 +139,77 @@ def format_logs(arr):
     return "\n\n".join(f"{log}" for i, log in enumerate(arr))
 
 
+def remove_log_headers(line):
+    """Remove the timestamp, log level, and file reference headers from a log line."""
+    # Regular expression pattern to match the log header
+    log_header_pattern = r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \w+ +\[.*\]"
+    # Remove the header using regex and return the cleaned line
+    return re.sub(log_header_pattern, "", line).strip()
+
+
+def filter_logs(lines, start_pattern, end_pattern):
+    # Initialize a flag to track whether we are within the desired range
+    capture = False
+    filtered_lines = []
+    if isinstance(start_pattern, str):
+        start_pattern = re.compile(start_pattern)
+    if isinstance(end_pattern, str):
+        end_pattern = re.compile(end_pattern)
+    # Loop through the lines and capture everything between the markers
+    for line in lines:
+        if not capture and start_pattern.search(line):
+            capture = True
+
+        if end_pattern.search(line):
+            capture = False
+            break  # Skip the end marker line itself
+
+        if capture:
+            cleaned_line = remove_log_headers(line)
+            filtered_lines.append(cleaned_line)
+
+    return filtered_lines
+
+
+def filter_exploit_scripts(exploit_log_file):
+    with open(exploit_log_file, "r") as file:
+        exploit_full_log = file.readlines()
+    start_pattern = r"printing file: bountybench/.*/exploit_files/.*"
+    end_pattern = r"printing file: bountybench/.*/.gitignore"
+    exploit_logs = filter_logs(exploit_full_log, start_pattern, end_pattern)
+    return "\n".join(exploit_logs) if exploit_logs else ""
+
+
+def filter_patch_scripts(log_file):
+    with open(log_file, "r") as file:
+        full_log = file.readlines()
+    start_marker = "Checking for git diff in directory"
+    end_marker = "Submission received."
+    filtered_logs = filter_logs(full_log, start_marker, end_marker)
+    filtered_logs = filter_logs(filtered_logs, "Git diff: diff ", end_marker)
+    return "\n".join(filtered_logs) if filtered_logs else ""
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "bounty_name", type=str, help="Path to a bounty, e.g., lunary_0"
     )
     parser.add_argument("log_file", type=str, help="Path to the log file to be judged")
+    parser.add_argument(
+        "full_log_file", type=str, help="Path to the full log file to be judged"
+    )
     args = parser.parse_args()
     bounty_name = args.bounty_name
     json_file = args.log_file
+    full_log_file = args.full_log_file
     path = Path(json_file)
 
     titles = extract_valid_set_of_titles(str(bounty_name))
     msgs = extract_executor_reflection_messages(path)
-    prompt = get_prompt(format_titles(titles), format_logs(msgs))
-
+    patch_scripts = filter_patch_scripts(full_log_file)
+    prompt = get_prompt(format_titles(titles), format_logs(msgs), patch_scripts)
+    # print(patch_scripts)
     result = call_llm(prompt, "anthropic/claude-3-7-sonnet-20250219", path)
 
 
