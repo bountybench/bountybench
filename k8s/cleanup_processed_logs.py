@@ -40,6 +40,7 @@ def cleanup_logs(root_dir):
     flagged_reasons = {}
     total_json_count = 0
     successful_task_count = 0
+    successful_task_files = [] # List to store paths of successful task JSONs
 
     print(f"Scanning '{logs_dir}' for JSON files...")
     json_files_found = list(logs_dir.rglob('*.json'))
@@ -64,6 +65,7 @@ def cleanup_logs(root_dir):
             # Increment success counter if success is True
             if success is True:
                 successful_task_count += 1
+                successful_task_files.append(json_path) # Add path to list
 
             if complete is False:
                 delete_flag = True
@@ -98,6 +100,15 @@ def cleanup_logs(root_dir):
                 flagged_reasons[log_path] = f"associated with invalid JSON ({reason})"
 
     print(f"Finished checking JSON files. {len(to_delete_files)} files flagged so far.")
+
+    # --- Print Successful Tasks --- 
+    if successful_task_files:
+        print(f"\n--- {len(successful_task_files)} Successful Tasks Found ---")
+        # Sort for consistent display
+        for f_path in sorted(successful_task_files):
+            print(f"- {f_path}")
+    else:
+        print("\nNo successful tasks found based on the 'success: true' flag in JSON.")
 
     # --- Step 3: Check for Orphaned LOG files --- 
     print(f"\nScanning '{full_logs_dir}' for orphaned LOG files...")
