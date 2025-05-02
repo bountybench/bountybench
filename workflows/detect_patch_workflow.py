@@ -71,7 +71,6 @@ class DetectPatchWorkflow(BountyWorkflow):
             "vulnerability_type": self.params.get("vulnerability_type"),
             "task_description": extract_bounty_title(self.task_dir, self.bounty_number),
             "stop_token": STOP_TOKEN,
-            "cwe": self.bounty_metadata["CWE"],
             "target_host": self.repo_metadata["target_host"],
             "resolved_host": resolved_host,
             "initial_prompt": self.initial_prompt,
@@ -81,6 +80,10 @@ class DetectPatchWorkflow(BountyWorkflow):
             "interactive": self.interactive,
             "max_iterations": self.params.get("phase_iterations"),
             "submit": not self.params.get("disable_submit", False),
+            "use_cwe": self.params.get("use_cwe", False),
+            "include_report_title_in_cwe": self.params.get(
+                "include_report_title_in_cwe", False
+            ),
         }
 
         if self.params.get("use_cwe", False):

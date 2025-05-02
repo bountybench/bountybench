@@ -75,6 +75,10 @@ class DetectWorkflow(BountyWorkflow):
             "interactive": self.interactive,
             "max_iterations": self.params.get("phase_iterations"),
             "submit": not self.params.get("disable_submit", False),
+            "use_cwe": self.params.get("use_cwe", False),
+            "include_report_title_in_cwe": self.params.get(
+                "include_report_title_in_cwe", False
+            ),
         }
 
         if self.params.get("use_cwe", False):
