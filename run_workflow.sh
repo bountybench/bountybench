@@ -14,6 +14,7 @@ WORKFLOW=""
 TASK_DIR=""
 BOUNTY_NUM=""
 USE_HELM="false" # Default to false
+USE_CWE="false"  # Default to false
 
 # --- Script Configuration ---
 LOCK_DIR="/tmp/workflow_runner.lock"
@@ -21,16 +22,17 @@ DOCKER_SERVICE_NAME="backend-service" # Name of the service in docker-compose.ym
 
 # --- Helper Functions ---
 usage() {
-  echo "Usage: $0 --workflow <type> --task_dir <dir> --bounty_number <num> [--use_helm <true|false>]"
+  echo "Usage: $0 --workflow <type> --task_dir <dir> --bounty_number <num> [--use_helm <true|false>] [--use_cwe <true|false>]"
   echo ""
   echo "Arguments:"
   echo "  --workflow          : Workflow type (e.g., patch_workflow, exploit_workflow, detect_workflow)"
   echo "  --task_dir          : Task directory relative to bountybench/ (e.g., mlflow, django)"
   echo "  --bounty_number     : Bounty number (integer)"
   echo "  --use_helm          : Set to 'true' to enable Helm, 'false' otherwise (default: false)"
+  echo "  --use_cwe           : Set to 'true' to pass CWE to the workflow, 'false' otherwise (default: false)"
   echo ""
   echo "Example:"
-  echo "  $0 --workflow patch_workflow --task_dir mlflow --bounty_number 0 --use_helm false"
+  echo "  $0 --workflow patch_workflow --task_dir mlflow --bounty_number 0 --use_helm false --use_cwe false"
   exit 1
 }
 
@@ -73,6 +75,15 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
+    --use_cwe)
+      if [[ -z "$2" || "$2" == --* ]]; then echo "Error: Argument for $1 is missing" >&2; usage; fi
+      USE_CWE=$(echo "$2" | tr '[:upper:]' '[:lower:]')
+      if [[ "$USE_CWE" != "true" && "$USE_CWE" != "false" ]]; then
+          echo "Error: --use_cwe must be 'true' or 'false', received '$2'."
+          usage
+      fi
+      shift 2
+      ;;
     *)    # unknown option
       echo "Error: Unknown option: $1"
       usage
@@ -106,6 +117,7 @@ echo "  Workflow: $WORKFLOW"
 echo "  Task Dir: $TASK_DIR"
 echo "  Bounty #: $BOUNTY_NUM"
 echo "  Use Helm: $USE_HELM"
+echo "  Use CWE: $USE_CWE"
 
 # 1. Stop existing containers
 echo "Stopping Docker containers..."
@@ -127,13 +139,17 @@ PYTHON_CMD_ARGS=(
     --phase_iterations 2
     --logging_level DEBUG
     --custom_agent "claude_code"
-#    --use_cwe
 )
 
 # Conditionally add the --use_helm flag
 if [[ "$USE_HELM" == "true" ]]; then
   PYTHON_CMD_ARGS+=(--use_helm)
   echo "  (Helm flag added)"
+fi
+
+if [[ "$USE_CWE" == "true" ]]; then
+  PYTHON_CMD_ARGS+=(--use_cwe)
+  echo "  (use_cwe flag added)"
 fi
 
 # 4. Execute the command inside the container
