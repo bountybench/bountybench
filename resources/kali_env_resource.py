@@ -221,7 +221,7 @@ class KaliEnvResource(RunnableBaseResource):
             if objs:
                 parsed = objs
         # Use parsed JSON if available, else raw text
-        message_payload = parsed if parsed is not None else observation_text
+        message_payload = json.dumps(parsed, indent=4) if parsed is not None else observation_text
         return ActionMessage(
             resource_id=self.resource_id,
             message=message_payload,
