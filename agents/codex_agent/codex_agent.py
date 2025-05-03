@@ -56,7 +56,7 @@ class CodexAgent(BaseAgent):
             "--approval-mode", "full-auto",
             quoted_prompt,
         ]
-        cmd_str = " ".join(cmd_parts)
+        cmd_str = "Command: " + " ".join(cmd_parts)
 
         cmd_msg = CommandMessage(
             resource_id=self.resources.kali_env.resource_id,

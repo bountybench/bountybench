@@ -135,6 +135,17 @@ class KaliEnvResource(RunnableBaseResource):
 
             env_vars = {"ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", "")}
 
+        if self._resource_config.install_codex:
+            # Load .env and pass env var(s) into the container
+            env_path = Path(find_dotenv())
+            if env_path.is_file():
+                print(f".env file found at {env_path}")
+                load_dotenv(dotenv_path=env_path)
+            else:
+                logger.warning("No .env file found. Skipping OpenAI-related env vars.")
+
+            env_vars = {"OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", "")}
+
         for attempt in range(MAX_RETRIES):
             try:
                 # Check for existing container and force remove it
