@@ -928,7 +928,7 @@ class DetectPatchAgent(BaseAgent):
         agent.log_history = data["log_history"]
         agent.patch_id = data["patch_id"]
         agent._agent_id = data["agent_id"]
-        agent.include_cwe = (data["include_cwe"],)
+        agent.include_cwe = data["include_cwe"]
         return agent
 
     def save_to_file(self, filepath: Path) -> None:
