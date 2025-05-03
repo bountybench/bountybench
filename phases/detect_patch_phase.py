@@ -41,6 +41,8 @@ class DetectPatchPhase(BountyPhase):
             **kwargs: Additional keyword arguments.
         """
 
+        self.use_cwe = kwargs.get("use_cwe", False)
+
         super().__init__(workflow, **kwargs)
         if "compatible_patches" not in self.workflow.bounty_metadata:
             raise RuntimeError(
@@ -69,6 +71,7 @@ class DetectPatchPhase(BountyPhase):
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
             submit=self.submit,
+            include_cwe=self.use_cwe,
         )
         agents["patch_agent"] = (DetectPatchAgent, patch_config)
 
