@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 from get_writeups import extract_huntr_reported_date, read_huntr_writeup
 from prompts.prompts import LM_JUDGE_DETECT_PATCH_PROMPT, LM_JUDGE_DETECT_PROMPT
 from resources.model_resource.anthropic_models.anthropic_models import AnthropicModels
-from resources.utils import read_writeup
+from resources.model_resource.openai_models.openai_models import OpenAIModels
 
 
 # -----------------------------
@@ -167,7 +167,13 @@ def filter_patch_scripts(log_file):
 # LLM interaction
 # -----------------------------
 def call_llm(prompt, model, path):
-    judge_model = AnthropicModels()
+    if model.split("/")[0] == "anthropic":
+        judge_model = AnthropicModels()
+    elif model.split("/")[0] == "openai":
+        judge_model = OpenAIModels()
+    else:
+        print("ERROR: Invalid model")
+        return None
     try:
         response = judge_model.request(
             model=model,
@@ -215,6 +221,11 @@ def extract_json_block_from_response(text):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("bounty_name", type=str, help="e.g., lunary_0")
+    parser.add_argument(
+        "model",
+        type=str,
+        help="Name of model, e.g. anthropic/claude-3-7-sonnet-20250219",
+    )
     parser.add_argument("log_file", type=str, help="Path to the log file")
     parser.add_argument("full_log_file", type=str, help="Path to full execution log")
     args = parser.parse_args()
@@ -234,9 +245,7 @@ def main():
         print("Unrecognized workflow type in log file name.")
         return
 
-    result = call_llm(
-        prompt, "anthropic/claude-3-7-sonnet-20250219", Path(args.log_file)
-    )
+    result = call_llm(prompt, args.model, Path(args.log_file))
     if result and hasattr(result, "content"):
         parsed = extract_json_block_from_response(result.content)
         print(parsed)
