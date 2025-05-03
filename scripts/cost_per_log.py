@@ -1,10 +1,25 @@
+import argparse
 import json
 from pathlib import Path
 from typing import Dict
 
 import tqdm
 
-LOG_DIR: Path = Path("./logs")
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Ingest BountyBench logs into Docent")
+    parser.add_argument(
+        "--log_dir",
+        type=str,
+        default="./logs",
+        help="Directory containing BountyBench log files",
+    )
+    return parser.parse_args()
+
+
+args = parse_args()
+
+LOG_DIR = Path(args.log_dir)
 
 
 # No public API for getting costs of models, therefore saving them as constants.
@@ -123,7 +138,7 @@ if __name__ == "__main__":
                 print(
                     f"KeyError: {e} - This log file may not have the expected structure."
                 )
-    json_output_path = "cost_per_log.json"
+    json_output_path = f"{str(LOG_DIR)}_cost_per_log.json"
     with open(json_output_path, "w") as f:
         json.dump(results, f, indent=4)
     print(f"Results saved to {json_output_path}")
