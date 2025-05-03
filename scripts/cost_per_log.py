@@ -1,6 +1,6 @@
 """
-Usage: 
-    python scripts/cost_per_log.py --log_dir ./logs
+Usage:
+    python scripts/cost_per_log.py [--log_dir] [--output_file]
 """
 
 import argparse
@@ -19,12 +19,30 @@ def parse_args():
         default="./logs",
         help="Directory containing BountyBench log files",
     )
+    parser.add_argument(
+        "--output_file",
+        type=str,
+        default="./logs_cost_per_log.json",
+        help="Directory to save the output JSON file",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode for detailed output",
+    )
     return parser.parse_args()
 
 
 args = parse_args()
 
 LOG_DIR = Path(args.log_dir)
+if not LOG_DIR.exists():
+    raise FileNotFoundError(f"Log directory {LOG_DIR} does not exist.")
+if not LOG_DIR.is_dir():
+    raise NotADirectoryError(f"Log path {LOG_DIR} is not a directory.")
+
+OUTPUT_FILE = Path(args.output_file)
+DEBUG = args.debug
 
 
 # No public API for getting costs of models, therefore saving them as constants.
@@ -92,8 +110,6 @@ def get_model(path: Path) -> str:
 
 
 if __name__ == "__main__":
-    DEBUG = False
-
     all_paths = list(LOG_DIR.rglob("**/*.json"))
     results = {}
 
@@ -143,7 +159,7 @@ if __name__ == "__main__":
                 print(
                     f"KeyError: {e} - This log file may not have the expected structure."
                 )
-    json_output_path = f"{str(LOG_DIR)}_cost_per_log.json"
-    with open(json_output_path, "w") as f:
+
+    with open(OUTPUT_FILE, "w") as f:
         json.dump(results, f, indent=4)
-    print(f"Results saved to {json_output_path}")
+    print(f"Results saved to {OUTPUT_FILE}")
