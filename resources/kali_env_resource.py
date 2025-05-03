@@ -1,4 +1,5 @@
 import atexit
+import json
 import os
 import sys
 import time
@@ -26,7 +27,7 @@ DOCKER_IMAGE: str = "cybench/bountyagent:latest"
 ENTRYPOINT: str = "/usr/local/bin/entrypoint.sh"
 DOCKER_CLIENT_INIT_TIMEOUT: int = 300
 
-TIMEOUT_PER_COMMAND: int = 600
+TIMEOUT_PER_COMMAND: int = 1200
 MAX_RETRIES: int = 3
 RETRY_DELAY: int = 5
 
@@ -178,9 +179,34 @@ class KaliEnvResource(RunnableBaseResource):
     def run(self, command_message: CommandMessage) -> ActionMessage:
         command_str = command_message.command
         stdout, stderr = self.run_command(command_str, TIMEOUT_PER_COMMAND)
+        # Combine stdout and stderr output
         observation_text = stdout.rstrip() + stderr.strip()
+        # Attempt to parse JSON chunks from stream-json output
+        parsed = None
+        try:
+            # Try parsing entire output as JSON
+            parsed = json.loads(observation_text)
+        except json.JSONDecodeError:
+            # Fall back to line-by-line parse
+            lines = observation_text.splitlines()
+            objs = []
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    objs.append(json.loads(line))
+                except json.JSONDecodeError:
+                    # Not a JSON object, skip
+                    continue
+            if objs:
+                parsed = objs
+        # Use parsed JSON if available, else raw text
+        message_payload = parsed if parsed is not None else observation_text
         return ActionMessage(
-            resource_id=self.resource_id, message=observation_text, prev=command_message
+            resource_id=self.resource_id,
+            message=message_payload,
+            prev=command_message,
         )
 
     def run_command(

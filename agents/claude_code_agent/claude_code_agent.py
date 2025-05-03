@@ -1,7 +1,3 @@
-"""
-Agent implementing an AutoGPT workflow.
-"""
-
 import shlex
 from typing import List
 
@@ -60,7 +56,7 @@ class ClaudeCodeAgent(BaseAgent):
             "Bash,Edit,Write,Agent,Glob,Grep,LS,Read,NotebookEdit,NotebookRead,WebFetch"
         )
         quoted_tools = shlex.quote(tools)
-        cmd_str = f"Command: claude -d -p {quoted_prompt} --output-format stream-json --allowedTools {quoted_tools}\n{STOP_TOKEN}"
+        cmd_str = f"Command: claude -d -p {quoted_prompt} --output-format json --verbose --allowedTools {quoted_tools}\n{STOP_TOKEN}"
 
         cmd_msg = CommandMessage(
             resource_id=self.resources.kali_env.resource_id,

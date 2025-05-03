@@ -15,5 +15,8 @@ class ClaudeCodeMessage(ExecutorAgentMessage):
         agent_id: str,
         message: str = None,
         prev: ExecutorAgentMessage = None,
+        submission: bool = False,
     ) -> None:
-        super().__init__(agent_id=agent_id, message=message, prev=prev)
+        super().__init__(
+            agent_id=agent_id, message=message, prev=prev, submission=submission
+        )

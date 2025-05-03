@@ -127,7 +127,7 @@ PYTHON_CMD_ARGS=(
     --phase_iterations 2
     --logging_level DEBUG
     --custom_agent "claude_code"
-    --use_cwe
+#    --use_cwe
 )
 
 # Conditionally add the --use_helm flag
