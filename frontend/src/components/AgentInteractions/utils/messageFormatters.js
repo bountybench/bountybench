@@ -2,17 +2,31 @@ export const formatData = (data) => {
   // If data is undefined or null, return an empty string
   if (data == null) return '';
 
-  // If the data is already a string, just return it
+  // If the data is already a string, attempt to parse JSON for pretty printing, else return raw string
   if (typeof data === 'string') {
-    return data; 
+    try {
+      const parsed = JSON.parse(data);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return data;
+    }
   }
 
-  // If data is an object with stdout or stderr properties, combine them into a single string
-  if (data.stdout || data.stderr) {
+  // If data is an object with stdout or stderr properties, combine them
+  if (data && typeof data === 'object' && (data.stdout || data.stderr)) {
     return `${data.stdout || ''}\n${data.stderr || ''}`.trim();
   }
 
-  // Convert other data types to string
+  // If data is an object, pretty print as JSON
+  if (data && typeof data === 'object') {
+    try {
+      return JSON.stringify(data, null, 2);
+    } catch {
+      return String(data);
+    }
+  }
+
+  // Fallback for other types
   return String(data);
 };
 

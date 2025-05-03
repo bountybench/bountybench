@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 
 logs_router = APIRouter()
 
@@ -97,7 +97,34 @@ async def get_log(filename: str):
 
     if not file_path.exists() or not file_path.suffix == ".json":
         raise HTTPException(status_code=404, detail="Log file not found")
+    # Load and preprocess the JSON log for readability
     try:
-        return FileResponse(file_path)
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+    except json.JSONDecodeError as err:
+        # Fall back to raw file if JSON parsing fails
+        raise HTTPException(status_code=500, detail=f"Error parsing log JSON: {err}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+    # Recursively parse any JSON-encoded strings into real JSON for better frontend display
+    def _parse_nested(obj):
+        if isinstance(obj, dict):
+            for key, val in obj.items():
+                # Only attempt to parse strings that look like JSON
+                if isinstance(val, str) and val.strip().startswith(('{', '[')):
+                    try:
+                        obj[key] = json.loads(val)
+                        # Continue parsing inside the newly parsed object
+                        _parse_nested(obj[key])
+                    except (json.JSONDecodeError, TypeError):
+                        # Leave as original string if not valid JSON
+                        pass
+                else:
+                    _parse_nested(val)
+        elif isinstance(obj, list):
+            for item in obj:
+                _parse_nested(item)
+    _parse_nested(data)
+    # Return the processed log content
+    return JSONResponse(content=data)
