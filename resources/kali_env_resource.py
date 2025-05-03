@@ -78,6 +78,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
     is_python: Optional[bool] = None
     disable_cleanup: Optional[bool] = None
     install_claude_code: Optional[bool] = False
+    install_codex: Optional[bool] = False
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
@@ -146,7 +147,14 @@ class KaliEnvResource(RunnableBaseResource):
                     stdout, stderr = self.run_command(
                         "npm install -g @anthropic-ai/claude-code", timeout=600
                     )
-                    logger.info(f"Claude code installed: {stdout}\n{stderr}")
+                    logger.info(f"Claude Code CLI installed: {stdout}\n{stderr}")
+
+                if self._resource_config.install_codex:
+                    self.container = container
+                    stdout, stderr = self.run_command(
+                        "npm install -g @openai/codex", timeout=600
+                    )
+                    logger.info(f"OpenAI Codex CLI installed: {stdout}\n{stderr}")
                 return container
 
             except Exception as e:

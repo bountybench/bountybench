@@ -5,6 +5,7 @@ from agents.claude_code_agent.claude_code_agent import (
     ClaudeCodeAgent,
     ClaudeCodeAgentConfig,
 )
+from agents.codex_agent.codex_agent import CodexAgent, CodexAgentConfig
 from agents.detect_patch_agent.detect_patch_agent import (
     DetectPatchAgent,
     DetectPatchAgentConfig,
@@ -66,6 +67,9 @@ class DetectPatchPhase(BountyPhase):
 
         if agent_type == "claude_code":
             agents["claude_code"] = (ClaudeCodeAgent, ClaudeCodeAgentConfig())
+
+        if agent_type == "codex":
+            agents["codex"] = (CodexAgent, CodexAgentConfig())
 
         patch_config = DetectPatchAgentConfig(
             bounty_dir=self.bounty_dir,
@@ -135,6 +139,7 @@ class DetectPatchPhase(BountyPhase):
                     install_command=self.workflow.repo_metadata.get("install_command"),
                     is_python=self.workflow.repo_metadata.get("is_python"),
                     install_claude_code=(agent_type == "claude_code"),
+                    install_codex=(agent_type == "codex"),
                 ),
             )
         )

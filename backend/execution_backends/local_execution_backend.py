@@ -48,6 +48,9 @@ class LocalExecutionBackend(ExecutionBackend):
             if workflow_data.model != "":
                 workflow_args["model"] = workflow_data.model
 
+            # Include custom_agent parameter to select agent implementation
+            if hasattr(workflow_data, 'custom_agent'):
+                workflow_args['custom_agent'] = workflow_data.custom_agent
             workflow = self.workflow_factory[workflow_data.workflow_name](
                 **workflow_args
             )

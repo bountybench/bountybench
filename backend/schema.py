@@ -27,6 +27,10 @@ class StartWorkflowInput(BaseModel):
     max_output_tokens: Optional[int] = Field(
         None, ge=1, description="Maximum output tokens for the model"
     )
+    custom_agent: str = Field(
+        default="executor_agent",
+        description="Custom agent to use: executor_agent (default), claude_code, codex",
+    )
 
 
 class MessageInputData(BaseModel):
