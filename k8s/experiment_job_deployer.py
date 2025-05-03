@@ -58,6 +58,7 @@ def parse_config(config_path):
     phase_iter = cfg["phase_iterations"]
     use_helm = cfg["use_helm"]
     use_cwe = cfg["use_cwe"]
+    include_report_title_in_cwe = cfg["include_report_title_in_cwe"]
     model = cfg["model"]
     max_in = cfg["max_input_tokens"]
     max_out = cfg["max_output_tokens"]
@@ -97,6 +98,8 @@ def parse_config(config_path):
             parts.append("--use_helm")
         if use_cwe:
             parts.append("--use_cwe")
+        if include_report_title_in_cwe:
+            parts.append("--include_report_title_in_cwe")
         parts.extend(
             [
                 "--model",
