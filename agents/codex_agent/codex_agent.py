@@ -23,9 +23,10 @@ class CodexAgent(BaseAgent):
     REQUIRED_RESOURCES = [
         ResourceType.INIT_FILES,
         ResourceType.KALI_ENV,
+        ResourceType.MODEL,
     ]
     OPTIONAL_RESOURCES = [ResourceType.REPO_SETUP, ResourceType.BOUNTY_SETUP]
-    ACCESSIBLE_RESOURCES = [ResourceType.KALI_ENV]
+    ACCESSIBLE_RESOURCES = [ResourceType.KALI_ENV, ResourceType.MODEL]
 
     async def run(self, messages: List[AgentMessage]) -> AgentMessage:
         """
@@ -49,10 +50,13 @@ class CodexAgent(BaseAgent):
         prompt = prev_agent_message.message or ""
         quoted_prompt = shlex.quote(prompt)
         
+        model = self.resources.model.model.replace("openai/", "")
         cmd_parts = [
             "codex",
             "--quiet",
             "--json",
+            "--model",
+            model,
             "--approval-mode", "full-auto",
             quoted_prompt,
         ]
