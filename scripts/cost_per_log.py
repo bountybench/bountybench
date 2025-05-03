@@ -146,6 +146,7 @@ if __name__ == "__main__":
                     print(f"- Total input cost: ${total_input_cost:.2f}")
                     print(f"- Total output cost: ${total_output_cost:.2f}")
                     print(f"Total cost: ${total_cost:.2f}")
+
                 results[path] = {
                     "model": model,
                     "total_input_tokens": total_input_tokens,
@@ -153,6 +154,7 @@ if __name__ == "__main__":
                     "total_input_cost": total_input_cost,
                     "total_output_cost": total_output_cost,
                     "total_cost": total_cost,
+                    "workflow_metadata": log.get("workflow_metadata", {}),
                 }
 
             except KeyError as e:
