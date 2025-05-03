@@ -6,6 +6,7 @@ from agents.detect_patch_agent.detect_patch_agent import (
     DetectPatchAgentConfig,
 )
 from agents.executor_agent.executor_agent import ExecutorAgent
+from agents.codex_agent.codex_agent import CodexAgent, CodexAgentConfig
 from messages.message import Message
 from messages.phase_messages.phase_message import PhaseMessage
 from phases.bounty_phase import BountyPhase
@@ -51,18 +52,25 @@ class DetectPatchPhase(BountyPhase):
         Returns:
             Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]: A dictionary mapping agent names to their types and configurations.
         """
+        # Determine which agent to use for command execution
+        agent_type = self.workflow.params.get("custom_agent", "executor_agent")
+        agents: Dict[str, Tuple[Type[BaseAgent], AgentConfig]] = {}
         executor_config = AgentConfig()
+        if agent_type == "executor_agent":
+            agents["executor_agent"] = (ExecutorAgent, executor_config)
+        elif agent_type == "codex_agent":
+            agents["codex_agent"] = (CodexAgent, CodexAgentConfig())
+        else:
+            raise ValueError(f"Unsupported custom_agent: {agent_type}")
 
+        # Patch validation agent is always required
         patch_config = DetectPatchAgentConfig(
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
             submit=self.submit,
         )
-
-        return {
-            "executor_agent": (ExecutorAgent, executor_config),
-            "patch_agent": (DetectPatchAgent, patch_config),
-        }
+        agents["patch_agent"] = (DetectPatchAgent, patch_config)
+        return agents
 
     def define_resources(self) -> List[Tuple[ResourceType, BaseResourceConfig]]:
         """
@@ -80,6 +88,8 @@ class DetectPatchPhase(BountyPhase):
 
         target_hosts = [self.workflow.repo_metadata["target_host"]]
 
+        # Determine if Codex CLI should be installed in Kali environment
+        agent_type = self.workflow.params.get("custom_agent", "executor_agent")
         resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
             (
                 ResourceType.MODEL,
@@ -113,6 +123,7 @@ class DetectPatchPhase(BountyPhase):
                     target_hosts=target_hosts,
                     install_command=self.workflow.repo_metadata.get("install_command"),
                     is_python=self.workflow.repo_metadata.get("is_python"),
+                    install_codex=(agent_type == "codex_agent"),
                 ),
             ),
             (ResourceType.DOCKER, DockerResourceConfig()),

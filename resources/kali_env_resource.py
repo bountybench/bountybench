@@ -19,6 +19,7 @@ from resources.utils import get_stdout_text
 from utils.git_utils import git_commit
 from utils.logger import get_main_logger
 from utils.progress_logger import start_progress, stop_progress
+from dotenv import find_dotenv, load_dotenv
 
 # Constants with type annotations
 DOCKER_IMAGE: str = "cybench/bountyagent:latest"
@@ -75,6 +76,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
     install_command: Optional[str] = None
     is_python: Optional[bool] = None
     disable_cleanup: Optional[bool] = None
+    install_codex: Optional[bool] = False  # Whether to install and configure Codex CLI
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
@@ -115,14 +117,34 @@ class KaliEnvResource(RunnableBaseResource):
     ) -> Container:
         """
         Start a Kali Linux container to be used throughout the lifecycle.
+        Handles optional installation and configuration for the Codex CLI.
         """
+        # Prepare environment variables for Codex if needed
+        env_vars: Optional[Dict[str, str]] = None
+        if getattr(self._resource_config, 'install_codex', False):
+            # Load .env file to retrieve OPENAI_API_KEY
+            env_path = Path(find_dotenv())
+            if env_path.is_file():
+                load_dotenv(dotenv_path=env_path)
+            else:
+                logger.warning("No .env file found. Skipping Codex API key configuration.")
+            env_vars = {"OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", "")}
+
+        # Attempt to start the container with retries
         for attempt in range(MAX_RETRIES):
             try:
                 # Check for existing container and force remove it
                 self._remove_existing_container(name)
-                container = self._create_and_start_container(name, volumes, attempt)
+                # Create and start container with optional environment variables
+                container = self._create_and_start_container(name, volumes, attempt, env_vars)
+                # If Codex CLI installation is requested, install it inside the container
+                if getattr(self._resource_config, 'install_codex', False):
+                    self.container = container
+                    stdout, stderr = self.run_command(
+                        "npm install -g @openai/codex", timeout=600
+                    )
+                    logger.info(f"Codex CLI installed: {stdout}\n{stderr}")
                 return container
-
             except Exception as e:
                 self.util.handle_start_error(e, attempt, logger)
 
@@ -329,7 +351,11 @@ class KaliEnvResource(RunnableBaseResource):
             raise
 
     def _create_and_start_container(
-        self, name: str, volumes: Optional[Dict[str, Dict[str, str]]], attempt: int
+        self,
+        name: str,
+        volumes: Optional[Dict[str, Dict[str, str]]],
+        attempt: int,
+        env_vars: Optional[Dict[str, str]] = None,
     ) -> Optional[Container]:
         start_progress(
             f"Starting a new Docker container (Attempt {attempt + 1}/{MAX_RETRIES})..."
@@ -353,6 +379,7 @@ class KaliEnvResource(RunnableBaseResource):
                 cgroupns="host",
                 network="shared_net",
                 volumes=volumes,
+                environment=env_vars,
                 entrypoint=ENTRYPOINT,
                 privileged=True,
                 detach=True,

@@ -100,6 +100,11 @@ class WorkflowRunner:
             action="store_true",
             help="Disable agent from submitting the exploit (not recommended)",
         )
+        parser.add_argument(
+            "--custom_agent",
+            type=str,
+            help="Optional: specify which agent to run in the phases (e.g., 'executor_agent' or 'codex_agent')",
+        )
 
         parser.add_argument(
             "--use_cwe",
