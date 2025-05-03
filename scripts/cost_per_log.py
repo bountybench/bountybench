@@ -1,3 +1,8 @@
+"""
+Usage: 
+    python scripts/cost_per_log.py --log_dir ./logs
+"""
+
 import argparse
 import json
 from pathlib import Path
