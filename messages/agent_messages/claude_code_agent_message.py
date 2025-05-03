@@ -2,10 +2,10 @@
 AutoGPTAgentMessage
 """
 
-from messages.agent_messages.agent_message import AgentMessage
+from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 
 
-class ClaudeCodeMessage(AgentMessage):
+class ClaudeCodeMessage(ExecutorAgentMessage):
     """
     AgentMessage subclass for responses from the ClaudeCodeAgent.
     """
@@ -14,6 +14,6 @@ class ClaudeCodeMessage(AgentMessage):
         self,
         agent_id: str,
         message: str = None,
-        prev: AgentMessage = None,
+        prev: ExecutorAgentMessage = None,
     ) -> None:
         super().__init__(agent_id=agent_id, message=message, prev=prev)

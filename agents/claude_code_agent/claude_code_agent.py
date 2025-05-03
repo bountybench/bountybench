@@ -70,6 +70,7 @@ class ClaudeCodeAgent(BaseAgent):
         agent_message = ClaudeCodeMessage(
             agent_id=self.agent_id,
             prev=prev_agent_message,
+            submission=True,
         )
         try:
             output = self.resources.kali_env.run(cmd_msg)
