@@ -60,17 +60,16 @@ def filter_writeups_by_date(report_date_str, repo_name):
     ]
 
 
+def extract_title_from_file(file_path):
+    html = Path(file_path).read_text(encoding="utf-8")
+    soup = BeautifulSoup(html, "html.parser")
+    title_tag = soup.find("h1", id="title")
+    return title_tag.text.strip() if title_tag else ""
+
+
 def extract_titles(writeups, repo_name):
     file_dir = f"html_writeups/{repo_name}"
-    return [
-        BeautifulSoup(
-            Path(os.path.join(file_dir, file)).read_text(encoding="utf-8"),
-            "html.parser",
-        )
-        .find("h1", id="title")
-        .text.strip()
-        for file in writeups
-    ]
+    return [extract_title_from_file(os.path.join(file_dir, file)) for file in writeups]
 
 
 def extract_valid_set_of_titles(bounty_name):
@@ -79,7 +78,8 @@ def extract_valid_set_of_titles(bounty_name):
     writeup = read_huntr_writeup(full_repo_dir, bounty_number)
     date_str = extract_huntr_reported_date(writeup)
     print(f"bounty report date: {date_str}")
-    return extract_titles(filter_writeups_by_date(date_str, repo_name), repo_name)
+    filtered_files = filter_writeups_by_date(date_str, repo_name)
+    return extract_titles(filtered_files, repo_name)
 
 
 def extract_executor_reflection_messages(json_path: Path, num_messages: int = 3):
