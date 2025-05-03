@@ -32,6 +32,9 @@ class DetectPhase(BountyPhase):
     AGENT_CLASSES: List[Type[BaseAgent]] = [ExecutorAgent, DetectAgent]
 
     def __init__(self, *args, **kwargs):
+        
+        self.use_cwe = kwargs.get("use_cwe", False)
+
         super().__init__(*args, **kwargs)
 
         if "compatible_patches" not in self.workflow.bounty_metadata:
@@ -63,6 +66,7 @@ class DetectPhase(BountyPhase):
             tmp_dir=self.tmp_dir,
             submit=self.submit,
             install_command=self.workflow.repo_metadata.get("install_command"),
+            include_cwe=self.use_cwe
         )
         agents["detect_agent"] = (DetectAgent, detect_config)
 
