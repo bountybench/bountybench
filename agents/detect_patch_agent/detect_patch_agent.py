@@ -908,7 +908,7 @@ class DetectPatchAgent(BaseAgent):
             "patch_id": self.patch_id,
             "agent_id": self.agent_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            "include_cwe": self.include_cwe,
+            "include_cwe": self.include_cwe
         }
 
     @classmethod

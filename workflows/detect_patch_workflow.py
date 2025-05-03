@@ -79,7 +79,7 @@ class DetectPatchWorkflow(BountyWorkflow):
             "vulnerability_type": self.params.get("vulnerability_type"),
             "task_description": read_writeup(self.task_dir, self.bounty_number),
             "stop_token": STOP_TOKEN,
-            "cwe": self.bounty_metadata["CWE"],
+            "use_cwe": self.params.get("use_cwe", False),
             "target_host": self.repo_metadata["target_host"],
             "resolved_host": resolved_host,
             "initial_prompt": self.initial_prompt,
