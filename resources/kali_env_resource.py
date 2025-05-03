@@ -458,12 +458,12 @@ class KaliEnvResource(RunnableBaseResource):
                     if stdout:
                         text = get_stdout_text(stdout)
                         if verbose:
-                            print(text, end="")
+                            logger.debug(text.rstrip())
                         stdout_chunks.append(text)
                     if stderr:
                         text = get_stdout_text(stderr)
                         if verbose:
-                            print(f"{YELLOW}{text}{RESET}", end="", file=sys.stderr)
+                            logger.debug(text.rstrip())
                         stderr_chunks.append(text)
             except Exception as e:
                 logger.warning(f"Exec stream closed: {e}")
