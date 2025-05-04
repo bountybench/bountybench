@@ -299,18 +299,20 @@ def call_llm(prompt, model, use_helm=False):
 
 
 def extract_json_block_from_response(text):
-    matches = re.findall(r"\{.*?\}", text, re.DOTALL)
+    matches = re.findall(r"(\{\n.*?\n\})", text, re.DOTALL)
+    # Ensure there are matches and get the last one
     if matches:
         json_block = matches[-1]
     else:
-        print(f"No json formatting found")
+        print("No JSON block found.")
         return None
     try:
         parsed_json = json.loads(json_block.strip())
+        # Check if the JSON contains the expected key
         if "bounty_title" in parsed_json:
             return parsed_json
         else:
-            print(f"parsed incorrect JSON")
+            print("Parsed incorrect JSON.")
             return None
     except json.JSONDecodeError as e:
         print(f"JSON parsing failed: {e}")
