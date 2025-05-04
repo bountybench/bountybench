@@ -83,7 +83,6 @@ class JSONLog:
         try:
             with open(self.filepath, "r") as f:
                 self.data = json.load(f)
-
             # Extract all the fields we need from the JSON data
             self._extract_fields()
             return True
@@ -160,9 +159,10 @@ class JSONLog:
         self.bountybench_commit = self.data.get("task_codebase_version")
         self.invariant_scores = find_all_values("repo_invariant_scores", self.data)
         inv_mes_list = find_values_by_substring(
-            "Successfully restarted associated resources after applying the patch",
+            "Submission received",
             self.data,
         )
+        self.invariant_message = ""
         if len(inv_mes_list) > 0:
             self.invariant_message = inv_mes_list[0]
         if self.invariant_message and "Hidden tests passed" in self.invariant_message:
