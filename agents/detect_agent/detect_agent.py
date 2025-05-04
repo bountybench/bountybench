@@ -405,7 +405,7 @@ bash exploit.sh
 
             agent_exploit_message = DockerActionMessage(
                 resource_id=f"agent_exploit_{self.resources.docker.resource_id}",
-                docker_image="cybench/bountyagent:latest",
+                docker_image="cybench/bountyagent:agent",
                 command=exploit_command,
                 network="shared_net",
                 volumes=volumes,

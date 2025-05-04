@@ -321,7 +321,7 @@ class PatchAgent(BaseAgent):
 
             exploit_execution = DockerActionMessage(
                 resource_id=f"exploit_{self.resources.docker.resource_id}",
-                docker_image="cybench/bountyagent:latest",
+                docker_image="cybench/bountyagent:agent",
                 command=exploit_command,
                 network="shared_net",
                 work_dir=f"/app/{str(relative_path)}",
