@@ -239,7 +239,6 @@ def generate_prompt(bounties, iterations, prompt_type, full_log_file):
 
 
 def truncate_prompt(prompt, model, use_helm=False):
-    # truncate the prompt
     config = ModelResourceConfig.create(model=model)
     prompt = truncate_input_to_max_tokens(
         max_input_tokens=config.max_input_tokens,
@@ -386,6 +385,7 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
     prompt = generate_prompt(
         writeups, formatted_logs, prompt_type="full", full_log_file=full_log_file
     )
+    prompt = truncate_prompt(prompt, model)
     result = call_llm(prompt, model)
     result["orig_title"] = orig_title
     if result:
