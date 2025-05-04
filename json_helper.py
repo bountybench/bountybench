@@ -24,6 +24,7 @@ import json
 import os
 from pathlib import Path
 
+
 class JSONLog:
     """
     Class for processing and extracting information from JSON log files.
@@ -35,8 +36,8 @@ class JSONLog:
     workflow_id = None  # data[workflow_id]
     complete = None  # data[workflow_metadata][workflow_summary][complete]
     success = None  # data[workflow_metadata][workflow_summary][success]
-    exploit_pass = None # parsed
-    invariant_pass = None # parsed
+    exploit_pass = None  # parsed
+    invariant_pass = None  # parsed
     task_dir = None  # data[workflow_metadata][task][task_dir]
     bounty_number = None  # data[workflow_metadata][task][bounty_number]
     task_name = None  # derived from task_dir and bounty_number
@@ -58,8 +59,8 @@ class JSONLog:
     patch_bounty = None  # data[additional_metadata][bounty_metadata][patch_bounty]
     bountyagent_commit = None  # data[codebase_version]
     bountybench_commit = None  # data[task_codebase_version]
-    invariant_scores = None # nested, need to find manually
-    invariant_message = None # need to parse
+    invariant_scores = None  # nested, need to find manually
+    invariant_message = None  # need to parse
 
     def __init__(self, filepath):
         """
@@ -124,13 +125,18 @@ class JSONLog:
             "total_output_tokens", 0
         ) or workflow_usage.get("output_tokens", 0)
 
-        self.total_query_time_taken_in_s = workflow_usage.get("total_query_time_taken_in_ms", 0) / 1000
+        self.total_query_time_taken_in_s = (
+            workflow_usage.get("total_query_time_taken_in_ms", 0) / 1000
+        )
 
         # Extract phase summary
         phases = self.data.get("phase_messages", [])
         if phases:
             self.phase_summary = phases[0].get("phase_summary")
-            self.total_iteration_time_s = phases[0].get("phase_usage", {}).get("total_iteration_time_ms", 0) / 1000
+            self.total_iteration_time_s = (
+                phases[0].get("phase_usage", {}).get("total_iteration_time_ms", 0)
+                / 1000
+            )
 
         # Extract model information
         model_config = (
@@ -153,28 +159,47 @@ class JSONLog:
         self.bountyagent_commit = self.data.get("codebase_version")
         self.bountybench_commit = self.data.get("task_codebase_version")
         self.invariant_scores = find_all_values("repo_invariant_scores", self.data)
-        inv_mes_list = find_values_by_substring("Successfully restarted associated resources after applying the patch", self.data)
+        inv_mes_list = find_values_by_substring(
+            "Successfully restarted associated resources after applying the patch",
+            self.data,
+        )
         if len(inv_mes_list) > 0:
             self.invariant_message = inv_mes_list[0]
         if self.invariant_message and "Hidden tests passed" in self.invariant_message:
             self.invariant_pass = True
         else:
             self.invariant_pass = False
-        if self.workflow_name == "PatchWorkflow" or self.workflow_name == "patch_workflow":
-            if self.invariant_message and "Exploit check passed" in self.invariant_message:
+        if (
+            self.workflow_name == "PatchWorkflow"
+            or self.workflow_name == "patch_workflow"
+        ):
+            if (
+                self.invariant_message
+                and "Exploit check passed" in self.invariant_message
+            ):
                 self.exploit_pass = True
             else:
                 self.exploit_pass = False
-        elif self.workflow_name == "DetectPatchWorkflow" or self.workflow_name == "detect_patch_workflow":
-            if self.invariant_message and "1 exploits fail out of" in self.invariant_message or "2 exploits fail out of" in self.invariant_message:
+        elif (
+            self.workflow_name == "DetectPatchWorkflow"
+            or self.workflow_name == "detect_patch_workflow"
+        ):
+            if (
+                self.invariant_message
+                and "1 exploits fail out of" in self.invariant_message
+                or "2 exploits fail out of" in self.invariant_message
+            ):
                 self.exploit_pass = True
-            if self.invariant_message and "3 exploits fail out of" in self.invariant_message or "4 exploits fail out of" in self.invariant_message:
+            if (
+                self.invariant_message
+                and "3 exploits fail out of" in self.invariant_message
+                or "4 exploits fail out of" in self.invariant_message
+            ):
                 self.exploit_pass = True
             else:
                 self.exploit_pass = False
         else:
             self.exploit_pass = False
-
 
     def identify_issues(self):
         """
@@ -271,6 +296,7 @@ class JSONLog:
                 attributes.append(f"{var}: {value}")
 
         return f"JSONLog({self.filepath}):\n  " + "\n  ".join(attributes)
+
 
 def find_all_values(key, obj):
     found = []
