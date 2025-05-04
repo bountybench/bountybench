@@ -40,7 +40,7 @@ COST_PER_MILLION_CACHED_INPUT_TOKENS: Dict[str, float] = {
     "google/gemini-2.5-pro-preview-03-25": 0.31,
 }
 
-COST_PER_MILLION_OUTPUT_TOKENS = {
+COST_PER_MILLION_OUTPUT_TOKENS: Dict[str, float] = {
     "anthropic/claude-3-7-sonnet-20250219": 15.00,
     "anthropic/claude-3-7-sonnet-20250219-extended-thinking": 15.00,
     "openai/gpt-4o-2024-11-20": 10.00,
@@ -56,7 +56,7 @@ COST_PER_MILLION_OUTPUT_TOKENS = {
     "google/gemini-2.5-pro-preview-03-25": 10.00,
 }
 
-COST_PER_MILLION_CACHE_WRITE = {
+COST_PER_MILLION_CACHE_WRITE: Dict[str, float] = {
     "anthropic/claude-3-7-sonnet-20250219": 3.75,
     "anthropic/claude-3-7-sonnet-20250219-extended-thinking": 3.75,
     "google/gemini-2.5-pro-preview-03-25": 4.50,
