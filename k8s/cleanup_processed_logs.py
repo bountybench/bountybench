@@ -5,6 +5,7 @@ Script to clean up processed log directories.
 Deletes:
 - JSON/LOG pairs where the JSON indicates incompleteness.
 - JSON/LOG pairs where the LOG contains a specific error string.
+- JSON/LOG pairs where the JSON contains 'API Error: 429' or 'timed out after 1200 seconds.'.
 - Orphaned LOG files (no corresponding JSON file).
 
 Usage: python3 cleanup_processed_logs.py <processed_log_root_dir>
@@ -17,6 +18,8 @@ import sys
 from pathlib import Path
 
 UNIX_ERROR_STRING = "UnixHTTPConnectionPool"
+API_ERROR_429_STRING = "API Error: 429"
+TIMEOUT_STRING = "timed out after 1200 seconds."
 
 def confirm_action(prompt):
     """Helper function to get y/n confirmation."""
@@ -54,30 +57,49 @@ def cleanup_logs(root_dir):
         delete_flag = False
         reason = ""
 
-        # Check JSON completeness and success
+        # --- Raw content checks ---
+        raw_content = ""
         try:
             with open(json_path, 'r') as f:
-                data = json.load(f)
-            workflow_summary = data.get('workflow_metadata', {}).get('workflow_summary', {})
-            complete = workflow_summary.get('complete')
-            success = workflow_summary.get('success') # Get the success field
-
-            # Increment success counter if success is True
-            if success is True:
-                successful_task_count += 1
-                successful_task_files.append(json_path) # Add path to list
-
-            if complete is False:
+                raw_content = f.read()
+            if API_ERROR_429_STRING in raw_content:
                 delete_flag = True
-                reason = "incomplete workflow"
-        except json.JSONDecodeError as e:
-            print(f'[WARN] Could not parse {json_path}: {e}. Flagging for deletion.', file=sys.stderr)
-            delete_flag = True
-            reason = f"JSON parse error: {e}"
+                reason = f"contains '{API_ERROR_429_STRING}'"
+            elif TIMEOUT_STRING in raw_content:
+                delete_flag = True
+                reason = f"contains '{TIMEOUT_STRING}'"
         except Exception as e:
-            print(f'[WARN] Could not read or process {json_path}: {e}. Flagging for deletion.', file=sys.stderr)
+            print(f'[WARN] Could not read {json_path} for raw check: {e}. Flagging for deletion.', file=sys.stderr)
             delete_flag = True
-            reason = f"read/process error: {e}"
+            reason = f"raw read error: {e}"
+
+        # --- Original Checks: JSON structure, completeness, success --- 
+        if not delete_flag:
+            try:
+                # Reuse raw_content if read successfully, otherwise re-read (should be rare)
+                data = json.loads(raw_content) if raw_content else json.load(open(json_path, 'r'))
+                
+                workflow_summary = data.get('workflow_metadata', {}).get('workflow_summary', {}) 
+                complete = workflow_summary.get('complete')
+                success = workflow_summary.get('success')
+                # Increment success counter if success is True
+                if success is True:
+                    successful_task_count += 1
+                    successful_task_files.append(json_path) # Add path to list
+
+                # Check completeness
+                if complete is False:
+                    delete_flag = True
+                    reason = "incomplete workflow"
+                
+            except json.JSONDecodeError as e:
+                print(f'[WARN] Could not parse {json_path}: {e}. Flagging for deletion.', file=sys.stderr)
+                delete_flag = True
+                reason = f"JSON parse error: {e}"
+            except Exception as e:
+                print(f'[WARN] Could not read or process {json_path}: {e}. Flagging for deletion.', file=sys.stderr)
+                delete_flag = True
+                reason = f"read/process error: {e}"
 
         # Check corresponding .log file for Unix error string if not already flagged
         if not delete_flag and log_path.exists():
@@ -195,7 +217,9 @@ def main():
         description='Clean up processed log directories by removing incomplete/error/orphaned files.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"Expects 'logs' and 'full_logs' subdirectories in the target directory. \n"
-               f"Checks for incomplete JSON, logs containing '{UNIX_ERROR_STRING}', and orphaned .log files. \n"
+               f"Checks for incomplete JSON, logs containing '{UNIX_ERROR_STRING}', \n"
+               f"JSONs containing '{API_ERROR_429_STRING}' or '{TIMEOUT_STRING}', \n"
+               f"and orphaned .log files. \n"
                f"Prompts before deleting any files."
     )
     parser.add_argument('root_dir', help='Path to the root directory containing processed logs (e.g., the output of postprocess_logs.py)')
