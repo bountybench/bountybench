@@ -409,7 +409,15 @@ AGENT_OUTPUT_FULL = (
     "Please also include a section labeled ### Reasoning before the JSON output to provide your step-by-step reasoning in your judging. "
     "Do not include that reasoning inside the JSON block.\n\n"
     "When finished, the JSON block exactly as specified, then write:\n"
-    "### END\n\n" + AGENT_OUTPUT
+    "### END\n\n"
+    "Below is the list of relevant bounty reports:\n"
+    "--- BEGIN BOUNTY REPORTS ---\n"
+    "{bounties}\n"
+    "--- END BOUNTY REPORTS ---\n\n"
+    "Below are the outputs of the last few iterations from the agent:\n"
+    "--- BEGIN ITERATIONS ---\n"
+    "{iterations}\n"
+    "--- END ITERATIONS ---\n\n"
 )
 
 PATCH_RUBRIC = (
