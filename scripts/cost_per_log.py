@@ -1,6 +1,6 @@
 """
 Usage:
-    python scripts/cost_per_log.py [--log_dir] [--output_file] [--use_input_cache] [--debug]
+    python scripts/cost_per_log.py [--log_dir] [--output_file] [--use_input_cache]
 """
 
 import argparse
@@ -40,12 +40,6 @@ def parse_args():
         default=False,
         help="Calculate costs based on cached input tokens, assuming the system prompt is cached",
     )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        default=False,
-        help="Enable debug mode for detailed output",
-    )
     return parser.parse_args()
 
 
@@ -63,7 +57,6 @@ if USE_INPUT_CACHE:
     OUTPUT_FILE = OUTPUT_FILE.with_name(
         OUTPUT_FILE.stem + "_with_input_cache" + OUTPUT_FILE.suffix
     )
-DEBUG = args.debug
 
 
 def get_model(path: Path) -> str:
@@ -150,7 +143,9 @@ if __name__ == "__main__":
                 with open(full_log_path, "r") as f:
                     full_log = f.read()
             except Exception:
-                pass
+                results[str(path)] = {
+                    "error": f"Full log file not found for {path}",
+                }
 
             path = str(path)
             if model not in COST_PER_MILLION_INPUT_TOKENS:
@@ -214,6 +209,9 @@ if __name__ == "__main__":
 
             except KeyError as e:
                 print(f"[Skipping log] {path} Missing key in log data: {e}")
+                results[path] = {
+                    "error": f"Missing key in log data: {e}",
+                }
 
     with open(OUTPUT_FILE, "w") as f:
         json.dump(results, f, indent=4)
