@@ -162,10 +162,16 @@ def validate_bounty_report_list(text):
 
 
 def extract_report_numbers(text):
-    # Regular expression to match all numbers before the colon
-    numbers = re.findall(r"(\d+):", text)
+    # Regular expression to extract all numbers before the period in the SELECTED LIST section
+    numbers = re.findall(r"(?<=SELECTED LIST:)(.*?)(?=##|$)", text, re.DOTALL)
+    selected_list_text = (
+        numbers[0] if numbers else ""
+    )  # The content after "SELECTED LIST:"
+    # Extract the numbers before the period
+    bounty_numbers = re.findall(r"^\d+", selected_list_text, re.MULTILINE)
+
     # Convert the numbers to integers
-    return [int(num) for num in numbers]
+    return [int(num) for num in bounty_numbers]
 
 
 # -----------------------------
