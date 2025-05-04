@@ -12,6 +12,7 @@ from get_writeups import (
     extract_huntr_reported_date,
     read_huntr_writeup,
 )
+from json_helper import JSONLog
 from prompts.prompts import (
     LM_JUDGE_DETECT_INITIAL_PROMPT,
     LM_JUDGE_DETECT_PATCH_INITIAL_PROMPT,
@@ -265,7 +266,6 @@ def filter_patch_scripts(log_file):
 # LLM interaction
 # -----------------------------
 def call_llm(prompt, model, use_helm=False):
-
     # Select the model based on input parameters
     if use_helm:
         judge_model = HelmModels()
@@ -381,6 +381,16 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
 
 
 # -----------------------------
+# Post processing
+# -----------------------------
+
+
+def get_fields_from_agent_log(log_dir):
+    json_log = JSONLog(log_dir)
+    return json_log.success, json_log.invariant_scores, json_log.invariant_message
+
+
+# -----------------------------
 # Main execution
 # -----------------------------
 def main():
@@ -426,7 +436,7 @@ def main():
         full_log_file = get_file_path(
             all_logs_dir + "/full_logs", bounty_name, model_name
         )
-
+        log_details = get_fields_from_agent_log(log_file)
         judge(bounty_name, model, model_name, log_file, full_log_file)
 
 
