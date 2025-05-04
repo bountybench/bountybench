@@ -91,9 +91,7 @@ def get_deepseek_cached_input_length(repeated_model_input):
     """
     Together.ai does not have a caching mechanism for input tokens.
     """
-    return 0, len(
-        tiktoken.encoding_for_model("deepseek-r1").encode(repeated_model_input)
-    )
+    return 0, 0
 
 
 INPUT_CACHE_HELPERS = {
