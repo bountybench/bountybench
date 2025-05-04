@@ -7,7 +7,11 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from get_writeups import extract_huntr_reported_date, read_huntr_writeup
+from get_writeups import (
+    create_directory,
+    extract_huntr_reported_date,
+    read_huntr_writeup,
+)
 from prompts.prompts import (
     LM_JUDGE_DETECT_INITIAL_PROMPT,
     LM_JUDGE_DETECT_PATCH_INITIAL_PROMPT,
@@ -55,6 +59,9 @@ def filter_logs(lines, start_pattern, end_pattern):
 def filter_writeups_by_date(report_date_str, repo_name):
     original_date = datetime.strptime(report_date_str, "%m_%d_%Y")
     file_dir = f"valid_html_writeups/{repo_name}"
+    if not Path(file_dir).exists():
+        print("No valid Huntr writeups,..skipping")
+        return []
     all_files = os.listdir(file_dir)
     return [
         file
@@ -74,17 +81,21 @@ def extract_title_from_writeup(writeup):
 
 
 def get_date_and_title(bounty_name):
-    repo_name, bounty_number = bounty_name.split("_")
+    repo_name, bounty_number = bounty_name.rsplit("_", 1)
     full_repo_dir = os.path.join("bountybench", repo_name)
     writeup = read_huntr_writeup(full_repo_dir, bounty_number)
+    if not writeup:
+        return None, None
     date_str = extract_huntr_reported_date(writeup)
     title = extract_title_from_writeup(writeup)
     return date_str, title
 
 
 def extract_valid_writeups(date_str, bounty_name):
-    repo_name, _ = bounty_name.split("_")
+    repo_name, _ = bounty_name.rsplit("_", 1)
     filtered_files = filter_writeups_by_date(date_str, repo_name)
+    if not filtered_files:
+        return []
     file_dir = f"valid_html_writeups/{repo_name}"
     writeups = [
         Path(os.path.join(file_dir, file)).read_text(encoding="utf-8")
@@ -308,15 +319,27 @@ def extract_json_block_from_response(text):
 
 def judge(bounty_name, model, agent_model, log_file, full_log_file):
     orig_date, orig_title = get_date_and_title(bounty_name)
+    if not orig_date or not orig_title:
+        print(
+            f"No valid original Huntr writeup for the given bounty {bounty_name}, skipping"
+        )
+        return
     print(f"original bounty report date: {orig_date}")
     print(f"original bounty report title: {orig_title}")
     valid_writeups = extract_valid_writeups(orig_date, bounty_name)
+    if not valid_writeups:
+        return
     titles = [extract_title_from_writeup(writeup) for writeup in valid_writeups]
     msgs = extract_executor_reflection_messages(Path(log_file))
     full_chat_history = []
+    name = model.split("/")[-1]
+    create_directory(f"./judge_responses/{name}")
     output_filename = (
-        f"{model.split('/')[-1]}_judge_response_{agent_model}_{bounty_name}.json"
+        f"judge_responses/{name}/{name}_judge_response_{agent_model}_{bounty_name}.json"
     )
+    if Path(output_filename).exists():
+        print(f"{output_filename} exists, skipping...")
+        return
     formatted_logs = format_logs(msgs)
     if len(valid_writeups) > 5:
         # More than 5 reports so we would need to first just provide the list of titles
@@ -374,7 +397,7 @@ def main():
     args = parser.parse_args()
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("bounty_name", type=str, help="e.g., lunary_0")
+    # parser.add_argument("bounty_name", type=str, help="e.g., lunary_0")
     parser.add_argument(
         "judge_model",
         type=str,
@@ -386,18 +409,25 @@ def main():
         help="Name of model, e.g. anthropic/claude-3-7-sonnet-20250219",
     )
     args = parser.parse_args()
-    bounty_name = args.bounty_name
+    # bounty_name = args.bounty_name
     model = args.judge_model
     model_name = args.agent_model
+
     all_logs_dir = "5-1-detect_patch_cwe_only/" + model_name
-    log_file = get_file_path(all_logs_dir + "/logs", bounty_name, model_name)
 
-    if not check_submit(log_file):
-        print("No submission, skipping evaluation")
-        return
-    full_log_file = get_file_path(all_logs_dir + "/full_logs", bounty_name, model_name)
+    all_bounties = os.listdir(all_logs_dir + "/logs")
+    for bounty_name in all_bounties:
+        print(bounty_name)
+        log_file = get_file_path(all_logs_dir + "/logs", bounty_name, model_name)
 
-    judge(bounty_name, model, model_name, log_file, full_log_file)
+        if not check_submit(log_file):
+            print("No submission, skipping evaluation")
+            continue
+        full_log_file = get_file_path(
+            all_logs_dir + "/full_logs", bounty_name, model_name
+        )
+
+        judge(bounty_name, model, model_name, log_file, full_log_file)
 
 
 if __name__ == "__main__":
