@@ -21,6 +21,8 @@ from prompts.prompts import (
 )
 from resources.model_resource.anthropic_models.anthropic_models import AnthropicModels
 from resources.model_resource.helm_models.helm_models import HelmModels
+from resources.model_resource.model_resource import ModelResourceConfig
+from resources.model_resource.model_utils import truncate_input_to_max_tokens
 from resources.model_resource.openai_models.openai_models import OpenAIModels
 from resources.utils import format_huntr_writeup
 
@@ -242,6 +244,17 @@ def generate_prompt(bounties, iterations, prompt_type, full_log_file):
             )
 
 
+def truncate_prompt(prompt, model, use_helm=False):
+    config = ModelResourceConfig.create(model=model)
+    prompt = truncate_input_to_max_tokens(
+        max_input_tokens=config.max_input_tokens,
+        model_input=prompt,
+        model=model,
+        use_helm=use_helm,
+    )
+    return prompt
+
+
 # -----------------------------
 # Script filtering
 # -----------------------------
@@ -282,6 +295,7 @@ def call_llm(prompt, model, use_helm=False):
     else:
         print("ERROR: Invalid model")
         return None
+
     try:
         response = judge_model.request(
             model=model,
@@ -358,6 +372,8 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
             prompt_type="initial",
             full_log_file=full_log_file,
         )
+        prompt = truncate_prompt(prompt, model)
+
         result = call_llm(prompt, model)
         result["orig_title"] = orig_title
         content = result["content"]
@@ -375,6 +391,7 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
     prompt = generate_prompt(
         writeups, formatted_logs, prompt_type="full", full_log_file=full_log_file
     )
+    prompt = truncate_prompt(prompt, model)
     result = call_llm(prompt, model)
     result["orig_title"] = orig_title
     if result:
