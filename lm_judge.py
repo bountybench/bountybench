@@ -8,9 +8,16 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 
 from get_writeups import extract_huntr_reported_date, read_huntr_writeup
-from prompts.prompts import LM_JUDGE_DETECT_PATCH_PROMPT, LM_JUDGE_DETECT_PROMPT
+from prompts.prompts import (
+    LM_JUDGE_DETECT_INITIAL_PROMPT,
+    LM_JUDGE_DETECT_PATCH_INITIAL_PROMPT,
+    LM_JUDGE_DETECT_PATCH_PROMPT,
+    LM_JUDGE_DETECT_PROMPT,
+)
 from resources.model_resource.anthropic_models.anthropic_models import AnthropicModels
+from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.openai_models.openai_models import OpenAIModels
+from resources.utils import format_huntr_writeup
 
 
 # -----------------------------
@@ -47,7 +54,7 @@ def filter_logs(lines, start_pattern, end_pattern):
 # -----------------------------
 def filter_writeups_by_date(report_date_str, repo_name):
     original_date = datetime.strptime(report_date_str, "%m_%d_%Y")
-    file_dir = f"html_writeups/{repo_name}"
+    file_dir = f"valid_html_writeups/{repo_name}"
     all_files = os.listdir(file_dir)
     return [
         file
@@ -60,26 +67,41 @@ def filter_writeups_by_date(report_date_str, repo_name):
     ]
 
 
-def extract_title_from_file(file_path):
-    html = Path(file_path).read_text(encoding="utf-8")
-    soup = BeautifulSoup(html, "html.parser")
+def extract_title_from_writeup(writeup):
+    soup = BeautifulSoup(writeup, "html.parser")
     title_tag = soup.find("h1", id="title")
     return title_tag.text.strip() if title_tag else ""
 
 
-def extract_titles(writeups, repo_name):
-    file_dir = f"html_writeups/{repo_name}"
-    return [extract_title_from_file(os.path.join(file_dir, file)) for file in writeups]
-
-
-def extract_valid_set_of_titles(bounty_name):
+def get_date_and_title(bounty_name):
     repo_name, bounty_number = bounty_name.split("_")
     full_repo_dir = os.path.join("bountybench", repo_name)
     writeup = read_huntr_writeup(full_repo_dir, bounty_number)
     date_str = extract_huntr_reported_date(writeup)
-    print(f"bounty report date: {date_str}")
+    title = extract_title_from_writeup(writeup)
+    return date_str, title
+
+
+def extract_valid_writeups(date_str, bounty_name):
+    repo_name, _ = bounty_name.split("_")
     filtered_files = filter_writeups_by_date(date_str, repo_name)
-    return extract_titles(filtered_files, repo_name)
+    file_dir = f"valid_html_writeups/{repo_name}"
+    writeups = [
+        Path(os.path.join(file_dir, file)).read_text(encoding="utf-8")
+        for file in filtered_files
+    ]
+    return writeups
+
+
+def check_submit(json_path: Path):
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    phase_messages = data.get("phase_messages", [])
+    if phase_messages:
+        phase = phase_messages[0]
+        submit = phase["submit"]
+        return submit
+    return False
 
 
 def extract_executor_reflection_messages(json_path: Path, num_messages: int = 3):
@@ -87,7 +109,6 @@ def extract_executor_reflection_messages(json_path: Path, num_messages: int = 3)
         data = json.load(f)
     messages = []
     for phase in data.get("phase_messages", []):
-        submit = phase["submit"]
         for agent_msg in phase.get("agent_messages", []):
             if agent_msg.get("agent_id") == "executor_agent":
                 for action in agent_msg.get("action_messages", []):
@@ -97,7 +118,42 @@ def extract_executor_reflection_messages(json_path: Path, num_messages: int = 3)
                         message = action["message"]
                         if message.strip().startswith("Reflection"):
                             messages.append(message)
-    return messages[-num_messages:], submit
+    return messages[-num_messages:]
+
+
+def get_file_path(all_logs_dir, bounty_name, model_name):
+    # Join the directory path
+    dir_path = os.path.join(all_logs_dir, bounty_name)
+    dir_path = os.path.join(dir_path, model_name)
+    # List all files in the directory
+    files = [
+        f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))
+    ]
+    # Check if there's exactly one file in the directory
+    if len(files) == 1:
+        # Return the full file path
+        return os.path.join(dir_path, files[0])
+    else:
+        print("There is not exactly one file in the directory.")
+        return None
+
+
+def validate_bounty_report_list(text):
+    # Regular expression to match the pattern
+    pattern = r"^SELECTED LIST:\n(\d+: .+\n)+"
+
+    # Search for the pattern in the string
+    if re.match(pattern, text, re.DOTALL):
+        return True
+    else:
+        return False
+
+
+def extract_report_numbers(text):
+    # Regular expression to match all numbers before the colon
+    numbers = re.findall(r"(\d+):", text)
+    # Convert the numbers to integers
+    return [int(num) for num in numbers]
 
 
 # -----------------------------
@@ -111,37 +167,68 @@ def format_logs(arr):
     return "\n\n".join(arr)
 
 
-def get_patch_prompt(bounties, iterations, script):
-    script_block = (
-        (
-            f"Below is the git diff between the agent's patched codebase and the original codebase:\n"
-            f"--- BEGIN PATCH SCRIPT ---\n{script}\n--- END PATCH SCRIPT ---\n"
-        )
-        if script
-        else ""
+def format_writeups(report_numbers, valid_writeups):
+    writeups = ""
+    for num in report_numbers:
+        writeups += f"Bounty Report # {num}\n"
+        writeups += format_huntr_writeup(valid_writeups[num - 1])
+        writeups += "\n\n"
+    return writeups
+
+
+def generate_script_block(script, script_type):
+    script_header = (
+        "git diff between the agent's patched codebase and the original codebase"
+        if script_type == "patch"
+        else "agent produced exploit scripts"
     )
-    return LM_JUDGE_DETECT_PATCH_PROMPT.format(
-        bounties=bounties, iterations=iterations, patch_script=script_block
+    return (
+        f"Below is the {script_header}:\n"
+        f"--- BEGIN {script_type.upper()} SCRIPT ---\n{script}\n--- END {script_type.upper()} SCRIPT ---\n"
     )
 
 
-def get_exploit_prompt(bounties, iterations, script):
-    script_block = (
-        (
-            f"Below are the agent produced exploit scripts:\n"
-            f"--- BEGIN EXPLOIT SCRIPT ---\n{script}\n--- END EXPLOIT SCRIPT ---\n"
-        )
-        if script
-        else ""
-    )
-    return LM_JUDGE_DETECT_PROMPT.format(
-        bounties=bounties, iterations=iterations, exploit_script=script_block
-    )
+def generate_prompt(bounties, iterations, prompt_type, full_log_file):
+    """
+    General function to generate the appropriate prompt based on the type (full or initial)
+    and the type of script (patch or exploit).
+    """
+    if "DetectPatchWorkflow" in full_log_file:
+        script = filter_patch_scripts(full_log_file)
+        script_type = "patch"
+    elif "DetectWorkflow" in full_log_file:
+        script = filter_exploit_scripts(full_log_file)
+        script_type = "exploit"
+    else:
+        print("Unrecognized workflow type in log file name.")
+        return
+    script_block = generate_script_block(script, script_type)
+
+    if prompt_type == "full":
+        if script_type == "patch":
+            return LM_JUDGE_DETECT_PATCH_PROMPT.format(
+                bounties=bounties, iterations=iterations, patch_script=script_block
+            )
+        elif script_type == "exploit":
+            return LM_JUDGE_DETECT_PROMPT.format(
+                bounties=bounties, iterations=iterations, patch_script=script_block
+            )
+    elif prompt_type == "initial":
+        if script_type == "patch":
+            return LM_JUDGE_DETECT_PATCH_INITIAL_PROMPT.format(
+                bounties=bounties, iterations=iterations, patch_script=script_block
+            )
+        elif script_type == "exploit":
+            return LM_JUDGE_DETECT_INITIAL_PROMPT.format(
+                bounties=bounties, iterations=iterations, exploit_script=script_block
+            )
 
 
 # -----------------------------
 # Script filtering
 # -----------------------------
+
+
 def filter_exploit_scripts(log_file):
     with open(log_file, "r") as file:
         return "\n".join(
@@ -166,8 +253,12 @@ def filter_patch_scripts(log_file):
 # -----------------------------
 # LLM interaction
 # -----------------------------
-def call_llm(prompt, model, path):
-    if model.split("/")[0] == "anthropic":
+def call_llm(prompt, model, use_helm=False):
+
+    # Select the model based on input parameters
+    if use_helm:
+        judge_model = HelmModels()
+    elif model.split("/")[0] == "anthropic":
         judge_model = AnthropicModels()
     elif model.split("/")[0] == "openai":
         judge_model = OpenAIModels()
@@ -182,43 +273,95 @@ def call_llm(prompt, model, path):
             max_tokens=4096,
             stop_sequences=[],
         )
-        output_filename = f"{model.split('/')[-1]}_judge_response_{path.name}"
-        print("Judge response saved to:", output_filename)
-        with open(output_filename, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "prompt": prompt,
-                    "content": response.content,
-                    "input_tokens": response.input_tokens,
-                    "output_tokens": response.output_tokens,
-                    "time_taken_in_ms": response.time_taken_in_ms,
-                    "status_code": response.status_code,
-                },
-                f,
-                indent=2,
-            )
-        return response
+        result = {
+            "prompt": prompt,
+            "content": response.content,
+            "input_tokens": response.input_tokens,
+            "output_tokens": response.output_tokens,
+            "time_taken_in_ms": response.time_taken_in_ms,
+            "status_code": response.status_code,
+        }
+        return result
     except Exception as e:
         print(f"LLM request failed: {e}")
         return None
 
 
 def extract_json_block_from_response(text):
-    match = re.search(r"\{.*?\}\s*(?=###|$)", text, re.DOTALL)
-    if not match:
-        print("No JSON block found.")
+    matches = re.findall(r"\{.*?\}", text, re.DOTALL)
+    if matches:
+        json_block = matches[-1]
+    else:
+        print(f"No json formatting found")
         return None
     try:
-        return json.loads(match.group(0).strip())
+        parsed_json = json.loads(json_block.strip())
+        if "bounty_title" in parsed_json:
+            return parsed_json
+        else:
+            print(f"parsed incorrect JSON")
+            return None
     except json.JSONDecodeError as e:
         print(f"JSON parsing failed: {e}")
-        return None
+    return None
+
+
+def judge(bounty_name, model, agent_model, log_file, full_log_file):
+    orig_date, orig_title = get_date_and_title(bounty_name)
+    print(f"original bounty report date: {orig_date}")
+    print(f"original bounty report title: {orig_title}")
+    valid_writeups = extract_valid_writeups(orig_date, bounty_name)
+    titles = [extract_title_from_writeup(writeup) for writeup in valid_writeups]
+    msgs = extract_executor_reflection_messages(Path(log_file))
+    full_chat_history = []
+    output_filename = (
+        f"{model.split('/')[-1]}_judge_response_{agent_model}_{bounty_name}.json"
+    )
+    formatted_logs = format_logs(msgs)
+    if len(valid_writeups) > 5:
+        # More than 5 reports so we would need to first just provide the list of titles
+        formatted_titles = format_titles(titles)
+        prompt = generate_prompt(
+            formatted_titles,
+            formatted_logs,
+            prompt_type="initial",
+            full_log_file=full_log_file,
+        )
+        result = call_llm(prompt, model)
+        result["orig_title"] = orig_title
+        content = result["content"]
+        full_chat_history.append(result)
+        if not validate_bounty_report_list(content):
+            print("No valid initial response, terminating")
+            with open(output_filename, "w") as file:
+                json.dump(full_chat_history, file, indent=4)
+            return
+        report_numbers = extract_report_numbers(content)
+    else:
+        report_numbers = range(1, 1 + len(valid_writeups))
+    # One iteration (valid_writeups <= 5)
+    writeups = format_writeups(report_numbers, valid_writeups)
+    prompt = generate_prompt(
+        writeups, formatted_logs, prompt_type="full", full_log_file=full_log_file
+    )
+    result = call_llm(prompt, model)
+    result["orig_title"] = orig_title
+    if result:
+        json_block = extract_json_block_from_response(result["content"])
+        if json_block:
+            result["response_json"] = json_block
+    full_chat_history.append(result)
+    with open(output_filename, "w") as file:
+        json.dump(full_chat_history, file, indent=4)
+
+    return
 
 
 # -----------------------------
 # Main execution
 # -----------------------------
 def main():
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("bounty_name", type=str, help="e.g., lunary_0")
     parser.add_argument(
@@ -229,26 +372,32 @@ def main():
     parser.add_argument("log_file", type=str, help="Path to the log file")
     parser.add_argument("full_log_file", type=str, help="Path to full execution log")
     args = parser.parse_args()
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("bounty_name", type=str, help="e.g., lunary_0")
+    parser.add_argument(
+        "judge_model",
+        type=str,
+        help="Name of model, e.g. anthropic/claude-3-7-sonnet-20250219",
+    )
+    parser.add_argument(
+        "agent_model",
+        type=str,
+        help="Name of model, e.g. anthropic/claude-3-7-sonnet-20250219",
+    )
+    args = parser.parse_args()
+    bounty_name = args.bounty_name
+    model = args.judge_model
+    model_name = args.agent_model
+    all_logs_dir = "5-1-detect_patch_cwe_only/" + model_name
+    log_file = get_file_path(all_logs_dir + "/logs", bounty_name, model_name)
 
-    titles = extract_valid_set_of_titles(args.bounty_name)
-    msgs, submit = extract_executor_reflection_messages(Path(args.log_file))
-    formatted_titles = format_titles(titles)
-    formatted_logs = format_logs(msgs)
-
-    if "DetectPatchWorkflow" in args.full_log_file:
-        script = filter_patch_scripts(args.full_log_file) if submit else ""
-        prompt = get_patch_prompt(formatted_titles, formatted_logs, script)
-    elif "DetectWorkflow" in args.full_log_file:
-        script = filter_exploit_scripts(args.full_log_file) if submit else ""
-        prompt = get_exploit_prompt(formatted_titles, formatted_logs, script)
-    else:
-        print("Unrecognized workflow type in log file name.")
+    if not check_submit(log_file):
+        print("No submission, skipping evaluation")
         return
+    full_log_file = get_file_path(all_logs_dir + "/full_logs", bounty_name, model_name)
 
-    result = call_llm(prompt, args.model, Path(args.log_file))
-    if result and hasattr(result, "content"):
-        parsed = extract_json_block_from_response(result.content)
-        print(parsed)
+    judge(bounty_name, model, model_name, log_file, full_log_file)
 
 
 if __name__ == "__main__":

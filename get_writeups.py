@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import time
 from pathlib import Path
 
@@ -87,7 +88,7 @@ def get_links_from_main_page(url):
         valid_report_links = [
             link for link in report_links if is_valid_huntr_link(link)
         ]
-        return valid_report_links
+        return list(set(valid_report_links))
 
     except Exception as e:
         print(f"Failed to get links from {url}: {e}")
@@ -106,8 +107,10 @@ def get_huntr_repo_htmls(driver, repo_name, repo_dir):
     main_page_url = f"https://huntr.com/repos/{repo_name}"
     links = get_links_from_main_page(main_page_url)
     print("number of reports:", len(links))
-    directory = create_directory(f"./html_writeups/{repo_dir}")
-    save_html_for_links(driver, links, directory)
+
+
+# directory = create_directory(f"./html_writeups/{repo_dir}")
+# save_html_for_links(driver, links, directory)
 
 
 def extract_bounty_link_from_metadata(task_dir: str, bounty_number: str) -> str:
@@ -203,12 +206,27 @@ def read_huntr_writeup(task_dir: str, bounty_number: str) -> str:
     return None
 
 
-def main():
+def is_report_valid(html):
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Find the span with the desired title
+    valid_span = soup.find(
+        "span",
+        class_="mr-1 text-xs font-medium border-super-bright-green text-super-bright-green bg-super-bright-green bg-opacity-20 rounded-full border px-2 py-1",
+    )
+    #  print(valid_span)
+    if valid_span and "The report was marked as Valid" in valid_span.get("title", ""):
+        return True
+    return False
+
+
+def get_all_writeups():
     """Main function to iterate over repositories and download HTMLs."""
     driver = setup_webdriver()
     source_dir = "bountybench"
 
     for repo_dir in os.listdir(source_dir):
+        repo_dir = "lunary"
         full_repo_dir = os.path.join(source_dir, repo_dir)
         writeup = read_huntr_writeup(full_repo_dir, "0")
         repo_name = extract_huntr_repo_name(writeup)
@@ -216,8 +234,39 @@ def main():
         if repo_name:
             print(f"Repo name extracted: {repo_name}")
             get_huntr_repo_htmls(driver, repo_name, repo_dir)
-
+        break
     driver.quit()
+
+
+def filter_valid_writeups():
+    source_dir = "html_writeups"
+    dest_dir = "valid_html_writeups"
+    os.makedirs(dest_dir, exist_ok=True)
+
+    for repo_dir in os.listdir(source_dir):
+        repo_path = os.path.join(source_dir, repo_dir)
+        if os.path.isdir(repo_path):
+            valid_counts = 0
+            for file_name in os.listdir(repo_path):
+                file_path = os.path.join(repo_path, file_name)
+                file_path = Path(file_path)
+                if file_path.exists() and os.path.isfile(file_path):
+
+                    writeup = file_path.read_text(encoding="utf-8")
+                    # Check if the report is valid
+                    if is_report_valid(writeup):
+                        valid_counts += 1
+                        dest_repo_path = os.path.join(dest_dir, repo_dir)
+                        # Ensure the repo directory exists in the destination folder
+                        os.makedirs(dest_repo_path, exist_ok=True)
+                        dest_file_path = os.path.join(dest_repo_path, file_name)
+                        shutil.copy(file_path, dest_file_path)
+        print(f"{repo_dir} number of valid reports: {valid_counts}")
+
+
+def main():
+    # get_all_writeups()
+    filter_valid_writeups()
 
 
 if __name__ == "__main__":
