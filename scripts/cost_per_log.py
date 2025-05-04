@@ -1,6 +1,6 @@
 """
 Usage:
-    python scripts/cost_per_log.py [--log_dir] [--output_file] [--use_input_cache]
+    python scripts/cost_per_log.py [--log_dir] [--output_file]
 """
 
 import argparse
@@ -17,8 +17,6 @@ from api_cost import (
 )
 from input_cache_helpers import INPUT_CACHE_HELPERS
 
-MILLION = 1_000_000
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Ingest BountyBench logs into Docent")
@@ -34,12 +32,6 @@ def parse_args():
         default="./logs_cost_per_log.json",
         help="Directory to save the output JSON file",
     )
-    parser.add_argument(
-        "--use_input_cache",
-        action="store_true",
-        default=False,
-        help="Calculate costs based on cached input tokens, assuming the system prompt is cached",
-    )
     return parser.parse_args()
 
 
@@ -52,11 +44,15 @@ if not LOG_DIR.is_dir():
     raise NotADirectoryError(f"Log path {LOG_DIR} is not a directory.")
 
 OUTPUT_FILE = Path(args.output_file)
-USE_INPUT_CACHE = args.use_input_cache
-if USE_INPUT_CACHE:
-    OUTPUT_FILE = OUTPUT_FILE.with_name(
-        OUTPUT_FILE.stem + "_with_input_cache" + OUTPUT_FILE.suffix
-    )
+
+USE_INPUT_CACHE = {
+    "anthropic": False,
+    "google": False,
+    "openai": True,
+    "deepseek-ai": False,
+}
+
+MILLION = 1_000_000
 
 
 def get_model(path: Path) -> str:
@@ -138,6 +134,7 @@ if __name__ == "__main__":
                 log = json.load(f)
 
             model = get_model(path)
+            provider = model.split("/")[0]
             try:
                 full_log_path = get_full_log_path(path)
                 with open(full_log_path, "r") as f:
@@ -156,11 +153,10 @@ if __name__ == "__main__":
                 input_cost = COST_PER_MILLION_INPUT_TOKENS[model]
                 cached_input_cost = COST_PER_MILLION_CACHED_INPUT_TOKENS[model]
                 output_cost = COST_PER_MILLION_OUTPUT_TOKENS[model]
-
             try:
                 total_input_tokens = log["workflow_usage"]["total_input_tokens"]
                 total_output_tokens = log["workflow_usage"]["total_output_tokens"]
-                if USE_INPUT_CACHE:
+                if provider in USE_INPUT_CACHE and USE_INPUT_CACHE[provider]:
                     try:
                         system_prompt = get_system_prompt(full_log)
                         num_cache_hits = (
@@ -201,8 +197,10 @@ if __name__ == "__main__":
                     "total_output_cost": total_output_cost,
                     "total_cost": total_cost,
                     "workflow_metadata": log.get("workflow_metadata", {}),
+                    "use_input_cache": False,
                 }
-                if USE_INPUT_CACHE:
+                if provider in USE_INPUT_CACHE and USE_INPUT_CACHE[provider]:
+                    results[path]["use_input_cache"] = True
                     results[path][
                         "total_cached_input_tokens"
                     ] = total_cached_input_tokens
