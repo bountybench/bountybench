@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 from pathlib import Path
+from typing import Dict
 
 import tqdm
 from api_cost import (
@@ -45,7 +46,7 @@ if not LOG_DIR.is_dir():
 
 OUTPUT_FILE = Path(args.output_file)
 
-USE_INPUT_CACHE = {
+USE_INPUT_CACHE: Dict[str, bool] = {
     "anthropic": False,
     "google": False,
     "openai": True,
