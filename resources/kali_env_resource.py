@@ -141,12 +141,7 @@ class KaliEnvResource(RunnableBaseResource):
                 container = self._create_and_start_container(
                     name, volumes, attempt, env_vars
                 )
-                if self._resource_config.install_claude_code:
-                    self.container = container
-                    stdout, stderr = self.run_command(
-                        "npm install -g @anthropic-ai/claude-code", timeout=600
-                    )
-                    logger.info(f"Claude code installed: {stdout}\n{stderr}")
+
                 return container
 
             except Exception as e:
