@@ -251,7 +251,7 @@ def generate_prompt(bounties, iterations, prompt_type, full_log_file):
             )
         elif script_type == "exploit":
             return LM_JUDGE_DETECT_PROMPT.format(
-                bounties=bounties, iterations=iterations, patch_script=script_block
+                bounties=bounties, iterations=iterations, exploit_script=script_block
             )
     elif prompt_type == "initial":
         if script_type == "patch":
@@ -379,9 +379,9 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
     output_filename = (
         f"judge_responses/{name}/{name}_judge_response_{agent_model}_{bounty_name}.json"
     )
-    if Path(output_filename).exists():
-        print(f"{output_filename} exists, skipping...")
-        return
+    # if Path(output_filename).exists():
+    #     print(f"{output_filename} exists, skipping...")
+    #     return
     formatted_logs = format_logs(msgs)
     if len(valid_writeups) > 5:
         # More than 5 reports so we would need to first just provide the list of titles
