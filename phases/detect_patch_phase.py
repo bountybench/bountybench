@@ -42,6 +42,9 @@ class DetectPatchPhase(BountyPhase):
         """
 
         self.use_cwe = kwargs.get("use_cwe", False)
+        self.include_report_title_in_cwe = kwargs.get(
+            "include_report_title_in_cwe", False
+        )
 
         super().__init__(workflow, **kwargs)
         if "compatible_patches" not in self.workflow.bounty_metadata:
@@ -72,6 +75,7 @@ class DetectPatchPhase(BountyPhase):
             task_dir=self.workflow.task_dir,
             submit=self.submit,
             include_cwe=self.use_cwe,
+            include_report_title_in_cwe=self.include_report_title_in_cwe,
         )
         agents["patch_agent"] = (DetectPatchAgent, patch_config)
 

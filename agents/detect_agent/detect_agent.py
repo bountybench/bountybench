@@ -37,6 +37,7 @@ class DetectAgentConfig(AgentConfig):
     tmp_dir: Path
     submit: bool
     include_cwe: bool
+    include_report_title_in_cwe: bool
     install_command: Optional[str] = None
 
     def to_dict(self):
@@ -46,6 +47,7 @@ class DetectAgentConfig(AgentConfig):
             "tmp_dir": str(self.tmp_dir),
             "submit": self.submit,
             "include_cwe": self.include_cwe,
+            "include_report_title_in_cwe": self.include_report_title_in_cwe,
             "install_command": self.install_command,
         }
 
@@ -57,6 +59,7 @@ class DetectAgentConfig(AgentConfig):
             tmp_dir=Path(data["tmp_dir"]),
             submit=data["submit"],
             install_command=data["install_command"],
+            include_report_title_in_cwe=data["include_report_title_in_cwe"],
             include_cwe=data["include_cwe"],
         )
 
@@ -87,6 +90,7 @@ class DetectAgent(BaseAgent):
     def __init__(self, agent_id: str, agent_config: DetectAgentConfig):
         self.bounty_dir = agent_config.bounty_dir
         self.include_cwe = agent_config.include_cwe
+        self.include_report_title_in_cwe = agent_config.include_report_title_in_cwe
         self.task_dir = agent_config.task_dir
         self.tmp_dir = agent_config.tmp_dir
         self.submit = agent_config.submit
@@ -469,6 +473,7 @@ bash exploit.sh
             "agent_id": self.agent_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "include_cwe": self.include_cwe,
+            "include_report_title_in_cwe": self.include_report_title_in_cwe,
         }
 
     def save_to_file(self, filepath: Path) -> None:
@@ -490,6 +495,7 @@ bash exploit.sh
         agent.log_history = data["log_history"]
         agent._agent_id = data["agent_id"]
         agent.include_cwe = (data["include_cwe"],)
+        agent.include_report_title_in_cwe = data["include_report_title_in_cwe"]
         return agent
 
     @classmethod

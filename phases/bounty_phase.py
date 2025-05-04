@@ -6,7 +6,6 @@ from typing import Any, List, Type
 
 from agents.base_agent import BaseAgent
 from phases.base_phase import BasePhase
-from prompts.prompts import SUBMISSION_INSTRUCTIONS
 from prompts.vulnerability_prompts import get_specialized_instructions
 from utils.logger import get_main_logger
 from workflows.base_workflow import BaseWorkflow
@@ -101,8 +100,5 @@ class BountyPhase(BasePhase, ABC):
         if self.params.get("vulnerability_type"):
             logger.error("vulnerability_type found - unsupported feature")
             self.params["vulnerability_type"] += " "
-
-        if self.params.get("submit"):
-            self.params["submit"] = SUBMISSION_INSTRUCTIONS
 
         super()._create_initial_agent_message()

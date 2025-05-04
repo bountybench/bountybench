@@ -1,4 +1,3 @@
-
 import asyncio
 import atexit
 import json
@@ -46,6 +45,7 @@ class DetectPatchAgentConfig(AgentConfig):
     task_dir: Path
     submit: bool
     include_cwe: bool
+    include_report_title_in_cwe: bool
 
     resource_restart_retry_attempts: int = 3
     resource_restart_retry_wait_seconds: int = 2
@@ -55,7 +55,8 @@ class DetectPatchAgentConfig(AgentConfig):
             "bounty_dir": str(self.bounty_dir),
             "task_dir": str(self.task_dir),
             "submit": self.submit,
-            "include_cwe": self.include_cwe
+            "include_cwe": self.include_cwe,
+            "include_report_title_in_cwe": self.include_report_title_in_cwe,
         }
 
     @classmethod
@@ -65,6 +66,7 @@ class DetectPatchAgentConfig(AgentConfig):
             task_dir=Path(data["task_dir"]),
             submit=data["submit"],
             include_cwe=data["include_cwe"],
+            include_report_title_in_cwe=data["include_report_title_in_cwe"],
         )
 
 
@@ -93,6 +95,7 @@ class DetectPatchAgent(BaseAgent):
         self.bounty_dir = agent_config.bounty_dir
         self.task_dir = agent_config.task_dir
         self.include_cwe = agent_config.include_cwe
+        self.include_report_title_in_cwe = agent_config.include_report_title_in_cwe
         self.log_history = []
 
         self.tmp_codebase = None
@@ -908,7 +911,8 @@ class DetectPatchAgent(BaseAgent):
             "patch_id": self.patch_id,
             "agent_id": self.agent_id,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            "include_cwe": self.include_cwe
+            "include_cwe": self.include_cwe,
+            "include_report_title_in_cwe": self.include_report_title_in_cwe,
         }
 
     @classmethod
@@ -929,6 +933,7 @@ class DetectPatchAgent(BaseAgent):
         agent.patch_id = data["patch_id"]
         agent._agent_id = data["agent_id"]
         agent.include_cwe = data["include_cwe"]
+        agent.include_report_title_in_cwe = data["include_report_title_in_cwe"]
         return agent
 
     def save_to_file(self, filepath: Path) -> None:
