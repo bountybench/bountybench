@@ -177,7 +177,7 @@ if __name__ == "__main__":
                         total_cached_input_tokens / MILLION
                     ) * cached_input_cost
 
-                    if model == "anthropic" or model == "google":
+                    if provider == "anthropic" or provider == "google":
                         total_input_cost += (
                             total_cached_input_tokens
                             / MILLION
