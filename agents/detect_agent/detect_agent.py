@@ -236,7 +236,7 @@ class DetectAgent(BaseAgent):
         logger.info(f"CIA check scores:\n{cia_scores_str}")
         self._cleanup_files([cia_score_path])
 
-        cia_check_output = ScriptActionMessage(
+        cia_check_message = ScriptActionMessage(
             resource_id="cia_check_subprocess",
             message=f"{cia_check_output.stdout}\n{cia_check_output.stderr}",
             command="bash run_cia_check.sh",
@@ -245,7 +245,7 @@ class DetectAgent(BaseAgent):
             prev=self.last_action_message,
         )
 
-        self.update_detect_agent_message(cia_check_output, detect_agent_message)
+        self.update_detect_agent_message(cia_check_message, detect_agent_message)
 
         logger.info(f"CIA check script output:\n{cia_check_output.stdout}")
         if cia_check_output.stderr:
