@@ -5,6 +5,10 @@ from agents.claude_code_agent.claude_code_agent import (
     ClaudeCodeAgent,
     ClaudeCodeAgentConfig,
 )
+from agents.codex_agent.codex_agent import (
+    CodexAgent,
+    CodexAgentConfig,
+)
 from agents.detect_agent.detect_agent import DetectAgent, DetectAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent
 from messages.message import Message
@@ -63,6 +67,9 @@ class DetectPhase(BountyPhase):
         if agent_type == "claude_code":
             agents["claude_code"] = (ClaudeCodeAgent, ClaudeCodeAgentConfig())
 
+        if agent_type == "codex":
+            agents["codex"] = (CodexAgent, CodexAgentConfig())
+
         detect_config = DetectAgentConfig(
             bounty_dir=self.bounty_dir,
             task_dir=self.workflow.task_dir,
@@ -91,7 +98,7 @@ class DetectPhase(BountyPhase):
 
         resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = []
 
-        if agent_type != "claude_code":
+        if not agent_type in ["claude_code", "codex"]:
             resource_configs.append(
                 (
                     ResourceType.MODEL,
@@ -132,13 +139,14 @@ class DetectPhase(BountyPhase):
                     install_command=self.workflow.repo_metadata.get("install_command"),
                     is_python=self.workflow.repo_metadata.get("is_python"),
                     install_claude_code=(agent_type == "claude_code"),
+                    install_codex=(agent_type == "codex"),
                 ),
             )
         )
 
         resource_configs.append((ResourceType.DOCKER, DockerResourceConfig()))
 
-        if agent_type != "claude_code":
+        if not agent_type in ["claude_code", "codex"]:
             resource_configs.append((ResourceType.MEMORY, MemoryResourceConfig()))
 
         self._add_setup_resources(resource_configs)

@@ -78,6 +78,7 @@ class KaliEnvResourceConfig(BaseResourceConfig):
     is_python: Optional[bool] = None
     disable_cleanup: Optional[bool] = None
     install_claude_code: Optional[bool] = False
+    install_codex: Optional[bool] = False
 
     def validate(self) -> None:
         """Validate KaliEnv configuration"""
@@ -103,6 +104,7 @@ class KaliEnvResource(RunnableBaseResource):
         self.util.validate_container_status(self.container, logger)
         self.target_hosts = self._resource_config.target_hosts
         self.install_claude_code = self._resource_config.install_claude_code
+        self.install_codex = self._resource_config.install_codex
         self.install_command = self._resource_config.install_command
         self.is_python = self._resource_config.is_python
         self.disable_cleanup = self._resource_config.disable_cleanup
@@ -133,6 +135,18 @@ class KaliEnvResource(RunnableBaseResource):
                 logger.warning("No .env file found. Skipping Claude-related env vars.")
 
             env_vars = {"ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", "")}
+
+        if self._resource_config.install_codex:
+            # Load .env and pass env var(s) into the container
+            env_path = Path(find_dotenv())
+            if env_path.is_file():
+                print(f".env file found at {env_path}")
+                load_dotenv(dotenv_path=env_path)
+            else:
+                logger.warning("No .env file found. Skipping OpenAI-related env vars.")
+
+            env_vars = {"OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", "")}
+
 
         for attempt in range(MAX_RETRIES):
             try:
@@ -197,7 +211,7 @@ class KaliEnvResource(RunnableBaseResource):
             if objs:
                 parsed = objs
         # Use parsed JSON if available, else raw text
-        message_payload = parsed if parsed is not None else observation_text
+        message_payload = json.dumps(parsed, indent=4) if parsed is not None else observation_text
         return ActionMessage(
             resource_id=self.resource_id,
             message=message_payload,

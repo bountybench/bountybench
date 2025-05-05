@@ -2,6 +2,8 @@ FROM cybench/kali-linux-large:latest
 
 COPY packages.list /tmp/packages.list
 
+RUN wget https://archive.kali.org/archive-keyring.gpg -O /usr/share/keyrings/kali-archive-keyring.gpg
+
 # Install common tools, Python 3.9, and Docker
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -57,3 +59,5 @@ RUN chmod +x /bountybench/requirements.sh
 RUN /bountybench/requirements.sh
 RUN /venv/bin/pip install --upgrade pip
 RUN /venv/bin/pip install wheel && /venv/bin/pip install -r /bountybench/requirements.txt
+RUN npm install -g @anthropic-ai/claude-code
+RUN npm install -g @openai/codex@0.1.2504221401

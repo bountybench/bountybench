@@ -77,7 +77,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     api_key_value: '',
     model: '',
     use_cwe: false, 
-    use_helm: true,    
+    use_helm: true,
+    custom_agent: 'executor_agent',
     max_input_tokens: "8192",
     max_output_tokens: "16384"
   });
@@ -267,6 +268,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflow_name: formData.workflow_name,
+          custom_agent: formData.custom_agent,
           task_dir: `bountybench/${firstTask.task_dir.replace(/^bountybench\//, '')}`,
           bounty_number: firstTask.bounty_number,
           vulnerability_type: formData.vulnerability_type,
@@ -528,6 +530,20 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
               <Typography>No workflows available</Typography>
             </MenuItem>
           )}
+        </TextField>
+        {/* Select which agent implementation to use */}
+        <TextField
+          select
+          fullWidth
+          label="Agent"
+          name="custom_agent"
+          value={formData.custom_agent}
+          onChange={handleInputChange}
+          margin="normal"
+        >
+          <MenuItem value="executor_agent">Default Agent</MenuItem>
+          <MenuItem value="claude_code">Claude Code</MenuItem>
+          <MenuItem value="codex">OpenAI Codex CLI</MenuItem>
         </TextField>
 
         <TaskSelectionSection
