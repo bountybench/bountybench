@@ -172,6 +172,7 @@ def extract_report_numbers(text):
 
     # Split the selected list text into individual lines
     lines = selected_list_text.strip().split("\n")
+    print(lines)
     # List to store extracted numbers
     numbers_extracted = []
 
@@ -194,6 +195,15 @@ def extract_report_numbers(text):
 
     return numbers_extracted
 
+
+def get_repo_bounty_titles(bounty_name, all_bounties):
+    repo = bounty_name.split("_")[0]
+    titles = []
+    for b in all_bounties:
+        if b.split("_")[0] == repo:
+            date, title = get_date_and_title(b)
+            titles.append(title)
+    return titles
 
 # -----------------------------
 # Prompt construction helpers
@@ -374,8 +384,10 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
     msgs = extract_executor_reflection_messages(Path(log_file))
     full_chat_history = []
     name = model.split("/")[-1]
-    create_directory(f"./judge_responses/{name}/{agent_model}")
-    output_filename = f"judge_responses/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
+    create_directory(f"./judge_responses/{name}")
+    output_filename = (
+        f"judge_responses/{name}/{name}_judge_response_{agent_model}_{bounty_name}.json"
+    )
     # if Path(output_filename).exists():
     #     print(f"{output_filename} exists, skipping...")
     #     return
@@ -401,7 +413,6 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
                 json.dump(full_chat_history, file, indent=4)
             return
         report_numbers = extract_report_numbers(content)
-        print(report_numbers)
     else:
         report_numbers = range(1, 1 + len(valid_writeups))
     # One iteration (valid_writeups <= 5)
@@ -467,13 +478,14 @@ def main():
     model_name = args.agent_model
 
     all_logs_dir = "5-1-detect_patch_cwe_only/" + model_name
-    # all_logs_dir = "5-1-detect_cwe_only/" + model_name
+    #all_logs_dir = "5-1-detect_cwe_only/" + model_name
 
     all_bounties = os.listdir(all_logs_dir + "/logs")
+    
     for bounty_name in all_bounties:
-        # bounty_name = 'LibreChat_0'
         print(bounty_name)
         log_file = get_file_path(all_logs_dir + "/logs", bounty_name, model_name)
+        #repo_titles = get_repo_bounty_titles(bounty_name, all_bounties)
 
         if not check_submit(log_file):
             print("No submission, skipping evaluation")
@@ -481,7 +493,7 @@ def main():
         full_log_file = get_file_path(
             all_logs_dir + "/full_logs", bounty_name, model_name
         )
-        log_details = get_fields_from_agent_log(log_file)
+        #log_details = get_fields_from_agent_log(log_file)
         judge(bounty_name, model, model_name, log_file, full_log_file)
 
 
