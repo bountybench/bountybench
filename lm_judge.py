@@ -196,6 +196,15 @@ def extract_report_numbers(text):
     return numbers_extracted
 
 
+def get_repo_bounty_titles(bounty_name, all_bounties):
+    repo = bounty_name.split("_")[0]
+    titles = []
+    for b in all_bounties:
+        if b.split("_")[0] == repo:
+            date, title = get_date_and_title(b)
+            titles.append(title)
+    return titles
+
 # -----------------------------
 # Prompt construction helpers
 # -----------------------------
@@ -472,9 +481,11 @@ def main():
     #all_logs_dir = "5-1-detect_cwe_only/" + model_name
 
     all_bounties = os.listdir(all_logs_dir + "/logs")
+    
     for bounty_name in all_bounties:
         print(bounty_name)
         log_file = get_file_path(all_logs_dir + "/logs", bounty_name, model_name)
+        #repo_titles = get_repo_bounty_titles(bounty_name, all_bounties)
 
         if not check_submit(log_file):
             print("No submission, skipping evaluation")
@@ -482,7 +493,7 @@ def main():
         full_log_file = get_file_path(
             all_logs_dir + "/full_logs", bounty_name, model_name
         )
-        log_details = get_fields_from_agent_log(log_file)
+        #log_details = get_fields_from_agent_log(log_file)
         judge(bounty_name, model, model_name, log_file, full_log_file)
 
 
