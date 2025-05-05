@@ -11,12 +11,14 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.action_messages.docker_action_message import DockerActionMessage
+from messages.action_messages.script_action_message import ScriptActionMessage
 from messages.agent_messages.agent_message import AgentMessage
 from messages.agent_messages.detect_agent_message import DetectAgentMessage
 from messages.agent_messages.executor_agent_message import ExecutorAgentMessage
 from resources.base_resource import ActionMessage
 from resources.init_files_resource import git_checkout, read_bounty_metadata
 from resources.resource_type import ResourceType
+from resources.utils import run_command_async
 from utils.file_utils import (
     apply_patch_to_bounty,
     extract_bounty_number,
@@ -29,6 +31,7 @@ from utils.logger import get_main_logger
 SETUP_FILES_DIR = "setup_files"
 logger = get_main_logger(__name__)
 
+CIA_TIMEOUT = 1800  # 30 minutes
 
 @dataclass
 class DetectAgentConfig(AgentConfig):
@@ -157,7 +160,10 @@ class DetectAgent(BaseAgent):
         except:
             raise Exception(f"Failed to restart resources")
 
-        exit_code = await self.run_agent_exploit(detect_agent_message)
+        self.last_action_message = None
+        await self.run_cia_check(detect_agent_message)
+        exit_code, exploit_output = await self.run_agent_exploit(detect_agent_message)
+        await self.run_cia_check(detect_agent_message, exploit_output)
         if exit_code != 0:
             combined_log = self._log(
                 f"Exploit failed with exit code {exit_code} before any patch is applied to the codebase.",
@@ -199,10 +205,92 @@ class DetectAgent(BaseAgent):
         except:
             raise Exception(f"Failed to restart resources")
 
+    async def run_cia_check(
+        self,
+        detect_agent_message: DetectAgentMessage,
+        exploit_output: str = None,
+    ):
+        cia_check_script = self.task_dir / "run_cia_check.sh"
+        cia_score_path = self.task_dir / "cia_score.json"
+        if not cia_check_script.exists():
+            return
+
+        if exploit_output is None:
+            logger.info("Running CIA check before exploit...")
+        else:
+            logger.info("Running CIA check after exploit...")
+
+        # Make the script executable
+        cia_check_script.chmod(
+            cia_check_script.stat().st_mode | 0o755
+        )
+
+        cia_check_output = await run_command_async(
+            ["bash", "run_cia_check.sh"],
+            work_dir=self.task_dir,
+            timeout=CIA_TIMEOUT,
+        )
+
+        cia_scores = self._load_json_file(cia_score_path).get("cia_scores", {})
+        cia_scores_str = self._score_to_str(cia_scores)
+        logger.info(f"CIA check scores:\n{cia_scores_str}")
+        self._cleanup_files([cia_score_path])
+
+        cia_check_output = ScriptActionMessage(
+            resource_id="cia_check_subprocess",
+            message=f"{cia_check_output.stdout}\n{cia_check_output.stderr}",
+            command="bash run_cia_check.sh",
+            exit_code=cia_check_output.returncode,
+            additional_metadata={"cia_scores": cia_scores},
+            prev=self.last_action_message,
+        )
+
+        self.update_detect_agent_message(cia_check_output, detect_agent_message)
+
+        logger.info(f"CIA check script output:\n{cia_check_output.stdout}")
+        if cia_check_output.stderr:
+            logger.info(f"CIA check script stderr:\n{cia_check_output.stderr}")
+
+    def _load_json_file(self, file_path: Path) -> dict:
+        """Load a JSON file or return an empty dict if it doesn't exist."""
+        if file_path.exists():
+            try:
+                with open(file_path) as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                logger.error(f"Error parsing JSON from {file_path}")
+        return {}
+
+    def _cleanup_files(self, file_paths: List[Path]) -> None:
+        """Delete files if they exist."""
+        for path in file_paths:
+            if path.exists():
+                path.unlink()
+                logger.info(f"Removed {path.name}")
+
+    def _score_to_str(self, score: dict) -> str:
+        """Convert a dictionary of scores into a formatted string."""
+        if not score:
+            return "No scores available"
+
+        result = []
+        for check, value in score.items():
+            result.append(f"{check}: {value}")
+        return "\n".join(result)
+
+    def update_detect_agent_message(
+        self,
+        action_message: ActionMessage,
+        detect_agent_message: DetectAgentMessage,
+    ):
+        assert detect_agent_message
+        detect_agent_message.add_child_message(action_message)
+        self.last_action_message = action_message
+
     async def run_agent_exploit(self, detect_agent_message: DetectAgentMessage):
         try:
             docker_output = await self.run_exploit()
-            detect_agent_message.add_child_message(docker_output)
+            self.update_detect_agent_message(docker_output, detect_agent_message)
             exit_code = docker_output.additional_metadata["exit_code"]
             exploit_output = docker_output.message
             self._log(
@@ -213,11 +301,12 @@ class DetectAgent(BaseAgent):
             logger.error(f"Failed to execute exploit.sh: {e}")
             self._log(f"Failed to execute exploit.sh: {e}")
             exit_code = 1
+            exploit_output = str(e)
         finally:
             # Reset task_dir since we mount it into the docker container that runs agent exploit
             git_reset(self.task_codebase_dir)
             git_reset(self.tmp_dir)
-        return exit_code
+        return exit_code, exploit_output
 
     # TODO: Reduce noise from bounty/repo setup
     async def score_agent_exploit(self, detect_agent_message) -> bool:
@@ -409,6 +498,7 @@ bash exploit.sh
                 command=exploit_command,
                 network="shared_net",
                 volumes=volumes,
+                prev=self.last_action_message,
             )
 
             # get state of tmp_dir before and after exploit is run
