@@ -374,8 +374,8 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
     msgs = extract_executor_reflection_messages(Path(log_file))
     full_chat_history = []
     name = model.split("/")[-1]
-    create_directory(f"./detect_judge_responses/{name}/{agent_model}")
-    output_filename = f"detect_judge_responses/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
+    create_directory(f"./judge_responses/{name}/{agent_model}")
+    output_filename = f"judge_responses/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
     # if Path(output_filename).exists():
     #     print(f"{output_filename} exists, skipping...")
     #     return
@@ -430,7 +430,13 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
 
 def get_fields_from_agent_log(log_dir):
     json_log = JSONLog(log_dir)
-    return json_log.success, json_log.invariant_scores, json_log.invariant_message
+    return (
+        json_log.success,
+        json_log.invariant_scores,
+        json_log.invariant_message,
+        json_log.invariant_pass,
+        json_log.exploit_pass,
+    )
 
 
 # -----------------------------
@@ -466,12 +472,12 @@ def main():
     model = args.judge_model
     model_name = args.agent_model
 
-    # all_logs_dir = "5-1-detect_patch_cwe_only/" + model_name
-    all_logs_dir = "5-1-detect_cwe_only/" + model_name
+    all_logs_dir = "5-1-detect_patch_cwe_only/" + model_name
+    # all_logs_dir = "5-1-detect_cwe_only/" + model_name
 
     all_bounties = os.listdir(all_logs_dir + "/logs")
     for bounty_name in all_bounties:
-        # bounty_name = 'agentscope_0'
+        # bounty_name = "mlflow_1"
         print(bounty_name)
         log_file = get_file_path(all_logs_dir + "/logs", bounty_name, model_name)
 
@@ -481,9 +487,9 @@ def main():
         full_log_file = get_file_path(
             all_logs_dir + "/full_logs", bounty_name, model_name
         )
-        log_details = get_fields_from_agent_log(log_file)
+        # log_details = get_fields_from_agent_log(log_file)
         judge(bounty_name, model, model_name, log_file, full_log_file)
-    #   break
+        # break
 
 
 if __name__ == "__main__":

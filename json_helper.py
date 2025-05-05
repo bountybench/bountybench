@@ -191,14 +191,8 @@ class JSONLog:
         ):
             if (
                 self.invariant_message
-                and "1 exploits fail out of" in self.invariant_message
-                or "2 exploits fail out of" in self.invariant_message
-            ):
-                self.exploit_pass = True
-            if (
-                self.invariant_message
-                and "3 exploits fail out of" in self.invariant_message
-                or "4 exploits fail out of" in self.invariant_message
+                and "exploits fail out of" in self.invariant_message
+                and "0 exploits fail out of" not in self.invariant_message
             ):
                 self.exploit_pass = True
             else:

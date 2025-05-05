@@ -49,6 +49,8 @@ def aggregated_results(judge_dir, logs_dir, judge_model, agent_model):
                 json_resp["wf_success"],
                 json_resp["invariant_scores"],
                 json_resp["invariant_message"],
+                json_resp["invariant_pass"],
+                json_resp["exploit_pass"],
             ) = get_fields_from_agent_log(log_file)
             judge_data_agg[bounty_name] = json_resp
     return judge_data_all, judge_data_agg
@@ -57,12 +59,12 @@ def aggregated_results(judge_dir, logs_dir, judge_model, agent_model):
 def detect_patch_table(judge_data_agg):
     df = pd.DataFrame.from_dict(judge_data_agg, orient="index")
     df["title_match"] = df.apply(
-        lambda row: row["orig_title"] in row["repo_titles"], axis=1
+        lambda row: row["bounty_title"] in row["repo_titles"], axis=1
     )
 
     custom_order = [
-        "orig_title",
         "bounty_title",
+        "repo_titles",
         "title_match",
         "num_reports",
         "identification_score",
@@ -73,7 +75,8 @@ def detect_patch_table(judge_data_agg):
         "submission_success",
         "wf_success",
         "invariant_scores",
-        "invariant_message",
+        "invariant_pass",
+        "exploit_pass",
     ]
 
     df = df[custom_order]
@@ -100,7 +103,8 @@ def detect_exploit_table(judge_data_agg):
         "submission_success",
         "wf_success",
         "invariant_scores",
-        "invariant_message",
+        "invariant_pass",
+        "exploit_pass",
     ]
 
     df = df[custom_order]
@@ -144,6 +148,40 @@ def get_stats(df):
     return stats
 
 
+def exploit_stats(judge_dir, logs_dir, judge_model, agent_models):
+    agent_stats = {}
+    for agent_model in agent_models:
+        print(f"Evaluating agent model : {agent_model}")
+        judge_data_all, judge_data_agg = aggregated_results(
+            judge_dir, logs_dir, judge_model, agent_model
+        )
+        df = detect_exploit_table(judge_data_agg)
+        agent_stats[agent_model] = get_stats(df)
+    stats_df = pd.DataFrame(agent_stats)
+
+    # Transpose the DataFrame to have agent models as rows
+    stats_df = stats_df.T
+    return stats_df
+
+
+def patch_stats(judge_dir, logs_dir, judge_model, agent_models):
+    agent_stats = {}
+    for agent_model in agent_models:
+        print(f"Evaluating agent model : {agent_model}")
+        judge_data_all, judge_data_agg = aggregated_results(
+            judge_dir, logs_dir, judge_model, agent_model
+        )
+        df = detect_patch_table(judge_data_agg)
+        # filter for valid submissions (successfully restarted & ran invariants (invariants don't have to pass))
+        df[df["invariant_scores"].apply(lambda x: len(x) > 0)]
+        agent_stats[agent_model] = get_stats(df)
+    stats_df = pd.DataFrame(agent_stats)
+
+    # Transpose the DataFrame to have agent models as rows
+    stats_df = stats_df.T
+    return stats_df
+
+
 def main():
     """
     parser = argparse.ArgumentParser()
@@ -161,28 +199,19 @@ def main():
     judge_model = args.judge_model
     agent_model = args.agent_model
     """
-    # judge_dir = "judge_responses"
-    judge_dir = "detect_judge_responses"
     judge_model = "o3-2025-04-16-high-reasoning-effort"
     agent_models = [
         "google-gemini-2.5-pro-preview-03-25",
         "anthropic-claude-3-7-sonnet-20250219-extended-thinking",
         "openai-gpt-4.1-2025-04-14",
     ]
-    # logs_dir = "5-1-detect_patch_cwe_only"
-    logs_dir = "5-1-detect_cwe_only"
-    agent_stats = {}
-    for agent_model in agent_models:
-        print(f"Evaluating agent model : {agent_model}")
-        judge_data_all, judge_data_agg = aggregated_results(
-            judge_dir, logs_dir, judge_model, agent_model
-        )
-        df = detect_exploit_table(judge_data_agg)
-        agent_stats[agent_model] = get_stats(df)
-    stats_df = pd.DataFrame(agent_stats)
+    judge_dir = "judge_responses/DetectPatch"
+    # judge_dir = "judge_responses/DetectExploit"
+    logs_dir = "5-1-detect_patch_cwe_only"
+    # logs_dir = "5-1-detect_cwe_only"
 
-    # Transpose the DataFrame to have agent models as rows
-    stats_df = stats_df.T
+    # stats_df = exploit_stats(judge_dir, logs_dir, judge_model, agent_models)
+    stats_df = patch_stats(judge_dir, logs_dir, judge_model, agent_models)
 
     print(stats_df)
 
