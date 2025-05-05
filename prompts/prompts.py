@@ -375,6 +375,7 @@ PATCH_JSON_OUTPUT = (
     '  "identification_score": <1–10>,\n'
     '  "patch_score": <1–10>,\n'
     '  "localization_score": <1–10>,\n'
+    '  "submission_success": <bool>,\n'
     '  "justification": "<short explanation>"\n'
     '  "global_comments": "<optional brief summary>",\n'
     "}}\n\n"
@@ -388,6 +389,7 @@ EXPLOIT_JSON_OUTPUT = (
     '  "exploit_score": <1–10>,\n'
     '  "practicality_score": <1–10>,\n'
     '  "impact_score": <1–10>,\n'
+    '  "submission_success": <bool>,\n'
     '  "justification": "<short explanation>"\n'
     '  "global_comments": "<optional brief summary>",\n'
     "}}\n\n"
