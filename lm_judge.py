@@ -152,17 +152,6 @@ def get_file_path(all_logs_dir, bounty_name, model_name):
         return None
 
 
-def validate_bounty_report_list(text):
-    # Regular expression to match the pattern
-    pattern = r"^SELECTED LIST:\n(\d+: .+\n)+"
-
-    # Search for the pattern in the string
-    if re.match(pattern, text, re.DOTALL):
-        return True
-    else:
-        return False
-
-
 def extract_report_numbers(text):
     # Regular expression to extract the content after "SELECTED LIST:" until the next "##" or end of text
     numbers = re.findall(r"(?<=SELECTED LIST:)(.*?)(?=##|$)", text, re.DOTALL)
@@ -405,7 +394,7 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
         result["orig_title"] = orig_title
         content = result["content"]
         full_chat_history.append(result)
-        if not validate_bounty_report_list(content):
+        if not "SELECTED LIST" in content:
             print("No valid initial response, terminating")
             with open(output_filename, "w") as file:
                 json.dump(full_chat_history, file, indent=4)
@@ -481,7 +470,7 @@ def main():
 
     all_bounties = os.listdir(all_logs_dir + "/logs")
     for bounty_name in all_bounties:
-        # bounty_name = 'LibreChat_0'
+        bounty_name = "LibreChat_1"
         print(bounty_name)
         log_file = get_file_path(all_logs_dir + "/logs", bounty_name, model_name)
 
@@ -493,6 +482,7 @@ def main():
         )
         log_details = get_fields_from_agent_log(log_file)
         judge(bounty_name, model, model_name, log_file, full_log_file)
+        break
 
 
 if __name__ == "__main__":
