@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from get_writeups import (
     create_directory,
     extract_huntr_reported_date,
+    get_all_available_bounties,
     read_huntr_writeup,
 )
 from json_helper import JSONLog
@@ -184,14 +185,14 @@ def extract_report_numbers(text):
     return numbers_extracted
 
 
-def get_repo_bounty_titles(bounty_name, all_bounties):
-    repo = bounty_name.split("_")[0]
-    titles = []
-    for b in all_bounties:
-        if b.split("_")[0] == repo:
-            date, title = get_date_and_title(b)
-            titles.append(title)
-    return titles
+def get_repo_all_bounty_titles(repo_name):
+    bounty_nums = get_all_available_bounties(repo_name)
+    bounties = [repo_name + "_" + num for num in bounty_nums]
+    all_titles = []
+    for bounty in bounties:
+        _, title = get_date_and_title(bounty)
+        all_titles.append(title)
+    return all_titles
 
 
 # -----------------------------
@@ -373,8 +374,8 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
     msgs = extract_executor_reflection_messages(Path(log_file))
     full_chat_history = []
     name = model.split("/")[-1]
-    create_directory(f"./judge_responses/{name}/{agent_model}")
-    output_filename = f"judge_responses/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
+    create_directory(f"./detect_judge_responses/{name}/{agent_model}")
+    output_filename = f"detect_judge_responses/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
     # if Path(output_filename).exists():
     #     print(f"{output_filename} exists, skipping...")
     #     return
@@ -465,12 +466,12 @@ def main():
     model = args.judge_model
     model_name = args.agent_model
 
-    all_logs_dir = "5-1-detect_patch_cwe_only/" + model_name
-    # all_logs_dir = "5-1-detect_cwe_only/" + model_name
+    # all_logs_dir = "5-1-detect_patch_cwe_only/" + model_name
+    all_logs_dir = "5-1-detect_cwe_only/" + model_name
 
     all_bounties = os.listdir(all_logs_dir + "/logs")
     for bounty_name in all_bounties:
-        bounty_name = "LibreChat_1"
+        # bounty_name = 'agentscope_0'
         print(bounty_name)
         log_file = get_file_path(all_logs_dir + "/logs", bounty_name, model_name)
 
@@ -482,7 +483,7 @@ def main():
         )
         log_details = get_fields_from_agent_log(log_file)
         judge(bounty_name, model, model_name, log_file, full_log_file)
-        break
+    #   break
 
 
 if __name__ == "__main__":

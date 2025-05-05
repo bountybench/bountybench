@@ -11,6 +11,7 @@ from lm_judge import (
     get_date_and_title,
     get_fields_from_agent_log,
     get_file_path,
+    get_repo_all_bounty_titles,
 )
 
 
@@ -29,7 +30,9 @@ def aggregated_results(judge_dir, logs_dir, judge_model, agent_model):
             data = json.load(file)
             # Split on the second to last underscore
             bounty_name = judge_file.replace(judge_file_prefix, "").replace(".json", "")
-            print(bounty_name)
+            # print(bounty_name)
+            repo_name, _ = bounty_name.rsplit("_", 1)
+            all_bounty_titles = get_repo_all_bounty_titles(repo_name)
             orig_date, orig_title = get_date_and_title(bounty_name)
             valid_writeups = extract_valid_writeups(orig_date, bounty_name)
             judge_data_all[bounty_name] = data
@@ -39,7 +42,7 @@ def aggregated_results(judge_dir, logs_dir, judge_model, agent_model):
                 print(f"Skipping bounty {bounty_name} due to no json extracted")
                 continue
             json_resp = data[-1]["response_json"]
-            json_resp["orig_title"] = orig_title
+            json_resp["repo_titles"] = all_bounty_titles
             json_resp["num_reports"] = len(valid_writeups)
             log_file = get_file_path(all_logs_dir + "/logs", bounty_name, agent_model)
             (
@@ -53,7 +56,9 @@ def aggregated_results(judge_dir, logs_dir, judge_model, agent_model):
 
 def detect_patch_table(judge_data_agg):
     df = pd.DataFrame.from_dict(judge_data_agg, orient="index")
-    df["title_match"] = df["orig_title"] == df["bounty_title"]
+    df["title_match"] = df.apply(
+        lambda row: row["orig_title"] in row["repo_titles"], axis=1
+    )
 
     custom_order = [
         "orig_title",
@@ -77,11 +82,13 @@ def detect_patch_table(judge_data_agg):
 
 def detect_exploit_table(judge_data_agg):
     df = pd.DataFrame.from_dict(judge_data_agg, orient="index")
-    df["title_match"] = df["orig_title"] == df["bounty_title"]
+    df["title_match"] = df.apply(
+        lambda row: row["bounty_title"] in row["repo_titles"], axis=1
+    )
 
     custom_order = [
-        "orig_title",
         "bounty_title",
+        "repo_titles",
         "title_match",
         "num_reports",
         "identification_score",
@@ -100,7 +107,45 @@ def detect_exploit_table(judge_data_agg):
     return df
 
 
+def filter_df(df, submission_success=None, wf_success=None, title_match=None):
+    if submission_success is not None:
+        df = df[df["submission_success"] == submission_success]
+    if wf_success is not None:
+        df = df[df["wf_success"] == wf_success]
+    if title_match is not None:
+        df = df[df["title_match"] == wf_success]
+    return df
+
+
+def get_stats(df):
+    stats = {}
+    stats["Total Evaluations"] = len(df)
+    stats["Workflow Successes"] = len(df[df["wf_success"] == True])
+    stats["Submission Successes"] = len(df[df["submission_success"] == True])
+    stats["Workflow Failures"] = len(df[df["wf_success"] == False])
+    stats["Submission Failures"] = len(df[df["submission_success"] == False])
+    stats["Title Matches"] = len(df[df["title_match"] == True])
+    stats["Title Mismatches"] = len(df[df["title_match"] == False])
+
+    # Calculate TP, FP, TN, FN
+    stats["True Positives (TP)"] = len(
+        df[(df["submission_success"] == True) & (df["wf_success"] == True)]
+    )
+    stats["False Positives (FP)"] = len(
+        df[(df["submission_success"] == False) & (df["wf_success"] == True)]
+    )
+    stats["False Negatives (FN)"] = len(
+        df[(df["submission_success"] == True) & (df["wf_success"] == False)]
+    )
+    stats["True Negatives (TN)"] = len(
+        df[(df["submission_success"] == False) & (df["wf_success"] == False)]
+    )
+
+    return stats
+
+
 def main():
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "judge_model",
@@ -115,13 +160,31 @@ def main():
     args = parser.parse_args()
     judge_model = args.judge_model
     agent_model = args.agent_model
-    judge_dir = "judge_responses"
-    logs_dir = "5-1-detect_patch_cwe_only"
-    judge_data_all, judge_data_agg = aggregated_results(
-        judge_dir, logs_dir, judge_model, agent_model
-    )
-    df = detect_patch_table(judge_data_agg)
-    print(df)
+    """
+    # judge_dir = "judge_responses"
+    judge_dir = "detect_judge_responses"
+    judge_model = "o3-2025-04-16-high-reasoning-effort"
+    agent_models = [
+        "google-gemini-2.5-pro-preview-03-25",
+        "anthropic-claude-3-7-sonnet-20250219-extended-thinking",
+        "openai-gpt-4.1-2025-04-14",
+    ]
+    # logs_dir = "5-1-detect_patch_cwe_only"
+    logs_dir = "5-1-detect_cwe_only"
+    agent_stats = {}
+    for agent_model in agent_models:
+        print(f"Evaluating agent model : {agent_model}")
+        judge_data_all, judge_data_agg = aggregated_results(
+            judge_dir, logs_dir, judge_model, agent_model
+        )
+        df = detect_exploit_table(judge_data_agg)
+        agent_stats[agent_model] = get_stats(df)
+    stats_df = pd.DataFrame(agent_stats)
+
+    # Transpose the DataFrame to have agent models as rows
+    stats_df = stats_df.T
+
+    print(stats_df)
 
 
 if __name__ == "__main__":

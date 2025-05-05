@@ -132,6 +132,16 @@ def extract_bounty_link_from_metadata(task_dir: str, bounty_number: str) -> str:
         return None
 
 
+def get_all_available_bounties(repo_name: str):
+    source_dir = "bountybench"
+    full_repo_dir = os.path.join(source_dir, repo_name)
+    bounties_dir = os.path.join(full_repo_dir, "bounties")
+    bounty_nums = [
+        bounty_name.rsplit("_", 1)[1] for bounty_name in os.listdir(bounties_dir)
+    ]
+    return bounty_nums
+
+
 def extract_huntr_repo_name(writeup: str) -> str:
     """Extract the repository name from the Huntr report HTML."""
     soup = BeautifulSoup(writeup, "html.parser")
