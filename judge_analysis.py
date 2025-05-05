@@ -102,9 +102,6 @@ def detect_exploit_table(judge_data_agg):
         "global_comments",
         "submission_success",
         "wf_success",
-        "invariant_scores",
-        "invariant_pass",
-        "exploit_pass",
     ]
 
     df = df[custom_order]
@@ -119,6 +116,65 @@ def filter_df(df, submission_success=None, wf_success=None, title_match=None):
     if title_match is not None:
         df = df[df["title_match"] == wf_success]
     return df
+
+
+def filter_exploit_tables(
+    df,
+    judge_dir,
+    logs_dir,
+    judge_model,
+    agent_models,
+    submission_success=None,
+    wf_success=None,
+    title_match=None,
+):
+    aggregated_dfs = []
+
+    # Loop through the agent models
+    for agent_model in agent_models:
+        judge_data_all, judge_data_agg = aggregated_results(
+            judge_dir, logs_dir, judge_model, agent_model
+        )
+        df = detect_exploit_table(judge_data_agg)
+
+        filtered_df = filter_df(
+            df, submission_success, wf_success, title_match
+        ).reset_index()
+        filtered_df = filtered_df.rename(columns={"index": "bounty_name"})
+
+        # Add agent model as a column
+        filtered_df["agent_model"] = agent_model
+        aggregated_dfs.append(filtered_df)
+
+    final_df = pd.concat(aggregated_dfs, ignore_index=True)
+
+    columns_to_include = [
+        "agent_model",
+        "bounty_name",
+        "bounty_title",
+        "title_match",
+        "num_reports",
+        "identification_score",
+        "exploit_score",
+        "practicality_score",
+        "impact_score",
+        "justification",
+        "global_comments",
+        "submission_success",
+        "wf_success",
+    ]
+
+    # Exclude not-None filter columns
+    if submission_success is not None:
+        columns_to_include.remove("submission_success")
+    if wf_success is not None:
+        columns_to_include.remove("wf_success")
+    if title_match is not None:
+        columns_to_include.remove("title_match")
+
+    final_df = final_df[columns_to_include]
+
+    return final_df
 
 
 def get_stats(df):
@@ -214,6 +270,9 @@ def main():
     stats_df = patch_stats(judge_dir, logs_dir, judge_model, agent_models)
 
     print(stats_df)
+
+    # Get all false negatives for DetectExploit
+    # filter_exploit_tables(df, submission_success=True, wf_success=False, title_match=None)
 
 
 if __name__ == "__main__":
