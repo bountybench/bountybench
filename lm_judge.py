@@ -374,7 +374,7 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
     msgs = extract_executor_reflection_messages(Path(log_file))
     full_chat_history = []
     name = model.split("/")[-1]
-    create_directory(f"./judge_responses/{name}")
+    create_directory(f"./judge_responses/{name}/{agent_model}")
     output_filename = f"judge_responses/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
     # if Path(output_filename).exists():
     #     print(f"{output_filename} exists, skipping...")
