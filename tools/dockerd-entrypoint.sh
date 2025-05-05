@@ -12,6 +12,20 @@ else
   echo "[entrypoint] No SSH key at /root/.ssh/id_rsa – skipping."
 fi
 
+# GPG Key Setup
+gpg --batch --passphrase '' \
+    --quick-gen-key "Docker Helper (machine)" default default 0 && \
+FPR=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}') && \
+pass init "$FPR" && \
+curl -fsSL "$(curl -s https://api.github.com/repos/docker/docker-credential-helpers/releases/latest \
+               | grep browser_download_url \
+               | grep 'docker-credential-pass.*linux-arm64' \
+               | cut -d '"' -f 4)" \
+     -o /usr/local/bin/docker-credential-pass && \
+chmod +x /usr/local/bin/docker-credential-pass && \
+mkdir -p /root/.docker && \
+echo '{"credsStore":"pass"}' > /root/.docker/config.json
+
 # Function to check if Docker daemon is already running
 check_dockerd() {
     # Use 'docker info' to check if the daemon is responsive
