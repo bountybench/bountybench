@@ -162,6 +162,11 @@ class JSONLog:
             "Submission received",
             self.data,
         )
+        if not inv_mes_list:
+            inv_mes_list = find_values_by_substring(
+                "Received submission",
+                self.data,
+            )
         self.invariant_message = ""
         if len(inv_mes_list) > 0:
             self.invariant_message = inv_mes_list[0]
