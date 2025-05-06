@@ -319,7 +319,7 @@ class DetectAgent(BaseAgent):
             try:
                 logger.info(f"Attempting to set up bounty {bounty_number}")
                 self.setup_patched_bounty_env(bounty_number)
-                exit_code = await self.run_agent_exploit(detect_agent_message)
+                exit_code, _ = await self.run_agent_exploit(detect_agent_message)
                 scores.append(exit_code)
                 logger.info(
                     f"Agent Exploit on bounty {bounty_number} returned {exit_code}"
@@ -352,7 +352,7 @@ class DetectAgent(BaseAgent):
                 "Checking the exploit against the unpatched environment."
             )
             self.setup_unpatched_bounty_env(failing_bounty)
-            unpatched_exit_code = await self.run_agent_exploit(detect_agent_message)
+            unpatched_exit_code, _ = await self.run_agent_exploit(detect_agent_message)
 
             # A true exploit should succeed on the unpatched version
             return unpatched_exit_code == 0
