@@ -114,7 +114,7 @@ def filter_df(df, submission_success=None, wf_success=None, title_match=None):
     if wf_success is not None:
         df = df[df["wf_success"] == wf_success]
     if title_match is not None:
-        df = df[df["title_match"] == wf_success]
+        df = df[df["title_match"] == title_match]
     return df
 
 
@@ -162,6 +162,65 @@ def filter_exploit_tables(
         "global_comments",
         "submission_success",
         "wf_success",
+    ]
+
+    # Exclude not-None filter columns
+    if submission_success is not None:
+        columns_to_include.remove("submission_success")
+    if wf_success is not None:
+        columns_to_include.remove("wf_success")
+    if title_match is not None:
+        columns_to_include.remove("title_match")
+
+    final_df = final_df[columns_to_include]
+
+    return final_df
+
+
+def filter_patch_tables(
+    df,
+    judge_dir,
+    logs_dir,
+    judge_model,
+    agent_models,
+    submission_success=None,
+    wf_success=None,
+    title_match=None,
+):
+    aggregated_dfs = []
+
+    for agent_model in agent_models:
+        judge_data_all, judge_data_agg = aggregated_results(
+            judge_dir, logs_dir, judge_model, agent_model
+        )
+        df = detect_patch_table(judge_data_agg)
+        df[df["invariant_scores"].apply(lambda x: len(x) > 0)]
+        filtered_df = filter_df(
+            df, submission_success, wf_success, title_match
+        ).reset_index()
+        filtered_df = filtered_df.rename(columns={"index": "bounty_name"})
+
+        # Add agent model as a column
+        filtered_df["agent_model"] = agent_model
+        aggregated_dfs.append(filtered_df)
+
+    final_df = pd.concat(aggregated_dfs, ignore_index=True)
+
+    columns_to_include = [
+        "agent_model",
+        "bounty_name",
+        "bounty_title",
+        "title_match",
+        "num_reports",
+        "identification_score",
+        "patch_score",
+        "localization_score",
+        "justification",
+        "global_comments",
+        "submission_success",
+        "wf_success",
+        "invariant_pass",
+        "exploit_pass",
     ]
 
     # Exclude not-None filter columns
@@ -238,41 +297,44 @@ def patch_stats(judge_dir, logs_dir, judge_model, agent_models):
     return stats_df
 
 
+# Usage e.g.: python3 judge_analysis.py DetectExploit
 def main():
-    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "judge_model",
+        "wf_type",
         type=str,
-        help="Name of model, e.g. anthropic/claude-3-7-sonnet-20250219",
-    )
-    parser.add_argument(
-        "agent_model",
-        type=str,
-        help="Name of model, e.g. anthropic/claude-3-7-sonnet-20250219",
+        help="Type of Workflow, e.g. DetectPatch or DetectExploit",
     )
     args = parser.parse_args()
-    judge_model = args.judge_model
-    agent_model = args.agent_model
-    """
+    wf_type = args.wf_type
     judge_model = "o3-2025-04-16-high-reasoning-effort"
     agent_models = [
         "google-gemini-2.5-pro-preview-03-25",
         "anthropic-claude-3-7-sonnet-20250219-extended-thinking",
         "openai-gpt-4.1-2025-04-14",
     ]
-    judge_dir = "judge_responses/DetectPatch"
-    # judge_dir = "judge_responses/DetectExploit"
-    logs_dir = "5-1-detect_patch_cwe_only"
-    # logs_dir = "5-1-detect_cwe_only"
+    judge_dir = "judge_responses" + wf_type
+    if wf_type == "DetectPatch":
+        judge_dir = "judge_responses/DetectPatch"
+        logs_dir = "5-1-detect_patch_cwe_only"
+    elif wf_type == "DetectExploit":
+        judge_dir = "judge_responses/DetectExploit"
+        logs_dir = "5-1-detect_cwe_only"
+    else:
+        print("Unrecognized Workflow Type. Exiting.")
+        return
 
-    # stats_df = exploit_stats(judge_dir, logs_dir, judge_model, agent_models)
-    stats_df = patch_stats(judge_dir, logs_dir, judge_model, agent_models)
+    if wf_type == "DetectPatch":
+        stats_df = patch_stats(judge_dir, logs_dir, judge_model, agent_models)
+        # Get all false positives for DetectPatch
+        # filter_patch_tables(df, submission_success=False, wf_success=True, title_match=None)
+
+    elif wf_type == "DetectExploit":
+        stats_df = exploit_stats(judge_dir, logs_dir, judge_model, agent_models)
+        # Get all false negatives for DetectExploit
+        # filter_exploit_tables(df, submission_success=True, wf_success=False, title_match=None)
 
     print(stats_df)
-
-    # Get all false negatives for DetectExploit
-    # filter_exploit_tables(df, submission_success=True, wf_success=False, title_match=None)
 
 
 if __name__ == "__main__":
