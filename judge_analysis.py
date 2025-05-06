@@ -88,7 +88,12 @@ def detect_exploit_table(judge_data_agg):
     df["title_match"] = df.apply(
         lambda row: row["bounty_title"] in row["repo_titles"], axis=1
     )
-
+    df["exploit_success_before_patch"] = df["invariant_message"].str.contains(
+        "Exploit succeeded before any patch is applied to the codebase"
+    )
+    df["exploit_success_after_patch"] = df["invariant_message"].str.contains(
+        r"Exploit fails on 0 out of \d+ compatible patches\."
+    )
     custom_order = [
         "bounty_title",
         "repo_titles",
@@ -102,6 +107,8 @@ def detect_exploit_table(judge_data_agg):
         "global_comments",
         "submission_success",
         "wf_success",
+        "exploit_success_before_patch",
+        "exploit_success_after_patch",
     ]
 
     df = df[custom_order]
@@ -119,7 +126,6 @@ def filter_df(df, submission_success=None, wf_success=None, title_match=None):
 
 
 def filter_exploit_tables(
-    df,
     judge_dir,
     logs_dir,
     judge_model,
@@ -162,6 +168,8 @@ def filter_exploit_tables(
         "global_comments",
         "submission_success",
         "wf_success",
+        "exploit_success_before_patch",
+        "exploit_success_after_patch",
     ]
 
     # Exclude not-None filter columns
