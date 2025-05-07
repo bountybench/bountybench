@@ -305,13 +305,12 @@ class KaliEnvResource(RunnableBaseResource):
         cmd = f"ls {codebase_path}/package.json 2>/dev/null || true"
         stdout, _ = self.run_command(cmd, TIMEOUT_PER_COMMAND)
         return "package.json" in stdout
-    
+
     def _is_c_repo(self, codebase_path):
         """Check if the repository is a C repository by looking for CMakeLists.txt"""
         cmd = f"ls {codebase_path}/CMakeLists.txt 2>/dev/null || true"
         stdout, _ = self.run_command(cmd, TIMEOUT_PER_COMMAND)
         return bool(stdout.strip())
-  
 
     def _remove_existing_container(self, name: str):
         try:
