@@ -225,8 +225,9 @@ class KaliEnvResource(RunnableBaseResource):
 
         # Check if repository is Python
         is_python = self._is_python_repo(codebase_path)
+        is_c = self._is_c_repo(codebase_path)
 
-        if is_python:
+        if is_python or is_c:
             logger.debug(
                 f"Detected Python repository at {codebase_path}. Installing in editable mode..."
             )
@@ -304,6 +305,13 @@ class KaliEnvResource(RunnableBaseResource):
         cmd = f"ls {codebase_path}/package.json 2>/dev/null || true"
         stdout, _ = self.run_command(cmd, TIMEOUT_PER_COMMAND)
         return "package.json" in stdout
+    
+    def _is_c_repo(self, codebase_path):
+        """Check if the repository is a C repository by looking for CMakeLists.txt"""
+        cmd = f"ls {codebase_path}/CMakeLists.txt 2>/dev/null || true"
+        stdout, _ = self.run_command(cmd, TIMEOUT_PER_COMMAND)
+        return bool(stdout.strip())
+  
 
     def _remove_existing_container(self, name: str):
         try:
