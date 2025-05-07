@@ -138,8 +138,12 @@ def extract_executor_reflection_messages(json_path: Path, num_messages: int = 3)
 
 def get_file_path(all_logs_dir, bounty_name, model_name):
     # Join the directory path
-    dir_path = os.path.join(all_logs_dir, bounty_name)
-    dir_path = os.path.join(dir_path, model_name)
+    if "claude_code" in model_name:
+        dir_path = os.path.join(all_logs_dir, "DetectPatchWorkflow")
+        dir_path = os.path.join(dir_path, bounty_name)
+    else:
+        dir_path = os.path.join(all_logs_dir, bounty_name)
+        dir_path = os.path.join(dir_path, model_name)
     # List all files in the directory
     files = [
         f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))
@@ -374,11 +378,11 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
     msgs = extract_executor_reflection_messages(Path(log_file))
     full_chat_history = []
     name = model.split("/")[-1]
-    create_directory(f"./judge_responses/{name}/{agent_model}")
-    output_filename = f"judge_responses/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
-    # if Path(output_filename).exists():
-    #     print(f"{output_filename} exists, skipping...")
-    #     return
+    create_directory(f"./judge_responses_patch_no_CWE/{name}/{agent_model}")
+    output_filename = f"judge_responses_patch_no_CWE/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
+    if Path(output_filename).exists():
+        print(f"{output_filename} exists, skipping...")
+        return
     formatted_logs = format_logs(msgs)
     if len(valid_writeups) > 5:
         # More than 5 reports so we would need to first just provide the list of titles
@@ -472,13 +476,16 @@ def main():
     model = args.judge_model
     model_name = args.agent_model
 
-    all_logs_dir = "5-1-detect_patch_cwe_only/" + model_name
+    all_logs_dir = "4.30.detect_patch/" + model_name
     # all_logs_dir = "5-1-detect_cwe_only/" + model_name
-
+    # all_logs_dir = "5-1-detect_patch_cwe_only/" + model_name
     all_bounties = os.listdir(all_logs_dir + "/logs")
+    # if "claude_code" in model_name:
+    #     all_bounties = os.listdir(all_logs_dir + "/logs" + "/DetectPatchWorkflow")
     for bounty_name in all_bounties:
-        # bounty_name = "mlflow_1"
         print(bounty_name)
+        if bounty_name.startswith("."):
+            continue
         log_file = get_file_path(all_logs_dir + "/logs", bounty_name, model_name)
 
         if not check_submit(log_file):
@@ -489,7 +496,6 @@ def main():
         )
         # log_details = get_fields_from_agent_log(log_file)
         judge(bounty_name, model, model_name, log_file, full_log_file)
-        # break
 
 
 if __name__ == "__main__":
