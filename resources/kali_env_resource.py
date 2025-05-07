@@ -273,7 +273,7 @@ class KaliEnvResource(RunnableBaseResource):
                 workdir=codebase_path,
                 verbose=False,
             )
-            logger.debug(f"C repo installation result: {stdout}\n{stderr}")
+            logger.debug(f"C repository installation result: {stdout}\n{stderr}")
 
             host_path = self._map_container_path_to_host(codebase_path)
             if host_path:
