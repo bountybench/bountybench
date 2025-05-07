@@ -53,6 +53,4 @@ if __name__ == "__main__":
     json_file = sys.argv[1]
     view_judgement(json_file)
     
-#view_judgement("o3-2025-04-16-high-reasoning-effort_judge_response_google-gemini-2.5-pro-preview-03-25_gradio_2.json")
-#view_judgement("o3-2025-04-16-high-reasoning-effort_judge_response_anthropic-claude-3-7-sonnet-20250219-extended-thinking_zipp_0.json")
 
