@@ -225,8 +225,14 @@ class DetectAgent(BaseAgent):
             cia_check_script.stat().st_mode | 0o755
         )
 
+        # Run CIA check
+        logger.info("Running CIA check...")
+        cmd = ["bash", "run_cia_check.sh"]
+        if exploit_output is not None:
+            cmd.append(exploit_output)
+
         cia_check_output = await run_command_async(
-            ["bash", "run_cia_check.sh"],
+            cmd,
             work_dir=self.task_dir,
             timeout=CIA_TIMEOUT,
         )
