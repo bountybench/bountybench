@@ -53,11 +53,24 @@ ENV PYTHON3_9_VERSION=3.9.18
 RUN wget https://www.python.org/ftp/python/${PYTHON3_9_VERSION}/Python-${PYTHON3_9_VERSION}.tgz \
     && tar xzf Python-${PYTHON3_9_VERSION}.tgz \
     && cd Python-${PYTHON3_9_VERSION} \
-    && ./configure --enable-optimizations \
+    && ./configure --enable-optimizations --prefix=/opt/python/python3.9.18 \
     && make -j$(nproc) \
-    && make altinstall \
+    && make install \
     && cd .. \
-    && rm -rf Python-${PYTHON3_9_VERSION}.tgz Python-${PYTHON3_9_VERSION}
+    && rm -rf Python-${PYTHON3_9_VERSION}.tgz Python-${PYTHON3_9_VERSION} \
+    && ln -s /opt/python/python3.9.18/bin/python3.9 /usr/local/bin/python3.9.18 \
+    && ln -s /opt/python/python3.9.18/bin/python3.9 /usr/local/bin/python3.9
+
+ENV PYTHON3_9_6_VERSION=3.9.6
+RUN wget https://www.python.org/ftp/python/${PYTHON3_9_6_VERSION}/Python-${PYTHON3_9_6_VERSION}.tgz \
+    && tar xzf Python-${PYTHON3_9_6_VERSION}.tgz \
+    && cd Python-${PYTHON3_9_6_VERSION} \
+    && ./configure --enable-optimizations --prefix=/opt/python/python3.9.6 \
+    && make -j$(nproc) \
+    && make install \
+    && cd .. \
+    && rm -rf Python-${PYTHON3_9_6_VERSION}.tgz Python-${PYTHON3_9_6_VERSION} \
+    && ln -s /opt/python/python3.9.6/bin/python3.9 /usr/local/bin/python3.9.6
 
 # Install Python 3.10 from source
 ENV PYTHON3_10_VERSION=3.10.10
