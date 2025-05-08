@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && \
     apt-get install -f && \
     xargs -a /tmp/packages.list apt-get install -y --no-install-recommends && \
+    # Install Python 3.9.7 (default)
     wget https://www.python.org/ftp/python/3.9.7/Python-3.9.7.tgz && \
     tar xzf Python-3.9.7.tgz && \
     cd Python-3.9.7 && \
@@ -32,6 +33,16 @@ RUN apt-get update && \
     make altinstall && \
     cd .. && \
     rm -rf Python-3.9.7 Python-3.9.7.tgz && \
+    # Install Python 3.9.6
+    wget https://www.python.org/ftp/python/3.9.6/Python-3.9.6.tgz && \
+    tar xzf Python-3.9.6.tgz && \
+    cd Python-3.9.6 && \
+    ./configure --enable-optimizations --prefix=/opt/python/3.9.6 && \
+    make altinstall && \
+    ln -s /opt/python/3.9.6/bin/python3.9 /usr/local/bin/python3.9.6 && \
+    cd .. && \
+    rm -rf Python-3.9.6 Python-3.9.6.tgz && \
+    ln -s /opt/python/3.9.6/bin/pip3.9 /usr/local/bin/pip3.9.6 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
