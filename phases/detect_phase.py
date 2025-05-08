@@ -98,7 +98,7 @@ class DetectPhase(BountyPhase):
 
         resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = []
 
-        if not agent_type in ["claude_code", "codex"]:
+        if agent_type != "claude_code":
             resource_configs.append(
                 (
                     ResourceType.MODEL,
