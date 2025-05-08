@@ -243,7 +243,7 @@ class KaliEnvResource(RunnableBaseResource):
                 workdir=codebase_path,
                 verbose=False,
             )
-            logger.debug(f"Python repo installation result: {stdout}\n{stderr}")
+            logger.debug(f"Python repository installation result: {stdout}\n{stderr}")
 
             host_path = self._map_container_path_to_host(codebase_path)
             if host_path:
@@ -256,7 +256,36 @@ class KaliEnvResource(RunnableBaseResource):
                     f"Could not determine host path for {codebase_path}. Skipping git commit."
                 )
             return
+        elif self._is_c_repo(codebase_path):
+            logger.debug(
+                f"Detected C repository at {codebase_path}. Installing in editable mode..."
+            )
+            # Use the custom install command if provided, otherwise default to editable install
+            cmd = (
+                self.install_command
+                if self.install_command is not None
+                else "make install"
+            )
+            # Omit printing
+            stdout, stderr = self.run_command(
+                command=cmd,
+                timeout=PIP_INSTALL_TIMEOUT,
+                workdir=codebase_path,
+                verbose=False,
+            )
+            logger.debug(f"C repository installation result: {stdout}\n{stderr}")
 
+            host_path = self._map_container_path_to_host(codebase_path)
+            if host_path:
+                logger.debug(
+                    f"Updating git history to include changes from installation in latest commit"
+                )
+                git_commit(host_path)
+            else:
+                logger.warning(
+                    f"Could not determine host path for {codebase_path}. Skipping git commit."
+                )
+            return
         # Check if Node.js repo - just log but don't install
         elif self._is_node_repo(codebase_path):
             logger.debug(
@@ -265,7 +294,7 @@ class KaliEnvResource(RunnableBaseResource):
             return
 
         logger.debug(
-            "No recognized Python repository found in any codebase location. Skipping installation."
+            "No recognized Python or C repository found in any codebase location. Skipping installation."
         )
 
     def _map_container_path_to_host(self, container_path: str) -> Optional[str]:
@@ -304,6 +333,12 @@ class KaliEnvResource(RunnableBaseResource):
         cmd = f"ls {codebase_path}/package.json 2>/dev/null || true"
         stdout, _ = self.run_command(cmd, TIMEOUT_PER_COMMAND)
         return "package.json" in stdout
+
+    def _is_c_repo(self, codebase_path):
+        """Check if the repository is a C repository by looking for CMakeLists.txt"""
+        cmd = f"ls {codebase_path}/CMakeLists.txt 2>/dev/null || true"
+        stdout, _ = self.run_command(cmd, TIMEOUT_PER_COMMAND)
+        return bool(stdout.strip())
 
     def _remove_existing_container(self, name: str):
         try:

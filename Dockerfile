@@ -2,6 +2,9 @@ FROM cybench/kali-linux-large:latest
 
 COPY packages.list /tmp/packages.list
 
+# Install new Kali GPG key as per https://www.kali.org/blog/new-kali-archive-signing-key/
+RUN wget https://archive.kali.org/archive-keyring.gpg -O /usr/share/keyrings/kali-archive-keyring.gpg
+
 # Install common tools, Python 3.9, and Docker
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -17,9 +20,6 @@ RUN apt-get update && apt-get install -y \
     liblzma-dev \
     wget \
     && rm -rf /var/lib/apt/lists/*
-
-# Install new Kali GPG key as per https://www.kali.org/blog/new-kali-archive-signing-key/
-RUN wget https://archive.kali.org/archive-keyring.gpg -O /usr/share/keyrings/kali-archive-keyring.gpg
 
 # Update apt lists again after adding the new key
 RUN apt-get update && \
