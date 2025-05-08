@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
+# Update apt lists again after adding the new key
 RUN apt-get update && \
     apt-get install -f && \
     xargs -a /tmp/packages.list apt-get install -y --no-install-recommends && \
