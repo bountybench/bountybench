@@ -499,7 +499,7 @@ bash exploit.sh
 
             agent_exploit_message = DockerActionMessage(
                 resource_id=f"agent_exploit_{self.resources.docker.resource_id}",
-                docker_image="cybench/bountyagent:agent",
+                docker_image="cybench/bountyagent:codex",
                 command=exploit_command,
                 network="shared_net",
                 volumes=volumes,
