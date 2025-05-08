@@ -121,13 +121,11 @@ echo "  Use CWE: $USE_CWE"
 
 # 1. Stop existing containers
 echo "Stopping Docker containers..."
-docker compose down backend
+docker compose down
 
 # 2. Start containers in detached mode
 echo "Starting Docker containers..."
-# docker volume create is idempotent
-docker volume create dind-data
-docker compose up -d backend
+docker compose up -d
 
 # 3. Build the python command
 echo "Building Python execution command..."
