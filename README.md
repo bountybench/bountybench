@@ -73,7 +73,11 @@ To initialize all submodules, run:
 source venv/bin/activate
 ```
 
-### 1. Ensure Python 3.11 is Installed
+### Alternative Manual Setup
+
+If you prefer to set up the environment manually, follow these steps:
+
+#### 1. Ensure Python 3.11 is Installed
 
 Verify that Python 3.11 is available on your system:
 
@@ -81,7 +85,7 @@ Verify that Python 3.11 is available on your system:
 python3.11 --version
 ```
 
-### 2. Create a Virtual Environment
+#### 2. Create a Virtual Environment
 
 Set up a virtual environment to isolate dependencies:
 
@@ -89,7 +93,7 @@ Set up a virtual environment to isolate dependencies:
 python3.11 -m venv venv
 ```
 
-### 3. Activate and Set Up the Environment
+#### 3. Activate and Set Up the Environment
 
 Activate the virtual environment, install required dependencies (may take several minutes to tens of minutes to complete, please leave time for this installation):
 
@@ -102,6 +106,7 @@ Initialize submodules (may take a few minutes to complete):
 
 ```bash
 git submodule update --init
+git submodule update --remote
 cd bountybench
 git submodule update --init
 ```
@@ -120,47 +125,28 @@ or Debian/Ubuntu (using APT):
 sudo apt-get install tree
 ```
 
-### 4. Configure the .env File
+#### 4. Configure the .env File
 
 Create and populate an .env file in `bountyagent/` with the following keys:
 
 ```bash
-HELM_API_KEY={HELM_API_KEY}
-OPENAI_API_KEY={OPENAI_API_KEY}
+ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
 AZURE_OPENAI_API_KEY={AZURE_OPENAI_API_KEY}
 AZURE_OPENAI_ENDPOINT={AZURE_OPENAI_ENDPOINT}
-ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
 GOOGLE_API_KEY={GOOGLE_API_KEY}
+HELM_API_KEY={HELM_API_KEY}
+OPENAI_API_KEY={OPENAI_API_KEY}
 TOGETHER_API_KEY={TOGETHER_API_KEY}
-HACKERONE_API_KEY={HACKERONE_API_KEY}
-HACKERONE_API_IDENTIFIER={HACKERONE_API_IDENTIFIER}
+XAI_API_KEY={XAI_API_KEY}
 ```
 
 Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...). You only need to fill in whichever keys you will use.
 
-#### HackerOne API Setup
-
-To use the HackerOne API functionality:
-
-1. You'll need a HackerOne account with API access
-2. Generate your API credentials:
-   - Log in to your HackerOne account
-   - Go to Settings > API tokens
-   - Create a new API token
-   - Note down both the API Identifier and API Key
-3. Add these credentials to your .env file:
-   ```bash
-   HACKERONE_API_KEY=your_api_key_here
-   HACKERONE_API_IDENTIFIER=your_api_identifier_here
-   ```
-
-The HackerOne API is used to fetch detailed report metadata. If credentials are not provided, the system will fall back to HTML scraping, but with reduced metadata extraction capabilities.
-
-### 5. Setup Docker Desktop App
+#### 5. Setup Docker Desktop App
 
 Make sure that you have started up your Docker Desktop App before proceeding with running a workflow.
 
-#### Docker Setup
+##### Docker Setup
 
 To get started with Docker, follow these installation instructions based on your operating system:
 
@@ -177,7 +163,7 @@ To get started with Docker, follow these installation instructions based on your
 
 - Ensure Docker is installed and the version is displayed.
 
-##### Ensure your Docker Desktop has proper sharing permissions
+###### Ensure your Docker Desktop has proper sharing permissions
 
 You want to ensure that Docker Desktop has mounting permissions for your current working directory. Run:
 `docker run --rm -v "$(pwd)":/test alpine ls /test`
@@ -185,18 +171,65 @@ It should list the contents of your current working directory. If you encounter 
 
 ## Usage
 
-### Running the Workflow
+### Running Workflows
 
 Make sure your Docker Desktop app is running.
 
-To run the exploit-and-patch workflow from the command line, navigate to the ``` bountyagent ``` directory and use the following command:
+Running workflows from CLI should use `runner.py` module. Each runnable workflow defines required and optional arguments. Important parameter interactions:
+
+- `--model` and `--use_mock_model` are mutually exclusive. You cannot specify both simultaneously.
+- If `--use_mock_model` is True, then `--use_helm` parameter is ignored
+- The `--use_helm` parameter determines whether to use Helm as the model provider
 
 ```bash
-python -m workflows.exploit_patch_workflow \
-    --task_dir bountybench/setuptools \
+python -m workflows.runner --workflow-type WORKFLOW_TYPE [OPTIONS]
+```
+
+Available workflow types:
+- `exploit_patch_workflow`:
+- `patch_workflow`:
+- `detect_patch_workflow`:
+- `scraper_workflow`
+
+Required flags vary by workflow type.
+
+Examples:
+
+1. **Exploit and Patch Workflow**:
+```bash
+python -m workflows.runner --workflow-type exploit_patch_workflow \
+    --task_dir bountybench/lunary \
     --bounty_number 0 \
-    --model anthropic/claude-3-5-sonnet-20240620 \
-    --phase_iterations 14
+    --model anthropic/claude-3-5-sonnet-20241022 \
+    --phase_iterations 3
+```
+
+2. **Detect Patch Workflow**:
+```bash
+python -m workflows.runner --workflow-type detect_patch_workflow \
+    --task_dir bountybench/django \
+    --bounty_number 0 \
+    --model anthropic/claude-3-sonnet-20240229 \
+    --phase_iterations 2 \
+    --use_helm
+```
+
+3. **Patch Only Workflow**:
+```bash
+python -m workflows.runner --workflow-type patch_workflow \
+    --task_dir bountybench/mlflow \
+    --bounty_number 1 \
+    --use_mock_model \
+    --phase_iterations 5
+```
+
+4. **Scraper Workflow**:
+```bash
+python -m workflows.runner --workflow-type scraper_workflow \
+    --website huntr \
+    --max_iterations 10 \
+    --max_bounties_to_scrape 5 \
+    --bounty_dir "agents/import_bounty_agent/bounties"
 ```
 
 Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.
@@ -272,6 +305,49 @@ Once both the backend and frontend are running, you can access the application t
    ```
 
 Once built, the frontend will be running at http://localhost:3000/, and everything should be the same as in non-dockerized versions.
+
+To stop the containers, run
+```
+docker compose down
+```
+
+To start the containers without rebuilding, run:
+```
+docker compose up -d
+```
+If docker still attempts to rebuild, try cancelling the build using `control+c` and adding the `--no-build` flag (assuming no images are missing).
+
+### Using Git Inside Containers
+Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountyagent/` (`app/`) and `bountybench/` (`app/bountybench`) repos. Inside the container, you could also `git checkout` different branches for testing. 
+
+SSH keys are needed for `git pull` and `git fetch` to work. **Before running `docker compose up --build -d`, please the follow these steps to set up the git credentials correctly.** 
+
+**If you do not wish to use git, please skip to step 3, and you can safely delete these two lines from your `docker-compose.yml`.**
+
+1. Please make sure you cloned the repository with ssh:
+```
+git clone git@github.com:cybench/bountyagent.git
+```
+2. To create a new pair of ssh keys specific for the container, run:
+
+```
+chmod +x tools/ssh_key_gen.sh && \
+tools/ssh_key_gen.sh
+```
+
+and copy the public key (i.e. the output) to [GitHub/settings/keys](https://github.com/settings/keys). 
+
+3. Please uncomment these two lines in `docker-compose.yml` to mount the keys to the container:
+```
+  - ${HOME}/.ssh/id_rsa_backend-service:/root/.ssh/id_rsa:ro
+  - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
+```
+4. (Optional) If you want to fetch the latest version of bountybench, run:
+```
+cd bountybench
+git checkout main
+git pull
+```
 
 We have also provide a bash script `dockerize_run.sh` that serves as an easy interface to run the application using docker.
 
