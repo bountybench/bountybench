@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from agents.webscraper_agent.webscraper_agent import (

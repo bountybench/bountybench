@@ -189,6 +189,7 @@ Available workflow types:
 - `exploit_patch_workflow`:
 - `patch_workflow`:
 - `detect_patch_workflow`:
+- `scraper_workflow`:
 
 Required flags vary by workflow type.
 
@@ -220,6 +221,15 @@ python -m workflows.runner --workflow-type patch_workflow \
     --bounty_number 1 \
     --use_mock_model \
     --phase_iterations 5
+```
+
+4. **Scraper Workflow**:
+```bash
+python -m workflows.runner --workflow-type scraper_workflow \
+    --website huntr \
+    --max_iterations 10 \
+    --max_bounties_to_scrape 5 \
+    --bounty_dir "agents/import_bounty_agent/bounties"
 ```
 
 Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.

@@ -1,6 +1,8 @@
 import re
 from typing import Dict, Tuple
+
 from selenium.webdriver.common.by import By
+
 from .base_handler import BaseBountyHandler, logger
 
 

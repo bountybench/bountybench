@@ -4,6 +4,7 @@ from typing import List
 
 from agents.base_agent import AgentConfig, BaseAgent
 from messages.agent_messages.agent_message import AgentMessage
+from messages.agent_messages.import_bounty_agent_message import ImportBountyMessage
 from messages.agent_messages.webscraper_agent_message import WebscraperMessage
 from utils.logger import get_main_logger
 
@@ -15,6 +16,8 @@ logger = get_main_logger(__name__)
 @dataclass
 class WebscraperAgentConfig(AgentConfig):
     website: str = "https://huntr.com/bounties"
+    bounty_dir: str = "agents/import_bounty_agent/bounties"
+    max_bounties_to_scrape: int = 5
 
     def __post_init__(self):
         """Validate config after initialization"""
@@ -26,18 +29,30 @@ class WebscraperAgentConfig(AgentConfig):
             )
 
     def to_dict(self) -> dict:
-        return {"website": self.website}
+        return {
+            "website": self.website,
+            "bounty_dir": self.bounty_dir,
+            "max_bounties_to_scrape": self.max_bounties_to_scrape,
+        }
 
     @classmethod
     def from_dict(cls, data: dict):
         website = data.get("website", "https://huntr.com/bounties")
-        return cls(website=website)
+        bounty_dir = data.get("bounty_dir", "agents/import_bounty_agent/bounties")
+        max_bounties_to_scrape = data.get("max_bounties_to_scrape", 5)
+        return cls(
+            website=website,
+            bounty_dir=bounty_dir,
+            max_bounties_to_scrape=max_bounties_to_scrape,
+        )
 
 
 class WebscraperAgent(BaseAgent):
     def __init__(self, agent_id: str, agent_config: WebscraperAgentConfig) -> None:
         self.website = agent_config.website
+        self.bounty_dir = agent_config.bounty_dir
         self.handler = WebscraperHandlerFactory.create_handler(self.website)
+        self.max_bounties_to_scrape = agent_config.max_bounties_to_scrape
         super().__init__(agent_id, agent_config)
 
     async def _get_new_urls(self, last_bounty_link: str) -> List[str]:
@@ -50,8 +65,9 @@ class WebscraperAgent(BaseAgent):
         Returns:
             List of new bounty URLs found
         """
-        known_urls = self.handler.get_known_urls()
+        known_urls = self.handler.get_known_urls(self.bounty_dir)
         logger.info(f"Currently tracking {len(known_urls)} known reports")
+        logger.info(f"Looking for up to{self.max_bounties_to_scrape} new reports...")
 
         # Use a set to remove duplicates while preserving order
         seen = set()
@@ -63,17 +79,24 @@ class WebscraperAgent(BaseAgent):
         while True:
             try:
                 latest_urls = self.handler.get_latest_report_urls()
+                logger.info(f"Found {len(latest_urls)} reports")
                 new_urls = []
 
                 for url in latest_urls:
                     if url == last_bounty_link:
-                        break
+                        logger.info(f"Reached last bounty link: {url}")
                     if url not in known_urls and url not in seen:
+                        logger.info(f"Adding new bounty: {url}")
                         new_urls.append(url)
                         seen.add(url)
+                    if len(new_urls) >= self.max_bounties_to_scrape:
+                        logger.info(
+                            f"Reached max bounties to scrape: {self.max_bounties_to_scrape}"
+                        )
+                        break
 
                 if new_urls:
-                    logger.info(f"Found new reports: {new_urls}")
+                    logger.info(f"Found {len(new_urls)} new reports.")
                     return new_urls
 
                 consecutive_failures = 0
@@ -101,17 +124,19 @@ class WebscraperAgent(BaseAgent):
         Returns:
             WebscraperMessage containing any new bounty URLs found
         """
-        prev_agent_message = messages[0]
+        prev_agent_message = messages[0] if messages else None
         last_bounty_link = None
 
-        if prev_agent_message and prev_agent_message.bounty_links:
-            last_bounty_link = prev_agent_message.bounty_links[0]
-            logger.info(f"Last bounty link: {last_bounty_link}")
+        # If the previous message is an ImportBountyMessage, use the bounty_links
+        if isinstance(prev_agent_message, ImportBountyMessage):
+            if prev_agent_message.bounty_links:
+                last_bounty_link = prev_agent_message.bounty_links[0]
+                logger.info(f"Last bounty link: {last_bounty_link}")
         else:
             logger.info("No previous bounty links found.")
 
         new_bounty_links = await self._get_new_urls(last_bounty_link)
-        self.handler.save_urls_to_file(new_bounty_links)
+        self.handler.save_urls_to_file(new_bounty_links, self.bounty_dir)
         return self._parse_urls(new_bounty_links, prev_agent_message)
 
     def _parse_urls(
