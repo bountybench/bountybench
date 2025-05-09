@@ -60,11 +60,9 @@ def filter_logs(lines, start_pattern, end_pattern):
 # -----------------------------
 # Data extraction functions
 # -----------------------------
-
-
 def filter_writeups_by_date(report_date_str, repo_name):
     original_date = datetime.strptime(report_date_str, "%m_%d_%Y")
-    file_dir = f"html_writeups/{repo_name}"
+    file_dir = f"valid_html_writeups/{repo_name}"
     if not Path(file_dir).exists():
         print("No valid Huntr writeups,..skipping")
         return []
@@ -100,10 +98,9 @@ def get_date_and_title(bounty_name):
 def extract_valid_writeups(date_str, bounty_name):
     repo_name, _ = bounty_name.rsplit("_", 1)
     filtered_files = filter_writeups_by_date(date_str, repo_name)
-    print(filtered_files)
     if not filtered_files:
         return []
-    file_dir = f"html_writeups/{repo_name}"
+    file_dir = f"valid_html_writeups/{repo_name}"
     writeups = [
         Path(os.path.join(file_dir, file)).read_text(encoding="utf-8")
         for file in filtered_files
