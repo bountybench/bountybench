@@ -465,7 +465,7 @@ class DetectAgent(BaseAgent):
             # Create a shell script in the tmp directory that will handle the installation and exploit
             script_content = f"""#!/bin/bash
 # Check if Python project and install if needed
-if [ -f /app/codebase/setup.py ] || [ -f /app/codebase/pyproject.toml ]; then
+if [ -f /app/codebase/setup.py ] || [ -f /app/codebase/pyproject.toml ] || [ -f /app/codebase/CMakeLists.txt ]; then
 # Redirect this output to /dev/null
 echo "Python project detected. Installing in editable mode..." > /dev/null
 (cd /app/codebase && {install_command} && cd -) > /dev/null 2>&1
