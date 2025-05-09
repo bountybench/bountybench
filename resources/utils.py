@@ -1,10 +1,12 @@
+import asyncio
 import html
 import json
+import re
 import select
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional, Union
 
 from bs4 import BeautifulSoup
 
@@ -13,12 +15,13 @@ from utils.logger import get_main_logger
 logger = get_main_logger(__name__)
 
 
-def run_command(command, work_dir=None):
+def run_command(command, work_dir=None, verbose=True):
     """
     Runs a shell command while capturing output in real-time.
 
     :param command: List of command arguments.
     :param work_dir: Working directory to execute the command in.
+    :param verbose: If True, prints stdout/stderr in real time.
     :return: subprocess.CompletedProcess with stdout and stderr as strings.
     """
     try:
@@ -36,29 +39,34 @@ def run_command(command, work_dir=None):
         stderr_lines = []
 
         fds = [process.stdout, process.stderr]
-        while process.poll() is None:  # While process is still running
+        while process.poll() is None:
             readable, _, _ = select.select(fds, [], [], 0.1)
             for fd in readable:
                 line = fd.readline()
                 if line:
                     if fd == process.stdout:
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
+                        if verbose:
+                            sys.stdout.write(line)
+                            sys.stdout.flush()
                         stdout_lines.append(line)
                     else:
-                        sys.stderr.write(line)
-                        sys.stderr.flush()
+                        if verbose:
+                            sys.stderr.write(line)
+                            sys.stderr.flush()
                         stderr_lines.append(line)
 
+        # Flush remaining lines after process ends
         for fd in fds:
             for line in fd:
                 if fd == process.stdout:
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
+                    if verbose:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
                     stdout_lines.append(line)
                 else:
-                    sys.stderr.write(line)
-                    sys.stderr.flush()
+                    if verbose:
+                        sys.stderr.write(line)
+                        sys.stderr.flush()
                     stderr_lines.append(line)
 
         process.stdout.close()
@@ -72,13 +80,130 @@ def run_command(command, work_dir=None):
             stderr="".join(stderr_lines),
         )
 
+    except PermissionError as e:
+        logger.error(
+            f"Command '{' '.join(command)}' failed with PermissionError {str(e)}"
+        )
+        if verbose:
+            sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+            sys.stderr.flush()
+        raise
+
+    except Exception as e:
+        logger.error(f"Command '{' '.join(command)}' failed with exception: {e}")
+        if hasattr(e, "stdout"):
+            logger.error(f"stdout: {e.stdout}")
+        if hasattr(e, "stderr"):
+            logger.error(f"stderr: {e.stderr}")
+        if verbose:
+            sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+            sys.stderr.flush()
+        raise
+
+
+async def run_command_async(command, work_dir=None, timeout=None, verbose=True):
+    """
+    Runs a shell command asynchronously while capturing output in real-time.
+
+    :param command: List of command arguments.
+    :param work_dir: Working directory to execute the command in.
+    :param timeout: Optional timeout in seconds for the command to complete.
+    :param verbose: If True, prints stdout/stderr in real time.
+    :return: subprocess.CompletedProcess with stdout and stderr as strings.
+    """
+    try:
+        # command needs to be in sequential format
+        if isinstance(command, str):
+            command = command.split()
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            cwd=work_dir,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout_lines = []
+        stderr_lines = []
+
+        # Define task to read from stdout
+        async def read_stdout():
+            while True:
+                line = await process.stdout.readline()
+                if not line:
+                    break
+                line_str = line.decode("utf-8")
+                if verbose:
+                    sys.stdout.write(line_str)
+                    sys.stdout.flush()
+                stdout_lines.append(line_str)
+
+        # Define task to read from stderr
+        async def read_stderr():
+            while True:
+                line = await process.stderr.readline()
+                if not line:
+                    break
+                line_str = line.decode("utf-8")
+                if verbose:
+                    sys.stderr.write(line_str)
+                    sys.stderr.flush()
+                stderr_lines.append(line_str)
+
+        stdout_task = asyncio.create_task(read_stdout())
+        stderr_task = asyncio.create_task(read_stderr())
+        try:
+            if timeout is not None:
+                return_code = await asyncio.wait_for(process.wait(), timeout)
+            else:
+                return_code = await process.wait()
+
+            # Run both reading tasks concurrently
+            await asyncio.gather(
+                stdout_task,
+                stderr_task,
+            )
+
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=return_code,
+                stdout="".join(stdout_lines),
+                stderr="".join(stderr_lines),
+            )
+        except asyncio.TimeoutError:
+            process.kill()
+            stdout_task.cancel()
+            stderr_task.cancel()
+            await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=-1,  # Using returncode -1 to indicate timeout
+                stdout="".join(stdout_lines),
+                stderr="".join(stderr_lines)
+                + (f"\nCommand timed out after {timeout} seconds" if timeout else ""),
+            )
+        finally:
+            if process and process.returncode is None:
+                try:
+                    process.kill()
+                    await asyncio.sleep(0.1)  # Allow time for resources to be released
+                except Exception:
+                    pass
+
+    except PermissionError as e:
+        logger.error(f"Command '{' '.join(command)}' failed with PermissionError {e}")
+        if verbose:
+            sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+            sys.stderr.flush()
+        raise
+
     except Exception as e:
         logger.error(
-            f"Command '{' '.join(command)}' failed with return code {e.returncode}"
+            f"Command '{''.join(command)}' failed with return code {e.returncode}"
         )
         logger.error(f"stdout: {e.stdout}")
         logger.error(f"stderr: {e.stderr}")
-        sys.stderr.write(f"Error executing command: {' '.join(command)}\n")
+        sys.stderr.write(f"Error executing command: {''.join(command)}\n")
         sys.stderr.flush()
         raise
 
@@ -87,7 +212,7 @@ def docker_network_exists(network_name):
     """
     Checks if a Docker network exists.
     """
-    logger.info(f"Checking if Docker network '{network_name}' exists.")
+    logger.debug(f"Checking if Docker network '{network_name}' exists.")
     result = subprocess.run(
         [
             "docker",
@@ -104,9 +229,9 @@ def docker_network_exists(network_name):
     )
     exists = network_name in result.stdout.splitlines()
     if exists:
-        logger.info(f"Docker network '{network_name}' already exists.")
+        logger.debug(f"Docker network '{network_name}' already exists.")
     else:
-        logger.info(f"Docker network '{network_name}' does not exist.")
+        logger.debug(f"Docker network '{network_name}' does not exist.")
     return exists
 
 
@@ -144,7 +269,33 @@ def read_writeup(task_dir: Path, bounty_number: str) -> str:
     )
     try:
         writeup = report_path.read_text(encoding="utf-8")
-        writeup = format_writeup(writeup)
+        # get url from metadata
+        metadata_path = (
+            task_dir / "bounties" / f"bounty_{bounty_number}" / "bounty_metadata.json"
+        )
+        url = None
+
+        if metadata_path.exists():
+            try:
+                with open(metadata_path, "r") as f:
+                    metadata = json.load(f)
+                    url = metadata.get("bounty_link", None)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Error reading metadata file: {e}")
+
+        # Use the URL to determine the format
+        if url:
+            if "huntr" in url:
+                writeup = format_huntr_writeup(writeup)
+            elif "hackerone" in url:
+                writeup = format_hackerone_writeup(writeup)
+            else:
+                raise ValueError(
+                    "Only huntr and hackerone bounty reports can currently be parsed."
+                )
+        else:
+            # Default format or error handling if URL is not available
+            print("Warning: Could not determine the bounty source from metadata.")
     except FileNotFoundError:
         logger.warning(f"Writeup not found at: {report_path}")
         writeup = ""
@@ -202,7 +353,7 @@ def parse_shell_script(script_path: Path) -> List[str]:
     return commands
 
 
-def format_writeup(writeup: str) -> str:
+def format_huntr_writeup(writeup: str) -> str:
     soup = BeautifulSoup(writeup, "html.parser")
 
     formatted_content = ["======================", "Writeup:\n"]
@@ -224,26 +375,127 @@ def format_writeup(writeup: str) -> str:
     markdown_body = soup.find("div", class_="markdown-body")
     if markdown_body:
         for child in markdown_body.children:
-            if child.name == "h1":
-                formatted_content.append(f"\n{child.text}:")
+            if child.name and child.name.startswith("h"):
+                formatted_content.append(f"\n{child.text}")
             elif child.name in ["p", "pre"]:
                 formatted_content.append(html.unescape(child.text.strip()))
-            elif child.name == "ul":
+            elif child.name in ["ul", "ol"]:
                 for li in child.find_all("li"):
                     formatted_content.append(f"- {li.text.strip()}")
+
+    # Occurences Title
+    occurrences_title = soup.find("h1", id="occurrence-title")
+    if occurrences_title:
+        formatted_content.append("\nOccurrences:")
+        clean_code_ref = soup.find("div", class_="permalinkMD mb-3 inline-block")
+        if clean_code_ref:
+            formatted_content.append(clean_code_ref.text.strip())
+        else:
+            clean_code_ref = soup.find("div", class_="permalinkMD")
+            if clean_code_ref:
+                filename_tag = clean_code_ref.select_one("a.permalink p")
+                content_tag = clean_code_ref.select_one("div.markdown-body")
+
+                if filename_tag and content_tag:
+                    filename = filename_tag.text.strip()
+                    content = content_tag.text.strip()
+                    formatted_content.append(f"{filename} {content}")
+
+    # Reference Title
+    reference_title = soup.find("h2", id="reference-title")
+    if reference_title:
+        formatted_content.append("\nReference:")
+        next_elem = reference_title.find_next_sibling()
+        while next_elem and next_elem.name not in ["ul", "ol"]:
+            next_elem = next_elem.find_next_sibling()
+        if next_elem:
+            for li in next_elem.find_all("li"):
+                formatted_content.append(f"- {li.text.strip()}")
+
     formatted_content.append("======================")
     writeup = "\n".join(formatted_content)
     return writeup
 
 
-def contains_setup(setup_resource_file_path: Path):
-    if setup_resource_file_path.exists():
-        with setup_resource_file_path.open("r") as file:
-            for line in file:
-                # Remove leading and trailing whitespace
-                stripped_line = line.strip()
+def format_hackerone_writeup(writeup: str) -> str:
+    soup = BeautifulSoup(writeup, "html.parser")
 
-                # Skip empty lines and comments
-                if stripped_line and not stripped_line.startswith("#"):
-                    return True
-    return False
+    formatted_content = ["======================", "Writeup:\n"]
+
+    # Title and report number
+    title_element = soup.find(
+        "div",
+        class_="false report-heading__report-title spec-report-title flex items-center",
+    )
+    if title_element:
+        title_div = title_element.find("div", class_="break-word")
+        if title_div:
+            formatted_content.append("Title:")
+            formatted_content.append(title_div.text.strip())
+
+    # Get report ID
+    report_status = soup.find("div", class_="report-status")
+    if report_status:
+        report_id = report_status.find("a", class_="report-status-indicator")
+        if report_id:
+            formatted_content.append(report_id.text.strip())
+
+    # Get severity
+    severity_element = soup.find("span", class_="severity-label__text")
+    if severity_element:
+        severity_rating = severity_element.find("span", class_="spec-severity-rating")
+        if severity_rating:
+            formatted_content.append(f"Severity: {severity_rating.text.strip()}")
+
+    formatted_content.append("")
+
+    # Get the summary content
+    summary = soup.find("div", class_="spec-full-summary-content")
+    if summary:
+        formatted_content.append("Summary:")
+        # Extract paragraphs from summary
+        paragraphs = summary.find_all(
+            "div", class_="vertical-spacing interactive_markdown__p"
+        )
+        for p in paragraphs:
+            formatted_content.append(html.unescape(p.text.strip()))
+        formatted_content.append("")
+
+    # Get vulnerability information
+    vuln_info = soup.find("div", class_="spec-vulnerability-information")
+    if vuln_info:
+        for wrapper in vuln_info.find_all("div", class_="interactive-markdown"):
+            for child in wrapper.find_all(recursive=False):
+                cls = child.get("class", [])
+                ids = child.get("id", [])
+                if "interactive_markdown__p" in cls:
+                    text = html.unescape(child.get_text())
+                    formatted_content.append(text)
+
+                elif "interactive-markdown__code" in cls:
+                    code_div = child.find(
+                        "div", class_="interactive-markdown__code__content"
+                    )
+                    if not code_div:
+                        continue
+
+                    # Remove line numbers
+                    for num in code_div.find_all(
+                        "span", class_=re.compile(r"(linenumber|line-number)")
+                    ):
+                        num.decompose()
+
+                    # Get the code text (separator="" works best here)
+                    code_text = code_div.get_text(separator="").strip()
+                    formatted_content.append("Code:\n" + code_text + "\n")
+
+                # Handle the impact section header
+                elif "user-content-impact" in ids:
+                    formatted_content.append(child.get_text(strip=True) + ":")
+
+                elif "user-content-steps-to-reproduce" in ids:
+                    formatted_content.append(child.get_text(strip=True))
+
+    formatted_content.append("======================")
+    writeup = "\n".join(formatted_content)
+    return writeup

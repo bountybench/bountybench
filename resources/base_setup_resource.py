@@ -1,7 +1,7 @@
 import atexit
 import re
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
 from queue import Queue
 from typing import List, Optional
@@ -9,7 +9,6 @@ from typing import List, Optional
 from resources.base_resource import BaseResource, BaseResourceConfig
 from resources.utils import run_command
 from utils.logger import get_main_logger
-from utils.progress_logger import start_progress, stop_progress
 
 logger = get_main_logger(__name__)
 
@@ -29,6 +28,10 @@ class BaseSetupResource(BaseResource, ABC):
         self.work_dir = None
         self.setup_script_name = None
         self.name = self.__class__.__name__
+        # Only relevant for Detect Patch,
+        # Bounty setup is initially skipped for agent environment
+        # Scoring logic requires bounty setup
+        self.skip_setup = False
 
         # Subclasses will call setup() after initializing their specific properties
 
@@ -70,9 +73,12 @@ class BaseSetupResource(BaseResource, ABC):
         """Start the environment by running the appropriate setup script."""
         if not self.work_dir.exists():
             raise FileNotFoundError(f"Work directory does not exist: {self.work_dir}")
+        if self.skip_setup:
+            logger.debug(f"Skipping setup for {self.setup_script_name}")
+            return
 
         try:
-            start_progress(f"Executing {self.setup_script_name} in {self.work_dir}")
+            logger.info(f"Executing {self.setup_script_name} in {self.work_dir}")
             result = None  # Initialize result variable
 
             try:
@@ -89,6 +95,7 @@ class BaseSetupResource(BaseResource, ABC):
                     result = run_command(
                         command=[f"./{self.setup_script_name}"],
                         work_dir=str(self.work_dir),
+                        verbose=False,
                     )
                 except OSError as e:
                     if e.errno == 8:  # Exec format error
@@ -98,11 +105,15 @@ class BaseSetupResource(BaseResource, ABC):
                         result = run_command(
                             command=["bash", f"./{self.setup_script_name}"],
                             work_dir=str(self.work_dir),
+                            verbose=False,
                         )
                     else:
                         raise  # Re-raise if it's not an exec format error
 
                 if result.returncode != 0:
+                    logger.error(
+                        f"{self.name} setup script failed. Stdout: {result.stdout}, Stderr: {result.stderr}"
+                    )
                     raise RuntimeError(
                         f"{self.name} setup script failed with return code {result.returncode}"
                     )
@@ -115,7 +126,8 @@ class BaseSetupResource(BaseResource, ABC):
                     f"Unable to successfully execute {self.setup_script_name} at {self.resource_id}: {e}"
                 )
             finally:
-                stop_progress()
+                logger.debug("Pruning dangling docker images...")
+                run_command(command=["docker", "image", "prune", "-f"])
 
             if (
                 result and result.stdout
@@ -136,8 +148,8 @@ class BaseSetupResource(BaseResource, ABC):
                             f"Failed to wait until all containers healthy: {e}"
                         )
             logger.info(
-                    f"{self.name} environment setup complete for {self.resource_id}"
-                )
+                f"{self.name} environment setup complete for {self.resource_id}"
+            )
 
         except FileNotFoundError as e:
             logger.error(str(e))
@@ -162,7 +174,7 @@ class BaseSetupResource(BaseResource, ABC):
         docker_compose_file = self.work_dir / "docker-compose.yml"
 
         if docker_compose_file.exists():
-            logger.info(f"Stopping docker in {self.work_dir}")
+            logger.debug(f"Stopping docker in {self.work_dir}")
             try:
                 run_command(
                     command=["docker", "compose", "down", "-v"],
@@ -194,7 +206,7 @@ class BaseSetupResource(BaseResource, ABC):
 
         start_time = time.time()
 
-        start_progress("Checking container health")
+        logger.debug("Checking container health")
 
         try:
             while not container_queue.empty():
@@ -211,9 +223,16 @@ class BaseSetupResource(BaseResource, ABC):
                 health_status = inspect_result.stdout.strip().strip("'\"")
 
                 if health_status == "healthy":
-                    logger.info(f"Container '{container}' is healthy.")
+                    logger.debug(f"Container '{container}' is healthy.")
                     container_queue.get()
                 elif health_status != "starting":
+                    logger.warning(f"Container '{container}' is not healthy.")
+                    container_logs = run_command(
+                        command=["docker", "logs", container], verbose=False
+                    )
+                    logger.debug(
+                        f"Container logs for '{container}':\n{container_logs.stdout}"
+                    )
                     raise RuntimeError(
                         f"Container '{container}' has unexpected health status: {health_status}."
                     )
@@ -225,12 +244,10 @@ class BaseSetupResource(BaseResource, ABC):
 
                 time.sleep(check_interval)
 
-            logger.info("All containers are healthy.")
+            logger.debug("All containers are healthy.")
             return True
         except Exception as e:
             raise
-        finally:
-            stop_progress()
 
     def extract_container_names(
         self, stdout: Optional[str] = None, stderr: Optional[str] = None
@@ -250,7 +267,7 @@ class BaseSetupResource(BaseResource, ABC):
 
         if matches:
             container_names = list({match[0] for match in matches})
-            logger.info(f"Container names extracted: {container_names}")
+            logger.debug(f"Container names extracted: {container_names}")
             return container_names
         else:
             return []
@@ -284,6 +301,7 @@ class BaseSetupResource(BaseResource, ABC):
             "task_dir": str(self.task_dir),
             "work_dir": str(self.work_dir),
             "container_names": self.container_names,
+            "skip_setup": str(self.skip_setup),
         }
 
     @classmethod
@@ -291,4 +309,5 @@ class BaseSetupResource(BaseResource, ABC):
         return {
             "resource_id": data["resource_id"],
             "container_names": data.get("container_names", []),
+            "skip_setup": data["skip_setup"],
         }

@@ -8,6 +8,18 @@ from backend.schema import MessageData, MessageInputData, UpdateInteractiveModeI
 workflow_service_router = APIRouter()
 
 
+@workflow_service_router.get("/workflow/{workflow_id}/appheader")
+async def get_workflow_appheader(workflow_id: str, request: Request):
+    """
+    Get the workflow metadata for AppHeader.
+    """
+    execution_backend: ExecutionBackend = request.app.state.execution_backend
+    result = await execution_backend.get_workflow_appheader(workflow_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
 @workflow_service_router.post("/workflow/{workflow_id}/stop")
 async def stop_workflow(workflow_id: str, request: Request):
     """

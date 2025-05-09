@@ -44,6 +44,16 @@ class HelmModels(ModelProvider):
                 echo_prompt=False,
                 max_tokens=max_tokens,
             )
+        elif model == "deepseek-ai/deepseek-r1":
+            request = Request(
+                model_deployment="together/deepseek-r1",
+                model=model,
+                prompt=message,
+                temperature=temperature,
+                echo_prompt=False,
+                max_tokens=max_tokens,
+                stop_sequences=stop_sequences,
+            )
         else:
             request = Request(
                 model=mapped_model,

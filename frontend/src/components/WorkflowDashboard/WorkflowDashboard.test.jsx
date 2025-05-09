@@ -175,7 +175,7 @@ describe('WorkflowDashboard Component', () => {
       { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message_id: null })
+        body: JSON.stringify({ message_id: null, num_iter: 1, type_iter: "agent" })
       }
     );
   });
@@ -216,7 +216,7 @@ describe('WorkflowDashboard Component', () => {
           { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message_id: null })
+            body: JSON.stringify({ message_id: null, num_iter: 1, type_iter: "agent" })
           }
         );
 

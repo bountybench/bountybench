@@ -9,25 +9,32 @@ import { formatData } from '../../utils/messageFormatters';
 import { CopyButton } from '../buttons/CopyButton';
 import './ActionMessage.css';
 
-const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect }) => {
+const ActionMessage = ({ index, action, onUpdateMessageInput, onRunMessage, onEditingChange, isEditing, selectedCellId, onCellSelect, registerMessageRef, parentMessage }) => {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(action?.message || '');
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+  const actionRef = useRef(null);
 
   const [originalMessageContent, setOriginalMessageContent] = useState(formatData(action?.message || ''));
 
+  useEffect(() => {
+    if (actionRef.current && action?.current_id && registerMessageRef) {
+      registerMessageRef(action.current_id, actionRef.current);
+    }
+  }, [action?.current_id, registerMessageRef]);
+
   const handleCopyClick = () => {
     const message = formatData(editedMessage)
-		navigator.clipboard.writeText(message);
-	};
+    navigator.clipboard.writeText(message);
+  };
 
   const handleCancelEdit = useCallback(() => {
     setEditing(false);
     onEditingChange(false);
     setEditedMessage(originalMessageContent);
   }, [originalMessageContent, onEditingChange]);
-  
+
   const handleEditClick = useCallback(() => {
     setEditing(true);
     onEditingChange(true);
@@ -61,6 +68,28 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
     }
   }, [action, onRunMessage]);
 
+  const handleMoveUp = useCallback(() => {
+    setTimeout(() => {
+      if (index > 0) {
+        onCellSelect(parentMessage.current_children[index - 1].current_id);
+      }
+    }, 0);
+  }, [onCellSelect]);
+
+  const handleMoveLeft = useCallback(() => {
+    setTimeout(() => {
+      onCellSelect(parentMessage.current_id);
+    }, 0);
+  }, [onCellSelect]);
+
+  const handleMoveDown = useCallback(() => {
+    setTimeout(() => {
+      if (index < parentMessage.current_children.length - 1) {
+        onCellSelect(parentMessage.current_children[index + 1].current_id);
+      }
+    }, 0);
+  }, [onCellSelect, parentMessage]);
+
   const textFieldRef = useRef(null);
 
   useEffect(() => {
@@ -79,6 +108,15 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
     }
   }, [editing, originalMessageContent]);
 
+  const navigationActions = {
+    'ArrowUp': handleMoveUp,
+    'w': handleMoveUp,
+    'ArrowLeft': handleMoveLeft,
+    'a': handleMoveLeft,
+    'ArrowDown': handleMoveDown,
+    's': handleMoveDown,
+  };
+
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (selectedCellId === action.current_id) {
@@ -96,6 +134,10 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
         else if (event.key === 'Enter' && !event.altKey && !editing) {
           handleEditClick();
         }
+        else if (event.key in navigationActions && !editing) {
+          event.preventDefault();
+          navigationActions[event.key]();
+        }
       }
     };
 
@@ -103,10 +145,20 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, selectedCellId]);
+  }, [editing, action, handleCancelEdit, handleEditClick, handleSaveClick, handleRunClick, handleMoveUp, handleMoveLeft, handleMoveDown, selectedCellId]);
+
+  useEffect(() => {
+    if (selectedCellId === action.current_id && actionRef.current && 
+      typeof actionRef.current.scrollIntoView === 'function') {
+        actionRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [selectedCellId]);
 
   if (!action) return null;
-  
+
   const handleToggleMetadata = (event) => {
     event.stopPropagation();
     setMetadataExpanded(!metadataExpanded);
@@ -122,20 +174,30 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
     onCellSelect(action.current_id);
   };
 
+  const actionResourceId = (action_resource_id) => {
+    if (!action_resource_id) return '';
 
+    const resourceIdUpperCase = action_resource_id.toUpperCase();
 
+    if (resourceIdUpperCase.startsWith('KALI_ENV')) {
+      return 'KALI_ENV'; // Return KALI_ENV for any KALI_ENV_ prefixed string
+    }
+
+    return resourceIdUpperCase; // Return as is for other cases
+  };
 
   return (
-    <Card 
-      className={`action-message ${action.resource_id ? action.resource_id.toUpperCase() : ''} ${selectedCellId === action.current_id ? 'selected' : ''}`}
+    <Card
+      className={`action-message ${actionResourceId(action.resource_id)} ${selectedCellId === action.current_id ? 'selected' : ''}`}
       onClick={handleContainerClick}
       variant="outlined"
+      ref={actionRef}
     >
       <CardContent>
         <Box className="action-message-header">
-          <Box>
+          <Box className="action-title">
             <Typography className="action-message-title">
-              {action.resource_id ? action.resource_id.toUpperCase() : 'ACTION'}
+              {action.resource_id ? actionResourceId(action.resource_id) : 'BASE_ACTION'}
             </Typography>
             {action.timestamp && (
               <Typography className="message-timestamp">
@@ -168,7 +230,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
                 />
               </Box>
               <Box className="message-buttons" sx={{ display: 'flex' }}>
-            <CopyButton onClick={handleCopyClick} />
+                <CopyButton onClick={handleCopyClick} />
                 <Button
                   variant="outlined"
                   color="secondary"
@@ -177,7 +239,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
                   aria-label="cancel"
                   className="cancel-button"
                 >
-                  <CloseIcon/>
+                  <CloseIcon />
                 </Button>
                 <Button
                   variant="outlined"
@@ -188,8 +250,8 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
                   className="save-button"
                   sx={{ mr: 1 }}
                 >
-                  <KeyboardArrowRightIcon/>
-                </Button>           
+                  <KeyboardArrowRightIcon />
+                </Button>
               </Box>
             </>
           ) : (
@@ -200,7 +262,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
                 </Typography>
               </Box>
               <Box className="message-buttons" sx={{ display: 'flex' }}>
-            <CopyButton onClick={handleCopyClick} />
+                <CopyButton onClick={handleCopyClick} />
                 <Button
                   variant="outlined"
                   color="primary"
@@ -228,7 +290,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
           {/* Metadata section */}
           {action.additional_metadata && (
             <Box className="metadata-section">
-              <Box 
+              <Box
                 className="metadata-toggle"
                 onClick={handleToggleMetadata}
               >
@@ -239,7 +301,7 @@ const ActionMessage = ({ action, onUpdateMessageInput, onRunMessage, onEditingCh
                   </IconButton>
                 </Typography>
               </Box>
-              
+
               <Collapse in={metadataExpanded}>
                 <Box className="metadata-content">
                   <Typography className="metadata-text">

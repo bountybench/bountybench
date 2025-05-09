@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List
 
 from fastapi import HTTPException
+from fastapi.websockets import WebSocketState
 
 from backend.execution_backends import ExecutionBackend
 from backend.schema import (
@@ -31,17 +32,24 @@ class LocalExecutionBackend(ExecutionBackend):
         Start a workflow and return the workflow ID, model, and status.
         """
         try:
+            workflow_args = {
+                "task_dir": Path(workflow_data.task_dir),
+                "bounty_number": workflow_data.bounty_number,
+                "vulnerability_type": workflow_data.vulnerability_type,
+                "interactive": workflow_data.interactive,
+                "phase_iterations": workflow_data.iterations,
+                "use_cwe": workflow_data.use_cwe,
+                "use_helm": workflow_data.use_helm,
+                "use_mock_model": workflow_data.use_mock_model,
+                "max_input_tokens": workflow_data.max_input_tokens,
+                "max_output_tokens": workflow_data.max_output_tokens,
+            }
+
+            if workflow_data.model != "":
+                workflow_args["model"] = workflow_data.model
+
             workflow = self.workflow_factory[workflow_data.workflow_name](
-                task_dir=Path(workflow_data.task_dir),
-                bounty_number=workflow_data.bounty_number,
-                vulnerability_type=workflow_data.vulnerability_type,
-                interactive=workflow_data.interactive,
-                phase_iterations=workflow_data.iterations,
-                model=workflow_data.model,
-                use_helm=workflow_data.use_helm,
-                use_mock_model=workflow_data.use_mock_model,
-                max_input_tokens=workflow_data.max_input_tokens,
-                max_output_tokens=workflow_data.max_output_tokens,
+                **workflow_args
             )
             workflow_id = workflow.workflow_message.workflow_id
             self.active_workflows[workflow_id] = {
@@ -55,7 +63,9 @@ class LocalExecutionBackend(ExecutionBackend):
                 "status": "initializing",
             }
         except Exception as e:
-            return {"error": str(e)}
+            error_traceback = traceback.format_exc()
+            print(f"Error starting workflow: {str(e)}\n{error_traceback}")
+            return {"error": str(e), "traceback": error_traceback}
 
     async def stop_workflow(self, workflow_id: str) -> Dict[str, Any]:
         """
@@ -159,6 +169,25 @@ class LocalExecutionBackend(ExecutionBackend):
         status = self.active_workflows[workflow_id]["status"]
         return {"workflow_id": workflow_id, "status": status}
 
+    async def get_workflow_appheader(self, workflow_id: str) -> Dict[str, Any]:
+        """
+        Get the workflow metadata for AppHeader.
+        """
+        if workflow_id not in self.active_workflows:
+            return {"error": f"Workflow {workflow_id} not found"}
+
+        workflow = self.active_workflows[workflow_id]["instance"]
+
+        model = workflow.params.get("model", "")
+        interactive = workflow.interactive
+        use_mock = workflow.params.get("use_mock_model", False)
+        return {
+            "workflow_id": workflow_id,
+            "model": model,
+            "interactive": interactive,
+            "use_mock": use_mock,
+        }
+
     async def list_active_workflows(self) -> List[Dict[str, Any]]:
         """
         List all active workflows.
@@ -168,11 +197,19 @@ class LocalExecutionBackend(ExecutionBackend):
             active_workflows_list.append(
                 {
                     "id": workflow_id,
-                    "status": workflow_data["status"],
-                    "name": workflow_data["instance"].__class__.__name__,
-                    "task": workflow_data["instance"].task,
+                    "status": workflow_data.get("status", "unknown"),
+                    "name": (
+                        workflow_data.get("instance", {}).__class__.__name__
+                        if "instance" in workflow_data
+                        else "Unknown"
+                    ),
+                    "task": (
+                        workflow_data.get("instance").task
+                        if "instance" in workflow_data
+                        else None
+                    ),
                     "timestamp": getattr(
-                        workflow_data["workflow_message"], "timestamp", None
+                        workflow_data.get("workflow_message", {}), "timestamp", None
                     ),
                 }
             )
@@ -197,8 +234,14 @@ class LocalExecutionBackend(ExecutionBackend):
                 await workflow.interactive_controller.set_last_message(
                     message_data.message_id
                 )
-                result = await self._next_iteration(workflow_id)
-                return result
+                num_iter = workflow.interactive_controller.get_num_iteration(
+                    message_data.num_iter, message_data.type_iter
+                )
+                results = []
+                for _ in range(num_iter):
+                    result = await self._next_iteration(workflow_id)
+                    results.append(result)
+                return results
             return {"status": "updated", "result": result.id}
         except Exception as e:
             error_traceback = traceback.format_exc()
@@ -336,22 +379,8 @@ class LocalExecutionBackend(ExecutionBackend):
                     )
 
             else:
-                # If workflow doesn't exist yet, initialize it
-                print(f"Auto-starting new workflow {workflow_id}")
-                self.active_workflows[workflow_id] = {
-                    "status": "initializing",
-                }
-                task = asyncio.create_task(
-                    self._run_workflow(workflow_id, websocket_manager, should_exit)
-                )
-                self.active_workflows[workflow_id]["task"] = task
-                await websocket.send_json(
-                    {
-                        "message_type": "workflow_status",
-                        "status": "starting",
-                        "can_execute": False,
-                    }
-                )
+                # If workflow_id has no associated active workflow, raise error
+                raise ValueError(f"Workflow {workflow_id} doesn't exist")
 
             # Handle incoming messages
             while not should_exit:
@@ -374,11 +403,20 @@ class LocalExecutionBackend(ExecutionBackend):
                         # Heartbeat is handled internally by WebSocketManager
                         continue
                 except asyncio.TimeoutError:
-                    # Timeout is normal, just continue the loop to check conditions again
+                    # Timeout is normal, verify client state is not disconnected, continue the loop to check conditions again
+                    if websocket.client_state == WebSocketState.DISCONNECTED:
+                        print(f"Client disconnected for workflow {workflow_id}")
+                        break
                     continue
                 except Exception as e:
                     print(f"Error handling WebSocket message: {e}")
-                    if "disconnect" in str(e).lower():
+                    if (
+                        "disconnect" in str(e).lower()
+                        or "not connected" in str(e).lower()
+                    ):
+                        print(
+                            f"Connection broken for workflow {workflow_id}, exiting loop"
+                        )
                         break
 
         except Exception as e:
@@ -398,10 +436,8 @@ class LocalExecutionBackend(ExecutionBackend):
 
         workflow = self.active_workflows[workflow_id]["instance"]
         try:
-            result = await workflow.interactive_controller.change_current_model(
-                new_model_name
-            )
-            return {"status": "updated", "result": result.id}
+            await workflow.interactive_controller.change_current_model(new_model_name)
+            return {"status": "updated"}
         except Exception as e:
             error_traceback = traceback.format_exc()
             print(
@@ -437,6 +473,11 @@ class LocalExecutionBackend(ExecutionBackend):
         """
         if workflow_id not in self.active_workflows:
             return {"error": f"Workflow {workflow_id} not found"}
+
+        if "instance" not in self.active_workflows[workflow_id]:
+            return {
+                "error": f"Workflow {workflow_id} is initializing, instance not ready yet"
+            }
 
         workflow = self.active_workflows[workflow_id]["instance"]
         resource_manager = workflow.resource_manager
@@ -510,7 +551,9 @@ class LocalExecutionBackend(ExecutionBackend):
 
             return {"message": f"Configuration saved successfully to {file_path}"}
         except Exception as e:
-            return {"error": str(e)}
+            error_traceback = traceback.format_exc()
+            print(f"Error saving config file: {str(e)}\n{error_traceback}")
+            return {"error": str(e), "traceback": error_traceback}
 
     async def _run_workflow(self, workflow_id: str, websocket_manager, should_exit):
         """
@@ -621,9 +664,9 @@ class LocalExecutionBackend(ExecutionBackend):
             return {"error": "Workflow not found"}
 
         workflow = self.active_workflows[workflow_id]["instance"]
-        if hasattr(workflow, "next_iteration_event"):
+        if hasattr(workflow, "next_iteration_queue"):
             print("next_iter triggered")
-            workflow.next_iteration_event.set()
+            await workflow.next_iteration_queue.put(1)
             return {"status": "next iteration triggered"}
         else:
             return {"error": "Workflow is not in interactive mode"}

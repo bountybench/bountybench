@@ -1,10 +1,10 @@
-from typing import Dict, Any, Callable, List
+from typing import Any, Callable, Dict, List
 
 from backend.execution_backends import ExecutionBackend
 from backend.schema import (
-    StartWorkflowInput,
     MessageData,
     MessageInputData,
+    StartWorkflowInput,
     UpdateInteractiveModeInput,
 )
 
@@ -29,6 +29,10 @@ class KubernetesExecutionBackend(ExecutionBackend):
 
     async def get_workflow_status(self, workflow_id: str) -> Dict[str, Any]:
         """Get the current status of a workflow."""
+        raise NotImplementedError
+
+    async def get_workflow_appheader(self, workflow_id: str) -> Dict[str, Any]:
+        """Get the workflow metadata for AppHeader."""
         raise NotImplementedError
 
     async def list_active_workflows(self) -> List[Dict[str, Any]]:

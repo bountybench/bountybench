@@ -17,6 +17,11 @@ class Message(ABC):
 
         self.timestamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
         self._id = str(id(self))
+        self._set_parent_from_context()
+
+    def _set_parent_from_context(self):
+        """Override this method in subclasses to set the parent message from the context."""
+        pass
 
     @property
     def workflow_id(self) -> str:

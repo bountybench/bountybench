@@ -67,11 +67,17 @@ const LogsList = ({
     });
   };
 
+  const totalLogs = Object.values(groupedLogs).reduce((acc, secondaryGroups) => {
+    return acc + Object.values(secondaryGroups).reduce((innerAcc, files) => innerAcc + files.length, 0);
+  }, 0);
 
   return (
     <Box className="log-sidebar-content">
       <Typography variant='subtitle1' className='log-sidebar-title'>
         Log History
+      </Typography>
+      <Typography variant='subtitle1' className='log-sidebar-title'>
+        Num Logs: {totalLogs}
       </Typography>
       <List>
         {Object.entries(groupedLogs).map(([primaryGroup, secondaryGroups]) => (

@@ -29,7 +29,6 @@ class AgentManager:
         """
         Initialize all agents for a phase in one batch operation.
         """
-        logger.debug(f"Registered agents: {self._agent_configs.keys()}")
 
         initialized_agents = []
         self._phase_agents = {}
@@ -76,13 +75,23 @@ class AgentManager:
             if ResourceType.MODEL in agent.ACCESSIBLE_RESOURCES:
                 if not agent.resources.has_bound(ResourceType.MODEL):
                     raise AttributeError("Agent does not have a 'model' attribute")
-                logger.info(
+                logger.debug(
                     f"Updating agent: {agent}, {agent.resources.model.to_dict()}"
                 )
-                resource_config = ModelResourceConfig.create(model=new_model)
-                resource = ModelResource("model", resource_config)
-                agent.resources.model = resource
-                logger.info(
+                # If a model resource exist, only need to update the model name
+                # resource_manager already handles resource registration
+                if agent.resources.model:
+                    existing_model_name = agent.resources.model.model
+                    logger.debug(
+                        f"Updating agent {agent_id} from {existing_model_name} to {new_model}"
+                    )
+                    agent.resources.model.model = new_model
+                else:
+                    resource_config = ModelResourceConfig.create(model=new_model)
+                    resource = ModelResource("model", resource_config)
+                    agent.resources.model = resource
+
+                logger.debug(
                     f"Updated agent: {agent}, {agent.resources.model.to_dict()}"
                 )
 
@@ -95,19 +104,20 @@ class AgentManager:
                 if not agent.resources.has_bound(ResourceType.MODEL):
                     raise AttributeError("Agent does not have a 'model' attribute")
 
-                existing_model_name = agent.resources.model.model
-                logger.info(
-                    f"Updating agent {agent_id} to use_mock_model={use_mock_model}"
-                )
+                if agent.resources.model:
+                    existing_model_name = agent.resources.model.model
+                    logger.debug(
+                        f"Updating agent {agent_id} to use_mock_model={use_mock_model}"
+                    )
+                    agent.resources.model.use_mock_model = use_mock_model
+                else:
+                    resource_config = ModelResourceConfig.create(
+                        model=existing_model_name, use_mock_model=use_mock_model
+                    )
+                    resource = ModelResource("model", resource_config)
+                    agent.resources.model = resource
 
-                resource_config = ModelResourceConfig.create(
-                    model=existing_model_name, use_mock_model=use_mock_model
-                )
-
-                resource = ModelResource("model", resource_config)
-                agent.resources.model = resource
-
-                logger.info(
+                logger.debug(
                     f"Agent {agent_id} updated: {agent.resources.model.to_dict()}"
                 )
 
@@ -115,6 +125,7 @@ class AgentManager:
         self, agent_id: str, agent_class: Type[BaseAgent], agent_config: AgentConfig
     ) -> BaseAgent:
         """Create a new agent and bind resources to it."""
+        logger.debug(f"Creating agent {agent_id} with config {agent_config}")
         agent = agent_class(agent_id, agent_config)
         self.bind_resources_to_agent(agent)
         return agent

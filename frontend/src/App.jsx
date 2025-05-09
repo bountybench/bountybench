@@ -4,7 +4,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { Routes, Route, Navigate } from 'react-router';
+import { Routes, Route, Navigate, useLocation } from 'react-router';
 import { WorkflowDashboard } from './components/WorkflowDashboard/WorkflowDashboard';
 import { WorkflowLauncher } from './components/WorkflowLauncher/WorkflowLauncher';
 import { AppHeader } from './components/AppHeader/AppHeader';
@@ -17,18 +17,51 @@ import { API_BASE_URL } from './config';
 
 function App() {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
-  const [interactiveMode, setInteractiveMode] = useState(true);
+  const [interactiveMode, setInteractiveMode] = useState(false);
   const [useMockModel, setUseMockModel] = useState(false); 
   const [workflowStatus, setWorkflowStatus] = useState(null);
   const [currentPhase, setCurrentPhase] = useState(null);
   const toastIdRef = useRef({});
 
+  const location = useLocation();
+
+  useEffect(() => {
+    (async () => {
+      const match = location.pathname.match(/^\/workflow\/(\d+)/);
+      if (match) {
+        const wfId = match[1];
+        if (!selectedWorkflow || selectedWorkflow.id !== wfId) {
+          try {
+            const response = await fetch(`${API_BASE_URL}/workflow/${wfId}/appheader`);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            console.log("appheader: ", data);
+  
+            setSelectedWorkflow({ id: data.workflow_id, model: data.model });
+            setInteractiveMode(data.interactive);
+            setUseMockModel(data.use_mock);
+          } catch (error) {
+            console.error('Error fetching resources:', error);
+          }
+        }
+      } else {
+        setSelectedWorkflow(null);
+        setInteractiveMode(true);
+        setUseMockModel(false);
+      }
+    })();
+  }, [location.pathname, selectedWorkflow]);
+
   const handleWorkflowStart = (workflowId, model, isInteractive) => {
+    if (!selectedWorkflow) return;
+    
     setSelectedWorkflow({ id: workflowId, model: model });
     setInteractiveMode(isInteractive);
   };
 
   const handleInteractiveModeToggle = async () => {
+    if (!selectedWorkflow) return;
+
     const newInteractiveMode = !interactiveMode;
     setInteractiveMode(newInteractiveMode);
     if (selectedWorkflow) {
@@ -86,6 +119,8 @@ function App() {
 
  
   const handleMockModelToggle = async () => {
+    if (!selectedWorkflow) return;
+
     const newMockState = !useMockModel;
     setUseMockModel(newMockState);
   
@@ -124,6 +159,8 @@ function App() {
 
 
   const handleWorkflowStateUpdate = (status, phase) => {
+    if (!selectedWorkflow) return;
+
     setWorkflowStatus(status);
     setCurrentPhase(phase);
   };

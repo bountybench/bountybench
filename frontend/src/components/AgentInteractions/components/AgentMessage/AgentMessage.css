@@ -13,7 +13,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
+  padding: 6px 20px;
   background-color: #f8f9fa;
   border-bottom: 1px solid #e0e0e0;
 }
@@ -31,7 +31,7 @@
 }
 
 .agent-message-content {
-  padding: 12px 16px;
+  padding: 12px 32px;
   background-color: #ffffff;
 }
 
@@ -120,7 +120,7 @@
 
 .action-messages-container {
   margin-top: 16px;
-  padding: 0 16px;
+  padding: 0 32px;
 }
 
 .display-mode-container {
@@ -163,6 +163,35 @@
 
 .selected {
   border: 2px solid #ffd23d !important;
-  background-color: #f0f8ff;
   border-radius: 4px;
+}
+
+.agent-title {
+  display: flex;
+  flex-direction: row;
+  align-items: end;
+  gap: 15px;  
+}
+
+.agent-summary {
+  margin-top: 8px;
+  color: #333333;
+  padding: 8px;
+  margin: 16px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.invariant-scores {
+  padding: 12px;
+  font-size: 0.8rem !important;
+  color: #1f1f1f !important;
+}
+
+
+.invariant-scores-item {
+  padding: 6px;
+  padding-left: 24px;
+  font-size: 0.75rem !important;
+  color: #1f1f1f !important;
 }

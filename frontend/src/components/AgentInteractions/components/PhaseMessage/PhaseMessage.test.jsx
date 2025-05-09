@@ -124,7 +124,8 @@ test("handles updating action input", async () => {
 		</ThemeProvider>
 	);
 	// Checks that the newest version is displayed
-	expect(await screen.findByText(/Agent: agent-1/i)).toBeInTheDocument();
+	expect(await screen.findByText(/Iterations: 2/i)).toBeInTheDocument();
+	expect(await screen.findByText(/AGENT-1/i)).toBeInTheDocument();
 	expect(await screen.findByText(/New Message 1/i)).toBeInTheDocument();
 	expect(await screen.findByText(/current1/i)).toBeInTheDocument();
 	expect(await screen.findByText(/current2/i)).toBeInTheDocument();

@@ -2,7 +2,11 @@ from typing import List, Optional
 
 
 def parse_field(
-    text: str, field: str, multiline: bool = True, stop_str: Optional[str] = None
+    text: str,
+    field: str,
+    multiline: bool = True,
+    stop_str: Optional[str] = None,
+    from_end: Optional[bool] = False,
 ) -> Optional[str]:
     """
     Extracts a field value from the input text based on the given field name.
@@ -12,6 +16,7 @@ def parse_field(
     - field: The name of the field to extract.
     - multiline: If True, extracts multiple lines until an optional stop string or the end of the text.
     - stop_str: An optional string that defines where the field extraction should stop.
+    - from_end: If True, finds the last instance of the field in the text instead of the first.
 
     Returns:
     - The extracted field value as a string if found, or None if not found.
@@ -21,7 +26,12 @@ def parse_field(
 
     # Find the start index for the field
     field_marker = f"{field}"
-    start_index = text.lower().find(field_marker.lower())
+
+    if from_end:
+        start_index = text.lower().rfind(field_marker.lower())
+    else:
+        start_index = text.lower().find(field_marker.lower())
+
     if start_index == -1:
         # Field not found
         return None

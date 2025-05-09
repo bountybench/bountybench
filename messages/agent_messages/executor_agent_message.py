@@ -1,21 +1,39 @@
+from typing import Optional
 from messages.agent_messages.agent_message import AgentMessage
 
 
 class ExecutorAgentMessage(AgentMessage):
-    @property
-    def message(self) -> str:
-        """
-        Getter for message property that aggregates messages from current actions.
-        """
-        current_action_messages = self.current_children
-        if current_action_messages:
-            message = ""
-            for action_message in current_action_messages:
-                if action_message and action_message.message:
-                    message += action_message.message
-            return message
-        elif self._message:
-            # Else if manually set (e.g. an agent error message), return it
-            return self._message
+    def __init__(
+        self,
+        agent_id: str,
+        message: Optional[str] = None,
+        submission: bool = False,
+        prev: AgentMessage = None,
+    ) -> None:
+        super().__init__(agent_id=agent_id, message=message, prev=prev)
+        self._submission = submission
 
-        return ""
+    @property
+    def submission(self) -> bool:
+        return self._submission
+
+    def set_submission(self, value: bool):
+        self._submission = value
+
+    def to_broadcast_dict(self) -> dict:
+        base_dict = super().to_broadcast_dict()
+        base_dict.update(
+            {
+                "submission": self.submission,
+            }
+        )
+        return base_dict
+
+    def to_log_dict(self) -> dict:
+        base_dict = super().to_log_dict()
+        base_dict.update(
+            {
+                "submission": self.submission,
+            }
+        )
+        return base_dict

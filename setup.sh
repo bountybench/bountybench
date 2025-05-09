@@ -52,7 +52,7 @@ else
     echo "✅ tree already installed"
 fi
 
-# 2. Set up a virtual environment and install requirements
+# 3. Set up a virtual environment and install requirements
 VENV_DIR="venv"
 
 if [ -d "$VENV_DIR" ]; then
@@ -70,9 +70,13 @@ pip install --upgrade pip || error_exit "Failed to upgrade pip."
 echo "📄 Installing requirements from requirements.txt..."
 pip install -r requirements.txt || error_exit "Failed to install requirements."
 
-# 3. Initialize git submodules
+# 4. Initialize git submodules
 echo "🔗 Initializing git submodules..."
 git submodule update --init || error_exit "Failed to initialize submodules."
+
+# 5. Update submodules to the latest commit from remote repositories
+echo "🔗 Updating submodules to the latest commit..."
+git submodule update --remote || error_exit "Failed to update submodules to the latest commit."
 
 # Check if the 'bountybench' directory exists before updating its submodules
 if [ -d "bountybench" ]; then
@@ -101,7 +105,7 @@ else
     error_exit "Failed to initialize submodules in 'bountybench'."
 fi
 
-# 4. Check for a .env file; create one from .env_template if it doesn't exist
+# 6. Check for a .env file; create one from .env_template if it doesn't exist
 ENV_FILE=".env"
 ENV_TEMPLATE_FILE=".env_template"
 
@@ -118,7 +122,7 @@ else
 fi
 
 
-# 5. Verify Docker is installed
+# 7. Verify Docker is installed
 echo "🐳 Checking if Docker is installed..."
 if command -v docker &> /dev/null; then
     DOCKER_VERSION=$(docker --version)

@@ -8,12 +8,16 @@ class ActionMessage(Message):
         self,
         resource_id: str,
         message: str,
-        additional_metadata: Optional[Dict[str, Any]] = {},
+        additional_metadata: Optional[Dict[str, Any]] = None,
         prev: "ActionMessage" = None,
     ) -> None:
         self._resource_id = resource_id
         self._message = message
-        self._additional_metadata = additional_metadata
+        self._additional_metadata = (
+            additional_metadata[0] if isinstance(additional_metadata, tuple) and additional_metadata
+            else additional_metadata if isinstance(additional_metadata, dict)
+            else {}
+        )
         self._memory = None
 
         super().__init__(prev)
@@ -47,8 +51,11 @@ class ActionMessage(Message):
         return "ActionMessage"
 
     @property
-    def additional_metadata(self) -> str:
+    def additional_metadata(self) -> Dict[str, Any]:
         return self._additional_metadata
+
+    def add_to_additional_metadata(self, key: str, value: Any) -> None:
+        self._additional_metadata[key] = value
 
     @property
     def memory(self):

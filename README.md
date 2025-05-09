@@ -189,7 +189,7 @@ Available workflow types:
 - `exploit_patch_workflow`:
 - `patch_workflow`:
 - `detect_patch_workflow`:
-- `scraper_workflow`
+- `scraper_workflow`:
 
 Required flags vary by workflow type.
 

@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from workflows.interactive_controller import IterationType
+
 
 class StartWorkflowInput(BaseModel):
     workflow_name: str = Field(..., description="Name of the workflow to start")
@@ -17,6 +19,7 @@ class StartWorkflowInput(BaseModel):
     iterations: int = Field(..., gt=0, description="Number of phase iterations")
     model: str = Field(..., description="Name of the model")
     use_mock_model: bool = Field(default=False, description="Mock Model")
+    use_cwe: bool = Field(..., description="Using CWE vs. No CWE")
     use_helm: bool = Field(..., description="Using HELM vs. Non-Helm")
     max_input_tokens: Optional[int] = Field(
         None, ge=1, description="Maximum input tokens for the model"
@@ -33,6 +36,8 @@ class MessageInputData(BaseModel):
 
 class MessageData(BaseModel):
     message_id: str
+    num_iter: Optional[int] = 1
+    type_iter: Optional[IterationType] = IterationType.AGENT
 
 
 class UpdateInteractiveModeInput(BaseModel):

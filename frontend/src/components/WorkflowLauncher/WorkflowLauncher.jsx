@@ -31,8 +31,8 @@ const LauncherState = {
   CREATING_WORKFLOW: 'CREATING_WORKFLOW',
 };
 
-const DEFAULT_NON_HELM_MODEL = 'openai/o3-mini-2025-01-31';
-const DEFAULT_HELM_MODEL = 'anthropic/claude-3-5-sonnet-20240620';
+const DEFAULT_NON_HELM_MODEL = 'openai/o3-2025-04-16';
+const DEFAULT_HELM_MODEL = 'anthropic/claude-3-7-sonnet-20250219';
 
 export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteractiveMode, useMockModel, setUseMockModel}) => {
   const navigate = useNavigate();
@@ -59,8 +59,8 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   const [tasks, setTasks] = useState([]);
   const [vulnerabilityTypes, setVulnerabilityTypes] = useState([]);
   const [configDefaults, setConfigDefaults] = useState({
-    max_input_tokens: "",
-    max_output_tokens: ""
+    max_input_tokens: "8192",
+    max_output_tokens: "16384"
   });
   
   const [openSaveDialog, setOpenSaveDialog] = useState(false);
@@ -71,14 +71,15 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
     workflow_name: '',
     tasks: [{ task_dir: '', bounty_number: '' }],
     vulnerability_type: '',
-    interactive: true,
-    iterations: 30,
+    interactive: false,
+    iterations: 100,
     api_key_name: '',
     api_key_value: '',
     model: '',
-    use_helm: false,
-    max_input_tokens: '',
-    max_output_tokens: '',
+    use_cwe: false, 
+    use_helm: true,    
+    max_input_tokens: "8192",
+    max_output_tokens: "16384"
   });
 
   const shouldShowVulnerabilityType = (workflowName) => {
@@ -92,7 +93,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
   
   const [allModels, setAllModels] = useState({});
   const [selectedModels, setSelectedModels] = useState([]);
-  const [topLevelSelection, setTopLevelSelection] = useState("Non-HELM");
+  const [topLevelSelection, setTopLevelSelection] = useState("HELM");
 
   const setDefaultModel = (modelList, defaultModelName) => {
     return modelList.find(m => m.name === defaultModelName) || modelList[0];
@@ -114,6 +115,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       model: defaultModel ? defaultModel.name : '',
       use_helm: isHelmModel,
       use_mock_model: prev.use_mock_model, // Preserve mock model selection
+      max_output_tokens: prev.max_output_tokens,
     }));
   };
 
@@ -160,7 +162,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
       setFormData(prev => ({
         ...prev,
         model: defaultModel ? defaultModel.name : '',
-        use_helm: isHelmModel
+        use_helm: isHelmModel,
       }));
     } catch (err) {
       setLauncherState({
@@ -271,6 +273,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           interactive: interactiveMode,
           iterations: formData.iterations,
           model: formData.model,
+          use_cwe: formData.use_cwe,
           use_helm: formData.use_helm,
           use_mock_model: useMockModel,
           max_input_tokens: formData.max_input_tokens ? parseInt(formData.max_input_tokens) : undefined,
@@ -553,7 +556,15 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
                 control={
                   <Switch
                     checked={useMockModel} 
-                    onChange={(e) => setUseMockModel(e.target.checked)} 
+                    onChange={(e) => {
+                      setUseMockModel(e.target.checked);
+                      setFormData(prev => ({
+                        ...prev,
+                        model: e.target.checked 
+                          ? '' 
+                          : (formData.use_helm ? DEFAULT_HELM_MODEL : DEFAULT_NON_HELM_MODEL)
+                      }));
+                    }} 
                     name="use_mock_model"
                     color="primary"
                   />
@@ -591,6 +602,18 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
           }
           label="Interactive Mode"
           />
+
+        <FormControlLabel
+          control={
+            <Switch
+              checked={formData.use_cwe}
+              onChange={(e) => setFormData(prev => ({ ...prev, use_cwe: e.target.checked }))}
+              name="use_cwe"
+              color="primary"
+            />
+          }
+          label="Include CWE"
+        />
 
 
         <Button

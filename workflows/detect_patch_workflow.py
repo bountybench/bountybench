@@ -1,91 +1,115 @@
 import asyncio
 from pathlib import Path
 
-from prompts.prompts import DETECT_PATCH_PROMPT, TARGET_HOST_DETECT_PATCH_PROMPT
+from phases.detect_patch_phase import DetectPatchPhase
+from prompts.prompts import (
+    CWE_DETECT_PATCH_PROMPT,
+    DETECT_PATCH_PROMPT,
+    STOP_TOKEN,
+    TARGET_HOST_CWE_DETECT_PATCH_PROMPT,
+    TARGET_HOST_DETECT_PATCH_PROMPT,
+)
+from resources.utils import read_writeup
 from utils.logger import get_main_logger
-from workflows.patch_workflow import PatchWorkflow
+from workflows.bounty_workflow import BountyWorkflow
 
 logger = get_main_logger(__name__)
 
 
-class DetectPatchWorkflow(PatchWorkflow):
-    """Workflow for detecting vulnerabilities"""
+class DetectPatchWorkflow(BountyWorkflow):
+    """Workflow for detecting and patching vulnerabilities"""
 
-    def __init__(self, *args, **kwargs):
-        kwargs["use_agent_exploit"] = True
-        super().__init__(*args, **kwargs)
+    # Default values for optional arguments
+    default_values = {
+        "interactive": False,
+        "use_helm": False,
+        "use_mock_model": False,
+        "max_input_tokens": 8192,
+        "max_output_tokens": 4096,
+        "disable_submit": False,
+        "use_cwe": False,
+    }
 
-    """Workflow for detecting vulnerabilities"""
+    def validate_arguments(self, kwargs):
+        """
+        Custom validation logic for DetectPatchWorkflow. Checks that:
+        1. Required base args are present: task_dir, bounty_number, phase_iterations
+        2. Model is required only when not using mock model
+        3. Both model and use_mock_model cannot be set simultaneously
+        """
+        # Check common arguments validation from parent
+        super().validate_arguments(kwargs)
 
-    def _get_initial_prompt(self):
+        # Check base required arguments
+        required_base_args = ["task_dir", "bounty_number", "phase_iterations"]
+        missing_args = [arg for arg in required_base_args if arg not in kwargs]
+        if missing_args:
+            raise ValueError(
+                f"Missing required arguments for {self.name}: {', '.join(missing_args)}"
+            )
+
+        # Exactly one of (--use_mock_model, --model) should be set
+        # Fail if both set
+        if kwargs.get("use_mock_model", False) and "model" in kwargs:
+            raise ValueError(
+                f"Cannot specify both '--model' and '--use_mock_model' simultaneously. "
+            )
+
+        # Fail if neither is set
+        if not kwargs.get("use_mock_model", False) and "model" not in kwargs:
+            raise ValueError(
+                f"'--model' argument is required when not using mock model"
+            )
+
+    def _create_phases(self):
+        """Define and register phases specific to DetectPatchWorkflow."""
+
+        target_host = self.repo_metadata.get("target_host")
+        resolved_host = target_host
+
+        phase_kwargs = {
+            "use_mock_model": self.params.get("use_mock_model"),
+            "model": self.params.get("model"),
+            "helm": self.params.get("use_helm"),
+            "task_dir": self.task_dir,
+            "bounty_number": self.bounty_number,
+            "vulnerability_type": self.params.get("vulnerability_type"),
+            "task_description": read_writeup(self.task_dir, self.bounty_number),
+            "stop_token": STOP_TOKEN,
+            "cwe": self.bounty_metadata["CWE"],
+            "target_host": self.repo_metadata["target_host"],
+            "resolved_host": resolved_host,
+            "initial_prompt": self.initial_prompt,
+            "info": self.repo_metadata.get("info", ""),
+            "max_input_tokens": self.params.get("max_input_tokens"),
+            "max_output_tokens": self.params.get("max_output_tokens"),
+            "interactive": self.interactive,
+            "max_iterations": self.params.get("phase_iterations"),
+            "submit": not self.params.get("disable_submit", False),
+        }
+
+        if self.params.get("use_cwe", False):
+            phase_kwargs["cwe"] = self.bounty_metadata["CWE"]
+
+        patch_phase = DetectPatchPhase(workflow=self, **phase_kwargs)
+
+        self._register_root_phase(patch_phase)
+
+    def _get_initial_prompt(self) -> str:
         """
         Provide the initial prompt for the workflow by reading the exploit report.
 
         Returns:
             str: The formatted initial prompt.
         """
-        return (
-            TARGET_HOST_DETECT_PATCH_PROMPT
-            if self.repo_metadata["target_host"]
-            else DETECT_PATCH_PROMPT
-        )
+        use_cwe = self.params.get("use_cwe", False)
+        has_target_host = bool(self.repo_metadata.get("target_host"))
 
-
-async def main() -> None:
-    """Main entry point"""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Run the exploit and patch workflow")
-    parser.add_argument("--use_mock_model", action="store_true", help="Use mock model")
-    parser.add_argument(
-        "--task_dir", type=str, required=True, help="The directory of the task repo"
-    )
-    parser.add_argument(
-        "--bounty_number", type=str, required=True, help="The bounty number"
-    )
-    parser.add_argument(
-        "--vulnerability_type", type=str, help="The vulnerability type for detection"
-    )
-    parser.add_argument(
-        "--interactive", action="store_true", help="Run in interactive mode"
-    )
-    parser.add_argument("--model", type=str, help="The LM model to query")
-    parser.add_argument("--helm", action="store_true", help="Use HelmModels")
-    parser.add_argument(
-        "--max_input_tokens", type=int, help="Max input tokens to pass into model"
-    )
-    parser.add_argument(
-        "--max_output_tokens", type=int, help="Max output tokens to pass into model"
-    )
-    parser.add_argument(
-        "--phase_iterations",
-        type=int,
-        help="max iteractions to run of ExploitPhase and PatchPhase each",
-    )
-
-    args = parser.parse_args()
-
-    logger.info("Parsed command line args")
-
-    # Create logs directory
-    logs_dir = Path("logs")
-    logs_dir.mkdir(exist_ok=True)
-    logger.info(f"Created logs directory at: {logs_dir}")
-
-    # Run workflow
-    workflow = DetectPatchWorkflow(
-        task_dir=Path(args.task_dir),
-        bounty_number=args.bounty_number,
-        vulnerability_type=args.vulnerability_type,
-        interactive=args.interactive,
-        use_mock_model=args.use_mock_model,
-        model=args.model,
-        max_input_tokens=args.max_input_tokens,
-        max_output_tokens=args.max_output_tokens,
-        phase_iterations=args.phase_iterations,
-    )
-    await workflow.run()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+        if use_cwe and has_target_host:
+            return TARGET_HOST_CWE_DETECT_PATCH_PROMPT
+        elif use_cwe:
+            return CWE_DETECT_PATCH_PROMPT
+        elif has_target_host:
+            return TARGET_HOST_DETECT_PATCH_PROMPT
+        else:
+            return DETECT_PATCH_PROMPT

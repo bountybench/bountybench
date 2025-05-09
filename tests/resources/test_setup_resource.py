@@ -2,15 +2,18 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import docker
 import pytest
 
 from resources.base_setup_resource import BaseSetupResource
-from resources.bounty_setup_resource import BountySetupResource, BountySetupResourceConfig
+from resources.bounty_setup_resource import (
+    SETUP_FILES_DIR,
+    BountySetupResource,
+    BountySetupResourceConfig,
+)
 from resources.repo_setup_resource import RepoSetupResource, RepoSetupResourceConfig
-
 
 
 @pytest.fixture
@@ -153,7 +156,7 @@ def test_cleanup_on_initialization_failure(temp_dir):
     """Test that cleanup happens if a runtime error occurs during initialization."""
     resource_id = "test_resource"
     test_container_name = "test_container_cleanup_test"
-    
+
     # Make sure the container is not running at the start of the test
     subprocess.run(["docker", "stop", test_container_name], capture_output=True)
     subprocess.run(["docker", "rm", test_container_name], capture_output=True)
@@ -162,21 +165,31 @@ def test_cleanup_on_initialization_failure(temp_dir):
         # Create a test directory structure for the bounty setup
         bounty_dir = Path(temp_dir) / "bounties" / "bounty_0" / "setup_files"
         bounty_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Add a test setup script that doesn't actually create a container
         # We'll mock the container creation
         setup_script = bounty_dir / "setup_bounty_env.sh"
-        setup_script.write_text(f"""
+        setup_script.write_text(
+            f"""
             echo "Container {test_container_name} Started"
             exit 0
-        """)
+        """
+        )
         setup_script.chmod(0o755)
 
-        with patch.object(BaseSetupResource, 'stop') as mock_stop:
-            with patch.object(BaseSetupResource, 'extract_container_names', return_value=[test_container_name]):
-                with patch.object(BaseSetupResource, 'wait_until_all_containers_healthy') as mock_health_check:
-                    mock_health_check.side_effect = RuntimeError("Failed to wait until all containers healthy")
-                    
+        with patch.object(BaseSetupResource, "stop") as mock_stop:
+            with patch.object(
+                BaseSetupResource,
+                "extract_container_names",
+                return_value=[test_container_name],
+            ):
+                with patch.object(
+                    BaseSetupResource, "wait_until_all_containers_healthy"
+                ) as mock_health_check:
+                    mock_health_check.side_effect = RuntimeError(
+                        "Failed to wait until all containers healthy"
+                    )
+
                     # The test should raise the expected RuntimeError
                     with pytest.raises(RuntimeError) as exc_info:
                         BountySetupResource(
@@ -187,17 +200,20 @@ def test_cleanup_on_initialization_failure(temp_dir):
                             ),
                         )
 
-                    assert "Failed to wait until all containers healthy" in str(exc_info.value)
-                    
+                    assert "Failed to wait until all containers healthy" in str(
+                        exc_info.value
+                    )
+
                     # Verify that stop was called to clean up containers
-                    assert mock_stop.called, "The stop method was not called to clean up containers"
-    
+                    assert (
+                        mock_stop.called
+                    ), "The stop method was not called to clean up containers"
+
     finally:
         # Ensure cleanup even if the test fails
         subprocess.run(["docker", "stop", test_container_name], capture_output=True)
         subprocess.run(["docker", "rm", test_container_name], capture_output=True)
 
-    
 
 def test_error_handling(temp_dir):
     """Test error scenarios for SetupResource."""
@@ -215,3 +231,154 @@ def test_error_handling(temp_dir):
 
     with pytest.raises(RuntimeError, match="Unable to successfully execute"):
         RepoSetupResource("test_invalid_script", RepoSetupResourceConfig(temp_dir))
+
+
+@pytest.fixture
+def mock_bounty_setup_resource():
+    """Create a mock BountySetupResource for testing update_work_dir"""
+    with patch("resources.base_setup_resource.run_command") as mock_run_command:
+        mock_run_command.return_value = Mock(returncode=0, stdout=b"", stderr=b"")
+
+        # Create a temporary task directory structure for testing
+        test_task_dir = Path("/tmp/test_task_dir")
+
+        # Mock the Path.exists and Path.is_dir to return True
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+        ):
+
+            # Create a mock config
+            config = BountySetupResourceConfig(
+                task_dir=test_task_dir, bounty_number="123"
+            )
+
+            # Create the resource with setup mocked
+            with patch.object(BountySetupResource, "setup", return_value=None):
+                resource = BountySetupResource("test_resource", config)
+
+                # Mock the initial work_dir
+                resource.work_dir = (
+                    test_task_dir / "bounties" / "bounty_123" / SETUP_FILES_DIR
+                )
+
+                yield resource
+
+
+def test_update_work_dir_success(mock_bounty_setup_resource):
+    """Test successful update of work_dir"""
+    new_work_dir = Path("/tmp/new_location") / SETUP_FILES_DIR
+    old_work_dir = mock_bounty_setup_resource.work_dir
+
+    # Mock stop method to avoid actual stopping of resources
+    with (
+        patch.object(mock_bounty_setup_resource, "stop"),
+        patch("resources.bounty_setup_resource.logger") as mock_logger,
+    ):
+
+        mock_bounty_setup_resource.update_work_dir(new_work_dir)
+
+        # Verify work_dir was updated
+        assert mock_bounty_setup_resource.work_dir == new_work_dir
+
+        # Verify logs were called
+        mock_logger.debug.assert_any_call(
+            f"Stopping current bounty resource in {old_work_dir}"
+        )
+        mock_logger.debug.assert_any_call(
+            f"Updated work_dir from {old_work_dir} to {new_work_dir}"
+        )
+
+
+def test_update_work_dir_not_exists(mock_bounty_setup_resource):
+    """Test with a directory that doesn't exist"""
+    new_work_dir = Path("/tmp/nonexistent_dir") / SETUP_FILES_DIR
+
+    # Mock Path.exists to return False for the new work_dir
+    with (
+        patch.object(Path, "exists", lambda self: str(self) != str(new_work_dir)),
+        patch.object(mock_bounty_setup_resource, "stop"),
+    ):
+
+        # Should raise FileNotFoundError
+        with pytest.raises(FileNotFoundError):
+            mock_bounty_setup_resource.update_work_dir(new_work_dir)
+
+
+def test_update_work_dir_wrong_dirname(mock_bounty_setup_resource):
+    """Test with a directory that has wrong name (not setup_files)"""
+    new_work_dir = Path("/tmp/wrong_dir_name")
+
+    with patch.object(mock_bounty_setup_resource, "stop"):
+        # Should raise ValueError
+        with pytest.raises(ValueError):
+            mock_bounty_setup_resource.update_work_dir(new_work_dir)
+
+
+def test_update_work_dir_stops_old_resources(mock_bounty_setup_resource):
+    """Test that stop is called on the old work_dir"""
+    new_work_dir = Path("/tmp/new_location") / SETUP_FILES_DIR
+
+    # Mock the stop method
+    with patch.object(mock_bounty_setup_resource, "stop") as mock_stop:
+        mock_bounty_setup_resource.update_work_dir(new_work_dir)
+
+        # Verify stop was called
+        mock_stop.assert_called_once()
+
+
+def test_skip_setup_start(temp_dir):
+    """Test that _start skips setup when skip_setup is True"""
+    # Create a mock setup script that would fail if executed
+    test_file_path = temp_dir / "setup_repo_env.sh"
+    test_file_path.write_text("exit 1")  # This would fail if actually run
+    test_file_path.chmod(0o755)
+
+    # Create a resource with normal config but setup mocked to avoid actual execution
+    with patch.object(BaseSetupResource, "_start"):
+        resource = RepoSetupResource("test_skip", RepoSetupResourceConfig(temp_dir))
+
+    # Now set skip_setup to True
+    resource.skip_setup = True
+
+    # Test _start method directly
+    with patch("resources.base_setup_resource.logger") as mock_logger:
+        resource._start()
+
+        # Verify that the appropriate message was logged
+        mock_logger.debug.assert_called_once_with(
+            f"Skipping setup for {resource.setup_script_name}"
+        )
+
+
+def test_skip_setup_restart(temp_dir):
+    """Test that restart skips setup when skip_setup is True"""
+    # Create a mock setup script that would fail if executed
+    test_file_path = temp_dir / "setup_repo_env.sh"
+    test_file_path.write_text("exit 1")  # This would fail if actually run
+    test_file_path.chmod(0o755)
+
+    # Create a resource with normal config but setup mocked
+    with patch.object(BaseSetupResource, "_start"):
+        resource = RepoSetupResource(
+            "test_skip_restart", RepoSetupResourceConfig(temp_dir)
+        )
+
+    # Set skip_setup to True
+    resource.skip_setup = True
+
+    with (
+        patch.object(resource, "stop") as mock_stop,
+        patch("resources.base_setup_resource.logger") as mock_logger,
+    ):
+
+        # Call restart - it should call stop and then _start which should skip
+        resource.restart()
+
+        # Verify that stop was called
+        mock_stop.assert_called_once()
+
+        # Verify the skip message was logged by _start during restart
+        mock_logger.debug.assert_called_once_with(
+            f"Skipping setup for {resource.setup_script_name}"
+        )

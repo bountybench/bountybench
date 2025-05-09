@@ -1,11 +1,11 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Literal, Optional, Type
 
 from resources.bounty_setup_resource import BountySetupResource
 from resources.docker_resource import DockerResource
 from resources.init_files_resource import InitFilesResource
 from resources.kali_env_resource import KaliEnvResource
-from resources.memory_resource import MemoryResource
+from resources.memory_resource.memory_resource import MemoryResource
 from resources.model_resource.model_resource import ModelResource
 from resources.repo_setup_resource import RepoSetupResource
 from resources.resource_manager import resource_dict
@@ -59,16 +59,18 @@ class AgentResources:
     Class which agents rely on to access their resources.
     Attribute names match str(ResourceType).
 
+    This is a container. The actual resources are defined in the define_resources() method of each phase.
+    e.g. see ../phases/patch_phase.py
     """
 
     def __init__(self):
-        self.docker = None
-        self.init_files = None
-        self.kali_env = None
-        self.executor_agent_memory = None
-        self.model = None
-        self.bounty_setup = None
-        self.repo_setup = None
+        self.docker: Optional[Literal[ResourceType.DOCKER]] = None
+        self.init_files: Optional[Literal[ResourceType.INIT_FILES]] = None
+        self.kali_env: Optional[Literal[ResourceType.KALI_ENV]] = None
+        self.executor_agent_memory: Optional[Literal[ResourceType.MEMORY]] = None
+        self.model: Optional[Literal[ResourceType.MODEL]] = None
+        self.bounty_setup: Optional[Literal[ResourceType.BOUNTY_SETUP]] = None
+        self.repo_setup: Optional[Literal[ResourceType.REPO_SETUP]] = None
 
     def has_attr(self, resource: ResourceType) -> bool:
         return hasattr(self, str(resource))

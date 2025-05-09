@@ -15,3 +15,28 @@ export const formatData = (data) => {
   // Convert other data types to string
   return String(data);
 };
+
+export const formatTimeElapsed = (data) => {
+  const ms = Number(data);
+  
+  if (isNaN(ms)) {
+    return null;
+  }
+  
+  // Convert to seconds
+  let totalSeconds = ms / 1000;
+  
+  const hours = Math.floor(totalSeconds / 3600);
+  totalSeconds %= 3600;
+  const minutes = Math.floor(totalSeconds / 60);
+  totalSeconds %= 60;
+  const seconds = totalSeconds.toFixed(2);
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  } else {
+    return `${seconds}s`;
+  }
+};

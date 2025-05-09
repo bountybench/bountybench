@@ -31,6 +31,7 @@ const LogMainContent = ({
               message={{
                 phase_name: phase.phase_id,
                 phase_summary: phase.phase_summary,
+                phase_usage: phase.phase_usage || {},
                 current_children: phase.agent_messages || [],
                 additional_metadata: phase.additional_metadata || null,
               }}

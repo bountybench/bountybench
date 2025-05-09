@@ -1,11 +1,20 @@
 from abc import ABC, abstractmethod
-from typing import List, Set
+from pathlib import Path
+from typing import List, Optional, TypeVar
 
 from messages.agent_messages.agent_message import AgentMessage
 from resources.resource_type import AgentResources, ResourceType
 from utils.logger import get_main_logger
 
 logger = get_main_logger(__name__)
+
+
+class IterationFailure(Exception):
+    """Raised when an iteration fails, but want to propagate a partially complete AgentMessage to the phase."""
+
+    def __init__(self, message: str, agent_message: Optional[AgentMessage] = None):
+        super().__init__(message)
+        self.agent_message = agent_message
 
 
 class ResourceNotInitializedError(Exception):
@@ -18,6 +27,9 @@ class AgentConfig(ABC):
     """Abstract base class for all agent configurations."""
 
     pass
+
+
+T = TypeVar("T", bound="BaseAgent")
 
 
 class BaseAgent(ABC):
@@ -60,3 +72,22 @@ class BaseAgent(ABC):
     @property
     def agent_id(self) -> str:
         return self._agent_id
+
+    def save_to_file(self, filepath: Path) -> None:
+        """
+        Saves the agent state to a JSON file.
+        """
+        import json
+
+        state = self.to_dict()
+        filepath.write_text(json.dumps(state, indent=2))
+
+    @classmethod
+    def load_from_file(cls, filepath: Path, **kwargs) -> T:
+        """
+        Loads an agent state from a JSON file.
+        """
+        import json
+
+        data = json.loads(filepath.read_text())
+        return cls.from_dict(data, **kwargs)

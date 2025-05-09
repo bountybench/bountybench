@@ -7,8 +7,19 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import LogsList from './LogsList';
 import LogMainContent from './LogMainContent';
 import './LogViewer.css';
+import { API_BASE_URL } from '../../config';
 
-const BASE_URL = `http://localhost:7999`;
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  if (
+    typeof args[0] === "string" &&
+    args[0].includes("Encountered two children with the same key")
+  ) {
+    return;
+  }
+  originalWarn(...args);
+};
+
 
 export const LogViewer = () => {
   const [logFiles, setLogFiles] = useState([]);
@@ -31,7 +42,7 @@ export const LogViewer = () => {
 
   const fetchLogs = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/logs`);
+      const response = await fetch(`${API_BASE_URL}/logs`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setLogFiles(data);
@@ -50,7 +61,7 @@ export const LogViewer = () => {
     setLoading(true);
     setSelectedLogFile(filename);
     try {
-      const response = await fetch(`${BASE_URL}/logs/${filename}`);
+      const response = await fetch(`${API_BASE_URL}/logs/${filename}`);
       const content = await response.json();
 
       // Construct current_children for PhaseMessage

@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from backend.execution_backends import ExecutionBackend
 from backend.schema import SaveConfigRequest, StartWorkflowInput
 from prompts.vulnerability_prompts import VulnerabilityType
-from resources.model_resource.model_mapping import NonHELMMapping, TokenizerMapping
+from resources.model_resource.model_mapping import HelmMapping, NonHelmMapping
 from resources.model_resource.model_resource import ModelResourceConfig
 
 workflows_router = APIRouter()
@@ -18,19 +18,24 @@ async def list_workflows():
     return {
         "workflows": [
             {
-                "id": "detect_patch",
-                "name": "Detect Patch Workflow",
-                "description": "Workflow for detecting and patching vulnerabilities",
-            },
-            {
-                "id": "exploit_patch",
-                "name": "Exploit and Patch Workflow",
-                "description": "Workflow for exploiting and patching vulnerabilities",
-            },
-            {
                 "id": "patch",
                 "name": "Patch Workflow",
                 "description": "Workflow for patching vulnerabilities",
+            },
+            {
+                "id": "detect",
+                "name": "Detect Workflow",
+                "description": "Workflow for detecting vulnerabilities through exploitation",
+            },
+            {
+                "id": "detect_patch",
+                "name": "Detect Patch Workflow",
+                "description": "Workflow for detecting vulnerabilities through patching",
+            },
+            {
+                "id": "exploit",
+                "name": "Exploit Workflow",
+                "description": "Workflow for exploiting vulnerabilities",
             },
         ]
     }
@@ -63,9 +68,10 @@ async def start_workflow(workflow_data: StartWorkflowInput, request: Request):
 @workflows_router.get("/workflow/allmodels")
 async def list_all_models():
     """List available model types"""
-    helm_models = list(set(TokenizerMapping.mapping.keys()))
+    helm_models = list(set(HelmMapping.mapping.keys()))
     nonhelm_models = [
-        value if "/" in value else key for key, value in NonHELMMapping.mapping.items()
+        value.model_name if "/" in value.model_name else key
+        for key, value in NonHelmMapping.mapping.items()
     ]
     all_models = sorted(set(helm_models + nonhelm_models))
     all_models = [{"name": model} for model in all_models]
@@ -75,12 +81,12 @@ async def list_all_models():
 @workflows_router.get("/workflow/models")
 async def list_helm_models():
     """List HELM and NONHELM model types separately"""
-    helm_models = sorted(set(TokenizerMapping.mapping.keys()))
+    helm_models = sorted(set(HelmMapping.mapping.keys()))
     helm_mapping = [{"name": model} for model in helm_models]
     nonhelm_models = sorted(
         [
-            value if "/" in value else key
-            for key, value in NonHELMMapping.mapping.items()
+            value.model_name if "/" in value.model_name else key
+            for key, value in NonHelmMapping.mapping.items()
         ]
     )
     nonhelm_mapping = [{"name": model} for model in nonhelm_models]

@@ -50,3 +50,6 @@ htmlcov/
 
 # Local development files
 *.local
+
+# Git Submodule (we will instead create a ssh version of this file)
+.gitmodules
