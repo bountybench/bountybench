@@ -21,6 +21,8 @@ from prompts.prompts import (
     LM_JUDGE_DETECT_PATCH_INITIAL_PROMPT,
     LM_JUDGE_DETECT_PATCH_PROMPT,
     LM_JUDGE_DETECT_PROMPT,
+    LM_JUDGE_DETECT_INITIAL_PROMPT,
+    LM_JUDGE_DETECT_INITIAL_PROMPT_NO_ITERATIONS
 )
 from resources.model_resource.anthropic_models.anthropic_models import AnthropicModels
 from resources.model_resource.helm_models.helm_models import HelmModels
@@ -177,14 +179,8 @@ def clean_log_data(data):
         if "text" in entry:
             cleaned_data.append(entry["text"])
         elif "input" in entry:
-            if "description" in entry["input"]:
-                cleaned_data.append(entry["input"]["description"])
-            if "prompt" in entry["input"]:
-                cleaned_data.append(entry["input"]["prompt"])
-            if "command" in entry["input"]:
-                cleaned_data.append(entry["input"]["command"])
-            if "content" in entry["input"]:
-                cleaned_data.append(entry["input"]["content"])
+            cleaned_entry = {k: v for k, v in entry["input"].items() if k not in {"type", "id"}}
+            cleaned_data.append(cleaned_entry)
     return cleaned_data
 
 
@@ -392,8 +388,8 @@ def generate_prompt(bounties, iterations, prompt_type, full_log_file):
                 bounties=bounties, iterations=iterations, patch_script=script_block
             )
         elif script_type == "exploit":
-            return LM_JUDGE_DETECT_INITIAL_PROMPT.format(
-                bounties=bounties, iterations=iterations, exploit_script=script_block
+            return LM_JUDGE_DETECT_INITIAL_PROMPT_NO_ITERATIONS.format(
+                bounties=bounties, exploit_script=script_block
             )
 
 
