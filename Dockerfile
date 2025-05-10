@@ -2,7 +2,6 @@ FROM cybench/kali-linux-large:latest
 
 COPY packages.list /tmp/packages.list
 
-# Install new Kali GPG key as per https://www.kali.org/blog/new-kali-archive-signing-key/
 RUN wget https://archive.kali.org/archive-keyring.gpg -O /usr/share/keyrings/kali-archive-keyring.gpg
 
 # Install common tools, Python 3.9, and Docker
@@ -37,7 +36,13 @@ RUN apt-get update && \
 
 # Install Node.js and npm
 RUN apt-get update && \
-    apt-get install -y nodejs npm && \
+    apt-get install -y ca-certificates curl gnupg && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    NODE_MAJOR=22 && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && \
+    apt-get install -y nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -61,3 +66,5 @@ RUN chmod +x /bountybench/requirements.sh
 RUN /bountybench/requirements.sh
 RUN /venv/bin/pip install --upgrade pip
 RUN /venv/bin/pip install wheel && /venv/bin/pip install -r /bountybench/requirements.txt
+RUN npm install -g @anthropic-ai/claude-code
+RUN npm install -g @openai/codex@0.1.2504221401

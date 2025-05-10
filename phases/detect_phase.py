@@ -1,6 +1,14 @@
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from agents.base_agent import AgentConfig, BaseAgent
+from agents.claude_code_agent.claude_code_agent import (
+    ClaudeCodeAgent,
+    ClaudeCodeAgentConfig,
+)
+from agents.codex_agent.codex_agent import (
+    CodexAgent,
+    CodexAgentConfig,
+)
 from agents.detect_agent.detect_agent import DetectAgent, DetectAgentConfig
 from agents.executor_agent.executor_agent import ExecutorAgent
 from messages.message import Message
@@ -28,6 +36,12 @@ class DetectPhase(BountyPhase):
     AGENT_CLASSES: List[Type[BaseAgent]] = [ExecutorAgent, DetectAgent]
 
     def __init__(self, *args, **kwargs):
+
+        self.use_cwe = kwargs.get("use_cwe", False)
+        self.include_report_title_in_cwe = kwargs.get(
+            "include_report_title_in_cwe", False
+        )
+
         super().__init__(*args, **kwargs)
 
         if "compatible_patches" not in self.workflow.bounty_metadata:
@@ -43,7 +57,18 @@ class DetectPhase(BountyPhase):
         Returns:
             Dict[str, Tuple[Type[BaseAgent], Optional[AgentConfig]]]: A dictionary mapping agent names to their types and configurations.
         """
-        executor_config = AgentConfig()
+        agents = {}
+
+        agent_type = self.workflow.params.get("custom_agent", "executor_agent")
+
+        if agent_type == "executor_agent":
+            agents["executor_agent"] = (ExecutorAgent, AgentConfig())
+
+        if agent_type == "claude_code":
+            agents["claude_code"] = (ClaudeCodeAgent, ClaudeCodeAgentConfig())
+
+        if agent_type == "codex":
+            agents["codex"] = (CodexAgent, CodexAgentConfig())
 
         detect_config = DetectAgentConfig(
             bounty_dir=self.bounty_dir,
@@ -51,38 +76,43 @@ class DetectPhase(BountyPhase):
             tmp_dir=self.tmp_dir,
             submit=self.submit,
             install_command=self.workflow.repo_metadata.get("install_command"),
+            include_cwe=self.use_cwe,
+            include_report_title_in_cwe=self.include_report_title_in_cwe,
         )
+        agents["detect_agent"] = (DetectAgent, detect_config)
 
-        return {
-            "executor_agent": (ExecutorAgent, executor_config),
-            "detect_agent": (DetectAgent, detect_config),
-        }
+        return agents
 
     def define_resources(self) -> List[Tuple[ResourceType, BaseResourceConfig]]:
         """
         Define resource classes and their configurations required by the DetectPhase.
-
-        Returns:
-            List[Tuple[DefaultResource, ResourceConfig]].
         """
-        files_dir_name: str = self.workflow.bounty_metadata.get("files_dir", "codebase")
-        vulnerable_commit: str = self.workflow.bounty_metadata.get(
+        agent_type = self.workflow.params.get("custom_agent", "executor_agent")
+
+        files_dir_name = self.workflow.bounty_metadata.get("files_dir", "codebase")
+        vulnerable_commit = self.workflow.bounty_metadata.get(
             "vulnerable_commit", "main"
         )
 
         target_hosts = [self.workflow.repo_metadata["target_host"]]
 
-        resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = [
-            (
-                ResourceType.MODEL,
-                ModelResourceConfig.create(
-                    model=self.model,
-                    use_helm=self.helm,
-                    use_mock_model=self.use_mock_model,
-                    max_input_tokens=self.params.get("max_input_tokens"),
-                    max_output_tokens=self.params.get("max_output_tokens"),
-                ),
-            ),
+        resource_configs: List[Tuple[ResourceType, BaseResourceConfig]] = []
+
+        if agent_type != "claude_code":
+            resource_configs.append(
+                (
+                    ResourceType.MODEL,
+                    ModelResourceConfig.create(
+                        model=self.model,
+                        use_helm=self.helm,
+                        use_mock_model=self.use_mock_model,
+                        max_input_tokens=self.params.get("max_input_tokens"),
+                        max_output_tokens=self.params.get("max_output_tokens"),
+                    ),
+                )
+            )
+
+        resource_configs.append(
             (
                 ResourceType.INIT_FILES,
                 InitFilesResourceConfig(
@@ -93,7 +123,10 @@ class DetectPhase(BountyPhase):
                     bounty_number=self.bounty_number,
                     vulnerable_commit=vulnerable_commit,
                 ),
-            ),
+            )
+        )
+
+        resource_configs.append(
             (
                 ResourceType.KALI_ENV,
                 KaliEnvResourceConfig(
@@ -105,11 +138,16 @@ class DetectPhase(BountyPhase):
                     target_hosts=target_hosts,
                     install_command=self.workflow.repo_metadata.get("install_command"),
                     is_python=self.workflow.repo_metadata.get("is_python"),
+                    install_claude_code=(agent_type == "claude_code"),
+                    install_codex=(agent_type == "codex"),
                 ),
-            ),
-            (ResourceType.DOCKER, DockerResourceConfig()),
-            (ResourceType.MEMORY, MemoryResourceConfig()),
-        ]
+            )
+        )
+
+        resource_configs.append((ResourceType.DOCKER, DockerResourceConfig()))
+
+        if not agent_type in ["claude_code", "codex"]:
+            resource_configs.append((ResourceType.MEMORY, MemoryResourceConfig()))
 
         self._add_setup_resources(resource_configs)
         return resource_configs
