@@ -1,4 +1,5 @@
 import argparse
+import ast
 import json
 import os
 import re
@@ -157,11 +158,110 @@ def extract_executor_reflection_messages(json_path: Path, num_messages: int = 3)
     return messages[-num_messages:]
 
 
+def get_codex_iterations(json_path):
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    codex_messages = data["phase_messages"][0]["agent_messages"][1]["action_messages"]
+    commands = [
+        msg["message"]
+        for msg in codex_messages
+        if msg["resource_id"] == "function_call"
+    ]
+    reflection = "Reflection: " + codex_messages[-1]["message"]
+    return commands[-5:] + [reflection]
+
+
+def clean_log_data(data):
+    cleaned_data = []
+    for entry in data:
+        if "text" in entry:
+            cleaned_data.append(entry["text"])
+        elif "input" in entry:
+            if "description" in entry["input"]:
+                cleaned_data.append(entry["input"]["description"])
+            if "prompt" in entry["input"]:
+                cleaned_data.append(entry["input"]["prompt"])
+            if "command" in entry["input"]:
+                cleaned_data.append(entry["input"]["command"])
+            if "content" in entry["input"]:
+                cleaned_data.append(entry["input"]["content"])
+    return cleaned_data
+
+
+def parse_partial_json_list(s):
+    """
+    Recovers as many full JSON objects from a (possibly truncated) list string as possible.
+    """
+    objs = []
+    brace_count = 0
+    start_idx = None
+
+    for i, char in enumerate(s):
+        if char == "{":
+            if brace_count == 0:
+                start_idx = i
+            brace_count += 1
+        elif char == "}":
+            brace_count -= 1
+            if brace_count == 0 and start_idx is not None:
+                obj_str = s[start_idx : i + 1]
+                try:
+                    obj = json.loads(obj_str)
+                    objs.append(obj)
+                except json.JSONDecodeError:
+                    break  # stop at first failure
+
+    return objs
+
+
+def extract_content(data):
+    extracted_content = []
+    for action_message in data.get("action_messages", []):
+        messages = action_message.get("message", [])
+        if isinstance(messages, str):
+            # print(messages)
+            # unescaped = bytes(messages, "utf-8").decode("unicode_escape")
+            messages = parse_partial_json_list(messages)
+        for message in messages:
+            if message.get("role") == "assistant":
+                for content in message.get("content", []):
+                    if (
+                        content.get("type") == "text"
+                        or content.get("type") == "tool_use"
+                    ):
+                        extracted_content.append(content)
+    return extracted_content
+
+
+def extract_relevant_content_from_phase(phase_data):
+    relevant_content = []
+    for phase in phase_data.get("phase_messages", []):
+        # Check for 'agent_messages' in each phase
+        for message in phase.get("agent_messages", []):
+            if message.get("agent_id") == "claude_code":
+                # print(message)
+                relevant_content = extract_content(message)
+                # print(message)
+    return relevant_content
+
+
+def get_claude_code_iterations(json_path: Path, num_messages: int = 5):
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    iterations = extract_relevant_content_from_phase(data)
+    cleaned_data = clean_log_data(iterations)
+    print(format_logs(cleaned_data[-num_messages:]))
+    return cleaned_data[-num_messages:]
+
+
 def get_file_path(all_logs_dir, bounty_name, model_name):
     # Join the directory path
-    if "claude_code" in model_name:
-        dir_path = os.path.join(all_logs_dir, "DetectPatchWorkflow")
-        dir_path = os.path.join(dir_path, bounty_name)
+    if "claude-code" in model_name:
+        # dir_path = os.path.join(all_logs_dir, "Detect_cwe_only")
+        dir_path = os.path.join(all_logs_dir, bounty_name)
+    elif "codex" in model_name:
+        dir_path = os.path.join(all_logs_dir, bounty_name)
+        dir_path = os.path.join(dir_path, "openai-o4-mini-2025-04-16")
     else:
         dir_path = os.path.join(all_logs_dir, bounty_name)
         dir_path = os.path.join(dir_path, model_name)
@@ -169,13 +269,16 @@ def get_file_path(all_logs_dir, bounty_name, model_name):
     if not Path(dir_path).exists():
         return None
     files = [
-        f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))
+        f
+        for f in os.listdir(dir_path)
+        if os.path.isfile(os.path.join(dir_path, f)) and (not f.startswith("."))
     ]
     # Check if there's exactly one file in the directory
     if len(files) == 1:
         # Return the full file path
         return os.path.join(dir_path, files[0])
     else:
+        print(files)
         print("There is not exactly one file in the directory.")
         return None
 
@@ -407,14 +510,19 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
         titles = [
             extract_hackerone_title_from_writeup(writeup) for writeup in valid_writeups
         ]
-    msgs = extract_executor_reflection_messages(Path(log_file))
+    if agent_model == "codex":
+        msgs = get_codex_iterations(Path(log_file))
+    elif agent_model == "claude-code":
+        msgs = get_claude_code_iterations(Path(log_file))
+    else:
+        msgs = extract_executor_reflection_messages(Path(log_file))
     full_chat_history = []
     name = model.split("/")[-1]
     create_directory(f"./0507_judge_responses_no_CWE/{name}/{agent_model}")
     output_filename = f"0507_judge_responses_no_CWE/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
-    if Path(output_filename).exists():
-        print(f"{output_filename} exists, skipping...")
-        return
+    # if Path(output_filename).exists():
+    #    print(f"{output_filename} exists, skipping...")
+    #    return
     formatted_logs = format_logs(msgs)
     if len(valid_writeups) > 5:
         # More than 5 reports so we would need to first just provide the list of titles
@@ -446,6 +554,7 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
         writeups, formatted_logs, prompt_type="full", full_log_file=full_log_file
     )
     prompt = truncate_prompt(prompt, model)
+    # print(prompt)
     result = call_llm(prompt, model)
     result["orig_title"] = orig_title
     if result:
@@ -510,14 +619,12 @@ def main():
 
     # all_logs_dir = "4.30.detect_patch/" + model_name
     all_logs_dir = "detect/" + model_name
-    all_logs_dir_1 = "5.7.detect/" + model_name
+    all_logs_dir_1 = "detect_1/" + model_name
     # all_logs_dir = "detect_cwe-only/" + model_name
-    # all_logs_dir_1 = "5.7.detect_cwe-only/" + model_name
+    # all_logs_dir_1 = "detect_cwe-only_1/" + model_name
     all_bounties = os.listdir(all_logs_dir + "/logs")
-    # if "claude_code" in model_name:
-    #     all_bounties = os.listdir(all_logs_dir + "/logs" + "/DetectPatchWorkflow")
     for bounty_name in all_bounties:
-        # bounty_name = 'mlflow_1'
+        bounty_name = "agentscope_0"
         print(bounty_name)
         if bounty_name.startswith("."):
             continue
@@ -539,7 +646,7 @@ def main():
         )
         # log_details = get_fields_from_agent_log(log_file)
         judge(bounty_name, model, model_name, log_file, full_log_file)
-    # break
+        break
 
 
 if __name__ == "__main__":
