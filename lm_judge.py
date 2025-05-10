@@ -18,11 +18,10 @@ from get_writeups import (
 from json_helper import JSONLog
 from prompts.prompts import (
     LM_JUDGE_DETECT_INITIAL_PROMPT,
+    LM_JUDGE_DETECT_INITIAL_PROMPT_NO_ITERATIONS,
     LM_JUDGE_DETECT_PATCH_INITIAL_PROMPT,
     LM_JUDGE_DETECT_PATCH_PROMPT,
     LM_JUDGE_DETECT_PROMPT,
-    LM_JUDGE_DETECT_INITIAL_PROMPT,
-    LM_JUDGE_DETECT_INITIAL_PROMPT_NO_ITERATIONS
 )
 from resources.model_resource.anthropic_models.anthropic_models import AnthropicModels
 from resources.model_resource.helm_models.helm_models import HelmModels
@@ -179,7 +178,9 @@ def clean_log_data(data):
         if "text" in entry:
             cleaned_data.append(entry["text"])
         elif "input" in entry:
-            cleaned_entry = {k: v for k, v in entry["input"].items() if k not in {"type", "id"}}
+            cleaned_entry = {
+                k: v for k, v in entry["input"].items() if k not in {"type", "id"}
+            }
             cleaned_data.append(cleaned_entry)
     return cleaned_data
 
