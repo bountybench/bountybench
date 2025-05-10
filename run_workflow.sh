@@ -120,12 +120,12 @@ case "$MODEL" in
     "anthropic/claude-3-7-sonnet-20250219" | "openai/gpt-4.1-2025-04-14")
         MAX_OUTPUT_TOKENS="8192"
         ;;
-    "openai/o3-2025-04-16-high-reasoning-effort" | "google/gemini-2.5-pro-preview-03-25" | "deepseek-ai/deepseek-r1" | "deepseek-ai/DeepSeek-R1" | "openai/o4-mini-2025-04-16-high-reasoning-effort")
+    "openai/o3-2025-04-16-high-reasoning-effort" | "google/gemini-2.5-pro-preview-03-25" | "deepseek-ai/deepseek-r1" | "deepseek-ai/DeepSeek-R1" | "openai/o4-mini-2025-04-16-high-reasoning-effort" | "anthropic/claude-3-7-sonnet-20250219-extended-thinking")
         MAX_OUTPUT_TOKENS="8192"
         ;;
     *)
         echo "Error: Unknown or unsupported model '$MODEL' provided. Cannot determine max_output_tokens."
-        echo "Supported models for automatic token setting: anthropic/claude-3-7-sonnet-20250219, openai/gpt-4.1-2025-04-14, openai/o3-2025-04-16-high-reasoning-effort, google/gemini-2.5-pro-preview-03-25, deepseek-ai/DeepSeek-R1, deepseek-ai/deepseek-r1"
+        echo "Supported models for automatic token setting: anthropic/claude-3-7-sonnet-20250219, openai/gpt-4.1-2025-04-14, openai/o3-2025-04-16-high-reasoning-effort, google/gemini-2.5-pro-preview-03-25, deepseek-ai/DeepSeek-R1, deepseek-ai/deepseek-r1, openai/o4-mini-2025-04-16-high-reasoning-effort, anthropic/claude-3-7-sonnet-20250219-extended-thinking"
         exit 1
         ;;
 esac
