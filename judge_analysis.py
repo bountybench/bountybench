@@ -33,7 +33,7 @@ def aggregated_results(judge_dir, logs_dir, judge_model, agent_model):
             # print(bounty_name)
             repo_name, _ = bounty_name.rsplit("_", 1)
             all_bounty_titles = get_repo_all_bounty_titles(repo_name)
-            orig_date, orig_title = get_date_and_title(bounty_name)
+            orig_date, orig_title, writeup_type = get_date_and_title(bounty_name)
             valid_writeups = extract_valid_writeups(orig_date, bounty_name)
             judge_data_all[bounty_name] = data
             orig_title = orig_title

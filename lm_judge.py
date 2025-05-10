@@ -9,9 +9,10 @@ from bs4 import BeautifulSoup
 
 from get_writeups import (
     create_directory,
+    extract_hackerone_reported_date,
     extract_huntr_reported_date,
     get_all_available_bounties,
-    read_huntr_writeup,
+    read_writeup,
 )
 from json_helper import JSONLog
 from prompts.prompts import (
@@ -25,7 +26,7 @@ from resources.model_resource.helm_models.helm_models import HelmModels
 from resources.model_resource.model_resource import ModelResourceConfig
 from resources.model_resource.model_utils import truncate_input_to_max_tokens
 from resources.model_resource.openai_models.openai_models import OpenAIModels
-from resources.utils import format_huntr_writeup
+from resources.utils import format_hackerone_writeup, format_huntr_writeup
 
 
 # -----------------------------
@@ -78,21 +79,41 @@ def filter_writeups_by_date(report_date_str, repo_name):
     ]
 
 
-def extract_title_from_writeup(writeup):
+def extract_huntr_title_from_writeup(writeup):
     soup = BeautifulSoup(writeup, "html.parser")
     title_tag = soup.find("h1", id="title")
     return title_tag.text.strip() if title_tag else ""
 
 
+def extract_hackerone_title_from_writeup(writeup):
+    soup = BeautifulSoup(writeup, "html.parser")
+    title_element = soup.find(
+        "div",
+        class_="false report-heading__report-title spec-report-title flex items-center",
+    )
+    if title_element:
+        title_div = title_element.find("div", class_="break-word")
+        if title_div:
+            return title_div.text.strip()
+    return ""
+
+
 def get_date_and_title(bounty_name):
     repo_name, bounty_number = bounty_name.rsplit("_", 1)
     full_repo_dir = os.path.join("bountybench", repo_name)
-    writeup = read_huntr_writeup(full_repo_dir, bounty_number)
+    writeup, report_path = read_writeup(full_repo_dir, bounty_number)
     if not writeup:
-        return None, None
-    date_str = extract_huntr_reported_date(writeup)
-    title = extract_title_from_writeup(writeup)
-    return date_str, title
+        return None, None, None
+    if writeup == "hackerone":
+        writeup = report_path.read_text(encoding="utf-8")
+        date_str = extract_hackerone_reported_date(writeup)
+        title = extract_hackerone_title_from_writeup(writeup)
+        writeup_type = "hackerone"
+    else:
+        date_str = extract_huntr_reported_date(writeup)
+        title = extract_huntr_title_from_writeup(writeup)
+        writeup_type = "huntr"
+    return date_str, title, writeup_type
 
 
 def extract_valid_writeups(date_str, bounty_name):
@@ -145,6 +166,8 @@ def get_file_path(all_logs_dir, bounty_name, model_name):
         dir_path = os.path.join(all_logs_dir, bounty_name)
         dir_path = os.path.join(dir_path, model_name)
     # List all files in the directory
+    if not Path(dir_path).exists():
+        return None
     files = [
         f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))
     ]
@@ -194,7 +217,7 @@ def get_repo_all_bounty_titles(repo_name):
     bounties = [repo_name + "_" + num for num in bounty_nums]
     all_titles = []
     for bounty in bounties:
-        _, title = get_date_and_title(bounty)
+        _, title, writeup_type = get_date_and_title(bounty)
         all_titles.append(title)
     return all_titles
 
@@ -210,11 +233,15 @@ def format_logs(arr):
     return "\n\n".join(arr)
 
 
-def format_writeups(report_numbers, valid_writeups):
+def format_writeups(report_numbers, valid_writeups, writeup_type):
     writeups = ""
     for num in report_numbers:
         writeups += f"Bounty Report # {num}\n"
-        writeups += format_huntr_writeup(valid_writeups[num - 1])
+        writeups += (
+            format_huntr_writeup(valid_writeups[num - 1])
+            if writeup_type == "huntr"
+            else format_hackerone_writeup(valid_writeups[num - 1])
+        )
         writeups += "\n\n"
     return writeups
 
@@ -363,23 +390,28 @@ def extract_json_block_from_response(text):
 
 
 def judge(bounty_name, model, agent_model, log_file, full_log_file):
-    orig_date, orig_title = get_date_and_title(bounty_name)
+    orig_date, orig_title, writeup_type = get_date_and_title(bounty_name)
     if not orig_date or not orig_title:
-        print(
-            f"No valid original Huntr writeup for the given bounty {bounty_name}, skipping"
-        )
+        print(f"No valid original writeup for the given bounty {bounty_name}, skipping")
         return
     print(f"original bounty report date: {orig_date}")
     print(f"original bounty report title: {orig_title}")
     valid_writeups = extract_valid_writeups(orig_date, bounty_name)
     if not valid_writeups:
         return
-    titles = [extract_title_from_writeup(writeup) for writeup in valid_writeups]
+    if writeup_type == "huntr":
+        titles = [
+            extract_huntr_title_from_writeup(writeup) for writeup in valid_writeups
+        ]
+    else:
+        titles = [
+            extract_hackerone_title_from_writeup(writeup) for writeup in valid_writeups
+        ]
     msgs = extract_executor_reflection_messages(Path(log_file))
     full_chat_history = []
     name = model.split("/")[-1]
-    create_directory(f"./judge_responses_patch_no_CWE/{name}/{agent_model}")
-    output_filename = f"judge_responses_patch_no_CWE/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
+    create_directory(f"./0507_judge_responses_no_CWE/{name}/{agent_model}")
+    output_filename = f"0507_judge_responses_no_CWE/{name}/{agent_model}/{name}_judge_response_{agent_model}_{bounty_name}.json"
     if Path(output_filename).exists():
         print(f"{output_filename} exists, skipping...")
         return
@@ -409,7 +441,7 @@ def judge(bounty_name, model, agent_model, log_file, full_log_file):
     else:
         report_numbers = range(1, 1 + len(valid_writeups))
     # One iteration (valid_writeups <= 5)
-    writeups = format_writeups(report_numbers, valid_writeups)
+    writeups = format_writeups(report_numbers, valid_writeups, writeup_type)
     prompt = generate_prompt(
         writeups, formatted_logs, prompt_type="full", full_log_file=full_log_file
     )
@@ -476,18 +508,29 @@ def main():
     model = args.judge_model
     model_name = args.agent_model
 
-    all_logs_dir = "4.30.detect_patch/" + model_name
-    # all_logs_dir = "5-1-detect_cwe_only/" + model_name
-    # all_logs_dir = "5-1-detect_patch_cwe_only/" + model_name
+    # all_logs_dir = "4.30.detect_patch/" + model_name
+    all_logs_dir = "detect/" + model_name
+    all_logs_dir_1 = "5.7.detect/" + model_name
+    # all_logs_dir = "detect_cwe-only/" + model_name
+    # all_logs_dir_1 = "5.7.detect_cwe-only/" + model_name
     all_bounties = os.listdir(all_logs_dir + "/logs")
     # if "claude_code" in model_name:
     #     all_bounties = os.listdir(all_logs_dir + "/logs" + "/DetectPatchWorkflow")
     for bounty_name in all_bounties:
+        # bounty_name = 'mlflow_1'
         print(bounty_name)
         if bounty_name.startswith("."):
             continue
         log_file = get_file_path(all_logs_dir + "/logs", bounty_name, model_name)
+        log_file_1 = get_file_path(all_logs_dir_1 + "/logs", bounty_name, model_name)
 
+        # print(log_file.split("/"))
+        # print(log_file, log_file_1)
+        # break
+        # print(log_file.split("/")[-1], log_file_1.split("/")[-1])
+        if log_file_1 and log_file.split("/")[-1] == log_file_1.split("/")[-1]:
+            print("same log, skipped")
+            continue
         if not check_submit(log_file):
             print("No submission, skipping evaluation")
             continue
@@ -496,6 +539,7 @@ def main():
         )
         # log_details = get_fields_from_agent_log(log_file)
         judge(bounty_name, model, model_name, log_file, full_log_file)
+    # break
 
 
 if __name__ == "__main__":
