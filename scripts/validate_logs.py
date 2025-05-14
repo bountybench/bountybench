@@ -10,11 +10,18 @@ import argparse
 import json
 import os
 import sys
+from collections import defaultdict
 from pathlib import Path
+
+from json_log import JSONLog
+from script_constants import VALID_MODELS
 
 # Global dictionaries to track token usage by model
 model_input_tokens = defaultdict(int)
 model_output_tokens = defaultdict(int)
+
+# Lists to track different log statuses
+successes = []  # Logs with success status
 
 parser = argparse.ArgumentParser(description="Validate log files")
 parser.add_argument(
@@ -27,103 +34,26 @@ args = parser.parse_args()
 LOGS_DIR = Path(args.logs_dir)
 BASE_PATH = str(Path(__file__).parent) + os.sep
 
-VALID_MODELS = {
-    "anthropic/claude-3-7-sonnet-20250219": 8192,
-    "openai/gpt-4.1-2025-04-14": 8192,
-    "google/gemini-2.5-pro-preview-03-25": 8192,
-    "deepseek-ai/DeepSeek-R1": 8192,
-    "deepseek-ai/deepseek-r1": 8192,
-    "openai/o3-2025-04-16-high-reasoning-effort": 8192,
-    "openai/o4-mini-2025-04-16-high-reasoning-effort": 8192,
-}
-
 
 def validate_json_log(file_path):
-    issues = []
-    relative_path = file_path.replace(BASE_PATH, "")
-    try:
-        print(f"[DEBUG] Opening JSON file: {file_path}")
-        with open(file_path, "r") as f:
-            data = json.load(f)
+    print(f"[DEBUG] Opening JSON file: {file_path}")
 
-        # Workflow should be complete
-        complete_status = (
-            data.get("workflow_metadata", {})
-            .get("workflow_summary", {})
-            .get("complete", False)
-        )
-        print(f"[DEBUG] Workflow Complete status: {complete_status}")
-        if not complete_status:
-            issues.append(f"Complete is False in {relative_path}")
+    # Use JSONLog to validate the file
+    json_log = JSONLog(file_path)
+    issues = json_log.identify_issues()
 
-        success_status = (
-            data.get("workflow_metadata", {})
-            .get("workflow_summary", {})
-            .get("success", False)
-        )
-        print(f"[DEBUG] Workflow Success status: {success_status}")
+    if json_log.success:
+        successes.append(json_log)
 
-        phases = data.get("phase_messages", [])
-
-        if len(phases) < 1:
-            issues.append(f"Phase failed to set up in {relative_path}")
-        else:
-            agent_messages = phases[0].get("agent_messages", [])
-            if agent_messages:
-                last_agent = agent_messages[-1]
-                if (
-                    "UnixHTTPConnectionPool(host='localhost', port=None): Read timed out."
-                    in last_agent["message"]
-                ):
-                    issues.append(f"Unix HTTP timout issue in {relative_path}")
-
-        model_config = data.get("resources_used", {}).get("model", {}).get("config", {})
-
-        model_name = model_config.get("model")
-
-        max_output_tokens = model_config.get("max_output_tokens")
-
-        if not model_name:
-            issues.append(f"Missing model in {relative_path}")
-        elif model_name not in VALID_MODELS:
-            issues.append(f"Invalid model: {model_name} in {relative_path}")
-        else:
-            if max_output_tokens != VALID_MODELS[model_name]:
-                issues.append(
-                    f"max_output_tokens is {max_output_tokens}, should be {8192} in {relative_path}"
-                )
-
-            # Track token usage by model
-            if "workflow_usage" in data:
-                workflow_usage = data.get("workflow_usage", {})
-
-                # Handle both possible field names
-                input_tokens = workflow_usage.get(
-                    "total_input_tokens", 0
-                ) or workflow_usage.get("input_tokens", 0)
-                output_tokens = workflow_usage.get(
-                    "total_output_tokens", 0
-                ) or workflow_usage.get("output_tokens", 0)
-
-                model_input_tokens[model_name] += input_tokens
-                model_output_tokens[model_name] += output_tokens
-
-        # Check max_input_tokens
-        max_input_tokens = model_config.get("max_input_tokens")
-        if max_input_tokens != 8192:
-            issues.append(
-                f"max_input_tokens is {max_input_tokens}, not 8192 in {relative_path}"
-            )
-
-    except json.JSONDecodeError:
-        print(f"[DEBUG] ERROR: Invalid JSON format in {file_path}")
-        issues.append(f"Invalid JSON format in {relative_path}")
-    except Exception as e:
-        print(f"[DEBUG] ERROR: Exception while processing {file_path}: {str(e)}")
-        issues.append(f"Error processing {relative_path}: {str(e)}")
+    # Only track tokens if the model name exists and token values are present
+    if json_log.model_name:
+        input_tokens = json_log.total_input_tokens or 0
+        output_tokens = json_log.total_output_tokens or 0
+        model_input_tokens[json_log.model_name] += input_tokens
+        model_output_tokens[json_log.model_name] += output_tokens
 
     print(f"[DEBUG] Finished processing {file_path} and found {len(issues)} issues")
-    return issues, success_status
+    return issues
 
 
 def validate_full_log(file_path):
@@ -156,11 +86,10 @@ def validate_full_log(file_path):
 
 
 def validate_logs():
-    all_issues = []
+    issues_by_file = defaultdict(list)
     files_processed = 0
     json_files = set()  # Store base filenames (without .json) of JSON log files
     log_files = set()  # Store base filenames (without .log) of full log files
-    successes = []
     print(f"Looking for logs in {LOGS_DIR}")
 
     # First pass: collect all files and validate them
@@ -175,16 +104,16 @@ def validate_logs():
 
             # Check file extension based on directory
             if "full_logs" in root and not file.endswith(".log"):
-                all_issues.append(
-                    f"File in full_logs doesn't have .log extension: {relative_path}"
+                issues_by_file[relative_path].append(
+                    f"File in full_logs doesn't have .log extension"
                 )
             elif (
                 "logs" in root
                 and "full_logs" not in root
                 and not file.endswith(".json")
             ):
-                all_issues.append(
-                    f"File in logs doesn't have .json extension: {relative_path}"
+                issues_by_file[relative_path].append(
+                    f"File in logs doesn't have .json extension"
                 )
 
             # Track JSON logs and full logs by their base names
@@ -193,13 +122,9 @@ def validate_logs():
                 json_files.add(base_name)
 
                 # Validate JSON logs
-                json_issues, success = validate_json_log(file_path)
-                all_issues.extend(json_issues)
-                if success:
-                    if len(json_issues) > 0:
-                        successes.append(f"{file_path}****")
-                    else:
-                        successes.append(file_path)
+                json_issues = validate_json_log(file_path)
+                if json_issues:
+                    issues_by_file[relative_path].extend(json_issues)
 
             elif file.endswith(".log"):
                 base_name = os.path.splitext(file)[0]
@@ -207,32 +132,50 @@ def validate_logs():
 
                 # Validate full logs
                 log_issues = validate_full_log(file_path)
-                all_issues.extend(log_issues)
+                if log_issues:
+                    issues_by_file[relative_path].extend(log_issues)
 
     # Check for missing corresponding logs
     for base_name in json_files:
         if base_name not in log_files:
-            all_issues.append(
-                f"JSON log {base_name}.json has no corresponding full log file"
-            )
+            relative_path = f"{base_name}.json"
+            issues_by_file[relative_path].append(f"No corresponding full log file")
 
     for base_name in log_files:
         if base_name not in json_files:
-            all_issues.append(
-                f"Full log {base_name}.log has no corresponding JSON log file"
-            )
+            relative_path = f"{base_name}.log"
+            issues_by_file[relative_path].append(f"No corresponding JSON log file")
+
+    # Remove entries with empty issue lists
+    issues_by_file = {k: v for k, v in issues_by_file.items() if v}
+
+    # Count total issues
+    total_issues = sum(len(issues) for issues in issues_by_file.values())
 
     print(
         f"Processed {files_processed} files ({len(json_files)} JSON logs, {len(log_files)} full logs)"
     )
 
-    # Print all issues
-    if all_issues:
-        print(f"Found {len(all_issues)} issues:")
-        for i, issue in enumerate(all_issues, 1):
-            print(f"{i}. {issue}\n")
+    # Print issues by file
+    if issues_by_file:
+        print(
+            f"Found {len(issues_by_file)} files with issues ({total_issues} total issues):"
+        )
+        for i, (file_path, issues) in enumerate(sorted(issues_by_file.items()), 1):
+            print(f"\n{i}. File: {file_path}")
+            print(f"   Issues: {len(issues)}")
+            for j, issue in enumerate(issues, 1):
+                print(f"      {j}. {issue}")
     else:
         print("No issues found. All logs are valid.")
+
+    print(f"Successes: {len(successes)}")
+    for i, success in enumerate(successes, 1):
+        # Use name property of Path object
+        relative_path = success.filepath.name
+        print(
+            f"{i}. Task: {success.task_name}, \nModel: {success.model_name} \n{relative_path}"
+        )
 
     # Print token usage by model
     if model_input_tokens or model_output_tokens:
@@ -258,12 +201,8 @@ def validate_logs():
         print(
             f"{'TOTAL':<50} {total_input:>15,} {total_output:>15,} {total_tokens:>15,}"
         )
-    print(f"Successes: {len(successes)}")
-    for i, success in enumerate(successes, 1):
-        relative_path = success.split("/")[-1]
-        print(f"{i}. {relative_path}")
 
-    return len(all_issues)
+    return len(issues_by_file)
 
 
 if __name__ == "__main__":
