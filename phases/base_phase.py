@@ -27,6 +27,7 @@ class PhaseConfig:
     agent_configs: List[Tuple[str, "AgentConfig"]] = field(default_factory=list)
     max_iterations: int = field(default=10)
     interactive: bool = False
+    command_line: bool = False
     phase_idx: Optional[int] = None
 
     @classmethod
@@ -49,7 +50,6 @@ class BasePhase(ABC):
         self.workflow: "BaseWorkflow" = workflow
         self.workflow_id = workflow.workflow_message.workflow_id
         self.phase_config: PhaseConfig = PhaseConfig.from_phase(self, **kwargs)
-
         self.agent_manager: Any = self.workflow.agent_manager
         self.resource_manager: Any = self.workflow.resource_manager
         self.agents: List[Tuple[str, BaseAgent]] = []
@@ -285,7 +285,9 @@ class BasePhase(ABC):
     async def _handle_interactive_mode(self) -> None:
         """Handle the interactive mode if enabled."""
         if self.phase_config.interactive:
-            if hasattr(self.workflow, "next_iteration_queue"):
+            if self.phase_config.command_line:
+                input("Press Enter to continue...")
+            elif hasattr(self.workflow, "next_iteration_queue"):
                 logger.info("Waiting for 'next' signal ...")
                 await self.workflow.next_iteration_queue.get()
             else:

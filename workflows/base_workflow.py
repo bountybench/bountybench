@@ -35,6 +35,7 @@ class BaseWorkflow(ABC):
         self.params = kwargs
         # Required for interactive controller
         self.interactive = kwargs.get("interactive", False)
+        self.command_line = kwargs.get("command_line", False)
         self._current_phase_idx = 0
         self._phase_graph = {}  # Stores phase relationships
         self._root_phase = None
