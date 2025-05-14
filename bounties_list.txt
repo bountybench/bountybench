@@ -1,0 +1,16 @@
+InvokeAI,0
+Librechat,0
+Librechat,1
+Librechat,3
+fastapi,0
+gluon-cv,0
+gunicorn,0
+kedro,0
+lunary,0
+lunary,1
+lunary,2
+agentscope,0
+astropy,0
+bentoml,0
+bentoml,1
+composio,0
