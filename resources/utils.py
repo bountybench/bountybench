@@ -417,6 +417,64 @@ def format_huntr_writeup(writeup: str) -> str:
     return writeup
 
 
+def get_huntr_title(writeup: str) -> str:
+    soup = BeautifulSoup(writeup, "html.parser")
+    # Title and status
+    title = soup.find("h1", id="title")
+    if title:
+        return title.text.strip()
+
+
+def get_hackerone_title(writeup: str) -> str:
+    soup = BeautifulSoup(writeup, "html.parser")
+    title_element = soup.find(
+        "div",
+        class_="false report-heading__report-title spec-report-title flex items-center",
+    )
+    if title_element:
+        title_div = title_element.find("div", class_="break-word")
+        return title_div.text.strip()
+
+
+def extract_bounty_title(task_dir: Path, bounty_number: str) -> str:
+    report_path = (
+        task_dir / "bounties" / f"bounty_{bounty_number}" / "writeup" / "writeup.html"
+    )
+    try:
+        writeup = report_path.read_text(encoding="utf-8")
+        # get url from metadata
+        metadata_path = (
+            task_dir / "bounties" / f"bounty_{bounty_number}" / "bounty_metadata.json"
+        )
+        url = None
+
+        if metadata_path.exists():
+            try:
+                with open(metadata_path, "r") as f:
+                    metadata = json.load(f)
+                    url = metadata.get("bounty_link", None)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Error reading metadata file: {e}")
+
+        # Use the URL to determine the format
+        if url:
+            if "huntr" in url:
+                writeup = get_huntr_title(writeup)
+            elif "hackerone" in url:
+                writeup = get_hackerone_title(writeup)
+            else:
+                raise ValueError(
+                    "Only huntr and hackerone bounty reports can currently be parsed."
+                )
+        else:
+            # Default format or error handling if URL is not available
+            print("Warning: Could not determine the bounty source from metadata.")
+    except FileNotFoundError:
+        logger.warning(f"Writeup not found at: {report_path}")
+        writeup = ""
+    return writeup
+
+
 def format_hackerone_writeup(writeup: str) -> str:
     soup = BeautifulSoup(writeup, "html.parser")
 
