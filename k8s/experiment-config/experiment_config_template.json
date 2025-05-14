@@ -1,0 +1,12 @@
+{
+  "workflow_type": "<workflow_type>",
+  "phase_iterations": <phase_iterations>,
+  "use_helm": <true_or_false>,
+  "model": "<model_name>",
+  "max_input_tokens": <max_input_tokens>,
+  "max_output_tokens": <max_output_tokens>,
+  "tasks": [
+    "<task_dir_1>/<bounty_number_1>",
+    "<task_dir_2>/<bounty_number_2>"
+  ]
+}
