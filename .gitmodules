@@ -1,0 +1,3 @@
+[submodule "bountytasks"]
+	path = bountytasks
+	url = https://github.com/bountybench/bountytasks.git
