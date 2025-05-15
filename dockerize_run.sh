@@ -34,7 +34,7 @@ else
     # Generate a unique container name with timestamp and random string
     TIMESTAMP=$(date +%s)
     RANDOM_STRING=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 6 | head -n 1)
-    CONTAINER_NAME="bountyagent-task-${TIMESTAMP}-${RANDOM_STRING}"
+    CONTAINER_NAME="bountybench-task-${TIMESTAMP}-${RANDOM_STRING}"
     
     echo "Creating temporary container: ${CONTAINER_NAME}"
     

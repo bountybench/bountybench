@@ -267,7 +267,7 @@ export const WorkflowLauncher = ({ onWorkflowStart, interactiveMode, setInteract
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflow_name: formData.workflow_name,
-          task_dir: `bountybench/${firstTask.task_dir.replace(/^bountybench\//, '')}`,
+          task_dir: `bountytasks/${firstTask.task_dir.replace(/^bountytasks\//, '')}`,
           bounty_number: firstTask.bounty_number,
           vulnerability_type: formData.vulnerability_type,
           interactive: interactiveMode,
