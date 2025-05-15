@@ -3,7 +3,7 @@
 ### Running the Workflow
 Make sure your Docker Desktop app is running.
 
-To run the exploit-and-patch workflow from the command line, navigate to the ``` bountyagent ``` directory and use the following command:
+To run the exploit-and-patch workflow from the command line, navigate to the ``` bountybench ``` directory and use the following command:
 ```
 python -m workflows.exploit_patch_workflow \
     --task_dir bountytasks/setuptools \
@@ -30,7 +30,7 @@ Alternatively you can run the backend and frontend separately as described below
 
 #### Backend Setup
 
-1. Open a terminal and navigate to the `bountyagent` directory.
+1. Open a terminal and navigate to the `bountybench` directory.
 
 2. Start the backend server:
 ```
@@ -40,7 +40,7 @@ Note: The backend will take about a minute to initialize. You can view increment
 
 #### Frontend Setup
 
-1. Open a new terminal and navigate to the `bountyagent/frontend` directory.
+1. Open a new terminal and navigate to the `bountybench/frontend` directory.
 
 2. If this is your first time running the frontend or if you've updated the project, install the necessary packages:
 ```
@@ -72,7 +72,7 @@ Once both the backend and frontend are running, you can access the application t
 Internal Server Error ("Mounts denied: The path *** is not shared from the host and is not known to Docker. You can configure shared paths from Docker -> Preferences... -> Resources -> File Sharing.")
 
 **Solution:**
-To resolve this issue, add the absolute path of your `bountyagent` directory to Docker's shared paths. Follow these steps:
+To resolve this issue, add the absolute path of your `bountybench` directory to Docker's shared paths. Follow these steps:
 
 1. **Determine the Absolute Path:**
    - Open your terminal.
@@ -80,18 +80,18 @@ To resolve this issue, add the absolute path of your `bountyagent` directory to 
    - Retrieve the absolute path using the `pwd` command.
    - **Example Output:**
      ```
-     /Users/yourusername/projects/bountyagent
+     /Users/yourusername/projects/bountybench
      ```
 
 2. **Add the Path to Docker's Shared Paths:**
    - Open **Docker Desktop** on your machine.
    - Click on the **Settings** (gear) icon.
    - Navigate to **Resources** > **File Sharing**.
-   - Paste the absolute path you obtained earlier (e.g., `/Users/yourusername/projects/bountyagent`).
+   - Paste the absolute path you obtained earlier (e.g., `/Users/yourusername/projects/bountybench`).
    - Click the **`+`** button to add the new shared path.
    - Also add `/tmp` using the **`+`** button.
    - Click **Apply & Restart** to save the changes.
 
 3. **Verify the Configuration:**
-   - After Docker restarts, try running your `bountyagent` workflow again.
+   - After Docker restarts, try running your `bountybench` workflow again.
    - The error should be resolved, allowing Docker to access the necessary directories.

@@ -14,7 +14,7 @@ pip install coverage pytest
 ```
 
 #### **Running Tests with Coverage**
-To run tests located in the `tests/` folder while tracking coverage, run the following in the `bountyagent/` folder:
+To run tests located in the `tests/` folder while tracking coverage, run the following in the `bountybench/` folder:
 
 ```sh
 coverage run --rcfile=.coveragerc -m pytest tests/
