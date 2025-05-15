@@ -92,9 +92,9 @@ RUN touch .env
 
 # Create a new .gitmodules file and run git submodule sync
 RUN cat <<EOF > .gitmodules
-[submodule "bountybench"]
-	path = bountybench
-	url = git@github.com:cybench/bountybench.git
+[submodule "bountytasks"]
+	path = bountytasks
+	url = git@github.com:bountybench/bountytasks.git
 EOF
 RUN git submodule sync
 RUN git remote set-url origin git@github.com:cybench/bountyagent.git

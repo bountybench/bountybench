@@ -12,9 +12,9 @@ def test_config():
     return {
         "repo": "lunary",
         "bounty_number": "0",
-        "task_dir": Path("bountybench/lunary").resolve(),
+        "task_dir": Path("bountytasks/lunary").resolve(),
         "files_dir": "codebase",
-        "tmp_dir": Path("bountybench/lunary/bounties/bounty_0/tmp_1"),
+        "tmp_dir": Path("bountytasks/lunary/bounties/bounty_0/tmp_1"),
     }
 
 

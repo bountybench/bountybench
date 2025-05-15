@@ -34,7 +34,7 @@ pip install -r requirements.txt
 Initialize submodules (may take a few minutes to complete):
 ```
 git submodule update --init
-cd bountybench
+cd bountytasks
 git submodule update --init
 ```
 

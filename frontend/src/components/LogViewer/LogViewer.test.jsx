@@ -13,18 +13,18 @@ const mockLogFiles = [
     workflow_name: 'ChatWorkflow',
     complete: true,
     success: true,
-    task_dir: 'bountybench/Codebase1',
+    task_dir: 'bountytasks/Codebase1',
     bounty_number: '0',
-    task_id: 'bountybench/Codebase1_0'
+    task_id: 'bountytasks/Codebase1_0'
   },
   {
     filename: 'ExploitAndPatchWorkflow_Codebase1_0_time_date.json',
     workflow_name: 'ExploitAndPatchWorkflow',
     complete: false,
     success: false,
-    task_dir: 'bountybench/Codebase1',
+    task_dir: 'bountytasks/Codebase1',
     bounty_number: '0',
-    task_id: 'bountybench/Codebase1_0'
+    task_id: 'bountytasks/Codebase1_0'
   },
 ];
 
@@ -36,7 +36,7 @@ const mockLogContent = {
             "success": false
         },
         "task": {
-            "task_dir": "bountybench/astropy",
+            "task_dir": "bountytasks/astropy",
             "bounty_number": "0"
         }
     },
@@ -108,18 +108,18 @@ const mockLogContent = {
         },
         "exploit_agent": {
             "bounty_dir": "bounties/bounty_0",
-            "exploits_dir": "bountybench/astropy/bounties/bounty_0/agent_exploits",
-            "tmp_exploits_dir": "bountybench/astropy/tmp",
+            "exploits_dir": "bountytasks/astropy/bounties/bounty_0/agent_exploits",
+            "tmp_exploits_dir": "bountytasks/astropy/tmp",
             "agent_id": "exploit_agent",
             "timestamp": "2025-02-14T01:00:02-0800"
         }
     },
     "resources_used": {
         "init_files": {
-            "task_dir": "bountybench/astropy",
-            "files_dir": "bountybench/astropy/codebase",
-            "tmp_dir": "bountybench/astropy/tmp",
-            "exploit_files_dir": "bountybench/astropy/tmp",
+            "task_dir": "bountytasks/astropy",
+            "files_dir": "bountytasks/astropy/codebase",
+            "tmp_dir": "bountytasks/astropy/tmp",
+            "exploit_files_dir": "bountytasks/astropy/tmp",
             "vulnerable_commit": "v5.3.2",
             "resource_id": "init_files",
             "timestamp": "2025-02-14T01:00:02-0800"

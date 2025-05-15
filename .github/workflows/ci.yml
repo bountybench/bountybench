@@ -30,7 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install "black==24.10.0" "isort==5.13.2"
           # Simplified grep pattern to avoid parsing issues
-          MODIFIED_PY_FILES=$(git diff --name-only --diff-filter=d origin/main HEAD | grep ".py$" | grep -v "^bountybench/" || echo "")
+          MODIFIED_PY_FILES=$(git diff --name-only --diff-filter=d origin/main HEAD | grep ".py$" | grep -v "^bountytasks/" || echo "")
           if [ -n "$MODIFIED_PY_FILES" ]; then
             echo "Running black on modified files..."
             echo "$MODIFIED_PY_FILES" | xargs black --check
@@ -107,7 +107,7 @@ jobs:
       - name: Manually check out submodule
         run: |
           echo "Initializing only required submodules..."
-          git submodule update --init bountybench
+          git submodule update --init bountytasks
 
       - name: Check Disk Space
         run: df -h

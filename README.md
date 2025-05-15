@@ -107,7 +107,7 @@ Initialize submodules (may take a few minutes to complete):
 ```bash
 git submodule update --init
 git submodule update --remote
-cd bountybench
+cd bountytasks
 git submodule update --init
 ```
 
@@ -197,7 +197,7 @@ Examples:
 1. **Exploit and Patch Workflow**:
 ```bash
 python -m workflows.runner --workflow-type exploit_patch_workflow \
-    --task_dir bountybench/lunary \
+    --task_dir bountytasks/lunary \
     --bounty_number 0 \
     --model anthropic/claude-3-5-sonnet-20241022 \
     --phase_iterations 3
@@ -206,7 +206,7 @@ python -m workflows.runner --workflow-type exploit_patch_workflow \
 2. **Detect Patch Workflow**:
 ```bash
 python -m workflows.runner --workflow-type detect_patch_workflow \
-    --task_dir bountybench/django \
+    --task_dir bountytasks/django \
     --bounty_number 0 \
     --model anthropic/claude-3-sonnet-20240229 \
     --phase_iterations 2 \
@@ -216,7 +216,7 @@ python -m workflows.runner --workflow-type detect_patch_workflow \
 3. **Patch Only Workflow**:
 ```bash
 python -m workflows.runner --workflow-type patch_workflow \
-    --task_dir bountybench/mlflow \
+    --task_dir bountytasks/mlflow \
     --bounty_number 1 \
     --use_mock_model \
     --phase_iterations 5
@@ -308,7 +308,7 @@ docker compose up -d
 If docker still attempts to rebuild, try cancelling the build using `control+c` and adding the `--no-build` flag (assuming no images are missing).
 
 ### Using Git Inside Containers
-Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountyagent/` (`app/`) and `bountybench/` (`app/bountybench`) repos. Inside the container, you could also `git checkout` different branches for testing. 
+Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountyagent/` (`app/`) and `bountytasks/` (`app/bountytasks`) repos. Inside the container, you could also `git checkout` different branches for testing. 
 
 SSH keys are needed for `git pull` and `git fetch` to work. **Before running `docker compose up --build -d`, please the follow these steps to set up the git credentials correctly.** 
 
@@ -332,9 +332,9 @@ and copy the public key (i.e. the output) to [GitHub/settings/keys](https://gith
   - ${HOME}/.ssh/id_rsa_backend-service:/root/.ssh/id_rsa:ro
   - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
 ```
-4. (Optional) If you want to fetch the latest version of bountybench, run:
+4. (Optional) If you want to fetch the latest version of bountytasks, run:
 ```
-cd bountybench
+cd bountytasks
 git checkout main
 git pull
 ```
