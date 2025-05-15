@@ -281,13 +281,13 @@ def test_is_agent_equivalent(initialized_agent_manager, agent_configs) -> bool:
         "exploit_agent",
         ExploitAgent,
         ExploitAgentConfig(
-            Path("bountyagent"), Path("bountyagent"), Path("bountyagent"), False
+            Path("bountybench"), Path("bountybench"), Path("bountybench"), False
         ),
     )
     assert not am.is_agent_equivalent(
         "patch_agent",
         PatchAgent,
-        PatchAgentConfig(Path("bountyagent"), Path("bountyagent"), False, False),
+        PatchAgentConfig(Path("bountybench"), Path("bountybench"), False, False),
     )
     assert am.is_agent_equivalent("patch_agent", PatchAgent, pConfig)
     assert am.is_agent_equivalent("exploit_agent", ExploitAgent, eConfig)

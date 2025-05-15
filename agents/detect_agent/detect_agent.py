@@ -424,7 +424,7 @@ class DetectAgent(BaseAgent):
     def get_compatible_patches(self) -> List[str]:
         """
         Reads bounty metadata and returns compatible patches
-        See bountybench/README.md for more details on compatible patches
+        See bountytasks/README.md for more details on compatible patches
 
         Returns:
             List: A list of bounties (ex: [0,1,3]) with compatible patches.

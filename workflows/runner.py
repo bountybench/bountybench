@@ -22,7 +22,7 @@ from workflows.patch_workflow import PatchWorkflow
 # This module serves as the single entry point for running workflows via the command line.
 # Example usage:
 # python -m workflows.runner --workflow-type exploit_patch_workflow \
-#     --task_dir bountybench/lunary \
+#     --task_dir bountytasks/lunary \
 #     --bounty_number 0 \
 #     --model anthropic/claude-3-5-sonnet-20241022 \
 #     --phase_iterations 1 \

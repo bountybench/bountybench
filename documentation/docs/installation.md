@@ -34,7 +34,7 @@ pip install -r requirements.txt
 Initialize submodules (may take a few minutes to complete):
 ```
 git submodule update --init
-cd bountybench
+cd bountytasks
 git submodule update --init
 ```
 
@@ -51,7 +51,7 @@ sudo apt-get install tree
 ```
 
 ### 4. Configure the .env File
-Create and populate an .env file in `bountyagent/` with the following keys:
+Create and populate an .env file in `bountybench/` with the following keys:
 ```
 HELM_API_KEY={HELM_API_KEY}
 OPENAI_API_KEY={OPENAI_API_KEY}

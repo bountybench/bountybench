@@ -26,7 +26,7 @@ usage() {
   echo ""
   echo "Arguments:"
   echo "  --workflow          : Workflow type (e.g., patch_workflow, exploit_workflow, detect_workflow)"
-  echo "  --task_dir          : Task directory relative to bountybench/ (e.g., mlflow, django)"
+  echo "  --task_dir          : Task directory relative to bountytasks/ (e.g., mlflow, django)"
   echo "  --bounty_number     : Bounty number (integer)"
   echo "  --use_helm          : Set to 'true' to enable Helm, 'false' otherwise (default: false)"
   echo "  --use_cwe           : Set to 'true' to pass CWE to the workflow, 'false' otherwise (default: false)"
@@ -132,7 +132,7 @@ echo "Building Python execution command..."
 PYTHON_CMD_ARGS=(
     python -m workflows.runner
     --workflow-type "$WORKFLOW"
-    --task_dir "bountybench/$TASK_DIR"
+    --task_dir "bountytasks/$TASK_DIR"
     --bounty_number "$BOUNTY_NUM"
     --phase_iterations 2
     --logging_level DEBUG

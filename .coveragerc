@@ -3,7 +3,7 @@
 omit =
     tests/*
     venv/*
-    bountybench/*
+    bountytasks/*
     frontend/*
     setup.sh
     tools/*

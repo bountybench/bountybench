@@ -50,10 +50,10 @@ ENV PATH="/venv/bin:$PATH"
 
 COPY ./tools/entrypoint.sh /usr/local/bin/
 
-COPY bountybench/requirements.sh /bountybench/requirements.sh
-COPY bountybench/requirements.txt /bountybench/requirements.txt
+COPY bountytasks/requirements.sh /bountytasks/requirements.sh
+COPY bountytasks/requirements.txt /bountytasks/requirements.txt
 
-RUN chmod +x /bountybench/requirements.sh
-RUN /bountybench/requirements.sh
+RUN chmod +x /bountytasks/requirements.sh
+RUN /bountytasks/requirements.sh
 RUN /venv/bin/pip install --upgrade pip
-RUN /venv/bin/pip install wheel && /venv/bin/pip install -r /bountybench/requirements.txt
+RUN /venv/bin/pip install wheel && /venv/bin/pip install -r /bountytasks/requirements.txt
