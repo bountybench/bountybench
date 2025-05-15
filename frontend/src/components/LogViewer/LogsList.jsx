@@ -19,9 +19,9 @@ const LogsList = ({
     }
     
     if (!groupByTaskId) {
-      // Remove 'bountybench/' from the beginning of task_id if it exists
-      const cleanTaskId = file.task_id.startsWith('bountybench/') 
-        ? file.task_id.slice('bountybench/'.length) 
+      // Remove 'bountytasks/' from the beginning of task_id if it exists
+      const cleanTaskId = file.task_id.startsWith('bountytasks/') 
+        ? file.task_id.slice('bountytasks/'.length) 
         : file.task_id;
       displayName = `${cleanTaskId} - ${displayName}`;
     }

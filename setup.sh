@@ -78,12 +78,12 @@ git submodule update --init || error_exit "Failed to initialize submodules."
 echo "🔗 Updating submodules to the latest commit..."
 git submodule update --remote || error_exit "Failed to update submodules to the latest commit."
 
-# Check if the 'bountybench' directory exists before updating its submodules
-if [ -d "bountybench" ]; then
-    echo "🔗 Initializing submodules within 'bountybench'..."
-    cd bountybench
+# Check if the 'bountytasks' directory exists before updating its submodules
+if [ -d "bountytasks" ]; then
+    echo "🔗 Initializing submodules within 'bountytasks'..."
+    cd bountytasks
     if [ "$INIT_ALL" = true ]; then
-        git submodule update --init || error_exit "Failed to initialize all submodules in 'bountybench'."
+        git submodule update --init || error_exit "Failed to initialize all submodules in 'bountytasks'."
     else
         echo "⚠️ Initializing test submodules..."
         TEST_SUBMODULES=(
@@ -96,13 +96,13 @@ if [ -d "bountybench" ]; then
         if [ ${#TEST_SUBMODULES[@]} -eq 0 ]; then
             echo "⚠️ No test submodules specified. Skipping initialization."
         else
-            git submodule update --init "${TEST_SUBMODULES[@]}" || error_exit "Failed to initialize test submodules in 'bountybench'."
+            git submodule update --init "${TEST_SUBMODULES[@]}" || error_exit "Failed to initialize test submodules in 'bountytasks'."
         fi
     fi
     cd ..
 else
-    echo "⚠️ Directory 'bountybench' does not exist."
-    error_exit "Failed to initialize submodules in 'bountybench'."
+    echo "⚠️ Directory 'bountytasks' does not exist."
+    error_exit "Failed to initialize submodules in 'bountytasks'."
 fi
 
 # 6. Check for a .env file; create one from .env_template if it doesn't exist

@@ -1,8 +1,8 @@
-# bountyagent
+# bountybench
 
 ## Table of Contents
 
-- [bountyagent](#bountyagent)
+- [bountybench](#bountybench)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
     - [Environment Setup](#environment-setup)
@@ -107,7 +107,7 @@ Initialize submodules (may take a few minutes to complete):
 ```bash
 git submodule update --init
 git submodule update --remote
-cd bountybench
+cd bountytasks
 git submodule update --init
 ```
 
@@ -127,7 +127,7 @@ sudo apt-get install tree
 
 #### 4. Configure the .env File
 
-Create and populate an .env file in `bountyagent/` with the following keys:
+Create and populate an .env file in `bountybench/` with the following keys:
 
 ```bash
 ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
@@ -197,7 +197,7 @@ Examples:
 1. **Exploit and Patch Workflow**:
 ```bash
 python -m workflows.runner --workflow-type exploit_patch_workflow \
-    --task_dir bountybench/lunary \
+    --task_dir bountytasks/lunary \
     --bounty_number 0 \
     --model anthropic/claude-3-5-sonnet-20241022 \
     --phase_iterations 3
@@ -206,7 +206,7 @@ python -m workflows.runner --workflow-type exploit_patch_workflow \
 2. **Detect Patch Workflow**:
 ```bash
 python -m workflows.runner --workflow-type detect_patch_workflow \
-    --task_dir bountybench/django \
+    --task_dir bountytasks/django \
     --bounty_number 0 \
     --model anthropic/claude-3-sonnet-20240229 \
     --phase_iterations 2 \
@@ -216,7 +216,7 @@ python -m workflows.runner --workflow-type detect_patch_workflow \
 3. **Patch Only Workflow**:
 ```bash
 python -m workflows.runner --workflow-type patch_workflow \
-    --task_dir bountybench/mlflow \
+    --task_dir bountytasks/mlflow \
     --bounty_number 1 \
     --use_mock_model \
     --phase_iterations 5
@@ -241,7 +241,7 @@ Alternatively you can run the backend and frontend separately as described below
 
 #### Backend Setup
 
-1. Open a terminal and navigate to the `bountyagent` directory.
+1. Open a terminal and navigate to the `bountybench` directory.
 
 2. Start the backend server:
 
@@ -253,7 +253,7 @@ Note: The backend will take about a minute to initialize. You can view increment
 
 #### Frontend Setup
 
-1. Open a new terminal and navigate to the `bountyagent/frontend` directory.
+1. Open a new terminal and navigate to the `bountybench/frontend` directory.
 
 2. If this is your first time running the frontend or if you've updated the project, install the necessary packages:
 
@@ -288,7 +288,7 @@ Once both the backend and frontend are running, you can access the application t
    docker volume create dind-data
    ```
 
-3. Navigate to the `bountyagent` directory and run:
+3. Navigate to the `bountybench` directory and run:
 
    ```bash
    docker compose up --build -d
@@ -308,7 +308,7 @@ docker compose up -d
 If docker still attempts to rebuild, try cancelling the build using `control+c` and adding the `--no-build` flag (assuming no images are missing).
 
 ### Using Git Inside Containers
-Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountyagent/` (`app/`) and `bountybench/` (`app/bountybench`) repos. Inside the container, you could also `git checkout` different branches for testing. 
+Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountybench/` (`app/`) and `bountytasks/` (`app/bountytasks`) repos. Inside the container, you could also `git checkout` different branches for testing. 
 
 SSH keys are needed for `git pull` and `git fetch` to work. **Before running `docker compose up --build -d`, please the follow these steps to set up the git credentials correctly.** 
 
@@ -332,9 +332,9 @@ and copy the public key (i.e. the output) to [GitHub/settings/keys](https://gith
   - ${HOME}/.ssh/id_rsa_backend-service:/root/.ssh/id_rsa:ro
   - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
 ```
-4. (Optional) If you want to fetch the latest version of bountybench, run:
+4. (Optional) If you want to fetch the latest version of bountytasks, run:
 ```
-cd bountybench
+cd bountytasks
 git checkout main
 git pull
 ```
@@ -353,7 +353,7 @@ We have also provide a bash script `dockerize_run.sh` that serves as an easy int
 Internal Server Error ("Mounts denied: The path *** is not shared from the host and is not known to Docker. You can configure shared paths from Docker -> Preferences... -> Resources -> File Sharing.")
 
 **Solution:**
-To resolve this issue, add the absolute path of your `bountyagent` directory to Docker's shared paths. Follow these steps:
+To resolve this issue, add the absolute path of your `bountybench` directory to Docker's shared paths. Follow these steps:
 
 1. **Determine the Absolute Path:**
    - Open your terminal.
@@ -362,20 +362,20 @@ To resolve this issue, add the absolute path of your `bountyagent` directory to 
    - **Example Output:**
 
      ```bash
-     /Users/yourusername/projects/bountyagent
+     /Users/yourusername/projects/bountybench
      ```
 
 2. **Add the Path to Docker's Shared Paths:**
    - Open **Docker Desktop** on your machine.
    - Click on the **Settings** (gear) icon.
    - Navigate to **Resources** > **File Sharing**.
-   - Paste the absolute path you obtained earlier (e.g., `/Users/yourusername/projects/bountyagent`).
+   - Paste the absolute path you obtained earlier (e.g., `/Users/yourusername/projects/bountybench`).
    - Click the **`+`** button to add the new shared path.
    - Also add `/tmp` using the **`+`** button.
    - Click **Apply & Restart** to save the changes.
 
 3. **Verify the Configuration:**
-   - After Docker restarts, try running your `bountyagent` workflow again.
+   - After Docker restarts, try running your `bountybench` workflow again.
    - The error should be resolved, allowing Docker to access the necessary directories.
 
 ## System Architecture
@@ -580,7 +580,7 @@ pip install coverage pytest
 
 #### **Running Tests with Coverage**
 
-To run tests located in the `tests/` folder while tracking coverage, run the following in the `bountyagent/` folder:
+To run tests located in the `tests/` folder while tracking coverage, run the following in the `bountybench/` folder:
 
 ```sh
 coverage run --rcfile=.coveragerc -m pytest tests/
@@ -629,7 +629,7 @@ For further details on `coverage.py`, refer to the official documentation: [Cove
 To view the full documentation:
 
 1. Ensure you have MkDocs installed: either rerun `pip install -r requirements.txt` or individually `pip install mkdocs`
-2. Navigate to `bountyagent/documentation`
+2. Navigate to `bountybench/documentation`
 3. Run `mkdocs serve`
 4. Open your browser and go to `http://127.0.0.1:8000/`
 
