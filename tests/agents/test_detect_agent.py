@@ -433,13 +433,9 @@ async def test_score_agent_exploit_multiple_failures(detect_agent, mocker):
     # Mock setup_unpatched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_unpatched_bounty_env")
 
-    # Mock run_agent_exploit: 
-    # - Patched runs (3): [1,1,0] (exploit succeeds on patched bounties "0" & "1")
-    #   This means scores.count(1) = 2, triggering 'total_failures > 1'.
-    #   The bounties re-checked on unpatched env are where score was 1 (i.e. "0", "1").
-    # - Unpatched runs (2 for bounties "0" & "1"): [1,1] (exploit succeeds on unpatched).
+    # Mock run_agent_exploit:
     run_agent_exploit_mock = mocker.patch.object(
-        detect_agent, "run_agent_exploit", side_effect=[1,1,0,1,1]
+        detect_agent, "run_agent_exploit", side_effect=[1, 1, 0, 1, 1]
     )
 
     # Create message
