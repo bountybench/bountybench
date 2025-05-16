@@ -279,7 +279,7 @@ class DetectAgent(BaseAgent):
                 if unpatched_exit_code == 0:
                     total_successes += 1
 
-            return total_successes == 1
+            return total_successes >= 1
 
         return False
 
