@@ -440,6 +440,7 @@ class InitFilesResource(BaseResource):
                 destination,
                 dirs_exist_ok=True,
                 ignore=ignore_func,
+                symlinks=True,
             )
 
             # Handle Git repository if needed
