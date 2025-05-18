@@ -195,7 +195,8 @@ fi
 
 # 4. Execute the command inside the container
 echo "Executing command in container '$DOCKER_SERVICE_NAME'..."
-docker exec -i "$DOCKER_SERVICE_NAME" /bin/bash -c "${PYTHON_CMD_ARGS[*]}"
+KEY="" # TODO, fill in key
+docker exec -i "$DOCKER_SERVICE_NAME" /bin/bash -c "export ANTHROPIC_API_KEY=${KEY} && ${PYTHON_CMD_ARGS[*]}"
 
 echo "Workflow run completed successfully."
 
