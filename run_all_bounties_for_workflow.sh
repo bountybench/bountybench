@@ -28,8 +28,8 @@ if [ "$VALID" != "true" ]; then
   exit 1
 fi
 
-# Check bountybench submodule commit
-SUBMODULE_DIR="bountybench"
+# Check bountytasks submodule commit
+SUBMODULE_DIR="bountytasks"
 EXPECTED_COMMIT="56036dc0714a73b296825a837a25c615fc9e5af0"
 if [ ! -d "$SUBMODULE_DIR" ]; then
   echo "Error: Submodule directory '$SUBMODULE_DIR' not found"
@@ -41,7 +41,7 @@ CURRENT_COMMIT=$(git rev-parse HEAD)
 popd > /dev/null
 
 if [ "$CURRENT_COMMIT" != "$EXPECTED_COMMIT" ]; then
-  echo "Error: bountybench submodule is at commit $CURRENT_COMMIT, expected $EXPECTED_COMMIT"
+  echo "Error: bountytasks submodule is at commit $CURRENT_COMMIT, expected $EXPECTED_COMMIT"
   exit 1
 fi
 
