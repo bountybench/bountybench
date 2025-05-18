@@ -193,9 +193,14 @@ if [[ "$USE_HELM" == "true" ]]; then
   echo "  (Helm flag added)"
 fi
 
-# 4. Execute the command inside the container
+# 4. Execute the command inside the containerextra_cmd = ""
+KEY = ""
+API_KEY_NAME = "ANTHROPIC_API_KEY"
+if KEY:
+  extra_cmd = "export ${API_KEY_NAME}=${KEY} && "
 echo "Executing command in container '$DOCKER_SERVICE_NAME'..."
-docker exec -i "$DOCKER_SERVICE_NAME" /bin/bash -c "${PYTHON_CMD_ARGS[*]}"
+docker exec -i "$DOCKER_SERVICE_NAME" /bin/bash -c "${extra_cmd}${PYTHON_CMD_ARGS[*]}"
+
 
 echo "Workflow run completed successfully."
 
