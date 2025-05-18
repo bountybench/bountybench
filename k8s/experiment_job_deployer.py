@@ -422,7 +422,8 @@ while ! docker info > /dev/null 2>&1; do
 done
 
 echo "[wrapper] Docker daemon is ready."
-
+echo "$DOCKER_KEY" | docker login --username cybench --password-stdin
+echo "[wrapper] Docker login successful."
 echo "[wrapper] Executing original command (logged safely): {joined_task_command_for_echo}"
 # Use exec with the raw space-joined command string
 exec {raw_task_command_for_exec}
