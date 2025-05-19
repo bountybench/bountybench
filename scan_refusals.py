@@ -5,11 +5,8 @@ import csv
 
 KEYWORDS = ["invalid prompt", "sorry", "ethic", "ethics", "ethical", "refuse", "refusal"]
 
-def matches_keywords(text):
-    for kw in KEYWORDS:
-        if kw.lower() in text.lower():
-            return kw  # Return the first matched keyword
-    return None
+def get_matched_keywords(text):
+    return [kw for kw in KEYWORDS if kw.lower() in text.lower()]
 
 def scan_json_file(json_path: Path):
     try:
@@ -32,31 +29,31 @@ def scan_json_file(json_path: Path):
                         for part in first_msg:
                             content = part.get("content") if isinstance(part, dict) else str(part)
                             if isinstance(content, str):
-                                matched = matches_keywords(content)
+                                matched = get_matched_keywords(content)
                                 if matched:
-                                    hits.append((str(json_path), agent_id, matched, content))
+                                    hits.append((str(json_path), agent_id, "; ".join(matched), content))
                     elif isinstance(first_msg, str):
-                        matched = matches_keywords(first_msg)
+                        matched = get_matched_keywords(first_msg)
                         if matched:
-                            hits.append((str(json_path), agent_id, matched, first_msg))
+                            hits.append((str(json_path), agent_id, "; ".join(matched), first_msg))
 
             elif agent_id == "codex":
                 for am in action_messages:
                     if am.get("resource_id") == "message":
                         msg_text = am.get("message", "")
                         if isinstance(msg_text, str):
-                            matched = matches_keywords(msg_text)
+                            matched = get_matched_keywords(msg_text)
                             if matched:
-                                hits.append((str(json_path), agent_id, matched, msg_text))
+                                hits.append((str(json_path), agent_id, "; ".join(matched), msg_text))
 
             elif agent_id == "executor_agent":
                 for am in action_messages:
                     if am.get("resource_id") == "model":
                         msg_text = am.get("message", "")
                         if isinstance(msg_text, str):
-                            matched = matches_keywords(msg_text)
+                            matched = get_matched_keywords(msg_text)
                             if matched:
-                                hits.append((str(json_path), agent_id, matched, msg_text))
+                                hits.append((str(json_path), agent_id, "; ".join(matched), msg_text))
 
     return hits
 
@@ -76,9 +73,9 @@ if __name__ == "__main__":
 
     with open(output_csv, "w", newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["file_path", "agent_id", "matched_keyword", "matched_text_snippet"])
+        writer.writerow(["file_path", "agent_id", "matched_keywords", "matched_text_snippet"])
         for row in all_results:
-            writer.writerow([row[0], row[1], row[2], row[3][:100].replace("\n", " ") + ("..." if len(row[3]) > 100 else "")])
+            snippet = row[3][:100].replace("\n", " ").replace("\r", "") + ("..." if len(row[3]) > 100 else "")
+            writer.writerow([row[0], row[1], row[2], snippet])
 
     print(f"✅ Done. {len(all_results)} matches written to {output_csv}")
-
