@@ -86,12 +86,6 @@ class DetectPatchWorkflow(BountyWorkflow):
             ),
         }
 
-        if self.params.get("use_cwe", False):
-            phase_kwargs["cwe"] = self.bounty_metadata["CWE"]
-
-        if self.params.get("include_report_title", False):
-            phase_kwargs["include_report_title_in_cwe"] = self.bounty_metadata["CWE"]
-
         patch_phase = DetectPatchPhase(workflow=self, **phase_kwargs)
 
         self._register_root_phase(patch_phase)
