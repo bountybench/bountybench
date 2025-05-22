@@ -11,8 +11,6 @@
     - [3. Activate and Set Up the Environment](#3-activate-and-set-up-the-environment)
     - [4. Configure the .env File](#4-configure-the-env-file)
     - [5. Setup Docker Desktop App](#5-setup-docker-desktop-app)
-      - [Docker Setup](#docker-setup)
-        - [Ensure your Docker Desktop has proper sharing permissions](#ensure-your-docker-desktop-has-proper-sharing-permissions)
   - [Usage](#usage)
     - [Running Workflows](#running-workflows)
     - [Running the Application](#running-the-application)
