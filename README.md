@@ -14,11 +14,8 @@
       - [Docker Setup](#docker-setup)
         - [Ensure your Docker Desktop has proper sharing permissions](#ensure-your-docker-desktop-has-proper-sharing-permissions)
   - [Usage](#usage)
-    - [Running the Workflow](#running-workflows)
+    - [Running Workflows](#running-workflows)
     - [Running the Application](#running-the-application)
-      - [Concurrent run](#concurrent-run)
-      - [Backend Setup](#backend-setup)
-      - [Frontend Setup](#frontend-setup)
     - [Accessing the Application](#accessing-the-application)
     - [Dockerize run](#dockerize-run)
     - [Sample Run](#sample-run)
@@ -156,26 +153,26 @@ python -m workflows.runner --workflow-type WORKFLOW_TYPE [OPTIONS]
 ```
 
 Available workflow types:
-- `exploit_patch_workflow`:
+- `detect_workflow`:
+- `exploit_workflow`:
 - `patch_workflow`:
-- `detect_patch_workflow`:
 
 Required flags vary by workflow type.
 
 Examples:
 
-1. **Exploit and Patch Workflow**:
+1. **Detect Workflow**:
 ```bash
-python -m workflows.runner --workflow-type exploit_patch_workflow \
+python -m workflows.runner --workflow-type detect_workflow \
     --task_dir bountytasks/lunary \
     --bounty_number 0 \
     --model anthropic/claude-3-5-sonnet-20241022 \
     --phase_iterations 3
 ```
 
-2. **Detect Patch Workflow**:
+2. **Exploit Workflow**:
 ```bash
-python -m workflows.runner --workflow-type detect_patch_workflow \
+python -m workflows.runner --workflow-type exploit_workflow \
     --task_dir bountytasks/django \
     --bounty_number 0 \
     --model anthropic/claude-3-sonnet-20240229 \
@@ -183,7 +180,7 @@ python -m workflows.runner --workflow-type detect_patch_workflow \
     --use_helm
 ```
 
-3. **Patch Only Workflow**:
+3. **Patch Workflow**:
 ```bash
 python -m workflows.runner --workflow-type patch_workflow \
     --task_dir bountytasks/mlflow \
@@ -196,8 +193,6 @@ Please be aware that there may be a brief delay between initiating the workflow 
 
 ### Running the Application
 
-#### Concurrent run
-
 1. In the root directory run:
 
 ```bash
@@ -206,43 +201,6 @@ npm start
 ```
 
 This will launch the development server for the frontend and start the backend. You may need to refresh as the backend takes a second to run.
-
-Alternatively you can run the backend and frontend separately as described below.
-
-#### Backend Setup
-
-1. Open a terminal and navigate to the `bountybench` directory.
-
-2. Start the backend server:
-
-```bash
-python -m backend.main
-```
-
-Note: The backend will take about a minute to initialize. You can view incremental, verbose run updates in this terminal window.
-
-#### Frontend Setup
-
-1. Open a new terminal and navigate to the `bountybench/frontend` directory.
-
-2. If this is your first time running the frontend or if you've updated the project, install the necessary packages:
-
-   ```bash
-   npm install
-   ```
-
-3. After the installation is complete, start the frontend application:
-
-   ```bash
-   npm start
-   ```
-
-This will launch the development server for the frontend.
-
-For a list of API endpoints currently supported, open one of these URLs in your browser:
-
-- Swagger UI: `http://localhost:7999/docs`
-- ReDoc: `http://localhost:7999/redoc`
 
 ### Accessing the Application
 
@@ -277,43 +235,13 @@ docker compose up -d
 ```
 If docker still attempts to rebuild, try cancelling the build using `control+c` and adding the `--no-build` flag (assuming no images are missing).
 
-### Using Git Inside Containers
-Depending on the hardware setup, building the container could take anywhere from 5 minutes to much longer. Because dependencies changes are less frequent than codebase changes, a possible solution is to building the container once, and then use git in the container to fetch the latest changes from `bountybench/` (`app/`) and `bountytasks/` (`app/bountytasks`) repos. Inside the container, you could also `git checkout` different branches for testing. 
-
-SSH keys are needed for `git pull` and `git fetch` to work. **Before running `docker compose up --build -d`, please the follow these steps to set up the git credentials correctly.** 
-
-**If you do not wish to use git, please skip to step 3, and you can safely delete these two lines from your `docker-compose.yml`.**
-
-1. Please make sure you cloned the repository with ssh:
+To exec into the container, run:
 ```
-git clone git@github.com:cybench/bountyagent.git
-```
-2. To create a new pair of ssh keys specific for the container, run:
-
-```
-chmod +x tools/ssh_key_gen.sh && \
-tools/ssh_key_gen.sh
+docker exec -it backend-service bash
 ```
 
-and copy the public key (i.e. the output) to [GitHub/settings/keys](https://github.com/settings/keys). 
+Then follow [Running Workflows](#running-workflows).
 
-3. Please uncomment these two lines in `docker-compose.yml` to mount the keys to the container:
-```
-  - ${HOME}/.ssh/id_rsa_backend-service:/root/.ssh/id_rsa:ro
-  - ${HOME}/.ssh/id_rsa_backend-service.pub:/root/.ssh/id_rsa.pub:ro
-```
-4. (Optional) If you want to fetch the latest version of bountytasks, run:
-```
-cd bountytasks
-git checkout main
-git pull
-```
-
-We have also provide a bash script `dockerize_run.sh` that serves as an easy interface to run the application using docker.
-
-### Sample Run
-
-![Screen recording of a run](documentation/docs/media/sample_run.gif)
 
 ### Troubleshooting
 
