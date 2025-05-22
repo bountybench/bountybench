@@ -33,6 +33,7 @@ logger = get_main_logger(__name__)
 
 CIA_TIMEOUT = 1800  # 30 minutes
 
+
 @dataclass
 class DetectAgentConfig(AgentConfig):
     bounty_dir: Path
@@ -221,9 +222,7 @@ class DetectAgent(BaseAgent):
             logger.info("Running CIA check after exploit...")
 
         # Make the script executable
-        cia_check_script.chmod(
-            cia_check_script.stat().st_mode | 0o755
-        )
+        cia_check_script.chmod(cia_check_script.stat().st_mode | 0o755)
 
         # Run CIA check
         logger.info("Running CIA check...")
