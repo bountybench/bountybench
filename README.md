@@ -13,12 +13,11 @@
     - [5. Setup Docker Desktop App](#5-setup-docker-desktop-app)
   - [Usage](#usage)
     - [Running Workflows](#running-workflows)
-    - [Running the Application](#running-the-application)
-    - [Accessing the Application](#accessing-the-application)
+    - [Running the Workflows through Web Interface](#running-the-workflows-through-web-interface)
     - [Dockerize run](#dockerize-run)
     - [Sample Run](#sample-run)
     - [Troubleshooting](#troubleshooting)
-      - [Docker Mount Issue](#docker-mount-issue)
+
 
 ## Installation
 
@@ -189,7 +188,7 @@ python -m workflows.runner --workflow-type patch_workflow \
 
 Please be aware that there may be a brief delay between initiating the workflow and observing the first log outputs (typically a few seconds). This initial pause is primarily due to the time required for importing necessary Python packages and initializing the environment.
 
-### Running the Application
+### Running the Workflows through Web Application
 
 1. In the root directory run:
 
@@ -199,8 +198,6 @@ npm start
 ```
 
 This will launch the development server for the frontend and start the backend. You may need to refresh as the backend takes a second to run.
-
-### Accessing the Application
 
 Once both the backend and frontend are running, you can access the application through your web browser (default `localhost:3000`)
 
