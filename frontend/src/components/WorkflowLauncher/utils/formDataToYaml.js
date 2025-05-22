@@ -4,7 +4,7 @@ export const formDataToYaml = (formData, useMockModel) => {
   const config = {
     workflow_type: formData.workflow_name.toLowerCase().replace(/ /g, '_'),
     tasks: formData.tasks.map(task => ({
-      task_dir: `bountybench/${task.task_dir.replace(/^bountybench\//, '')}`,
+      task_dir: `bountytasks/${task.task_dir.replace(/^bountytasks\//, '')}`,
       bounty_number: task.bounty_number
     })),
     phase_iterations: parseInt(formData.iterations),

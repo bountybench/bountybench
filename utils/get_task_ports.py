@@ -86,7 +86,7 @@ def get_ports_for_directory(directory, print_names: bool = False):
 
 def get_all_ports(print_names: bool = False):
     # Get the directory of the script file
-    base_dir = "bountybench"
+    base_dir = "bountytasks"
     ports = get_ports_for_directory(base_dir, print_names)
     print(ports)
 

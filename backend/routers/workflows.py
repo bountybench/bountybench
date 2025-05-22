@@ -107,7 +107,7 @@ async def list_tasks():
     tasks = []
 
     current_directory = Path.cwd()
-    bounty_directory = current_directory / "bountybench"
+    bounty_directory = current_directory / "bountytasks"
 
     # Iterate through directories in the current working directory
     for task_dir in bounty_directory.iterdir():

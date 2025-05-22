@@ -435,9 +435,9 @@ async def test_score_agent_exploit_multiple_failures(detect_agent, mocker):
     # Mock setup_unpatched_bounty_env to avoid side effects
     mocker.patch.object(detect_agent, "setup_unpatched_bounty_env")
 
-    # Mock run_agent_exploit to return 1, 0, 1 (multiple failures)
+    # Mock run_agent_exploit:
     run_agent_exploit_mock = mocker.patch.object(
-        detect_agent, "run_agent_exploit", side_effect=[1, 0, 1]
+        detect_agent, "run_agent_exploit", side_effect=[1, 1, 0, 1, 1]
     )
 
     # Create message
@@ -446,11 +446,13 @@ async def test_score_agent_exploit_multiple_failures(detect_agent, mocker):
     # Run the method
     result = await detect_agent.score_agent_exploit(detect_message)
 
-    # Verify setup_unpatched_bounty_env was never called
-    detect_agent.setup_unpatched_bounty_env.assert_not_called()
+    # Verify setup_unpatched_bounty_env was called for bounties "0" and "1"
+    assert detect_agent.setup_unpatched_bounty_env.call_count == 2
+    detect_agent.setup_unpatched_bounty_env.assert_any_call("0")
+    detect_agent.setup_unpatched_bounty_env.assert_any_call("1")
 
-    # Verify run_agent_exploit was called only 3 times (for patched versions)
-    assert run_agent_exploit_mock.call_count == 3
+    # Verify run_agent_exploit was called 3 times for patched + 2 times for unpatched
+    assert run_agent_exploit_mock.call_count == 5
 
     # Verify result is False since there are multiple failures
     assert result is False

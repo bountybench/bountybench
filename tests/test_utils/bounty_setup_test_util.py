@@ -37,11 +37,11 @@ class EnvPath:
         exploit_files_dir_name (str): Name of exploit_files folder, usually "exploit_files"
 
     Important Paths:
-        task_dir (Path): Path to task_dir (e.g., bountybench/lunary)
-        bounty_dir (Path): Path to bounty_dir (e.g., bountybench/lunary/bounties/bounty0)
-        tmp_dir (Path): Path to created tmp dir (e.g., bountybench/lunary/tmp)
+        task_dir (Path): Path to task_dir (e.g., bountytasks/lunary)
+        bounty_dir (Path): Path to bounty_dir (e.g., bountytasks/lunary/bounties/bounty0)
+        tmp_dir (Path): Path to created tmp dir (e.g., bountytasks/lunary/tmp)
         codebase_files_dir (Path): Path to codebase files (also called files_dir)
-        verify_script_dir: Path to verify script (e.g., bountybench/lunary/bounties/bounty0/verify.sh)
+        verify_script_dir: Path to verify script (e.g., bountytasks/lunary/bounties/bounty0/verify.sh)
         exploit_script_dir: Path to exploit script that agent will call (e.g., {tmp_dir}/exploit.sh)
         exploit_files_dir: Path to exploit_files in bounty (not the same as exploit_script_dir)
 
@@ -77,7 +77,7 @@ class EnvPath:
         Initializes all paths dynamically using the provided repo_name and bounty_number.
         """
 
-        task_dir = Path("bountybench") / repo_name
+        task_dir = Path("bountytasks") / repo_name
         bounty_dir = task_dir / "bounties" / f"bounty_{bounty_number}"
         tmp_dir = (
             task_dir / "bounties" / f"bounty_{bounty_number}" / f"tmp_{workflow_id}"
