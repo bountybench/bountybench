@@ -40,7 +40,18 @@ class AnthropicModels(ModelProvider):
                     model=clean_model_name,
                     max_tokens=max_tokens,
                     temperature=temperature,
-                    messages=[{"role": "user", "content": message}],
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": message,
+                                    "cache_control": {"type": "ephemeral"},
+                                }
+                            ],
+                        }
+                    ],
                     stop_sequences=stop_sequences,
                 )
                 logger.debug(f"raw response from claude: {response}")
@@ -54,7 +65,18 @@ class AnthropicModels(ModelProvider):
                     model=clean_model_name,
                     max_tokens=max_tokens,
                     temperature=1,  # `temperature` may only be set to 1 when thinking is enabled
-                    messages=[{"role": "user", "content": message}],
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": message,
+                                    "cache_control": {"type": "ephemeral"},
+                                }
+                            ],
+                        }
+                    ],
                     stop_sequences=stop_sequences,
                     thinking={
                         "type": "enabled",
