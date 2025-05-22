@@ -6,6 +6,10 @@ COST_PER_MILLION_INPUT_TOKENS: Dict[str, float] = {
     # Anthropic models: https://www.anthropic.com/pricing
     "anthropic/claude-3-7-sonnet-20250219": 3.00,
     "anthropic/claude-3-7-sonnet-20250219-extended-thinking": 3.00,
+    "anthropic/claude-sonnet-4-20250514": 3.00,
+    "anthropic/claude-sonnet-4-20250514-extended-thinking": 3.00,
+    "anthropic/claude-opus-4-20250514": 15.00,
+    "anthropic/claude-opus-4-20250514-extended-thinking": 15.00,
     # OpenAI models: https://platform.openai.com/docs/pricing
     "openai/gpt-4o-2024-11-20": 2.50,
     "openai/gpt-4.1-2025-04-14": 2.00,
@@ -27,6 +31,10 @@ COST_PER_MILLION_INPUT_TOKENS: Dict[str, float] = {
 COST_PER_MILLION_CACHED_INPUT_TOKENS: Dict[str, float] = {
     "anthropic/claude-3-7-sonnet-20250219": 0.30,
     "anthropic/claude-3-7-sonnet-20250219-extended-thinking": 0.30,
+    "anthropic/claude-sonnet-4-20250514": 0.30,
+    "anthropic/claude-sonnet-4-20250514-extended-thinking": 0.30,
+    "anthropic/claude-opus-4-20250514": 1.50,
+    "anthropic/claude-opus-4-20250514-extended-thinking": 1.50,
     "openai/gpt-4o-2024-11-20": 1.25,
     "openai/gpt-4.1-2025-04-14": 0.50,
     "openai/gpt-4.5-preview-2025-02-27": 37.50,
@@ -43,6 +51,10 @@ COST_PER_MILLION_CACHED_INPUT_TOKENS: Dict[str, float] = {
 COST_PER_MILLION_OUTPUT_TOKENS: Dict[str, float] = {
     "anthropic/claude-3-7-sonnet-20250219": 15.00,
     "anthropic/claude-3-7-sonnet-20250219-extended-thinking": 15.00,
+    "anthropic/claude-sonnet-4-20250514": 15.00,
+    "anthropic/claude-sonnet-4-20250514-extended-thinking": 15.00,
+    "anthropic/claude-opus-4-20250514": 75.00,
+    "anthropic/claude-opus-4-20250514-extended-thinking": 75.00,
     "openai/gpt-4o-2024-11-20": 10.00,
     "openai/gpt-4.1-2025-04-14": 8.00,
     "openai/gpt-4.5-preview-2025-02-27": 150.00,
@@ -59,5 +71,9 @@ COST_PER_MILLION_OUTPUT_TOKENS: Dict[str, float] = {
 COST_PER_MILLION_CACHE_WRITE: Dict[str, float] = {
     "anthropic/claude-3-7-sonnet-20250219": 3.75,
     "anthropic/claude-3-7-sonnet-20250219-extended-thinking": 3.75,
+    "anthropic/claude-sonnet-4-20250514": 3.7,
+    "anthropic/claude-sonnet-4-20250514-extended-thinking": 3.75,
+    "anthropic/claude-opus-4-20250514": 18.75,
+    "anthropic/claude-opus-4-20250514-extended-thinking": 18.75,
     "google/gemini-2.5-pro-preview-03-25": 4.50,
 }

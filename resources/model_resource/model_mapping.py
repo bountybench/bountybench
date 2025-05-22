@@ -117,6 +117,7 @@ class HelmMapping:
         # ------------------------
         # Anthropic Claude Models
         # ------------------------
+        # TODO - add support for claude 4 once they are on HELM
         "anthropic/claude-3-7-sonnet-20250219": HelmModelInfo(
             tokenizer="anthropic/claude"
         ),
@@ -227,6 +228,20 @@ class NonHelmMapping:
         # ------------------------
         # Anthropic Models (Claude)
         # ------------------------
+        "anthropic/claude-opus-4-20250514": NonHelmModelInfo(
+            model_name="claude-opus-4-20250514", provider=ServiceProvider.ANTHROPIC
+        ),
+        "anthropic/claude-sonnet-4-20250514": NonHelmModelInfo(
+            model_name="claude-sonnet-4-20250514", provider=ServiceProvider.ANTHROPIC
+        ),
+        "anthropic/claude-opus-4-20250514-extended-thinking": NonHelmModelInfo(
+            model_name="claude-opus-4-20250514-extended-thinking",
+            provider=ServiceProvider.ANTHROPIC,
+        ),
+        "anthropic/claude-sonnet-4-20250514-extended-thinking": NonHelmModelInfo(
+            model_name="claude-sonnet-4-20250514-extended-thinking",
+            provider=ServiceProvider.ANTHROPIC,
+        ),
         "anthropic/claude-3-7-sonnet-20250219": NonHelmModelInfo(
             model_name="claude-3-7-sonnet-20250219", provider=ServiceProvider.ANTHROPIC
         ),
