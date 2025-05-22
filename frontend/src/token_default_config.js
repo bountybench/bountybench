@@ -22,6 +22,8 @@ export const MODEL_DEFAULTS_NON_HELM = {
     // Anthropic Models (Claude)
     "anthropic/claude-3-5-sonnet-20241022": 8192,
     "anthropic/claude-3-7-sonnet-20250219": 8192, 
+    "anthropic/claude-opus-4-20250514": 8192,
+    "anthropic/claude-sonnet-4-20250514": 8192,
     "anthropic/claude-3-opus-20240229": 4096, 
     // Google Gemini Models
     "google/gemini-1.5-pro-001": 8192, 

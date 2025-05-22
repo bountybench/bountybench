@@ -6,9 +6,12 @@ from anthropic import Anthropic
 
 from resources.model_resource.model_provider import ModelProvider
 from resources.model_resource.model_response import ModelResponse
+from resources.utils import get_main_logger
 
 EXTENDED_THINKING_SUFFIX = "-extended-thinking"
 DEFAULT_THINKING_BUDGET = 1024  # Minimum budget for extended thinking in tokens
+
+logger = get_main_logger(__name__)
 
 
 class AnthropicModels(ModelProvider):
@@ -40,6 +43,7 @@ class AnthropicModels(ModelProvider):
                     messages=[{"role": "user", "content": message}],
                     stop_sequences=stop_sequences,
                 )
+                logger.debug(f"raw response from claude: {response}")
                 full_response = response.content[0].text
             else:
                 # https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/extended-thinking-tips#technical-considerations-for-extended-thinking
@@ -57,7 +61,7 @@ class AnthropicModels(ModelProvider):
                         "budget_tokens": max(int(max_tokens * 0.1), 1024),
                     },
                 )
-
+                logger.debug(f"raw response from claude: {response}")
                 thinking_block = response.content[0].thinking
                 text_block = response.content[1].text
                 full_response = (
