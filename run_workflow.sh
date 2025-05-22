@@ -27,7 +27,7 @@ usage() {
   echo ""
   echo "Arguments:"
   echo "  --workflow          : Workflow type (e.g., patch_workflow, exploit_workflow, detect_workflow)"
-  echo "  --task_dir          : Task directory relative to bountybench/ (e.g., mlflow, django)"
+  echo "  --task_dir          : Task directory relative to bountytasks/ (e.g., mlflow, django)"
   echo "  --bounty_number     : Bounty number (integer)"
   echo "  --model             : Full model identifier (e.g., openai/gpt-4.1-2025-04-14, deepseek-ai/DeepSeek-R1)."
   echo "                      : (Note: Casing for deepseek-ai/deepseek-r1 will be adjusted based on --use_helm)"
@@ -178,7 +178,7 @@ echo "Building Python execution command..."
 PYTHON_CMD_ARGS=(
     python -m workflows.runner
     --workflow-type "$WORKFLOW"
-    --task_dir "bountybench/$TASK_DIR"
+    --task_dir "bountytasks/$TASK_DIR"
     --bounty_number "$BOUNTY_NUM"
     --model "$MODEL"
     --phase_iterations 100

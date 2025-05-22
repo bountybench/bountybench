@@ -313,14 +313,21 @@ def test_is_node_repo(mock_run_command, kali_env_resource):
 
 @patch.object(KaliEnvResource, "_map_container_path_to_host")
 @patch.object(KaliEnvResource, "_is_python_repo")
+@patch.object(KaliEnvResource, "_is_c_repo")
 @patch.object(KaliEnvResource, "_is_node_repo")
 @patch.object(KaliEnvResource, "run_command")
 def test_install_python_repo(
-    mock_run_command, mock_is_node, mock_is_python, mock_map_path, kali_env_resource
+    mock_run_command,
+    mock_is_node,
+    mock_is_c,
+    mock_is_python,
+    mock_map_path,
+    kali_env_resource,
 ):
     """Test the installation of Python repositories."""
     # Setup mocks
     mock_is_python.return_value = True
+    mock_is_c.return_value = False
     mock_is_node.return_value = False
     mock_run_command.return_value = ("Successfully installed package", "")
     mock_map_path.return_value = None  # This will prevent git_commit from being called
@@ -346,14 +353,16 @@ def test_install_python_repo(
 
 
 @patch.object(KaliEnvResource, "_is_python_repo")
+@patch.object(KaliEnvResource, "_is_c_repo")
 @patch.object(KaliEnvResource, "_is_node_repo")
 @patch.object(KaliEnvResource, "run_command")
 def test_install_node_repo(
-    mock_run_command, mock_is_node, mock_is_python, kali_env_resource
+    mock_run_command, mock_is_node, mock_is_c, mock_is_python, kali_env_resource
 ):
     """Test the installation of Node.js repositories - should now skip installation."""
     # Setup mocks
     mock_is_python.return_value = False
+    mock_is_c.return_value = False
     mock_is_node.return_value = True
     mock_run_command.return_value = ("exists", "")
 
@@ -368,14 +377,16 @@ def test_install_node_repo(
 
 
 @patch.object(KaliEnvResource, "_is_python_repo")
+@patch.object(KaliEnvResource, "_is_c_repo")
 @patch.object(KaliEnvResource, "_is_node_repo")
 @patch.object(KaliEnvResource, "run_command")
 def test_no_repo_found(
-    mock_run_command, mock_is_node, mock_is_python, kali_env_resource
+    mock_run_command, mock_is_node, mock_is_c, mock_is_python, kali_env_resource
 ):
     """Test the case when no recognized repository is found."""
     # Setup mocks
     mock_is_python.return_value = False
+    mock_is_c.return_value = False
     mock_is_node.return_value = False
     mock_run_command.return_value = ("exists", "")
 

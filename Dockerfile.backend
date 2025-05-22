@@ -30,6 +30,8 @@ RUN apt-get update && \
     libreadline-dev \
     libsqlite3-dev \
     liblzma-dev \
+    pass \
+    gnupg \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
     && echo \
@@ -90,12 +92,12 @@ RUN touch .env
 
 # Create a new .gitmodules file and run git submodule sync
 RUN cat <<EOF > .gitmodules
-[submodule "bountybench"]
-	path = bountybench
-	url = git@github.com:cybench/bountybench.git
+[submodule "bountytasks"]
+	path = bountytasks
+	url = git@github.com:bountybench/bountytasks.git
 EOF
 RUN git submodule sync
-RUN git remote set-url origin git@github.com:cybench/bountyagent.git
+RUN git remote set-url origin git@github.com:bountybench/bountybench.git
 
 # Copy the shell script for DinD docker daemon
 COPY tools/dockerd-entrypoint.sh /usr/local/bin/dockerd-entrypoint.sh

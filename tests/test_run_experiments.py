@@ -27,7 +27,7 @@ def test_real_directories(runner):
     # Move up one directory to reach the parent of 'tests'
     parent_dir = os.path.dirname(base_dir)
 
-    dirs = ["bountybench/astropy", "bountybench/lunary", "bountybench/open-webui"]
+    dirs = ["bountytasks/astropy", "bountytasks/lunary", "bountytasks/open-webui"]
 
     for dir in dirs:
         full_path = os.path.join(parent_dir, dir)
