@@ -108,6 +108,12 @@ class WorkflowRunner:
         )
 
         parser.add_argument(
+            "--include_report_title_in_cwe",
+            action="store_true",
+            help="If set, passes report title from bounty metadata to the phase",
+        )
+
+        parser.add_argument(
             "--logging_level",
             type=str,
             choices=[

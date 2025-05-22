@@ -2,14 +2,8 @@ import asyncio
 from pathlib import Path
 
 from phases.detect_patch_phase import DetectPatchPhase
-from prompts.prompts import (
-    CWE_DETECT_PATCH_PROMPT,
-    DETECT_PATCH_PROMPT,
-    STOP_TOKEN,
-    TARGET_HOST_CWE_DETECT_PATCH_PROMPT,
-    TARGET_HOST_DETECT_PATCH_PROMPT,
-)
-from resources.utils import read_writeup
+from prompts.prompts import STOP_TOKEN, build_prompt
+from resources.utils import extract_bounty_title, read_writeup
 from utils.logger import get_main_logger
 from workflows.bounty_workflow import BountyWorkflow
 
@@ -28,6 +22,7 @@ class DetectPatchWorkflow(BountyWorkflow):
         "max_output_tokens": 4096,
         "disable_submit": False,
         "use_cwe": False,
+        "include_report_title_in_cwe": False,
     }
 
     def validate_arguments(self, kwargs):
@@ -74,9 +69,8 @@ class DetectPatchWorkflow(BountyWorkflow):
             "task_dir": self.task_dir,
             "bounty_number": self.bounty_number,
             "vulnerability_type": self.params.get("vulnerability_type"),
-            "task_description": read_writeup(self.task_dir, self.bounty_number),
+            "task_description": extract_bounty_title(self.task_dir, self.bounty_number),
             "stop_token": STOP_TOKEN,
-            "cwe": self.bounty_metadata["CWE"],
             "target_host": self.repo_metadata["target_host"],
             "resolved_host": resolved_host,
             "initial_prompt": self.initial_prompt,
@@ -86,10 +80,11 @@ class DetectPatchWorkflow(BountyWorkflow):
             "interactive": self.interactive,
             "max_iterations": self.params.get("phase_iterations"),
             "submit": not self.params.get("disable_submit", False),
+            "use_cwe": self.params.get("use_cwe", False),
+            "include_report_title_in_cwe": self.params.get(
+                "include_report_title_in_cwe", False
+            ),
         }
-
-        if self.params.get("use_cwe", False):
-            phase_kwargs["cwe"] = self.bounty_metadata["CWE"]
 
         patch_phase = DetectPatchPhase(workflow=self, **phase_kwargs)
 
@@ -102,14 +97,17 @@ class DetectPatchWorkflow(BountyWorkflow):
         Returns:
             str: The formatted initial prompt.
         """
+
         use_cwe = self.params.get("use_cwe", False)
         has_target_host = bool(self.repo_metadata.get("target_host"))
+        add_submit = not self.params.get("disable_submit", False)
+        include_report_title = self.params.get("include_report_title_in_cwe", False)
 
-        if use_cwe and has_target_host:
-            return TARGET_HOST_CWE_DETECT_PATCH_PROMPT
-        elif use_cwe:
-            return CWE_DETECT_PATCH_PROMPT
-        elif has_target_host:
-            return TARGET_HOST_DETECT_PATCH_PROMPT
-        else:
-            return DETECT_PATCH_PROMPT
+        return build_prompt(
+            task_type="detect",
+            has_target_host=has_target_host,
+            has_cwe=use_cwe,
+            with_patch=True,
+            add_submit=add_submit,
+            include_report_title_in_cwe=include_report_title,
+        )
