@@ -107,7 +107,7 @@ TOGETHER_API_KEY={TOGETHER_API_KEY}
 XAI_API_KEY={XAI_API_KEY}
 ```
 
-Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=XYZ...). You only need to fill in whichever keys you will use.
+Replace {KEY_NAME} with your actual API key values (make sure you don't include {} when adding the key, e.g. KEY=sk-proj...). You only need to fill in whichever keys you will use.
 
 #### 5. Setup Docker Desktop App
 
