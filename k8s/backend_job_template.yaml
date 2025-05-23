@@ -65,8 +65,8 @@ spec:
         #   mountPath: /var/run
         resources: # UNCOMMENTED and set initial values
           requests:
-            cpu: "1000m"  # 1.2 CPU core
-            memory: "6Gi" # 8 GiB of memory
+            cpu: "1200m"  # 1.2 CPU core
+            memory: "8Gi" # 8 GiB of memory
           # limits: # Optional: Set limits if needed, often higher than requests
           #   cpu: "2000m"
           #   memory: "4Gi"
