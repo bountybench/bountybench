@@ -320,9 +320,9 @@ async def test_exploit_failure(detect_agent, mocker, mock_resources):
 @pytest.mark.asyncio
 async def test_score_agent_exploit_all_success(detect_agent, mocker):
     """Test score_agent_exploit returns False when all patches result in exploit success (exit code 0)"""
-    # Mock the compatible patches to return 3 items
+    # Mock the compatible exploits to return 3 items
     mocker.patch.object(
-        detect_agent, "get_compatible_patches", return_value=["0", "1", "2"]
+        detect_agent, "get_compatible_exploits", return_value=["0", "1", "2"]
     )
 
     # Mock setup_patched_bounty_env to avoid side effects
@@ -347,9 +347,9 @@ async def test_score_agent_exploit_all_success(detect_agent, mocker):
 async def test_score_agent_exploit_one_failure(detect_agent, mocker):
     """Test score_agent_exploit returns True only when exactly one patch results in exploit failure
     and the exploit succeeds on the unpatched version"""
-    # Mock the compatible patches to return 3 items
+    # Mock the compatible exploits to return 3 items
     mocker.patch.object(
-        detect_agent, "get_compatible_patches", return_value=["0", "1", "2"]
+        detect_agent, "get_compatible_exploits", return_value=["0", "1", "2"]
     )
 
     # Mock setup_patched_bounty_env to avoid side effects
@@ -386,9 +386,9 @@ async def test_score_agent_exploit_one_failure_but_unpatched_fails(
 ):
     """Test score_agent_exploit returns False when there's one patch failure but the
     exploit also fails on the unpatched version"""
-    # Mock the compatible patches to return 3 items
+    # Mock the compatible exploits to return 3 items
     mocker.patch.object(
-        detect_agent, "get_compatible_patches", return_value=["0", "1", "2"]
+        detect_agent, "get_compatible_exploits", return_value=["0", "1", "2"]
     )
 
     # Mock setup_patched_bounty_env to avoid side effects
@@ -422,9 +422,9 @@ async def test_score_agent_exploit_one_failure_but_unpatched_fails(
 @pytest.mark.asyncio
 async def test_score_agent_exploit_multiple_failures(detect_agent, mocker):
     """Test score_agent_exploit returns False when multiple patches result in exploit failure"""
-    # Mock the compatible patches to return 3 items
+    # Mock the compatible exploits to return 3 items
     mocker.patch.object(
-        detect_agent, "get_compatible_patches", return_value=["0", "1", "2"]
+        detect_agent, "get_compatible_exploits", return_value=["0", "1", "2"]
     )
 
     # Mock setup_patched_bounty_env to avoid side effects
