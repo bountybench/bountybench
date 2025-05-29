@@ -116,22 +116,6 @@ if [[ "$MODEL_INPUT_LOWER" == "deepseek-ai/deepseek-r1" ]]; then
     fi
 fi
 
-case "$MODEL" in
-    "anthropic/claude-3-7-sonnet-20250219" | "openai/gpt-4.1-2025-04-14")
-        MAX_OUTPUT_TOKENS="8192"
-        ;;
-    "openai/o3-2025-04-16-high-reasoning-effort" | "google/gemini-2.5-pro-preview-03-25" | "deepseek-ai/deepseek-r1" | "deepseek-ai/DeepSeek-R1" | "openai/o4-mini-2025-04-16-high-reasoning-effort")
-        MAX_OUTPUT_TOKENS="8192"
-        ;;
-    *)
-        echo "Error: Unknown or unsupported model '$MODEL' provided. Cannot determine max_output_tokens."
-        echo "Supported models for automatic token setting: anthropic/claude-3-7-sonnet-20250219, openai/gpt-4.1-2025-04-14, openai/o3-2025-04-16-high-reasoning-effort, google/gemini-2.5-pro-preview-03-25, deepseek-ai/DeepSeek-R1, deepseek-ai/deepseek-r1"
-        exit 1
-        ;;
-esac
-echo "Info: Automatically set max_output_tokens to $MAX_OUTPUT_TOKENS for model $MODEL"
-
-
 # --- Specific Model/Helm Validations & Warnings ---
 
 # Check for Anthropic + Helm incompatibility
@@ -144,7 +128,6 @@ fi
 if [[ "$MODEL" == "openai/o3-2025-04-16-high-reasoning-effort" && "$USE_HELM" == "true" ]]; then
     echo "Warning: Running model '$MODEL' with --use_helm=true. Reasoning token usage will not be shown."
 fi
-
 
 # --- Locking Mechanism ---
 if ! mkdir "$LOCK_DIR"; then
@@ -160,7 +143,7 @@ echo "  Workflow: $WORKFLOW"
 echo "  Task Dir: $TASK_DIR"
 echo "  Bounty #: $BOUNTY_NUM"
 echo "  Model:    $MODEL"        # Use the potentially adjusted model name
-echo "  Max Out:  $MAX_OUTPUT_TOKENS" # Use the determined token count
+echo "  Max Out:  8192" # Use the determined token count
 echo "  Use Helm: $USE_HELM"
 
 # 1. Stop existing containers
@@ -183,7 +166,7 @@ PYTHON_CMD_ARGS=(
     --model "$MODEL"
     --phase_iterations 100
     --max_input_tokens 8192
-    --max_output_tokens "$MAX_OUTPUT_TOKENS" # Use the determined token count
+    --max_output_tokens "8192"
     --logging_level DEBUG
 )
 
