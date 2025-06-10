@@ -1,0 +1,85 @@
+# backend_job_template.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Name will be dynamically generated, e.g., {group-name}-{task-hash}-{timestamp}
+  name: placeholder-job-name
+  labels:
+    app: bounty-task
+    # Add labels for experiment group, etc., if needed for tracking
+    experiment-group: placeholder-group
+    task-id: placeholder-task-id
+spec:
+  # Controls how long finished jobs (Completed or Failed) are kept before cleanup
+  # Adjust as needed, e.g., "3600" for 1 hour
+  ttlSecondsAfterFinished: 86400 # Keep for 1 day
+  template: # Pod template
+    metadata: # Add metadata section for pod labels if not implicitly handled
+      labels:
+        app: bounty-task # Ensure this label exists for anti-affinity selector
+        # experiment-group and task-id are added dynamically by the script
+    spec:
+      affinity: # ADDED Affinity section
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - bounty-task
+              topologyKey: "kubernetes.io/hostname"
+      tolerations: # Ensure this tolerations block exists or is added if needed for other reasons
+        - key: "kubernetes.io/arch"
+          operator: "Equal"
+          value: "arm64"
+          effect: "NoSchedule"
+        # Add other necessary tolerations here if any
+      containers:
+      - name: task-runner
+        image: us-west1-docker.pkg.dev/soe-ai-cyber/bountyagent/backend-image:exp
+        imagePullPolicy: Always
+        command: ["/bin/sh", "-c"]
+        # The args will be patched by experiment_job_deployer.py
+        args: ["echo 'Placeholder command - to be replaced by deployer script'"]
+        volumeMounts:
+        - name: dind-storage # Mount storage for inner docker
+          mountPath: /var/lib/docker
+        # --- Mount specific directories from the PVC using subPath ---
+        - name: job-output-volume # References the PVC volume below
+          mountPath: /app/logs      # Target path in the container
+          subPath: logs             # Directory *within* the PVC
+        - name: job-output-volume # References the PVC volume below
+          mountPath: /app/full_logs # Target path in the container
+          subPath: full_logs        # Directory *within* the PVC
+        # --- End subPath Mounts ---
+        envFrom:
+        - secretRef:
+            name: app-secrets
+        securityContext:
+          privileged: true # REQUIRED for Docker-in-Docker
+        # Optional: If your entrypoint expects /var/run for the socket
+        # - name: docker-sock-volume
+        #   mountPath: /var/run
+        resources: # UNCOMMENTED and set initial values
+          requests:
+            cpu: "1200m"  # 1.2 CPU core
+            memory: "8Gi" # 8 GiB of memory
+          # limits: # Optional: Set limits if needed, often higher than requests
+          #   cpu: "2000m"
+          #   memory: "4Gi"
+      volumes:
+      - name: dind-storage # Volume for inner docker's data
+        emptyDir: {} # Docker-in-Docker storage
+      - name: job-output-volume # Define the volume based on the PVC
+        persistentVolumeClaim:
+          # claimName will be patched by experiment_job_deployer.py
+          claimName: placeholder-pvc-name # Needs a placeholder
+      # Optional: If mounting /var/run explicitly
+      # - name: docker-sock-volume
+      #   emptyDir: {}
+      restartPolicy: Never
+  # Optional: limit retries on failure
+  backoffLimit: 1
