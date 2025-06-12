@@ -285,6 +285,10 @@ class NonHelmMapping:
             provider=ServiceProvider.TOGETHER,
             is_legacy=True,
         ),
+        "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": NonHelmModelInfo(
+            model_name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+            provider=ServiceProvider.TOGETHER,
+        ),
         # ------------------------
         # Together Models (DeepSeek)
         # ------------------------
@@ -301,6 +305,13 @@ class NonHelmMapping:
             model_name="mistralai/Mixtral-8x22B-Instruct-v0.1",
             provider=ServiceProvider.TOGETHER,
             is_legacy=True,
+        ),
+        # ------------------------
+        # Together Models (Qwen)
+        # ------------------------
+        "Qwen/Qwen3-235B-A22B-fp8": NonHelmModelInfo(
+            model_name="Qwen/Qwen3-235B-A22B-fp8",
+            provider=ServiceProvider.TOGETHER,
         ),
     }
 
