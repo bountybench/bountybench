@@ -152,6 +152,7 @@ class ModelResource(RunnableBaseResource):
                 model_prefix == "meta-llama"
                 or model_prefix == "mistralai"
                 or model_prefix == "deepseek-ai"
+                or model_prefix == "qwen"
             ):
                 from resources.model_resource.together_models.together_models import (
                     TogetherModels,
