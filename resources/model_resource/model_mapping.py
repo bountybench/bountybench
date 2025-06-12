@@ -309,8 +309,8 @@ class NonHelmMapping:
         # ------------------------
         # Together Models (Qwen)
         # ------------------------
-        "Qwen/Qwen3-235B-A22B-fp8": NonHelmModelInfo(
-            model_name="Qwen/Qwen3-235B-A22B-fp8",
+        "Qwen/Qwen3-235B-A22B-fp8-tput": NonHelmModelInfo(
+            model_name="Qwen/Qwen3-235B-A22B-fp8-tput",
             provider=ServiceProvider.TOGETHER,
         ),
     }
