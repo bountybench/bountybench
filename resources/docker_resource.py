@@ -1,5 +1,6 @@
 import atexit
 import json
+import os
 import threading
 import time
 import uuid
@@ -102,6 +103,9 @@ class DockerResource(RunnableBaseResource):
         Returns:
             tuple: A tuple containing the logs from the container and the exit code.
         """
+        uid = os.getuid()
+        gid = os.getgid()
+        user_param = f"{uid}:{gid}"
 
         unique_name = f"{self.resource_id}-{uuid.uuid4().hex[:10]}"
 
@@ -125,6 +129,7 @@ class DockerResource(RunnableBaseResource):
                 network=network,
                 working_dir=work_dir,
                 detach=True,
+                user=user_param,
                 name=unique_name,
             )
 
